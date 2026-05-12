@@ -1,0 +1,36 @@
+import 'package:flutter/material.dart';
+import 'package:animate_do/animate_do.dart';
+
+class PulsingHeartLoader extends StatelessWidget {
+  const PulsingHeartLoader({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Pulse(
+          infinite: true,
+          duration: const Duration(milliseconds: 1500),
+          child: const Icon(
+            Icons.favorite_rounded,
+            color: Colors.pink,
+            size: 60,
+          ),
+        ),
+        const SizedBox(height: 16),
+        FadeIn(
+          delay: const Duration(milliseconds: 500),
+          child: Text(
+            'Opening our sanctuary...',
+            style: TextStyle(
+              color: Colors.pink[300],
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

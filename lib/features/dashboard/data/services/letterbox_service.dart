@@ -1,0 +1,58 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../domain/models/hidden_note.dart';
+
+class LetterboxService {
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+
+  // Stream of all notes, shared globally, ordered by unlock date
+  Stream<List<HiddenNote>> get notes {
+    return _db
+        .collection('notes')
+        .orderBy('unlockDate', descending: false)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) => HiddenNote.fromFirestore(doc)).toList();
+    });
+  }
+
+  // Persist read state to Firestore
+  Future<void> markAsRead(String noteId) async {
+    try {
+      await _db.collection('notes').doc(noteId).update({'isRead': true});
+      print("Marked note $noteId as read");
+    } catch (e) {
+      print("Error marking note as read: $e");
+    }
+  }
+
+  // Optional: helper to add a note (for future admin use)
+  Future<void> addNote(HiddenNote note) async {
+    try {
+      await _db.collection('notes').add(note.toFirestore());
+      print("Added new note to letterbox");
+    } catch (e) {
+      print("Error adding note: $e");
+    }
+  }
+
+  // Seed the collection with sample data
+  Future<void> seedInitialNotes() async {
+    // 1. Clear existing notes
+    final existingNotes = await _db.collection('notes').get();
+    final deleteBatch = _db.batch();
+    for (var doc in existingNotes.docs) {
+      deleteBatch.delete(doc.reference);
+    }
+    await deleteBatch.commit();
+    
+    // 2. Add the new note
+    final data = {
+      'title': 'My Favorite Number',
+      'content': '1111',
+      'unlockDate': Timestamp.fromDate(DateTime.now()), // Unlock immediately
+      'isRead': false,
+    };
+
+    await _db.collection('notes').add(data);
+  }
+}
