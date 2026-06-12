@@ -25,7 +25,18 @@ jobs:
         id: changelog
         run: |
           DATE=$(date +"%Y-%m-%d %H:%M")
-          VERSION=$(date +"%Y.%m.%d")
+          
+          # Use tag if available, else fallback to date
+          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$TAG" ]; then
+            VERSION="$TAG"
+          else
+            # Extract version from pubspec.yaml
+            VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+            if [ -z "$VERSION" ]; then
+              VERSION=$(date +"%Y.%m.%d")
+            fi
+          fi
           
           # Get commits since last tag or last 20 commits
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
