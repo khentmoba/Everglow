@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 
 class PulsingHeartLoader extends StatelessWidget {
   const PulsingHeartLoader({super.key});
@@ -14,7 +16,7 @@ class PulsingHeartLoader extends StatelessWidget {
           duration: const Duration(milliseconds: 1500),
           child: const Icon(
             Icons.favorite_rounded,
-            color: Colors.pink,
+            color: AppTheme.deepRose,
             size: 60,
           ),
         ),
@@ -23,8 +25,8 @@ class PulsingHeartLoader extends StatelessWidget {
           delay: const Duration(milliseconds: 500),
           child: Text(
             'Opening our sanctuary...',
-            style: TextStyle(
-              color: Colors.pink[300],
+            style: GoogleFonts.outfit(
+              color: AppTheme.roseQuartz,
               fontWeight: FontWeight.w500,
               letterSpacing: 0.5,
             ),

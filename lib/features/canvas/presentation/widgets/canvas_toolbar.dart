@@ -1,5 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 
 enum CanvasTool { pen, eraser }
 
@@ -46,12 +48,12 @@ class CanvasToolbar extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.6),
+              color: AppTheme.velvet.withOpacity(0.85),
               borderRadius: BorderRadius.circular(32),
-              border: Border.all(color: Colors.white.withOpacity(0.5), width: 1.5),
+              border: Border.all(color: AppTheme.moonlight.withOpacity(0.18), width: 1.5),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.pink.withOpacity(0.05),
+                  color: AppTheme.deepRose.withOpacity(0.15),
                   blurRadius: 20,
                   spreadRadius: 5,
                 ),
@@ -81,13 +83,13 @@ class CanvasToolbar extends StatelessWidget {
                     icon: Icons.undo_rounded,
                     isActive: false,
                     onTap: onUndo,
-                    color: canUndo ? Colors.pink[400] : Colors.grey[300],
+                    color: canUndo ? AppTheme.roseQuartz : AppTheme.petalWhite.withOpacity(0.2),
                   ),
                   _ToolButton(
                     icon: Icons.redo_rounded,
                     isActive: false,
                     onTap: onRedo,
-                    color: canRedo ? Colors.pink[400] : Colors.grey[300],
+                    color: canRedo ? AppTheme.roseQuartz : AppTheme.petalWhite.withOpacity(0.2),
                   ),
 
                   const _VerticalDivider(),
@@ -109,7 +111,7 @@ class CanvasToolbar extends StatelessWidget {
                     icon: Icons.delete_outline_rounded,
                     isActive: false,
                     onTap: onClear,
-                    color: Colors.redAccent.withOpacity(0.6),
+                    color: Colors.redAccent.withOpacity(0.8),
                   ),
                 ],
               ),
@@ -130,7 +132,7 @@ class _VerticalDivider extends StatelessWidget {
       height: 24,
       width: 1,
       margin: const EdgeInsets.symmetric(horizontal: 8),
-      color: Colors.pink.withOpacity(0.1),
+      color: AppTheme.moonlight.withOpacity(0.1),
     );
   }
 }
@@ -157,12 +159,12 @@ class _ToolButton extends StatelessWidget {
         padding: const EdgeInsets.all(10),
         margin: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
-          color: isActive ? Colors.pink.withOpacity(0.2) : Colors.transparent,
+          color: isActive ? AppTheme.deepRose.withOpacity(0.2) : Colors.transparent,
           shape: BoxShape.circle,
         ),
         child: Icon(
           icon,
-          color: isActive ? Colors.pink : (color ?? Colors.pink[300]),
+          color: isActive ? AppTheme.roseQuartz : (color ?? AppTheme.petalWhite.withOpacity(0.6)),
           size: 24,
         ),
       ),
@@ -196,15 +198,15 @@ class _ColorButton extends StatelessWidget {
           color: color,
           shape: BoxShape.circle,
           border: Border.all(
-            color: isActive ? Colors.pink : Colors.white,
+            color: isActive ? AppTheme.roseQuartz : Colors.transparent,
             width: isActive ? 2.5 : 2,
           ),
           boxShadow: [
             if (isActive)
               BoxShadow(
-                color: color.withOpacity(0.4),
-                blurRadius: 8,
-                spreadRadius: 1,
+                color: color.withOpacity(0.6),
+                blurRadius: 10,
+                spreadRadius: 2,
               ),
           ],
         ),

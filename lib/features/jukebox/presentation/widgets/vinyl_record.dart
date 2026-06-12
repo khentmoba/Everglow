@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 
 class VinylRecord extends StatefulWidget {
   const VinylRecord({super.key});
@@ -73,7 +74,7 @@ class _VinylRecordState extends State<VinylRecord>
               width: 20,
               height: 20,
               decoration: const BoxDecoration(
-                color: Colors.pink,
+                color: AppTheme.deepRose,
                 shape: BoxShape.circle,
               ),
               child: Center(

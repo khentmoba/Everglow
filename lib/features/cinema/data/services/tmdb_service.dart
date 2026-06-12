@@ -73,12 +73,21 @@ class TMDBService {
 
   /// Fetch Trending (optionally by region, e.g. 'PH' for Philippines)
   /// timeWindow: 'day' or 'week'
+  ///
+  /// Note: TMDB's /trending endpoint is globally aggregated and does NOT
+  /// support a region filter. Passing a non-'all' region routes to a
+  /// country-specific popularity feed via /discover so the list actually
+  /// reflects that region.
   Future<List<MediaItem>> fetchTrending({
     String region = 'all',
     String timeWindow = 'week',
   }) async {
+    if (region != 'all' && region.isNotEmpty) {
+      return fetchTrendingByCountry(countryCode: region);
+    }
+
     final url = Uri.parse(
-        '$_baseUrl/trending/all/$timeWindow?api_key=${ApiKeys.tmdbApiKey}&region=$region');
+        '$_baseUrl/trending/all/$timeWindow?api_key=${ApiKeys.tmdbApiKey}');
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -93,6 +102,62 @@ class TMDBService {
       }
     } catch (e) {
       print('TMDB Trending Error: $e');
+    }
+    return [];
+  }
+
+  /// Fetch trending content for a specific country by merging popular movies
+  /// and TV shows whose origin country matches [countryCode]. Results are
+  /// interleaved and sorted by TMDB popularity so the ranking is meaningful.
+  Future<List<MediaItem>> fetchTrendingByCountry({
+    required String countryCode,
+  }) async {
+    final movieUrl = Uri.parse(
+        '$_baseUrl/discover/movie?api_key=${ApiKeys.tmdbApiKey}'
+        '&sort_by=popularity.desc'
+        '&with_origin_country=$countryCode'
+        '&region=$countryCode'
+        '&include_adult=false'
+        '&page=1');
+    final tvUrl = Uri.parse(
+        '$_baseUrl/discover/tv?api_key=${ApiKeys.tmdbApiKey}'
+        '&sort_by=popularity.desc'
+        '&with_origin_country=$countryCode'
+        '&include_adult=false'
+        '&page=1');
+
+    try {
+      final responses = await Future.wait([
+        http.get(movieUrl),
+        http.get(tvUrl),
+      ]);
+
+      final combined = <Map<String, dynamic>>[];
+
+      if (responses[0].statusCode == 200) {
+        final data = json.decode(responses[0].body);
+        final List results = data['results'] ?? [];
+        for (final item in results) {
+          combined.add({...item as Map<String, dynamic>, 'media_type': 'movie'});
+        }
+      }
+      if (responses[1].statusCode == 200) {
+        final data = json.decode(responses[1].body);
+        final List results = data['results'] ?? [];
+        for (final item in results) {
+          combined.add({...item as Map<String, dynamic>, 'media_type': 'tv'});
+        }
+      }
+
+      combined.sort((a, b) {
+        final ap = (a['popularity'] as num?)?.toDouble() ?? 0.0;
+        final bp = (b['popularity'] as num?)?.toDouble() ?? 0.0;
+        return bp.compareTo(ap);
+      });
+
+      return combined.map((item) => _mapResultToMediaItem(item)).toList();
+    } catch (e) {
+      print('TMDB Trending By Country Error: $e');
     }
     return [];
   }

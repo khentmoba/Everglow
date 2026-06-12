@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 
 class MediaPosterCard extends StatelessWidget {
@@ -23,7 +25,7 @@ class MediaPosterCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.pink.withOpacity(0.1),
+                color: AppTheme.deepRose.withOpacity(0.15),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -67,8 +69,8 @@ class MediaPosterCard extends StatelessWidget {
                       children: [
                         Text(
                           item.title,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: GoogleFonts.outfit(
+                            color: AppTheme.petalWhite,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
@@ -78,8 +80,8 @@ class MediaPosterCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           item.mediaType.toUpperCase(),
-                          style: TextStyle(
-                            color: Colors.pink.shade200,
+                          style: GoogleFonts.outfit(
+                            color: AppTheme.roseQuartz,
                             fontSize: 9,
                             fontWeight: FontWeight.w600,
                           ),
@@ -98,11 +100,11 @@ class MediaPosterCard extends StatelessWidget {
 
   Widget _buildPlaceholder() {
     return Container(
-      color: Colors.pink.shade50,
-      child: Center(
+      color: AppTheme.velvet,
+      child: const Center(
         child: Icon(
           Icons.movie_creation_outlined,
-          color: Colors.pink.shade200,
+          color: AppTheme.roseQuartz,
           size: 32,
         ),
       ),

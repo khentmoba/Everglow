@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 import '../../../../services/auth_service.dart';
 import '../../domain/models/doodle_stroke.dart';
 import '../../data/services/canvas_service.dart';
@@ -54,13 +56,20 @@ class _CanvasScreenState extends State<CanvasScreen> {
     final userId = authService.uid ?? 'unknown';
 
     return Scaffold(
-      backgroundColor: Colors.pink[50], 
+      backgroundColor: AppTheme.twilight, 
       appBar: AppBar(
-        title: const Text('Everglow Canvas', style: TextStyle(color: Colors.pinkAccent)),
+        title: Text(
+          'Everglow Canvas', 
+          style: GoogleFonts.cormorantGaramond(
+            color: AppTheme.roseQuartz,
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+          ),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.pinkAccent),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.roseQuartz),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -71,7 +80,12 @@ class _CanvasScreenState extends State<CanvasScreen> {
             stream: _canvasService.getStrokesStream(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
-                return Center(child: Text('Error: ${snapshot.error}'));
+                return Center(
+                  child: Text(
+                    'Error: ${snapshot.error}',
+                    style: GoogleFonts.outfit(color: Colors.redAccent),
+                  ),
+                );
               }
               
               final historyStrokes = snapshot.data ?? [];
@@ -128,19 +142,37 @@ class _CanvasScreenState extends State<CanvasScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Clear Canvas?'),
-        content: const Text('This will permanently delete all doodles for everyone. Are you sure?'),
+        backgroundColor: AppTheme.velvet,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(
+          'Clear Canvas?',
+          style: GoogleFonts.cormorantGaramond(
+            color: AppTheme.roseQuartz,
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+          ),
+        ),
+        content: Text(
+          'This will permanently delete all doodles for everyone. Are you sure?',
+          style: GoogleFonts.outfit(color: AppTheme.petalWhite.withOpacity(0.8)),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            child: Text(
+              'Cancel', 
+              style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withOpacity(0.6)),
+            ),
           ),
           TextButton(
             onPressed: () {
               _canvasService.clearAllStrokes();
               Navigator.pop(context);
             },
-            child: const Text('Clear', style: TextStyle(color: Colors.redAccent)),
+            child: Text(
+              'Clear', 
+              style: GoogleFonts.outfit(color: Colors.redAccent, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),

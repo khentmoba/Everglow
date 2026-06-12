@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 import '../controllers/mood_controller.dart';
 import 'heart_emoji.dart';
 import '../../../../services/auth_service.dart';
@@ -12,7 +14,6 @@ class MoodPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.watch<MoodController>();
     final authService = context.read<AuthService>();
-    final userId = authService.uid ?? '';
     final partnerName = authService.partnerName;
 
     final moods = [
@@ -29,14 +30,14 @@ class MoodPicker extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.95),
+          color: AppTheme.velvet.withOpacity(0.95),
           borderRadius: BorderRadius.circular(40),
-          border: Border.all(color: Colors.pink.shade50, width: 2),
+          border: Border.all(color: AppTheme.blushGold.withOpacity(0.3), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.pink.withOpacity(0.15),
+              color: AppTheme.deepRose.withOpacity(0.2),
               blurRadius: 30,
-              spreadRadius: 10,
+              spreadRadius: 5,
             ),
           ],
         ),
@@ -47,10 +48,10 @@ class MoodPicker extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
                 'How is your heart today?',
-                style: TextStyle(
-                  color: Colors.pink[800],
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
+                style: GoogleFonts.cormorantGaramond(
+                  color: AppTheme.roseQuartz,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -74,8 +75,11 @@ class MoodPicker extends StatelessWidget {
                       context.read<GuardianController>().dismissMoodPrompt();
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Sending your love to $partnerName...'),
-                          backgroundColor: Colors.pink[300],
+                          content: Text(
+                            'Sending your love to $partnerName...',
+                            style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+                          ),
+                          backgroundColor: AppTheme.deepRose,
                           behavior: SnackBarBehavior.floating,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 
 class PetalShower extends StatefulWidget {
   final bool isVisible;
@@ -67,7 +68,7 @@ class PetalPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.pink[100]!.withOpacity(0.6);
+    final paint = Paint()..color = AppTheme.roseQuartz.withOpacity(0.6);
 
     for (var petal in petals) {
       double currentY = (petal.y + (progress * petal.speed)) % 1.5 - 0.2;

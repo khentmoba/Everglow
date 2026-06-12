@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'media_poster_card.dart';
@@ -61,49 +63,59 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          backgroundColor: AppTheme.velvet,
           title: Text(
             'Add to Everglow?',
-            style: TextStyle(color: Colors.pink.shade700, fontWeight: FontWeight.bold),
+            style: GoogleFonts.cormorantGaramond(
+              color: AppTheme.roseQuartz, 
+              fontWeight: FontWeight.bold,
+              fontSize: 22,
+            ),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
                 child: item.posterPath.isNotEmpty
                     ? Image.network(item.posterPath, height: 150, fit: BoxFit.cover)
-                    : Container(height: 150, color: Colors.pink.shade50),
+                    : Container(height: 150, color: AppTheme.twilight),
               ),
               const SizedBox(height: 16),
               Text(
                 item.title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                style: GoogleFonts.outfit(color: AppTheme.petalWhite, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   ChoiceChip(
-                    label: const Text('To Watch'),
+                    label: Text('To Watch', style: GoogleFonts.outfit()),
                     selected: status == 'to-watch',
                     onSelected: (selected) {
                       if (selected) setDialogState(() => status = 'to-watch');
                     },
-                    selectedColor: Colors.pink.shade100,
-                    labelStyle: TextStyle(color: status == 'to-watch' ? Colors.pink.shade700 : Colors.black54),
+                    selectedColor: AppTheme.deepRose,
+                    backgroundColor: AppTheme.twilight,
+                    labelStyle: TextStyle(
+                      color: status == 'to-watch' ? AppTheme.petalWhite : AppTheme.roseQuartz.withOpacity(0.6),
+                    ),
                   ),
                   const SizedBox(width: 8),
                   ChoiceChip(
-                    label: const Text('Watched'),
+                    label: Text('Watched', style: GoogleFonts.outfit()),
                     selected: status == 'watched',
                     onSelected: (selected) {
                       if (selected) setDialogState(() => status = 'watched');
                     },
-                    selectedColor: Colors.pink.shade100,
-                    labelStyle: TextStyle(color: status == 'watched' ? Colors.pink.shade700 : Colors.black54),
+                    selectedColor: AppTheme.deepRose,
+                    backgroundColor: AppTheme.twilight,
+                    labelStyle: TextStyle(
+                      color: status == 'watched' ? AppTheme.petalWhite : AppTheme.roseQuartz.withOpacity(0.6),
+                    ),
                   ),
                 ],
               ),
@@ -112,7 +124,10 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+              child: Text(
+                'Cancel', 
+                style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withOpacity(0.6)),
+              ),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -121,8 +136,11 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('🌸 ${item.title} added to Everglow!'),
-                      backgroundColor: Colors.pink.shade400,
+                      content: Text(
+                        '🌸 ${item.title} added to Everglow!',
+                        style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+                      ),
+                      backgroundColor: AppTheme.deepRose,
                       behavior: SnackBarBehavior.floating,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
@@ -131,10 +149,13 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.pink.shade300,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                backgroundColor: AppTheme.deepRose,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               ),
-              child: const Text('Add', style: TextStyle(color: Colors.white)),
+              child: Text(
+                'Add', 
+                style: GoogleFonts.outfit(color: AppTheme.petalWhite, fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),
@@ -148,7 +169,7 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
       height: MediaQuery.of(context).size.height * 0.8,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.velvet,
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
       child: Column(
@@ -158,7 +179,7 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
             width: 40,
             height: 5,
             decoration: BoxDecoration(
-              color: Colors.pink.shade50,
+              color: AppTheme.roseQuartz.withOpacity(0.3),
               borderRadius: BorderRadius.circular(10),
             ),
           ),
@@ -167,10 +188,10 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
           // Title
           Text(
             'Find Your Next Cinema Moment 🍿',
-            style: TextStyle(
-              fontSize: 18,
+            style: GoogleFonts.cormorantGaramond(
+              fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.pink.shade700,
+              color: AppTheme.roseQuartz,
             ),
           ),
           const SizedBox(height: 20),
@@ -179,11 +200,13 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
           TextField(
             controller: _searchController,
             onChanged: _onSearchChanged,
+            style: GoogleFonts.outfit(color: AppTheme.petalWhite),
             decoration: InputDecoration(
               hintText: 'Search for a movie or show...',
-              prefixIcon: Icon(Icons.search, color: Colors.pink.shade300),
+              hintStyle: GoogleFonts.outfit(color: AppTheme.petalWhite.withOpacity(0.4)),
+              prefixIcon: const Icon(Icons.search, color: AppTheme.roseQuartz),
               filled: true,
-              fillColor: Colors.pink.shade50.withOpacity(0.5),
+              fillColor: AppTheme.moonlight.withOpacity(AppTheme.glassOpacity),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(20),
                 borderSide: BorderSide.none,
@@ -196,7 +219,7 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
           // Results Area
           Expanded(
             child: _isLoading
-                ? Center(child: CircularProgressIndicator(color: Colors.pink.shade300))
+                ? const Center(child: CircularProgressIndicator(color: AppTheme.roseQuartz))
                 : _results.isEmpty
                     ? _buildEmptyState()
                     : GridView.builder(
@@ -225,11 +248,11 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.movie_outlined, size: 60, color: Colors.pink.shade100),
+          Icon(Icons.movie_outlined, size: 60, color: AppTheme.roseQuartz.withOpacity(0.2)),
           const SizedBox(height: 16),
           Text(
             _searchController.text.isEmpty ? 'Start typing to find magic...' : 'No movies found! 🌸',
-            style: TextStyle(color: Colors.pink.shade200, fontSize: 16),
+            style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withOpacity(0.6), fontSize: 16),
           ),
         ],
       ),
