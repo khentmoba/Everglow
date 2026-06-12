@@ -2,6 +2,7 @@ import { usePlane } from '@react-three/cannon'
 import { useStore } from '../store'
 
 import type { Triplet } from '@react-three/cannon'
+import type { CollideEvent } from '@react-three/cannon'
 
 type Props = {
   depth: number
@@ -11,7 +12,11 @@ type Props = {
 }
 
 export const BoundingBox = ({ depth, height, position: [x, y, z], width }: Props) => {
-  const [onCollide] = useStore(({ actions: { reset } }) => [reset])
+  const softReset = useStore((s) => s.actions.softReset)
+
+  const onCollide = (_e: CollideEvent) => {
+    softReset()
+  }
 
   const sharedProps = {
     isTrigger: true,

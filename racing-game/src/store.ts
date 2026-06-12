@@ -17,6 +17,30 @@ export const maxBoost = 100 as const
 export const position = [-110, 0.75, 220] as const
 export const rotation = [0, Math.PI / 2 + 0.35, 0] as const
 
+export type Waypoint = { position: [number, number, number]; rotation: [number, number, number] }
+
+export const waypoints: Waypoint[] = [
+  { position: [-27, 1, 180], rotation: [0, 0.55, 0] },
+  { position: [-22, 1, 130], rotation: [0, 0.45, 0] },
+  { position: [-18, 1, 80], rotation: [0, 0.2, 0] },
+  { position: [-30, 1, 30], rotation: [0, -0.2, 0] },
+  { position: [-50, 1, -5], rotation: [0, -0.5, 0] },
+  { position: [-78, 1, -35], rotation: [0, -0.85, 0] },
+  { position: [-104, 1, -85], rotation: [0, -1.15, 0] },
+  { position: [-104, 1, -140], rotation: [0, -1.25, 0] },
+  { position: [-104, 1, -189], rotation: [0, -1.2, 0] },
+  { position: [-90, 1, -215], rotation: [0, 1.55, 0] },
+  { position: [-50, 1, -225], rotation: [0, 1.8, 0] },
+  { position: [0, 1, -215], rotation: [0, 2.0, 0] },
+  { position: [50, 1, -190], rotation: [0, -2.35, 0] },
+  { position: [90, 1, -145], rotation: [0, -2.55, 0] },
+  { position: [112, 1, -80], rotation: [0, -2.75, 0] },
+  { position: [112, 1, 0], rotation: [0, -2.9, 0] },
+  { position: [102, 1, 80], rotation: [0, 2.5, 0] },
+  { position: [70, 1, 150], rotation: [0, 1.7, 0] },
+  { position: [20, 1, 180], rotation: [0, 1.05, 0] },
+]
+
 export const vehicleConfig = {
   width: 1.7,
   height: -0.3,
@@ -130,6 +154,7 @@ type Actions = BooleanActions &
   TimerActions & {
     camera: () => void
     reset: () => void
+    softReset: (currentPos?: [number, number, number]) => void
   }
 
 export interface IState extends BaseState {
@@ -155,6 +180,8 @@ export interface IState extends BaseState {
   wheelInfo: WheelInfo
   wheels: [RefObject<Group>, RefObject<Group>, RefObject<Group>, RefObject<Group>]
   keyInput: string | null
+  respawnCount: number
+  respawnFlash: number
 }
 
 const setExclusiveBoolean = (set: Setter, boolean: ExclusiveBoolean) => () =>
@@ -203,6 +230,48 @@ const useStoreImpl = create<IState>((set: SetState<IState>, get: GetState<IState
         return { ...state, finished: 0, start: 0 }
       })
     },
+    softReset: (currentPos?: [number, number, number]) => {
+      set((state) => {
+        if (!state.api) return state
+
+        const cx = currentPos?.[0] ?? state.chassisBody.current?.position.x ?? 0
+        const cz = currentPos?.[2] ?? state.chassisBody.current?.position.z ?? 0
+
+        let bestIndex = 0
+        let bestDist = Infinity
+        for (let i = 0; i < waypoints.length; i++) {
+          const wp = waypoints[i]
+          const dx = wp.position[0] - cx
+          const dz = wp.position[2] - cz
+          const d = dx * dx + dz * dz
+          if (d < bestDist) {
+            bestDist = d
+            bestIndex = i
+          }
+        }
+
+        const nextIndex = (bestIndex + 1) % waypoints.length
+        const wp = waypoints[bestIndex]
+        const next = waypoints[nextIndex]
+
+        const dx = next.position[0] - wp.position[0]
+        const dz = next.position[2] - wp.position[2]
+        const computedYaw = Math.atan2(-dx, -dz)
+
+        const yaw = wp.rotation[1]
+        let delta = computedYaw - yaw
+        while (delta > Math.PI) delta -= 2 * Math.PI
+        while (delta < -Math.PI) delta += 2 * Math.PI
+        const correctedY = Math.abs(delta) < (Math.PI / 2) ? computedYaw : yaw + Math.PI
+
+        state.api.angularVelocity.set(0, 0, 0)
+        state.api.position.set(wp.position[0], wp.position[1] + 0.5, wp.position[2])
+        state.api.rotation.set(0, correctedY, 0)
+        state.api.velocity.set(0, 0, 0)
+
+        return { ...state, respawnCount: state.respawnCount + 1, respawnFlash: Date.now() }
+      })
+    },
   }
 
   return {
@@ -229,6 +298,8 @@ const useStoreImpl = create<IState>((set: SetState<IState>, get: GetState<IState
     vehicleConfig,
     wheelInfo,
     wheels: [createRef<Group>(), createRef<Group>(), createRef<Group>(), createRef<Group>()],
+    respawnCount: 0,
+    respawnFlash: 0,
   }
 })
 

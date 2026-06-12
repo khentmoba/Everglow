@@ -9,7 +9,7 @@ import type { DirectionalLight } from 'three'
 import { HideMouse, Keyboard, Touch } from './controls'
 import { Cameras } from './effects'
 import { Bridge } from './Bridge'
-import { BoundingBox, Ramp, Track, Vehicle, Goal, Train, Heightmap, GhostCar } from './models'
+import { BoundingBox, Ramp, Track, Vehicle, Goal, Train, Heightmap, GhostCar, RespawnMonitor } from './models'
 import { angularVelocity, levelLayer, position, rotation, useStore } from './store'
 import { Checkpoint, Clock, Speed, Minimap, Intro, Help, Editor, LeaderBoard, Finished, PickColor } from './ui'
 import { useToggle } from './useToggle'
@@ -64,6 +64,7 @@ export function App(): JSX.Element {
             <Goal args={[0.001, 10, 18]} onCollideBegin={onFinish} rotation={[0, -1.2, 0]} position={[-104, 1, -189]} />
             <Goal args={[0.001, 10, 18]} onCollideBegin={onCheckpoint} rotation={[0, -0.5, 0]} position={[-50, 1, -5]} />
             <BoundingBox {...{ depth: 512, height: 100, position: [0, 40, 0], width: 512 }} />
+            <RespawnMonitor />
           </ToggledDebug>
         </Physics>
         <Track />

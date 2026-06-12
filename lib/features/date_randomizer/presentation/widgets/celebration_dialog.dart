@@ -1,6 +1,8 @@
 import 'dart:math';
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
+import 'package:everglow/core/theme/app_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class CelebrationDialog extends StatelessWidget {
   final String title;
@@ -27,11 +29,12 @@ class CelebrationDialog extends StatelessWidget {
               padding: const EdgeInsets.all(32),
               constraints: const BoxConstraints(maxWidth: 400),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(32),
+                color: AppTheme.velvet,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.25), width: 1.5),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.pink.withOpacity(0.3),
+                    color: AppTheme.deepRose.withValues(alpha: 0.3),
                     blurRadius: 30,
                     spreadRadius: 5,
                   ),
@@ -42,15 +45,15 @@ class CelebrationDialog extends StatelessWidget {
                 children: [
                   const Icon(
                     Icons.favorite,
-                    color: Colors.pinkAccent,
+                    color: AppTheme.deepRose,
                     size: 48,
                   ),
                   const SizedBox(height: 24),
-                  const Text(
+                  Text(
                     "You should...",
-                    style: TextStyle(
-                      color: Colors.pinkAccent,
-                      fontSize: 18,
+                    style: GoogleFonts.outfit(
+                      color: AppTheme.blushGold,
+                      fontSize: 16,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 1.2,
                     ),
@@ -59,8 +62,8 @@ class CelebrationDialog extends StatelessWidget {
                   Text(
                     title,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Color(0xFF4A4A4A),
+                    style: GoogleFonts.cormorantGaramond(
+                      color: AppTheme.roseQuartz,
                       fontSize: 28,
                       fontWeight: FontWeight.w900,
                       height: 1.2,
@@ -70,8 +73,8 @@ class CelebrationDialog extends StatelessWidget {
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.pink[50],
-                      foregroundColor: Colors.pinkAccent,
+                      backgroundColor: AppTheme.deepRose,
+                      foregroundColor: AppTheme.petalWhite,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 48,
@@ -81,9 +84,9 @@ class CelebrationDialog extends StatelessWidget {
                         borderRadius: BorderRadius.circular(24),
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Perfect!',
-                      style: TextStyle(
+                      style: GoogleFonts.outfit(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -104,8 +107,8 @@ class CelebrationDialog extends StatelessWidget {
     final distance = 160.0 + random.nextDouble() * 60;
     final icon = index % 2 == 0 ? Icons.star : Icons.circle;
     final color = index % 3 == 0 
-        ? Colors.pink[200] 
-        : (index % 3 == 1 ? Colors.yellow[300] : Colors.blue[100]);
+        ? AppTheme.roseQuartz.withValues(alpha: 0.7) 
+        : (index % 3 == 1 ? AppTheme.blushGold.withValues(alpha: 0.7) : AppTheme.softLavender.withValues(alpha: 0.7));
 
     return FadeIn(
       delay: Duration(milliseconds: index * 50),
