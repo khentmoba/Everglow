@@ -17,15 +17,29 @@ Everglow tracks your relationship journey through gamified experiences, shared a
 > **v2.0.0** — AssaultZone 1v1 Shooter + Mobile Optimization + Bloat Cleanup
 > [View full changelog →](https://github.com/khentmoba/Everglow/releases/latest)
 
-**AssaultZone 1v1 Shooter — Native Top-Down Shooter:**
-- **New Feature: Native 2D Top-Down Shootout Game** added to the Play Zone. Supports both Solo Practice (destroy moving targets) and 1v1 Multiplayer shootout matching for Khent and Clair.
-- **Mobile-First Dual Joysticks**: Left virtual joystick for smooth movement, right virtual joystick for aiming with built-in auto-fire on direction push.
-- **Real-Time Match Synchronization**: Pushes coordinates (X/Y, rotation, HP, kills, alive status), bullet shot logs, and damage events in real-time over Firestore.
-- **Seamless Rematch Flow**: Automatically restarts the arena and pulls both players back into the game once rematch is initiated.
-- **Repository Bloat Cleanup**: Cleaned up the legacy C++ desktop AssaultCube binaries and assets, saving over 100MB of unused file storage.
-- **Fix: "Please Disable Sandbox" no longer blocks playback on VidLink and other providers.** The previous bypass injected DOM/JS overrides into a `flutter_inappwebview` `InAppWebView`, but on the web build that webview is itself a cross-origin iframe with a `sandbox` attribute — providers' anti-sandbox JS runs *inside* that iframe where our overrides can never reach, so the bypass was effectively a no-op on web.
-- **New approach:** dropped `flutter_inappwebview` entirely (it was only used here) and embed the player via `HtmlElementView` + a plain `<iframe>` registered through `dart:ui_web.platformViewRegistry`. The iframe ships with `allow="autoplay; fullscreen; encrypted-media; picture-in-picture; ..."` and a **popup-blocking sandbox** — `sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-orientation-lock"` — which silently kills `window.open()` popups and `top.location =` redirect hijacks without tripping the providers' "is `window.origin === 'null'`?" / `document.domain = document.domain` detection (because `allow-same-origin` is included).
-- Loading spinner now hides on the iframe's native `load` event; provider switch updates `iframe.src` in place instead of re-mounting the view.
+**v2.0.0 — The Gamified Play Zone Major Release:**
+
+1. **AssaultZone 1v1 Shooter (Native Top-Down Shooter)**:
+   - **Feature**: Native 2D top-down shootout game added to the Play Zone. Supports **Solo Practice** (destroy moving targets) and **1v1 Multiplayer** shootout matchmaking for Khent and Clair.
+   - **Mobile-First Dual Joysticks**: Left virtual joystick for smooth movement, right virtual joystick for aiming with built-in auto-fire on direction push.
+   - **Real-Time Match Synchronization**: Pushes coordinates (X/Y, rotation, HP, kills, alive status), bullet shot logs, and damage events in real-time over Firestore.
+   - **Seamless Rematch Flow**: Automatically restarts the arena and pulls both players back into the game once rematch is initiated.
+   - **Repository Bloat Cleanup**: Cleaned up the legacy C++ desktop AssaultCube binaries and assets, saving over 100MB of unused file storage.
+
+2. **Melody Tiles (Piano Tiles)**:
+   - **Feature**: Rhythm game added to the Play Zone hub. Tap falling dark petals in rhythm to play notes.
+   - **Audio Note System**: Loaded with high-quality note sounds (`a.wav`, `c.wav`, `e.wav`, `f.wav`) that play with zero latency upon tapping.
+   - **Gamification**: Includes streak counters, score multipliers, high-score tracking, and automatically awards XP via the XP system.
+
+3. **Web-Only Compilation Isolation**:
+   - **Feature**: Refactored the Midnight Drive racing screen by dividing it into conditional stubs (`racing_game_screen_stub.dart` and `racing_game_screen_web.dart`). 
+   - **Resolution**: Isolates `dart:html` imports to web platform compilations only, allowing clean builds and resolving compilation failures on mobile/native platforms.
+
+4. **Cinema Refactoring & Enhancements**:
+   - **Feature**: Substantial updates to `cinema_screen.dart`, `episode_drawer.dart`, and `media_poster_card.dart` to optimize the media browse list, TMDB ratings lookup, and detail card animations.
+
+5. **Dashboard & Auth Enhancements**:
+   - **Feature**: Improved passcode authentication routing, anniversary countdown precision, and styled feature navigation cards.
 
 **Cinema — Provider Audit (`lib/features/cinema/presentation/screens/video_player_screen.dart`):**
 - **Removed 6 dead/blocked providers:** *VidSrc CC* (`X-Frame-Options: SAMEORIGIN` permanently blocks the iframe), *VsEmbed*, *Vidify* (turned out to be an unrelated open-source music-video desktop app), *Vares* (parks to `/lander`), *Filmu*, *VidGod* — all DNS-dead or non-functional.
@@ -74,6 +88,7 @@ _Previous releases: [v1.5.2 "PH Trending"](https://github.com/khentmoba/Everglow
 | **Reverse Gear** | Reverse button for racing game mobile touch controls | **1.5.0** |
 | **PH Streaming Rankings** | Philippines trending tab uses `watch_region=PH` (Netflix-PH style) | **1.5.2** |
 | **AssaultZone 1v1** | Native 2D top-down shootout game with dual stick joysticks + 1v1 multiplayer | **2.0.0** |
+| **Melody Tiles** | Native rhythm game tapping falling petals to produce piano melodies + XP awards | **2.0.0** |
 
 ## Tech Stack
 
