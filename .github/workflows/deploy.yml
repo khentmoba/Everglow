@@ -94,11 +94,4 @@ jobs:
           channelId: live
           projectId: everglow-1c6db
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: "v${{ steps.changelog.outputs.version }}"
-          name: "Release ${{ steps.changelog.outputs.version }}"
-          body_path: CHANGELOG.md
-          draft: false
-          prerelease: false
+
