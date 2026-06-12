@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useStore, mutation, opponentState } from './store'
+import { useStore, getState, mutation, opponentState } from './store'
 
 function sendToParent(data: Record<string, unknown>) {
   if (window.parent !== window) {
@@ -28,10 +28,10 @@ export function Bridge() {
       switch (data.type) {
         case 'INIT':
           modeRef.current = data.mode || 'solo'
-          if (data.carColor) useStore.getState().set({ color: data.carColor })
-          if (data.mute) useStore.getState().actions.sound()
-          if (data.userId) useStore.getState().set({ userId: data.userId })
-          if (data.displayName) useStore.getState().set({ displayName: data.displayName })
+          if (data.carColor) getState().set({ color: data.carColor })
+          if (data.mute) getState().actions.sound()
+          if (data.userId) getState().set({ userId: data.userId })
+          if (data.displayName) getState().set({ displayName: data.displayName })
           break
         case 'OPPONENT_POSITION':
           opponentState.position = [data.x ?? 0, data.y ?? 0, data.z ?? 0]

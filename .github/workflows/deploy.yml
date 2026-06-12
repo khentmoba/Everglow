@@ -70,6 +70,19 @@ jobs:
       - name: Build web
         run: flutter build web --release
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Build racing game
+        run: |
+          cd racing-game
+          npm install
+          npm run build
+          mkdir -p ../build/web/racing
+          cp -r dist/* ../build/web/racing/
+
       - name: Copy changelog to build
         run: cp CHANGELOG.md build/web/CHANGELOG.md
 
