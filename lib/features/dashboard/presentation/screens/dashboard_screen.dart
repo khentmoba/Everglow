@@ -114,20 +114,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       body: GamifiedBackground(
         child: SafeArea(
-          child: MultiProvider(
-            providers: [
-              ChangeNotifierProvider(
-                create: (context) => GuardianController(
-                  context.read<GuardianService>(),
-                  moodService: context.read<MoodService>(),
-                  authService: context.read<AuthService>(),
-                ),
-              ),
-              ChangeNotifierProvider(create: (context) => MoodController(context.read<MoodService>())),
-            ],
-            child: Stack(
-              children: [
-                StreamBuilder<AnniversaryCounter>(
+          child: Stack(
+            children: [
+              StreamBuilder<AnniversaryCounter>(
                   stream: _counterController.stream,
                   initialData: AnniversaryCounter.calculate(
                     AnniversaryCounter.anniversaryDate,
@@ -514,8 +503,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     );
                   },
                 ),
-              ],
-            ),
+            ],
           ),
         ),
       ),

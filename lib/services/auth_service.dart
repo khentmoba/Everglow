@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/config/env_config.dart';
 
 class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -75,46 +76,42 @@ class AuthService extends ChangeNotifier {
     String password;
 
     if (username == 'clairjassen') {
-      email = "clairjassen@scrapbook.local";
-      password = "111111";
+      email = EnvConfig.clairEmail;
+      password = EnvConfig.clairPassword;
     } else if (username == 'khentsgdz') {
-      email = "khentplaysmoba@gmail.com";
-      password = "297864503";
+      email = EnvConfig.khentEmail;
+      password = EnvConfig.khentPassword;
     } else {
-      // Fallback
-      email = "$username@scrapbook.local";
-      password = "everglow-sanctuary-2026";
+      throw StateError('Unknown username: $username');
+    }
+
+    if (email.isEmpty || password.isEmpty) {
+      throw StateError(
+        'Missing credentials for "$username". '
+        'Build with --dart-define=CLAIR_EMAIL=... --dart-define=CLAIR_PASSWORD=... '
+        '(or KHENT_EMAIL / KHENT_PASSWORD).',
+      );
     }
 
     try {
-      print("Attempting login for $username ($email)...");
       await _auth.signInWithEmailAndPassword(email: email, password: password);
       _currentUser = username;
       await _saveSession(username);
-      print("Successfully logged in as $username (UID: ${_auth.currentUser?.uid})");
       notifyListeners();
     } on FirebaseAuthException catch (e) {
-      print("FirebaseAuthException during login: ${e.code} - ${e.message}");
       if (e.code == 'user-not-found' || e.code == 'invalid-credential' || e.code == 'invalid-email') {
-        // Auto-register if it's the first time
-        print("User not found or invalid credentials, attempting to register $email...");
         try {
           await _auth.createUserWithEmailAndPassword(email: email, password: password);
           _currentUser = username;
           await _saveSession(username);
-          print("Successfully registered and logged in as new user: $username (UID: ${_auth.currentUser?.uid})");
           notifyListeners();
         } catch (regErr) {
-          print("Registration error for $username: $regErr");
-          // Fallback to anonymous if registration fails
           await ensureAuthenticated();
         }
       } else {
-        print("Auth error: ${e.message}");
         await ensureAuthenticated();
       }
     } catch (e) {
-      print("General auth error: $e");
       await ensureAuthenticated();
     }
   }

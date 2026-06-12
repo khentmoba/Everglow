@@ -22,7 +22,7 @@ class CinemaPreview extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Our Cinema 🍿',
+                'Our Cinema',
                 style: GoogleFonts.cormorantGaramond(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -105,7 +105,7 @@ class CinemaPreview extends StatelessWidget {
       ),
       child: Center(
         child: Text(
-          'No movies yet. Plan a date! ✨',
+          'No movies yet. Plan a date!',
           style: GoogleFonts.outfit(
             color: AppTheme.roseQuartz.withValues(alpha: 0.6),
             fontStyle: FontStyle.italic,

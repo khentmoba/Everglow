@@ -14,10 +14,15 @@ Everglow tracks your relationship journey through gamified experiences, shared a
 
 ## Latest Release
 
-> **v1.5.3** — Cinema: Real Iframe Fix + Provider Cleanup + Popup-Ad Sandbox
+> **v2.0.0** — AssaultZone 1v1 Shooter + Mobile Optimization + Bloat Cleanup
 > [View full changelog →](https://github.com/khentmoba/Everglow/releases/latest)
 
-**Cinema — Root-Cause Sandbox Fix (replaces v1.5.1's JS bypass):**
+**AssaultZone 1v1 Shooter — Native Top-Down Shooter:**
+- **New Feature: Native 2D Top-Down Shootout Game** added to the Play Zone. Supports both Solo Practice (destroy moving targets) and 1v1 Multiplayer shootout matching for Khent and Clair.
+- **Mobile-First Dual Joysticks**: Left virtual joystick for smooth movement, right virtual joystick for aiming with built-in auto-fire on direction push.
+- **Real-Time Match Synchronization**: Pushes coordinates (X/Y, rotation, HP, kills, alive status), bullet shot logs, and damage events in real-time over Firestore.
+- **Seamless Rematch Flow**: Automatically restarts the arena and pulls both players back into the game once rematch is initiated.
+- **Repository Bloat Cleanup**: Cleaned up the legacy C++ desktop AssaultCube binaries and assets, saving over 100MB of unused file storage.
 - **Fix: "Please Disable Sandbox" no longer blocks playback on VidLink and other providers.** The previous bypass injected DOM/JS overrides into a `flutter_inappwebview` `InAppWebView`, but on the web build that webview is itself a cross-origin iframe with a `sandbox` attribute — providers' anti-sandbox JS runs *inside* that iframe where our overrides can never reach, so the bypass was effectively a no-op on web.
 - **New approach:** dropped `flutter_inappwebview` entirely (it was only used here) and embed the player via `HtmlElementView` + a plain `<iframe>` registered through `dart:ui_web.platformViewRegistry`. The iframe ships with `allow="autoplay; fullscreen; encrypted-media; picture-in-picture; ..."` and a **popup-blocking sandbox** — `sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-orientation-lock"` — which silently kills `window.open()` popups and `top.location =` redirect hijacks without tripping the providers' "is `window.origin === 'null'`?" / `document.domain = document.domain` detection (because `allow-same-origin` is included).
 - Loading spinner now hides on the iframe's native `load` event; provider switch updates `iframe.src` in place instead of re-mounting the view.
@@ -68,6 +73,7 @@ _Previous releases: [v1.5.2 "PH Trending"](https://github.com/khentmoba/Everglow
 | **Similar Titles** | "More Like This" recommendations in episode drawer | **1.5.0** |
 | **Reverse Gear** | Reverse button for racing game mobile touch controls | **1.5.0** |
 | **PH Streaming Rankings** | Philippines trending tab uses `watch_region=PH` (Netflix-PH style) | **1.5.2** |
+| **AssaultZone 1v1** | Native 2D top-down shootout game with dual stick joysticks + 1v1 multiplayer | **2.0.0** |
 
 ## Tech Stack
 
@@ -76,7 +82,7 @@ _Previous releases: [v1.5.2 "PH Trending"](https://github.com/khentmoba/Everglow
 - **State Management:** Provider
 - **External APIs:** TMDB, OpenTDB (Trivia), Last.fm
 - **Racing Game:** React 18 + Three.js + @react-three/fiber + cannon-es physics (Vite build, iframe-embedded)
-- **Multiplayer:** Firestore real-time snapshots + transactions for race matchmaking
+- **Multiplayer:** Firestore real-time snapshots + transactions for race & shooter matchmaking
 
 ## Project Structure
 

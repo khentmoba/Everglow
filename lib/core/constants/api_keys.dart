@@ -1,3 +1,5 @@
+import '../config/env_config.dart';
+
 class ApiKeys {
-  static const String tmdbApiKey = 'b41bd33efc365bbdbbad2e31dae8f573';
+  static String get tmdbApiKey => EnvConfig.tmdbApiKey;
 }

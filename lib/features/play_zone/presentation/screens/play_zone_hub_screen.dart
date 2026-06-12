@@ -13,6 +13,10 @@ import 'package:everglow/features/play_zone/services/racing_match_service.dart';
 import 'package:everglow/features/play_zone/models/racing_match.dart';
 import 'package:everglow/features/play_zone/presentation/screens/racing_game_screen.dart';
 
+import '../../assault_cube/models/assault_match.dart';
+import '../../assault_cube/presentation/screens/assault_cube_game_screen.dart';
+import '../../assault_cube/services/assault_match_service.dart';
+
 class PlayZoneHubScreen extends StatefulWidget {
   const PlayZoneHubScreen({super.key});
 
@@ -39,6 +43,7 @@ class PlayZoneHubScreen extends StatefulWidget {
 
 class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
   final RacingMatchService _matchService = RacingMatchService();
+  final AssaultMatchService _assaultMatchService = AssaultMatchService();
   bool _isSearching = false;
   String? _statusMessage;
   Timer? _timeoutTimer;
@@ -77,24 +82,34 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
               ),
               Expanded(
                 child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (_isSearching)
-                          _buildSearchingState()
-                        else ...[
-                          _buildGameCard(
-                            icon: Icons.speed_rounded,
-                            title: 'Midnight Drive',
-                            subtitle: 'Race through the desert together',
-                            gradientColors: const [AppTheme.deepRose, AppTheme.softLavender],
+                  child: _isSearching
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: _buildSearchingState(),
+                        )
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _buildGameCard(
+                                icon: Icons.speed_rounded,
+                                title: 'Midnight Drive',
+                                subtitle: 'Race through the desert together',
+                                gradientColors: const [AppTheme.deepRose, AppTheme.softLavender],
+                                onPlayTap: () => _showModeSelection(context),
+                              ),
+                              const SizedBox(height: 20),
+                              _buildGameCard(
+                                icon: Icons.gps_fixed_rounded,
+                                title: 'AssaultZone 1v1',
+                                subtitle: 'Dual-stick shooter battle with your partner',
+                                gradientColors: const [AppTheme.deepRose, AppTheme.softLavender],
+                                onPlayTap: () => _showAssaultModeSelection(context),
+                              ),
+                            ],
                           ),
-                        ],
-                      ],
-                    ),
-                  ),
+                        ),
                 ),
               ),
             ],
@@ -138,6 +153,7 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
     required String title,
     required String subtitle,
     required List<Color> gradientColors,
+    required VoidCallback onPlayTap,
   }) {
     return GlassContainer(
       borderRadius: BorderRadius.circular(24.0),
@@ -174,7 +190,7 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
             ),
             const SizedBox(height: 28),
             BouncyButton(
-              onTap: () => _showModeSelection(context),
+              onTap: onPlayTap,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 14),
                 decoration: BoxDecoration(
@@ -269,6 +285,79 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
               onTap: () {
                 Navigator.pop(context);
                 _startMultiplayer();
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAssaultModeSelection(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        padding: const EdgeInsets.fromLTRB(32, 12, 32, 32),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [AppTheme.velvet, AppTheme.twilight],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(30),
+            topRight: Radius.circular(30),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppTheme.roseQuartz.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'AssaultZone 1v1',
+              style: GoogleFonts.cormorantGaramond(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.roseQuartz,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Choose your mode',
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                color: AppTheme.petalWhite.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 32),
+            _buildModeOption(
+              icon: Icons.gps_fixed_rounded,
+              title: 'Solo Practice',
+              subtitle: 'Shoot moving targets to practice your aim',
+              onTap: () {
+                Navigator.pop(context);
+                _startAssaultSoloPractice();
+              },
+            ),
+            const SizedBox(height: 16),
+            _buildModeOption(
+              icon: Icons.people_rounded,
+              title: '1v1 Match',
+              subtitle: 'Challenge your partner to a shootout',
+              onTap: () {
+                Navigator.pop(context);
+                _startAssaultMultiplayer();
               },
             ),
             const SizedBox(height: 8),
@@ -451,4 +540,120 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
       if (mounted) setState(() => _isSearching = false);
     });
   }
+
+  // --- AssaultZone Game Integration ---
+
+  void _startAssaultSoloPractice() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AssaultCubeGameScreen(mode: 'solo'),
+      ),
+    );
+  }
+
+  void _startAssaultMultiplayer() {
+    setState(() {
+      _isSearching = true;
+      _statusMessage = 'Searching for a match...';
+    });
+    _startAssaultMatchmaking();
+  }
+
+  void _startAssaultMatchmaking() async {
+    try {
+      final authService = context.read<AuthService>();
+      final uid = authService.uid ?? 'guest';
+
+      final match = await _assaultMatchService.joinOrCreateMatch(uid);
+
+      if (match.status == AssaultMatchStatus.active) {
+        _goToAssaultGame(match);
+      } else {
+        setState(() => _statusMessage = 'Waiting for your partner...');
+        _startAssaultTimeoutTimer(match.matchId);
+
+        FirebaseFirestore.instance
+            .collection('assault_matches')
+            .doc(match.matchId)
+            .snapshots()
+            .listen((snapshot) {
+          if (!mounted) return;
+          final updatedMatch = AssaultMatch.fromFirestore(snapshot);
+          if (updatedMatch.status == AssaultMatchStatus.active) {
+            _timeoutTimer?.cancel();
+            _goToAssaultGame(updatedMatch);
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSearching = false;
+          _statusMessage = 'Error: $e';
+        });
+      }
+    }
+  }
+
+  void _startAssaultTimeoutTimer(String matchId) {
+    _timeoutTimer?.cancel();
+    _timeoutTimer = Timer(const Duration(seconds: 60), () {
+      if (mounted && _isSearching) {
+        setState(() {
+          _isSearching = false;
+          _statusMessage = 'No partner found. Try Solo Practice?';
+        });
+        _showAssaultTimeoutDialog(matchId);
+      }
+    });
+  }
+
+  void _showAssaultTimeoutDialog(String matchId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.velvet,
+        title: Text('Matchmaking Timeout', style: GoogleFonts.outfit(color: AppTheme.roseQuartz)),
+        content: Text("Your partner didn't join. Try again or play Solo.", style: GoogleFonts.outfit(color: AppTheme.petalWhite)),
+        actions: [
+          TextButton(
+            onPressed: () {
+              _assaultMatchService.resignMatch(matchId);
+              Navigator.pop(context);
+            },
+            child: Text('Cancel', style: GoogleFonts.outfit(color: AppTheme.petalWhite.withValues(alpha: 0.6))),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              _assaultMatchService.resignMatch(matchId);
+              Navigator.pop(context);
+              _startAssaultSoloPractice();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.deepRose),
+            child: Text('Play Solo', style: GoogleFonts.outfit(color: AppTheme.petalWhite)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _goToAssaultGame(AssaultMatch match) {
+    final authService = context.read<AuthService>();
+    final uid = authService.uid ?? 'guest';
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AssaultCubeGameScreen(
+          mode: 'multi',
+          matchId: match.matchId,
+          userId: uid,
+        ),
+      ),
+    ).then((_) {
+      if (mounted) setState(() => _isSearching = false);
+    });
+  }
 }
+

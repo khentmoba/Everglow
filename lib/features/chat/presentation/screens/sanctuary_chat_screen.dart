@@ -70,42 +70,51 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: Column(
-          children: [
-            Text(
-              'Sanctuary Chat',
-              style: GoogleFonts.cormorantGaramond(
-                color: AppTheme.roseQuartz,
-                fontWeight: FontWeight.bold,
-                fontSize: 24,
-              ),
-            ),
-            Text(
-              'v2.0.0-STABLE',
-              style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withOpacity(0.5), fontSize: 10),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.roseQuartz),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.wifi_tethering, color: AppTheme.roseQuartz),
-            onPressed: () => _showDiagnostics(context),
-            tooltip: 'Check Connection',
-          ),
-        ],
-      ),
       body: GamifiedBackground(
-        child: Column(
-          children: [
-            Expanded(
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Custom Header Row
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.roseQuartz),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Sanctuary Chat',
+                            style: GoogleFonts.cormorantGaramond(
+                              color: AppTheme.roseQuartz,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 24,
+                            ),
+                          ),
+                          Text(
+                            'v2.0.0-STABLE',
+                            style: GoogleFonts.outfit(
+                              color: AppTheme.roseQuartz.withOpacity(0.5),
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.wifi_tethering, color: AppTheme.roseQuartz),
+                      onPressed: () => _showDiagnostics(context),
+                      tooltip: 'Check Connection',
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
               child: StreamBuilder<List<ChatMessage>>(
                 stream: _messagesStream,
                 builder: (context, snapshot) {

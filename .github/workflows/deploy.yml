@@ -79,7 +79,21 @@ jobs:
         run: flutter pub get
 
       - name: Build web
-        run: flutter build web --release
+        env:
+          CLAIR_EMAIL: ${{ secrets.CLAIR_EMAIL }}
+          CLAIR_PASSWORD: ${{ secrets.CLAIR_PASSWORD }}
+          KHENT_EMAIL: ${{ secrets.KHENT_EMAIL }}
+          KHENT_PASSWORD: ${{ secrets.KHENT_PASSWORD }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+        run: |
+          flutter build web --release \
+            --dart-define=CLAIR_EMAIL="$CLAIR_EMAIL" \
+            --dart-define=CLAIR_PASSWORD="$CLAIR_PASSWORD" \
+            --dart-define=KHENT_EMAIL="$KHENT_EMAIL" \
+            --dart-define=KHENT_PASSWORD="$KHENT_PASSWORD" \
+            --dart-define=TMDB_API_KEY="$TMDB_API_KEY" \
+            --dart-define=LASTFM_API_KEY="$LASTFM_API_KEY"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

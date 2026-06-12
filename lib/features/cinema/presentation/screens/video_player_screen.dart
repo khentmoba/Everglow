@@ -34,17 +34,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   JSFunction? _onLoadListener;
 
   final List<Map<String, dynamic>> allVideoProviders = [
-    {"name": "VidFast", "adPercentage": null, "movieUrl": "https://vidfast.pro/movie/", "tvUrl": "https://vidfast.pro/tv/"},
-    {"name": "VixSrc", "adPercentage": null, "movieUrl": "https://vixsrc.to/movie/", "tvUrl": "https://vixsrc.to/tv/"},
-    {"name": "VidLink", "adPercentage": null, "movieUrl": "https://vidlink.pro/movie/", "tvUrl": "https://vidlink.pro/tv/"},
-    {"name": "AutoEmbed", "adPercentage": null, "movieUrl": "https://player.autoembed.co/embed/movie/", "tvUrl": "https://player.autoembed.co/embed/tv/"},
-    {"name": "Videasy", "adPercentage": null, "movieUrl": "https://player.videasy.net/movie/", "tvUrl": "https://player.videasy.net/tv/"},
-    {"name": "VidSrc", "adPercentage": 90, "movieUrl": "https://vidsrc.me/embed/movie?tmdb=", "tvUrl": "https://vidsrc.me/embed/tv?tmdb="},
-    {"name": "VidKing", "adPercentage": 90, "movieUrl": "https://www.vidking.net/embed/movie/", "tvUrl": "https://www.vidking.net/embed/tv/"},
-    {"name": "SuperEmbed", "adPercentage": 85, "movieUrl": "https://multiembed.mov/?video_id=", "tvUrl": "https://multiembed.mov/?video_id="},
-    {"name": "111Movies", "adPercentage": 80, "movieUrl": "https://www.111movies.com/movie/", "tvUrl": "https://www.111movies.com/tv/"},
-    {"name": "Vidzee", "adPercentage": 80, "movieUrl": "https://player.vidzee.wtf/embed/movie/", "tvUrl": "https://player.vidzee.wtf/embed/tv/"},
-    {"name": "VidRock", "adPercentage": 75, "movieUrl": "https://vidrock.net/movie/", "tvUrl": "https://vidrock.net/tv/"},
+    {"name": "Videasy", "tier": "top", "adPercentage": null, "movieUrl": "https://player.videasy.net/movie/", "tvUrl": "https://player.videasy.net/tv/"},
+    {"name": "VidLink", "tier": "top", "adPercentage": null, "movieUrl": "https://vidlink.pro/movie/", "tvUrl": "https://vidlink.pro/tv/"},
+    {"name": "AutoEmbed", "tier": "top", "adPercentage": null, "movieUrl": "https://player.autoembed.co/embed/movie/", "tvUrl": "https://player.autoembed.co/embed/tv/"},
+    {"name": "VidFast", "tier": "top", "adPercentage": null, "movieUrl": "https://vidfast.pro/movie/", "tvUrl": "https://vidfast.pro/tv/"},
+    {"name": "VidSrc", "tier": "mid", "adPercentage": 65, "movieUrl": "https://vidsrc.me/embed/movie?tmdb=", "tvUrl": "https://vidsrc.me/embed/tv?tmdb="},
+    {"name": "SuperEmbed", "tier": "mid", "adPercentage": 60, "movieUrl": "https://multiembed.mov/?video_id=", "tvUrl": "https://multiembed.mov/?video_id="},
+    {"name": "VidKing", "tier": "mid", "adPercentage": 70, "movieUrl": "https://www.vidking.net/embed/movie/", "tvUrl": "https://www.vidking.net/embed/tv/"},
+    {"name": "VidRock", "tier": "mid", "adPercentage": 60, "movieUrl": "https://vidrock.net/movie/", "tvUrl": "https://vidrock.net/tv/"},
+    {"name": "Vidzee", "tier": "low", "adPercentage": 85, "movieUrl": "https://player.vidzee.wtf/embed/movie/", "tvUrl": "https://player.vidzee.wtf/embed/tv/"},
+    {"name": "111Movies", "tier": "low", "adPercentage": 85, "movieUrl": "https://www.111movies.com/movie/", "tvUrl": "https://www.111movies.com/tv/"},
+    {"name": "VixSrc", "tier": "low", "adPercentage": 80, "movieUrl": "https://vixsrc.to/movie/", "tvUrl": "https://vixsrc.to/tv/"},
   ];
 
   late Map<String, dynamic> selectedProvider;
@@ -64,8 +64,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       ..allowFullscreen = true
       ..setAttribute('frameborder', '0')
       ..setAttribute('scrolling', 'no')
-      ..setAttribute('sandbox',
-          'allow-scripts allow-same-origin allow-forms allow-presentation allow-orientation-lock');
+      ..removeAttribute('sandbox');
     _iframe.style
       ..border = '0'
       ..width = '100%'
