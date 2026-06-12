@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../../../core/config/env_config.dart';
 import '../models/music_status.dart';
 
 class MusicSyncService {
-  // Hardcoded fallback for web asset issues
-  String get _apiKey => 'b2d92f0bec73e334497b7d1a601061da';
+  String get _apiKey => EnvConfig.lastfmApiKey;
   final String _baseUrl = 'https://ws.audioscrobbler.com/2.0/';
 
   Future<MusicStatus?> fetchRecentTrack(String username) async {

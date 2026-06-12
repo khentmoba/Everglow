@@ -29,26 +29,19 @@ class AnniversaryCounter {
       );
     }
 
-    DateDuration duration = AgeCalculator.age(startDate, today: now);
-    
-    // AgeCalculator doesn't provide h/m/s, so we calculate them manually
-    // from the remainder of the day.
-    Duration timeDifference = now.difference(DateTime(
-      now.year,
-      now.month,
-      now.day,
-    ));
+    final DateDuration calendar = AgeCalculator.age(startDate, today: now);
+    final Duration sinceStart = now.difference(startDate);
+    final int hours = sinceStart.inHours % 24;
+    final int minutes = sinceStart.inMinutes % 60;
+    final int seconds = sinceStart.inSeconds % 60;
 
-    // If the time is before the start time on the same day, we need to adjust
-    // But for simplicity and since the user didn't specify a time, we'll assume 00:00:00
-    
     return AnniversaryCounter(
-      years: duration.years,
-      months: duration.months,
-      days: duration.days,
-      hours: now.hour,
-      minutes: now.minute,
-      seconds: now.second,
+      years: calendar.years,
+      months: calendar.months,
+      days: calendar.days,
+      hours: hours,
+      minutes: minutes,
+      seconds: seconds,
     );
   }
 

@@ -22,17 +22,21 @@ class MediaPosterCard extends StatelessWidget {
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppTheme.roseQuartz.withOpacity(0.15),
+              width: 1.0,
+            ),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.deepRose.withOpacity(0.15),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(15),
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -52,15 +56,17 @@ class MediaPosterCard extends StatelessWidget {
                   left: 0,
                   right: 0,
                   child: Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
                         colors: [
-                          Colors.black.withOpacity(0.8),
+                          Colors.black.withOpacity(0.9),
+                          Colors.black.withOpacity(0.4),
                           Colors.transparent,
                         ],
+                        stops: const [0.0, 0.6, 1.0],
                       ),
                     ),
                     child: Column(
@@ -73,18 +79,45 @@ class MediaPosterCard extends StatelessWidget {
                             color: AppTheme.petalWhite,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
+                            letterSpacing: 0.2,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          item.mediaType.toUpperCase(),
-                          style: GoogleFonts.outfit(
-                            color: AppTheme.roseQuartz,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.deepRose.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: AppTheme.deepRose.withOpacity(0.4),
+                                  width: 0.5,
+                                ),
+                              ),
+                              child: Text(
+                                item.mediaType.toUpperCase(),
+                                style: GoogleFonts.outfit(
+                                  color: AppTheme.roseQuartz,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                            if (item.year.isNotEmpty)
+                              Text(
+                                item.year,
+                                style: GoogleFonts.outfit(
+                                  color: AppTheme.blushGold.withOpacity(0.8),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                          ],
                         ),
                       ],
                     ),

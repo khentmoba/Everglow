@@ -43,19 +43,13 @@ class ChatService {
         timestamp: DateTime.now(),
       );
 
-      final messageData = message.toMap();
-      print("Attempting to send message to 'sanctuary_messages'...");
-      print("Payload: $messageData");
-      
-      final docRef = await _db.collection('sanctuary_messages').add(messageData);
-      print("Message sent successfully! Document ID: ${docRef.id}");
+      await _db.collection('sanctuary_messages').add(message.toMap());
     } catch (e) {
-
-      print("FAILED to send message: $e");
       if (e.toString().contains("permission-denied")) {
-        print("FIX: Check Firestore Security Rules. Ensure users have 'write' access to 'sanctuary_messages'.");
+        // Surface as a user-visible error in the chat screen instead of print.
+        rethrow;
       }
+      rethrow;
     }
-
   }
 }

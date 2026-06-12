@@ -124,7 +124,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Removed from watchlist! 🍿'),
+            content: Text('Removed from watchlist!'),
             backgroundColor: AppTheme.deepRose,
             behavior: SnackBarBehavior.floating,
             duration: Duration(seconds: 2),
@@ -137,7 +137,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Updated watchlist status! 🍿'),
+            content: Text('Updated watchlist status!'),
             backgroundColor: AppTheme.deepRose,
             behavior: SnackBarBehavior.floating,
             duration: Duration(seconds: 2),
@@ -557,7 +557,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer> {
 
             // CAST section
             SliverToBoxAdapter(
-              child: _buildSectionHeader('🎭 Cast'),
+              child: _buildSectionHeader('Cast', icon: Icons.people_rounded),
             ),
             SliverToBoxAdapter(
               child: _buildCastSection(),
@@ -565,7 +565,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer> {
 
             // USER REVIEWS section
             SliverToBoxAdapter(
-              child: _buildSectionHeader('💬 User Reviews'),
+              child: _buildSectionHeader('User Reviews', icon: Icons.rate_review_rounded),
             ),
             SliverToBoxAdapter(
               child: _buildReviewsSection(),
@@ -573,7 +573,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer> {
 
             // MORE LIKE THIS section
             SliverToBoxAdapter(
-              child: _buildSectionHeader('✨ More Like This'),
+              child: _buildSectionHeader('More Like This', icon: Icons.movie_filter_rounded),
             ),
             SliverToBoxAdapter(
               child: _buildSimilarSection(),
@@ -587,16 +587,24 @@ class _EpisodeDrawerState extends State<EpisodeDrawer> {
     );
   }
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildSectionHeader(String title, {IconData? icon}) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-      child: Text(
-        title,
-        style: GoogleFonts.cormorantGaramond(
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-          color: AppTheme.roseQuartz,
-        ),
+      child: Row(
+        children: [
+          if (icon != null) ...[
+            Icon(icon, color: AppTheme.roseQuartz, size: 20),
+            const SizedBox(width: 8),
+          ],
+          Text(
+            title,
+            style: GoogleFonts.cormorantGaramond(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.roseQuartz,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -741,7 +749,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer> {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Text(
-          'No reviews yet. Be the first to share your thoughts! 💭',
+          'No reviews yet. Be the first to share your thoughts!',
           style: GoogleFonts.outfit(
             color: AppTheme.petalWhite.withOpacity(0.5),
             fontSize: 13,
@@ -956,19 +964,34 @@ class _EpisodeDrawerState extends State<EpisodeDrawer> {
     final isSelected = _currentStatus == status;
     return GestureDetector(
       onTap: () => _updateStatus(status),
-      child: Chip(
-        label: Text(label),
-        labelStyle: GoogleFonts.outfit(
-          color: isSelected ? AppTheme.petalWhite : AppTheme.roseQuartz,
-          fontSize: 12,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.deepRose : AppTheme.velvet,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? AppTheme.deepRose : AppTheme.roseQuartz.withOpacity(0.25),
+            width: 1.0,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppTheme.deepRose.withOpacity(0.35),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
-        backgroundColor: isSelected ? AppTheme.deepRose : AppTheme.velvet,
-        side: BorderSide(
-          color: isSelected ? AppTheme.deepRose : AppTheme.roseQuartz.withOpacity(0.3),
+        child: Text(
+          label,
+          style: GoogleFonts.outfit(
+            color: isSelected ? AppTheme.petalWhite : AppTheme.roseQuartz.withOpacity(0.8),
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          ),
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       ),
     );
   }
