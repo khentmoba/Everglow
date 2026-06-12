@@ -106,24 +106,37 @@ class TMDBService {
     return [];
   }
 
-  /// Fetch trending content for a specific country by merging popular movies
-  /// and TV shows whose origin country matches [countryCode]. Results are
-  /// interleaved and sorted by TMDB popularity so the ranking is meaningful.
+  /// Fetch trending content for a specific country in a "Netflix top 10"
+  /// style: what's globally popular AND actually streamable in [countryCode].
+  ///
+  /// We intentionally do NOT use `with_origin_country` — that restricts results
+  /// to locally-produced titles, which on TMDB is dominated by Vivamax films
+  /// and other niche local catalogs. Instead we use `watch_region` together
+  /// with `with_watch_monetization_types` so the list reflects what people in
+  /// that country can actually watch on streaming (Netflix, Disney+, Prime,
+  /// Viu, iQIYI, etc.) sorted by popularity.
   Future<List<MediaItem>> fetchTrendingByCountry({
     required String countryCode,
   }) async {
+    final cc = countryCode.toUpperCase();
+    final monetization = 'flatrate|free|ads';
+
     final movieUrl = Uri.parse(
         '$_baseUrl/discover/movie?api_key=${ApiKeys.tmdbApiKey}'
         '&sort_by=popularity.desc'
-        '&with_origin_country=$countryCode'
-        '&region=$countryCode'
+        '&watch_region=$cc'
+        '&with_watch_monetization_types=$monetization'
+        '&region=$cc'
         '&include_adult=false'
+        '&vote_count.gte=50'
         '&page=1');
     final tvUrl = Uri.parse(
         '$_baseUrl/discover/tv?api_key=${ApiKeys.tmdbApiKey}'
         '&sort_by=popularity.desc'
-        '&with_origin_country=$countryCode'
+        '&watch_region=$cc'
+        '&with_watch_monetization_types=$monetization'
         '&include_adult=false'
+        '&vote_count.gte=50'
         '&page=1');
 
     try {

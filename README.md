@@ -14,11 +14,19 @@ Everglow tracks your relationship journey through gamified experiences, shared a
 
 ## Latest Release
 
-> **v1.5.1** — Sandbox Bypass Hardening + Cinema & UI Polish
+> **v1.5.2** — Philippines Trending: Real Streaming Rankings
 > [View full changelog →](https://github.com/khentmoba/Everglow/releases/latest)
 
-**Cinema & Video Player:**
-- **Fix: "Please Disable Sandbox" error on VidLink and other providers** — sandbox bypass script now overrides `window.top` and `window.parent` (in addition to `frameElement`) so providers' `self === top === parent` checks pass on first load. DOM cleanup widened from `<h1>`-only to any leaf element (`h1, h2, h3, p, div, span, section, article, main`) and now runs immediately on inject, on a 1s interval, and via a `MutationObserver` watching `characterData` — catches the warning even when rendered into a `<div>`/`<p>` and prevents the re-render loop.
+**Cinema — Philippines Trending Fix:**
+- **Fix: 🇵🇭 PHILIPPINES trending tab no longer dominated by Vivamax/Viva titles.** Previously `fetchTrendingByCountry` filtered on `with_origin_country=PH`, which restricts TMDB results to locally-produced titles — and on TMDB's popularity score that bucket is overwhelmingly Vivamax / Viva Films catalog, so the ranking became a wall of niche local releases instead of "what Filipinos are actually watching."
+- **New behavior — Netflix PH-style ranking:** the discover call now uses `watch_region=PH` together with `with_watch_monetization_types=flatrate|free|ads`, so results are globally-popular movies and series that are *actually streamable in the Philippines* (Netflix, Disney+, Prime Video, Viu, iQIYI, etc.) — K-dramas, Hollywood blockbusters, anime, and mainstream Pinoy titles all mixed together and sorted by TMDB popularity.
+- Added `vote_count.gte=50` to drop obscure low-engagement titles from the ranking.
+- `countryCode` is now upper-cased before being sent to TMDB (defensive normalization).
+- No UI changes — the existing Global / 🇵🇭 PHILIPPINES tabs in `cinema_screen.dart` keep working as-is; the fix is entirely in the data layer (`lib/features/cinema/data/services/tmdb_service.dart:fetchTrendingByCountry`).
+
+**Cinema & Video Player (carried over from v1.5.1):**
+- Sandbox bypass script overrides `window.top` and `window.parent` (in addition to `frameElement`) so providers' `self === top === parent` checks pass on first load.
+- DOM cleanup widened from `<h1>`-only to any leaf element (`h1, h2, h3, p, div, span, section, article, main`) and now runs immediately on inject, on a 1s interval, and via a `MutationObserver` watching `characterData`.
 
 **Cinema Overhaul (carried over from v1.5.0, fully wired):**
 - Redesigned home screen: trending carousel with autoplay, Global/Philippines trending rankings
@@ -59,7 +67,7 @@ Everglow tracks your relationship journey through gamified experiences, shared a
 - Smarter respawn system: tracks `lastCheckpointIndex` for progressive waypoint matching, uses exact waypoint rotation
 - Zeroed angular velocity for stable respawns
 
-_Previous releases: [v1.5.0 "Cinema"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.0) · [v1.4.0 "Cinema"](https://github.com/khentmoba/Everglow/releases/tag/v1.4.0) · [v1.3.0 "Racing Game"](https://github.com/khentmoba/Everglow/releases/tag/v1.3.0) · [v1.2.0 "Play Zone"](https://github.com/khentmoba/Everglow/releases/tag/v1.2.0) · [v1.1.0 "Gamified"](https://github.com/khentmoba/Everglow/releases/tag/v1.1.0) · [v1.0.0 "Bloom"](https://github.com/khentmoba/Everglow/releases/tag/v1.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)
+_Previous releases: [v1.5.1 "Sandbox Hardening"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.1) · [v1.5.0 "Cinema"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.0) · [v1.4.0 "Cinema"](https://github.com/khentmoba/Everglow/releases/tag/v1.4.0) · [v1.3.0 "Racing Game"](https://github.com/khentmoba/Everglow/releases/tag/v1.3.0) · [v1.2.0 "Play Zone"](https://github.com/khentmoba/Everglow/releases/tag/v1.2.0) · [v1.1.0 "Gamified"](https://github.com/khentmoba/Everglow/releases/tag/v1.1.0) · [v1.0.0 "Bloom"](https://github.com/khentmoba/Everglow/releases/tag/v1.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)
 
 ## Features
 
@@ -86,6 +94,7 @@ _Previous releases: [v1.5.0 "Cinema"](https://github.com/khentmoba/Everglow/rele
 | **Cast & Reviews** | Cast profiles and user reviews in media details drawer | **1.5.0** |
 | **Similar Titles** | "More Like This" recommendations in episode drawer | **1.5.0** |
 | **Reverse Gear** | Reverse button for racing game mobile touch controls | **1.5.0** |
+| **PH Streaming Rankings** | Philippines trending tab uses `watch_region=PH` (Netflix-PH style) | **1.5.2** |
 
 ## Tech Stack
 
