@@ -5,8 +5,6 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 
-enum PlayerSource { vidLink, autoEmbed, videasy }
-
 class VideoPlayerScreen extends StatefulWidget {
   final int tmdbId;
   final String mediaType; // 'movie' or 'tv'
@@ -28,9 +26,30 @@ class VideoPlayerScreen extends StatefulWidget {
 }
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
-  PlayerSource _currentSource = PlayerSource.vidLink;
   InAppWebViewController? _webViewController;
   bool _isLoading = true;
+
+  final List<Map<String, dynamic>> allVideoProviders = [
+    {"name": "VidLink", "adPercentage": null, "movieUrl": "https://vidlink.pro/movie/", "tvUrl": "https://vidlink.pro/tv/"},
+    {"name": "AutoEmbed", "adPercentage": null, "movieUrl": "https://player.autoembed.cc/embed/movie/", "tvUrl": "https://player.autoembed.cc/embed/tv/"},
+    {"name": "Videasy", "adPercentage": null, "movieUrl": "https://player.videasy.net/movie/", "tvUrl": "https://player.videasy.net/tv/"},
+    {"name": "VidSrc", "adPercentage": 90, "movieUrl": "https://vidsrc.me/embed/movie?tmdb=", "tvUrl": "https://vidsrc.me/embed/tv?tmdb="},
+    {"name": "VidKing", "adPercentage": 90, "movieUrl": "https://vidking.link/movie/", "tvUrl": "https://vidking.link/tv/"},
+    {"name": "VidSrc CC", "adPercentage": 90, "movieUrl": "https://vidsrc.cc/v2/embed/movie/", "tvUrl": "https://vidsrc.cc/v2/embed/tv/"},
+    {"name": "SuperEmbed", "adPercentage": 85, "movieUrl": "https://multiembed.mov/directstream.php?video_id=", "tvUrl": "https://multiembed.mov/directstream.php?video_id="},
+    {"name": "VsEmbed", "adPercentage": 85, "movieUrl": "https://vsembed.cc/movie/", "tvUrl": "https://vsembed.cc/tv/"},
+    {"name": "111Movies", "adPercentage": 80, "movieUrl": "https://111movies.com/movie/", "tvUrl": "https://111movies.com/tv/"},
+    {"name": "Vidify", "adPercentage": 80, "movieUrl": "https://vidify.org/embed/", "tvUrl": "https://vidify.org/embed/"},
+    {"name": "Vidzee", "adPercentage": 80, "movieUrl": "https://vidzee.vip/embed/movie/", "tvUrl": "https://vidzee.vip/embed/tv/"},
+    {"name": "Filmu", "adPercentage": 80, "movieUrl": "https://filmu.xyz/embed/", "tvUrl": "https://filmu.xyz/embed/"},
+    {"name": "Vares Player", "adPercentage": 80, "movieUrl": "https://vares.xyz/movie/", "tvUrl": "https://vares.xyz/tv/"},
+    {"name": "VidFast", "adPercentage": 75, "movieUrl": "https://vidfast.pro/movie/", "tvUrl": "https://vidfast.pro/tv/"},
+    {"name": "VidRock", "adPercentage": 75, "movieUrl": "https://vidrock.one/embed/", "tvUrl": "https://vidrock.one/embed/"},
+    {"name": "VixSrc", "adPercentage": 75, "movieUrl": "https://vixsrc.xyz/embed/", "tvUrl": "https://vixsrc.xyz/embed/"},
+    {"name": "VidGod", "adPercentage": 75, "movieUrl": "https://vidgod.xyz/embed/", "tvUrl": "https://vidgod.xyz/embed/"},
+  ];
+
+  late Map<String, dynamic> selectedProvider;
 
   // List of known ad network keywords to block
   final List<String> _adKeywords = [
@@ -57,11 +76,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     'doodstream',
     'fembed',
     'streamtape',
+    'onclick',
+    'onclickperformance',
   ];
 
   @override
   void initState() {
     super.initState();
+    selectedProvider = allVideoProviders[0];
+    
     // Force landscape mode for immersive player experience
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
@@ -84,35 +107,27 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     super.dispose();
   }
 
-  String _getPlayerUrl() {
+  String _getPlayerUrl(Map<String, dynamic> provider) {
     final isTv = widget.mediaType == 'tv';
     final seasonNum = widget.season ?? 1;
     final epNum = widget.episode ?? 1;
+    final movieBase = provider['movieUrl'] as String;
+    final tvBase = provider['tvUrl'] as String;
 
-    switch (_currentSource) {
-      case PlayerSource.vidLink:
-        return isTv
-            ? 'https://vidlink.pro/tv/${widget.tmdbId}/$seasonNum/$epNum'
-            : 'https://vidlink.pro/movie/${widget.tmdbId}';
-      case PlayerSource.autoEmbed:
-        return isTv
-            ? 'https://player.autoembed.cc/embed/tv/${widget.tmdbId}/$seasonNum/$epNum'
-            : 'https://player.autoembed.cc/embed/movie/${widget.tmdbId}';
-      case PlayerSource.videasy:
-        return isTv
-            ? 'https://player.videasy.net/tv/${widget.tmdbId}/$seasonNum/$epNum'
-            : 'https://player.videasy.net/movie/${widget.tmdbId}';
-    }
-  }
-
-  String _getSourceLabel(PlayerSource source) {
-    switch (source) {
-      case PlayerSource.vidLink:
-        return 'VidLink (Default)';
-      case PlayerSource.autoEmbed:
-        return 'AutoEmbed';
-      case PlayerSource.videasy:
-        return 'Videasy';
+    if (isTv) {
+      if (tvBase.contains('vidsrc.me')) {
+        return '$tvBase${widget.tmdbId}&season=$seasonNum&episode=$epNum';
+      } else if (tvBase.contains('multiembed.mov')) {
+        return '$tvBase${widget.tmdbId}&s=$seasonNum&e=$epNum';
+      } else if (tvBase.contains('embed') && !tvBase.endsWith('/')) {
+        return '$tvBase${widget.tmdbId}&season=$seasonNum&episode=$epNum';
+      } else {
+        final separator = tvBase.endsWith('/') ? '' : '/';
+        return '$tvBase$separator${widget.tmdbId}/$seasonNum/$epNum';
+      }
+    } else {
+      final separator = movieBase.endsWith('/') || movieBase.contains('?') || movieBase.contains('=') ? '' : '/';
+      return '$movieBase$separator${widget.tmdbId}';
     }
   }
 
@@ -126,25 +141,43 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     return false;
   }
 
-  // Verify if the host matches the expected streaming provider host
   bool _isAllowedHost(String? urlString) {
     if (urlString == null) return false;
     final uri = Uri.tryParse(urlString);
     if (uri == null) return false;
     final host = uri.host.toLowerCase();
 
-    // Check if loading the core streaming websites
+    // Check if loading one of the providers
+    for (var provider in allVideoProviders) {
+      final movieUrl = provider['movieUrl'] as String;
+      final providerUri = Uri.tryParse(movieUrl);
+      if (providerUri != null && host.contains(providerUri.host.toLowerCase())) {
+        return true;
+      }
+    }
+
+    // Always allow common trusted/CDN domains
     if (host.contains('vidlink.pro') ||
         host.contains('autoembed.cc') ||
-        host.contains('videasy.net')) {
+        host.contains('videasy.net') ||
+        host.contains('vidsrc.xyz') ||
+        host.contains('vidsrc.stream') ||
+        host.contains('vidsrc.pm') ||
+        host.contains('filemoon') ||
+        host.contains('vidplay') ||
+        host.contains('mycloud') ||
+        host.contains('cloudflare') ||
+        host.contains('google') ||
+        host.contains('tmdb')) {
       return true;
     }
+
     return false;
   }
 
   @override
   Widget build(BuildContext context) {
-    final playerUrl = _getPlayerUrl();
+    final playerUrl = _getPlayerUrl(selectedProvider);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -156,13 +189,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               initialUrlRequest: URLRequest(url: WebUri(playerUrl)),
               initialSettings: InAppWebViewSettings(
                 javaScriptEnabled: true,
+                domStorageEnabled: true, // Enables local storage to avoid sandbox exceptions
+                databaseEnabled: true, // Enables database storage to avoid sandbox exceptions
                 mediaPlaybackRequiresUserGesture: false,
                 allowsInlineMediaPlayback: true,
                 iframeAllowFullscreen: true,
-                // Block popups and multiwindow hijacks natively
                 supportMultipleWindows: false,
                 javaScriptCanOpenWindowsAutomatically: false,
                 useShouldOverrideUrlLoading: true,
+                mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
               ),
               onWebViewCreated: (controller) {
                 _webViewController = controller;
@@ -177,18 +212,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 final requestUrl = navigationAction.request.url?.toString();
                 if (requestUrl == null) return NavigationActionPolicy.ALLOW;
 
-                // 1. Intercept known ad domains
+                // 1. Block ad networks
                 if (_isAdUrl(requestUrl)) {
-                  print("Native Adblocker blocked: $requestUrl");
+                  print("Ad Blocked: $requestUrl");
                   return NavigationActionPolicy.CANCEL;
                 }
 
-                // 2. Prevent Top-Level Redirection hijacks:
-                // If the mainframe attempts to load an untrusted external page, cancel it.
+                // 2. Prevent top-level mainframe redirection to untrusted domains
                 if (navigationAction.isForMainFrame) {
-                  // Allow the initial load and any relative/subdomain loads of the player itself
                   if (!_isAllowedHost(requestUrl)) {
-                    print("Top-level mainframe redirection block: $requestUrl");
+                    print("Redirection blocked on main frame: $requestUrl");
                     return NavigationActionPolicy.CANCEL;
                   }
                 }
@@ -198,26 +231,27 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             ),
           ),
 
-          // Loading Indicator Overlay
+          // Loading Indicator
           if (_isLoading)
             const Center(
               child: CircularProgressIndicator(color: AppTheme.deepRose),
             ),
 
-          // Custom Transparent Bar overlay (Back & Source switcher)
+          // Back button, title overlay & provider dropdown UI
           Positioned(
-            top: 20,
+            top: 15,
             left: 20,
             right: 20,
             child: SafeArea(
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   // Back Button
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
                     child: Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.black.withOpacity(0.6),
                         borderRadius: BorderRadius.circular(12),
@@ -225,7 +259,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 16),
+                          Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 14),
                           SizedBox(width: 6),
                           Text(
                             'Back',
@@ -236,73 +270,81 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     ),
                   ),
 
-                  // Title of the item playing
+                  // Title of Video
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
                       child: Text(
                         widget.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
                         style: GoogleFonts.outfit(
-                          color: Colors.white.withOpacity(0.8),
-                          fontSize: 13,
+                          color: Colors.white,
+                          fontSize: 14,
                           fontWeight: FontWeight.bold,
                           shadows: [
-                            const Shadow(blurRadius: 4, color: Colors.black),
+                            const Shadow(blurRadius: 6, color: Colors.black),
                           ],
                         ),
                       ),
                     ),
                   ),
 
-                  // Source Switcher Button
-                  PopupMenuButton<PlayerSource>(
-                    onSelected: (source) {
-                      setState(() {
-                        _currentSource = source;
-                        _isLoading = true;
-                      });
-                      _webViewController?.loadUrl(
-                        urlRequest: URLRequest(url: WebUri(_getPlayerUrl())),
-                      );
-                    },
-                    itemBuilder: (context) => PlayerSource.values.map((src) {
-                      return PopupMenuItem<PlayerSource>(
-                        value: src,
-                        child: Text(
-                          _getSourceLabel(src),
-                          style: GoogleFonts.outfit(
-                            fontWeight: _currentSource == src ? FontWeight.bold : FontWeight.normal,
-                            color: _currentSource == src ? AppTheme.deepRose : Colors.white,
+                  // Embedded Dropdown and Conditional Warning Block
+                  Container(
+                    width: 200,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[900],
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                        ),
-                      );
-                    }).toList(),
-                    color: AppTheme.velvet,
-                    offset: const Offset(0, 40),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppTheme.roseQuartz.withOpacity(0.2)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.tune_rounded, color: Colors.white, size: 16),
-                          const SizedBox(width: 8),
-                          Text(
-                            _getSourceLabel(_currentSource),
-                            style: GoogleFonts.outfit(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<Map<String, dynamic>>(
+                              value: selectedProvider,
+                              dropdownColor: Colors.grey[900],
+                              isExpanded: true,
+                              items: allVideoProviders.map((provider) {
+                                return DropdownMenuItem<Map<String, dynamic>>(
+                                  value: provider,
+                                  child: Text(
+                                    provider["name"],
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (newValue) {
+                                setState(() {
+                                  selectedProvider = newValue!;
+                                  _isLoading = true;
+                                });
+                                // Trigger WebView controller source string reload
+                                _webViewController?.loadUrl(
+                                  urlRequest: URLRequest(url: WebUri(_getPlayerUrl(selectedProvider))),
+                                );
+                              },
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (selectedProvider["adPercentage"] != null)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4.0),
+                            child: Text(
+                              "it might have ${selectedProvider["adPercentage"]}% chance of ads baby",
+                              style: const TextStyle(
+                                color: Colors.amberAccent,
+                                fontSize: 11,
+                                fontStyle: FontStyle.italic,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ],

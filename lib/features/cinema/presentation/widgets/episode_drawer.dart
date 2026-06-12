@@ -73,17 +73,32 @@ class _EpisodeDrawerState extends State<EpisodeDrawer> {
   }
 
   Future<void> _updateStatus(String newStatus) async {
-    setState(() => _currentStatus = newStatus);
-    await _tmdbService.saveToWatchList(widget.item, newStatus);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Updated watchlist status! 🍿'),
-          backgroundColor: AppTheme.deepRose,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-        ),
-      );
+    if (_currentStatus == newStatus) {
+      setState(() => _currentStatus = '');
+      await _tmdbService.removeFromWatchList(widget.item.tmdbId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Removed from watchlist! 🍿'),
+            backgroundColor: AppTheme.deepRose,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } else {
+      setState(() => _currentStatus = newStatus);
+      await _tmdbService.saveToWatchList(widget.item, newStatus);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Updated watchlist status! 🍿'),
+            backgroundColor: AppTheme.deepRose,
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
