@@ -8,6 +8,7 @@ import '../../data/models/music_status.dart';
 import 'package:marquee/marquee.dart';
 import 'package:confetti/confetti.dart';
 import 'vinyl_record.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 
 class JukeboxWidget extends StatefulWidget {
   const JukeboxWidget({super.key});
@@ -75,7 +76,7 @@ class _JukeboxWidgetState extends State<JukeboxWidget> {
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF4A4A4A),
+                                color: AppTheme.petalWhite,
                               ),
                               scrollAxis: Axis.horizontal,
                               crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'dart:ui';
+import '../../../../core/theme/app_theme.dart';
 
 class AnimatedDoor extends StatefulWidget {
   final bool isUnlocked;
@@ -178,13 +179,13 @@ class _AnimatedDoorState extends State<AnimatedDoor> with TickerProviderStateMix
   Widget _buildDoorFrame() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.pink[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.pink[100]!, width: 8),
+        color: AppTheme.twilight,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.velvet, width: 8),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 20,
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 25,
             spreadRadius: 5,
           ),
         ],
@@ -195,27 +196,27 @@ class _AnimatedDoorState extends State<AnimatedDoor> with TickerProviderStateMix
   Widget _buildDoorPanel() {
     return Container(
       decoration: BoxDecoration(
-        color: widget.isError ? Colors.red[50] : Colors.pink[100],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withOpacity(0.5), width: 2),
+        color: widget.isError ? Colors.red[900] : AppTheme.velvet,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.moonlight.withValues(alpha: 0.2), width: 2),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            widget.isError ? Colors.red[100]! : Colors.white.withOpacity(0.8),
-            widget.isError ? Colors.red[50]! : Colors.pink[200]!,
+            widget.isError ? Colors.red[800]! : AppTheme.velvet,
+            widget.isError ? Colors.red[950]! : AppTheme.twilight,
           ],
           stops: [0.0, 1.0 - (0.5 * _swingAnimation.value)],
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2 - (0.1 * _swingAnimation.value)),
+            color: Colors.black.withValues(alpha: 0.5 - (0.2 * _swingAnimation.value)),
             blurRadius: 20,
             offset: Offset(10 * (1 - _swingAnimation.value), 10 * (1 - _swingAnimation.value)),
           ),
           // Inner glow
           BoxShadow(
-            color: Colors.white.withOpacity(0.4),
+            color: AppTheme.moonlight.withValues(alpha: 0.1),
             blurRadius: 2,
             spreadRadius: -2,
             offset: const Offset(2, 2),
@@ -300,11 +301,11 @@ class _AnimatedDoorState extends State<AnimatedDoor> with TickerProviderStateMix
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Colors.amber[100]!, Colors.amber[700]!],
+                colors: [AppTheme.blushGold.withValues(alpha: 0.5), AppTheme.blushGold],
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
+                  color: Colors.black.withValues(alpha: 0.3),
                   blurRadius: 4,
                   offset: const Offset(1, 1),
                 ),
@@ -315,7 +316,7 @@ class _AnimatedDoorState extends State<AnimatedDoor> with TickerProviderStateMix
                 width: 8,
                 height: 12,
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
+                  color: Colors.black.withValues(alpha: 0.7),
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(4),
                     topRight: Radius.circular(4),
@@ -340,11 +341,11 @@ class _AnimatedDoorState extends State<AnimatedDoor> with TickerProviderStateMix
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.amber[200]!, Colors.amber[800]!],
+                  colors: [AppTheme.blushGold, AppTheme.blushGold.withValues(alpha: 0.7)],
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
+                    color: Colors.black.withValues(alpha: 0.4),
                     blurRadius: 6,
                     offset: const Offset(2, 3),
                   ),

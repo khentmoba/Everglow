@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../domain/models/hidden_note.dart';
+import '../../../../core/theme/app_theme.dart';
 
 class NoteDialog extends StatelessWidget {
   final HiddenNote note;
@@ -20,11 +21,12 @@ class NoteDialog extends StatelessWidget {
         child: Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: const Color(0xFFFFFBF0), // Creamy paper color
+            color: AppTheme.velvet, // Dark romantic paper color
             borderRadius: BorderRadius.circular(24.0),
+            border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.2), width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
+                color: Colors.black.withValues(alpha: 0.4),
                 blurRadius: 30,
                 offset: const Offset(0, 15),
               ),
@@ -37,20 +39,20 @@ class NoteDialog extends StatelessWidget {
               Container(
                 height: 50,
                 width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.pink[50],
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                decoration: const BoxDecoration(
+                  color: AppTheme.twilight,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
                 ),
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    Icon(Icons.favorite, color: Colors.pink[200], size: 24),
+                    const Icon(Icons.favorite, color: AppTheme.deepRose, size: 24),
                     Positioned(
                       right: 12,
                       child: IconButton(
                         icon: const Icon(Icons.close, size: 20),
                         onPressed: () => Navigator.pop(context),
-                        color: Colors.pink[300],
+                        color: AppTheme.roseQuartz,
                       ),
                     ),
                   ],
@@ -70,17 +72,17 @@ class NoteDialog extends StatelessWidget {
                         Text(
                           note.title,
                           style: GoogleFonts.dancingScript(
-                            fontSize: 28,
+                            fontSize: 30,
                             fontWeight: FontWeight.bold,
-                            color: Colors.pink[800],
+                            color: AppTheme.blushGold,
                           ),
                         ),
                         const SizedBox(height: 24),
                         Text(
                           note.content,
                           style: GoogleFonts.caveat(
-                            fontSize: 22,
-                            color: Colors.brown[800],
+                            fontSize: 24,
+                            color: AppTheme.petalWhite.withValues(alpha: 0.9),
                             height: 1.4,
                           ),
                         ),

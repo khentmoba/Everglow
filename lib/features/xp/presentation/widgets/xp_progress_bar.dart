@@ -23,7 +23,7 @@ class XPProgressBar extends StatelessWidget {
             Text(
               'LEVEL ${progress.level}',
               style: GoogleFonts.outfit(
-                color: AppTheme.champagneGold,
+                color: AppTheme.blushGold,
                 fontWeight: FontWeight.w900,
                 fontSize: 14,
                 letterSpacing: 2,
@@ -32,7 +32,7 @@ class XPProgressBar extends StatelessWidget {
             Text(
               '$currentLevelXp / 1000 XP',
               style: GoogleFonts.outfit(
-                color: Colors.white70,
+                color: AppTheme.roseQuartz.withValues(alpha: 0.8),
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
               ),
@@ -40,37 +40,41 @@ class XPProgressBar extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        Stack(
-          children: [
-            // Background track
-            Container(
-              height: 12,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white10,
-                borderRadius: BorderRadius.circular(6),
-              ),
-            ),
-            // Progress fill
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 1000),
-              height: 12,
-              width: MediaQuery.of(context).size.width * 0.8 * progressPercent, // Approximation
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppTheme.peachyMagenta, AppTheme.neonTeal],
-                ),
-                borderRadius: BorderRadius.circular(6),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.neonTeal.withValues(alpha: 0.4),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return Stack(
+              children: [
+                // Background track
+                Container(
+                  height: 10,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: AppTheme.moonlight.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(5),
                   ),
-                ],
-              ),
-            ),
-          ],
+                ),
+                // Progress fill
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 1000),
+                  height: 10,
+                  width: constraints.maxWidth * progressPercent,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppTheme.deepRose, AppTheme.blushGold],
+                    ),
+                    borderRadius: BorderRadius.circular(5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.deepRose.withValues(alpha: 0.4),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          }
         ),
       ],
     );

@@ -5,6 +5,8 @@ import 'note_card.dart';
 import 'note_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/features/daily_bloom/presentation/providers/garden_provider.dart';
+import 'package:everglow/core/theme/app_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class LetterboxView extends StatefulWidget {
   const LetterboxView({super.key});
@@ -28,16 +30,34 @@ class _LetterboxViewState extends State<LetterboxView> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
-        title: const Text('No peeking! 🤫', textAlign: TextAlign.center),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: AppTheme.velvet,
+        title: Text(
+          'No peeking! 🤫',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.cormorantGaramond(
+            color: AppTheme.roseQuartz,
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+          ),
+        ),
         content: Text(
           'This letter is still sealed. It will unlock on ${_formatDate(note.unlockDate)}.',
           textAlign: TextAlign.center,
+          style: GoogleFonts.outfit(
+            color: AppTheme.petalWhite.withValues(alpha: 0.8),
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Okay, I\'ll wait! 🌸'),
+            child: Text(
+              'Okay, I\'ll wait! 🌸',
+              style: GoogleFonts.outfit(
+                color: AppTheme.blushGold,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -85,8 +105,11 @@ class _LetterboxViewState extends State<LetterboxView> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Letterbox reset successfully! 🌸'),
-            backgroundColor: Colors.pink[300],
+            content: Text(
+              'Letterbox reset successfully! 🌸',
+              style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+            ),
+            backgroundColor: AppTheme.deepRose,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           ),
@@ -96,8 +119,11 @@ class _LetterboxViewState extends State<LetterboxView> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to add notes: $e'),
-            backgroundColor: Colors.red[300],
+            content: Text(
+              'Failed to add notes: $e',
+              style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+            ),
+            backgroundColor: Colors.red[900],
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           ),
@@ -118,15 +144,15 @@ class _LetterboxViewState extends State<LetterboxView> {
             children: [
               Text(
                 'Letterbox',
-                style: TextStyle(
-                  fontSize: 20,
+                style: GoogleFonts.cormorantGaramond(
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Colors.pink[900],
+                  color: AppTheme.roseQuartz,
                 ),
               ),
               IconButton(
                 onPressed: () => _seedSampleNotes(),
-                icon: Icon(Icons.refresh, color: Colors.pink[200], size: 20),
+                icon: const Icon(Icons.refresh, color: AppTheme.blushGold, size: 20),
                 tooltip: 'Reset Seeds',
               ),
             ],
@@ -139,7 +165,7 @@ class _LetterboxViewState extends State<LetterboxView> {
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(
-                  child: CircularProgressIndicator(color: Colors.pinkAccent),
+                  child: CircularProgressIndicator(color: AppTheme.deepRose),
                 );
               }
 
@@ -147,7 +173,7 @@ class _LetterboxViewState extends State<LetterboxView> {
                 return Center(
                   child: Text(
                     'Oops! Something went wrong. 🌸',
-                    style: TextStyle(color: Colors.pink[300]),
+                    style: GoogleFonts.outfit(color: AppTheme.roseQuartz),
                   ),
                 );
               }
@@ -161,22 +187,23 @@ class _LetterboxViewState extends State<LetterboxView> {
                     children: [
                       Text(
                         'No letters yet... but keep checking back! 🌸',
-                        style: TextStyle(
-                          color: Colors.pink[300],
-                          fontSize: 16,
+                        style: GoogleFonts.outfit(
+                          color: AppTheme.roseQuartz.withValues(alpha: 0.8),
+                          fontSize: 15,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton.icon(
                         onPressed: () => _seedSampleNotes(),
-                        icon: const Icon(Icons.auto_awesome, size: 18),
-                        label: const Text('Seed Sample Notes'),
+                        icon: const Icon(Icons.auto_awesome, size: 18, color: AppTheme.petalWhite),
+                        label: Text(
+                          'Seed Sample Notes',
+                          style: GoogleFonts.outfit(color: AppTheme.petalWhite, fontWeight: FontWeight.bold),
+                        ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.pink[100],
-                          foregroundColor: Colors.pink[900],
+                          backgroundColor: AppTheme.deepRose,
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],

@@ -15,8 +15,8 @@ class AcademyPortalCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: GlassContainer(
         height: 220,
-        borderRadius: BorderRadius.circular(32.0),
-        border: Border.all(color: AppTheme.neonTeal.withValues(alpha: 0.3), width: 2),
+        borderRadius: BorderRadius.circular(24.0),
+        border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.25), width: 1.5),
         child: Stack(
           children: [
             // Shifting Aura
@@ -28,7 +28,7 @@ class AcademyPortalCard extends StatelessWidget {
                 height: 150,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppTheme.peachyMagenta.withValues(alpha: 0.2),
+                  color: AppTheme.deepRose.withValues(alpha: 0.15),
                 ),
               ),
             ),
@@ -40,38 +40,38 @@ class AcademyPortalCard extends StatelessWidget {
                 children: [
                   const AnimatedEmblem(
                     icon: Icons.school_rounded,
-                    size: 60,
-                    color: AppTheme.champagneGold,
+                    size: 50,
+                    color: AppTheme.blushGold,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   Text(
                     'Everglow Academy',
-                    style: GoogleFonts.outfit(
-                      fontSize: 26,
+                    style: GoogleFonts.cormorantGaramond(
+                      fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 1.2,
+                      color: AppTheme.roseQuartz,
+                      letterSpacing: 0.5,
                       shadows: [
-                        const Shadow(
-                          color: AppTheme.peachyMagenta,
+                        BoxShadow(
+                          color: AppTheme.deepRose.withValues(alpha: 0.4),
                           blurRadius: 15,
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   BouncyButton(
                     onTap: () => Navigator.push(context, AcademyHubScreen.route()),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [AppTheme.peachyMagenta, AppTheme.neonTeal],
+                          colors: [AppTheme.deepRose, AppTheme.blushGold],
                         ),
-                        borderRadius: BorderRadius.circular(32.0),
+                        borderRadius: BorderRadius.circular(24.0),
                         boxShadow: [
                           BoxShadow(
-                            color: AppTheme.neonTeal.withValues(alpha: 0.4),
+                            color: AppTheme.deepRose.withValues(alpha: 0.3),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -81,7 +81,7 @@ class AcademyPortalCard extends StatelessWidget {
                         'ENTER PORTAL',
                         style: GoogleFonts.outfit(
                           fontWeight: FontWeight.w900,
-                          color: Colors.white,
+                          color: AppTheme.petalWhite,
                           letterSpacing: 2.0,
                         ),
                       ),

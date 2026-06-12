@@ -2,69 +2,137 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  // Gamified Pink Palette
-  static const Color primaryPink = Color(0xFFFFD1DC);
-  static const Color peachyMagenta = Color(0xFFFF00FF);
-  static const Color neonTeal = Color(0xFF00FFFF);
-  static const Color electricBlue = Color(0xFF0000FF);
-  static const Color champagneGold = Color(0xFFF7E7CE);
+  // Dusk Petal Romantic Palette
+  static const Color roseQuartz = Color(0xFFF4C2C2);
+  static const Color deepRose = Color(0xFFC2185B);
+  static const Color blushGold = Color(0xFFE8D5B7);
+  static const Color twilight = Color(0xFF1A1A2E);
+  static const Color velvet = Color(0xFF2D1B33);
+  static const Color petalWhite = Color(0xFFFFF5F5);
+  static const Color softLavender = Color(0xFFD4B5D6);
+  static const Color warmAmber = Color(0xFFF0A500);
+  static const Color moonlight = Color(0xFFF0E6FF);
+
+  // Deprecated/Legacy Mapping to maintain backwards compatibility where direct constants were referenced
+  static const Color primaryPink = roseQuartz;
+  static const Color peachyMagenta = deepRose;
+  static const Color neonTeal = softLavender;
+  static const Color electricBlue = twilight;
+  static const Color champagneGold = blushGold;
   
   static const LinearGradient gamifiedGradient = LinearGradient(
-    colors: [primaryPink, Color(0xFFFF85A1), peachyMagenta],
+    colors: [twilight, velvet, deepRose],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
-  static const double glassBlur = 10.0;
-  static const double glassOpacity = 0.15;
+  static const double glassBlur = 18.0;
+  static const double glassOpacity = 0.12;
 
   static ThemeData get gamifiedTheme {
+    final baseTextTheme = GoogleFonts.outfitTextTheme();
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryPink,
-        primary: peachyMagenta,
-        secondary: neonTeal,
-        tertiary: champagneGold,
-        surface: primaryPink.withValues(alpha: 0.1),
+        seedColor: deepRose,
+        primary: deepRose,
+        secondary: softLavender,
+        tertiary: blushGold,
+        surface: twilight,
+        brightness: Brightness.dark,
       ),
-      scaffoldBackgroundColor: primaryPink,
+      scaffoldBackgroundColor: twilight,
       
-      // Stylized semi-futuristic rounded fonts
-      textTheme: GoogleFonts.outfitTextTheme().apply(
-        bodyColor: Colors.black87,
-        displayColor: peachyMagenta,
+      // Beautiful typography combo: Cormorant Garamond for titles/display, Outfit for body
+      textTheme: baseTextTheme.copyWith(
+        displayLarge: GoogleFonts.cormorantGaramond(
+          fontSize: 57,
+          fontWeight: FontWeight.bold,
+          color: roseQuartz,
+        ),
+        displayMedium: GoogleFonts.cormorantGaramond(
+          fontSize: 45,
+          fontWeight: FontWeight.bold,
+          color: roseQuartz,
+        ),
+        displaySmall: GoogleFonts.cormorantGaramond(
+          fontSize: 36,
+          fontWeight: FontWeight.bold,
+          color: roseQuartz,
+        ),
+        headlineLarge: GoogleFonts.cormorantGaramond(
+          fontSize: 32,
+          fontWeight: FontWeight.w700,
+          color: roseQuartz,
+        ),
+        headlineMedium: GoogleFonts.cormorantGaramond(
+          fontSize: 28,
+          fontWeight: FontWeight.w600,
+          color: roseQuartz,
+        ),
+        headlineSmall: GoogleFonts.cormorantGaramond(
+          fontSize: 24,
+          fontWeight: FontWeight.w600,
+          color: roseQuartz,
+        ),
+        titleLarge: GoogleFonts.cormorantGaramond(
+          fontSize: 22,
+          fontWeight: FontWeight.w600,
+          color: roseQuartz,
+          letterSpacing: 0.5,
+        ),
+        titleMedium: GoogleFonts.outfit(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: petalWhite,
+        ),
+        titleSmall: GoogleFonts.outfit(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: petalWhite,
+        ),
+        bodyLarge: GoogleFonts.outfit(
+          fontSize: 16,
+          color: petalWhite.withValues(alpha: 0.9),
+        ),
+        bodyMedium: GoogleFonts.outfit(
+          fontSize: 14,
+          color: petalWhite.withValues(alpha: 0.8),
+        ),
+        bodySmall: GoogleFonts.outfit(
+          fontSize: 12,
+          color: petalWhite.withValues(alpha: 0.6),
+        ),
       ),
       
       cardTheme: CardThemeData(
-        color: Colors.white.withValues(alpha: glassOpacity),
+        color: moonlight.withValues(alpha: glassOpacity),
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(32.0),
-          side: const BorderSide(color: Colors.white24, width: 0.5),
+          borderRadius: BorderRadius.circular(24.0),
+          side: BorderSide(color: moonlight.withValues(alpha: 0.18), width: 1.0),
         ),
       ),
       
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          foregroundColor: Colors.white,
-          shadowColor: Colors.transparent,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          backgroundColor: deepRose,
+          foregroundColor: petalWhite,
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(32.0),
+            borderRadius: BorderRadius.circular(24.0),
           ),
           textStyle: GoogleFonts.outfit(
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
             fontSize: 16,
-            letterSpacing: 1.2,
+            letterSpacing: 1.0,
           ),
         ),
       ),
     );
   }
 
-  // Accessibility Fallback
   static bool get shouldReduceMotion => 
       WidgetsBinding.instance.platformDispatcher.accessibilityFeatures.reduceMotion;
 }
+

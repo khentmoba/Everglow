@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../data/models/music_status.dart';
 import 'package:intl/intl.dart';
-
 import 'listen_along_popup.dart';
+import 'package:everglow/core/theme/app_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class MusicCard extends StatelessWidget {
   final MusicStatus status;
@@ -29,19 +30,30 @@ class MusicCard extends StatelessWidget {
         context: context,
         builder: (context) => ListenAlongPopup(status: status),
       ),
-      child: Opacity(
-        opacity: isLive ? 1.0 : 0.7,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 300),
+        opacity: isLive ? 1.0 : 0.65,
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.9),
-            borderRadius: BorderRadius.circular(32),
+            color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: isLive ? AppTheme.blushGold.withValues(alpha: 0.3) : AppTheme.moonlight.withValues(alpha: 0.15),
+              width: 1.0,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.pink.withOpacity(0.1),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 15,
+                offset: const Offset(0, 8),
               ),
+              if (isLive)
+                BoxShadow(
+                  color: AppTheme.deepRose.withValues(alpha: 0.05),
+                  blurRadius: 20,
+                  spreadRadius: -5,
+                ),
             ],
           ),
           child: Column(
@@ -50,10 +62,11 @@ class MusicCard extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: TextStyle(
-                  fontSize: 16,
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Colors.pink.shade300,
+                  color: AppTheme.blushGold,
+                  letterSpacing: 0.5,
                 ),
               ),
               const SizedBox(height: 16),
@@ -77,7 +90,7 @@ class MusicCard extends StatelessWidget {
                           boxShadow: [
                             if (isLive)
                               BoxShadow(
-                                color: Colors.pink.withOpacity(0.3),
+                                color: AppTheme.deepRose.withValues(alpha: 0.3),
                                 blurRadius: 15,
                                 spreadRadius: 2,
                               ),
@@ -90,13 +103,13 @@ class MusicCard extends StatelessWidget {
                                   status.imageUrl!,
                                   fit: BoxFit.cover,
                                   errorBuilder: (c, e, s) => Container(
-                                    color: Colors.pink.shade50,
-                                    child: const Icon(Icons.music_note, color: Colors.pink),
+                                    color: AppTheme.velvet,
+                                    child: const Icon(Icons.music_note, color: AppTheme.roseQuartz),
                                   ),
                                 )
                               : Container(
-                                  color: Colors.pink.shade50,
-                                  child: const Icon(Icons.music_note, color: Colors.pink),
+                                  color: AppTheme.velvet,
+                                  child: const Icon(Icons.music_note, color: AppTheme.roseQuartz),
                                 ),
                         ),
                       ),
@@ -112,12 +125,12 @@ class MusicCard extends StatelessWidget {
                             children: [
                               _PulsingIndicator(),
                               const SizedBox(width: 8),
-                              const Text(
+                              Text(
                                 'LIVE',
-                                style: TextStyle(
+                                style: GoogleFonts.outfit(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.pink,
+                                  color: AppTheme.warmAmber,
                                   letterSpacing: 1.2,
                                 ),
                               ),
@@ -129,17 +142,17 @@ class MusicCard extends StatelessWidget {
                               status.trackName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 18,
+                              style: GoogleFonts.outfit(
+                                fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF4A4A4A),
+                                color: AppTheme.petalWhite,
                               ),
                             ),
                         Text(
                           status.artistName,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade600,
+                          style: GoogleFonts.outfit(
+                            fontSize: 13,
+                            color: AppTheme.petalWhite.withValues(alpha: 0.6),
                           ),
                         ),
                         if (!isLive) ...[
@@ -148,10 +161,10 @@ class MusicCard extends StatelessWidget {
                             status.timestamp != null 
                               ? 'Last heard at ${_formatTime(status.timestamp!)}'
                               : 'Last heard',
-                            style: TextStyle(
+                            style: GoogleFonts.outfit(
                               fontSize: 10,
                               fontStyle: FontStyle.italic,
-                              color: Colors.grey.shade400,
+                              color: AppTheme.petalWhite.withValues(alpha: 0.4),
                             ),
                           ),
                         ],
@@ -205,7 +218,7 @@ class _PulsingIndicatorState extends State<_PulsingIndicator>
         width: 8,
         height: 8,
         decoration: const BoxDecoration(
-          color: Colors.pink,
+          color: AppTheme.warmAmber,
           shape: BoxShape.circle,
         ),
       ),

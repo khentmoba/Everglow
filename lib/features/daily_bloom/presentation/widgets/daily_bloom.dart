@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/garden_provider.dart';
 import 'lily_painter.dart';
+import 'package:everglow/core/theme/app_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class DailyBloom extends StatefulWidget {
   const DailyBloom({super.key});
@@ -63,7 +65,6 @@ class _DailyBloomState extends State<DailyBloom> with SingleTickerProviderStateM
   @override
   void didUpdateWidget(DailyBloom oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // This doesn't catch provider changes, using Consumer logic instead
   }
 
   void _triggerPulse() {
@@ -79,20 +80,17 @@ class _DailyBloomState extends State<DailyBloom> with SingleTickerProviderStateM
       builder: (context, provider, child) {
         final stats = provider.stats;
         final stage = stats?.currentStage ?? 0;
-
-        // Check for level-up to trigger pulse (simple approach)
-        // In a real app, we might store previousStage in state
         
         return Column(
           children: [
             SizedBox(
-              height: 260, // Increased height to accommodate tooltip + lily
+              height: 260,
               width: double.infinity,
               child: Stack(
                 alignment: Alignment.bottomCenter,
                 clipBehavior: Clip.none,
                 children: [
-                  // Tooltip - Positioned at the top of the Stack
+                  // Tooltip
                   if (_showTooltip)
                     Positioned(
                       top: 0,
@@ -105,27 +103,27 @@ class _DailyBloomState extends State<DailyBloom> with SingleTickerProviderStateM
                             child: Transform.translate(
                               offset: Offset(0, -10 * (1 - value)),
                               child: Container(
-                                constraints: const BoxConstraints(maxWidth: 200),
+                                constraints: const BoxConstraints(maxWidth: 220),
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                 decoration: BoxDecoration(
-                                  color: Colors.pink[50],
-                                  borderRadius: BorderRadius.circular(24),
+                                  color: AppTheme.velvet,
+                                  borderRadius: BorderRadius.circular(20),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.pink.withOpacity(0.1),
+                                      color: Colors.black.withValues(alpha: 0.3),
                                       blurRadius: 15,
                                       offset: const Offset(0, 5),
                                     ),
                                   ],
-                                  border: Border.all(color: Colors.pink[100]!, width: 1),
+                                  border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.3), width: 1.5),
                                 ),
                                 child: Text(
                                   _getTooltipMessage(stage),
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Colors.pink[800],
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
+                                  style: GoogleFonts.outfit(
+                                    color: AppTheme.roseQuartz,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
                                     height: 1.3,
                                   ),
                                 ),
@@ -136,7 +134,7 @@ class _DailyBloomState extends State<DailyBloom> with SingleTickerProviderStateM
                       ),
                     ),
 
-                  // Lily - Positioned at the bottom of the Stack
+                  // Lily
                   Positioned(
                     bottom: 0,
                     child: GestureDetector(
@@ -204,19 +202,20 @@ class _DailyBloomState extends State<DailyBloom> with SingleTickerProviderStateM
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.pink[50]!.withOpacity(0.5),
+        color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.moonlight.withValues(alpha: 0.15), width: 1.0),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: Colors.pink[300]),
+          Icon(icon, size: 14, color: AppTheme.blushGold),
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(
+            style: GoogleFonts.outfit(
               fontSize: 12,
-              color: Colors.pink[900],
+              color: AppTheme.petalWhite.withValues(alpha: 0.8),
               fontWeight: FontWeight.w600,
             ),
           ),

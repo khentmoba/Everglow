@@ -19,7 +19,7 @@ class _GamifiedBackgroundState extends State<GamifiedBackground> with SingleTick
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(seconds: 10),
+      duration: const Duration(seconds: 20),
       vsync: this,
     )..repeat(reverse: true);
 
@@ -53,9 +53,9 @@ class _GamifiedBackgroundState extends State<GamifiedBackground> with SingleTick
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                AppTheme.primaryPink,
-                const Color(0xFFFF85A1),
-                AppTheme.peachyMagenta,
+                AppTheme.twilight,
+                AppTheme.velvet,
+                AppTheme.deepRose,
               ],
               begin: _topAlignmentAnimation.value,
               end: _bottomAlignmentAnimation.value,
@@ -65,9 +65,9 @@ class _GamifiedBackgroundState extends State<GamifiedBackground> with SingleTick
             children: [
               CustomPaint(
                 size: Size.infinite,
-                painter: CircuitryPainter(
-                  color: AppTheme.champagneGold,
-                  opacity: 0.05,
+                painter: PetalFieldPainter(
+                  color: AppTheme.roseQuartz,
+                  opacity: 0.08,
                 ),
               ),
               widget.child,
@@ -78,3 +78,4 @@ class _GamifiedBackgroundState extends State<GamifiedBackground> with SingleTick
     );
   }
 }
+

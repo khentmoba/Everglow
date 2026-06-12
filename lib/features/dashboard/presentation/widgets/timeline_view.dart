@@ -53,23 +53,23 @@ class _TimelineViewState extends State<TimelineView> {
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
           child: Row(
             children: [
-              Expanded(child: Divider(color: AppTheme.peachyMagenta.withValues(alpha: 0.2), thickness: 1)),
+              Expanded(child: Divider(color: AppTheme.blushGold.withValues(alpha: 0.15), thickness: 1)),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Text(
                   'LIVING ARCHIVE',
-                  style: GoogleFonts.outfit(
+                  style: GoogleFonts.cormorantGaramond(
                     fontWeight: FontWeight.w900,
-                    fontSize: 18,
-                    color: Colors.white,
+                    fontSize: 22,
+                    color: AppTheme.roseQuartz,
                     letterSpacing: 2.0,
                     shadows: [
-                      const Shadow(color: AppTheme.peachyMagenta, blurRadius: 10),
+                      BoxShadow(color: AppTheme.deepRose.withValues(alpha: 0.5), blurRadius: 10),
                     ],
                   ),
                 ),
               ),
-              Expanded(child: Divider(color: AppTheme.peachyMagenta.withValues(alpha: 0.2), thickness: 1)),
+              Expanded(child: Divider(color: AppTheme.blushGold.withValues(alpha: 0.15), thickness: 1)),
             ],
           ),
         ),
@@ -85,7 +85,7 @@ class _TimelineViewState extends State<TimelineView> {
                 return const SizedBox.shrink();
               }
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator(color: AppTheme.neonTeal));
+                return const Center(child: CircularProgressIndicator(color: AppTheme.deepRose));
               }
 
               final milestones = snapshot.data ?? [];
@@ -180,7 +180,7 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
           context: context,
           barrierDismissible: true,
           barrierLabel: '',
-          barrierColor: Colors.black45,
+          barrierColor: Colors.black54,
           transitionDuration: const Duration(milliseconds: 400),
           pageBuilder: (context, anim1, anim2) {
             return MemoryDetailOverlay(milestone: widget.milestone);
@@ -190,7 +190,7 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
       child: GlassContainer(
         width: 320,
         height: 500,
-        borderRadius: BorderRadius.circular(32),
+        borderRadius: BorderRadius.circular(24),
         padding: const EdgeInsets.all(4),
         child: Column(
           children: [
@@ -199,7 +199,7 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
             
             Expanded(
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(20),
                 child: Column(
                   children: [
                     Expanded(
@@ -219,17 +219,17 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
                           children: [
                             Text(
                               widget.milestone.title,
-                              style: GoogleFonts.outfit(
+                              style: GoogleFonts.cormorantGaramond(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 20,
-                                color: Colors.white,
+                                fontSize: 22,
+                                color: AppTheme.roseQuartz,
                               ),
                             ),
                             Text(
                               DateFormat('MMMM d, yyyy').format(widget.milestone.date),
                               style: GoogleFonts.outfit(
                                 fontSize: 13,
-                                color: AppTheme.champagneGold,
+                                color: AppTheme.blushGold,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -238,7 +238,11 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
                               widget.milestone.description,
                               maxLines: 3,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: Colors.white70, height: 1.4),
+                              style: GoogleFonts.outfit(
+                                color: AppTheme.petalWhite.withValues(alpha: 0.8),
+                                height: 1.4,
+                                fontSize: 13,
+                              ),
                             ),
                           ],
                         ),
@@ -267,7 +271,7 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
           width: 12,
           height: 12,
           decoration: BoxDecoration(
-            color: Colors.white24,
+            color: AppTheme.moonlight.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(2),
           ),
         )),

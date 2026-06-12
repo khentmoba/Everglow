@@ -4,6 +4,7 @@ import 'package:animate_do/animate_do.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/features/cinema/presentation/screens/cinema_screen.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 
 class CinemaPreview extends StatelessWidget {
   const CinemaPreview({Key? key}) : super(key: key);
@@ -22,10 +23,10 @@ class CinemaPreview extends StatelessWidget {
             children: [
               Text(
                 'Our Cinema 🍿',
-                style: GoogleFonts.poppins(
-                  fontSize: 20,
+                style: GoogleFonts.cormorantGaramond(
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Colors.pink.shade700,
+                  color: AppTheme.roseQuartz,
                 ),
               ),
               TextButton(
@@ -35,7 +36,10 @@ class CinemaPreview extends StatelessWidget {
                 ),
                 child: Text(
                   'View All',
-                  style: TextStyle(color: Colors.pink.shade400, fontWeight: FontWeight.w600),
+                  style: GoogleFonts.outfit(
+                    color: AppTheme.blushGold,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -63,20 +67,20 @@ class CinemaPreview extends StatelessWidget {
                       child: Container(
                         width: 100,
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(15),
+                          borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.pink.withOpacity(0.1),
+                              color: AppTheme.deepRose.withValues(alpha: 0.15),
                               blurRadius: 8,
                               offset: const Offset(0, 4),
                             ),
                           ],
                         ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(15),
+                          borderRadius: BorderRadius.circular(12),
                           child: item.posterPath.isNotEmpty
                               ? Image.network(item.posterPath, fit: BoxFit.cover)
-                              : Container(color: Colors.pink.shade50),
+                              : Container(color: AppTheme.velvet),
                         ),
                       ),
                     );
@@ -95,14 +99,17 @@ class CinemaPreview extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.5),
+        color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.pink.shade50, width: 2),
+        border: Border.all(color: AppTheme.moonlight.withValues(alpha: 0.15), width: 1),
       ),
       child: Center(
         child: Text(
           'No movies yet. Plan a date! ✨',
-          style: TextStyle(color: Colors.pink.shade200, fontStyle: FontStyle.italic),
+          style: GoogleFonts.outfit(
+            color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+            fontStyle: FontStyle.italic,
+          ),
         ),
       ),
     );
