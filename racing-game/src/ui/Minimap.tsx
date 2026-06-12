@@ -63,8 +63,9 @@ export function Minimap({ size = 200 }): JSX.Element {
   const miniMap = useRef<Sprite>(null)
   const miniMapCamera = useRef<OrthographicCamera>(null)
   const [virtualScene] = useState(() => new Scene())
-  const mask = useTexture('textures/mask.svg')
-  const cursor = useTexture('textures/cursor.svg')
+  const base = import.meta.env.BASE_URL
+  const mask = useTexture(`${base}textures/mask.svg`)
+  const cursor = useTexture(`${base}textures/cursor.svg`)
   const buffer = useFBO(size * 2, size * 2)
   const {
     gl,

@@ -19,5 +19,5 @@ export const HonkAudio = () => {
     }
   }, [honk, sound])
 
-  return <PositionalAudio ref={ref} url="/sounds/honk.mp3" distance={10} />
+  return <PositionalAudio ref={ref} url={`${import.meta.env.BASE_URL}sounds/honk.mp3`} distance={10} />
 }

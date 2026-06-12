@@ -75,7 +75,7 @@ export const Chassis = forwardRef<Group, PropsWithChildren<BoxProps>>(({ args = 
   const chassis_1 = useRef<MaterialMesh>(null!)
   const crashAudio = useRef<PositionalAudioImpl>(null!)
   const [maxSpeed] = useStore((s) => [s.vehicleConfig.maxSpeed])
-  const { nodes: n, materials: m } = useGLTF('/models/chassis-draco.glb') as ChassisGLTF
+  const { nodes: n, materials: m } = useGLTF(`${import.meta.env.BASE_URL}models/chassis-draco.glb`) as ChassisGLTF
 
   const onCollide = useCallback(
     debounce<(e: CollideEvent) => void>((e) => {
@@ -161,7 +161,7 @@ export const Chassis = forwardRef<Group, PropsWithChildren<BoxProps>>(({ args = 
         />
       </group>
       {children}
-      <PositionalAudio ref={crashAudio} url="/sounds/crash.mp3" loop={false} distance={5} />
+      <PositionalAudio ref={crashAudio} url={`${import.meta.env.BASE_URL}sounds/crash.mp3`} loop={false} distance={5} />
     </group>
   )
 })

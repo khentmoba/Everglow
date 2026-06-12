@@ -30,5 +30,5 @@ export const AccelerateAudio = () => {
     }
   }, [])
 
-  return <PositionalAudio ref={ref} url="/sounds/accelerate.mp3" loop distance={5} />
+  return <PositionalAudio ref={ref} url={`${import.meta.env.BASE_URL}sounds/accelerate.mp3`} loop distance={5} />
 }

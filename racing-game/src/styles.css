@@ -603,7 +603,7 @@ button {
   right: 20px;
   height: 24px;
   width: 24px;
-  background: url(./textures/no_sound.png) no-repeat;
+  background: url(/racing/textures/no_sound.png) no-repeat;
   background-size: 24px 24px;
   opacity: 1;
   animation: hideSoundIcon 3s forwards;

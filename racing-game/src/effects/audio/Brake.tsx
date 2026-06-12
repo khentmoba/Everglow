@@ -25,5 +25,5 @@ export const BrakeAudio = () => {
     }
   }, [brake, sound])
 
-  return <PositionalAudio ref={ref} url="/sounds/tire-brake.mp3" distance={10} />
+  return <PositionalAudio ref={ref} url={`${import.meta.env.BASE_URL}sounds/tire-brake.mp3`} distance={10} />
 }

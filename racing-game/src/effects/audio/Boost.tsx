@@ -28,5 +28,5 @@ export const BoostAudio = () => {
     }
   }, [boost, sound])
 
-  return <PositionalAudio ref={ref} url="/sounds/boost.mp3" distance={5} />
+  return <PositionalAudio ref={ref} url={`${import.meta.env.BASE_URL}sounds/boost.mp3`} distance={5} />
 }

@@ -6,7 +6,7 @@ import type { Group } from 'three'
 import { opponentState } from '../store'
 
 export function GhostCar(): JSX.Element | null {
-  const { nodes, materials } = useGLTF('/models/chassis-draco.glb') as any
+  const { nodes, materials } = useGLTF(`${import.meta.env.BASE_URL}models/chassis-draco.glb`) as any
   const [ref, api] = useBox(() => ({
     mass: 0,
     type: 'Kinematic',

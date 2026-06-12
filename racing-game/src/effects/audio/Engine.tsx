@@ -30,5 +30,5 @@ export const EngineAudio = () => {
     }
   }, [])
 
-  return <PositionalAudio autoplay ref={ref} url="/sounds/engine.mp3" loop distance={5} />
+  return <PositionalAudio autoplay ref={ref} url={`${import.meta.env.BASE_URL}sounds/engine.mp3`} loop distance={5} />
 }

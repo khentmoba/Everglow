@@ -30,9 +30,9 @@ export function LeaderBoard(): JSX.Element {
 }
 
 const standingToImage: Record<1 | 2 | 3, string> = {
-  1: 'images/gold.png',
-  2: 'images/silver.png',
-  3: 'images/bronze.png',
+  1: `${import.meta.env.BASE_URL}images/gold.png`,
+  2: `${import.meta.env.BASE_URL}images/silver.png`,
+  3: `${import.meta.env.BASE_URL}images/bronze.png`,
 }
 
 interface ScoreProps {
