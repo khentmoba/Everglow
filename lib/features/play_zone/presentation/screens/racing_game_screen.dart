@@ -347,7 +347,7 @@ class _RacingGameScreenState extends State<RacingGameScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Build the racing game first (npm run build)',
+                'Run npm run build in racing-game/, redeploy.',
                 style: GoogleFonts.outfit(
                   fontSize: 13,
                   color: AppTheme.petalWhite.withValues(alpha: 0.5),
