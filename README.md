@@ -14,7 +14,7 @@ Everglow tracks your relationship journey through gamified experiences, shared a
 
 ## Latest Release
 
-> **v2026.06.12** — Racing Game: auto-respawn + professional touch UI
+> **v1.3.0** — Racing Game: auto-respawn + professional touch UI
 > [View full changelog →](https://github.com/khentmoba/Everglow/releases/latest)
 
 **Racing Game:**
