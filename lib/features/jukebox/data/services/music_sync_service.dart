@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import '../../../core/config/env_config.dart';
+import 'package:everglow/core/config/env_config.dart';
 import '../models/music_status.dart';
 
 class MusicSyncService {
