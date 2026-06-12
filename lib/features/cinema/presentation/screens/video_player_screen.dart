@@ -1,4 +1,3 @@
-import 'dart:collection';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -131,6 +130,87 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }
   }
 
+  String _getSandboxBypassScript() {
+    return '''
+    (function() {
+      if (window.__sandboxBypassApplied) return;
+      window.__sandboxBypassApplied = true;
+
+      function applyOverrides() {
+        try {
+          Object.defineProperty(window, 'frameElement', {
+            get: function() { return null; },
+            configurable: true
+          });
+        } catch(e) {}
+        try {
+          var desc = Object.getOwnPropertyDescriptor(Document.prototype, 'domain');
+          if (desc && desc.set) {
+            Object.defineProperty(Document.prototype, 'domain', {
+              get: function() { return window.location.hostname; },
+              set: function() { return true; },
+              configurable: true
+            });
+          }
+        } catch(e) {}
+        try {
+          if (navigator.plugins && typeof navigator.plugins.namedItem !== 'function') {
+            Object.defineProperty(navigator, 'plugins', {
+              get: function() {
+                var list = [1];
+                list.namedItem = function(name) {
+                  if (name === 'Chrome PDF Viewer') {
+                    return { name: 'Chrome PDF Viewer', filename: 'internal-pdf-viewer', description: 'Portable Document Format', length: 1 };
+                  }
+                  return null;
+                };
+                list.item = function(i) { return null; };
+                list.refresh = function() {};
+                return list;
+              },
+              configurable: true
+            });
+          } else if (navigator.plugins && !navigator.plugins.namedItem('Chrome PDF Viewer')) {
+            try {
+              var plugins = navigator.plugins;
+              var fake = document.createElement('embed');
+              fake.type = 'application/pdf';
+              if (plugins.refresh) plugins.refresh();
+            } catch(e) {}
+          }
+        } catch(e) {}
+      }
+
+      applyOverrides();
+
+      setInterval(applyOverrides, 2000);
+
+      try {
+        var observer = new MutationObserver(function(mutations) {
+          for (var i = 0; i < mutations.length; i++) {
+            var added = mutations[i].addedNodes;
+            for (var j = 0; j < added.length; j++) {
+              if (added[j].nodeType === 1) {
+                var text = added[j].textContent || '';
+                if (text.indexOf('Please Disable Sandbox') !== -1 || text.indexOf('Sandboxed iframe') !== -1) {
+                  added[j].remove();
+                }
+              }
+            }
+          }
+          var h1s = document.querySelectorAll('h1');
+          for (var k = 0; k < h1s.length; k++) {
+            if ((h1s[k].textContent || '').indexOf('Please Disable Sandbox') !== -1) {
+              h1s[k].parentElement && h1s[k].parentElement.remove();
+            }
+          }
+        });
+        observer.observe(document.documentElement || document.body, { childList: true, subtree: true });
+      } catch(e) {}
+    })();
+    ''';
+  }
+
   bool _isAdUrl(String url) {
     final lowerUrl = url.toLowerCase();
     for (final keyword in _adKeywords) {
@@ -202,10 +282,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               onWebViewCreated: (controller) {
                 _webViewController = controller;
               },
-              onLoadStart: (controller, url) {
+              onLoadStart: (controller, url) async {
                 setState(() => _isLoading = true);
+                await controller.evaluateJavascript(source: _getSandboxBypassScript());
               },
-              onLoadStop: (controller, url) {
+              onLoadStop: (controller, url) async {
+                await controller.evaluateJavascript(source: _getSandboxBypassScript());
                 setState(() => _isLoading = false);
               },
               shouldOverrideUrlLoading: (controller, navigationAction) async {

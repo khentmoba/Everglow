@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
-import 'package:everglow/services/auth_service.dart';
 import '../screens/video_player_screen.dart';
 
 class EpisodeDrawer extends StatefulWidget {
@@ -21,28 +19,35 @@ class EpisodeDrawer extends StatefulWidget {
 
 class _EpisodeDrawerState extends State<EpisodeDrawer> {
   final TMDBService _tmdbService = TMDBService();
-  bool _isLoadingDetails = true;
   bool _isLoadingEpisodes = false;
+  bool _isLoadingCast = true;
+  bool _isLoadingReviews = true;
+  bool _isLoadingSimilar = true;
   Map<String, dynamic>? _details;
   List<dynamic> _seasons = [];
   int? _selectedSeasonNumber;
   List<dynamic> _episodes = [];
+  List<Map<String, dynamic>> _cast = [];
+  List<Map<String, dynamic>> _reviews = [];
+  List<MediaItem> _similar = [];
   late String _currentStatus;
+  List<String> _genreNames = [];
 
   @override
   void initState() {
     super.initState();
     _currentStatus = widget.item.status;
     _fetchMediaDetails();
+    _fetchCast();
+    _fetchReviews();
+    _fetchSimilar();
   }
 
   Future<void> _fetchMediaDetails() async {
-    setState(() => _isLoadingDetails = true);
     final details = await _tmdbService.fetchMediaDetails(widget.item.tmdbId, widget.item.mediaType);
     if (mounted) {
       setState(() {
         _details = details;
-        _isLoadingDetails = false;
         if (widget.item.mediaType == 'tv' && details != null) {
           _seasons = details['seasons'] ?? [];
           // Find first valid season
@@ -57,6 +62,13 @@ class _EpisodeDrawerState extends State<EpisodeDrawer> {
             }
           }
         }
+        // Parse genre names
+        if (details != null && details['genres'] != null) {
+          _genreNames = (details['genres'] as List)
+              .map<String>((g) => g['name']?.toString() ?? '')
+              .where((n) => n.isNotEmpty)
+              .toList();
+        }
       });
     }
   }
@@ -68,6 +80,39 @@ class _EpisodeDrawerState extends State<EpisodeDrawer> {
       setState(() {
         _episodes = episodes;
         _isLoadingEpisodes = false;
+      });
+    }
+  }
+
+  Future<void> _fetchCast() async {
+    setState(() => _isLoadingCast = true);
+    final cast = await _tmdbService.fetchCredits(widget.item.tmdbId, widget.item.mediaType);
+    if (mounted) {
+      setState(() {
+        _cast = cast;
+        _isLoadingCast = false;
+      });
+    }
+  }
+
+  Future<void> _fetchReviews() async {
+    setState(() => _isLoadingReviews = true);
+    final reviews = await _tmdbService.fetchReviews(widget.item.tmdbId, widget.item.mediaType);
+    if (mounted) {
+      setState(() {
+        _reviews = reviews;
+        _isLoadingReviews = false;
+      });
+    }
+  }
+
+  Future<void> _fetchSimilar() async {
+    setState(() => _isLoadingSimilar = true);
+    final similar = await _tmdbService.fetchSimilar(widget.item.tmdbId, widget.item.mediaType);
+    if (mounted) {
+      setState(() {
+        _similar = similar;
+        _isLoadingSimilar = false;
       });
     }
   }
@@ -130,20 +175,48 @@ class _EpisodeDrawerState extends State<EpisodeDrawer> {
     );
   }
 
+  void _showSimilarItem(MediaItem item) {
+    Navigator.pop(context);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => EpisodeDrawer(item: item),
+    );
+  }
+
+  String _getReviewerInitial(String name) {
+    if (name.isEmpty) return '?';
+    return name[0].toUpperCase();
+  }
+
+  Color _getAvatarColor(String name) {
+    final colors = [
+      AppTheme.deepRose,
+      AppTheme.warmAmber,
+      AppTheme.softLavender,
+      AppTheme.blushGold,
+      AppTheme.roseQuartz,
+    ];
+    if (name.isEmpty) return AppTheme.deepRose;
+    return colors[name.codeUnitAt(0) % colors.length];
+  }
+
   @override
   Widget build(BuildContext context) {
     final rating = _details?['vote_average']?.toStringAsFixed(1) ?? 'N/A';
     final releaseDate = widget.item.mediaType == 'movie'
         ? (_details?['release_date'] ?? '')
         : (_details?['first_air_date'] ?? '');
-    final year = releaseDate.isNotEmpty ? releaseDate.split('-')[0] : '';
+    final year = releaseDate.isNotEmpty ? releaseDate.split('-')[0] : widget.item.year;
+    final runtime = _details?['runtime'] ?? _details?['episode_run_time']?[0];
     final backdropPath = _details?['backdrop_path'];
     final backdropUrl = backdropPath != null
         ? 'https://image.tmdb.org/t/p/w500$backdropPath'
         : widget.item.posterPath;
 
     return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
+      height: MediaQuery.of(context).size.height * 0.9,
       decoration: const BoxDecoration(
         color: AppTheme.twilight,
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
@@ -222,6 +295,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer> {
                             style: GoogleFonts.outfit(
                               color: AppTheme.petalWhite.withOpacity(0.6),
                               fontSize: 14,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                           const SizedBox(width: 15),
@@ -252,10 +326,29 @@ class _EpisodeDrawerState extends State<EpisodeDrawer> {
                             ),
                           ),
                         ),
+                        if (runtime != null) ...[
+                          const SizedBox(width: 15),
+                          Text(
+                            '${runtime}m',
+                            style: GoogleFonts.outfit(
+                              color: AppTheme.petalWhite.withOpacity(0.6),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
+                    const SizedBox(height: 12),
+
+                    // Genre chips
+                    if (_genreNames.isNotEmpty)
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: _genreNames.map((g) => _buildGenreChip(g)).toList(),
+                      ),
                     const SizedBox(height: 15),
-                    
+
                     // Status Actions: Want to watch / Watched by Khent / Clair / Both
                     Text(
                       'Watchlist Status',
@@ -312,7 +405,6 @@ class _EpisodeDrawerState extends State<EpisodeDrawer> {
                         ),
                       )
                     else ...[
-                      // Season Selector Dropdown
                       if (_seasons.isNotEmpty) ...[
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -462,10 +554,400 @@ class _EpisodeDrawerState extends State<EpisodeDrawer> {
                   ),
                 ),
             ],
+
+            // CAST section
+            SliverToBoxAdapter(
+              child: _buildSectionHeader('🎭 Cast'),
+            ),
+            SliverToBoxAdapter(
+              child: _buildCastSection(),
+            ),
+
+            // USER REVIEWS section
+            SliverToBoxAdapter(
+              child: _buildSectionHeader('💬 User Reviews'),
+            ),
+            SliverToBoxAdapter(
+              child: _buildReviewsSection(),
+            ),
+
+            // MORE LIKE THIS section
+            SliverToBoxAdapter(
+              child: _buildSectionHeader('✨ More Like This'),
+            ),
+            SliverToBoxAdapter(
+              child: _buildSimilarSection(),
+            ),
+
             // Padding bottom
             const SliverToBoxAdapter(child: SizedBox(height: 50)),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+      child: Text(
+        title,
+        style: GoogleFonts.cormorantGaramond(
+          fontSize: 22,
+          fontWeight: FontWeight.bold,
+          color: AppTheme.roseQuartz,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGenreChip(String name) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppTheme.deepRose.withOpacity(0.25),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.deepRose.withOpacity(0.4)),
+      ),
+      child: Text(
+        name,
+        style: GoogleFonts.outfit(
+          color: AppTheme.petalWhite,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCastSection() {
+    if (_isLoadingCast) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+        child: Center(
+          child: SizedBox(
+            height: 24,
+            width: 24,
+            child: CircularProgressIndicator(color: AppTheme.deepRose, strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+    if (_cast.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        child: Text(
+          'No cast information available.',
+          style: GoogleFonts.outfit(color: AppTheme.petalWhite.withOpacity(0.5), fontSize: 13),
+        ),
+      );
+    }
+    return SizedBox(
+      height: 150,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        itemCount: _cast.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final member = _cast[index];
+          return SizedBox(
+            width: 90,
+            child: Column(
+              children: [
+                Container(
+                  width: 75,
+                  height: 75,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppTheme.velvet,
+                    border: Border.all(color: AppTheme.roseQuartz.withOpacity(0.3), width: 1.5),
+                  ),
+                  child: ClipOval(
+                    child: (member['profilePath'] ?? '').toString().isNotEmpty
+                        ? Image.network(
+                            member['profilePath'],
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Center(
+                              child: Text(
+                                _getReviewerInitial(member['name'] ?? '?'),
+                                style: GoogleFonts.cormorantGaramond(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.roseQuartz,
+                                ),
+                              ),
+                            ),
+                          )
+                        : Center(
+                            child: Text(
+                              _getReviewerInitial(member['name'] ?? '?'),
+                              style: GoogleFonts.cormorantGaramond(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.roseQuartz,
+                              ),
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  member['name'] ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(
+                    color: AppTheme.petalWhite,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if ((member['character'] ?? '').toString().isNotEmpty)
+                  Text(
+                    member['character'],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.outfit(
+                      color: AppTheme.roseQuartz.withOpacity(0.7),
+                      fontSize: 9,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildReviewsSection() {
+    if (_isLoadingReviews) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Center(
+          child: SizedBox(
+            height: 24,
+            width: 24,
+            child: CircularProgressIndicator(color: AppTheme.deepRose, strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+    if (_reviews.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        child: Text(
+          'No reviews yet. Be the first to share your thoughts! 💭',
+          style: GoogleFonts.outfit(
+            color: AppTheme.petalWhite.withOpacity(0.5),
+            fontSize: 13,
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: _reviews.map((review) {
+          final author = review['author'] ?? 'Anonymous';
+          final content = (review['content'] ?? '').toString();
+          final rating = review['rating'];
+          // Trim very long reviews for display
+          final preview = content.length > 280 ? '${content.substring(0, 280)}…' : content;
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppTheme.velvet.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppTheme.roseQuartz.withOpacity(0.15)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _getAvatarColor(author),
+                      ),
+                      alignment: Alignment.center,
+                      child: (review['avatar'] ?? '').toString().isNotEmpty
+                          ? ClipOval(
+                              child: Image.network(
+                                review['avatar'],
+                                width: 36,
+                                height: 36,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Text(
+                                  _getReviewerInitial(author),
+                                  style: GoogleFonts.cormorantGaramond(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.petalWhite,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Text(
+                              _getReviewerInitial(author),
+                              style: GoogleFonts.cormorantGaramond(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.petalWhite,
+                              ),
+                            ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            author,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.outfit(
+                              color: AppTheme.petalWhite,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                          if (rating != null)
+                            Row(
+                              children: [
+                                const Icon(Icons.star_rounded, color: AppTheme.warmAmber, size: 12),
+                                const SizedBox(width: 2),
+                                Text(
+                                  rating.toString(),
+                                  style: GoogleFonts.outfit(
+                                    color: AppTheme.blushGold,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  preview,
+                  style: GoogleFonts.outfit(
+                    color: AppTheme.petalWhite.withOpacity(0.85),
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildSimilarSection() {
+    if (_isLoadingSimilar) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Center(
+          child: SizedBox(
+            height: 24,
+            width: 24,
+            child: CircularProgressIndicator(color: AppTheme.deepRose, strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+    if (_similar.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        child: Text(
+          'No similar titles found.',
+          style: GoogleFonts.outfit(color: AppTheme.petalWhite.withOpacity(0.5), fontSize: 13),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 210,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        itemCount: _similar.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final item = _similar[index];
+          return GestureDetector(
+            onTap: () => _showSimilarItem(item),
+            child: SizedBox(
+              width: 120,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AspectRatio(
+                    aspectRatio: 2 / 3,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 6,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: item.posterPath.isNotEmpty
+                            ? Image.network(item.posterPath, fit: BoxFit.cover)
+                            : Container(
+                                color: AppTheme.velvet,
+                                child: const Center(
+                                  child: Icon(Icons.movie_creation_outlined, color: AppTheme.roseQuartz),
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      color: AppTheme.petalWhite,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    item.year.isNotEmpty ? item.year : (item.mediaType == 'movie' ? 'Movie' : 'Series'),
+                    style: GoogleFonts.outfit(
+                      color: AppTheme.blushGold.withOpacity(0.7),
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

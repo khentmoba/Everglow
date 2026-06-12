@@ -860,6 +860,27 @@ button {
     inset 0 -1px 0 rgba(0, 0, 0, 0.2);
 }
 
+.pedal-reverse {
+  background: linear-gradient(180deg, rgba(80, 60, 140, 0.55), rgba(40, 24, 80, 0.65));
+  border-color: rgba(180, 160, 240, 0.28);
+  color: rgba(230, 220, 255, 0.9);
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.25);
+}
+
+.pedal-reverse:active {
+  background: linear-gradient(180deg, rgba(140, 100, 220, 0.55), rgba(80, 40, 160, 0.6));
+  border-color: rgba(200, 180, 255, 0.6);
+  color: #fff;
+  transform: translateY(2px) scale(0.98);
+  box-shadow:
+    0 0 18px rgba(140, 100, 220, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+
 /* ---- Boost button (circular progress ring) ---- */
 
 .pedal-boost {
@@ -1052,7 +1073,8 @@ button {
     height: 24px;
   }
   .pedal-gas,
-  .pedal-brake {
+  .pedal-brake,
+  .pedal-reverse {
     width: 62px;
     height: 88px;
     font-size: 11px;

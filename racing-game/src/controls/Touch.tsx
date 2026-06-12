@@ -64,6 +64,10 @@ export function Touch(): JSX.Element | null {
             <span className="pedal-label">BRAKE</span>
             <span className="pedal-icon">▼</span>
           </button>
+          <button className="touch-btn pedal-reverse" {...press(actions.backward)} aria-label="Reverse">
+            <span className="pedal-label">REV</span>
+            <span className="pedal-icon">▽</span>
+          </button>
           <button className="touch-btn pedal-gas" {...press(actions.forward)} aria-label="Gas">
             <span className="pedal-label">GAS</span>
             <span className="pedal-icon">▲</span>

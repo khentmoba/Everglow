@@ -14,16 +14,25 @@ Everglow tracks your relationship journey through gamified experiences, shared a
 
 ## Latest Release
 
-> **v1.4.0** — Cinema: multi-provider video player + episode drawer
+> **v1.5.0** — Cinema Overhaul: genre browsing, cast & reviews, carousel, trending rankings
 > [View full changelog →](https://github.com/khentmoba/Everglow/releases/latest)
 
-**Cinema:**
-- Video player now supports 17 streaming providers (VidLink, AutoEmbed, Videasy, VidSrc, VidKing, SuperEmbed, VsEmbed, 111Movies, Vidify, Vidzee, Filmu, Vares, VidFast, VidRock, VixSrc, VidGod) with ad-percentage ratings
-- Episode drawer toggle-to-remove behavior (tap current status to remove from watchlist)
-- Expanded native ad blocker, sandbox compatibility fixes, dynamic URL construction per provider
-- New `removeFromWatchList()` TMDB service method
+**Cinema Overhaul:**
+- Redesigned home screen: trending carousel with autoplay, Global/Philippines trending rankings
+- Now Showing in Cinema and Newly Released sections (PH region)
+- Genre-based browsing rows (Action, Comedy, Horror, Romance, Drama, Animation, Mystery, Sci-Fi, etc.)
+- Episode drawer expanded: cast section with profile photos, user reviews with ratings, "More Like This" recommendations, genre chips, runtime display
+- Sandbox bypass script injected into video player to prevent "Please Disable Sandbox" errors on streaming providers
+- `backdropPath` and `year` fields added to `MediaItem` model
+- Refactored TMDB service with `_mapResultToMediaItem()` helper, added `fetchNowPlaying()`, `fetchUpcoming()`, `fetchGenreList()`, `discoverByGenre()`, `fetchCredits()`, `fetchReviews()`, `fetchSimilar()`
 
-_Previous releases: [v1.3.0 "Racing Game"](https://github.com/khentmoba/Everglow/releases/tag/v1.3.0) · [v1.2.0 "Play Zone"](https://github.com/khentmoba/Everglow/releases/tag/v1.2.0) · [v1.1.0 "Gamified"](https://github.com/khentmoba/Everglow/releases/tag/v1.1.0) · [v1.0.0 "Bloom"](https://github.com/khentmoba/Everglow/releases/tag/v1.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)
+**Racing Game (Midnight Drive):**
+- Added Reverse (REV) button to mobile touch controls
+- Fixed forward/backward vehicle direction logic (was inverted)
+- Smarter respawn system: tracks `lastCheckpointIndex` for progressive waypoint matching, uses exact waypoint rotation
+- Zeroed angular velocity for stable respawns
+
+_Previous releases: [v1.4.0 "Cinema"](https://github.com/khentmoba/Everglow/releases/tag/v1.4.0) · [v1.3.0 "Racing Game"](https://github.com/khentmoba/Everglow/releases/tag/v1.3.0) · [v1.2.0 "Play Zone"](https://github.com/khentmoba/Everglow/releases/tag/v1.2.0) · [v1.1.0 "Gamified"](https://github.com/khentmoba/Everglow/releases/tag/v1.1.0) · [v1.0.0 "Bloom"](https://github.com/khentmoba/Everglow/releases/tag/v1.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)
 
 ## Features
 
@@ -44,6 +53,12 @@ _Previous releases: [v1.3.0 "Racing Game"](https://github.com/khentmoba/Everglow
 | **XP System** | Gamified levels, streaks, and sound effects | 1.1.0 |
 | **Play Zone** | Games hub with Midnight Drive racing game | **1.2.0** |
 | **Midnight Drive** | 3D desert racing game with touch controls + 1v1 multiplayer | **1.2.0** |
+| **Trending Carousel** | Auto-playing PageView carousel for trending titles | **1.5.0** |
+| **Genre Browsing** | Browse by genre (Action, Comedy, Horror, Romance, etc.) | **1.5.0** |
+| **Now Showing** | Movies currently in Philippine cinemas + newly released | **1.5.0** |
+| **Cast & Reviews** | Cast profiles and user reviews in media details drawer | **1.5.0** |
+| **Similar Titles** | "More Like This" recommendations in episode drawer | **1.5.0** |
+| **Reverse Gear** | Reverse button for racing game mobile touch controls | **1.5.0** |
 
 ## Tech Stack
 

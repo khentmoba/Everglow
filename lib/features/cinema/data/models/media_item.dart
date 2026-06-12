@@ -6,6 +6,8 @@ class MediaItem {
   final String title;
   final String mediaType;
   final String posterPath;
+  final String backdropPath;
+  final String year;
   final String status;
   final DateTime addedAt;
 
@@ -15,6 +17,8 @@ class MediaItem {
     required this.title,
     required this.mediaType,
     required this.posterPath,
+    this.backdropPath = '',
+    this.year = '',
     required this.status,
     required this.addedAt,
   });
@@ -41,6 +45,8 @@ class MediaItem {
       title: data['title'] ?? '',
       mediaType: data['mediaType'] ?? 'movie',
       posterPath: data['posterPath'] ?? '',
+      backdropPath: data['backdropPath'] ?? '',
+      year: data['year'] ?? '',
       status: data['status'] ?? 'to-watch',
       addedAt: _parseDateTime(data['addedAt']),
     );
@@ -65,6 +71,8 @@ class MediaItem {
       'title': title,
       'mediaType': mediaType,
       'posterPath': posterPath,
+      'backdropPath': backdropPath,
+      'year': year,
       'status': status,
       'addedAt': Timestamp.fromDate(addedAt),
     };
@@ -76,6 +84,8 @@ class MediaItem {
     String? title,
     String? mediaType,
     String? posterPath,
+    String? backdropPath,
+    String? year,
     String? status,
     DateTime? addedAt,
   }) {
@@ -85,6 +95,8 @@ class MediaItem {
       title: title ?? this.title,
       mediaType: mediaType ?? this.mediaType,
       posterPath: posterPath ?? this.posterPath,
+      backdropPath: backdropPath ?? this.backdropPath,
+      year: year ?? this.year,
       status: status ?? this.status,
       addedAt: addedAt ?? this.addedAt,
     );

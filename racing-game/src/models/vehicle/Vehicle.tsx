@@ -71,7 +71,7 @@ export function Vehicle({ angularVelocity, children, position, rotation }: Vehic
 
     engineValue = lerp(
       engineValue,
-      controls.forward || controls.backward ? force * (controls.forward && !controls.backward ? (isBoosting ? -1.5 : -1) : 1) : 0,
+      controls.forward || controls.backward ? force * (controls.forward && !controls.backward ? (isBoosting ? 1.5 : 1) : -1) : 0,
       delta * 20,
     )
     steeringValue = lerp(steeringValue, controls.left || controls.right ? steer * (controls.left && !controls.right ? 1 : -1) : 0, delta * 20)

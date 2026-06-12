@@ -8,6 +8,8 @@ import 'package:everglow/features/cinema/data/models/media_item.dart';
 class TMDBService {
   final String _baseUrl = 'https://api.themoviedb.org/3';
   final String _imageBaseUrl = 'https://image.tmdb.org/t/p/w500';
+  final String _imageBaseOriginal = 'https://image.tmdb.org/t/p/original';
+  final String _profileBaseUrl = 'https://image.tmdb.org/t/p/w185';
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Singleton pattern
@@ -15,11 +17,39 @@ class TMDBService {
   factory TMDBService() => _instance;
   TMDBService._internal();
 
+  // Generic mapping helper: TMDB result -> MediaItem
+  MediaItem _mapResultToMediaItem(Map<String, dynamic> item, {String? forcedMediaType}) {
+    final mediaType = forcedMediaType ?? item['media_type'] ?? 'movie';
+    final title = mediaType == 'movie'
+        ? (item['title'] ?? item['name'] ?? 'Unknown Title')
+        : (item['name'] ?? item['title'] ?? 'Unknown Title');
+    final posterPath = item['poster_path'];
+    final releaseDate = item['release_date'] ?? item['first_air_date'] ?? '';
+    final year = releaseDate.toString().length >= 4
+        ? releaseDate.toString().substring(0, 4)
+        : '';
+
+    return MediaItem(
+      id: '',
+      tmdbId: item['id'] ?? 0,
+      title: title,
+      mediaType: mediaType,
+      posterPath: posterPath != null ? '$_imageBaseUrl$posterPath' : '',
+      backdropPath: item['backdrop_path'] != null
+          ? '$_imageBaseOriginal${item['backdrop_path']}'
+          : '',
+      status: 'to-watch',
+      year: year,
+      addedAt: DateTime.now(),
+    );
+  }
+
   /// Search for movies and TV shows
   Future<List<MediaItem>> searchMedia(String query) async {
     if (query.isEmpty) return [];
 
-    final url = Uri.parse('$_baseUrl/search/multi?api_key=${ApiKeys.tmdbApiKey}&query=${Uri.encodeComponent(query)}');
+    final url = Uri.parse(
+        '$_baseUrl/search/multi?api_key=${ApiKeys.tmdbApiKey}&query=${Uri.encodeComponent(query)}');
 
     try {
       final response = await http.get(url);
@@ -28,22 +58,10 @@ class TMDBService {
         final List results = data['results'] ?? [];
 
         return results
-            .where((item) => item['media_type'] == 'movie' || item['media_type'] == 'tv')
-            .map((item) {
-          final mediaType = item['media_type'] ?? 'movie';
-          final title = mediaType == 'movie' ? item['title'] : item['name'];
-          final posterPath = item['poster_path'];
-
-          return MediaItem(
-            id: '', // Not in Firestore yet
-            tmdbId: item['id'] ?? 0,
-            title: title ?? 'Unknown Title',
-            mediaType: mediaType,
-            posterPath: posterPath != null ? '$_imageBaseUrl$posterPath' : '',
-            status: 'to-watch',
-            addedAt: DateTime.now(),
-          );
-        }).toList();
+            .where((item) =>
+                item['media_type'] == 'movie' || item['media_type'] == 'tv')
+            .map((item) => _mapResultToMediaItem(item))
+            .toList();
       } else {
         throw Exception('Failed to search TMDB: ${response.statusCode}');
       }
@@ -53,9 +71,14 @@ class TMDBService {
     }
   }
 
-  /// Fetch Trending Today
-  Future<List<MediaItem>> fetchTrendingToday() async {
-    final url = Uri.parse('$_baseUrl/trending/all/day?api_key=${ApiKeys.tmdbApiKey}');
+  /// Fetch Trending (optionally by region, e.g. 'PH' for Philippines)
+  /// timeWindow: 'day' or 'week'
+  Future<List<MediaItem>> fetchTrending({
+    String region = 'all',
+    String timeWindow = 'week',
+  }) async {
+    final url = Uri.parse(
+        '$_baseUrl/trending/all/$timeWindow?api_key=${ApiKeys.tmdbApiKey}&region=$region');
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -63,22 +86,10 @@ class TMDBService {
         final List results = data['results'] ?? [];
 
         return results
-            .where((item) => item['media_type'] == 'movie' || item['media_type'] == 'tv')
-            .map((item) {
-          final mediaType = item['media_type'] ?? 'movie';
-          final title = mediaType == 'movie' ? item['title'] : item['name'];
-          final posterPath = item['poster_path'];
-
-          return MediaItem(
-            id: '',
-            tmdbId: item['id'] ?? 0,
-            title: title ?? 'Unknown Title',
-            mediaType: mediaType,
-            posterPath: posterPath != null ? '$_imageBaseUrl$posterPath' : '',
-            status: 'to-watch',
-            addedAt: DateTime.now(),
-          );
-        }).toList();
+            .where((item) =>
+                item['media_type'] == 'movie' || item['media_type'] == 'tv')
+            .map((item) => _mapResultToMediaItem(item))
+            .toList();
       }
     } catch (e) {
       print('TMDB Trending Error: $e');
@@ -86,27 +97,24 @@ class TMDBService {
     return [];
   }
 
+  /// Fetch Trending Today (kept for backwards compatibility)
+  Future<List<MediaItem>> fetchTrendingToday() async {
+    return fetchTrending(region: 'all', timeWindow: 'day');
+  }
+
   /// Fetch Top Rated Movies
   Future<List<MediaItem>> fetchTopRatedMovies() async {
-    final url = Uri.parse('$_baseUrl/movie/top_rated?api_key=${ApiKeys.tmdbApiKey}');
+    final url = Uri.parse(
+        '$_baseUrl/movie/top_rated?api_key=${ApiKeys.tmdbApiKey}');
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
 
-        return results.map((item) {
-          final posterPath = item['poster_path'];
-          return MediaItem(
-            id: '',
-            tmdbId: item['id'] ?? 0,
-            title: item['title'] ?? 'Unknown Title',
-            mediaType: 'movie',
-            posterPath: posterPath != null ? '$_imageBaseUrl$posterPath' : '',
-            status: 'to-watch',
-            addedAt: DateTime.now(),
-          );
-        }).toList();
+        return results
+            .map((item) => _mapResultToMediaItem(item, forcedMediaType: 'movie'))
+            .toList();
       }
     } catch (e) {
       print('TMDB Top Rated Error: $e');
@@ -123,21 +131,172 @@ class TMDBService {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
 
-        return results.map((item) {
-          final posterPath = item['poster_path'];
-          return MediaItem(
-            id: '',
-            tmdbId: item['id'] ?? 0,
-            title: item['name'] ?? 'Unknown Title',
-            mediaType: 'tv',
-            posterPath: posterPath != null ? '$_imageBaseUrl$posterPath' : '',
-            status: 'to-watch',
-            addedAt: DateTime.now(),
-          );
-        }).toList();
+        return results
+            .map((item) => _mapResultToMediaItem(item, forcedMediaType: 'tv'))
+            .toList();
       }
     } catch (e) {
       print('TMDB Popular TV Error: $e');
+    }
+    return [];
+  }
+
+  /// Fetch Now Playing in Cinemas (movies currently in theaters)
+  Future<List<MediaItem>> fetchNowPlaying({String region = 'PH'}) async {
+    final url = Uri.parse(
+        '$_baseUrl/movie/now_playing?api_key=${ApiKeys.tmdbApiKey}&region=$region');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List results = data['results'] ?? [];
+
+        return results
+            .map((item) => _mapResultToMediaItem(item, forcedMediaType: 'movie'))
+            .toList();
+      }
+    } catch (e) {
+      print('TMDB Now Playing Error: $e');
+    }
+    return [];
+  }
+
+  /// Fetch Upcoming movies (newly released / coming soon)
+  Future<List<MediaItem>> fetchUpcoming({String region = 'PH'}) async {
+    final url = Uri.parse(
+        '$_baseUrl/movie/upcoming?api_key=${ApiKeys.tmdbApiKey}&region=$region');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List results = data['results'] ?? [];
+
+        return results
+            .map((item) => _mapResultToMediaItem(item, forcedMediaType: 'movie'))
+            .toList();
+      }
+    } catch (e) {
+      print('TMDB Upcoming Error: $e');
+    }
+    return [];
+  }
+
+  /// Fetch list of all available genres for a media type
+  Future<Map<int, String>> fetchGenreList(String mediaType) async {
+    final url = Uri.parse(
+        '$_baseUrl/genre/$mediaType/list?api_key=${ApiKeys.tmdbApiKey}');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List genres = data['genres'] ?? [];
+        return {
+          for (final g in genres) (g['id'] as int): (g['name'] as String),
+        };
+      }
+    } catch (e) {
+      print('TMDB Genre List Error: $e');
+    }
+    return {};
+  }
+
+  /// Discover media by genre
+  Future<List<MediaItem>> discoverByGenre({
+    required int genreId,
+    required String mediaType,
+    String sortBy = 'popularity.desc',
+  }) async {
+    final url = Uri.parse(
+        '$_baseUrl/discover/$mediaType?api_key=${ApiKeys.tmdbApiKey}&with_genres=$genreId&sort_by=$sortBy');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List results = data['results'] ?? [];
+
+        return results
+            .map((item) => _mapResultToMediaItem(item, forcedMediaType: mediaType))
+            .toList();
+      }
+    } catch (e) {
+      print('TMDB Discover By Genre Error: $e');
+    }
+    return [];
+  }
+
+  /// Fetch cast (credits) for a movie or TV show
+  Future<List<Map<String, dynamic>>> fetchCredits(int id, String mediaType) async {
+    final url = Uri.parse(
+        '$_baseUrl/$mediaType/$id/credits?api_key=${ApiKeys.tmdbApiKey}');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List cast = (data['cast'] as List?) ?? [];
+        return cast.take(15).map<Map<String, dynamic>>((c) {
+          return {
+            'id': c['id'],
+            'name': c['name'] ?? 'Unknown',
+            'character': c['character'] ?? '',
+            'profilePath': c['profile_path'] != null
+                ? '$_profileBaseUrl${c['profile_path']}'
+                : '',
+          };
+        }).toList();
+      }
+    } catch (e) {
+      print('TMDB Credits Error: $e');
+    }
+    return [];
+  }
+
+  /// Fetch user reviews for a movie or TV show
+  Future<List<Map<String, dynamic>>> fetchReviews(int id, String mediaType) async {
+    final url = Uri.parse(
+        '$_baseUrl/$mediaType/$id/reviews?api_key=${ApiKeys.tmdbApiKey}');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List results = (data['results'] as List?) ?? [];
+        return results.take(8).map<Map<String, dynamic>>((r) {
+          final author = r['author'] ?? 'Anonymous';
+          final rawContent = r['content'] ?? '';
+          final rating = r['author_details']?['rating'];
+          return {
+            'id': r['id'],
+            'author': author,
+            'content': rawContent,
+            'rating': rating,
+            'createdAt': r['created_at'] ?? '',
+            'avatar': r['author_details']?['avatar_path'] != null
+                ? '$_profileBaseUrl${r['author_details']['avatar_path']}'
+                : '',
+          };
+        }).toList();
+      }
+    } catch (e) {
+      print('TMDB Reviews Error: $e');
+    }
+    return [];
+  }
+
+  /// Fetch similar movies / TV shows
+  Future<List<MediaItem>> fetchSimilar(int id, String mediaType) async {
+    final url = Uri.parse(
+        '$_baseUrl/$mediaType/$id/similar?api_key=${ApiKeys.tmdbApiKey}');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List results = data['results'] ?? [];
+
+        return results
+            .map((item) => _mapResultToMediaItem(item, forcedMediaType: mediaType))
+            .toList();
+      }
+    } catch (e) {
+      print('TMDB Similar Error: $e');
     }
     return [];
   }
@@ -158,7 +317,8 @@ class TMDBService {
 
   /// Fetch TV Show Season Episodes
   Future<List<dynamic>> fetchSeasonEpisodes(int tvId, int seasonNumber) async {
-    final url = Uri.parse('$_baseUrl/tv/$tvId/season/$seasonNumber?api_key=${ApiKeys.tmdbApiKey}');
+    final url = Uri.parse(
+        '$_baseUrl/tv/$tvId/season/$seasonNumber?api_key=${ApiKeys.tmdbApiKey}');
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -245,6 +405,8 @@ class TMDBService {
         'title': item.title,
         'mediaType': item.mediaType,
         'posterPath': item.posterPath,
+        'backdropPath': item.backdropPath,
+        'year': item.year,
         'status': item.status,
         'addedAt': item.addedAt.toIso8601String(),
       }).toList();
@@ -267,6 +429,8 @@ class TMDBService {
           title: data['title'] ?? '',
           mediaType: data['mediaType'] ?? 'movie',
           posterPath: data['posterPath'] ?? '',
+          backdropPath: data['backdropPath'] ?? '',
+          year: data['year'] ?? '',
           status: data['status'] ?? 'to-watch',
           addedAt: DateTime.tryParse(data['addedAt'] ?? '') ?? DateTime.now(),
         )).toList();

@@ -8,7 +8,7 @@ import type { GetState, SetState, StateSelector } from 'zustand'
 
 import { keys } from './keys'
 
-export const angularVelocity = [0, 0.5, 0] as const
+export const angularVelocity = [0, 0, 0] as const
 export const cameras = ['DEFAULT', 'FIRST_PERSON', 'BIRD_EYE'] as const
 
 export const dpr = 1.5 as const
@@ -171,6 +171,7 @@ export interface IState extends BaseState {
   dpr: number
   finished: number
   get: Getter
+  lastCheckpointIndex: number
   level: RefObject<Group>
   userId: string | null
   displayName: string | null
@@ -206,7 +207,7 @@ const useStoreImpl = create<IState>((set: SetState<IState>, get: GetState<IState
       const { start } = get()
       if (start) {
         const checkpoint = Date.now() - start
-        set({ checkpoint })
+        set({ checkpoint, lastCheckpointIndex: 4 })
       }
     },
     onFinish: () => {
@@ -234,12 +235,14 @@ const useStoreImpl = create<IState>((set: SetState<IState>, get: GetState<IState
       set((state) => {
         if (!state.api) return state
 
-        const cx = currentPos?.[0] ?? state.chassisBody.current?.position.x ?? 0
-        const cz = currentPos?.[2] ?? state.chassisBody.current?.position.z ?? 0
+        const chassis = state.chassisBody.current
+        const cx = currentPos?.[0] ?? chassis?.position.x ?? position[0]
+        const cz = currentPos?.[2] ?? chassis?.position.z ?? position[2]
 
-        let bestIndex = 0
+        const startIndex = Math.min(state.lastCheckpointIndex, waypoints.length - 1)
+        let bestIndex = startIndex
         let bestDist = Infinity
-        for (let i = 0; i < waypoints.length; i++) {
+        for (let i = startIndex; i < waypoints.length; i++) {
           const wp = waypoints[i]
           const dx = wp.position[0] - cx
           const dz = wp.position[2] - cz
@@ -250,23 +253,11 @@ const useStoreImpl = create<IState>((set: SetState<IState>, get: GetState<IState
           }
         }
 
-        const nextIndex = (bestIndex + 1) % waypoints.length
         const wp = waypoints[bestIndex]
-        const next = waypoints[nextIndex]
-
-        const dx = next.position[0] - wp.position[0]
-        const dz = next.position[2] - wp.position[2]
-        const computedYaw = Math.atan2(-dx, -dz)
-
-        const yaw = wp.rotation[1]
-        let delta = computedYaw - yaw
-        while (delta > Math.PI) delta -= 2 * Math.PI
-        while (delta < -Math.PI) delta += 2 * Math.PI
-        const correctedY = Math.abs(delta) < (Math.PI / 2) ? computedYaw : yaw + Math.PI
 
         state.api.angularVelocity.set(0, 0, 0)
         state.api.position.set(wp.position[0], wp.position[1] + 0.5, wp.position[2])
-        state.api.rotation.set(0, correctedY, 0)
+        state.api.rotation.set(0, wp.rotation[1], 0)
         state.api.velocity.set(0, 0, 0)
 
         return { ...state, respawnCount: state.respawnCount + 1, respawnFlash: Date.now() }
@@ -289,6 +280,7 @@ const useStoreImpl = create<IState>((set: SetState<IState>, get: GetState<IState
     dpr,
     finished: 0,
     get,
+    lastCheckpointIndex: 0,
     keyInput: null,
     level: createRef<Group>(),
     userId: null,
