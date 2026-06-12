@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:everglow/features/dashboard/domain/models/milestone.dart';
 import 'package:provider/provider.dart';
