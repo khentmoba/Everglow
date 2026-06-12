@@ -1,5 +1,9 @@
 # Everglow
 
+[![Latest Release](https://img.shields.io/github/v/release/khentmoba/Everglow?style=flat-square&label=latest&color=rgba(194,24,91,0.6))](https://github.com/khentmoba/Everglow/releases)
+[![Deploy Status](https://img.shields.io/github/actions/workflow/status/khentmoba/Everglow/deploy.yml?style=flat-square&label=deploy)](https://github.com/khentmoba/Everglow/actions/workflows/deploy.yml)
+[![Firebase Hosting](https://img.shields.io/badge/hosted%20on-firebase-FFCA28?style=flat-square&logo=firebase)](https://everglow-1c6db.web.app)
+
 A private digital relationship scrapbook built with Flutter Web for **Khent** and **Clair**.
 
 Everglow tracks your relationship journey through gamified experiences, shared activities, and daily engagement — all wrapped in a warm, animated interface.
@@ -8,74 +12,17 @@ Everglow tracks your relationship journey through gamified experiences, shared a
 
 **[everglow-1c6db.web.app](https://everglow-1c6db.web.app)**
 
-## Version History
+## Latest Release
 
-### v1.2.0 — "Play Zone" (Current)
+> **v2026.06.12** — Racing Game: auto-respawn + professional touch UI
+> [View full changelog →](https://github.com/khentmoba/Everglow/releases/latest)
 
-#### Midnight Drive Racing Game
+**Racing Game:**
+- Redesigned touch controls: pedal-style gas/brake, circular boost ring, steering d-pad, honk, camera toggle
+- Auto-respawn when flipped, out of map, or stuck — lands on closest track waypoint
+- Manual respawn button, glassmorphism dark styling
 
-A fully playable 3D desert racing game embedded directly in Everglow. Built with React Three Fiber, Three.js, and cannon-es physics.
-
-- **Platform:** Web (React SPA embedded via iframe in Flutter)
-- **Entry:** Dashboard → Play Zone → Midnight Drive
-- **Physics:** Realistic 4-wheel raycast vehicle with independent suspension, steering, and weight transfer
-- **Track:** Open-world desert environment with animated birds, clouds, water, and a train
-- **Visual Effects:** Dust particles, skid marks, nitro boost flames, dynamic speedometer, and minimap
-
-#### Mobile Touch Controls
-
-Full on-screen touch overlay for mobile gameplay:
-- **Left thumb:** Steering (left/right arrows) + honk
-- **Right thumb:** Gas (large), Brake, and Nitro Boost buttons
-- **Camera toggle:** Switch between chase cam, first-person, and bird's-eye view
-- **Styling:** Glassmorphism with Everglow's Dusk Petal palette
-- **Desktop:** Traditional keyboard controls still work (WASD + arrows)
-
-#### 1v1 Multiplayer
-
-Race against your partner in real-time:
-- **Matchmaking:** Lobby system via Firestore (same 60s timeout pattern as Academy)
-- **Position sync:** Each player writes their position to Firestore every 100ms
-- **Ghost car:** Opponent appears as a solid translucent car with real physics collision
-- **Results:** Side-by-side times, winner declaration with confetti celebration
-- **XP Award:** 100 XP base (200 XP for sub-60s lap)
-
-#### Play Zone Hub
-
-New centralized games area accessible from the dashboard:
-- **Portal Card:** Glassmorphism card with gamepad emblem and "ENTER PLAY ZONE" button
-- **Extensible layout:** Built to accommodate future games alongside Midnight Drive
-- **Mode selection:** Solo Practice (time trial) or 1v1 Race (matchmaking)
-
-#### Visual & Theme Updates
-
-- Complete restyle of the racing game UI to match Everglow's Dusk Petal palette (twilight backgrounds, roseQuartz text, deepRose accent)
-- Google Fonts swapped: Outfit (body) + Cormorant Garamond (headings)
-- Glassmorphism applied to all game overlays (clock, speedometer, leaderboard, help popup)
-- Loading skeleton with pulsing glow animation
-- Race completion celebration with falling petal/heart particles
-- Score leaderboard backed by Firestore (replaced Supabase)
-
-### v1.1.0 — "Gamified"
-
-- Everglow Academy (trivia with 8 categories)
-- Canvas (real-time collaborative drawing)
-- Starlight Jar (gratitude notes)
-- XP/leveling system
-- Jukebox (Last.fm music sync)
-
-### v1.0.0 — "Bloom"
-
-- Initial release
-- Gateway passcode entry door
-- Dashboard with anniversary counter
-- Heartbeat daily mood tracking
-- Guardian cat mascot
-- Cinema (TMDB watch list)
-- Sanctuary private chat
-- Daily Bloom virtual garden
-- Date Randomizer
-- Memory timeline
+_Previous releases: [v1.2.0 "Play Zone"](https://github.com/khentmoba/Everglow/releases/tag/v1.2.0) · [v1.1.0 "Gamified"](https://github.com/khentmoba/Everglow/releases/tag/v1.1.0) · [v1.0.0 "Bloom"](https://github.com/khentmoba/Everglow/releases/tag/v1.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)
 
 ## Features
 
