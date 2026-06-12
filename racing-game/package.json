@@ -50,7 +50,6 @@
     "eslint-fix": "eslint --fix --cache src",
     "prettier": "prettier --list-different '**/*.{js,jsx,md,ts,tsx}'",
     "prettier-fix": "prettier --write '**/*.{js,jsx,md,ts,tsx}'",
-    "prepare": "husky install"
   },
   "browserslist": [
     ">0.2%",
