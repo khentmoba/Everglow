@@ -186,8 +186,8 @@ class _GatewayPageState extends State<GatewayPage> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Colors.pink[50]!,
-              Colors.pink[100]!,
+              AppTheme.twilight,
+              AppTheme.velvet,
             ],
           ),
         ),
@@ -221,7 +221,7 @@ class _GatewayPageState extends State<GatewayPage> {
             child: Container(
               width: double.infinity,
               height: double.infinity,
-              color: Colors.pink[50],
+              color: AppTheme.twilight,
               child: Center(
                 child: AnimatedDoor(
                   isUnlocked: state == GatewayState.unlocking || 

@@ -8,6 +8,7 @@ import '../widgets/glass_jar.dart';
 import '../widgets/star_widget.dart';
 import '../widgets/drop_star_dialog.dart';
 import '../widgets/note_display_dialog.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 
 class StarlightJarWidget extends StatefulWidget {
   const StarlightJarWidget({super.key});
@@ -202,7 +203,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
               animation: _dropAnimation!,
               builder: (context, child) {
                 return StarWidget(
-                  color: Colors.yellow[200]!,
+                  color: AppTheme.blushGold,
                   position: _dropAnimation!.value,
                   rotation: _dropController!.value * pi * 2,
                 );
@@ -220,7 +221,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
                 final currentPos = Offset.lerp(start, end, _floatAnimation!.value)!;
 
                 return StarWidget(
-                  color: Colors.pink[300]!,
+                  color: AppTheme.deepRose,
                   position: currentPos,
                   size: 24 + (16 * _floatAnimation!.value), // Scales up as it floats out
                   rotation: _floatController!.value * pi,
@@ -234,7 +235,8 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
             bottom: 60,
             child: FloatingActionButton(
               onPressed: _showDropDialog,
-              backgroundColor: Colors.pink[200],
+              backgroundColor: AppTheme.deepRose,
+              foregroundColor: AppTheme.petalWhite,
               child: const Icon(Icons.star, color: Colors.white),
             ),
           ),
@@ -245,11 +247,11 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
 
   Color _getPastelColor(Random rand) {
     final colors = [
-      Colors.pink[100]!,
-      Colors.blue[100]!,
-      Colors.yellow[100]!,
-      Colors.purple[100]!,
-      Colors.green[100]!,
+      AppTheme.roseQuartz.withValues(alpha: 0.7),
+      AppTheme.blushGold.withValues(alpha: 0.7),
+      AppTheme.softLavender.withValues(alpha: 0.7),
+      Colors.yellow[200]!.withValues(alpha: 0.7),
+      Colors.cyan[100]!.withValues(alpha: 0.7),
     ];
     return colors[rand.nextInt(colors.length)];
   }

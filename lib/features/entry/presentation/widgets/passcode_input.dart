@@ -88,16 +88,16 @@ class _PasscodeInputState extends State<PasscodeInput> with SingleTickerProvider
             shape: BoxShape.circle,
             color: widget.isError
                 ? Colors.redAccent
-                : (isFilled ? AppTheme.neonTeal : Colors.white10),
+                : (isFilled ? AppTheme.blushGold : Colors.white10),
             boxShadow: isFilled ? [
               BoxShadow(
-                color: AppTheme.neonTeal.withValues(alpha: 0.6),
+                color: AppTheme.blushGold.withValues(alpha: 0.6),
                 blurRadius: 15,
                 spreadRadius: 2,
               )
             ] : [],
             border: Border.all(
-              color: isFilled ? AppTheme.neonTeal : Colors.white24,
+              color: isFilled ? AppTheme.blushGold : Colors.white24,
               width: 2,
             ),
           ),
@@ -169,7 +169,7 @@ class _NumButton extends StatelessWidget {
                       fontWeight: FontWeight.w400,
                     ),
                   )
-                : Icon(icon, color: AppTheme.peachyMagenta, size: 20),
+                : Icon(icon, color: AppTheme.deepRose, size: 20),
           ),
         ),
       ),

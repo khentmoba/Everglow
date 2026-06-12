@@ -46,6 +46,10 @@
     ],
     "rewrites": [
       {
+        "source": "/racing/**",
+        "destination": "/racing/index.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

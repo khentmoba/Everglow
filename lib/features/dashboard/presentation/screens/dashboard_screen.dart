@@ -27,6 +27,7 @@ import 'package:everglow/features/heartbeat/presentation/widgets/partner_status_
 import 'package:everglow/features/heartbeat/presentation/widgets/mood_picker.dart';
 import 'package:everglow/features/heartbeat/data/services/mood_service.dart';
 import '../../../academy/widgets/academy_portal_card.dart';
+import '../../../../features/play_zone/presentation/widgets/play_zone_portal_card.dart';
 import '../../../../features/jukebox/presentation/widgets/jukebox_widget.dart';
 import '../../../../features/jukebox/presentation/providers/jukebox_provider.dart';
 
@@ -158,14 +159,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         const SizedBox(height: 16),
                                         Text(
                                           'Forever In Bloom',
-                                          style: GoogleFonts.outfit(
-                                            fontSize: 32,
+                                          style: GoogleFonts.cormorantGaramond(
+                                            fontSize: 40,
                                             fontWeight: FontWeight.w900,
-                                            color: Colors.white,
+                                            color: AppTheme.roseQuartz,
                                             letterSpacing: -0.5,
                                             shadows: [
-                                              const Shadow(
-                                                color: AppTheme.peachyMagenta,
+                                              BoxShadow(
+                                                color: AppTheme.deepRose.withValues(alpha: 0.5),
                                                 blurRadius: 20,
                                               ),
                                             ],
@@ -174,8 +175,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         Text(
                                           'since February 14, 2026',
                                           style: GoogleFonts.outfit(
-                                            fontSize: 16,
-                                            color: Colors.white70,
+                                            fontSize: 14,
+                                            color: AppTheme.petalWhite.withValues(alpha: 0.6),
                                             fontWeight: FontWeight.w500,
                                             letterSpacing: 2.0,
                                           ),
@@ -343,6 +344,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 child: const AcademyPortalCard(),
                               ),
                             ),
+                            SliverToBoxAdapter(
+                              child: _maybeAnimate(
+                                animation: (child) => FadeInUp(
+                                  delay: const Duration(milliseconds: 1450),
+                                  child: child,
+                                ),
+                                child: const PlayZonePortalCard(),
+                              ),
+                            ),
                             const SliverToBoxAdapter(child: SizedBox(height: 100)),
                           ],
                         ),
@@ -372,25 +382,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         isScrollControlled: true,
                         backgroundColor: Colors.transparent,
                         builder: (context) => const CreatorModal(),
-                      ),
+                       ),
                       child: Container(
                         width: 56,
                         height: 56,
                         decoration: BoxDecoration(
-                          color: Colors.pink[50],
+                          color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.pink.shade100, width: 2),
+                          border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.3), width: 1.5),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.pink.withOpacity(0.1),
-                              blurRadius: 10,
+                              color: AppTheme.deepRose.withValues(alpha: 0.15),
+                              blurRadius: 15,
                               offset: const Offset(0, 4),
                             ),
                           ],
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.favorite_rounded,
-                          color: Colors.pink[300],
+                          color: AppTheme.roseQuartz,
                           size: 28,
                         ),
                       ),
@@ -426,20 +436,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             width: 56,
                             height: 56,
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
                               shape: BoxShape.circle,
-                              border: Border.all(color: Colors.pink.shade100, width: 2),
+                              border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.3), width: 1.5),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.pink.withOpacity(0.1),
+                                  color: AppTheme.deepRose.withValues(alpha: 0.15),
                                   blurRadius: 15,
                                   offset: const Offset(0, 5),
                                 ),
                               ],
                             ),
-                            child: Icon(
+                            child: const Icon(
                               Icons.brush_rounded,
-                              color: Colors.pink[300],
+                              color: AppTheme.roseQuartz,
                               size: 28,
                             ),
                           ),
@@ -474,11 +484,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         width: 56,
                         height: 56,
                         decoration: BoxDecoration(
-                          color: Colors.pink[300],
+                          color: AppTheme.deepRose,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.pink.withOpacity(0.3),
+                              color: AppTheme.deepRose.withValues(alpha: 0.3),
                               blurRadius: 15,
                               offset: const Offset(0, 5),
                             ),
@@ -486,7 +496,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                         child: const Icon(
                           Icons.chat_bubble_outline_rounded,
-                          color: Colors.white,
+                          color: AppTheme.petalWhite,
                           size: 28,
                         ),
                       ),

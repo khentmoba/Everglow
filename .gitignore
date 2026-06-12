@@ -47,6 +47,19 @@ app.*.map.json
 # Environment files
 .env*
 
+# Firebase admin credentials (secret!)
+everglow-1c6db-firebase-adminsdk-fbsvc-*.json
+
+# Project specs/scratch (not part of the app)
+.specify/
+specs/
+scratch/
+wiki/
+
 # Binaries and large files
 firebase.exe
 node_modules/
+
+# Racing game generated output
+/racing-game/dist/
+/racing-game/node_modules/

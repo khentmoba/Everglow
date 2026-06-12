@@ -44,7 +44,7 @@ class _AnimatedEmblemState extends State<AnimatedEmblem> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    final effectiveColor = widget.color ?? AppTheme.peachyMagenta;
+    final effectiveColor = widget.color ?? AppTheme.deepRose;
 
     return AnimatedBuilder(
       animation: _glowAnimation,
@@ -68,7 +68,7 @@ class _AnimatedEmblemState extends State<AnimatedEmblem> with SingleTickerProvid
             color: effectiveColor,
             shadows: [
               Shadow(
-                color: AppTheme.neonTeal.withValues(alpha: 0.5),
+                color: AppTheme.blushGold.withValues(alpha: 0.5),
                 blurRadius: _glowAnimation.value,
               ),
               const Shadow(
@@ -83,3 +83,4 @@ class _AnimatedEmblemState extends State<AnimatedEmblem> with SingleTickerProvid
     );
   }
 }
+

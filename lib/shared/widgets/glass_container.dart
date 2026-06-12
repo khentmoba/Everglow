@@ -28,7 +28,7 @@ class GlassContainer extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveBlur = blur ?? AppTheme.glassBlur;
     final effectiveOpacity = opacity ?? AppTheme.glassOpacity;
-    final effectiveRadius = borderRadius ?? BorderRadius.circular(32.0);
+    final effectiveRadius = borderRadius ?? BorderRadius.circular(24.0);
     
     // Check for performance fallback
     final bool useBlur = effectiveBlur > 0 && !AppTheme.shouldReduceMotion;
@@ -38,14 +38,22 @@ class GlassContainer extends StatelessWidget {
       height: height,
       padding: padding,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: useBlur ? effectiveOpacity : 0.3),
+        color: AppTheme.moonlight.withValues(alpha: useBlur ? effectiveOpacity : 0.22),
         borderRadius: effectiveRadius,
-        border: border ?? Border.all(color: Colors.white24, width: 0.5),
+        border: border ?? Border.all(
+          color: AppTheme.moonlight.withValues(alpha: 0.18),
+          width: 1.0,
+        ),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.peachyMagenta.withValues(alpha: 0.1),
-            blurRadius: 20,
-            spreadRadius: -5,
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: AppTheme.deepRose.withValues(alpha: 0.05),
+            blurRadius: 25,
+            spreadRadius: -10,
           ),
         ],
       ),
@@ -65,3 +73,4 @@ class GlassContainer extends StatelessWidget {
     );
   }
 }
+

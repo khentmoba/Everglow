@@ -1,51 +1,52 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 
-class CircuitryPainter extends CustomPainter {
+class PetalFieldPainter extends CustomPainter {
   final Color color;
   final double opacity;
 
-  CircuitryPainter({
-    this.color = Colors.white,
-    this.opacity = 0.1,
+  PetalFieldPainter({
+    required this.color,
+    this.opacity = 0.08,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color.withValues(alpha: opacity)
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
-
-    final random = Random(42); // Seeded for consistency
+    final random = Random(1337); // Consistent seed for design
     
-    for (int i = 0; i < 15; i++) {
-      double startX = random.nextDouble() * size.width;
-      double startY = random.nextDouble() * size.height;
+    // Draw 35 organic petal/sparkle shapes drifting subtly
+    for (int i = 0; i < 35; i++) {
+      final double cx = random.nextDouble() * size.width;
+      final double cy = random.nextDouble() * size.height;
+      final double scale = 4.0 + random.nextDouble() * 10.0;
+      final double rotation = random.nextDouble() * pi * 2;
       
-      final path = Path()..moveTo(startX, startY);
+      final paint = Paint()
+        ..color = color.withValues(alpha: opacity * (0.3 + random.nextDouble() * 0.7))
+        ..style = PaintingStyle.fill;
+        
+      canvas.save();
+      canvas.translate(cx, cy);
+      canvas.rotate(rotation);
       
-      // Draw 3-5 connected segments
-      for (int j = 0; j < 3 + random.nextInt(3); j++) {
-        bool horizontal = random.nextBool();
-        double length = 20.0 + random.nextDouble() * 50.0;
+      // Draw a sleek almond/petal shape
+      final path = Path()
+        ..moveTo(0, -scale)
+        ..quadraticBezierTo(scale * 0.6, -scale * 0.5, 0, scale)
+        ..quadraticBezierTo(-scale * 0.6, -scale * 0.5, 0, -scale)
+        ..close();
         
-        if (horizontal) {
-          startX += length * (random.nextBool() ? 1 : -1);
-        } else {
-          startY += length * (random.nextBool() ? 1 : -1);
-        }
-        
-        path.lineTo(startX, startY);
-        
-        // Add a small node at the joint
-        if (random.nextDouble() > 0.5) {
-          canvas.drawCircle(Offset(startX, startY), 2.0, paint..style = PaintingStyle.fill);
-          paint.style = PaintingStyle.stroke;
-        }
+      canvas.drawPath(path, paint);
+      
+      // Draw an inner glowing core/sparkle for a premium look
+      if (random.nextDouble() > 0.6) {
+        final glowPaint = Paint()
+          ..color = Colors.white.withValues(alpha: opacity * 1.5)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0);
+        canvas.drawCircle(const Offset(0, 0), scale * 0.25, glowPaint);
       }
       
-      canvas.drawPath(path, paint);
+      canvas.restore();
     }
   }
 
