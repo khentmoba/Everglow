@@ -14,60 +14,33 @@ Everglow tracks your relationship journey through gamified experiences, shared a
 
 ## Latest Release
 
-> **v1.5.2** — Philippines Trending: Real Streaming Rankings
+> **v1.5.3** — Cinema: Real Iframe Fix + Provider Cleanup + Popup-Ad Sandbox
 > [View full changelog →](https://github.com/khentmoba/Everglow/releases/latest)
 
-**Cinema — Philippines Trending Fix:**
-- **Fix: 🇵🇭 PHILIPPINES trending tab no longer dominated by Vivamax/Viva titles.** Previously `fetchTrendingByCountry` filtered on `with_origin_country=PH`, which restricts TMDB results to locally-produced titles — and on TMDB's popularity score that bucket is overwhelmingly Vivamax / Viva Films catalog, so the ranking became a wall of niche local releases instead of "what Filipinos are actually watching."
-- **New behavior — Netflix PH-style ranking:** the discover call now uses `watch_region=PH` together with `with_watch_monetization_types=flatrate|free|ads`, so results are globally-popular movies and series that are *actually streamable in the Philippines* (Netflix, Disney+, Prime Video, Viu, iQIYI, etc.) — K-dramas, Hollywood blockbusters, anime, and mainstream Pinoy titles all mixed together and sorted by TMDB popularity.
-- Added `vote_count.gte=50` to drop obscure low-engagement titles from the ranking.
-- `countryCode` is now upper-cased before being sent to TMDB (defensive normalization).
-- No UI changes — the existing Global / 🇵🇭 PHILIPPINES tabs in `cinema_screen.dart` keep working as-is; the fix is entirely in the data layer (`lib/features/cinema/data/services/tmdb_service.dart:fetchTrendingByCountry`).
+**Cinema — Root-Cause Sandbox Fix (replaces v1.5.1's JS bypass):**
+- **Fix: "Please Disable Sandbox" no longer blocks playback on VidLink and other providers.** The previous bypass injected DOM/JS overrides into a `flutter_inappwebview` `InAppWebView`, but on the web build that webview is itself a cross-origin iframe with a `sandbox` attribute — providers' anti-sandbox JS runs *inside* that iframe where our overrides can never reach, so the bypass was effectively a no-op on web.
+- **New approach:** dropped `flutter_inappwebview` entirely (it was only used here) and embed the player via `HtmlElementView` + a plain `<iframe>` registered through `dart:ui_web.platformViewRegistry`. The iframe ships with `allow="autoplay; fullscreen; encrypted-media; picture-in-picture; ..."` and a **popup-blocking sandbox** — `sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-orientation-lock"` — which silently kills `window.open()` popups and `top.location =` redirect hijacks without tripping the providers' "is `window.origin === 'null'`?" / `document.domain = document.domain` detection (because `allow-same-origin` is included).
+- Loading spinner now hides on the iframe's native `load` event; provider switch updates `iframe.src` in place instead of re-mounting the view.
 
-**Cinema & Video Player (carried over from v1.5.1):**
-- Sandbox bypass script overrides `window.top` and `window.parent` (in addition to `frameElement`) so providers' `self === top === parent` checks pass on first load.
-- DOM cleanup widened from `<h1>`-only to any leaf element (`h1, h2, h3, p, div, span, section, article, main`) and now runs immediately on inject, on a 1s interval, and via a `MutationObserver` watching `characterData`.
+**Cinema — Provider Audit (`lib/features/cinema/presentation/screens/video_player_screen.dart`):**
+- **Removed 6 dead/blocked providers:** *VidSrc CC* (`X-Frame-Options: SAMEORIGIN` permanently blocks the iframe), *VsEmbed*, *Vidify* (turned out to be an unrelated open-source music-video desktop app), *Vares* (parks to `/lander`), *Filmu*, *VidGod* — all DNS-dead or non-functional.
+- **Patched 7 providers' base URLs** after domain/path changes:
 
-**Cinema Overhaul (carried over from v1.5.0, fully wired):**
-- Redesigned home screen: trending carousel with autoplay, Global/Philippines trending rankings
-- 4-tab Cinema: Home, Search, Want-to-Watch, Watched — with status badges and Firestore-backed watchlist sync
-- Now Showing in Cinema and Newly Released sections (PH region)
-- Genre-based browsing rows (Action, Comedy, Horror, Romance, Drama, Animation, Mystery, Sci-Fi, etc.)
-- Top Rated Movies and Popular TV Shows horizontal rails
-- Episode drawer expanded: cast section with profile photos, user reviews with ratings, "More Like This" recommendations, genre chips, runtime display
-- TMDB search modal with 500ms debounce, grid results, and `to-watch` / `watched` ChoiceChip add-to-Everglow dialog
-- `backdropPath` and `year` fields added to `MediaItem` model
-- Refactored TMDB service with `_mapResultToMediaItem()` helper, added `fetchTrendingByCountry()`, `fetchTopRatedMovies()`, `fetchPopularTVShows()`, `fetchNowPlaying()`, `fetchUpcoming()`, `fetchGenreList()`, `discoverByGenre()`, `fetchCredits()`, `fetchReviews()`, `fetchSimilar()`, `fetchTVShowDetails()`, `fetchSeasonEpisodes()`, `fetchMediaDetails()`
-- SharedPreferences watchlist cache + Firestore-backed `getWatchListStream` with `save/removeFromWatchList`
+  | Provider | Old | New |
+  |---|---|---|
+  | AutoEmbed | `player.autoembed.cc/embed/...` | `player.autoembed.co/embed/...` |
+  | VidKing | `vidking.link/...` | `www.vidking.net/embed/...` |
+  | SuperEmbed | `multiembed.mov/directstream.php?video_id=` | `multiembed.mov/?video_id=` + auto-appended `&tmdb=1` |
+  | 111Movies | `111movies.com/...` | `www.111movies.com/...` |
+  | Vidzee | `vidzee.vip/embed/...` | `player.vidzee.wtf/embed/...` |
+  | VidRock | `vidrock.one/embed/...` | `vidrock.net/movie\|tv/...` |
+  | VixSrc | `vixsrc.xyz/embed/...` | `vixsrc.to/movie\|tv/...` |
 
-**Live Canvas:**
-- Multi-user live drawing: streams strokes from a `live_canvas` Firestore collection with throttled `updateActiveStroke` updates (100ms)
-- Stroke rendering: each stroke drawn twice — a blurred glow shadow + a sharp foreground — for a painterly look
-- Floating glass/blur toolbar with pen/eraser, undo/redo, 5-color palette, and clear button
+- **Defaults reordered** so the two providers that ship **zero sandbox-detection JS** sit at the top of the dropdown and are marked ad-free: **VidFast** (now the default) and **VixSrc**. Verified by static-scanning ~9 MB of every provider's actual JS bundles for `sbx.js`-style probes (`frameElement.hasAttribute("sandbox")`, `document.domain = document.domain`), the `sbx-2dl.pages.dev` redirect, the "Please Disable Sandbox" literal, and AutoEmbed's `window.origin === 'null'` + localStorage/cookie probe pattern.
+- `_getPlayerUrl` learned the multiembed.mov `&tmdb=1` flag for both movie and TV (the endpoint defaults to expecting an IMDb id otherwise).
+- Dropped `flutter_inappwebview: ^6.1.5` from `pubspec.yaml`, promoted `web: ^1.1.1` from transitive to direct.
 
-**Chat & Sanctuary:**
-- Re-themed `Sanctuary Chat` AppBar + background to the Everglow Dusk Petal palette
-- Diagnostic check action to verify Firestore write access; "Reset & Clear Cache" flow calling `FirebaseFirestore.terminate()` + `clearPersistence()`
-- Chat bubble now renders sender label, message body, and a smart timestamp (today: `h:mm a`, older: `MMM d, h:mm a`) inside a corner-asymmetric bubble with subtle shadow
-- Pulsing heart loader with delayed "Opening our sanctuary..." caption
-
-**Dashboard & Mood:**
-- Dashboard `mood` action button now hides when a mood has been submitted today and shows a heart-border circle when the Guardian mood prompt is visible; tap toggles the prompt
-- Mood picker now shows a "Sending your love to {partnerName}..." snackbar on submit
-- Memory detail view re-themed with the Everglow palette, "Memory by {author}" tag, and a "Living Archive" footer
-
-**Visual Polish:**
-- Falling petal shower on the entry screen (30 swaying `CustomPaint` petals, 4s loop)
-- Jukebox vinyl record now rotates (4s loop) with concentric grooves and a deep-rose center label
-- Starlight jar re-rendered as a frosted-glass jar (`ClipPath` + `BackdropFilter`) with vertical highlight and a frosted-pink lid, optionally rotating on shake
-
-**Racing Game (Midnight Drive):**
-- Added Reverse (REV) button to mobile touch controls
-- Fixed forward/backward vehicle direction logic (was inverted)
-- Smarter respawn system: tracks `lastCheckpointIndex` for progressive waypoint matching, uses exact waypoint rotation
-- Zeroed angular velocity for stable respawns
-
-_Previous releases: [v1.5.1 "Sandbox Hardening"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.1) · [v1.5.0 "Cinema"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.0) · [v1.4.0 "Cinema"](https://github.com/khentmoba/Everglow/releases/tag/v1.4.0) · [v1.3.0 "Racing Game"](https://github.com/khentmoba/Everglow/releases/tag/v1.3.0) · [v1.2.0 "Play Zone"](https://github.com/khentmoba/Everglow/releases/tag/v1.2.0) · [v1.1.0 "Gamified"](https://github.com/khentmoba/Everglow/releases/tag/v1.1.0) · [v1.0.0 "Bloom"](https://github.com/khentmoba/Everglow/releases/tag/v1.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)
+_Previous releases: [v1.5.2 "PH Trending"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.2) · [v1.5.1 "Sandbox Hardening"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.1) · [v1.5.0 "Cinema"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.0) · [v1.4.0 "Cinema"](https://github.com/khentmoba/Everglow/releases/tag/v1.4.0) · [v1.3.0 "Racing Game"](https://github.com/khentmoba/Everglow/releases/tag/v1.3.0) · [v1.2.0 "Play Zone"](https://github.com/khentmoba/Everglow/releases/tag/v1.2.0) · [v1.1.0 "Gamified"](https://github.com/khentmoba/Everglow/releases/tag/v1.1.0) · [v1.0.0 "Bloom"](https://github.com/khentmoba/Everglow/releases/tag/v1.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)
 
 ## Features
 
