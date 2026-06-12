@@ -213,8 +213,9 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildInputArea() {
     return Container(
