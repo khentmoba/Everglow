@@ -1,0 +1,602 @@
+[
+  {
+    "questionText": "Which giant robot anime from the 1970s is a cultural icon in the Philippines and was famously banned by President Ferdinand Marcos in 1979?",
+    "options": ["Voltes V", "Mazinger Z", "Daimos", "Gundam"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of the live-action adaptation of Voltes V broadcasted by GMA Network in 2023?",
+    "options": ["Voltes V: Legacy", "Voltes V: Evolution", "Voltes V: Reborn", "Voltes V: The Movie"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "In the Tagalog dub of Yu Yu Hakusho (Ghost Fighter), what is the adapted name of the main character Yusuke Urameshi?",
+    "options": ["Eugene", "Alfred", "Dennis", "Vincent"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "In the Tagalog dub of Ghost Fighter, what is the adapted name of Kuwabara?",
+    "options": ["Alfred", "Eugene", "Dennis", "Vincent"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "In the Tagalog dub of Ghost Fighter, what is the adapted name of Kurama?",
+    "options": ["Dennis", "Vincent", "Alfred", "Eugene"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "In the Tagalog dub of Ghost Fighter, what is the adapted name of Hiei?",
+    "options": ["Vincent", "Dennis", "Alfred", "Eugene"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the localized name of Yusuke's signature attack 'Reigun' in the Tagalog dub of Ghost Fighter?",
+    "options": ["Ray Gun", "Spirit Gun", "Laser Flash", "Energy Blast"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Who is Eugene's main rival in the Dark Tournament arc in Ghost Fighter, famous for his muscular transformation?",
+    "options": ["Toguro (Taguro)", "Sensui", "Yomi", "Raizen"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which anime centers around the red-haired slacker Hanamichi Sakuragi and his quest to play basketball?",
+    "options": ["Slam Dunk", "Kuroko's Basketball", "Dear Boys", "Barangay 143"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of the high school team Hanamichi Sakuragi plays for in Slam Dunk?",
+    "options": ["Shohoku", "Ryonan", "Kainan", "Shoyo"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "In Slam Dunk, who is the captain of the Shohoku basketball team, nicknamed 'Gori' (Gorilla) by Hanamichi?",
+    "options": ["Takenori Akagi", "Ryota Miyagi", "Hisashi Mitsui", "Kaede Rukawa"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "In Slam Dunk, who is Hanamichi Sakuragi's chief rival and Shohoku's star rookie player?",
+    "options": ["Kaede Rukawa", "Sendoh", "Miyagi", "Mitsui"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which blue robotic cat from the 22nd century is sent back in time to aid a young boy named Nobita?",
+    "options": ["Doraemon", "Keroro", "Hello Kitty", "Astro Boy"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of Nobita's crush in Doraemon?",
+    "options": ["Shizuka", "Dorami", "Jaiko", "Suneo"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of the wealthy, boastful character with pointed hair in Doraemon?",
+    "options": ["Suneo", "Gian", "Dekisugi", "Nobisuke"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of the neighborhood bully who loves singing terribly in Doraemon?",
+    "options": ["Gian / Takeshi", "Suneo", "Nobita", "Dekisugi"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What gadget does Doraemon pull out to allow characters to fly through the air on their heads?",
+    "options": ["Take-copter (Bamboo Copter)", "Anywhere Door", "Time Machine", "Small Light"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which anime features Recca Hanabishi, a boy who can control fire and has eight flame dragons?",
+    "options": ["Flame of Recca", "Yu-Gi-Oh!", "Hunter x Hunter", "Naruto"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Who is Recca's rival who uses a water sword called 'Ensui' in Flame of Recca?",
+    "options": ["Tokiya Mikagami", "Kurei", "Domon Ishijima", "Fuko Kirisawa"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of the leader of the Hokage ninja clan in Flame of Recca who is Recca's stepbrother?",
+    "options": ["Kurei", "Tokiya", "Domon", "Raiha"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which anime follows the journey of a young boy named Gon Freecss to find his father?",
+    "options": ["Hunter x Hunter", "One Piece", "Bleach", "Fairy Tail"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Who is Gon's best friend, a young assassin from the Zoldyck family in Hunter x Hunter?",
+    "options": ["Killua", "Kurapika", "Leorio", "Hisoka"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which character in Hunter x Hunter seeks revenge against the Phantom Troupe for the massacre of his clan?",
+    "options": ["Kurapika", "Leorio", "Killua", "Chrollo"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of the card game anime that sparked a massive real-life toy card craze in the Philippines in the early 2000s?",
+    "options": ["Yu-Gi-Oh!", "Duel Masters", "Cardfight!! Vanguard", "Bakugan"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the signature card of Yugi Mutou in Yu-Gi-Oh!?",
+    "options": ["Dark Magician", "Blue-Eyes White Dragon", "Red-Eyes Black Dragon", "Exodia the Forbidden One"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What signature card is famously used by Yugi's wealthy rival, Seto Kaiba?",
+    "options": ["Blue-Eyes White Dragon", "Dark Magician", "Obelisk the Tormentor", "Red-Eyes Black Dragon"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which anime follows a orange-clad ninja who dreams of becoming the Hokage of Konoha village?",
+    "options": ["Naruto", "Dragon Ball", "One Piece", "Bleach"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Who is Naruto's rival and teammate who leaves the village to seek power from Orochimaru?",
+    "options": ["Sasuke Uchiha", "Kakashi Hatake", "Gaara", "Neji Hyuga"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of the nine-tailed fox beast sealed inside Naruto?",
+    "options": ["Kurama", "Shukaku", "Gyuki", "Matatabi"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which anime features the Saiyan warrior Goku and his search for seven wish-granting spheres?",
+    "options": ["Dragon Ball / Dragon Ball Z", "One Piece", "Bleach", "Naruto"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is Goku's native Saiyan name?",
+    "options": ["Kakarot", "Vegeta", "Raditz", "Bardock"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of Goku's signature energy blast attack?",
+    "options": ["Kamehameha", "Spirit Bomb", "Galick Gun", "Final Flash"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "In Dragon Ball Z, who is Goku's firstborn son?",
+    "options": ["Gohan", "Goten", "Trunks", "Pan"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which anime follows Monkey D. Luffy and his crew on their search for the ultimate treasure?",
+    "options": ["One Piece", "Naruto", "Bleach", "Fairy Tail"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What devil fruit did Luffy eat, giving him rubber-like stretching abilities?",
+    "options": ["Gum-Gum Fruit (Gomu Gomu no Mi)", "Flame-Flame Fruit", "Dark-Dark Fruit", "Chop-Chop Fruit"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of the Netflix animated series based on the Philippine graphic novel created by Budjette Tan and Kajo Baldisimo?",
+    "options": ["Trese", "Barangay 143", "Alamat", "Mythos"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the first name of the main character in Trese, who is a detective specialized in supernatural crimes?",
+    "options": ["Alexandra", "Maria", "Gabriela", "Isabella"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "In Trese, who are the twin demigods who act as Alexandra's bodyguards?",
+    "options": ["Crispin and Basilio (The Kambal)", "Juan and Pedro", "Kiko and Kaka", "Andres and Jose"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "In Trese, what supernatural creature is Nuno, who lives under manholes and gives information in exchange for Chocnut?",
+    "options": ["Nuno sa Punso (Goblin)", "Tikbalang", "Kapre", "Aswang"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of the 2010 film widely recognized as the first Filipino 3D animated feature film?",
+    "options": ["RPG Metanoia", "Saving Sally", "Dayo: Sa Mundo ng Elementalia", "Urduja"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What online multiplayer game do the kids play inside the movie RPG Metanoia?",
+    "options": ["Metanoia", "Ragnarok", "Dota", "League of Legends"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of the first Filipino-produced anime series themed around street basketball?",
+    "options": ["Barangay 143", "Slam Dunk", "Kuroko's Basketball", "Liga Manila"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What iconic weekly comic strip created by Pol Medina Jr. satirizes life in the Philippines through humanlike pigs?",
+    "options": ["Pugad Baboy", "Kikong Matsing", "Trese", "Kenkoy"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "In SpongeBob SquarePants, what is the name of the underwater city where the characters live?",
+    "options": ["Bikini Bottom", "Rock Bottom", "New Kelp City", "Shell City"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What restaurant does SpongeBob work at as a fry cook?",
+    "options": ["The Krusty Krab", "The Chum Bucket", "Salty Spitoon", "Weenie Hut Jr.'s"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of SpongeBob's pet snail who meows like a cat?",
+    "options": ["Gary", "Plankton", "Larry", "Squidward"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Who is SpongeBob's dimwitted but lovable pink starfish best friend?",
+    "options": ["Patrick Star", "Squidward", "Sandy Cheeks", "Mr. Krabs"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Who are the three superhero sisters in The Powerpuff Girls?",
+    "options": ["Blossom, Bubbles, and Buttercup", "Clover, Alex, and Sam", "Cinderella, Ariel, and Belle", "Phineas, Ferb, and Candace"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of the green chimpanzee mad scientist villain in The Powerpuff Girls?",
+    "options": ["Mojo Jojo", "Him", "Fuzzy Lumpkins", "Sedusa"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What substance did Professor Utonium accidentally add to sugar, spice, and everything nice to create the Powerpuff Girls?",
+    "options": ["Chemical X", "Formula Y", "Element Z", "Agent Orange"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which cartoon features a 10-year-old boy who finds an alien watch called the Omnitrix?",
+    "options": ["Ben 10", "Danny Phantom", "Dexter's Laboratory", "Generator Rex"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of Ben's cousin who travels with him and has magical abilities in Ben 10?",
+    "options": ["Gwen Tennyson", "Max Tennyson", "Kevin Levin", "Charmcaster"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which cartoon follows the adventures of a human boy named Finn and his magical shape-shifting dog Jake?",
+    "options": ["Adventure Time", "Regular Show", "The Amazing World of Gumball", "Steven Universe"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "In Adventure Time, what post-apocalyptic land do Finn and Jake live in?",
+    "options": ["Land of Ooo", "Candy Kingdom", "Ice Kingdom", "Underworld"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which cartoon features two stepbrothers building massive inventions in their backyard during summer vacation?",
+    "options": ["Phineas and Ferb", "Johnny Test", "Dexter's Laboratory", "Gravity Falls"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of the pet platypus of Phineas and Ferb who secretly works as a secret agent?",
+    "options": ["Perry", "Agent P", "Gary", "Platypus"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Who is the villainous scientist that Perry the Platypus fights in Phineas and Ferb?",
+    "options": ["Dr. Heinz Doofenshmirtz", "Dr. Drakken", "Mojo Jojo", "Plankton"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of Phineas and Ferb's older sister who constantly tries to bust them to their mother?",
+    "options": ["Candace Flynn", "Vanessa Doofenshmirtz", "Stacy Hirano", "Isabella Garcia-Shapiro"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which anime is about a boy named Yugi Mutou who solves the Millennium Puzzle, releasing a gaming spirit?",
+    "options": ["Yu-Gi-Oh!", "Pokemon", "Beyblade", "Digimon"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which classic anime features a group of children transported to the Digital World, where they partner with creatures like Agumon?",
+    "options": ["Digimon Adventure", "Pokemon", "Monster Rancher", "Bakugan"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which anime features Ash Ketchum from Pallet Town on his quest to become a Master?",
+    "options": ["Pokemon", "Digimon", "Monster Rancher", "Yo-Kai Watch"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is Ash Ketchum's starter Pokemon?",
+    "options": ["Pikachu", "Charmander", "Squirtle", "Bulbasaur"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which anime features a notebook that kills anyone whose name is written in it?",
+    "options": ["Death Note", "Bleach", "Code Geass", "Tokyo Ghoul"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Who is the main protagonist of Death Note, who uses the notebook to execute criminals?",
+    "options": ["Light Yagami", "L", "Ryuk", "Near"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of the Shinigami (Death God) who dropped the Death Note in the human world?",
+    "options": ["Ryuk", "Rem", "Shidoh", "Gelus"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Who is the eccentric detective who opposes Light Yagami in Death Note?",
+    "options": ["L", "Mello", "Near", "Matsuda"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which anime features Tanjiro Kamado fighting demons to save his turned sister, Nezuko?",
+    "options": ["Demon Slayer (Kimetsu no Yaiba)", "Jujutsu Kaisen", "Attack on Titan", "My Hero Academia"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which anime features a school of sorcerers where Yuji Itadori eats a cursed finger?",
+    "options": ["Jujutsu Kaisen", "Demon Slayer", "Chainsaw Man", "Black Clover"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Who is the blindfolded, immensely powerful sorcerer teacher in Jujutsu Kaisen?",
+    "options": ["Satoru Gojo", "Suguru Geto", "Megumi Fushiguro", "Kento Nanami"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which anime centers around humanity fighting giant humanlike monsters inside three high stone walls?",
+    "options": ["Attack on Titan (Shingeki no Kyojin)", "Neon Genesis Evangelion", "Gundam", "Sword Art Online"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Who is the main protagonist of Attack on Titan who swears to eradicate all Titans?",
+    "options": ["Eren Yeager", "Mikasa Ackerman", "Armin Arlert", "Levi Ackerman"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of the outermost wall destroyed by the Colossal Titan in Attack on Titan?",
+    "options": ["Wall Maria", "Wall Rose", "Wall Sina", "Wall Gentry"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which anime features Izuku Midoriya acquiring the quirk 'One For All' from All Might?",
+    "options": ["My Hero Academia", "Naruto", "Hunter x Hunter", "One Punch Man"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the superhero name of Izuku Midoriya in My Hero Academia?",
+    "options": ["Deku", "Bakugo", "All Might", "Shoto"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which anime features Saitama, a hero who can defeat any opponent with a single punch?",
+    "options": ["One Punch Man", "My Hero Academia", "Dragon Ball Z", "Mob Psycho 100"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which classic anime features Shinji Ikari piloting giant bio-machines to fight beings called Angels?",
+    "options": ["Neon Genesis Evangelion", "Mobile Suit Gundam", "Code Geass", "Gurren Lagann"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What card game anime features characters battling with spinning tops?",
+    "options": ["Beyblade", "Yu-Gi-Oh!", "Bakugan", "B-Daman"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of the main character in Beyblade who uses the bit-beast Dragoon?",
+    "options": ["Tyson Granger", "Kai Hiwatari", "Ray Kon", "Max Tate"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which classic 90s cartoon features five teenage mutants who fight crime under the guidance of a giant rat?",
+    "options": ["Teenage Mutant Ninja Turtles", "Power Rangers", "Biker Mice from Mars", "SWAT Kats"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of the giant rat sensei of the TMNT?",
+    "options": ["Splinter", "Shredder", "Krang", "Casey"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which cartoon features a young boy genius with a secret laboratory hidden behind his bedroom bookshelf?",
+    "options": ["Dexter's Laboratory", "Jimmy Neutron", "Johnny Bravo", "Codename: Kids Next Door"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of Dexter's annoying older sister who loves breaking his inventions in Dexter's Laboratory?",
+    "options": ["Dee Dee", "Mandi", "Lalavava", "Olga"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which cartoon follows a muscular blond man who tries to pick up women but constantly fails?",
+    "options": ["Johnny Bravo", "Dexter's Lab", "Samurai Jack", "Johnny Test"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which cartoon features a pink dog who lives in the Middle of Nowhere and constantly protects his owners from monsters?",
+    "options": ["Courage the Cowardly Dog", "Scooby-Doo", "CatDog", "The Grim Adventures of Billy & Mandy"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What are the names of Courage the Cowardly Dog's owners?",
+    "options": ["Muriel and Eustace Bagge", "Billy and Mandy", "Fred and Wilma", "Homer and Marge"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What catchphrase does Eustace say before scaring Courage with a giant green mask?",
+    "options": ["Ooga Booga Booga!", "Stupid dog!", "Get out!", "Aha!"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which cartoon features a group of five kids operating from a massive treehouse, fighting adult tyranny?",
+    "options": ["Codename: Kids Next Door (KND)", "Teen Titans", "Recess", "Hey Arnold!"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "In Kids Next Door, who is the British-accented leader of Sector V, known as Numbuh 1?",
+    "options": ["Nigel Uno", "Hoagie Gilligan", "Kuki Sanban", "Wally Beetles"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which cartoon features a group of students during school recess, led by a boy named T.J. Detweiler?",
+    "options": ["Recess", "Hey Arnold!", "Danny Phantom", "The Fairly OddParents"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which cartoon features a 10-year-old boy named Timmy Turner who has two fairy godparents?",
+    "options": ["The Fairly OddParents", "Danny Phantom", "SpongeBob", "Jimmy Neutron"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What are the names of Timmy's fairy godparents in The Fairly OddParents?",
+    "options": ["Cosmo and Wanda", "Poof and Sparky", "Jorgen and Tooth Fairy", "Chester and AJ"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which cartoon features a boy named Danny who gets ghost powers in a lab accident?",
+    "options": ["Danny Phantom", "Ben 10", "Generator Rex", "Kim Possible"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which Disney cartoon features a teenage cheerleader who works as a globetrotting secret agent?",
+    "options": ["Kim Possible", "Phineas and Ferb", "American Dragon: Jake Long", "Gravity Falls"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What is the name of Kim Possible's sidekick who loves eating Nacos?",
+    "options": ["Ron Stoppable", "Rufus", "Wade", "Dr. Drakken"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "What kind of animal is Rufus, Ron Stoppable's pet in Kim Possible?",
+    "options": ["Naked Mole Rat", "Hamster", "Ferret", "Guinea Pig"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which cartoon series features five teen heroes (Robin, Starfire, Cyborg, Raven, Beast Boy) living in a T-shaped tower?",
+    "options": ["Teen Titans", "Young Justice", "Justice League", "X-Men"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Who is the leader of the Teen Titans?",
+    "options": ["Robin", "Cyborg", "Starfire", "Beast Boy"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which member of the Teen Titans can shape-shift into any animal?",
+    "options": ["Beast Boy", "Cyborg", "Robin", "Raven"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which member of the Teen Titans is a dark, gothic half-demon girl who says 'Azarath Metrion Zinthos'?",
+    "options": ["Raven", "Starfire", "Terra", "Blackfire"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  },
+  {
+    "questionText": "Which anime features the adventures of the Elric brothers, Edward and Alphonse, on their search for the Philosopher's Stone?",
+    "options": ["Fullmetal Alchemist / Brotherhood", "Soul Eater", "Bleach", "Blue Exorcist"],
+    "correctOptionIndex": 0,
+    "category": "cartoons"
+  }
+]

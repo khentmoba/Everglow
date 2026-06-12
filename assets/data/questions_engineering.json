@@ -1,0 +1,602 @@
+[
+  {
+    "questionText": "What does the acronym ICpEP stand for?",
+    "options": ["Institute of Computer Engineers of the Philippines", "Integrated Computer Educators of the Philippines", "International Council of Philippine Engineering Professionals", "Institute of Chemical and Physical Engineers of the Philippines"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What is the official student wing of the Institute of Computer Engineers of the Philippines called?",
+    "options": ["ICpEP-SE", "ICpEP-Student Council", "Junior ICpEP", "ICpEP-Youth"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which building in UP Diliman is home to the College of Engineering?",
+    "options": ["Melchor Hall", "Palma Hall", "Quezon Hall", "Alonzo Hall"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "In UST, which building houses the Faculty of Engineering?",
+    "options": ["Fr. Roque Ruaño, O.P. Building", "Albertus Magnus Building", "Main Building", "Benavides Building"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which university in the Philippines is famous for its fast-paced 'quarterm' system for engineering students?",
+    "options": ["Mapúa University", "De La Salle University", "Ateneo de Manila University", "University of Santo Tomas"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which of the following is NOT a professional certification program offered by ICpEP?",
+    "options": ["Licensed Civil Engineer", "Certified Computer Engineer (CCpE)", "Professional Computer Engineer (PCpE)", "Master Computer Engineer (MCpE)"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What microcontroller board is most widely used in Philippine high schools and freshman CpE courses for basic robotics?",
+    "options": ["Arduino Uno", "Raspberry Pi 4", "STM32 Blue Pill", "BeagleBone Black"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which chip is famous for having built-in Wi-Fi and Bluetooth, making it a favorite for Filipino CpE capstone IoT projects?",
+    "options": ["ESP32", "ATmega328P", "PIC16F877A", "MSP430"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "In logic circuits, which integrated circuit (IC) is known as the quad 2-input NAND gate?",
+    "options": ["7400", "7408", "7432", "7402"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which logic gate IC contains four 2-input AND gates?",
+    "options": ["7408", "7400", "7432", "7486"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which logic gate IC contains four 2-input OR gates?",
+    "options": ["7432", "7408", "7400", "7402"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What is the IC number for a hex inverter (NOT gate)?",
+    "options": ["7404", "7400", "7408", "7432"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What graphical tool is taught in CpE digital design to simplify Boolean expressions without Boolean algebra?",
+    "options": ["Karnaugh Map (K-Map)", "Venn Diagram", "State Diagram", "Flowchart"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which sensor is commonly used in student projects for contactless distance measurement using high-frequency sound waves?",
+    "options": ["HC-SR04 Ultrasonic Sensor", "DHT11 Temperature Sensor", "PIR Motion Sensor", "MQ-2 Gas Sensor"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What voltage regulator IC is commonly used to drop 9V or 12V DC down to a stable 5V for microcontroller circuits?",
+    "options": ["LM7805", "LM317", "LM7812", "NE555"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "In serial communication, what do the RX and TX pins stand for?",
+    "options": ["Receive and Transmit", "Read and Transfer", "Router and Transmitter", "Reset and Execute"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which serial communication protocol uses SDA (Serial Data) and SCL (Serial Clock) lines?",
+    "options": ["I2C", "SPI", "UART", "CAN Bus"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "How many wires are required for standard SPI (Serial Peripheral Interface) communication, excluding power and ground?",
+    "options": ["4", "2", "1", "8"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What is the base of the Hexadecimal number system?",
+    "options": ["16", "10", "8", "2"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Convert the binary number 1010 to decimal.",
+    "options": ["10", "8", "12", "6"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What programming language is widely used in CpE courses for Data Structures, Algorithms, and Object-Oriented Programming?",
+    "options": ["C++", "HTML", "SQL", "Assembly"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What language is typically used to program industrial PLCs (Programmable Logic Controllers) taught in CpE?",
+    "options": ["Ladder Logic", "Python", "JavaScript", "C#"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which type of memory is volatile and loses its data when the power is turned off?",
+    "options": ["RAM", "ROM", "EEPROM", "Flash"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "In computer architecture, what does ALU stand for?",
+    "options": ["Arithmetic Logic Unit", "Analog Logical Utility", "Array Line Allocation", "Algorithm Logic Unifier"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What is the standard frequency of the AC power grid in the Philippines?",
+    "options": ["60 Hz", "50 Hz", "120 Hz", "220 Hz"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What is the standard nominal voltage for household wall outlets in the Philippines?",
+    "options": ["220V", "110V", "240V", "120V"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What open-source operating system kernel is highly studied in CpE Operating Systems courses?",
+    "options": ["Linux", "Windows", "MS-DOS", "macOS"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which network device operates at Layer 3 (Network Layer) of the OSI model?",
+    "options": ["Router", "Switch", "Hub", "Repeater"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What is the standard subnet mask for a Class C IP address?",
+    "options": ["255.255.255.0", "255.255.0.0", "255.0.0.0", "255.255.255.255"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What does IP stand for in networking?",
+    "options": ["Internet Protocol", "Intranet Process", "Information Port", "Internal Packet"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which port number is default for HTTP traffic?",
+    "options": ["80", "443", "21", "22"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which port number is default for HTTPS traffic?",
+    "options": ["443", "80", "8080", "25"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which sensor is commonly used in student capstones to check humidity and temperature?",
+    "options": ["DHT11 / DHT22", "HC-SR04", "LM35", "MQ-135"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "In Arduino coding, which function is executed only once when the program starts?",
+    "options": ["setup()", "loop()", "main()", "init()"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What is the output format of a software program compiled for an Android device?",
+    "options": ["APK", "EXE", "IPA", "DMG"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What Git command is used to save changes locally with a descriptive message?",
+    "options": ["git commit -m", "git push", "git save", "git upload"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "In logic circuits, what combination of inputs will produce a high (1) output for an AND gate?",
+    "options": ["All inputs must be 1", "At least one input must be 1", "All inputs must be 0", "Any odd number of 1s"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which register is typically used in microprocessors to store the address of the next instruction to be executed?",
+    "options": ["Program Counter (PC)", "Accumulator", "Instruction Register", "Stack Pointer"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which logic gate outputs a high signal (1) only when its inputs are different?",
+    "options": ["XOR", "XNOR", "AND", "NOR"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What is the equivalent hexadecimal representation of the binary number 1111?",
+    "options": ["F", "E", "A", "15"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What does PCB stand for in hardware manufacturing?",
+    "options": ["Printed Circuit Board", "Process Control Block", "Primary Connection Bridge", "Peripheral Component Board"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which electrical component resists the flow of electric current?",
+    "options": ["Resistor", "Capacitor", "Inductor", "Diode"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which component is designed to store electrical charge?",
+    "options": ["Capacitor", "Resistor", "Transistor", "Transformer"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which semiconductor device can act as an electronic switch or amplifier?",
+    "options": ["Transistor", "Resistor", "Capacitor", "Inductor"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What color bands represent a 1k Ohm resistor with a 5% tolerance?",
+    "options": ["Brown, Black, Red, Gold", "Brown, Black, Orange, Gold", "Brown, Red, Red, Gold", "Red, Red, Red, Silver"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What does a diode do in a circuit?",
+    "options": ["Allows current to flow in only one direction", "Stores electrical energy", "Amplifies the signal", "Increases voltage"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What does LED stand for?",
+    "options": ["Light Emitting Diode", "Liquid Electron Display", "Logical Emission Device", "Link Energy Driver"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which tool is used in the lab to verify and analyze electrical waveforms?",
+    "options": ["Oscilloscope", "Multimeter", "Soldering Iron", "Breadboard"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What device is used to build temporary prototype circuits without soldering?",
+    "options": ["Breadboard", "PCB", "Stripeboard", "Chassis"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What metal alloy is commonly melted to join wires and electrical components together?",
+    "options": ["Solder", "Bronze", "Copper", "Aluminum"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which type of filter passes low-frequency signals and blocks high-frequency ones?",
+    "options": ["Low-pass filter", "High-pass filter", "Band-pass filter", "Band-stop filter"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What does IC stand for in electronics?",
+    "options": ["Integrated Circuit", "Internal Connection", "Instruction Controller", "Instrument Core"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What is the standard logic high voltage level for old TTL circuits?",
+    "options": ["5V", "3.3V", "12V", "1.8V"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What is the standard logic high voltage level for modern CMOS low-power microcontrollers like ESP32?",
+    "options": ["3.3V", "5V", "12V", "9V"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "In binary, what is the result of 1 + 1?",
+    "options": ["10", "2", "0", "11"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What unit represents the frequency of computer processors?",
+    "options": ["Hertz (Hz)", "Watts (W)", "Bytes (B)", "Ohms (Ω)"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What type of software sits between the physical hardware and user applications?",
+    "options": ["Operating System", "Compiler", "Web Browser", "Database"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which programming language is famously known as the 'mother of all languages' and is widely taught to CpE students?",
+    "options": ["C", "Python", "Java", "Assembly"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What is the low-level programming language that is human-readable and corresponds directly to machine instructions?",
+    "options": ["Assembly Language", "Machine Code", "C++", "Fortran"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which processor architecture is commonly found in smartphones and mobile embedded systems?",
+    "options": ["ARM", "x86", "MIPS", "PowerPC"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which processor architecture is standard for desktop PCs and laptops?",
+    "options": ["x86 / x64", "ARM", "RISC-V", "AVR"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What is the name of the open instruction set architecture (ISA) gaining popularity in academic hardware design courses?",
+    "options": ["RISC-V", "ARM", "Intel x86", "PIC"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What does BIOS stand for?",
+    "options": ["Basic Input Output System", "Binary Input Output Service", "Bootstrap Initial OS Startup", "Basic Integrated Operating Software"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which system component conducts memory retrieval in a 'First-In, First-Out' (FIFO) manner?",
+    "options": ["Queue", "Stack", "Heap", "Tree"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which memory management structure operates on a 'Last-In, First-Out' (LIFO) basis?",
+    "options": ["Stack", "Queue", "Linked List", "Graph"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What is the term for a situation where two or more processes are unable to proceed because each is waiting for the other to release a resource?",
+    "options": ["Deadlock", "Livelock", "Race Condition", "Starvation"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which unit is responsible for coordinating the operations of the processor?",
+    "options": ["Control Unit", "Arithmetic Logic Unit", "Cache Memory", "System Bus"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What is the high-speed memory located directly inside or close to the CPU chip called?",
+    "options": ["Cache", "DRAM", "EEPROM", "Virtual Memory"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "How many bits are in a single byte?",
+    "options": ["8", "4", "16", "32"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "How many nibbles make up a byte?",
+    "options": ["2", "4", "8", "1"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What is the binary representation of the decimal number 5?",
+    "options": ["101", "110", "111", "011"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What type of flip-flop is commonly used as a basic memory storage element and has inputs named J and K?",
+    "options": ["JK Flip-Flop", "SR Latch", "D Flip-Flop", "T Flip-Flop"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What type of circuit uses a clock signal to synchronize its state transitions?",
+    "options": ["Sequential Circuit", "Combinational Circuit", "Analog Circuit", "Linear Circuit"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which logic circuit accepts multiple inputs and selects only one to be forwarded to a single output line?",
+    "options": ["Multiplexer (MUX)", "Demultiplexer (DEMUX)", "Encoder", "Decoder"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What logic circuit performs the opposite operation of a Multiplexer?",
+    "options": ["Demultiplexer", "Multiplexer", "Comparator", "Adder"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which circuit is designed to add two single-digit binary numbers and produce a sum and a carry, but has no carry input?",
+    "options": ["Half Adder", "Full Adder", "Ripple Carry Adder", "Subtractor"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What model of computing structure consists of states, transitions, inputs, and outputs?",
+    "options": ["Finite State Machine (FSM)", "Stack Machine", "Turing Machine", "Pipeline"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which type of FSM has outputs determined by both the current state and the current inputs?",
+    "options": ["Mealy Machine", "Moore Machine", "Turing Machine", "Statechart"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which type of FSM has outputs determined solely by its current state?",
+    "options": ["Moore Machine", "Mealy Machine", "State Machine", "Markov Chain"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What is the standard physical layout connector used for Ethernet cables?",
+    "options": ["RJ45", "RJ11", "USB-C", "DB9"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What kind of cable is standard for high-speed local network wiring in computer laboratories?",
+    "options": ["Category 5e / 6 (Cat5e/Cat6)", "Coaxial Cable", "Fiber Optic Cable", "HDMI Cable"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What is the default IP address of the local loopback interface?",
+    "options": ["127.0.0.1", "192.168.1.1", "10.0.0.1", "255.255.255.255"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What command is used in Windows Command Prompt to test connectivity to a remote server by sending ICMP packets?",
+    "options": ["ping", "ipconfig", "traceroute", "netstat"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "In database systems, what is SQL an acronym for?",
+    "options": ["Structured Query Language", "System Query Link", "Simple Queue Logic", "Sequence Query Lexicon"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What database key uniquely identifies each record in a table?",
+    "options": ["Primary Key", "Foreign Key", "Unique Key", "Super Key"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What does a compiler do?",
+    "options": ["Translates source code into machine/executable code", "Runs code line by line", "Fixes bugs in the code", "Saves code files to disk"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which of the following is an interpreted language rather than a compiled one?",
+    "options": ["Python", "C++", "Java", "Go"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which symbol represents a single-line comment in C, C++, and Java?",
+    "options": ["//", "#", "/*", "--"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "In software design, what does OOP stand for?",
+    "options": ["Object-Oriented Programming", "Optimal Output Process", "Operation Oriented Program", "Ordered Object Protocol"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which OOP principle hides the internal details of a class and exposes only what is necessary?",
+    "options": ["Encapsulation", "Inheritance", "Polymorphism", "Abstraction"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What mechanism allows a new class to adopt the attributes and methods of an existing class?",
+    "options": ["Inheritance", "Polymorphism", "Abstraction", "Interface"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What is the capability of a function to behave differently based on the object it is acting upon?",
+    "options": ["Polymorphism", "Encapsulation", "Inheritance", "Modularity"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What is the standard software platform used to create Android applications?",
+    "options": ["Android Studio", "Xcode", "Visual Studio", "Eclipse"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which version control platform is most popular for hosting code repositories online?",
+    "options": ["GitHub", "GitLab", "Bitbucket", "SourceForge"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which of the following is NOT a phase of the Software Development Life Cycle (SDLC)?",
+    "options": ["Soldering", "Planning", "Testing", "Maintenance"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "In Scrum methodology, what is the term for a short, time-boxed period where a team works to complete a set amount of work?",
+    "options": ["Sprint", "Standup", "Backlog", "Milestone"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What is the maximum Baud Rate of standard software serial connections on basic Arduino boards?",
+    "options": ["115200", "9600", "57600", "19200"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What logic gate performs the inverse of an OR gate?",
+    "options": ["NOR", "NAND", "XOR", "AND"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "Which hardware component is considered the 'brain' of the computer?",
+    "options": ["CPU", "GPU", "Motherboard", "Hard Drive"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  },
+  {
+    "questionText": "What device is used to step down the alternating current voltage from mains power into a lower voltage for direct rectification?",
+    "options": ["Transformer", "Inverter", "Rectifier", "Capacitor"],
+    "correctOptionIndex": 0,
+    "category": "engineering"
+  }
+]

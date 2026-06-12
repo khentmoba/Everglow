@@ -1,0 +1,602 @@
+[
+  {
+    "questionText": "Which famous celebrity couple announced their split in November 2023, ending an 11-year relationship that shocked the nation?",
+    "options": ["Kathryn Bernardo and Daniel Padilla (KathNiel)", "Nadine Lustre and James Reid (JaDine)", "Liza Soberano and Enrique Gil (LizQuen)", "Bea Alonzo and Dominic Roque"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "What is the love team name of Donny Pangilinan and Belle Mariano?",
+    "options": ["DonBelle", "DonMari", "BelleDon", "MariPangi"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which YouTube vlogging group from Cavite, led by Lincoln Velasquez, is famous for their comedy and daily life videos?",
+    "options": ["Team Payaman (Cong TV)", "Ex Battalion", "Brusko Bros", "Tukomi"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "What is the YouTube screen name of Lincoln Velasquez?",
+    "options": ["Cong TV", "Junnie Boy", "Boss Keng", "Yawi"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Who is Cong TV's long-time partner and fellow vlogger, with whom he has a son named Kidlat?",
+    "options": ["Viy Cortez", "Vien Iligan", "Pat Velasquez", "Zeinab Harake"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which brother of Cong TV is also a massive vlogger and is married to Vien Iligan?",
+    "options": ["Junnie Boy (Marlon Velasquez)", "Boss Keng", "Yawi", "Tito Mike"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which social media star and actress went viral for her family prank videos and sits as one of the most subscribed solo channels in the Philippines?",
+    "options": ["Ivana Alawi", "Zeinab Harake", "Alex Gonzaga", "Donnalyn Bartolome"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which internet personality went viral in 2019 for the 'Dalagang Pilipina' challenge and has a signature 'Drink your water, b!tch' catchphrase?",
+    "options": ["Mimiyuuuh", "Sassa Gurl", "Esnyr Ranollo", "Macoy Dubs"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which TikTok star and dancer from the Philippines is famous for her viral sibling dance videos with Ranz Kyle?",
+    "options": ["Niana Guerrero", "Zeinab Harake", "Ivana Alawi", "Chienna Filomeno"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which main host of ABS-CBN's 'It's Showtime' is famously referred to as the 'Unkabogable Star'?",
+    "options": ["Vice Ganda", "Anne Curtis", "Vhong Navarro", "Jhong Hilario"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Who is the Filipino-Australian actress and host of 'It's Showtime' who is married to Erwan Heussaff?",
+    "options": ["Anne Curtis", "Karylle", "Kim Chiu", "Coleen Garcia"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actor plays the lead character Tanggol in the hit GMA/ABS-CBN primetime series 'FPJ's Batang Quiapo'?",
+    "options": ["Coco Martin", "Daniel Padilla", "Joshua Garcia", "Alden Richards"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Coco Martin famously played the role of Cardo Dalisay in which long-running action drama series?",
+    "options": ["FPJ's Ang Probinsyano", "Batang Quiapo", "Juan dela Cruz", "Walang Hanggan"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which host is famous for giving away jackets, cash, and 'Wil Phone' in gameshows like Wowowee and Wowowin?",
+    "options": ["Willie Revillame", "Vic Sotto", "Joey de Leon", "Luis Manzano"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which PBB alumna is known as the 'Chinita Princess' and went viral for her 'Bawal Lumabas' classroom law song during the pandemic?",
+    "options": ["Kim Chiu", "Maymay Entrata", "Melai Cantiveros", "Barbie Imperial"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Who won Miss Universe 2015, ending a 42-year title drought for the Philippines?",
+    "options": ["Pia Wurtzbach", "Catriona Gray", "Shamcey Supsup", "Ariella Arida"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Who won Miss Universe 2018 with her iconic 'lava walk' and patriotic ear cuffs?",
+    "options": ["Catriona Gray", "Pia Wurtzbach", "Rabiya Mateo", "Michelle Dee"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actor is famous for his dramatic roles and is often compared to John Lloyd Cruz, starring in films like 'Ang Mga Kaibigan ni Mama Susan'?",
+    "options": ["Joshua Garcia", "Alden Richards", "Donny Pangilinan", "Kyle Echarri"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Who is Joshua Garcia's former love team partner with whom he starred in 'Love You to the Stars and Back'?",
+    "options": ["Julia Barretto", "Jane de Leon", "Gabbi Garcia", "Janella Salvador"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which half of the 'AlDub' phenomenal love team rose to fame via Eat Bulaga's Kalyeserye segment alongside Maine Mendoza?",
+    "options": ["Alden Richards", "James Reid", "Enrique Gil", "Daniel Padilla"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "What character did Maine Mendoza play in Eat Bulaga's Kalyeserye?",
+    "options": ["Yaya Dub", "Lola Nidora", "Lola Tidora", "Lola Tinidora"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which legendary trio hosted Eat Bulaga for decades before moving to TV5 in 2023?",
+    "options": ["Tito, Vic, and Joey (TVJ)", "Jose, Wally, and Paolo", "Vice, Vhong, and Billy", "Kuya Germs, Wally, and Jose"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Who is known as the 'Star for All Seasons' and is a prominent politician in Batangas?",
+    "options": ["Vilma Santos-Recto", "Nora Aunor", "Sharon Cuneta", "Elizabeth Oropesa"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Who is known as the 'Megastar' of the Philippines, famous for songs like 'Sana'y Wala Nang Wakas'?",
+    "options": ["Sharon Cuneta", "Regine Velasquez", "Zsa Zsa Padilla", "Nora Aunor"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Who is the legendary actress known as the rival of Vilma Santos and famous for the film 'Himala'?",
+    "options": ["Nora Aunor", "Sharon Cuneta", "Imelda Papin", "Gloria Romero"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actress, daughter of Marjorie Barretto, starred in the series 'Expensive Candy'?",
+    "options": ["Julia Barretto", "Claudia Barretto", "Dani Barretto", "Leon Barretto"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actress, daughter of Ruffa Gutierrez, is a rising star under Star Magic?",
+    "options": ["Lorin Bektas", "Venice Bektas", "Janine Gutierrez", "Maricel Laxa"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which TV host and personality is known as 'Lucky' and is the son of Vilma Santos and Edu Manzano?",
+    "options": ["Luis Manzano", "Ryan Christian Recto", "Enzo Manzano", "Christian Manzano"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actress and model is married to host Luis Manzano?",
+    "options": ["Jessy Mendiola", "Angel Locsin", "Jennylyn Mercado", "Marian Rivera"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actress, famous for her role as Darna and her philanthropic work during disasters, was formerly engaged to Luis Manzano?",
+    "options": ["Angel Locsin", "Jessy Mendiola", "Marian Rivera", "Jennylyn Mercado"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actress is hailed as the 'Kapuso Primetime Queen' and is married to Dingdong Dantes?",
+    "options": ["Marian Rivera", "Jennylyn Mercado", "Heart Evangelista", "Carla Abellana"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "What is the love team name of Dingdong Dantes and Marian Rivera?",
+    "options": ["DongYan", "MarDing", "MarianDing", "DongMari"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which Kapuso actress and international fashion icon is married to politician Chiz Escudero?",
+    "options": ["Heart Evangelista", "Marian Rivera", "Lovi Poe", "Solenn Heussaff"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actor, famous as the 'Ultimate Heartthrob' of the 2000s, starred in the movie 'One More Chance'?",
+    "options": ["John Lloyd Cruz", "Piolo Pascual", "Jericho Rosales", "Diether Ocampo"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actor is known as the 'Ultimate leading man' and is famous for the movie 'Starting Over Again'?",
+    "options": ["Piolo Pascual", "John Lloyd Cruz", "Jericho Rosales", "Sam Milby"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actor, famous for his indie roots and his role in 'Echoes of the Past', is known as 'Echo'?",
+    "options": ["Jericho Rosales", "Piolo Pascual", "John Lloyd Cruz", "Diether Ocampo"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actress, daughter of Lotlot de Leon, starred in 'Dirty Linen' and is a prominent actress of her generation?",
+    "options": ["Janine Gutierrez", "Maris Racal", "Jane Oineza", "Ryzza Mae Dizon"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which Bisaya actress and singer went viral for her comedic TikToks and her role as Irene in 'Can't Buy Me Love'?",
+    "options": ["Maris Racal", "Sue Ramirez", "Jane de Leon", "Kim Chiu"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Who is Maris Racal's boyfriend, who is a famous singer-songwriter and former lead of Rivermaya?",
+    "options": ["Rico Blanco", "Ely Buendia", "Chito Miranda", "Bamboo"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actress played the titular role of Darna in the 2022 ABS-CBN adaptation series?",
+    "options": ["Jane de Leon", "Liza Soberano", "Angel Locsin", "Marian Rivera"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actress played the villainous snake-queen Valentina in the 2022 Darna series?",
+    "options": ["Janella Salvador", "Jane de Leon", "Maris Racal", "Sue Ramirez"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which singer and actress is the mother of Janella Salvador and is famous for her West End theater roles?",
+    "options": ["Jenine Desiderio", "Lea Salonga", "Zsa Zsa Padilla", "Regine Velasquez"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which female vlogger and former PBB housemate is known as 'Zeinab' and has two children, Bia and Lucas?",
+    "options": ["Zeinab Harake", "Ivana Alawi", "Donnalyn Bartolome", "Jelai Andres"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which internet personality is famous for organizing massive influencer events like the 'Influence Cup' and 'Last To Leave' challenges?",
+    "options": ["Donnalyn Bartolome", "Zeinab Harake", "Ivana Alawi", "Alex Gonzaga"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which vlogger and actress is the younger sister of Toni Gonzaga and is famous for her chaotic, funny vlogs?",
+    "options": ["Alex Gonzaga", "Cathy Gonzaga", "Mary Gonzaga", "Rufa Mae Quinto"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actress and television host is famously married to director Paul Soriano?",
+    "options": ["Toni Gonzaga", "Alex Gonzaga", "Mariel Rodriguez", "Bianca Gonzalez"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which long-time host of Pinoy Big Brother is married to director JC Intal?",
+    "options": ["Bianca Gonzalez-Intal", "Toni Gonzaga", "Mariel Rodriguez", "Melai Cantiveros"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which PBB winner became a prominent TV host and is famous for her hilarious English-speaking mistakes in Magandang Buhay?",
+    "options": ["Melai Cantiveros-Francisco", "Kim Chiu", "Maymay Entrata", "Melanie Marquez"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Who is Melai Cantiveros' husband, whom she met inside the Pinoy Big Brother house?",
+    "options": ["Jason Francisco", "Robi Domingo", "Gerald Anderson", "Enchong Dee"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which PBB alumnus is a prominent TV host and serves as the main host of various ABS-CBN reality shows?",
+    "options": ["Robi Domingo", "Gerald Anderson", "Sam Milby", "Enchong Dee"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actor, who recently starred in the series 'A Family Affair', is famously known for having controversies involving multiple actress breakups?",
+    "options": ["Gerald Anderson", "Joshua Garcia", "Daniel Padilla", "James Reid"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Who is Gerald Anderson's current girlfriend, who is also a prominent actress and daughter of Marjorie Barretto?",
+    "options": ["Julia Barretto", "Bea Alonzo", "Maja Salvador", "Kim Chiu"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actress and dancer, famous for the 'Maja Rot' dance moves, got married to Rambo Nuñez in 2023?",
+    "options": ["Maja Salvador", "Kim Chiu", "Sarah Lahbati", "Nadine Lustre"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actress, daughter of Jean Garcia, starred in the series 'Abot-Kamay na Pangarap'?",
+    "options": ["Jillian Ward", "Glaiza de Castro", "Kylie Padilla", "Sanya Lopez"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which former child star played the lead role of Analyn Santos, a genius doctor, in 'Abot-Kamay na Pangarap'?",
+    "options": ["Jillian Ward", "Ryzza Mae Dizon", "Xyriel Manabat", "Mona Alawi"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which former child actress made a highly acclaimed comeback in the teenage drama 'Senior High' as Roxy?",
+    "options": ["Xyriel Manabat", "Jillian Ward", "Andrea Brillantes", "Ryzza Mae Dizon"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actress played the lead dual roles of Sky and Luna in the mystery-drama series 'Senior High'?",
+    "options": ["Andrea Brillantes", "Xyriel Manabat", "Belle Mariano", "Maris Racal"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "What is the nickname of the actress Andrea Brillantes?",
+    "options": ["Blythe", "Andeng", "Brill", "Andrea"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actor played the role of Gino in 'Senior High' and is the son of singer-actress Zsa Zsa Padilla?",
+    "options": ["Harvey Bautista", "Juan Karlos", "Kyle Echarri", "Elijah Canlas"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which award-winning indie actor played the manipulative bully Archie in 'Senior High'?",
+    "options": ["Elijah Canlas", "Harvey Bautista", "Kokoy de Santos", "Kyle Echarri"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actor, who starred in the BL series 'Gameboys' alongside Elijah Canlas, is a regular host on Eat Bulaga?",
+    "options": ["Kokoy de Santos", "Royce Cabrera", "Khalil Ramos", "Gab Lagman"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actor and singer is dating Gabbi Garcia, and is famous for his roles in GMA-7 dramas?",
+    "options": ["Khalil Ramos", "Jak Roberto", "Ruru Madrid", "Paul Salas"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which Kapuso actress is famously dating Ruru Madrid, and starred in 'Lolong'?",
+    "options": ["Bianca Umali", "Gabbi Garcia", "Sanya Lopez", "Kylie Padilla"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which Kapuso actor is famous for his 'anti-selos class' memes on social media, and is dating Barbie Forteza?",
+    "options": ["Jak Roberto", "Ruru Madrid", "David Licauco", "Alden Richards"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actor forms the popular 'FiNa' love team with Barbie Forteza, starting from their roles in 'Maria Clara at Ibarra'?",
+    "options": ["David Licauco", "Jak Roberto", "Alden Richards", "Dennis Trillo"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Who is David Licauco's love team partner, known as the 'Kapuso Primetime Princess'?",
+    "options": ["Barbie Forteza", "Gabbi Garcia", "Bianca Umali", "Sanya Lopez"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actor played Crisostomo Ibarra in the hit historical fantasy series 'Maria Clara at Ibarra'?",
+    "options": ["Dennis Trillo", "David Licauco", "Rocco Nacino", "Alden Richards"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actress is Dennis Trillo married to, who is also a prominent Kapuso leading lady?",
+    "options": ["Jennylyn Mercado", "Carla Abellana", "Yasmien Kurdi", "Marian Rivera"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actress, daughter of Robin Padilla, starred in the action series 'Encantadia' as Amihan?",
+    "options": ["Kylie Padilla", "Queenierich Rehman", "Sanya Lopez", "Glaiza de Castro"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actress played the role of Pirena, the keeper of the fire gem, in the 2016 remake of Encantadia?",
+    "options": ["Glaiza de Castro", "Kylie Padilla", "Sanya Lopez", "Gabbi Garcia"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actress played Danaya, the keeper of the earth gem, in Encantadia 2016?",
+    "options": ["Sanya Lopez", "Glaiza de Castro", "Kylie Padilla", "Gabbi Garcia"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actress played Alena, the keeper of the water gem, in Encantadia 2016?",
+    "options": ["Gabbi Garcia", "Sanya Lopez", "Glaiza de Castro", "Kylie Padilla"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actress and beauty queen, who is a cousin of Janine Gutierrez, represented the Philippines in Miss World 2021?",
+    "options": ["Tracy Maureen Perez", "Megan Young", "Catriona Gray", "Valerie Weigmann"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which Filipina won the country's first Miss World title in 2013, held in Bali, Indonesia?",
+    "options": ["Megan Young", "Pia Wurtzbach", "Gwendoline Ruais", "Catriona Gray"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Who is Megan Young's husband, who is also a Kapuso actor and vlogger?",
+    "options": ["Mikael Daez", "Ruru Madrid", "Tom Rodriguez", "Rayver Cruz"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actor and dancer, formerly with ABS-CBN, is married to actress Janine Gutierrez's cousin and is a regular Kapuso host?",
+    "options": ["Rayver Cruz", "Rodjun Cruz", "Mikael Daez", "Enchong Dee"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actor and swimmer competed internationally for the Philippines and starred in 'Ina, Kapatid, Anak'?",
+    "options": ["Enchong Dee", "Gerald Anderson", "Xian Lim", "Matteo Guidicelli"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actor, singer, and triathlete is married to Popstar Royalty Sarah Geronimo?",
+    "options": ["Matteo Guidicelli", "Xian Lim", "Gerald Anderson", "Enchong Dee"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actor and director is famously dating writer-producer Kim Lim after his high-profile breakup with Kim Chiu?",
+    "options": ["Xian Lim", "Gerald Anderson", "Enchong Dee", "Matteo Guidicelli"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which singer and actress, nicknamed the 'Divine Diva', is the mother of singer-actress Karylle?",
+    "options": ["Zsa Zsa Padilla", "Regine Velasquez", "Pops Fernandez", "Kuh Ledesma"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which host and singer is married to senator Ralph Recto?",
+    "options": ["Vilma Santos", "Sharon Cuneta", "Korina Sanchez", "Karen Davila"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which veteran broadcast journalist hosts the TV program 'Rated K' (now Rated Korina)?",
+    "options": ["Korina Sanchez-Roxas", "Karen Davila", "Jessica Soho", "Mel Tiangco"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which veteran broadcast journalist hosts the award-winning news magazine show 'Kapuso Mo, Jessica Soho'?",
+    "options": ["Jessica Soho", "Mel Tiangco", "Karen Davila", "Bernadette Sembrano"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which broadcast journalist is famous for her signature catchphrase 'Handa na ba kayo?' on TV Patrol's weather segment?",
+    "options": ["Kim Atienza (Kuya Kim)", "Marc Logan", "Alvin Elchico", "Bernadette Sembrano"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Who was the legendary television host known as 'Kuya Germs' or 'Master Showman'?",
+    "options": ["German Moreno", "Boy Abunda", "Joey de Leon", "Vic Sotto"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which talk show host is known as the 'King of Talk' and conducts highly personal interviews on Fast Talk?",
+    "options": ["Boy Abunda", "Luis Manzano", "Vice Ganda", "Willie Revillame"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which internet influencer and beauty vlogger is famous for her catchphrase 'Gandang gabi, mga kapithouse!'?",
+    "options": ["Michelle Dy", "Anna Cay", "Mae Layug", "Rei Germar"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which YouTuber is famous for her cooking channel 'Lumpia Queen' and represents simple provincial Filipino life?",
+    "options": ["Judy Ann Santos", "Ninong Ry", "Chef Tatung", "Vangie"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which food vlogger from Malabon, known as 'Ninong Ry', gained massive popularity for his raw, funny cooking tutorials?",
+    "options": ["Ryan Reyes (Ninong Ry)", "Chef Tatung", "Chef Boy Logro", "Erwan Heussaff"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which celebrity chef and host is famous for his catchphrase 'Ping, ping, ping!' on the show 'Idol sa Kusina'?",
+    "options": ["Chef Boy Logro", "Chef Tatung", "Ninong Ry", "Erwan Heussaff"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which YouTube content creator is famous for his satirical comedy skits portraying student life, school teachers, and office workers?",
+    "options": ["Esnyr Ranollo", "Macoy Dubs", "Sassa Gurl", "Mimiyuuuh"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which internet personality is known as the 'Mima' of Philippine social media, serving as a co-host on Drag Den?",
+    "options": ["Sassa Gurl", "Mimiyuuuh", "Esnyr", "Macoy Dubs"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which vlogger became famous for his Tagalog-dubbed clips of cartoons like Mean Girls, creating the character 'Aunt Julie'?",
+    "options": ["Macoy Dubs (Mark Averilla)", "Esnyr", "Sassa Gurl", "Mimiyuuuh"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which content creator is famous for her viral cover reactions and has a massive TikTok following under 'Davao Conyo'?",
+    "options": ["Phillip Hernandez (Davao Conyo)", "Mimiyuuuh", "Sassa Gurl", "Zeinab Harake"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which sibling duo is famous for their dance channels and started vlogging since their childhood in Pasig?",
+    "options": ["Ranz and Niana", "Chicser", "Donnalyn and Ivana", "Alex and Toni"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "What is the name of Ranz and Niana's younger sister, who also joins their dance clips?",
+    "options": ["Natalia Guerrero", "Seah Guerrero", "Chelsea Guerrero", "Sienna Guerrero"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actor, who recently starred in 'Linlang', is married to actress Kim Chiu's former love team partner Maja Salvador?",
+    "options": ["Rambo Nuñez (Non-celebrity)", "Paulo Avelino", "Gerald Anderson", "JM de Guzman"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actor played Victor in the hit thriller series 'Linlang' alongside Kim Chiu?",
+    "options": ["Paulo Avelino", "JM de Guzman", "Gerald Anderson", "Jake Ejercito"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actor played the manipulative lawyer Alex in 'Linlang'?",
+    "options": ["JM de Guzman", "Paulo Avelino", "Jake Ejercito", "Gerald Anderson"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  },
+  {
+    "questionText": "Which actor, son of former president Joseph Estrada, is a regular Kapamilya actor and is famous for his funny co-parenting Twitter/X threads?",
+    "options": ["Jake Ejercito", "Paulo Avelino", "JM de Guzman", "Gerald Anderson"],
+    "correctOptionIndex": 0,
+    "category": "celebrities"
+  }
+]

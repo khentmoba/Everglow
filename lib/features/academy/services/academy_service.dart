@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/academy_question.dart';
 import '../models/game_match.dart';
@@ -39,43 +41,39 @@ class AcademyService {
 
   // Seeding helper
   Future<void> seedQuestions() async {
-    final batch = _firestore.batch();
-    
-    final sampleQuestions = [
-      // Engineering
-      {
-        'questionText': 'What is the standard unit of electrical resistance?',
-        'options': ['Ohm', 'Volt', 'Ampere', 'Watt'],
-        'correctOptionIndex': 0,
-        'category': 'engineering',
-      },
-      {
-        'questionText': 'Which material is commonly used for its high conductivity in wiring?',
-        'options': ['Iron', 'Copper', 'Aluminum', 'Gold'],
-        'correctOptionIndex': 1,
-        'category': 'engineering',
-      },
-      // Tourism
-      {
-        'questionText': 'Which city is known as the "City of Love"?',
-        'options': ['London', 'New York', 'Paris', 'Rome'],
-        'correctOptionIndex': 2,
-        'category': 'tourism',
-      },
-      {
-        'questionText': 'What is the largest coral reef system in the world?',
-        'options': ['Great Barrier Reef', 'Red Sea Reef', 'Belize Barrier Reef', 'Pulley Ridge'],
-        'correctOptionIndex': 0,
-        'category': 'tourism',
-      },
-    ];
+    try {
+      final String jsonString = await rootBundle.loadString('assets/data/academy_questions_seed.json');
+      final List<dynamic> data = jsonDecode(jsonString);
 
-    for (var q in sampleQuestions) {
-      final doc = _questionsRef.doc();
-      batch.set(doc, q);
+      // Process in batches of 500 (Firestore limit)
+      for (var i = 0; i < data.length; i += 500) {
+        final batch = _firestore.batch();
+        final end = (i + 500 < data.length) ? i + 500 : data.length;
+
+        for (var j = i; j < end; j++) {
+          final q = data[j];
+          final String questionText = q['questionText'] ?? '';
+          final id = AcademyQuestion.generateId(questionText);
+          final docRef = _questionsRef.doc(id);
+
+          batch.set(docRef, {
+            'id': id,
+            'questionText': questionText,
+            'options': List<String>.from(q['options'] ?? []),
+            'correctOptionIndex': q['correctOptionIndex'] ?? 0,
+            'category': q['category'] ?? 'general',
+            'createdAt': FieldValue.serverTimestamp(),
+            'source': 'local_seed',
+          }, SetOptions(merge: true));
+        }
+
+        await batch.commit();
+      }
+      print('Successfully seeded ${data.length} questions to Firestore');
+    } catch (e) {
+      print('Error seeding questions: $e');
+      rethrow;
     }
-
-    await batch.commit();
   }
 
   // 1v1 Matchmaking logic

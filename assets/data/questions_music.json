@@ -1,0 +1,602 @@
+[
+  {
+    "questionText": "Which P-pop girl group is widely known for their hit songs 'Pantropiko' and 'Salamin, Salamin'?",
+    "options": ["BINI", "MNL48", "KAIA", "G22"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "How many members make up the P-pop girl group BINI?",
+    "options": ["8", "7", "9", "5"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which member of BINI is famously known as the 'Main Rapper' and is recognized by her bright red/dyed hair in 'Salamin, Salamin'?",
+    "options": ["Mikha", "Maloi", "Aiah", "Colet"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which BINI song, known for its encouraging message, features the lyrics 'Buhay ay di karera'?",
+    "options": ["Karera", "Pantropiko", "Lagi", "Huwag Muna Tayong Umuwi"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which BINI member serves as the official leader of the group?",
+    "options": ["Jhoanna", "Aiah", "Colet", "Sheena"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "What is the official fandom name of BINI?",
+    "options": ["Blooms", "A'TIN", "Aces", "Magiliw"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which P-pop boy group is famous for their viral hit 'GENTO' and represents the Philippines globally?",
+    "options": ["SB19", "BGYO", "Alamat", "VXON"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "What is the official fandom name of SB19?",
+    "options": ["A'TIN", "Blooms", "ALAB", "Starlight"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Who is the leader and main producer of SB19's music?",
+    "options": ["Pablo", "Stell", "Ken / Felip", "Josh"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which member of SB19 went viral for his incredible vocal performance as a judge on The Voice Generations Philippines?",
+    "options": ["Stell", "Justin", "Ken", "Pablo"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which P-pop boy group is famous for singing in multiple Philippine languages (Tagalog, Ilocano, Kapampangan, Bicolano, etc.)?",
+    "options": ["Alamat", "SB19", "BGYO", "1st.One"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which indie-pop band went mega-viral in 2023 with the hit song 'Raining in Manila'?",
+    "options": ["Lola Amour", "Dilaw", "SunKissed Lola", "The Juans"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Who is the lead vocalist of the band Lola Amour?",
+    "options": ["Pio Dumayas", "Dilaw Obero", "Zack Tabudlo", "Adie"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which band sings the hit song 'Uhaw (Tayong Lahat)', which dominated music charts in 2023?",
+    "options": ["Dilaw", "Lola Amour", "SunKissed Lola", "Autotelic"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which band sings the massive romantic hit 'Pasilyo', often used in wedding videos?",
+    "options": ["SunKissed Lola", "Dilaw", "Lola Amour", "Ben&Ben"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "How many members are in the popular folk-pop band Ben&Ben, known for their twin brothers?",
+    "options": ["9", "5", "7", "6"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "What are the names of the twin brothers who front the band Ben&Ben?",
+    "options": ["Paolo and Miguel Guico", "Pablo and Stell", "Adie and Zack", "Pio and Raymond"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which Ben&Ben song features the classic line 'Mahiwaga, pipiliin ka sa araw-araw'?",
+    "options": ["Araw-Araw", "Kathang Isip", "Pagtingin", "Leaves"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which Ben&Ben hit contains the lyrics 'Pasensya na, kung papatulugin na muna ang pusong napagod kakahintay'?",
+    "options": ["Kathang Isip", "Pagtingin", "Leaves", "Maybe the Night"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which solo artist rose to fame with hit tracks like 'Binibini', 'Pano', and 'Habang Buhay'?",
+    "options": ["Zack Tabudlo", "Adie", "Arthur Nery", "Juan Karlos"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which singer-songwriter is famous for the songs 'Paraluman' and 'Mahika' (with Janine Berdin)?",
+    "options": ["Adie", "Zack Tabudlo", "Arthur Nery", "TJ Monterde"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which OPM artist from Cagayan de Oro is known for his smooth R&B hits 'Pagsamo' and 'Higa'?",
+    "options": ["Arthur Nery", "Adie", "Zack Tabudlo", "Rob Deniel"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which artist sings the emotional rock track 'ERE', which broke Spotify Philippines records in 2023?",
+    "options": ["Juan Karlos", "Zack Tabudlo", "Adie", "TJ Monterde"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "What is the title of Juan Karlos' first massive solo hit in 2018, which refers to the moon?",
+    "options": ["Buwan", "Ere", "Demonyo", "Laro"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which acoustic OPM singer-songwriter is famous for the viral wedding/love song 'Palagi'?",
+    "options": ["TJ Monterde", "Adie", "Arthur Nery", "Zack Tabudlo"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which iconic 90s Filipino rock band is known as the 'Beatles of the Philippines'?",
+    "options": ["Eraserheads", "Parokya ni Edgar", "Rivermaya", "Kamikazee"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Who is the lead vocalist and primary songwriter of the Eraserheads?",
+    "options": ["Ely Buendia", "Chito Miranda", "Bamboo Mañalac", "Rico Blanco"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which Eraserheads track is widely considered an unofficial national anthem of OPM, detailing the story of a girl who looked like a star?",
+    "options": ["Ang Huling El Bimbo", "Ligaya", "Pare Ko", "Alapaap"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which iconic OPM band, led by Chito Miranda, is famous for their comedic and narrative songs like 'Harana' and 'Gitara'?",
+    "options": ["Parokya ni Edgar", "Eraserheads", "Rivermaya", "Itchyworms"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "In the Parokya ni Edgar song 'Harana', what is the opening line of the song?",
+    "options": ["Uso pa ba ang harana?", "Puno ang langit ng bituin", "Dungawin mo kayang", "Magandang gabi sa iyo"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which Parokya ni Edgar hit features a guest rap verse by Francis Magalona and Gloc-9?",
+    "options": ["Bagsakan", "Alumni Homecoming", "Buloy", "The Yes Yes Show"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Who is known as the 'Master Rapper' of the Philippines, famous for the song 'Mga Kababayan'?",
+    "options": ["Francis Magalona", "Andrew E.", "Gloc-9", "Shanti Dope"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Who is the legendary female rap artist who collaborated with Francis M and is known as the 'King of Philippine Rap's successor' Gloc-9's inspiration?",
+    "options": ["Gloc-9 (Aristotle Pollisco)", "Shanti Dope", "Flow G", "Al James"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which fast-spitting Filipino rapper is famous for songs like 'Sirena', 'Lando', and 'Upuan'?",
+    "options": ["Gloc-9", "Shanti Dope", "Andrew E.", "Francis M."],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which OPM rock band was originally fronted by Bamboo Mañalac and later saw Rico Blanco take over lead vocals?",
+    "options": ["Rivermaya", "Eraserheads", "Cueshé", "Sponge Cola"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which Rico Blanco composition for Rivermaya contains the lines 'Posible kaya ang imposible'?",
+    "options": ["Liwanag sa Dilim", "Kisapmata", "You'll Be Safe Here", "214"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which Rivermaya love ballad is famous for the line 'Am I real, do the words I speak before you make you feel'?",
+    "options": ["214", "Kisapmata", "Hinahanap-hanap Kita", "Elesi"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which energetic alternative rock band is famous for the song 'Narda', about a crush on Darna?",
+    "options": ["Kamikazee", "Sponge Cola", "Chicosci", "Urbandub"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which Cebuano rock band is famous for songs like 'First of Summer' and 'Guillotine'?",
+    "options": ["Urbandub", "Franco", "Faspitch", "Powerspoils"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which female-fronted band is famous for the songs 'Oo', 'Tadhana', and 'Migraine'?",
+    "options": ["Up Dharma Down (UDD)", "Imago", "Moonstar88", "Session Road"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Who was the lead vocalist of Up Dharma Down during their peak popularity?",
+    "options": ["Armi Millare", "Aia de Leon", "Yeng Constantino", "Kitchie Nadal"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which band sings the popular high-school graduation song 'Torete'?",
+    "options": ["Moonstar88", "Imago", "UDD", "Barbie's Cradle"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which OPM singer-songwriter won the first season of Pinoy Dream Academy and is known as the 'Pop-Rock Princess'?",
+    "options": ["Yeng Constantino", "Sarah Geronimo", "Klarisse de Guzman", "Morissette Amon"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which Yeng Constantino hit song is about a sudden, unexpected crush, translated as 'chanced upon'?",
+    "options": ["Chinito", "Hawak Kamay", "Salamat", "Cool Off"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which OPM artist is known as the 'Tala' singer and the 'Popstar Royalty' of the Philippines?",
+    "options": ["Sarah Geronimo", "Regine Velasquez", "Angeline Quinto", "Morissette Amon"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which Sarah Geronimo dance track went mega-viral with a dance challenge in 2019?",
+    "options": ["Tala", "Kilometro", "Sa Iyo", "Ikot-Ikot"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Who is known as the 'Asia's Songbird' and is one of the most influential vocalists in OPM history?",
+    "options": ["Regine Velasquez-Alcasid", "Lea Salonga", "Lani Misalucha", "Zsa Zsa Padilla"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which Filipina singer and theater actress famously voiced Princess Jasmine in Disney's Aladdin and Mulan?",
+    "options": ["Lea Salonga", "Regine Velasquez", "Morissette Amon", "Kyla"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which rock band, fronted by Marc Abaya, is known for their hit song 'Hallelujah'?",
+    "options": ["Bamboo", "Kjwan", "Sandwich", "Razorback"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which pop-rock band is famous for the song 'Jeepney' and is fronted by Yael Yuzon?",
+    "options": ["Sponge Cola", "Callalily", "Cueshé", "Hale"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which band sings the melancholic hit 'The Day You Said Goodnight'?",
+    "options": ["Hale", "Cueshé", "Sponge Cola", "Soapdish"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which acoustic band is famous for hits like 'Stay' and 'Ulan' during the mid-2000s acoustic wave?",
+    "options": ["Cueshé", "MYMP", "Hale", "Sitti"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Who is the lead vocalist of the pop-rock band Silent Sanctuary, famous for classical-rock hits like 'Kundiman'?",
+    "options": ["Sarkie Sarangilo", "Yael Yuzon", "Kean Cipriano", "Champ Lui Pio"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which band, originally led by Kean Cipriano, is famous for the songs 'Magbalik' and 'Stars'?",
+    "options": ["Callalily", "Cueshé", "Silent Sanctuary", "6cyclemind"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "What legendary OPM band is famous for high-pitched videoke staples like 'Halik', 'Luha', and 'Basang-Basa sa Ulan'?",
+    "options": ["Aegis", "Kamikazee", "Parokya ni Edgar", "The Juans"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "What popular karaoke song is famously associated with bar fights and is often avoided in local videoke joints?",
+    "options": ["My Way (Frank Sinatra)", "Ang Huling El Bimbo", "I Will Survive", "Halik"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which indie singer-songwriter is famous for the cozy track 'Pasalubong' (feat. Ben&Ben)?",
+    "options": ["Moira Dela Torre", "Janine Teñoso", "Janine Berdin", "Clara Benin"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which artist is known as the 'Hugot Queen' of modern OPM, famous for 'Tagpuan' and 'Malaya'?",
+    "options": ["Moira Dela Torre", "Yeng Constantino", "Klarisse", "Gigi De Lana"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which artist went viral with her band 'Gigi Vibes' for their covers of classic rock songs, particularly 'Rosanna'?",
+    "options": ["Gigi De Lana", "Morissette", "Katrina Velarde", "Bella Poarch"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which TikTok influencer born in the Philippines released the hit single 'Build a Bitch'?",
+    "options": ["Bella Poarch", "Niana Guerrero", "Zeinab Harake", "Ivana Alawi"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which BINI member is famously known as the 'Dance Leader' and has been dancing since childhood in Leyte?",
+    "options": ["Sheena", "Jhoanna", "Stacey", "Gwen"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which member of BINI represents the group as the main visual and is known for her calm personality and cat-like features?",
+    "options": ["Aiah", "Mikha", "Stacey", "Maloi"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which member of BINI is known as the 'Princess of Taguig' and has a signature pink aesthetic?",
+    "options": ["Stacey", "Gwen", "Maloi", "Jhoanna"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which BINI member has a deep, distinct vocal tone and is known for her visual modeling backgrounds in Bicol?",
+    "options": ["Gwen", "Mikha", "Colet", "Aiah"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which member of BINI is nicknamed the 'Angeles City Sweetheart' and is known for her powerhouse vocals?",
+    "options": ["Colet", "Maloi", "Aiah", "Jhoanna"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which BINI member is known as the 'Lucky Charm' and is famous for her theatrical and expressive vocal styling?",
+    "options": ["Maloi", "Jhoanna", "Sheena", "Stacey"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which SB19 member is known for his solo release 'FELIP' and his deep-toned Visayan metal-rock style?",
+    "options": ["Ken", "Pablo", "Josh", "Justin"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which member of SB19 is the youngest (bunso) and designed the creative visuals for their 'PAGTAGUYOD' era?",
+    "options": ["Justin", "Stell", "Ken", "Pablo"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which member of SB19 is the eldest and released the solo hip-hop single 'Wild Tonight'?",
+    "options": ["Josh", "Pablo", "Ken", "Stell"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "What was the debut single of SB19 released in 2018?",
+    "options": ["Tilaluha", "Go Up", "Alab", "Mapa"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which SB19 track released in 2019 served as their breakthrough hit, launching them into viral fame?",
+    "options": ["Go Up", "Gento", "Mapa", "What?"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which song by SB19 is a dedication to parents, with a title combining 'Mama' and 'Papa'?",
+    "options": ["Mapa", "Gento", "Bazinga", "Nyebe"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which OPM artist is known for his unique low-register voice and hits like 'Mahika' and 'Tahanan'?",
+    "options": ["Adie", "Arthur Nery", "Zack Tabudlo", "Rob Deniel"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which retro-styled OPM singer-songwriter is famous for the hit 'Romantiko' and 'Sinta'?",
+    "options": ["Rob Deniel", "Adie", "Arthur Nery", "Zack Tabudlo"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "What band is famous for the songs 'Sino', 'Tayo Na Lang Dalawa', and 'Pelikula'?",
+    "options": ["Unique Salonga / IV of Spades", "SUD", "Autotelic", "Lola Amour"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which highly popular retro-inspired band featured Unique Salonga, Zild Benitez, Blaster Silonga, and Badjao de Castro?",
+    "options": ["IV of Spades", "Lola Amour", "Dilaw", "Autotelic"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which IV of Spades song went viral in 2017 with its funky basslines and retro MV, translated as 'Where were you'?",
+    "options": ["Mundo", "Hey Barbara", "Ilaw sa Daan", "In My Prison"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "What is the title of the biggest hit of IV of Spades, which features the lines 'Aking sinta, ibabalik kita sa pinanggalingan'?",
+    "options": ["Mundo", "Sino", "Bawat Kaluluwa", "Pelikula"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Who was the lead vocalist of IV of Spades before leaving the group in 2018 to pursue a solo career?",
+    "options": ["Unique Salonga", "Zild Benitez", "Blaster Silonga", "Arthur Nery"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which bassist of IV of Spades launched a successful solo career with albums like 'Homework Machine' and 'Humor'?",
+    "options": ["Zild Benitez", "Blaster Silonga", "Unique Salonga", "Badjao de Castro"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which guitarist of IV of Spades forms the band 'Blaster and the Celestial Klowns'?",
+    "options": ["Blaster Silonga", "Zild Benitez", "Unique Salonga", "Badjao de Castro"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which band sings the sensual OPM track 'Sila', which was the most played song on Spotify Philippines in 2016?",
+    "options": ["SUD", "Jensen and The Flips", "Autotelic", "Ang Banda Shirley"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which indie band is famous for the upbeat synth-pop track 'Laro' and 'Gising'?",
+    "options": ["Autotelic", "SUD", "December Avenue", "The Juans"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which band dominated OPM hugot playlists in 2018 with tracks like 'Sa Ngalan ng Pag-ibig' and 'Kung 'Di Rin Lang Ikaw'?",
+    "options": ["December Avenue", "The Juans", "I Belong to the Zoo", "Silent Sanctuary"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which solo project of Argee Guerrero is famous for the heartbreaking acoustic song 'Sana'?",
+    "options": ["I Belong to the Zoo", "December Avenue", "Arthur Nery", "Adie"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which band, known for its emotional anthems, sings 'Balisong' and 'Nasaan Ka'?",
+    "options": ["Rivermaya", "Hale", "Sponge Cola", "Cueshé"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which OPM band is famous for the hit song 'Nobela'?",
+    "options": ["Join The Club", "Cueshé", "Sponge Cola", "Orange and Lemons"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which band is famous for 'Hanggang Kailan' (Umuwi Ka Na Baby) and has a distinct retro Britpop sound?",
+    "options": ["Orange and Lemons", "Join The Club", "Silent Sanctuary", "Callalily"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "What popular song by Orange and Lemons serves as the official theme song of Pinoy Big Brother?",
+    "options": ["Pinoy Ako", "Hanggang Kailan", "Abot Kamay", "Blue Moon"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which acoustic duo is famous for their covers of 'Kahapon at Pag-ibig' and 'Tunay na Ligaya'?",
+    "options": ["MYMP (Make Your Mom Proud)", "Aiza Seguerra", "Sitti", "Nyoy Volante"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Who was the female lead vocalist of MYMP during their peak acoustic era in the mid-2000s?",
+    "options": ["Juris Fernandez", "Sitti Navarro", "Aiza Seguerra", "Kyla"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which singer is known as the 'Bossa Nova Queen' of the Philippines?",
+    "options": ["Sitti Navarro", "Juris Fernandez", "Nina", "Kyla"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which female R&B singer is famous for the hit 'Jealous' and is called the 'Soul Siren'?",
+    "options": ["Nina", "Kyla", "Morissette", "Jona"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which female R&B singer is known as the 'Queen of R&B' in the Philippines, famous for 'Hanggang Ngayon'?",
+    "options": ["Kyla", "Nina", "Morissette", "Regine Velasquez"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which singer is nicknamed 'Asia's Phoenix' and is famous for her whistle notes and 'Akin Ka Na Lang'?",
+    "options": ["Morissette Amon", "Regine Velasquez", "Lea Salonga", "Charice / Jake Zyrus"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which young singer-songwriter is famous for her breezy indie tracks like 'I Have Limitless Love' and 'Tila'?",
+    "options": ["Clara Benin", "Reese Lansangan", "Keiko Necesario", "Abby Clutario"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which indie artist is known for her quirky songs like 'Exploration No. 5' and 'Home'?",
+    "options": ["Reese Lansangan", "Clara Benin", "Keiko Necesario", "BP Valenzuela"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which band sings the viral TikTok track 'Pasilyo'?",
+    "options": ["SunKissed Lola", "Lola Amour", "Dilaw", "Ben&Ben"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "What popular song by Lola Amour is named after a city in the Philippines experiencing heavy rain?",
+    "options": ["Raining in Manila", "Raining in Cebu", "Davao Rain", "Baguio Breeze"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  },
+  {
+    "questionText": "Which legendary OPM artist sang 'Ang Huling El Bimbo'?",
+    "options": ["Eraserheads", "Parokya ni Edgar", "Rivermaya", "Kamikazee"],
+    "correctOptionIndex": 0,
+    "category": "music"
+  }
+]

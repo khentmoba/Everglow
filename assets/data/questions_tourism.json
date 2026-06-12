@@ -1,0 +1,602 @@
+[
+  {
+    "questionText": "What is the official tourism slogan of the Philippines launched in 2023?",
+    "options": ["Love the Philippines", "It's More Fun in the Philippines", "Wow Philippines", "Experience the Philippines"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which island in the Philippines is world-famous for its powdery White Beach and vibrant nightlife?",
+    "options": ["Boracay", "Siargao", "Palawan", "Panglao"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which province is known as the 'Surfing Capital of the Philippines'?",
+    "options": ["Surigao del Norte", "La Union", "Catanduanes", "Zambales"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What famous surfing wave shape is Siargao best known for?",
+    "options": ["Cloud 9", "Tubes", "Pipeline", "Pacific Swell"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Where can you find the Puerto Princesa Subterranean River National Park, one of the New 7 Wonders of Nature?",
+    "options": ["Palawan", "Cebu", "Davao", "Bohol"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What famous geological formation in Bohol consists of over 1,200 dome-shaped hills that turn brown in the dry season?",
+    "options": ["Chocolate Hills", "Rice Terraces", "Hanging Coffins", "Marlboro Hills"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which animal, known as one of the smallest primates in the world, is a major tourist draw in Bohol?",
+    "options": ["Tarsier", "Lemur", "Marmoset", "Macaque"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which historical city in the Ilocos region is a UNESCO World Heritage Site famous for its well-preserved Spanish colonial cobblestone streets?",
+    "options": ["Vigan", "Laoag", "Candon", "San Fernando"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What is the name of the famous cobblestone street in Vigan lined with ancestral Spanish houses?",
+    "options": ["Calle Crisologo", "Calle Real", "Avenida Rizal", "Colon Street"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which city is known as the 'Summer Capital of the Philippines' due to its cool climate and pine trees?",
+    "options": ["Baguio City", "Tagaytay City", "Malaybalay City", "Marawi City"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which annual flower festival is celebrated in Baguio City during the month of February?",
+    "options": ["Panagbenga Festival", "Sinulog Festival", "MassKara Festival", "Pahiyas Festival"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which grand festival in Cebu City features a prayer-dance ritual in honor of the Santo Niño?",
+    "options": ["Sinulog", "Dinagyang", "Ati-Atihan", "Kadayawan"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which festival in Kalibo, Aklan, is known as the 'Mother of All Philippine Festivals'?",
+    "options": ["Ati-Atihan", "Sinulog", "Dinagyang", "MassKara"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which colorful festival in Bacolod City features performers wearing smiling masks?",
+    "options": ["MassKara Festival", "Dinagyang Festival", "Pintados Festival", "Sandugo Festival"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which festival in Iloilo City is held in January and also honors the Santo Niño with competitive tribe street dances?",
+    "options": ["Dinagyang", "Sinulog", "Ati-Atihan", "MassKara"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which province is famous for the Pahiyas Festival, where houses are decorated with colorful kiping (rice wafers)?",
+    "options": ["Quezon", "Laguna", "Batangas", "Rizal"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which peak is the highest mountain in the Philippines, located in Mindanao?",
+    "options": ["Mount Apo", "Mount Pulag", "Mount Mayon", "Mount Dulang-dulang"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which volcano in Albay is globally famous for its near-perfect cone shape?",
+    "options": ["Mount Mayon", "Mount Pinatubo", "Taal Volcano", "Mount Kanlaon"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which active volcano in Batangas is famous for being a volcano within a lake within a volcano?",
+    "options": ["Taal Volcano", "Mount Mayon", "Mount Pinatubo", "Mount Banahaw"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What famous tourist activity involves floating down the rivers of Badian, Cebu, jumping off waterfalls?",
+    "options": ["Canyoneering", "White Water Rafting", "Kayaking", "Parasailing"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which Northern Philippine province is famous for the Hanging Coffins of Sagada?",
+    "options": ["Mountain Province", "Benguet", "Ifugao", "Kalinga"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What ancient agricultural structures in Ifugao are often called the 'Eighth Wonder of the World'?",
+    "options": ["Banaue Rice Terraces", "Hanging Gardens", "Chocolate Hills", "Marlboro Country"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which island province at the northernmost tip of the Philippines is famous for its stone houses and rolling hills?",
+    "options": ["Batanes", "Camiguin", "Catanduanes", "Romblon"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What traditional Ivatan headgear in Batanes is made of grass to protect against rain and sun?",
+    "options": ["Vakul", "Salakot", "Tubao", "Kupya"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which island province is known as the 'Island Born of Fire' due to its seven volcanoes?",
+    "options": ["Camiguin", "Siquijor", "Batanes", "Marinduque"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which province is historically famous for the Moriones Festival during Holy Week, where participants wear Roman centurion masks?",
+    "options": ["Marinduque", "Romblon", "Mindoro", "Palawan"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which province is known as the 'Marble Capital of the Philippines'?",
+    "options": ["Romblon", "Mindoro", "Masbate", "Antique"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which region is known as the 'Culinary Capital of the Philippines'?",
+    "options": ["Pampanga", "Ilocos", "Cebu", "Iloilo"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What local pork dish, popular in Pampanga, is made from parts of pig's head and chicken liver, seasoned with calamansi?",
+    "options": ["Sisig", "Adobo", "Lechon", "Bicol Express"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which city in the Philippines is internationally acclaimed for having the best roasted pig (Lechon)?",
+    "options": ["Cebu City", "Manila", "Davao City", "Bacolod City"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What famous street food in the Philippines is a fertilized duck egg with a nearly-developed embryo inside?",
+    "options": ["Balut", "Penoy", "Kwek-Kwek", "Isaw"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which island in Palawan is renowned for its towering limestone cliffs, crystal clear lagoons, and Secret Beach?",
+    "options": ["El Nido", "Coron", "Puerto Princesa", "San Vicente"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which island in Palawan is famous for diving shipwrecks from World War II?",
+    "options": ["Coron", "El Nido", "Cuyo", "Linapacan"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What is the oldest Spanish stone fortress in the Philippines, located in Cebu City?",
+    "options": ["Fort San Pedro", "Fort Santiago", "Fort Pilar", "Fort San Felipe"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What historical walled area in Manila served as the seat of Spanish power in the Philippines?",
+    "options": ["Intramuros", "Binondo", "Quiapo", "Malate"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Within Intramuros, which historical fort houses the shrine of Jose Rizal?",
+    "options": ["Fort Santiago", "Fort San Pedro", "Fort Pilar", "Fort Drum"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which church in Manila, known as the oldest stone church in the Philippines, is a UNESCO World Heritage site?",
+    "options": ["San Agustin Church", "Manila Cathedral", "Quiapo Church", "Baclaran Church"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What park in Manila is dedicated to the national hero Jose Rizal and is also known as Luneta?",
+    "options": ["Rizal Park", "Paco Park", "Quezon Memorial Circle", "Arroceros Forest Park"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which district in Manila is recognized as the oldest Chinatown in the world?",
+    "options": ["Binondo", "Tondo", "Santa Cruz", "Sanjuan"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What is the primary government agency responsible for the promotion of tourism in the Philippines?",
+    "options": ["DOT (Department of Tourism)", "NEDA", "DENR", "DFA"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What is the marketing and promotions arm of the Department of Tourism called?",
+    "options": ["TPB (Tourism Promotions Board)", "TIEZA", "IA (Intramuros Administration)", "NPDC"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which DOT attached agency is responsible for infrastructure development in tourist zones?",
+    "options": ["TIEZA", "TPB", "NPDC", "DFPC"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What is the name of the prestigious high-elevation tourist city in Cavite overlooking Taal Volcano and Lake?",
+    "options": ["Tagaytay", "Silang", "Amadeo", "Alfonso"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which province in Western Visayas is famous for its sweet mangoes, hosting the annual Manggahan Festival?",
+    "options": ["Guimaras", "Iloilo", "Capiz", "Aklan"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which island is known as the 'Mystical Island of Central Visayas' due to legends of witchcraft and healers?",
+    "options": ["Siquijor", "Panglao", "Bantayan", "Camotes"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What is the largest national park in Mindanao, famous for Lake Sebu and its seven waterfalls?",
+    "options": ["South Cotabato", "Davao Oriental", "Bukidnon", "Lanao del Norte"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What traditional Filipino outrigger boat is widely used for island hopping tours?",
+    "options": ["Bangka", "Vinta", "Paraw", "Balangay"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which city is known as the 'Durian Capital of the Philippines'?",
+    "options": ["Davao City", "General Santos City", "Zamboanga City", "Cagayan de Oro City"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which province is known as the 'Heart of the Philippines' and hosts the Moriones Festival?",
+    "options": ["Marinduque", "Romblon", "Masbate", "Palawan"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What major body of water lies to the west of the Philippines, heavily traversed by cruise tours?",
+    "options": ["West Philippine Sea", "Pacific Ocean", "Celebes Sea", "Sulu Sea"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What is the name of the famous traditional tattoo artist (mambabatok) from Buscalan, Kalinga?",
+    "options": ["Apo Whang-od", "Apo Maria", "Apo Whang-gi", "Apo Lang Dulay"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which province is famous for the Hundred Islands National Park?",
+    "options": ["Pangasinan", "La Union", "Zambales", "Ilocos Sur"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which city in Pampanga is known as the 'Christmas Capital of the Philippines' due to its giant lanterns?",
+    "options": ["San Fernando", "Angeles", "Mabalacat", "San Jose"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What is the main historic and iconic transport used to tour inside Intramuros?",
+    "options": ["Kalesa", "Jeepney", "Tricycle", "Pedicab"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which tourist spot in Ilocos Norte features a series of massive wind turbines along the coast?",
+    "options": ["Bangui Wind Farm", "Kapurpurawan Rocks", "Paoay Sand Dunes", "Patapat Viaduct"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What famous landmark in Ilocos Norte is a Spanish colonial church with massive buttresses, built in 1710?",
+    "options": ["Paoay Church", "Baclaran Church", "Miagao Church", "San Sebastian Church"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which town in Rizal is known as the 'Art Capital of the Philippines'?",
+    "options": ["Angono", "Taytay", "Antipolo", "Binangonan"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which province in the Philippines is famous for its sugarcane fields and heritage sugar baron houses in Silay?",
+    "options": ["Negros Occidental", "Negros Oriental", "Iloilo", "Capiz"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What popular destination in Batangas is famous for scuba diving and snorkeling due to its rich marine biodiversity?",
+    "options": ["Anilao", "Laias", "Nasugbu", "Calatagan"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which municipality is the main gateway for tourists visiting the Banaue Rice Terraces?",
+    "options": ["Banaue", "Lagawe", "Kiangan", "Mayoyao"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which province is historically famous for the Sandugo (Blood Compact) between Sikatuna and Legazpi?",
+    "options": ["Bohol", "Cebu", "Leyte", "Samar"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What is the term used in tourism for visiting natural areas that conserves the environment?",
+    "options": ["Ecotourism", "Mass Tourism", "Adventure Tourism", "Heritage Tourism"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "In hotel operations, what does PMS stand for?",
+    "options": ["Property Management System", "Passenger Movement Service", "Personal Management Scheme", "Port Monitoring Station"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which agency is responsible for classifying and accrediting hotels and resorts in the Philippines?",
+    "options": ["Department of Tourism (DOT)", "DTI", "SEC", "DOH"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What is the primary mode of long-distance air travel hub in the Philippines?",
+    "options": ["Ninoy Aquino International Airport (NAIA)", "Mactan-Cebu Airport", "Clark International Airport", "Davao Airport"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which island is known as the 'surigao surfing mecca'?",
+    "options": ["Siargao", "Bantayan", "Samal", "Dinagat"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What is the cultural dance of Leyte that involves stepping inside moving bamboo poles?",
+    "options": ["Tinikling", "Cariñosa", "Singkil", "Pandanggo sa Ilaw"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What is the famous crescent-shaped sandbar in Camiguin called?",
+    "options": ["White Island", "Camiguin Sandbar", "Mantigue Island", "Sunken Cemetery"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which underwater cemetery marked by a large cross is a popular tourist site in Camiguin?",
+    "options": ["Sunken Cemetery", "Cross Cemetery", "Volcano Grave", "Katibawasan"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What UNESCO World Heritage church is located in Miagao, Iloilo?",
+    "options": ["Miagao Church", "Paoay Church", "San Agustin Church", "Santa Maria Church"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What lake in South Cotabato is famous for its floating lotus plants and T'boli culture?",
+    "options": ["Lake Sebu", "Lake Lanao", "Taal Lake", "Lake Buluan"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What traditional hand-woven fabric made by the T'boli people is highly sought after by tourists?",
+    "options": ["T'nalak", "Inabel", "Yakan", "Hablon"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What historic cross stands in Cebu City, marking the spot where Portuguese explorer Ferdinand Magellan arrived?",
+    "options": ["Magellan's Cross", "Sikatuna Cross", "Colon Cross", "Cebu Basilica Cross"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What is the oldest church in Cebu, housing the oldest religious relic in the country?",
+    "options": ["Basilica Minore del Santo Niño", "Cebu Cathedral", "Simala Shrine", "Patrocinio de Maria Church"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which island group does the province of Batanes belong to?",
+    "options": ["Luzon", "Visayas", "Mindanao", "Calamianes"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which beach in Pagudpud, Ilocos Norte, is often nicknamed the 'Boracay of the North'?",
+    "options": ["Saud Beach", "Maira-ira Beach", "Blue Lagoon", "Bangui Beach"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What is the name of the popular mountain in Benguet famous for the sea of clouds?",
+    "options": ["Mount Pulag", "Mount Apo", "Mount Pinatubo", "Mount Arayat"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which city is famous for its white-water rafting adventures on the Cagayan de Oro River?",
+    "options": ["Cagayan de Oro City", "Davao City", "Iligan City", "Butuan City"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What city is known as the 'City of Majestic Waterfalls' because it has over 20 waterfalls?",
+    "options": ["Iligan City", "Cagayan de Oro City", "Davao City", "Tagum City"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which beach in Zambales is famous for camping and its scenic pine-like Agoho trees?",
+    "options": ["Anawangin Cove", "Subic Bay", "Nagsasa Cove", "Liwliwa"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which islet in Malapascua, Cebu, is globally renowned for thresher shark diving?",
+    "options": ["Malapascua Island", "Bantayan Island", "Pescador Island", "Sumilon Island"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "In Cebu, what tourist spot is famous for whale shark watching?",
+    "options": ["Oslob", "Moalboal", "Badian", "Liloan"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which marine sanctuary in Occidental Mindoro is the second largest contiguous coral reef system in the world?",
+    "options": ["Apo Reef Natural Park", "Tubbataha Reefs", "Honda Bay", "Danajon Bank"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which marine park in the Sulu Sea is a UNESCO World Heritage site known for its pristine coral reefs and hammerhead sharks?",
+    "options": ["Tubbataha Reefs Natural Park", "Apo Reef", "Coron Bay", "El Nido Marine Reserve"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What is the culinary specialty of Bacolod City, featuring grilled marinated chicken?",
+    "options": ["Chicken Inasal", "Lechon Kawali", "Humba", "Kansi"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What popular sour soup in the Philippines uses tamarind as a base?",
+    "options": ["Sinigang", "Bulalo", "Tinola", "Kansi"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which province is known as the 'Province of Capiz' or 'Seafood Capital of the Philippines'?",
+    "options": ["Capiz", "Iloilo", "Negros Occidental", "Aklan"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What major tourist spot in Bulacan is a historic cave where the first Philippine Republic was established?",
+    "options": ["Biak-na-Bato Cave", "Callao Cave", "Sumaguing Cave", "Hinagdanan Cave"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which province is famous for the Sandugo Blood Compact festival held every July?",
+    "options": ["Bohol", "Siquijor", "Cebu", "Leyte"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which famous destination in Laguna is known for shooting rapids on a traditional canoe to a waterfall?",
+    "options": ["Pagsanjan Falls", "Kawasan Falls", "Aliwagwag Falls", "Maria Cristina Falls"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which islet in Bohol is known for dolphin watching and rich marine sanctuaries?",
+    "options": ["Balicasag Island", "Panglao Island", "Pamilacan Island", "Virgin Island"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What is the famous castle-like church shrine in Sibonga, Cebu, popular among pilgrims?",
+    "options": ["Simala Shrine", "Monasterio de Tarlac", "Kamay ni Hesus", "Manaoag Basilica"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which tourist highway in the north connects the provinces of Ilocos Norte and Cagayan Valley, featuring a long viaduct?",
+    "options": ["Patapat Viaduct", "Halsema Highway", "Marcos Highway", "Kennon Road"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What historical site in Cavite is where the Philippine Declaration of Independence was proclaimed in 1898?",
+    "options": ["Aguinaldo Shrine", "Corregidor Island", "Biak-na-Bato", "Fort Santiago"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which tadpole-shaped island at the entrance of Manila Bay is a historic military memorial monument?",
+    "options": ["Corregidor Island", "Caballo Island", "El Fraile Island", "Carabao Island"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What famous island in Davao Gulf is known for its upscale resorts, white beaches, and bat sanctuary?",
+    "options": ["Samal Island", "Talicud Island", "Sarangani Island", "Camiguin Island"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What is the term for a pre-arranged package containing accommodation, transport, and tours?",
+    "options": ["Inclusive Tour", "Independent Tour", "Charter Tour", "FIT Tour"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which of the following describes a tourist who travels for personal pleasure, leisure, or recreation?",
+    "options": ["Leisure Tourist", "MICE Tourist", "Business Tourist", "Transit Passenger"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "What does MICE stand for in the context of tourism and hospitality management?",
+    "options": ["Meetings, Incentives, Conventions, and Exhibitions", "Motels, Inns, Cabins, and Estates", "Management, Marketing, Investment, and Commerce", "Mass Tourism, Independent Travel, Cultural Tourism, and Ecotourism"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  },
+  {
+    "questionText": "Which body of water is famous for whale shark (Butanding) watching in Sorsogon?",
+    "options": ["Donsol Bay", "Honda Bay", "Sarangani Bay", "Liloan Strait"],
+    "correctOptionIndex": 0,
+    "category": "tourism"
+  }
+]

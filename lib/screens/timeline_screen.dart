@@ -29,11 +29,21 @@ class TimelineScreen extends StatelessWidget {
                   floating: false,
                   pinned: true,
                   flexibleSpace: FlexibleSpaceBar(
-                    title: Text(
-                      'Everglow',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        letterSpacing: 4,
-                      ),
+                    title: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(
+                          'assets/images/logo.png',
+                          height: 28,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Everglow',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            letterSpacing: 4,
+                          ),
+                        ),
+                      ],
                     ),
                     background: Container(color: AppTheme.cream),
                     centerTitle: true,

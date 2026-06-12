@@ -38,6 +38,23 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
   String? _statusMessage;
   Timer? _timeoutTimer;
 
+  @override
+  void initState() {
+    super.initState();
+    _checkAndSeedQuestions();
+  }
+
+  Future<void> _checkAndSeedQuestions() async {
+    try {
+      final snapshot = await FirebaseFirestore.instance.collection('academy_questions').limit(1).get();
+      if (snapshot.docs.isEmpty) {
+        await _academyService.seedQuestions();
+      }
+    } catch (e) {
+      print('Error checking and seeding questions: $e');
+    }
+  }
+
   void _startMatchmaking(String category) async {
     setState(() {
       _isSearching = true;

@@ -1,0 +1,602 @@
+[
+  {
+    "questionText": "What is the title of the national hero Jose Rizal's first novel, published in 1887 in Berlin?",
+    "options": ["Noli Me Tángere", "El Filibusterismo", "Mi Último Adiós", "A La Juventud Filipina"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What does the Latin phrase 'Noli Me Tángere' translate to?",
+    "options": ["Touch Me Not", "The Reign of Greed", "Social Cancer", "To My Country"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Who is the main protagonist of Noli Me Tángere, a young Filipino who returns home after studying in Europe?",
+    "options": ["Juan Crisostomo Ibarra", "Simoun", "Basilio", "Elias"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Who is Crisostomo Ibarra's love interest and the epitome of traditional Filipina womanhood in Noli Me Tángere?",
+    "options": ["Maria Clara", "Sisa", "Doña Victorina", "Salome"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Who is the arrogant Spanish friar who is later revealed to be Maria Clara's biological father in Noli Me Tángere?",
+    "options": ["Padre Damaso", "Padre Salvi", "Padre Sibyla", "Padre Florentino"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Who is the mysterious fugitive and pilot who rescues Ibarra and later dies saving him?",
+    "options": ["Elias", "Basilio", "Tasio", "Lucas"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What character in Noli Me Tángere goes insane after losing her two sons, Basilio and Crispin?",
+    "options": ["Sisa", "Doña Victorina", "Doña Consolacion", "Tia Isabel"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What are the names of Sisa's two sons who work as sacristans in the church?",
+    "options": ["Basilio and Crispin", "Juan and Pedro", "Tasio and Elias", "Crisostomo and Simoun"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What character in Noli Me Tángere represents the educated intellectual who is labeled a 'madman' (pilosopo) by the townsfolk?",
+    "options": ["Pilosopo Tasyo (Don Anastasio)", "Elias", "Don Filipo", "Padre Salvi"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which character is a pretentious Filipina who wears heavy white powder and acts like a Spaniard?",
+    "options": ["Doña Victorina de Espadaña", "Doña Consolacion", "Sisa", "Maria Clara"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What is the title of Jose Rizal's second novel, published in 1891 in Ghent, Belgium?",
+    "options": ["El Filibusterismo", "Noli Me Tángere", "Junto Al Pasig", "Makamisa"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What does the title 'El Filibusterismo' translate to in English?",
+    "options": ["The Reign of Greed / The Filibustering", "Touch Me Not", "The Social Cancer", "The Lost Country"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Who is the main protagonist of El Filibusterismo, who is actually a disguised Crisostomo Ibarra seeking revenge?",
+    "options": ["Simoun", "Basilio", "Isagani", "Kabesang Tales"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What profession does Simoun adopt in El Filibusterismo to gain access to the wealthy and powerful?",
+    "options": ["Jeweler", "Doctor", "Merchant", " Lawyer"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "In El Filibusterismo, which student is Simoun's key ally and Basilio's classmate, who is deeply in love with Paulita Gomez?",
+    "options": ["Isagani", "Macaraig", "Sandoval", "Pecson"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "In El Filibusterismo, what object does Simoun plan to detonate at Paulita Gomez's wedding feast to start a revolution?",
+    "options": ["A nitro-glycerine lamp shaped like a pomegranate", "A chest of gold explosive", "A dynamite watch", "A gunpowder barrel"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Who throws Simoun's explosive lamp into the river, saving the wedding guests and ruining the revolution?",
+    "options": ["Isagani", "Basilio", "Padre Florentino", "Elias"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "To which character does a dying Simoun confess his true identity at the end of El Filibusterismo?",
+    "options": ["Padre Florentino", "Basilio", "Isagani", "Don Tiburcio"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What does Padre Florentino do with Simoun's chest of jewels at the end of El Filibusterismo?",
+    "options": ["Throws it into the Pacific Ocean", "Donates it to the poor", "Gives it to Basilio", "Buries it under his chapel"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which character in El Filibusterismo is a farmer whose land is seized by the friars, leading him to become a bandit?",
+    "options": ["Kabesang Tales", "Tano", "Juli", "Tandang Selo"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Who is Kabesang Tales' daughter and Basilio's sweetheart, who leaps to her death from a convent window?",
+    "options": ["Juli", "Paulita Gomez", "Maria Clara", "Sisa"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What famous 1838 metrical romance (awit) was written by Francisco Balagtas while in prison?",
+    "options": ["Florante at Laura", "Ibong Adarna", "Biag ni Lam-ang", "Orosman at Zafira"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What kingdom serves as the primary setting of Balagtas's Florante at Laura?",
+    "options": ["Albania", "Persia", "Crotona", "Greece"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Who is the Persian prince who rescues Florante while he is tied to a tree in the forest in Florante at Laura?",
+    "options": ["Aladin", "Adolfo", "Menandro", "Sultan Ali-Adab"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Who is the primary antagonist in Florante at Laura, who usurps the throne of Albania?",
+    "options": ["Konde Adolfo", "Aladin", "Konde Sileno", "Sultan Ali-Adab"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What is the name of Aladin's beloved, who saves Laura from Konde Adolfo in the forest?",
+    "options": ["Flerida", "Laura", "Salome", "Juana"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What 16th-century Filipino epic poem details the search of three princes for a magical bird to cure their father, King Fernando?",
+    "options": ["Ibong Adarna", "Florante at Laura", "Biag ni Lam-ang", "Maragtas"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "How many princes are sent to capture the Ibong Adarna in the epic story?",
+    "options": ["3", "2", "4", "5"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What is the name of the youngest and kindest prince who successfully captures the Ibong Adarna?",
+    "options": ["Don Juan", "Don Pedro", "Don Diego", "Don Fernando"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What happens to a person when the Ibong Adarna defecates on them while singing?",
+    "options": ["They turn into stone", "They die instantly", "They fall asleep forever", "They lose their sight"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which anonymous author's first book, 'ABNKKBSNPLAko?!', was a massive best-seller in 2001, recounting student memories?",
+    "options": ["Bob Ong", "Lualhati Bautista", "Budjette Tan", "F. Sionil Jose"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What does the title of Bob Ong's book 'ABNKKBSNPLAko?!' phonetically stand for?",
+    "options": ["Aba, nakakabasa na pala ako?!", "Ang paboritong libro ni Hudas", "Alamat ng gubat sa Pilipinas", "Ay naku, nakalimutan ko na pala!"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which Bob Ong book is a satirical allegory featuring talking animals in a forest to critique Philippine society?",
+    "options": ["Alamat ng Gubat", "Ang Paboritong Libro ni Hudas", "Kapitan Sino", "Macarthur"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which Bob Ong book tells the story of Rogelio Manglicmot, a local electrician who becomes a superhero?",
+    "options": ["Kapitan Sino", "Macarthur", "Lumayo Ka Nga Sa Akin", "Si"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which Bob Ong book, named after a famous general, follows the lives of four out-of-school youths named Cyrus, Volpon, Noel, and Likgoy?",
+    "options": ["Macarthur", "Kapitan Sino", "Alamat ng Gubat", "Si"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which Bob Ong book is a parody of commercial Philippine movies, featuring sections styled like film scripts?",
+    "options": ["Lumayo Ka Nga Sa Akin", "Macarthur", "Ang Paboritong Libro ni Hudas", "Stainless Longganisa"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which Bob Ong book is a reflection on his writing career and the struggles of Filipino authors, symbolized by a longganisa?",
+    "options": ["Stainless Longganisa", "Ang Paboritong Libro ni Hudas", "Lumayo Ka Nga Sa Akin", "ABNKKBSNPLAko?!"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which prominent female writer wrote the award-winning novels 'Dekada '70' and 'Bata, Bata... Pa'no Ka Ginawa?'?",
+    "options": ["Lualhati Bautista", "Gilda Cordero-Fernando", "Kerima Polotan", "Ninotchka Rosca"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which Lualhati Bautista novel tells the story of Amanda Bartolome and her family during Martial Law in the 1970s?",
+    "options": ["Dekada '70", "Bata, Bata... Pa'no Ka Ginawa?", "Gapo", "Desaparesidos"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which Lualhati Bautista novel centers around a woman named Lea Bustamante and her struggles raising two children from different fathers?",
+    "options": ["Bata, Bata... Pa'no Ka Ginawa?", "Dekada '70", "Gapo", "Desaparesidos"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which Lualhati Bautista novel is set in Olongapo City, exploring the lives of Filipinos working around the Subic US Naval Base?",
+    "options": ["'Gapo", "Dekada '70", "Bata, Bata... Pa'no Ka Ginawa?", "Desaparesidos"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which graphic novel created by Budjette Tan and Kajo Baldisimo features detective Alexandra Trese?",
+    "options": ["Trese", "Pugad Baboy", "Kombatant", "Tabi Po"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Who is the illustrator of the Trese graphic novel series?",
+    "options": ["Kajo Baldisimo", "Budjette Tan", "Arnold Arre", "Pol Medina Jr."],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which graphic novelist created 'The Mythology Class', a classic Filipino comic about university students fighting mythological beasts?",
+    "options": ["Arnold Arre", "Kajo Baldisimo", "Pol Medina Jr.", "Budjette Tan"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which National Artist for Literature wrote the 'Rosales Saga', a five-novel series detailing Philippine history through generations?",
+    "options": ["F. Sionil Jose", "Nick Joaquin", "N.V.M. Gonzalez", "Jose Garcia Villa"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which National Artist for Literature wrote 'The Woman Who Had Two Navels' and wrote under the pen name Quijano de Manila?",
+    "options": ["Nick Joaquin", "F. Sionil Jose", "Jose Garcia Villa", "Amado V. Hernandez"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which National Artist for Literature is famous for introducing comma poems and the 'doveglion' pen name?",
+    "options": ["Jose Garcia Villa", "Nick Joaquin", "Amado V. Hernandez", "Carlos P. Romulo"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which National Artist for Literature wrote the famous prison poem 'Isang Dipang Langit'?",
+    "options": ["Amado V. Hernandez", "Nick Joaquin", "Jose Garcia Villa", "Virgilio Almario"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which National Artist for Literature was the first Asian to win a Pulitzer Prize in Correspondence in 1942, for 'I Saw the Fall of the Philippines'?",
+    "options": ["Carlos P. Romulo", "Nick Joaquin", "F. Sionil Jose", "Jose Garcia Villa"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What Ilocano epic poem centers around a hero who speaks immediately upon birth and fights a giant crocodile?",
+    "options": ["Biag ni Lam-ang", "Bidasari", "Darangen", "Ibalon"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Who is Lam-ang's beautiful wife in the epic Biag ni Lam-ang?",
+    "options": ["Ines Kannoyan", "Namongan", "Juana", "Maria"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What animal does Lam-ang have that crowed to revive him after he was eaten by a giant Berkakan fish?",
+    "options": ["A magical rooster", "A white dog", "A magical eagle", "A black cat"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which ancient writing script of the early Tagalogs is currently being revived in local schools?",
+    "options": ["Baybayin", "Badlit", "Kulitan", "Hanunoo"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "How many consonant-vowel characters make up the traditional Baybayin script?",
+    "options": ["17", "14", "26", "28"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What is the name of the marker/dot used in Baybayin to change the vowel sound of a consonant?",
+    "options": ["Kudlit", "Krus", "Tuldok", "Guhit"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What epic from Palawan is sung for consecutive nights during wakes and harvest celebrations?",
+    "options": ["Kudaman", "Biag ni Lam-ang", "Ulahingan", "Hinilawod"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What massive epic of the Sulod people of Panay details the adventures of three brother demi-gods (Labaw Donggon, Humadapnon, and Dumalapdap)?",
+    "options": ["Hinilawod", "Darangen", "Ibalon", "Ulahingan"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What Maranao epic, declared by UNESCO as a Masterpiece of the Oral and Intangible Heritage of Humanity, tells of Prince Bantugan?",
+    "options": ["Darangen", "Hinilawod", "Ulahingan", "Kudaman"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What is the name of the oldest book printed in the Philippines, published in 1593 in Manila?",
+    "options": ["Doctrina Christiana", "Noli Me Tángere", "Florante at Laura", "Sucesos de las Islas Filipinas"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Who wrote 'Sucesos de las Islas Filipinas', a historical book about Spanish rule which Jose Rizal annotated?",
+    "options": ["Antonio de Morga", "Miguel de Loarca", "Pedro Chirino", "Tomas Pinpin"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Who was the first Filipino printer, who wrote 'Librong Pagaaralan nang manga Tagalog nang uicang Castilla' in 1610?",
+    "options": ["Tomas Pinpin", "Jose Rizal", "Francisco Balagtas", "Graciano Lopez Jaena"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which Philippine novel by F. Sionil Jose, part of the Rosales Saga, follows the peasant Istak and the flight of refugees during the Philippine-American War?",
+    "options": ["Po-on", "The Pretenders", "Tree", "My Brother, My Executioner"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which National Artist for Literature wrote the novel 'The Bamboo Dancers', detailing the alienation of Filipino intellectuals?",
+    "options": ["N.V.M. Gonzalez", "Nick Joaquin", "F. Sionil Jose", "Jose Garcia Villa"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which classic short story by Nick Joaquin tells of a midsummer ritual where a husband tries to kiss his wife's feet, set during the Spanish era?",
+    "options": ["May Day Eve", "Summer Solstice", "Guardia de Honor", "The Mass of St. Sylvester"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which short story by Nick Joaquin details the magical, haunting events of a young boy looking into a mirror on May Day?",
+    "options": ["May Day Eve", "Summer Solstice", "The Portrait", "The Legend of the Dying Wanton"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which classic short story by Manuel Arguilla, set in Nagrebcan, La Union, details a man bringing his city-born wife home to meet his family?",
+    "options": ["How My Brother Leon Brought Home a Wife", "Morning in Nagrebcan", "Midsummer", "Caps and Lower Case"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which classic short story by Alejandro Roces focuses on the comedic bettings and descriptions of chickens in the Philippines?",
+    "options": ["My Brother's Peculiar Chicken", "Of Cocks and Kites", "The Carabao and the Chicken", "Cockfighting in Manila"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which romantic novel by Lualhati Bautista follows an activist couple during and after the Martial Law regime, featuring a play on the word 'disappeared'?",
+    "options": ["Desaparesidos", "Dekada '70", "Bata, Bata... Pa'no Ka Ginawa?", "Gapo"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which graphic novel series by Budjette Tan is set in a version of Manila where underworld creatures and criminal syndicates mix?",
+    "options": ["Trese", "Pugad Baboy", "Tabi Po", "Mythology Class"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "In Trese, what are the names of the two twins (The Kambal) who run a bar called 'The Diabolical'?",
+    "options": ["Crispin and Basilio", "Juan and Pedro", "Tito and Vic", "Andres and Jose"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What kind of creature is Santelmo in Trese, who appears as a fireball and answers Alexandra's questions?",
+    "options": ["St. Elmo's Fire (Spirit of the Fire)", "Tikbalang", "Tiyanak", "Manananggal"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Who is the Lord of the Tikbalangs in Trese who acts as an ally to Alexandra?",
+    "options": ["Maliksi", "Nuno", "Santelmo", "Talagbusao"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Who is the god of war who serves as the main antagonist in the climax of the first season of Trese?",
+    "options": ["Talagbusao", "Nuno", "Ibwa", "Sankandan"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which popular comic strip by Pol Medina Jr. features the characters Dagul, Bab, Polgas, and Utoy?",
+    "options": ["Pugad Baboy", "Kenkoy", "Slammer", "Trese"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "In Pugad Baboy, what kind of animal is Polgas, the intelligent, talking pet of the family?",
+    "options": ["Dog", "Pig", "Cat", "Monkey"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Who is the creator of the comic strip 'Pugad Baboy'?",
+    "options": ["Pol Medina Jr.", "Budjette Tan", "Kajo Baldisimo", "Arnold Arre"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which National Artist for Literature wrote 'Footnote to Youth', a warning short story against early marriage?",
+    "options": ["Jose Garcia Villa", "Nick Joaquin", "N.V.M. Gonzalez", "Carlos P. Romulo"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "In Jose Garcia Villa's 'Footnote to Youth', how old was Dodong when he decided to marry Teang?",
+    "options": ["17", "18", "21", "20"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which National Artist for Literature wrote 'A Portrait of the Artist as Filipino'?",
+    "options": ["Nick Joaquin", "F. Sionil Jose", "Amado V. Hernandez", "Carlos P. Romulo"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "In Nick Joaquin's play 'A Portrait of the Artist as Filipino', what are the names of the two unmarried sisters living in Intramuros?",
+    "options": ["Candida and Paula Marasigan", "Maria and Clara", "Juliana and Paula", "Sisa and Teang"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Who wrote the poem 'Sa Aking Mga Kabata', which was traditionally attributed to a young Jose Rizal but is now debated by historians?",
+    "options": ["Traditionally attributed to Jose Rizal", "Andres Bonifacio", "Francisco Balagtas", "Marcelo H. del Pilar"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Complete the famous line from Sa Aking Mga Kabata: 'Ang hindi magmahal sa sariling salita, ay mahigit sa hayop at...'",
+    "options": ["malansang isda.", "mabangis na tigre.", "masamang tao.", "mababang uri."],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which historical organization of Filipino reformists in Spain published the fortnightly newspaper La Solidaridad?",
+    "options": ["Propaganda Movement", "Katipunan", "La Liga Filipina", "Kilusang Balik-Bayan"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Who was the first editor of La Solidaridad?",
+    "options": ["Graciano Lopez Jaena", "Marcelo H. del Pilar", "Jose Rizal", "Mariano Ponce"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Who succeeded Graciano Lopez Jaena as editor of La Solidaridad?",
+    "options": ["Marcelo H. del Pilar (Plaridel)", "Jose Rizal", "Mariano Ponce", "Juan Luna"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What pen name did Jose Rizal use when writing articles for La Solidaridad?",
+    "options": ["Laong Laan / Dimasalang", "Plaridel", "Jomapa", "Taga-Ilog"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What pen name did Marcelo H. del Pilar use in his writings?",
+    "options": ["Plaridel", "Dimasalang", "Jomapa", "Laong Laan"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What pen name did Antonio Luna use?",
+    "options": ["Taga-Ilog", "Plaridel", "Dimasalang", "Jomapa"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which novel by F. Sionil Jose tells the story of two brothers who end up on opposite sides of a social struggle, one rich and one a guerrilla?",
+    "options": ["My Brother, My Executioner", "Po-on", "The Pretenders", "Tree"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which National Artist for Literature wrote the collection of short stories 'Children of the Ash-Covered Loam'?",
+    "options": ["N.V.M. Gonzalez", "Nick Joaquin", "F. Sionil Jose", "Francisco Arcellana"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which National Artist for Literature wrote the short story 'The Mats', describing a father distributing personalized sleeping mats?",
+    "options": ["Francisco Arcellana", "N.V.M. Gonzalez", "Nick Joaquin", "Bienvenido Santos"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which National Artist for Literature wrote 'Scent of Apples', a collection of stories about Filipino immigrants in the United States?",
+    "options": ["Bienvenido N. Santos", "N.V.M. Gonzalez", "Francisco Arcellana", "F. Sionil Jose"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which National Artist for Literature wrote 'Aklat ng Likhaan' and is known as 'Rio Alma'?",
+    "options": ["Virgilio S. Almario", "Amado V. Hernandez", "Jose Garcia Villa", "Nick Joaquin"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "What is the title of the famous epic of the Bisayan people detailing the origins of the world and early rulers?",
+    "options": ["Maragtas", "Hinilawod", "Darangen", "Ibalon"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which Ilocano writer is famous for his trilogy of novels 'Bannawag' and his local cultural short stories?",
+    "options": ["Leona Florentino", "Manuel Arguilla", "Pedro Bucaneg", "Isabelo de los Reyes"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Who is known as the 'Father of Ilocano Literature' and is credited with archiving Lam-ang?",
+    "options": ["Pedro Bucaneg", "Manuel Arguilla", "Leona Florentino", "Isabelo de los Reyes"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which Jose Rizal poem, written on the eve of his execution, was hidden in an alcohol stove?",
+    "options": ["Mi Último Adiós (My Last Farewell)", "A La Juventud Filipina", "Sa Aking Mga Kabata", "Canto del Viajero"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Who translated Jose Rizal's Mi Último Adiós into the Tagalog poem 'Pahimakas'?",
+    "options": ["Andres Bonifacio", "Apolinario Mabini", "Emilio Jacinto", "Pascual Poblete"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which revolutionary wrote the essay 'Liwanag at Dilim' (Light and Darkness)?",
+    "options": ["Emilio Jacinto", "Andres Bonifacio", "Apolinario Mabini", "Jose Rizal"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  },
+  {
+    "questionText": "Which revolutionary is known as the 'Sublime Paralytic' and the 'Brains of the Revolution'?",
+    "options": ["Apolinario Mabini", "Emilio Jacinto", "Andres Bonifacio", "Emilio Aguinaldo"],
+    "correctOptionIndex": 0,
+    "category": "books"
+  }
+]

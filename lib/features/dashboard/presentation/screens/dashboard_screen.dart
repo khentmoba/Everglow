@@ -151,7 +151,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   child: Center(
                                     child: Column(
                                       children: [
-                                        const Icon(Icons.auto_awesome, color: AppTheme.champagneGold, size: 48),
+                                        Image.asset(
+                                          'assets/images/logo.png',
+                                          height: 80,
+                                        ),
                                         const SizedBox(height: 16),
                                         Text(
                                           'Forever In Bloom',

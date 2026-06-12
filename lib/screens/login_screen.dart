@@ -50,9 +50,18 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 FadeInDown(
                   duration: const Duration(seconds: 1),
-                  child: Text(
-                    'Everglow',
-                    style: Theme.of(context).textTheme.displayLarge,
+                  child: Column(
+                    children: [
+                      Image.asset(
+                        'assets/images/logo.png',
+                        height: 120,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Everglow',
+                        style: Theme.of(context).textTheme.displayLarge,
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 8),

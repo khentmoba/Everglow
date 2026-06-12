@@ -1,0 +1,590 @@
+[
+  {
+    "questionText": "Which 2023 MMFF movie starring Dingdong Dantes and Marian Rivera became the highest-grossing Filipino film of all time, beating 'Hello, Love, Goodbye'?",
+    "options": ["Rewind", "Firefly", "Gomburza", "Mallari"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2019 film starring Kathryn Bernardo and Alden Richards was the highest-grossing Filipino film for four years, set in Hong Kong?",
+    "options": ["Hello, Love, Goodbye", "The Hows of Us", "Rewind", "A Very Good Girl"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "What city is the setting of the movie 'Hello, Love, Goodbye'?",
+    "options": ["Hong Kong", "Singapore", "Manila", "Tokyo"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2018 film starring Kathryn Bernardo and Daniel Padilla tells the story of George and Primo, college students struggling with their dreams?",
+    "options": ["The Hows of Us", "Hello, Love, Goodbye", "Barcelona: A Love Untold", "She's Dating the Gangster"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which iconic 2013 comedy-drama film featuring Toni Gonzaga, Bea Alonzo, Angel Locsin, and Shaina Magdayao is famous for the line 'Ma, I'm sorry, ma!'?",
+    "options": ["Four Sisters and a Wedding", "Seven Sundays", "Here Comes the Bride", "The Mistress"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "In Four Sisters and a Wedding, who plays the eldest sister Teddie, who lied about being a teacher in Spain?",
+    "options": ["Toni Gonzaga", "Bea Alonzo", "Angel Locsin", "Shaina Magdayao"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "In Four Sisters and a Wedding, who plays Bobbie, the successful corporate sister working in New York?",
+    "options": ["Bea Alonzo", "Toni Gonzaga", "Angel Locsin", "Shaina Magdayao"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "In Four Sisters and a Wedding, what is the name of the youngest brother whose wedding the sisters try to stop?",
+    "options": ["Cj (Reb-Reb)", "James", "Tristan", "Teddy"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which actor plays the legendary role of Popoy in the classic romantic drama 'One More Chance'?",
+    "options": ["John Lloyd Cruz", "Piolo Pascual", "Jericho Rosales", "Derek Ramsay"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which actress plays Basha, Popoy's long-time partner, in 'One More Chance'?",
+    "options": ["Bea Alonzo", "Toni Gonzaga", "Angel Locsin", "Sarah Geronimo"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "In One More Chance, who delivers the famous line: 'Sana ako na lang. Sana ako na lang ulit.'?",
+    "options": ["Basha", "Popoy", "Trisha", "Mark"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "What is the title of the 2015 sequel to 'One More Chance' which explores Popoy and Basha's married life?",
+    "options": ["A Second Chance", "One More Time", "Still One More Chance", "A Beautiful Affair"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2017 sleeper hit set in Sapporo, Japan, stars Alessandra de Rossi and Empoy Marquez?",
+    "options": ["Kita Kita", "Through Night and Day", "Meet Me in St. Gallen", "Sid & Aya"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Where is the romantic drama 'Through Night and Day' starring Alessandra de Rossi and Paolo Contis set?",
+    "options": ["Iceland", "Japan", "New Zealand", "Switzerland"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2015 historical biopic film starring John Arcilla as the hot-tempered general became a massive hit and sparked a trilogy?",
+    "options": ["Heneral Luna", "Goyo: Ang Batang Heneral", "El Presidente", "Bonifacio: Ang Unang Pangulo"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "What is the famous opening line of General Antonio Luna in 'Heneral Luna'?",
+    "options": ["Bayan o sarili?", "Negosyo o kalayaan?", "Pumili ka!", "Kapatid o kaaway?"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Who directed the critically-acclaimed historical dramas 'Heneral Luna' and 'Goyo: Ang Batang Heneral'?",
+    "options": ["Jerrold Tarog", "Erik Matti", "Cathy Garcia-Molina", "Antoinette Jadaone"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which actor plays Gregorio 'Goyo' del Pilar in the 2018 historical biopic sequel to Heneral Luna?",
+    "options": ["Paulo Avelino", "John Arcilla", "Joshua Garcia", "Daniel Padilla"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2023 MMFF historical film follows the martyrdom of priests Mariano Gomez, Jose Burgos, and Jacinto Zamora?",
+    "options": ["Gomburza", "Mallari", "Firefly", "Rewind"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Who directed the 2023 historical drama film 'Gomburza'?",
+    "options": ["Pepe Diokno", "Jerrold Tarog", "Erik Matti", "Zig Dulay"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2023 MMFF movie won Best Picture and tells the story of a young boy searching for the mythical island in his mother's stories?",
+    "options": ["Firefly", "Gomburza", "Rewind", "Becky and Badette"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Who directed the 2023 drama fantasy film 'Firefly'?",
+    "options": ["Zig Dulay", "Pepe Diokno", "Erik Matti", "Cathy Garcia-Molina"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which horror film starring Nadine Lustre won Best Picture at the 2022 Metro Manila Film Festival?",
+    "options": ["Deleter", "Mallari", "Seklusyon", "Sunod"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Who directed the 2022 hit techno-horror film 'Deleter'?",
+    "options": ["Mikhail Red", "Erik Matti", "Chito Roño", "Jerrold Tarog"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2023 thriller-comedy stars Kathryn Bernardo and Dolly de Leon, marking Kathryn's first mature, non-romantic role?",
+    "options": ["A Very Good Girl", "Rewind", "Expensive Candy", "Ten Little Mistresses"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which Filipina actress made history in 2022 by getting nominated at the Golden Globes for her role in 'Triangle of Sadness'?",
+    "options": ["Dolly de Leon", "Lea Salonga", "Jaclyn Jose", "Nora Aunor"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which legendary Filipina actress won the Best Actress award at the Cannes Film Festival in 2016 for her role in 'Ma' Rosa'?",
+    "options": ["Jaclyn Jose", "Nora Aunor", "Vilma Santos", "Charo Santos-Concio"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Who directed the Cannes-winning film 'Ma' Rosa'?",
+    "options": ["Brillante Mendoza", "Lav Diaz", "Lino Brocka", "Ishmael Bernal"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which veteran Filipino director won the Golden Lion at the Venice Film Festival in 2016 for 'Ang Babaeng Humayo'?",
+    "options": ["Lav Diaz", "Brillante Mendoza", "Lino Brocka", "Kidlat Tahimik"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which classic 1970s film directed by Lino Brocka follows Julio Madiaga's search for his lover Ligaya Paraiso in Manila?",
+    "options": ["Maynila, sa mga Kuko ng Liwanag", "Insiang", "Tinimbang Ka Ngunit Kulang", "Banaue"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which classic 1980s drama directed by Ishmael Bernal features Nora Aunor proclaiming, 'Walang himala!'?",
+    "options": ["Himala", "City After Dark", "Relasyon", "Nunal sa Tubig"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Complete the famous quote by Nora Aunor in Himala: 'Walang himala! Ang himala ay nasa...'",
+    "options": ["puso ng bawat isa sa atin!", "langit!", "mga tao!", "paniniwala natin!"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which romantic comedy starring Toni Gonzaga and Piolo Pascual is famous for the line 'Starting over again' and the iconic rejection scene?",
+    "options": ["Starting Over Again", "Crazy Beautiful You", "My Amnesia Girl", "She's the One"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2010 romantic comedy starring Toni Gonzaga and John Lloyd Cruz features the story of a girl who lost her memory?",
+    "options": ["My Amnesia Girl", "Starting Over Again", "You Changed My Life", "A Very Special Love"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which film trilogy starring Sarah Geronimo and John Lloyd Cruz follows the romance of Laida Magtalas and Miggy Montenegro?",
+    "options": ["A Very Special Love", "One More Chance", "The Hows of Us", "Starting Over Again"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "What is the title of the third and final installment of the Laida and Miggy romantic trilogy?",
+    "options": ["It Takes a Man and a Woman", "You Changed My Life", "A Very Special Love", "Starting Over Again"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2014 teen romance movie based on a Wattpad novel stars Kathryn Bernardo and Daniel Padilla as Kenji and Athena?",
+    "options": ["She's Dating the Gangster", "Crazy Beautiful You", "Must Be... Love", "Barcelona"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2015 romantic comedy starring Daniel Padilla and Kathryn Bernardo is set in Mt. Pinatubo and Tarlac?",
+    "options": ["Crazy Beautiful You", "She's Dating the Gangster", "The Hows of Us", "Barcelona"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which movie starring James Reid and Nadine Lustre based on a Wattpad novel launched the 'JaDine' love team into superstar status?",
+    "options": ["Diary ng Panget", "Talk Back and You're Dead", "Para sa Hopeless Romantic", "This Time"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2018 romantic drama film starring James Reid and Nadine Lustre won Best Picture and was directed by Antoinette Jadaone?",
+    "options": ["Never Not Love You", "Diary ng Panget", "Ulan", "Sid & Aya"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2019 fantasy-romance movie starring Nadine Lustre centers around rain and elements of folklore, directed by Irene Villamor?",
+    "options": ["Ulan", "Never Not Love You", "Sid & Aya", "Meet Me in St. Gallen"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2017 family drama starring Aga Muhlach, Dingdong Dantes, and Cristine Reyes centers around a father who has seven weeks to live?",
+    "options": ["Seven Sundays", "Four Sisters and a Wedding", "Family History", "Honor Thy Father"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "In Seven Sundays, what is the name of the patriarch played by Ronaldo Valdez?",
+    "options": ["Manuel Bonifacio", "Allan Bonifacio", "Bryan Bonifacio", "Dexter Bonifacio"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2016 comedy movie starring Vice Ganda and Coco Martin became one of the highest-grossing films in the Philippines?",
+    "options": ["The Super Parental Guardians", "Beauty and the Bestie", "Gandarrapido", "Fantastica"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2016 dark horror-thriller directed by Erik Matti follows four novitiates during a haunting at a rectory?",
+    "options": ["Seklusyon", "Kuko ng Dilim", "Kuwaresma", "Deleter"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2013 crime thriller directed by Erik Matti stars Piolo Pascual and Gerald Anderson as hitmen who are prisoners?",
+    "options": ["On the Job (OTJ)", "Honor Thy Father", "BuyBust", "Deleter"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "What is the name of the 2021 HBO Asia miniseries sequel based on Erik Matti's crime thriller film 'On the Job'?",
+    "options": ["On the Job: The Missing 8", "OTJ: Prison Break", "On the Job: Season 2", "OTJ: Quiapo"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2018 action film starring Anne Curtis follows an anti-narcotics squad trapped in a slum area?",
+    "options": ["BuyBust", "On the Job", "Maria", "Sid & Aya"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2016 drama film stars Paolo Ballesteros as Trisha, a transgender beauty queen who dies during her coronation?",
+    "options": ["Die Beautiful", "Born Beautiful", "Manananggal sa Unit 23B", "Patay Na Si Hesus"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2016 Cebuano road comedy-drama film follows a dysfunctional family transporting their father's deceased dog?",
+    "options": ["Patay Na Si Hesus", "Die Beautiful", "Miss Granny", "Seklusyon"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2018 adaptation of a Korean film stars Sarah Geronimo as a grandmother who mysteriously regains her 20-year-old body?",
+    "options": ["Miss Granny", "Miracle in Cell No. 7", "Sunny", "My Sassy Girl"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2019 MMFF drama starring Aga Muhlach is a highly successful adaptation of a classic Korean tearjerker set in prison?",
+    "options": ["Miracle in Cell No. 7", "Seven Sundays", "Family History", "Write About Love"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "What character does Aga Muhlach play in the Philippine adaptation of Miracle in Cell No. 7?",
+    "options": ["Lito", "Joselito", "Lito Luna", "Manuel"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "What is the name of the child actress who played Yesha in Miracle in Cell No. 7?",
+    "options": ["Xia Vigor", "Mona Alawi", "Ryzza Mae Dizon", "Jillian Ward"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2020 film starring Charlie Dizon won Best Picture at the MMFF, detailing a schoolgirl's obsession with a popular actor?",
+    "options": ["Fan Girl", "Deleter", "ExorSIS", "Gandarrapido"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Who played the fictionalized version of himself in the movie 'Fan Girl'?",
+    "options": ["Paulo Avelino", "Joshua Garcia", "Daniel Padilla", "James Reid"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Who directed the award-winning 2020 film 'Fan Girl'?",
+    "options": ["Antoinette Jadaone", "Cathy Garcia-Molina", "Erik Matti", "Mikhail Red"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2014 romantic drama directed by Antoinette Jadaone stars Angelica Panganiban and JM de Guzman, set in Sagada?",
+    "options": ["That Thing Called Tadhana", "Starting Over Again", "English Only, Please", "Relaks, It's Just Pag-Ibig"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "In That Thing Called Tadhana, what is the legendary place in Sagada where the characters go to scream out their heartbreaks?",
+    "options": ["Kiltepan Peak", "Sumaguing Cave", "Echo Valley", "Bomod-ok Falls"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2016 mystery-thriller directed by Mikhail Red follows a farm girl who accidentally kills an endangered Philippine Eagle?",
+    "options": ["Birdshot", "Neomanila", "Deleter", "Eerie"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2018 supernatural horror film directed by Mikhail Red stars Bea Alonzo as a guidance counselor at a Catholic girls' school?",
+    "options": ["Eerie", "Sunod", "Seklusyon", "T2"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2022 meta-drama comedy film follows an aging screenwriter who falls into a coma and enters her own action movie script?",
+    "options": ["Leonor Will Never Die", "Cleaners", "Ang Pagbabalik ng Kwago", "Martika"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Who directed the internationally-acclaimed indie film 'Leonor Will Never Die'?",
+    "options": ["Martika Ramirez Escobar", "Mikhail Red", "Antoinette Jadaone", "Erik Matti"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2019 anthological comedy-drama film set in Tuguegarao uses high school student cleaning tasks to depict teenage life?",
+    "options": ["Cleaners", "Leonor Will Never Die", "Senior High", "First Love"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Who directed the critically-acclaimed high school indie film 'Cleaners'?",
+    "options": ["Glenn Barit", "Mikhail Red", "Pepe Diokno", "Zig Dulay"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2005 fantasy film produced by GMA Pictures tells the story of two brothers who discover a magical portal in a closet?",
+    "options": ["Mulawin: The Movie", "Exodus", "Spirit Warriors", "Ang Panday"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "What popular 2000 horror film directed by Chito Roño follows a group of teenagers haunted after a seance?",
+    "options": ["Spirit Warriors", "Feng Shui", "Sukob", "Halimaw sa Banga"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2004 horror classic stars Kris Aquino as a woman haunted by a Bagua mirror she brings home?",
+    "options": ["Feng Shui", "Sukob", "T2", "Segunda Mano"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2006 horror film starring Kris Aquino and Claudine Barretto centers around the superstition of two weddings in the same family in the same year?",
+    "options": ["Sukob", "Feng Shui", "Segunda Mano", "Eerie"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Who is the legendary actress known as the 'Horror Queen' of the Philippines due to films like Feng Shui and Sukob?",
+    "options": ["Kris Aquino", "Claudine Barretto", "Angelica Panganiban", "Kim Chiu"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2018 action comedy film co-stars Vice Ganda and Pia Wurtzbach?",
+    "options": ["Gandarrapido: The Revenger Squad", "The Super Parental Guardians", "Fantastica", "Partners in Crime"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2014 comedy stars Vice Ganda playing four different siblings who are quadruplets?",
+    "options": ["Moron 5", "This Guy's in Love with U Mare!", "Sisterakas", "Girl, Boy, Bakla, Tomboy"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2012 comedy film starring Vice Ganda, Kris Aquino, and Ai-Ai delas Alas is one of the highest-grossing MMFF comedies?",
+    "options": ["Sisterakas", "Girl, Boy, Bakla, Tomboy", "Super Parental Guardians", "Beauty and the Bestie"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2000 comedy-drama starring Ai-Ai delas Alas follows a single mother raising 12 children?",
+    "options": ["Ang Tanging Ina", "Ang Tanging Ina Ninyong Lahat", "Ang Tanging Ina Mo", "Sisterakas"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Who directed the hit comedy series 'Ang Tanging Ina'?",
+    "options": ["Wenn V. Deramas", "Cathy Garcia-Molina", "Chito Roño", "Joyce Bernal"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which director is famous for helming most of Star Cinema's biggest romantic blockbusters, including 'The Hows of Us'?",
+    "options": ["Cathy Garcia-Molina", "Wenn V. Deramas", "Antoinette Jadaone", "Olivia Lamasan"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which director, known as the 'Master storyteller', directed classic romantic dramas like 'Madrasta' and 'Milan'?",
+    "options": ["Olivia Lamasan", "Cathy Garcia-Molina", "Antoinette Jadaone", "Erik Matti"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2004 romantic drama starring Piolo Pascual and Claudine Barretto is set in Italy?",
+    "options": ["Milan", "Dubai", "Barcelona", "In the Name of Love"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2005 drama starring Aga Muhlach, John Lloyd Cruz, and Claudine Barretto is set in the United Arab Emirates?",
+    "options": ["Dubai", "Milan", "Barcelona", "Caregiver"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2008 drama starring Sharon Cuneta follows the life of a Filipina worker in London?",
+    "options": ["Caregiver", "Milan", "Dubai", "Anak"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which iconic 2000 family drama starring Vilma Santos and Claudine Barretto centers around a domestic helper mother in Hong Kong?",
+    "options": ["Anak", "Caregiver", "Dubai", "Milan"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "In the movie Anak, what is the name of the rebellious daughter played by Claudine Barretto?",
+    "options": ["Carla", "Maria", "Josie", "Daday"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "What popular song by Aegis serves as the main soundtrack of the movie 'Miss Granny' in the Philippine version?",
+    "options": ["Araw-Araw", "Rain", "Halik", "Basang-Basa sa Ulan"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2013 comedy-drama starring Sharon Cuneta is a satirical view of indie film production, where she plays herself?",
+    "options": ["Ang Babae sa Septic Tank", "Ekstra", "Himala", "Caregiver"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2011 mockumentary comedy film starring Eugene Domingo satirizes the Philippine indie film scene?",
+    "options": ["Ang Babae sa Septic Tank", "Ekstra", "Patay Na Si Hesus", "Die Beautiful"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Who directed the satirical comedy 'Ang Babae sa Septic Tank'?",
+    "options": ["Marlon Rivera", "Chris Martinez", "Erik Matti", "Brillante Mendoza"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2009 indie drama starring Coco Martin and Gina Pareño follows a young man living in a movie theater?",
+    "options": ["Kinatay", "Serbis", "Foster Child", "Tirador"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which Brillante Mendoza film won him the Best Director award at the Cannes Film Festival in 2009?",
+    "options": ["Kinatay", "Serbis", "Lola", "Ma' Rosa"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2016 historical biopic stars Nora Aunor as the wife of the revolutionary leader Emilio Aguinaldo?",
+    "options": ["El Presidente", "Bonifacio", "Heneral Luna", "Gomburza"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2012 biopic stars Jeorge 'E.R.' Estregan as the first Philippine president?",
+    "options": ["El Presidente", "Bonifacio", "Gomburza", "Heneral Luna"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2011 action film stars Jeorge 'E.R.' Estregan as a notorious Manila gangster and Robin Hood figure in Tondo?",
+    "options": ["Manila Kingpin: The Asiong Salonga Story", "On the Job", "Boy Golden", "Asiong"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which actress starred in the lead role of the 2017 horror-thriller 'Ang Manananggal sa Unit 23B'?",
+    "options": ["Ryza Cenon", "Martin del Rosario", "Chienna Filomeno", "Sue Ramirez"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2018 romance film set in Switzerland stars Yassi Pressman and JC Santos?",
+    "options": ["100 Tula para kay Stella", "Meet Me in St. Gallen", "Through Night and Day", "Sid & Aya"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2017 romance film starring Bela Padilla and JC Santos follows a student trying to write poems for a girl?",
+    "options": ["100 Tula para kay Stella", "Meet Me in St. Gallen", "The Day After Valentine's", "On Vodka, Beers, and Regrets"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Who directed the romantic dramas '100 Tula para kay Stella' and 'The Day After Valentine's'?",
+    "options": ["Jason Paul Laxamana", "Antoinette Jadaone", "Irene Villamor", "Sigrid Andrea Bernardo"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2018 romantic film starring Dingdong Dantes and Anne Curtis follows a wealthy insomniac who hires a guide?",
+    "options": ["Sid & Aya: Not a Love Story", "Never Not Love You", "Meet Me in St. Gallen", "Through Night and Day"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Who directed the hit romance films 'Sid & Aya' and 'Meet Me in St. Gallen'?",
+    "options": ["Irene Villamor", "Antoinette Jadaone", "Cathy Garcia-Molina", "Sigrid Andrea Bernardo"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  },
+  {
+    "questionText": "Which 2017 romance film starring Alessandra de Rossi and Empoy Marquez was shot in Saga, Japan?",
+    "options": ["Kita Kita", "Through Night and Day", "Sid & Aya", "Meet Me in St. Gallen"],
+    "correctOptionIndex": 0,
+    "category": "film"
+  }
+]

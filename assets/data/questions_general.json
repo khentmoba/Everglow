@@ -1,0 +1,602 @@
+[
+  {
+    "questionText": "What is the national currency of the Philippines?",
+    "options": ["Philippine Peso (PHP)", "US Dollar (USD)", "Spanish Real", "Singapore Dollar (SGD)"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which historical figure is featured on the 20-peso coin?",
+    "options": ["Manuel L. Quezon", "Jose Rizal", "Andres Bonifacio", "Apolinario Mabini"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Who is the national hero of the Philippines?",
+    "options": ["Jose Rizal", "Andres Bonifacio", "Emilio Aguinaldo", "Apolinario Mabini"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What law, signed in 2022, requires all mobile users in the Philippines to register their SIM cards?",
+    "options": ["SIM Card Registration Act", "Cybercrime Prevention Act", "Data Privacy Act", "National ID System Act"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the most popular mobile e-wallet app used in the Philippines for peer-to-peer money transfers and retail payments?",
+    "options": ["GCash", "Maya", "GrabPay", "PayPal"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which railway line runs along Epifanio de los Santos Avenue (EDSA) from North Avenue to Taft Avenue?",
+    "options": ["MRT-3", "LRT-1", "LRT-2", "PNR"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which LRT line runs from Baclaran to Fernando Poe Jr. (formerly Roosevelt) station?",
+    "options": ["LRT-1", "LRT-2", "MRT-3", "MRT-7"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which transit line connects Recto in Manila to Antipolo in Rizal?",
+    "options": ["LRT-2", "LRT-1", "MRT-3", "PNR"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What color is the 100-peso banknote currently in circulation in the Philippines?",
+    "options": ["Violet / Purple", "Yellow", "Blue", "Red"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What color is the 500-peso banknote?",
+    "options": ["Yellow", "Blue", "Violet", "Green"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What color is the 1000-peso banknote?",
+    "options": ["Blue", "Yellow", "Green", "Red"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which three historical figures are featured on the front of the 1000-peso bill?",
+    "options": ["Jose Abad Santos, Josefa Llanes Escoda, and Vicente Lim", "Jose Rizal, Andres Bonifacio, and Apolinario Mabini", "Manuel L. Quezon, Sergio Osmeña, and Manuel Roxas", "Benigno Aquino Jr., Corazon Aquino, and Ramon Magsaysay"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What material was introduced in 2022 for the new 1000-peso bill featuring the Philippine Eagle?",
+    "options": ["Polymer (Plastic)", "Paper / Cotton", "Silk", "Linen"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the highest law-making legislative body in the Philippines?",
+    "options": ["Congress of the Philippines", "Supreme Court", "Cabinet", "Barangay Assembly"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "How many senators are elected to the Philippine Senate?",
+    "options": ["24", "12", "50", "100"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the official term of office for an elected President of the Philippines, in years?",
+    "options": ["6 years", "4 years", "5 years", "3 years"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Who was the first female President of the Philippines?",
+    "options": ["Corazon Aquino", "Gloria Macapagal Arroyo", "Imelda Marcos", "Sara Duterte"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What historic non-violent revolution in 1986 restored democracy and ousted Ferdinand Marcos Sr.?",
+    "options": ["EDSA People Power Revolution", "Dagohoy Rebellion", "Cry of Pugad Lawin", "Katipunan Uprising"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the capital city of the Philippines?",
+    "options": ["Manila", "Quezon City", "Davao City", "Cebu City"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which government agency is responsible for issuing passports and managing international relations?",
+    "options": ["DFA (Department of Foreign Affairs)", "DOJ", "DILG", "BI (Bureau of Immigration)"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which government agency is responsible for collection of national internal revenue taxes?",
+    "options": ["BIR (Bureau of Internal Revenue)", "BOC (Bureau of Customs)", "BSP", "DBM"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What does the abbreviation 'LGU' stand for in Philippine governance?",
+    "options": ["Local Government Unit", "Law Enforcement Guard Union", "Legislative Governance Utility", "Legal General Underwriter"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the smallest administrative division in the Philippines?",
+    "options": ["Barangay", "Municipality", "Province", "Purok"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "According to the latest geographic surveys, approximately how many islands make up the Philippine archipelago?",
+    "options": ["7,641", "7,107", "7,100", "8,000"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which island group is located in the northern region of the Philippines?",
+    "options": ["Luzon", "Visayas", "Mindanao", "MIMAROPA"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which island group is situated in the central region of the Philippines?",
+    "options": ["Visayas", "Luzon", "Mindanao", "Caraga"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which island group is located in the southern region of the Philippines?",
+    "options": ["Mindanao", "Luzon", "Visayas", "Bicol"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the largest lake in the Philippines, bordering Metro Manila and Laguna?",
+    "options": ["Laguna de Bay", "Taal Lake", "Lake Lanao", "Lake Sebu"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What major body of water lies to the east of the Philippines?",
+    "options": ["Pacific Ocean / Philippine Sea", "South China Sea", "Celebes Sea", "Sulu Sea"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the longest river in the Philippines, located in northern Luzon?",
+    "options": ["Cagayan River", "Pasig River", "Pampanga River", "Agusan River"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What river flows directly through Metro Manila, connecting Laguna de Bay to Manila Bay?",
+    "options": ["Pasig River", "Marikina River", "Tullahan River", "Angat River"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which province is known as the 'Land of the True Decals' and is the birthplace of Apolinario Mabini?",
+    "options": ["Batangas", "Laguna", "Cavite", "Quezon"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which province is considered the 'Historical Capital of the Philippines' where independence was declared in Kawit?",
+    "options": ["Cavite", "Bulacan", "Pampanga", "Rizal"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which province is famous for the production of slippers and shoe industries, particularly in Liliw?",
+    "options": ["Laguna", "Rizal", "Cavite", "Marikina"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which city in Metro Manila is designated as the 'Shoe Capital of the Philippines'?",
+    "options": ["Marikina City", "Pasig City", "Valenzuela City", "Manila"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which region in the Philippines is officially designated as the NCR?",
+    "options": ["National Capital Region", "Northern Cordillera Region", "National Coastline Reserve", "National Commerce Registry"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "How many cities make up Metro Manila (NCR), excluding the lone municipality of Pateros?",
+    "options": ["16", "17", "15", "12"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the lone municipality in Metro Manila, famous for its balut industry?",
+    "options": ["Pateros", "Taguig", "San Juan", "Navotas"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which city is the largest in terms of land area in Metro Manila?",
+    "options": ["Quezon City", "Manila", "Caloocan", "Taguig"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which city is the most populous in Metro Manila?",
+    "options": ["Quezon City", "Manila", "Caloocan", "Taguig"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the oldest university in the Philippines and in Asia, founded in 1611?",
+    "options": ["University of Santo Tomas (UST)", "University of San Carlos", "Ateneo de Manila University", "University of the Philippines"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the national university system of the Philippines, created by Act No. 1870 in 1908?",
+    "options": ["University of the Philippines (UP)", "Polytechnic University of the Philippines (PUP)", "Philippine Normal University (PNU)", "Mindanao State University (MSU)"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which university in Manila is famous for having the largest student population in the country and its green obelisk?",
+    "options": ["Polytechnic University of the Philippines (PUP)", "Far Eastern University (FEU)", "University of the East (UE)", "Pamantasan ng Lungsod ng Maynila (PLM)"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What does the abbreviation 'UPCAT' stand for?",
+    "options": ["University of the Philippines College Admission Test", "University Placement and College Aptitude Test", "Union of Philippine Colleges Admission Testing", "Universal Professional and College Assessment Test"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What iconic statue in UP Diliman represents selfless offering of oneself to the nation?",
+    "options": ["The Oblation", "The Centenary Tower", "The Bonifacio Monument", "The Rizal Monument"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the popular slang term for 'studying very hard' or 'burning the midnight oil' among Filipino students?",
+    "options": ["Mag-sunog ng kilay", "Mag-aral sa gabi", "Mag-puyat ng Todo", "Mag-basa ng libro"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which popular motorcycle ride-hailing app in the Philippines features bikers wearing green helmets and jackets?",
+    "options": ["Grab / GrabBike", "Angkas", "JoyRide", "TokTok"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which motorcycle ride-hailing app is Angkas' chief competitor, featuring blue branding?",
+    "options": ["JoyRide", "Angkas", "Maxim", "inDrive"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the local term for the small, shared passenger vehicles that are often called the 'King of the Road'?",
+    "options": ["Jeepney", "Tricycle", "Multicab", "Kalesa"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What major program was initiated by the government to phase out old, traditional public utility jeepneys?",
+    "options": ["PUV Modernization Program", "Jeepney Upgrade Act", "Clean Air Transit Initiative", "E-Vehicle Integration Scheme"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the three-wheeled motorized vehicle commonly used for short-distance neighborhood travel in the Philippines?",
+    "options": ["Tricycle", "Pedicab", "E-Bike", "Jeepney"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What traditional non-motorized three-wheeled transport is powered by bicycle pedaling?",
+    "options": ["Pedicab / Trishaw", "Tricycle", "Kuliglig", "Kalesa"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the highest mountain peak in Luzon, famous for its cold weather and dwarf bamboo slopes?",
+    "options": ["Mount Pulag", "Mount Mayon", "Mount Arayat", "Mount Banahaw"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "In the Philippines, what is the legal drinking age?",
+    "options": ["18", "21", "16", "20"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "At what age do citizens in the Philippines gain the right to vote in national elections?",
+    "options": ["18", "16", "21", "20"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the name of the youth council elections held at the barangay level in the Philippines?",
+    "options": ["Sangguniang Kabataan (SK)", "Barangay Youth League", "Katipunan ng Kabataan", "Kagawad Council"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the standard legal age of majority in the Philippines, where a person is officially considered an adult?",
+    "options": ["18", "21", "16", "20"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the official language of the Philippines alongside English, according to the 1987 Constitution?",
+    "options": ["Filipino", "Tagalog", "Cebuano", "Spanish"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the term for the mixed language containing Tagalog and English words widely spoken in Metro Manila?",
+    "options": ["Taglish", "Englog", "Filish", "Bilingualism"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which fast-food chain, famous for its red bee mascot and Chickenjoy, is a cultural icon of the Philippines?",
+    "options": ["Jollibee", "McDonald's", "KFC", "Greenwich"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the tag line of Jollibee's famous crispy fried chicken?",
+    "options": ["Chickenjoy", "McChicken", "Crispy Chicken", "Super Chicken"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which Filipino fast-food chain is famous for Chinese-style meals, particularly Chao Fan and sweet pork?",
+    "options": ["Chowking", "Mang Inasal", "Jollibee", "Greenwich"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which restaurant chain acquired by Jollibee revolutionized Filipino dining with its unlimited rice promo and grilled chicken?",
+    "options": ["Mang Inasal", "Chowking", "Goldilocks", "Red Ribbon"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the name of the traditional sweet caramel custard dessert made of egg yolks and condensed milk?",
+    "options": ["Leche Flan", "Maja Blanca", "Biko", "Halo-Halo"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What cold dessert features shaved ice, evaporated milk, boiled sweet beans, coconut strips, jelly, and ube ice cream?",
+    "options": ["Halo-Halo", "Mais con Yelo", "Buko Pandan", "Sorbetes"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the native Filipino ice cream commonly sold from colorful wooden carts on the street?",
+    "options": ["Sorbetes / Dirty Ice Cream", "Selecta", "Magnolia", "Gelato"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What does the slang term 'lodi' mean, which is a reverse spelling of an English word?",
+    "options": ["Idol", "Leader", "Friend", "Smart"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What does the slang term 'petmalu' mean in Tagalog?",
+    "options": ["Malupit (Impressive / Cool)", "Mabagal", "Malungkot", "Paborito"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What does the slang term 'werpa' mean?",
+    "options": ["Power (Support / Energy)", "Work", "Party", "Worry"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the local slang word for someone who is extremely cheap or thrifty?",
+    "options": ["Kuripot", "Madamo", "Mayaman", "Gastador"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the Filipino slang term for a third-wheel or someone who tags along with a couple?",
+    "options": ["Dakilang Ekstra / Saling-pusa", "Kabit", "Kumpare", "Kasama"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the name of the government department responsible for national basic education (kindergarten to high school)?",
+    "options": ["DepEd (Department of Education)", "CHED", "TESDA", "DOST"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which government commission oversees colleges and universities (higher education) in the Philippines?",
+    "options": ["CHED (Commission on Higher Education)", "DepEd", "TESDA", "PRC"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which government authority provides technical vocational education and skills development training?",
+    "options": ["TESDA", "CHED", "DepEd", "DOST"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What national identification card system was established under Republic Act No. 11055?",
+    "options": ["PhilSys (Philippine Identification System)", "UMID", "Postal ID", "Voter's ID"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the name of the supreme court of the Philippines, consisting of a Chief Justice and 14 Associate Justices?",
+    "options": ["Supreme Court", "Sandiganbayan", "Court of Appeals", "Court of Tax Appeals"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which historical region in Manila is famous for its sunset view along the bay walk?",
+    "options": ["Manila Bay", "Roxas Boulevard", "Intramuros", "Ermita"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which province is historically famous as the 'Sugar Bowl of the Philippines'?",
+    "options": ["Negros Occidental", "Pampanga", "Tarlac", "Batangas"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which city is the regional center and major economic hub of the Visayas?",
+    "options": ["Cebu City", "Iloilo City", "Bacolod City", "Tacloban City"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which city is the regional center and major economic hub of Southern Mindanao?",
+    "options": ["Davao City", "General Santos City", "Zamboanga City", "Cagayan de Oro City"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which city in the Philippines is known as the 'Tuna Capital of the Philippines'?",
+    "options": ["General Santos City", "Davao City", "Zamboanga City", "Tagum City"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the name of the major financial district in Metro Manila, located in Taguig City?",
+    "options": ["Bonifacio Global City (BGC)", "Makati Central Business District", "Ortigas Center", "Filinvest City"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which city in Metro Manila is considered the country's primary financial hub and contains Ayala Avenue?",
+    "options": ["Makati City", "Taguig City", "Pasig City", "Manila"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which district is famous for selling cheap electronic goods, clothes, and wholesale items in Manila?",
+    "options": ["Divisoria", "Quiapo", "Cubao", "Greenhills"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What shopping complex in San Juan, Metro Manila, is famous for its stalls selling gadgets and replica goods?",
+    "options": ["Greenhills Shopping Center", "Divisoria", "Tutuban", "Baclaran"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which major shopping mall chain is the largest in the Philippines, with branches like Mall of Asia and Megamall?",
+    "options": ["SM Supermalls", "Robinsons Malls", "Ayala Malls", "Megaworld Lifestyle Malls"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which SM mall is located along Manila Bay and is one of the largest shopping malls in the world?",
+    "options": ["SM Mall of Asia (MOA)", "SM Megamall", "SM North EDSA", "SM Aura Premier"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which SM mall is located at the intersection of EDSA and North Avenue, historically SM's first mall?",
+    "options": ["SM City North EDSA", "SM Megamall", "SM Mall of Asia", "SM City Manila"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the name of the main expressway that connects Metro Manila to the northern provinces of Luzon?",
+    "options": ["NLEX (North Luzon Expressway)", "SLEX", "TPLEX", "SCTEX"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the name of the main expressway that connects Metro Manila to the southern provinces of Luzon?",
+    "options": ["SLEX (South Luzon Expressway)", "NLEX", "CALAX", "STAR Tollway"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the tag line of the government's official anti-drug program?",
+    "options": ["BIDA (Buhay Ingatan, Droga Ayawan)", "Oplan Tokhang", "War on Drugs", "Say No to Drugs"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "In the Philippines, what is the term for a neighborhood convenience store usually attached to a home?",
+    "options": ["Sari-Sari Store", "Tindahan", "Talipapa", "Carinderia"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the term for a local street food eatery that serves affordable pre-cooked meals displayed in metal pans?",
+    "options": ["Carinderia", "Turo-Turo", "Sari-Sari Store", "Talipapa"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What is the local term for a small temporary wet market selling fresh seafood, vegetables, and meat?",
+    "options": ["Talipapa", "Palengke", "Sari-Sari Store", "Bagsakan"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which Filipino holiday is celebrated on June 12 to commemorate freedom from Spanish rule?",
+    "options": ["Independence Day (Araw ng Kalayaan)", "Rizal Day", "Bonifacio Day", "National Heroes Day"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "On what date do Filipinos celebrate National Heroes Day?",
+    "options": ["Last Monday of August", "November 30", "December 30", "June 12"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which national holiday is celebrated on December 30 to honor the execution of the national hero?",
+    "options": ["Rizal Day", "Bonifacio Day", "Independence Day", "Ninoy Aquino Day"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Which national holiday is celebrated on November 30 to honor the founder of the Katipunan?",
+    "options": ["Bonifacio Day", "Rizal Day", "National Heroes Day", "Independence Day"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "Who was the founder of the Katipunan (KKK) revolutionary society?",
+    "options": ["Andres Bonifacio", "Emilio Aguinaldo", "Jose Rizal", "Apolinario Mabini"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  },
+  {
+    "questionText": "What does the abbreviation 'PRC' stand for, which administers board exams for professionals in the Philippines?",
+    "options": ["Professional Regulation Commission", "Philippine Red Cross", "Public Relations Council", "People's Republic of China"],
+    "correctOptionIndex": 0,
+    "category": "general"
+  }
+]
