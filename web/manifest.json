@@ -1,11 +1,11 @@
 {
-    "name": "everglow",
-    "short_name": "everglow",
+    "name": "Everglow",
+    "short_name": "Everglow",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#fce4ec",
+    "theme_color": "#d4a0a0",
+    "description": "A private digital relationship scrapbook",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
