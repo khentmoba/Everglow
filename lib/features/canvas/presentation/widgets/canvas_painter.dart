@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 import '../../domain/models/doodle_stroke.dart';
 
 class CanvasPainter extends CustomPainter {
@@ -13,12 +14,28 @@ class CanvasPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Phase 1: Draw completed strokes from Firestore
+    // Phase 1: Draw blueprint dot-grid background
+    final List<Offset> gridPoints = [];
+    const double spacing = 28.0;
+    for (double x = spacing; x < size.width; x += spacing) {
+      for (double y = spacing; y < size.height; y += spacing) {
+        gridPoints.add(Offset(x, y));
+      }
+    }
+    if (gridPoints.isNotEmpty) {
+      final gridPaint = Paint()
+        ..color = AppTheme.roseQuartz.withOpacity(0.04)
+        ..strokeWidth = 2.0
+        ..strokeCap = StrokeCap.round;
+      canvas.drawPoints(PointMode.points, gridPoints, gridPaint);
+    }
+
+    // Phase 2: Draw completed strokes from Firestore
     for (var stroke in strokes) {
       _drawStroke(canvas, size, stroke);
     }
 
-    // Phase 2: Draw the active stroke currently being drawn by the user
+    // Phase 3: Draw the active stroke currently being drawn by the user
     if (activeStroke != null) {
       _drawStroke(canvas, size, activeStroke!);
     }
@@ -27,13 +44,7 @@ class CanvasPainter extends CustomPainter {
   void _drawStroke(Canvas canvas, Size size, DoodleStroke stroke) {
     if (stroke.points.length < 2) return;
 
-    final paint = Paint()
-      ..color = _parseColor(stroke.color)
-      ..strokeWidth = stroke.strokeWidth
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
-
+    final color = _parseColor(stroke.color);
     final List<Offset> offsets = stroke.points.map((p) {
       return Offset(
         p['x']! * size.width,
@@ -41,7 +52,23 @@ class CanvasPainter extends CustomPainter {
       );
     }).toList();
 
-    // Use drawPoints for better performance
+    // 1. Draw glowing background shadow
+    final shadowPaint = Paint()
+      ..color = color.withOpacity(0.3)
+      ..strokeWidth = stroke.strokeWidth * 2.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0);
+    canvas.drawPoints(PointMode.polygon, offsets, shadowPaint);
+
+    // 2. Draw sharp foreground stroke
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = stroke.strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
     canvas.drawPoints(PointMode.polygon, offsets, paint);
   }
 
@@ -53,7 +80,7 @@ class CanvasPainter extends CustomPainter {
       }
       return Color(int.parse(colorStr, radix: 16));
     } catch (e) {
-      return Colors.pink; // Fallback to default pink
+      return AppTheme.roseQuartz; // Fallback to roseQuartz instead of basic pink
     }
   }
 

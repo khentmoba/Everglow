@@ -144,6 +144,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           });
         } catch(e) {}
         try {
+          Object.defineProperty(window, 'top', {
+            get: function() { return window.self; },
+            configurable: true
+          });
+        } catch(e) {}
+        try {
+          Object.defineProperty(window, 'parent', {
+            get: function() { return window.self; },
+            configurable: true
+          });
+        } catch(e) {}
+        try {
           var desc = Object.getOwnPropertyDescriptor(Document.prototype, 'domain');
           if (desc && desc.set) {
             Object.defineProperty(Document.prototype, 'domain', {
@@ -181,31 +193,44 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         } catch(e) {}
       }
 
-      applyOverrides();
-
-      setInterval(applyOverrides, 2000);
-
-      try {
-        var observer = new MutationObserver(function(mutations) {
-          for (var i = 0; i < mutations.length; i++) {
-            var added = mutations[i].addedNodes;
-            for (var j = 0; j < added.length; j++) {
-              if (added[j].nodeType === 1) {
-                var text = added[j].textContent || '';
-                if (text.indexOf('Please Disable Sandbox') !== -1 || text.indexOf('Sandboxed iframe') !== -1) {
-                  added[j].remove();
-                }
+      function removeSandboxWarnings() {
+        try {
+          var candidates = document.querySelectorAll('h1, h2, h3, p, div, span, section, article, main, body');
+          for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el === document.body) continue;
+            var text = (el.textContent || '').trim();
+            if ((text === 'Please Disable Sandbox' || text === 'Sandboxed iframe' ||
+                 text.indexOf('Please Disable Sandbox') !== -1 || text.indexOf('Sandboxed iframe') !== -1) &&
+                el.children.length <= 1) {
+              var target = el.closest('div, section, article, main') || el;
+              if (target && target.parentElement && target !== document.body) {
+                target.remove();
+              } else {
+                el.remove();
               }
             }
           }
-          var h1s = document.querySelectorAll('h1');
-          for (var k = 0; k < h1s.length; k++) {
-            if ((h1s[k].textContent || '').indexOf('Please Disable Sandbox') !== -1) {
-              h1s[k].parentElement && h1s[k].parentElement.remove();
-            }
-          }
+        } catch(e) {}
+      }
+
+      applyOverrides();
+      removeSandboxWarnings();
+
+      setInterval(function() {
+        applyOverrides();
+        removeSandboxWarnings();
+      }, 1000);
+
+      try {
+        var observer = new MutationObserver(function() {
+          removeSandboxWarnings();
         });
-        observer.observe(document.documentElement || document.body, { childList: true, subtree: true });
+        observer.observe(document.documentElement || document.body, {
+          childList: true,
+          subtree: true,
+          characterData: true
+        });
       } catch(e) {}
     })();
     ''';

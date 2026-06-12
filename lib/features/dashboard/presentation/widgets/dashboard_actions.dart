@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 import '../../../guardian/presentation/controllers/guardian_controller.dart';
 import '../../../heartbeat/presentation/controllers/mood_controller.dart';
 
@@ -29,20 +30,20 @@ class DashboardActions extends StatelessWidget {
         width: 56,
         height: 56,
         decoration: BoxDecoration(
-          color: Colors.pink[50],
+          color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
           shape: BoxShape.circle,
-          border: Border.all(color: Colors.pink.shade100, width: 2),
+          border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.3), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.pink.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: AppTheme.deepRose.withValues(alpha: 0.15),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
             ),
           ],
         ),
         child: Icon(
           isVisible ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-          color: Colors.pink[300],
+          color: AppTheme.roseQuartz,
           size: 28,
         ),
       ),

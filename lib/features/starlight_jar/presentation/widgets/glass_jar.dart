@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 
 class GlassJar extends StatelessWidget {
   final double width;
@@ -72,7 +73,7 @@ class GlassJar extends StatelessWidget {
               width: width * 0.6,
               height: 30,
               decoration: BoxDecoration(
-                color: Colors.pink[100]!.withOpacity(0.5),
+                color: AppTheme.roseQuartz.withOpacity(0.5),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: Colors.white.withOpacity(0.3),

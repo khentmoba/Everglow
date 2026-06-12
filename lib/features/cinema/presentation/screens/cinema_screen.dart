@@ -698,7 +698,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
           ),
         ),
         SizedBox(
-          height: showYear ? 210 : 180,
+          height: showYear ? 250 : 180,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),

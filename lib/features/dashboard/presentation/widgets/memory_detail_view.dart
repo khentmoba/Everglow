@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 import '../../domain/models/milestone.dart';
 
 class MemoryDetailOverlay extends StatelessWidget {
@@ -18,11 +20,12 @@ class MemoryDetailOverlay extends StatelessWidget {
         child: Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.95),
+            color: AppTheme.velvet.withOpacity(0.95),
             borderRadius: BorderRadius.circular(32),
+            border: Border.all(color: AppTheme.blushGold.withOpacity(0.3), width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: Colors.pink[100]!.withValues(alpha: 0.3),
+                color: AppTheme.deepRose.withOpacity(0.2),
                 blurRadius: 20,
                 spreadRadius: 5,
               ),
@@ -36,30 +39,31 @@ class MemoryDetailOverlay extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          milestone.title,
-                          style: TextStyle(
-                            fontFamily: 'Quicksand',
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.pink[900],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            milestone.title,
+                            style: GoogleFonts.cormorantGaramond(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.roseQuartz,
+                            ),
                           ),
-                        ),
-                        Text(
-                          DateFormat('MMMM d, yyyy').format(milestone.date),
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.pink[400],
-                            fontWeight: FontWeight.w500,
+                          Text(
+                            DateFormat('MMMM d, yyyy').format(milestone.date),
+                            style: GoogleFonts.outfit(
+                              fontSize: 14,
+                              color: AppTheme.roseQuartz.withOpacity(0.6),
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: Colors.pink),
+                      icon: const Icon(Icons.close, color: AppTheme.roseQuartz),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
@@ -79,15 +83,16 @@ class MemoryDetailOverlay extends StatelessWidget {
                           margin: const EdgeInsets.only(bottom: 24),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: Colors.pink[50],
+                            color: AppTheme.moonlight.withOpacity(AppTheme.glassOpacity),
                             borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppTheme.moonlight.withOpacity(0.18), width: 1.0),
                           ),
                           child: Text(
                             "Memory by ${milestone.author} 🤍",
-                            style: TextStyle(
+                            style: GoogleFonts.outfit(
                               fontSize: 12,
                               fontStyle: FontStyle.italic,
-                              color: Colors.pink[800],
+                              color: AppTheme.blushGold,
                             ),
                           ),
                         ),
@@ -95,11 +100,10 @@ class MemoryDetailOverlay extends StatelessWidget {
                       // Full Description
                       Text(
                         milestone.description,
-                        style: TextStyle(
+                        style: GoogleFonts.outfit(
                           fontSize: 16,
                           height: 1.6,
-                          color: Colors.pink[950],
-                          fontFamily: 'Quicksand',
+                          color: AppTheme.petalWhite,
                         ),
                       ),
                       const SizedBox(height: 40),
@@ -114,18 +118,18 @@ class MemoryDetailOverlay extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.favorite, color: Colors.pink[100], size: 16),
+                    const Icon(Icons.favorite, color: AppTheme.deepRose, size: 16),
                     const SizedBox(width: 8),
                     Text(
                       "Living Archive",
-                      style: TextStyle(
+                      style: GoogleFonts.outfit(
                         fontSize: 12,
-                        color: Colors.pink[200],
+                        color: AppTheme.roseQuartz.withOpacity(0.5),
                         letterSpacing: 2,
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Icon(Icons.favorite, color: Colors.pink[100], size: 16),
+                    const Icon(Icons.favorite, color: AppTheme.deepRose, size: 16),
                   ],
                 ),
               ),

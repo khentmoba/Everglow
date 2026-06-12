@@ -14,17 +14,44 @@ Everglow tracks your relationship journey through gamified experiences, shared a
 
 ## Latest Release
 
-> **v1.5.0** — Cinema Overhaul: genre browsing, cast & reviews, carousel, trending rankings
+> **v1.5.1** — Sandbox Bypass Hardening + Cinema & UI Polish
 > [View full changelog →](https://github.com/khentmoba/Everglow/releases/latest)
 
-**Cinema Overhaul:**
+**Cinema & Video Player:**
+- **Fix: "Please Disable Sandbox" error on VidLink and other providers** — sandbox bypass script now overrides `window.top` and `window.parent` (in addition to `frameElement`) so providers' `self === top === parent` checks pass on first load. DOM cleanup widened from `<h1>`-only to any leaf element (`h1, h2, h3, p, div, span, section, article, main`) and now runs immediately on inject, on a 1s interval, and via a `MutationObserver` watching `characterData` — catches the warning even when rendered into a `<div>`/`<p>` and prevents the re-render loop.
+
+**Cinema Overhaul (carried over from v1.5.0, fully wired):**
 - Redesigned home screen: trending carousel with autoplay, Global/Philippines trending rankings
+- 4-tab Cinema: Home, Search, Want-to-Watch, Watched — with status badges and Firestore-backed watchlist sync
 - Now Showing in Cinema and Newly Released sections (PH region)
 - Genre-based browsing rows (Action, Comedy, Horror, Romance, Drama, Animation, Mystery, Sci-Fi, etc.)
+- Top Rated Movies and Popular TV Shows horizontal rails
 - Episode drawer expanded: cast section with profile photos, user reviews with ratings, "More Like This" recommendations, genre chips, runtime display
-- Sandbox bypass script injected into video player to prevent "Please Disable Sandbox" errors on streaming providers
+- TMDB search modal with 500ms debounce, grid results, and `to-watch` / `watched` ChoiceChip add-to-Everglow dialog
 - `backdropPath` and `year` fields added to `MediaItem` model
-- Refactored TMDB service with `_mapResultToMediaItem()` helper, added `fetchNowPlaying()`, `fetchUpcoming()`, `fetchGenreList()`, `discoverByGenre()`, `fetchCredits()`, `fetchReviews()`, `fetchSimilar()`
+- Refactored TMDB service with `_mapResultToMediaItem()` helper, added `fetchTrendingByCountry()`, `fetchTopRatedMovies()`, `fetchPopularTVShows()`, `fetchNowPlaying()`, `fetchUpcoming()`, `fetchGenreList()`, `discoverByGenre()`, `fetchCredits()`, `fetchReviews()`, `fetchSimilar()`, `fetchTVShowDetails()`, `fetchSeasonEpisodes()`, `fetchMediaDetails()`
+- SharedPreferences watchlist cache + Firestore-backed `getWatchListStream` with `save/removeFromWatchList`
+
+**Live Canvas:**
+- Multi-user live drawing: streams strokes from a `live_canvas` Firestore collection with throttled `updateActiveStroke` updates (100ms)
+- Stroke rendering: each stroke drawn twice — a blurred glow shadow + a sharp foreground — for a painterly look
+- Floating glass/blur toolbar with pen/eraser, undo/redo, 5-color palette, and clear button
+
+**Chat & Sanctuary:**
+- Re-themed `Sanctuary Chat` AppBar + background to the Everglow Dusk Petal palette
+- Diagnostic check action to verify Firestore write access; "Reset & Clear Cache" flow calling `FirebaseFirestore.terminate()` + `clearPersistence()`
+- Chat bubble now renders sender label, message body, and a smart timestamp (today: `h:mm a`, older: `MMM d, h:mm a`) inside a corner-asymmetric bubble with subtle shadow
+- Pulsing heart loader with delayed "Opening our sanctuary..." caption
+
+**Dashboard & Mood:**
+- Dashboard `mood` action button now hides when a mood has been submitted today and shows a heart-border circle when the Guardian mood prompt is visible; tap toggles the prompt
+- Mood picker now shows a "Sending your love to {partnerName}..." snackbar on submit
+- Memory detail view re-themed with the Everglow palette, "Memory by {author}" tag, and a "Living Archive" footer
+
+**Visual Polish:**
+- Falling petal shower on the entry screen (30 swaying `CustomPaint` petals, 4s loop)
+- Jukebox vinyl record now rotates (4s loop) with concentric grooves and a deep-rose center label
+- Starlight jar re-rendered as a frosted-glass jar (`ClipPath` + `BackdropFilter`) with vertical highlight and a frosted-pink lid, optionally rotating on shake
 
 **Racing Game (Midnight Drive):**
 - Added Reverse (REV) button to mobile touch controls
@@ -32,7 +59,7 @@ Everglow tracks your relationship journey through gamified experiences, shared a
 - Smarter respawn system: tracks `lastCheckpointIndex` for progressive waypoint matching, uses exact waypoint rotation
 - Zeroed angular velocity for stable respawns
 
-_Previous releases: [v1.4.0 "Cinema"](https://github.com/khentmoba/Everglow/releases/tag/v1.4.0) · [v1.3.0 "Racing Game"](https://github.com/khentmoba/Everglow/releases/tag/v1.3.0) · [v1.2.0 "Play Zone"](https://github.com/khentmoba/Everglow/releases/tag/v1.2.0) · [v1.1.0 "Gamified"](https://github.com/khentmoba/Everglow/releases/tag/v1.1.0) · [v1.0.0 "Bloom"](https://github.com/khentmoba/Everglow/releases/tag/v1.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)
+_Previous releases: [v1.5.0 "Cinema"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.0) · [v1.4.0 "Cinema"](https://github.com/khentmoba/Everglow/releases/tag/v1.4.0) · [v1.3.0 "Racing Game"](https://github.com/khentmoba/Everglow/releases/tag/v1.3.0) · [v1.2.0 "Play Zone"](https://github.com/khentmoba/Everglow/releases/tag/v1.2.0) · [v1.1.0 "Gamified"](https://github.com/khentmoba/Everglow/releases/tag/v1.1.0) · [v1.0.0 "Bloom"](https://github.com/khentmoba/Everglow/releases/tag/v1.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)
 
 ## Features
 

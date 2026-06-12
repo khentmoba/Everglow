@@ -2,6 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/services/auth_service.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/shared/widgets/gamified_background.dart';
 import '../../data/services/chat_service.dart';
 import '../../domain/models/chat_message.dart';
 import 'package:animate_do/animate_do.dart';
@@ -63,24 +66,24 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
   @override
   Widget build(BuildContext context) {
     final authService = context.watch<AuthService>();
-    final chatService = context.read<ChatService>();
     final currentUser = authService.currentUser ?? 'unknown';
 
     return Scaffold(
-      backgroundColor: Colors.pink[50],
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Column(
           children: [
             Text(
               'Sanctuary Chat',
-              style: TextStyle(
-                color: Colors.pink[800],
+              style: GoogleFonts.cormorantGaramond(
+                color: AppTheme.roseQuartz,
                 fontWeight: FontWeight.bold,
+                fontSize: 24,
               ),
             ),
             Text(
               'v2.0.0-STABLE',
-              style: TextStyle(color: Colors.pink[200], fontSize: 10),
+              style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withOpacity(0.5), fontSize: 10),
             ),
           ],
         ),
@@ -88,132 +91,133 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded, color: Colors.pink[300]),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.roseQuartz),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.wifi_tethering, color: Colors.pinkAccent),
+            icon: const Icon(Icons.wifi_tethering, color: AppTheme.roseQuartz),
             onPressed: () => _showDiagnostics(context),
             tooltip: 'Check Connection',
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: StreamBuilder<List<ChatMessage>>(
-              stream: _messagesStream,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const PulsingHeartLoader(),
-                        const SizedBox(height: 20),
-                        Text(
-                          'Opening our sanctuary...',
-                          style: TextStyle(color: Colors.pink[200], fontSize: 16),
-                        ),
-                        const SizedBox(height: 10),
-                        TextButton(
-                          onPressed: () => _resetFirestore(context),
-                          child: Text(
-                            'Taking too long? Tap to reset',
-                            style: TextStyle(color: Colors.pink[100], fontSize: 12),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                
-                if (snapshot.hasData) {
-                  _isInitialLoad = false;
-                }
-                
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Text(
-                      'Error: ${snapshot.error}',
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                  );
-                }
-
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return Center(
-                    child: FadeIn(
+      body: GamifiedBackground(
+        child: Column(
+          children: [
+            Expanded(
+              child: StreamBuilder<List<ChatMessage>>(
+                stream: _messagesStream,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.favorite_rounded, size: 80, color: Colors.pink[100]),
+                          const PulsingHeartLoader(),
                           const SizedBox(height: 20),
                           Text(
-                            'Our sanctuary is empty...',
-                            style: TextStyle(
-                              color: Colors.pink[200],
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
-                            ),
+                            'Opening our sanctuary...',
+                            style: GoogleFonts.outfit(color: AppTheme.roseQuartz, fontSize: 16),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Send the first message to start blooming',
-                            style: TextStyle(color: Colors.pink[100], fontSize: 14),
+                          const SizedBox(height: 10),
+                          TextButton(
+                            onPressed: () => _resetFirestore(context),
+                            child: Text(
+                              'Taking too long? Tap to reset',
+                              style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withOpacity(0.6), fontSize: 12),
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                  );
-                }
-
-                final messages = snapshot.data!;
-                
-                // Auto-scroll logic
-                WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    final message = messages[index];
-                    final isMe = message.sender == currentUser;
-
-                    return Align(
-                      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                      child: ChatBubble(
-                        text: message.text,
-                        isMe: isMe,
-                        sender: message.sender,
-                        timestamp: message.timestamp,
+                    );
+                  }
+                  
+                  if (snapshot.hasData) {
+                    _isInitialLoad = false;
+                  }
+                  
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text(
+                        'Error: ${snapshot.error}',
+                        style: GoogleFonts.outfit(color: Colors.redAccent),
                       ),
                     );
-                  },
-                );
-              },
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return Center(
+                      child: FadeIn(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.favorite_rounded, size: 80, color: AppTheme.roseQuartz.withOpacity(0.2)),
+                            const SizedBox(height: 20),
+                            Text(
+                              'Our sanctuary is empty...',
+                              style: GoogleFonts.cormorantGaramond(
+                                color: AppTheme.roseQuartz,
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Send the first message to start blooming',
+                              style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withOpacity(0.6), fontSize: 14),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  final messages = snapshot.data!;
+                  
+                  // Auto-scroll logic
+                  WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+
+                  return ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
+                    itemCount: messages.length,
+                    itemBuilder: (context, index) {
+                      final message = messages[index];
+                      final isMe = message.sender == currentUser;
+
+                      return Align(
+                        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                        child: ChatBubble(
+                          text: message.text,
+                          isMe: isMe,
+                          sender: message.sender,
+                          timestamp: message.timestamp,
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
-          ),
-          _buildInputArea(),
-        ],
+            _buildInputArea(),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildInputArea() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
+        color: AppTheme.velvet.withOpacity(0.85),
+        border: Border(
+          top: BorderSide(
+            color: AppTheme.moonlight.withOpacity(0.12),
+            width: 1.0,
           ),
-        ],
+        ),
       ),
       child: SafeArea(
         child: Row(
@@ -221,15 +225,21 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.pink[50],
-                  borderRadius: BorderRadius.circular(25),
+                  color: AppTheme.moonlight.withOpacity(AppTheme.glassOpacity),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: AppTheme.moonlight.withOpacity(0.18),
+                    width: 1.0,
+                  ),
                 ),
                 child: TextField(
                   controller: _messageController,
-                  decoration: const InputDecoration(
+                  style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+                  decoration: InputDecoration(
                     hintText: 'Type a message...',
+                    hintStyle: GoogleFonts.outfit(color: AppTheme.petalWhite.withOpacity(0.4)),
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   ),
                   onSubmitted: (_) => _sendMessage(),
                 ),
@@ -240,11 +250,11 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
               onTap: _sendMessage,
               child: Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.pink[300],
+                decoration: const BoxDecoration(
+                  color: AppTheme.deepRose,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.send_rounded, color: Colors.white, size: 24),
+                child: const Icon(Icons.send_rounded, color: AppTheme.petalWhite, size: 24),
               ),
             ),
           ],
@@ -254,20 +264,24 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
   }
 
   void _showDiagnostics(BuildContext context) async {
-
     final chatService = context.read<ChatService>();
     final authService = context.read<AuthService>();
     
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const AlertDialog(
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.velvet,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Testing connection to our sanctuary...'),
+            const CircularProgressIndicator(color: AppTheme.roseQuartz),
+            const SizedBox(height: 16),
+            Text(
+              'Testing connection to our sanctuary...',
+              style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+            ),
           ],
         ),
       ),
@@ -291,19 +305,37 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Sanctuary Status'),
-          content: Text(result),
+          backgroundColor: AppTheme.velvet,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Text(
+            'Sanctuary Status',
+            style: GoogleFonts.cormorantGaramond(
+              color: AppTheme.roseQuartz,
+              fontWeight: FontWeight.bold,
+              fontSize: 22,
+            ),
+          ),
+          content: Text(
+            result,
+            style: GoogleFonts.outfit(color: AppTheme.petalWhite.withOpacity(0.8)),
+          ),
           actions: [
             TextButton(
               onPressed: () async {
                 Navigator.pop(context);
                 await _resetFirestore(context);
               },
-              child: const Text('Reset & Clear Cache', style: TextStyle(color: Colors.red)),
+              child: Text(
+                'Reset & Clear Cache',
+                style: GoogleFonts.outfit(color: Colors.redAccent, fontWeight: FontWeight.bold),
+              ),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
+              child: Text(
+                'OK',
+                style: GoogleFonts.outfit(color: AppTheme.roseQuartz),
+              ),
             ),
           ],
         ),
@@ -315,13 +347,18 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const AlertDialog(
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.velvet,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Clearing local cache and restarting...'),
+            const CircularProgressIndicator(color: AppTheme.roseQuartz),
+            const SizedBox(height: 16),
+            Text(
+              'Clearing local cache and restarting...',
+              style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+            ),
           ],
         ),
       ),
@@ -335,14 +372,20 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
       if (context.mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cache cleared! Refresh the page now.')),
+          SnackBar(
+            content: Text('Cache cleared! Refresh the page now.', style: GoogleFonts.outfit()),
+            backgroundColor: AppTheme.deepRose,
+          ),
         );
       }
     } catch (e) {
       if (context.mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Reset failed: $e')),
+          SnackBar(
+            content: Text('Reset failed: $e', style: GoogleFonts.outfit()),
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
     }
