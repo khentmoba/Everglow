@@ -14,15 +14,16 @@ Everglow tracks your relationship journey through gamified experiences, shared a
 
 ## Latest Release
 
-> **v1.3.0** — Racing Game: auto-respawn + professional touch UI
+> **v1.4.0** — Cinema: multi-provider video player + episode drawer
 > [View full changelog →](https://github.com/khentmoba/Everglow/releases/latest)
 
-**Racing Game:**
-- Redesigned touch controls: pedal-style gas/brake, circular boost ring, steering d-pad, honk, camera toggle
-- Auto-respawn when flipped, out of map, or stuck — lands on closest track waypoint
-- Manual respawn button, glassmorphism dark styling
+**Cinema:**
+- Video player now supports 17 streaming providers (VidLink, AutoEmbed, Videasy, VidSrc, VidKing, SuperEmbed, VsEmbed, 111Movies, Vidify, Vidzee, Filmu, Vares, VidFast, VidRock, VixSrc, VidGod) with ad-percentage ratings
+- Episode drawer toggle-to-remove behavior (tap current status to remove from watchlist)
+- Expanded native ad blocker, sandbox compatibility fixes, dynamic URL construction per provider
+- New `removeFromWatchList()` TMDB service method
 
-_Previous releases: [v1.2.0 "Play Zone"](https://github.com/khentmoba/Everglow/releases/tag/v1.2.0) · [v1.1.0 "Gamified"](https://github.com/khentmoba/Everglow/releases/tag/v1.1.0) · [v1.0.0 "Bloom"](https://github.com/khentmoba/Everglow/releases/tag/v1.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)
+_Previous releases: [v1.3.0 "Racing Game"](https://github.com/khentmoba/Everglow/releases/tag/v2026.06.12) · [v1.2.0 "Play Zone"](https://github.com/khentmoba/Everglow/releases/tag/v1.2.0) · [v1.1.0 "Gamified"](https://github.com/khentmoba/Everglow/releases/tag/v1.1.0) · [v1.0.0 "Bloom"](https://github.com/khentmoba/Everglow/releases/tag/v1.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)
 
 ## Features
 
