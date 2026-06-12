@@ -54,7 +54,7 @@ class _RandomizerCardState extends State<RandomizerCard>
         context: context,
         barrierDismissible: true,
         barrierLabel: '',
-        barrierColor: AppTheme.peachyMagenta.withValues(alpha: 0.3),
+        barrierColor: AppTheme.deepRose.withValues(alpha: 0.3),
         transitionDuration: const Duration(milliseconds: 800),
         pageBuilder: (context, anim1, anim2) {
           return CelebrationDialog(title: idea.title);
@@ -77,23 +77,23 @@ class _RandomizerCardState extends State<RandomizerCard>
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: GlassContainer(
         padding: const EdgeInsets.all(32),
-        borderRadius: BorderRadius.circular(32),
+        borderRadius: BorderRadius.circular(24),
         child: Column(
           children: [
             Text(
               'Digital Roulette',
-              style: GoogleFonts.outfit(
-                color: AppTheme.champagneGold,
-                fontSize: 24,
+              style: GoogleFonts.cormorantGaramond(
+                color: AppTheme.roseQuartz,
+                fontSize: 26,
                 fontWeight: FontWeight.w900,
-                letterSpacing: 2,
+                letterSpacing: 1,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'SPIN FOR A DATE DESTINY',
               style: GoogleFonts.outfit(
-                color: Colors.white70,
+                color: AppTheme.petalWhite.withValues(alpha: 0.6),
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.5,
@@ -112,8 +112,8 @@ class _RandomizerCardState extends State<RandomizerCard>
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: AppTheme.neonTeal.withValues(alpha: 0.3),
-                        width: 10,
+                        color: AppTheme.blushGold.withValues(alpha: 0.3),
+                        width: 8,
                       ),
                     ),
                     child: CustomPaint(
@@ -126,7 +126,7 @@ class _RandomizerCardState extends State<RandomizerCard>
                     child: const AnimatedEmblem(
                       icon: Icons.favorite_rounded,
                       size: 60,
-                      color: AppTheme.peachyMagenta,
+                      color: AppTheme.deepRose,
                     ),
                   ),
                 ],
@@ -136,8 +136,8 @@ class _RandomizerCardState extends State<RandomizerCard>
             Text(
               _isSpinning ? 'DECIDING YOUR FATE...' : 'TAP THE HEART',
               style: GoogleFonts.outfit(
-                color: _isSpinning ? AppTheme.neonTeal : Colors.white60,
-                fontSize: 14,
+                color: _isSpinning ? AppTheme.blushGold : AppTheme.roseQuartz.withValues(alpha: 0.6),
+                fontSize: 13,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 2,
               ),

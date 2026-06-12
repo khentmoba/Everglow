@@ -19,6 +19,21 @@ class MediaItem {
     required this.addedAt,
   });
 
+  bool get isWatched =>
+      status == 'watched' ||
+      status == 'watched-khent' ||
+      status == 'watched-clair' ||
+      status == 'watched-both';
+
+  bool get isToWatch => status == 'to-watch';
+
+  String get watchedDisplay {
+    if (status == 'watched-khent') return 'Watched by Khent';
+    if (status == 'watched-clair') return 'Watched by Clair';
+    if (status == 'watched-both' || status == 'watched') return 'Watched by Both';
+    return 'To Watch';
+  }
+
   factory MediaItem.fromFirestore(Map<String, dynamic> data, String documentId) {
     return MediaItem(
       id: documentId,

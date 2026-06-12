@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../data/models/music_status.dart';
+import 'package:everglow/core/theme/app_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class ListenAlongPopup extends StatelessWidget {
   final MusicStatus status;
@@ -17,9 +19,13 @@ class ListenAlongPopup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
-      child: Padding(
+      backgroundColor: AppTheme.velvet,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.2), width: 1.5),
+        ),
         padding: const EdgeInsets.all(32.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -29,22 +35,22 @@ class ListenAlongPopup extends StatelessWidget {
               width: 200,
               height: 200,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.pink.withOpacity(0.2),
+                    color: AppTheme.deepRose.withValues(alpha: 0.3),
                     blurRadius: 30,
                     spreadRadius: 5,
                   ),
                 ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(20),
                 child: status.imageUrl != null
                     ? Image.network(status.imageUrl!, fit: BoxFit.cover)
                     : Container(
-                        color: Colors.pink.shade50,
-                        child: const Icon(Icons.music_note, size: 80, color: Colors.pink),
+                        color: AppTheme.twilight,
+                        child: const Icon(Icons.music_note, size: 80, color: AppTheme.roseQuartz),
                       ),
               ),
             ),
@@ -52,19 +58,19 @@ class ListenAlongPopup extends StatelessWidget {
             Text(
               status.trackName,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: GoogleFonts.cormorantGaramond(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF2D2D2D),
+                color: AppTheme.roseQuartz,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               status.artistName,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.pink.shade300,
+              style: GoogleFonts.outfit(
+                fontSize: 16,
+                color: AppTheme.blushGold,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -72,21 +78,24 @@ class ListenAlongPopup extends StatelessWidget {
             Text(
               status.albumName,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade500,
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                color: AppTheme.petalWhite.withValues(alpha: 0.5),
               ),
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
               onPressed: _launchSpotify,
-              icon: const Icon(Icons.play_circle_fill, size: 24),
-              label: const Text('Listen on Spotify'),
+              icon: const Icon(Icons.play_circle_fill, size: 24, color: AppTheme.petalWhite),
+              label: Text(
+                'Listen on Spotify',
+                style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+              ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.pink.shade400,
-                foregroundColor: Colors.white,
+                backgroundColor: AppTheme.deepRose,
+                foregroundColor: AppTheme.petalWhite,
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                 elevation: 0,
               ),
             ),
@@ -95,7 +104,7 @@ class ListenAlongPopup extends StatelessWidget {
               onPressed: () => Navigator.pop(context),
               child: Text(
                 'Close',
-                style: TextStyle(color: Colors.grey.shade400),
+                style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
               ),
             ),
           ],

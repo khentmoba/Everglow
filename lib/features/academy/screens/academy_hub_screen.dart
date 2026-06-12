@@ -9,6 +9,9 @@ import '../models/game_match.dart';
 import 'game_board_screen.dart';
 import 'solo_study_screen.dart';
 import '../services/academy_sync_service.dart';
+import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/shared/widgets/gamified_background.dart';
+import 'package:everglow/shared/widgets/glass_container.dart';
 
 class AcademyHubScreen extends StatefulWidget {
   const AcademyHubScreen({super.key});
@@ -115,16 +118,27 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Matchmaking Timeout'),
-        content: const Text('We couldn\'t find a partner for you right now. Would you like to play Solo instead?'),
+        backgroundColor: AppTheme.velvet,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(
+          'Matchmaking Timeout',
+          style: GoogleFonts.cormorantGaramond(color: AppTheme.roseQuartz, fontWeight: FontWeight.bold, fontSize: 24),
+        ),
+        content: Text(
+          'We couldn\'t find a partner for you right now. Would you like to play Solo instead?',
+          style: GoogleFonts.outfit(color: AppTheme.petalWhite.withValues(alpha: 0.8)),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withValues(alpha: 0.6))),
+          ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              // Navigate to Solo Mode (T018)
             },
-            child: const Text('Play Solo'),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.deepRose),
+            child: Text('Play Solo', style: GoogleFonts.outfit(color: AppTheme.petalWhite, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -138,13 +152,13 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
       builder: (context) => Container(
         padding: const EdgeInsets.all(32),
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.velvet,
           borderRadius: BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Choose Category', style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.pink)),
+            Text('Choose Category', style: GoogleFonts.cormorantGaramond(fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.roseQuartz)),
             const SizedBox(height: 24),
             Expanded(
               child: GridView.count(
@@ -282,66 +296,67 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFE6F2),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back_ios, color: Color(0xFFFF69B4)),
-                  ),
-                  Text(
-                    'Academy Hub',
-                    style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.bold, color: const Color(0xFFFF69B4)),
-                  ),
-                ],
+      body: GamifiedBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.arrow_back_ios, color: AppTheme.roseQuartz),
+                    ),
+                    Text(
+                      'Academy Hub',
+                      style: GoogleFonts.cormorantGaramond(fontSize: 28, fontWeight: FontWeight.bold, color: AppTheme.roseQuartz),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Expanded(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (_isSearching) ...[
-                        const CircularProgressIndicator(color: Color(0xFFFF69B4)),
-                        const SizedBox(height: 20),
-                        Text(_statusMessage ?? '', style: GoogleFonts.outfit(color: Colors.pink[300])),
-                        const SizedBox(height: 20),
-                        TextButton(
-                          onPressed: () => setState(() => _isSearching = false),
-                          child: const Text('Cancel Search'),
-                        ),
-                      ] else ...[
-                        _buildModeButton(
-                          'Solo Study',
-                          'Practice on your own',
-                          Icons.menu_book_rounded,
-                          () => _startSoloStudy(),
-                        ),
-                        const SizedBox(height: 24),
-                        _buildModeButton(
-                          '1v1 Challenge',
-                          'Race against your partner',
-                          Icons.bolt_rounded,
-                          () => _showCategoryPicker(),
-                        ),
-                        if (_statusMessage != null) ...[
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (_isSearching) ...[
+                          const CircularProgressIndicator(color: AppTheme.deepRose),
                           const SizedBox(height: 20),
-                          Text(_statusMessage!, style: GoogleFonts.outfit(color: Colors.pink[300])),
+                          Text(_statusMessage ?? '', style: GoogleFonts.outfit(color: AppTheme.roseQuartz)),
+                          const SizedBox(height: 20),
+                          TextButton(
+                            onPressed: () => setState(() => _isSearching = false),
+                            child: Text('Cancel Search', style: GoogleFonts.outfit(color: AppTheme.blushGold)),
+                          ),
+                        ] else ...[
+                          _buildModeButton(
+                            'Solo Study',
+                            'Practice on your own',
+                            Icons.menu_book_rounded,
+                            () => _startSoloStudy(),
+                          ),
+                          const SizedBox(height: 24),
+                          _buildModeButton(
+                            '1v1 Challenge',
+                            'Race against your partner',
+                            Icons.bolt_rounded,
+                            () => _showCategoryPicker(),
+                          ),
+                          if (_statusMessage != null) ...[
+                            const SizedBox(height: 20),
+                            Text(_statusMessage!, style: GoogleFonts.outfit(color: AppTheme.blushGold)),
+                          ],
                         ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -354,13 +369,13 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
       builder: (context) => Container(
         padding: const EdgeInsets.all(32),
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.velvet,
           borderRadius: BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Choose Category', style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.pink)),
+            Text('Choose Category', style: GoogleFonts.cormorantGaramond(fontSize: 26, fontWeight: FontWeight.bold, color: AppTheme.roseQuartz)),
             const SizedBox(height: 24),
             Expanded(
               child: GridView.count(
@@ -413,28 +428,26 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
   Widget _buildModeButton(String title, String subtitle, IconData icon, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
+      borderRadius: BorderRadius.circular(24),
+      child: GlassContainer(
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 5))],
-        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.2), width: 1.0),
+        opacity: AppTheme.glassOpacity,
         child: Row(
           children: [
-            Icon(icon, size: 40, color: const Color(0xFFFF69B4)),
+            Icon(icon, size: 40, color: AppTheme.deepRose),
             const SizedBox(width: 20),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87)),
-                  Text(subtitle, style: GoogleFonts.outfit(fontSize: 14, color: Colors.black54)),
+                  Text(title, style: GoogleFonts.cormorantGaramond(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.roseQuartz)),
+                  Text(subtitle, style: GoogleFonts.outfit(fontSize: 13, color: AppTheme.petalWhite.withValues(alpha: 0.6))),
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, color: Colors.black26),
+            const Icon(Icons.arrow_forward_ios, color: AppTheme.blushGold, size: 18),
           ],
         ),
       ),
@@ -445,17 +458,18 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
     return ElevatedButton(
       onPressed: onTap,
       style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.pink[50],
-        foregroundColor: Colors.pink,
+        backgroundColor: AppTheme.twilight,
+        foregroundColor: AppTheme.blushGold,
         padding: const EdgeInsets.symmetric(vertical: 20),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 0,
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 30),
+          Icon(icon, size: 30, color: AppTheme.roseQuartz),
           const SizedBox(height: 8),
-          Text(label, style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+          Text(label, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppTheme.petalWhite)),
         ],
       ),
     );
