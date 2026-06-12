@@ -208,6 +208,19 @@ class TMDBService {
     }
   }
 
+  Future<void> removeFromWatchList(int tmdbId) async {
+    try {
+      final collection = _firestore.collection('watch_list');
+      final existing = await collection.where('tmdbId', isEqualTo: tmdbId).limit(1).get();
+      if (existing.docs.isNotEmpty) {
+        await collection.doc(existing.docs.first.id).delete();
+        print("Removed from watch list: $tmdbId");
+      }
+    } catch (e) {
+      print("Error removing from watch list: $e");
+    }
+  }
+
   /// Stream of watch list items (Firestore-based)
   Stream<List<MediaItem>> getWatchListStream() {
     return _firestore
