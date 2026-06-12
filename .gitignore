@@ -50,7 +50,3 @@ app.*.map.json
 # Binaries and large files
 firebase.exe
 node_modules/
-
-# Sensitive files - DO NOT COMMIT
-*-firebase-adminsdk-*.json
-lib/core/constants/api_keys.dart
