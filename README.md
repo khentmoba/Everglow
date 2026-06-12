@@ -23,7 +23,7 @@ Everglow tracks your relationship journey through gamified experiences, shared a
 - Expanded native ad blocker, sandbox compatibility fixes, dynamic URL construction per provider
 - New `removeFromWatchList()` TMDB service method
 
-_Previous releases: [v1.3.0 "Racing Game"](https://github.com/khentmoba/Everglow/releases/tag/v2026.06.12) · [v1.2.0 "Play Zone"](https://github.com/khentmoba/Everglow/releases/tag/v1.2.0) · [v1.1.0 "Gamified"](https://github.com/khentmoba/Everglow/releases/tag/v1.1.0) · [v1.0.0 "Bloom"](https://github.com/khentmoba/Everglow/releases/tag/v1.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)
+_Previous releases: [v1.3.0 "Racing Game"](https://github.com/khentmoba/Everglow/releases/tag/v1.3.0) · [v1.2.0 "Play Zone"](https://github.com/khentmoba/Everglow/releases/tag/v1.2.0) · [v1.1.0 "Gamified"](https://github.com/khentmoba/Everglow/releases/tag/v1.1.0) · [v1.0.0 "Bloom"](https://github.com/khentmoba/Everglow/releases/tag/v1.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)
 
 ## Features
 
