@@ -1,0 +1,92 @@
+name: Build and Deploy to Firebase
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: stable
+          channel: stable
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          DATE=$(date +"%Y-%m-%d %H:%M")
+          VERSION=$(date +"%Y.%m.%d")
+          
+          # Get commits since last tag or last 20 commits
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$LAST_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"- %s" -20)
+          else
+            COMMITS=$(git log --pretty=format:"- %s" "$LAST_TAG"..HEAD)
+          fi
+          
+          # Categorize commits
+          FEATURES=$(echo "$COMMITS" | grep -i "^- \(feat\|add\|new\|implement\|feature\)" || echo "- No new features")
+          FIXES=$(echo "$COMMITS" | grep -i "^- \(fix\|bug\|patch\|resolve\|correct\)" || echo "- No bug fixes")
+          UPDATES=$(echo "$COMMITS" | grep -iv "^- \(feat\|add\|new\|implement\|feature\|fix\|bug\|patch\|resolve\|correct\)" || echo "- General updates")
+          
+          # Create CHANGELOG.md
+          cat > CHANGELOG.md << EOF
+          # Changelog
+          
+          ## Version $VERSION - $DATE
+          
+          ### 🚀 Features
+          $FEATURES
+          
+          ### 🐛 Bug Fixes
+          $FIXES
+          
+          ### 📝 Updates
+          $UPDATES
+          
+          ---
+          *Auto-generated on $DATE*
+          EOF
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "date=$DATE" >> $GITHUB_OUTPUT
+          echo "Generated changelog:"
+          cat CHANGELOG.md
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build web
+        run: flutter build web --release
+
+      - name: Copy changelog to build
+        run: cp CHANGELOG.md build/web/CHANGELOG.md
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB }}
+          channelId: live
+          projectId: everglow-1c6db
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ steps.changelog.outputs.version }}"
+          name: "Release ${{ steps.changelog.outputs.version }}"
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: false
