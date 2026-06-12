@@ -16,6 +16,7 @@ import 'package:everglow/features/play_zone/presentation/screens/racing_game_scr
 import '../../assault_cube/models/assault_match.dart';
 import '../../assault_cube/presentation/screens/assault_cube_game_screen.dart';
 import '../../assault_cube/services/assault_match_service.dart';
+import '../../piano_tiles/presentation/screens/piano_tiles_game_screen.dart';
 
 class PlayZoneHubScreen extends StatefulWidget {
   const PlayZoneHubScreen({super.key});
@@ -106,6 +107,14 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
                                 subtitle: 'Dual-stick shooter battle with your partner',
                                 gradientColors: const [AppTheme.deepRose, AppTheme.softLavender],
                                 onPlayTap: () => _showAssaultModeSelection(context),
+                              ),
+                              const SizedBox(height: 20),
+                              _buildGameCard(
+                                icon: Icons.music_note_rounded,
+                                title: 'Melody Tiles',
+                                subtitle: 'Tap the dark falling petals in rhythm',
+                                gradientColors: const [AppTheme.deepRose, AppTheme.softLavender],
+                                onPlayTap: () => _startPianoTiles(),
                               ),
                             ],
                           ),
@@ -654,6 +663,13 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
     ).then((_) {
       if (mounted) setState(() => _isSearching = false);
     });
+  }
+
+  void _startPianoTiles() {
+    Navigator.push(
+      context,
+      PianoTilesGameScreen.route(),
+    );
   }
 }
 
