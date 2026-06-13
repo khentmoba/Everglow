@@ -5,54 +5,60 @@ class EnvConfig {
     const fromEnv = String.fromEnvironment('CLAIR_EMAIL', defaultValue: '');
     if (fromEnv.isNotEmpty) return fromEnv;
     if (dotenv.isInitialized) {
-      return dotenv.env['CLAIR_EMAIL'] ?? '';
+      final val = dotenv.env['CLAIR_EMAIL'];
+      if (val != null && val.isNotEmpty) return val;
     }
-    return '';
+    return 'clairjassen@scrapbook.local';
   }
 
   static String get clairPassword {
     const fromEnv = String.fromEnvironment('CLAIR_PASSWORD', defaultValue: '');
     if (fromEnv.isNotEmpty) return fromEnv;
     if (dotenv.isInitialized) {
-      return dotenv.env['CLAIR_PASSWORD'] ?? '';
+      final val = dotenv.env['CLAIR_PASSWORD'];
+      if (val != null && val.isNotEmpty) return val;
     }
-    return '';
+    return '111111';
   }
 
   static String get khentEmail {
     const fromEnv = String.fromEnvironment('KHENT_EMAIL', defaultValue: '');
     if (fromEnv.isNotEmpty) return fromEnv;
     if (dotenv.isInitialized) {
-      return dotenv.env['KHENT_EMAIL'] ?? '';
+      final val = dotenv.env['KHENT_EMAIL'];
+      if (val != null && val.isNotEmpty) return val;
     }
-    return '';
+    return 'khentplaysmoba@gmail.com';
   }
 
   static String get khentPassword {
     const fromEnv = String.fromEnvironment('KHENT_PASSWORD', defaultValue: '');
     if (fromEnv.isNotEmpty) return fromEnv;
     if (dotenv.isInitialized) {
-      return dotenv.env['KHENT_PASSWORD'] ?? '';
+      final val = dotenv.env['KHENT_PASSWORD'];
+      if (val != null && val.isNotEmpty) return val;
     }
-    return '';
+    return '297864503';
   }
 
   static String get tmdbApiKey {
     const fromEnv = String.fromEnvironment('TMDB_API_KEY', defaultValue: '');
     if (fromEnv.isNotEmpty) return fromEnv;
     if (dotenv.isInitialized) {
-      return dotenv.env['TMDB_API_KEY'] ?? '';
+      final val = dotenv.env['TMDB_API_KEY'];
+      if (val != null && val.isNotEmpty) return val;
     }
-    return '';
+    return 'b41bd33efc365bbdbbad2e31dae8f573';
   }
 
   static String get lastfmApiKey {
     const fromEnv = String.fromEnvironment('LASTFM_API_KEY', defaultValue: '');
     if (fromEnv.isNotEmpty) return fromEnv;
     if (dotenv.isInitialized) {
-      return dotenv.env['LASTFM_API_KEY'] ?? '';
+      final val = dotenv.env['LASTFM_API_KEY'];
+      if (val != null && val.isNotEmpty) return val;
     }
-    return '';
+    return 'b2d92f0bec73e334497b7d1a601061da';
   }
 
   static bool get hasClairCreds => clairEmail.isNotEmpty && clairPassword.isNotEmpty;
