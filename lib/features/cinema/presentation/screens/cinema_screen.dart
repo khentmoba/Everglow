@@ -827,7 +827,7 @@ class _CinemaScreenState extends State<CinemaScreen>
 
     final top10 = items.take(10).toList();
     return ListView.separated(
-      physics: const NeverScrollableScrollPhysics(),
+      physics: const BouncingScrollPhysics(),
       itemCount: top10.length,
       separatorBuilder: (_, _) => const SizedBox(height: 6),
       itemBuilder: (context, index) {

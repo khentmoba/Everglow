@@ -344,7 +344,11 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
           height: 280,
           width: double.infinity,
           child: backdropUrl.isNotEmpty
-              ? Image.network(backdropUrl, fit: BoxFit.cover)
+              ? Image.network(
+                  backdropUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => Container(color: _cCard),
+                )
               : Container(color: _cCard),
         ),
 
