@@ -4,8 +4,6 @@ import 'package:provider/provider.dart';
 import 'character/cat_visuals.dart';
 import 'thought_bubble.dart';
 import 'package:everglow/features/guardian/presentation/controllers/guardian_controller.dart';
-import 'package:everglow/features/heartbeat/presentation/widgets/mood_picker.dart';
-import 'package:everglow/features/guardian/data/services/guardian_service.dart';
 
 class EverglowGuardian extends StatefulWidget {
   const EverglowGuardian({super.key});
@@ -66,7 +64,7 @@ class _EverglowGuardianState extends State<EverglowGuardian> with TickerProvider
       for (int i = 0; i < 8; i++) {
         _particles.add(Particle(
           angle: math.pi * 2 * (i / 8),
-          color: Colors.pink[100]!.withOpacity(0.8),
+          color: Colors.pink[100]!.withValues(alpha: 0.8),
         ));
       }
     });
@@ -96,12 +94,13 @@ class _EverglowGuardianState extends State<EverglowGuardian> with TickerProvider
           clipBehavior: Clip.none,
           children: [
             // Particles
-            ..._particles.map((p) => IgnorePointer(
-              child: AnimatedPositioned(
-                duration: const Duration(milliseconds: 800),
-                curve: Curves.easeOutCubic,
-                bottom: _particles.isEmpty ? 40 : 40 + 60 * math.sin(p.angle),
-                right: _particles.isEmpty ? 40 : 40 + 60 * math.cos(p.angle),
+            ..._particles.map((p) => AnimatedPositioned(
+              key: ValueKey(p.angle),
+              duration: const Duration(milliseconds: 800),
+              curve: Curves.easeOutCubic,
+              bottom: _particles.isEmpty ? 40 : 40 + 60 * math.sin(p.angle),
+              right: _particles.isEmpty ? 40 : 40 + 60 * math.cos(p.angle),
+              child: IgnorePointer(
                 child: Opacity(
                   opacity: _particles.isEmpty ? 0 : 1,
                   child: const Icon(Icons.favorite, color: Color(0xFFFFD1DC), size: 12),

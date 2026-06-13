@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:everglow/features/cinema/data/models/media_item.dart';
 
 /// A single entry in the shared "Our Cinema" list, visible to Khent and Clair.
 ///
@@ -53,6 +54,21 @@ class OurCinemaItem {
   bool get isWatched => khentWatchedAt != null || clairWatchedAt != null;
   bool get isWatchedByKhent => khentWatchedAt != null;
   bool get isWatchedByClair => clairWatchedAt != null;
+
+  MediaItem toMediaItem() {
+    return MediaItem(
+      id: id,
+      tmdbId: tmdbId,
+      title: title,
+      mediaType: mediaType,
+      posterPath: posterPath,
+      backdropPath: backdropPath,
+      year: year,
+      status: status,
+      userName: addedBy,
+      addedAt: addedAt,
+    );
+  }
 
   /// Human-readable label for the composite status.
   String get statusLabel {
