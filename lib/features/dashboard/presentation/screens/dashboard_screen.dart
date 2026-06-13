@@ -25,6 +25,7 @@ import '../widgets/creator_modal.dart';
 import '../widgets/dashboard_actions.dart';
 import '../widgets/cinema_preview.dart';
 import '../widgets/books_preview.dart';
+import '../widgets/manga_preview.dart';
 import 'package:everglow/features/canvas/presentation/screens/canvas_screen.dart';
 import 'package:everglow/features/starlight_jar/presentation/screens/starlight_jar_widget.dart';
 import 'package:everglow/features/heartbeat/presentation/controllers/mood_controller.dart';
@@ -386,6 +387,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   child: child,
                                 ),
                                 child: const BooksPreview(),
+                              ),
+                            ),
+                            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                            SliverToBoxAdapter(
+                              child: _maybeAnimate(
+                                animation: (child) => FadeInUp(
+                                  delay: const Duration(milliseconds: 1180),
+                                  child: child,
+                                ),
+                                child: const MangaPreview(),
                               ),
                             ),
                             const SliverToBoxAdapter(child: SizedBox(height: 32)),

@@ -349,6 +349,7 @@ class OpenLibraryService {
 
   /// Fetch the raw text of a book from its resolved read source.
   /// Returns the full plain text (used by the chapter splitter).
+  @Deprecated('Use fetchBookTextFromCandidates instead')
   Future<String> fetchBookText(String readSourceUrl) async {
     if (readSourceUrl.isEmpty) return '';
     try {
@@ -362,16 +363,49 @@ class OpenLibraryService {
     return '';
   }
 
-  /// Try each candidate read source URL in order. Returns the first
-  /// one that responds with a 2xx and a non-empty body. This makes
-  /// the reader resilient to CORS blocks and 404s — the model
-  /// stores the highest-priority URL, and the reader falls back
-  /// automatically.
+  /// Cloud Function URL for proxying book text requests.
+  /// Points to the deployed `proxyBookText` function or the emulator.
+  static const String _proxyUrl =
+      'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyBookText';
+
+  /// Try each candidate read source URL via the Firebase Cloud
+  /// Function proxy. The function fetches each URL server-side so
+  /// Flutter web is never blocked by CORS.
   Future<FetchResult> fetchBookTextFromCandidates(
       List<String> candidates) async {
     if (candidates.isEmpty) {
       return FetchResult.empty('No read source URLs available.');
     }
+    try {
+      final response = await http.post(
+        Uri.parse(_proxyUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'urls': candidates}),
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        final text = data['text'] as String? ?? '';
+        final usedUrl = data['usedUrl'] as String? ?? '';
+        final attempted = (data['attempted'] as List?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            candidates;
+        final error = data['error'] as String?;
+        if (text.isNotEmpty) {
+          return FetchResult(
+            text: text,
+            usedUrl: usedUrl,
+            attempted: attempted,
+          );
+        }
+        return FetchResult.empty(
+            error ?? 'Proxy returned empty response.');
+      }
+    } catch (e) {
+      print('fetchBookTextFromCandidates proxy error: $e');
+    }
+    // Fallback: direct fetch (may fail on web due to CORS, but works
+    // in tests or when the proxy is unreachable).
     for (var i = 0; i < candidates.length; i++) {
       final url = candidates[i];
       try {
@@ -384,8 +418,7 @@ class OpenLibraryService {
           );
         }
       } catch (e) {
-        print('fetchBookText attempt $i failed ($url): $e');
-        // Continue to next candidate.
+        print('fetchBookText direct fallback $i failed ($url): $e');
       }
     }
     return FetchResult.empty(
