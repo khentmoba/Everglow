@@ -46,8 +46,8 @@ class _HexGLGameScreenState extends State<HexGLGameScreen> {
   bool _booted = false;
   String? _loadError;
   bool _isMobile = false;
-  bool _showStartHint = true;
-  bool _iframeTouchGuard = true;
+  bool _showStartHint = false;
+  bool _iframeTouchGuard = false;
   String _statusText = 'Loading Cityscape...';
   Timer? _pingTimer;
   Timer? _startGuardTimer;
@@ -130,7 +130,7 @@ class _HexGLGameScreenState extends State<HexGLGameScreen> {
       case 'ready':
         setState(() {
           _iframeReady = true;
-          _statusText = _showStartHint ? '' : 'Tap to launch';
+          _statusText = '';
         });
         // If a ghost replay was passed in, push it now.
         if (widget.ghostReplay?.replay != null) {
@@ -139,6 +139,20 @@ class _HexGLGameScreenState extends State<HexGLGameScreen> {
         if (widget.challenge?.challengerResult?.replay != null) {
           _bridge?.loadReplay(widget.challenge!.challengerResult!.replay);
         }
+        // Auto-start the race immediately.
+        _bridge?.loadAndStartReplay(null);
+        _startGuardTimer?.cancel();
+        _startGuardTimer = Timer(
+          const Duration(milliseconds: 800),
+          () {
+            if (mounted) {
+              setState(() {
+                _iframeTouchGuard = false;
+                _booted = true;
+              });
+            }
+          },
+        );
         break;
       case 'progress':
         // Surface texture/geometry loading progress so the user knows we're
@@ -378,84 +392,6 @@ class _HexGLGameScreenState extends State<HexGLGameScreen> {
                         ),
                       ),
                     ],
-                  ),
-                ),
-              ),
-
-            // Tap-to-start overlay: only the centre 60% is tappable so the
-            // user can't accidentally launch and tap a HUD button at the same
-            // time. Once booted, the overlay disappears and the iframe owns
-            // pointer events via the Flutter touch controls.
-            if (_iframeReady && !_booted)
-              Positioned.fill(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: () {
-                    _bridge?.loadAndStartReplay(null);
-                    setState(() {
-                      _showStartHint = false;
-                      _statusText = '';
-                    });
-                    // After a short delay, allow touch controls to grab pointer
-                    // events from the iframe so we can steer the ship.
-                    _startGuardTimer?.cancel();
-                    _startGuardTimer = Timer(
-                      const Duration(milliseconds: 800),
-                      () {
-                        if (mounted) {
-                          setState(() {
-                            _iframeTouchGuard = false;
-                            _booted = true;
-                          });
-                        }
-                      },
-                    );
-                  },
-                  child: Container(
-                    color: Colors.black.withValues(alpha: 0.85),
-                    alignment: Alignment.center,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'HEXGL',
-                          style: GoogleFonts.cormorantGaramond(
-                            color: AppTheme.roseQuartz,
-                            fontSize: 56,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 8,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Cityscape · Casual',
-                          style: GoogleFonts.outfit(
-                            color: AppTheme.petalWhite.withValues(alpha: 0.7),
-                            letterSpacing: 2,
-                          ),
-                        ),
-                        const SizedBox(height: 28),
-                        Text(
-                          'Tap anywhere to start',
-                          style: GoogleFonts.outfit(
-                            color: AppTheme.blushGold,
-                            fontSize: 18,
-                            letterSpacing: 2,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _isMobile
-                              ? 'Hold DRIFT, tap BOOST, steer on the left'
-                              : 'Use arrow keys / WASD · Shift to drift · Space to boost',
-                          style: GoogleFonts.outfit(
-                            color: AppTheme.petalWhite.withValues(alpha: 0.55),
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                 ),
               ),

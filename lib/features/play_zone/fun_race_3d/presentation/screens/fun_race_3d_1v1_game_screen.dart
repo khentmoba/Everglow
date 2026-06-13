@@ -39,7 +39,7 @@ class _FunRace3DOneVOneGameScreenState
 
   StreamSubscription<FunRace3DRoom?>? _roomSub;
   FunRace3DRoom? _room;
-  bool _booted = false;
+  bool _booted = true;
   bool _iFinished = false;
   bool _submittingFinish = false;
   String? _errorText;
@@ -208,51 +208,6 @@ class _FunRace3DOneVOneGameScreenState
                   child: Text(
                     'Fun Race 3D is only available in the web build.',
                     style: GoogleFonts.outfit(color: AppTheme.petalWhite),
-                  ),
-                ),
-              ),
-            if (!_booted)
-              Positioned.fill(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: () {
-                    if (!mounted) return;
-                    setState(() => _booted = true);
-                  },
-                  child: Container(
-                    color: Colors.black.withValues(alpha: 0.85),
-                    alignment: Alignment.center,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'READY?',
-                          style: GoogleFonts.cormorantGaramond(
-                            color: AppTheme.roseQuartz,
-                            fontSize: 40,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 6,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Tap anywhere to start the race',
-                          style: GoogleFonts.outfit(
-                            color: AppTheme.petalWhite.withValues(alpha: 0.7),
-                            fontSize: 16,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Text(
-                          'First to tap "I finished!" wins.',
-                          style: GoogleFonts.outfit(
-                            color: AppTheme.blushGold,
-                            fontSize: 13,
-                            letterSpacing: 2,
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                 ),
               ),

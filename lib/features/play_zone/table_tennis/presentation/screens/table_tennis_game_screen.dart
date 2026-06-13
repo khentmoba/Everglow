@@ -27,8 +27,7 @@ class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
   late final String _viewType =
       'tabletennis-iframe-${DateTime.now().microsecondsSinceEpoch}-${identityHashCode(Object())}';
 
-  bool _booted = false;
-  String _statusText = 'Loading Table Tennis World Tour...';
+  bool _booted = true;
   bool _isMobile = false;
 
   @override
@@ -37,13 +36,6 @@ class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
     _isMobile = _detectMobile();
     if (kIsWeb) {
       _registerIframe();
-      // The self-contained build doesn't post a 'ready' message to the
-      // parent, so flip out of the loading overlay after a short tick
-      // to mirror the previous behaviour.
-      Future.delayed(const Duration(milliseconds: 1200), () {
-        if (!mounted) return;
-        setState(() => _statusText = '');
-      });
     }
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
@@ -104,9 +96,7 @@ class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
         w.location.reload();
       }
       if (mounted) {
-        setState(() {
-          _booted = false;
-        });
+        setState(() {});
       }
     } catch (_) {}
   }
@@ -135,87 +125,6 @@ class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
                   child: Text(
                     'Table Tennis World Tour is only available in the web build.',
                     style: GoogleFonts.outfit(color: AppTheme.petalWhite),
-                  ),
-                ),
-              ),
-
-            if (!_booted)
-              Positioned.fill(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: () {
-                    if (!mounted) return;
-                    setState(() {
-                      _booted = true;
-                      _statusText = '';
-                    });
-                  },
-                  child: Container(
-                    color: Colors.black.withValues(alpha: 0.85),
-                    alignment: Alignment.center,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'TABLE TENNIS',
-                          style: GoogleFonts.cormorantGaramond(
-                            color: AppTheme.roseQuartz,
-                            fontSize: 44,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 6,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'WORLD TOUR',
-                          style: GoogleFonts.cormorantGaramond(
-                            color: AppTheme.blushGold,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 8,
-                          ),
-                        ),
-                        const SizedBox(height: 28),
-                        if (_statusText.isEmpty) ...[
-                          Text(
-                            'Tap anywhere to start',
-                            style: GoogleFonts.outfit(
-                              color: AppTheme.blushGold,
-                              fontSize: 18,
-                              letterSpacing: 2,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _isMobile
-                                ? 'Swipe / tap to swing your paddle'
-                                : 'Mouse / trackpad to aim · Click to swing',
-                            style: GoogleFonts.outfit(
-                              color: AppTheme.petalWhite.withValues(alpha: 0.55),
-                              fontSize: 13,
-                            ),
-                          ),
-                        ] else ...[
-                          const SizedBox(
-                            width: 28,
-                            height: 28,
-                            child: CircularProgressIndicator(
-                              color: AppTheme.roseQuartz,
-                              strokeWidth: 2.5,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            _statusText,
-                            style: GoogleFonts.outfit(
-                              color: AppTheme.petalWhite.withValues(alpha: 0.65),
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
                   ),
                 ),
               ),
