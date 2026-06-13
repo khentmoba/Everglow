@@ -9,6 +9,19 @@ import 'package:everglow/features/books/data/services/open_library_service.dart'
 import 'package:everglow/services/auth_service.dart';
 import '../screens/reader_screen.dart';
 
+/// Re-derive a fully-resolved [BookItem] before opening the reader.
+/// Stale Firestore documents may carry an empty `readSourceUrl`
+/// (the field was added later), so we always fall back to a
+/// freshly-derived URL from `iaId` / `workKey`.
+BookItem _resolveReaderBook(BookItem item) {
+  if (item.readSourceUrl.isNotEmpty) return item;
+  return item.copyWith(
+    readSourceUrl:
+        BookItem.deriveReadSourceUrl(iaId: item.iaId, workKey: item.workKey),
+    readSourceLabel: BookItem.deriveReadSourceLabel(iaId: item.iaId),
+  );
+}
+
 /// Bottom sheet for a single book. Mirrors the cinema's
 /// `episode_drawer.dart` — but stripped down to the essentials
 /// (cover, metadata, description, status chips, read button).
@@ -91,10 +104,15 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
   }
 
   void _openReader() {
+    // Defensive: if the model has no readSourceUrl (e.g. a legacy
+    // Firestore document that was saved before the URL was
+    // persisted), re-derive it from iaId / workKey so the reader
+    // still has something to work with.
+    final resolved = _resolveReaderBook(widget.item);
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ReaderScreen(book: widget.item),
+        builder: (_) => ReaderScreen(book: resolved),
       ),
     );
   }

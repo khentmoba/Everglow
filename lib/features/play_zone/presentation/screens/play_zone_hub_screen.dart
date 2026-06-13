@@ -14,6 +14,10 @@ import '../../hexgl/models/hexgl_challenge.dart';
 import '../../hexgl/presentation/screens/hexgl_game_screen.dart';
 import '../../hexgl/services/hexgl_service.dart';
 import '../../piano_tiles/presentation/screens/piano_tiles_song_select_screen.dart';
+import '../../table_tennis/presentation/screens/table_tennis_game_screen.dart';
+import '../../fun_race_3d/presentation/screens/fun_race_3d_game_screen.dart';
+import '../../fun_race_3d/presentation/screens/fun_race_3d_lobby_screen.dart';
+import '../../one_v_one/presentation/screens/one_v_one_lobby_screen.dart';
 
 class PlayZoneHubScreen extends StatefulWidget {
   const PlayZoneHubScreen({super.key});
@@ -115,6 +119,12 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
                           onPlayTap: () => _startPianoTiles(),
                         ),
                         const SizedBox(height: 20),
+                        _buildTableTennisCard(),
+                        const SizedBox(height: 20),
+                        _buildOneVOneCard(),
+                        const SizedBox(height: 20),
+                        _buildFunRace3DCard(),
+                        const SizedBox(height: 20),
                         _buildHexGLCard(),
                         const SizedBox(height: 20),
                         if (_openChallengesForMe.isNotEmpty)
@@ -200,6 +210,245 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTableTennisCard() {
+    return GlassContainer(
+      borderRadius: BorderRadius.circular(24.0),
+      border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.25), width: 1.5),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 36),
+        child: Column(
+          children: [
+            const AnimatedEmblem(
+              icon: Icons.sports_tennis_rounded,
+              size: 56,
+              color: AppTheme.warmAmber,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Table Tennis World Tour',
+              style: GoogleFonts.cormorantGaramond(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.roseQuartz,
+                letterSpacing: 0.5,
+                shadows: [
+                  BoxShadow(
+                    color: AppTheme.deepRose.withValues(alpha: 0.4),
+                    blurRadius: 15,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Smash your way through the world tournament bracket',
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                color: AppTheme.petalWhite.withValues(alpha: 0.7),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 28),
+            BouncyButton(
+              onTap: () => _startTableTennis(),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 14),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppTheme.warmAmber, AppTheme.deepRose],
+                  ),
+                  borderRadius: BorderRadius.circular(24.0),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.warmAmber.withValues(alpha: 0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  'PLAY',
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.w900,
+                    color: AppTheme.petalWhite,
+                    letterSpacing: 2.0,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _startTableTennis() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const TableTennisGameScreen(),
+      ),
+    );
+  }
+
+  Widget _buildOneVOneCard() {
+    final auth = context.watch<AuthService>();
+    final isCouple = auth.isCoupleUser;
+    final subtitle = isCouple
+        ? 'You vs Clair · create a room and share the code'
+        : 'Private match — sign in to unlock';
+    return _buildGameCard(
+      icon: Icons.sports_handball_rounded,
+      title: '1v1 Match',
+      subtitle: subtitle,
+      gradientColors: const [AppTheme.deepRose, AppTheme.warmAmber],
+      onPlayTap: () => _startOneVOne(),
+    );
+  }
+
+  void _startOneVOne() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const OneVOneLobbyScreen(),
+      ),
+    );
+  }
+
+  Widget _buildFunRace3DCard() {
+    return GlassContainer(
+      borderRadius: BorderRadius.circular(24.0),
+      border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.25), width: 1.5),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 36),
+        child: Column(
+          children: [
+            const AnimatedEmblem(
+              icon: Icons.directions_run_rounded,
+              size: 56,
+              color: AppTheme.softLavender,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Fun Race 3D',
+              style: GoogleFonts.cormorantGaramond(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.roseQuartz,
+                letterSpacing: 0.5,
+                shadows: [
+                  BoxShadow(
+                    color: AppTheme.deepRose.withValues(alpha: 0.4),
+                    blurRadius: 15,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Sprint, dodge, and slide past the obstacle gauntlet',
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                color: AppTheme.petalWhite.withValues(alpha: 0.7),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                BouncyButton(
+                  onTap: () => _startFunRace3D(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppTheme.softLavender, AppTheme.deepRose],
+                      ),
+                      borderRadius: BorderRadius.circular(24.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.softLavender.withValues(alpha: 0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      'SOLO',
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.petalWhite,
+                        letterSpacing: 2.0,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                BouncyButton(
+                  onTap: () => _startFunRace3D1v1(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppTheme.warmAmber, AppTheme.deepRose],
+                      ),
+                      borderRadius: BorderRadius.circular(24.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.warmAmber.withValues(alpha: 0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.people_rounded,
+                            color: AppTheme.petalWhite, size: 18),
+                        const SizedBox(width: 6),
+                        Text(
+                          '1v1',
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.w900,
+                            color: AppTheme.petalWhite,
+                            letterSpacing: 2.0,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _startFunRace3D() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const FunRace3DGameScreen(),
+      ),
+    );
+  }
+
+  void _startFunRace3D1v1() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const FunRace3DLobbyScreen(),
       ),
     );
   }

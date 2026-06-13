@@ -5,17 +5,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
-import 'package:everglow/features/cinema/data/services/our_cinema_service.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'media_poster_card.dart';
 
 class TMDBSearchModal extends StatefulWidget {
-  /// Pre-selects the "Mine" / "Ours" scope in the add dialog. Pass
-  /// `'ours'` when opening from the shared "Our Cinema" list so the user
-  /// only has to confirm. Defaults to `'mine'`.
-  final String initialScope;
-  const TMDBSearchModal({Key? key, this.initialScope = 'mine'}) : super(key: key);
+  const TMDBSearchModal({Key? key}) : super(key: key);
 
   @override
   State<TMDBSearchModal> createState() => _TMDBSearchModalState();
@@ -23,7 +18,6 @@ class TMDBSearchModal extends StatefulWidget {
 
 class _TMDBSearchModalState extends State<TMDBSearchModal> {
   final TMDBService _tmdbService = TMDBService();
-  final OurCinemaService _ourCinemaService = OurCinemaService();
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
   List<MediaItem> _results = [];
@@ -66,14 +60,6 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
 
   void _showAddDialog(MediaItem item) {
     String status = 'to-watch';
-    // 'mine' = personal watchlist, 'ours' = shared Our Cinema list.
-    // The 'ours' option is only shown to the couple (khentsgdz, clairjassen).
-    String scope = widget.initialScope;
-    final userName = context.read<AuthService>().currentUser ?? '';
-    final isCouple = OurCinemaService.coupleUsernames.contains(userName);
-    // The "Ours" chip can only be pre-selected for couple users; fall back
-    // to "Mine" for cinema-only profiles (breyan, octagram).
-    if (scope == 'ours' && !isCouple) scope = 'mine';
 
     showDialog(
       context: context,
@@ -105,71 +91,36 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
                 style: GoogleFonts.outfit(color: AppTheme.petalWhite, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 16),
-              // Scope selector: "Mine" vs "Ours" (Ours only for the couple).
-              if (isCouple)
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.twilight,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      _scopeChip(
-                        context: context,
-                        setDialogState: setDialogState,
-                        label: 'Mine',
-                        icon: Icons.bookmark_rounded,
-                        value: 'mine',
-                        current: scope,
-                        onTap: () => setDialogState(() => scope = 'mine'),
-                      ),
-                      _scopeChip(
-                        context: context,
-                        setDialogState: setDialogState,
-                        label: 'Ours',
-                        icon: Icons.favorite_rounded,
-                        value: 'ours',
-                        current: scope,
-                        onTap: () => setDialogState(() => scope = 'ours'),
-                      ),
-                    ],
-                  ),
-                ),
-              if (isCouple) const SizedBox(height: 14),
-              // Status chips. Only shown for the personal ("Mine") scope —
-              // shared items always start as "to watch together".
-              if (scope == 'mine')
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ChoiceChip(
-                      label: Text('To Watch', style: GoogleFonts.outfit()),
-                      selected: status == 'to-watch',
-                      onSelected: (selected) {
-                        if (selected) setDialogState(() => status = 'to-watch');
-                      },
-                      selectedColor: AppTheme.deepRose,
-                      backgroundColor: AppTheme.twilight,
-                      labelStyle: TextStyle(
-                        color: status == 'to-watch' ? AppTheme.petalWhite : AppTheme.roseQuartz.withOpacity(0.6),
-                      ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ChoiceChip(
+                    label: Text('To Watch', style: GoogleFonts.outfit()),
+                    selected: status == 'to-watch',
+                    onSelected: (selected) {
+                      if (selected) setDialogState(() => status = 'to-watch');
+                    },
+                    selectedColor: AppTheme.deepRose,
+                    backgroundColor: AppTheme.twilight,
+                    labelStyle: TextStyle(
+                      color: status == 'to-watch' ? AppTheme.petalWhite : AppTheme.roseQuartz.withOpacity(0.6),
                     ),
-                    const SizedBox(width: 8),
-                    ChoiceChip(
-                      label: Text('Watched', style: GoogleFonts.outfit()),
-                      selected: status == 'watched',
-                      onSelected: (selected) {
-                        if (selected) setDialogState(() => status = 'watched');
-                      },
-                      selectedColor: AppTheme.deepRose,
-                      backgroundColor: AppTheme.twilight,
-                      labelStyle: TextStyle(
-                        color: status == 'watched' ? AppTheme.petalWhite : AppTheme.roseQuartz.withOpacity(0.6),
-                      ),
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: Text('Watched', style: GoogleFonts.outfit()),
+                    selected: status == 'watched',
+                    onSelected: (selected) {
+                      if (selected) setDialogState(() => status = 'watched');
+                    },
+                    selectedColor: AppTheme.deepRose,
+                    backgroundColor: AppTheme.twilight,
+                    labelStyle: TextStyle(
+                      color: status == 'watched' ? AppTheme.petalWhite : AppTheme.roseQuartz.withOpacity(0.6),
                     ),
-                  ],
-                ),
+                  ),
+                ],
+              ),
             ],
           ),
           actions: [
@@ -185,18 +136,9 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
                 Navigator.pop(context); // Close dialog
                 final u = context.read<AuthService>().currentUser ?? '';
                 if (u.isEmpty) return;
-                String? successMessage;
-                if (scope == 'ours') {
-                  final added = await _ourCinemaService.addToOurCinema(item, u);
-                  if (added != null) {
-                    successMessage =
-                        '💞 ${item.title} added to Our Cinema!';
-                  }
-                } else {
-                  await _tmdbService.saveToWatchList(item, status, u);
-                  successMessage = '🌸 ${item.title} added to Everglow!';
-                }
-                if (mounted && successMessage != null) {
+                await _tmdbService.saveToWatchList(item, status, u);
+                final successMessage = '🌸 ${item.title} added to Everglow!';
+                if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
@@ -221,58 +163,6 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _scopeChip({
-    required BuildContext context,
-    required StateSetter setDialogState,
-    required String label,
-    required IconData icon,
-    required String value,
-    required String current,
-    required VoidCallback onTap,
-  }) {
-    final active = current == value;
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-          decoration: BoxDecoration(
-            color: active
-                ? AppTheme.deepRose.withValues(alpha: 0.35)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 14,
-                color: active
-                    ? AppTheme.petalWhite
-                    : AppTheme.roseQuartz.withValues(alpha: 0.7),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: GoogleFonts.outfit(
-                  color: active
-                      ? AppTheme.petalWhite
-                      : AppTheme.roseQuartz.withValues(alpha: 0.7),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

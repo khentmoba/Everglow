@@ -45,6 +45,31 @@ class MediaItem {
     return 'To Watch';
   }
 
+  /// Returns the list of partner usernames (e.g. `['khentsgdz']`,
+  /// `['clairjassen']`, or `['khentsgdz', 'clairjassen']`) by splitting the
+  /// `userName` field on commas. Used to render the khent/clair/both
+  /// attribution in the combined couple watchlist view.
+  List<String> get partnerUsernames {
+    return userName
+        .split(',')
+        .map((u) => u.trim())
+        .where((u) => u.isNotEmpty)
+        .toList();
+  }
+
+  /// Short label for which partner(s) have the title in their queue.
+  /// For a couple's combined wishlist this is rendered as the
+  /// khent/clair/both chip in the grid.
+  String get wanterDisplay {
+    final partners = partnerUsernames;
+    final hasKhent = partners.contains('khentsgdz');
+    final hasClair = partners.contains('clairjassen');
+    if (hasKhent && hasClair) return 'Both';
+    if (hasKhent) return 'Khent';
+    if (hasClair) return 'Clair';
+    return 'Mine';
+  }
+
   factory MediaItem.fromFirestore(Map<String, dynamic> data, String documentId) {
     return MediaItem(
       id: documentId,

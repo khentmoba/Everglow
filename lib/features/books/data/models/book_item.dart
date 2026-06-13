@@ -92,11 +92,13 @@ class BookItem {
     final subjects = subjectsRaw is List
         ? subjectsRaw.map((e) => e.toString()).toList()
         : const <String>[];
+    final iaId = data['iaId'] ?? '';
+    final workKey = data['workKey'] ?? '';
     return BookItem(
       id: documentId,
-      workKey: data['workKey'] ?? '',
+      workKey: workKey,
       editionKey: data['editionKey'] ?? '',
-      iaId: data['iaId'] ?? '',
+      iaId: iaId,
       title: data['title'] ?? '',
       author: data['author'] ?? '',
       coverUrl: data['coverUrl'] ?? '',
@@ -106,7 +108,41 @@ class BookItem {
       status: data['status'] ?? 'to-read',
       userName: data['userName'] ?? '',
       addedAt: _parseDateTime(data['addedAt']),
+      // Persist the source URL so the reader can hit a single
+      // address after a round-trip through Firestore. If the field
+      // is missing on a legacy document we re-derive it from the
+      // `iaId` / `workKey` instead of leaving the reader stranded.
+      readSourceUrl: data['readSourceUrl'] ??
+          deriveReadSourceUrl(iaId: iaId, workKey: workKey),
+      readSourceLabel: data['readSourceLabel'] ??
+          deriveReadSourceLabel(iaId: iaId),
     );
+  }
+
+  /// Re-derive the read source URL when no explicit one was stored.
+  /// Mirrors the logic in `OpenLibraryService._resolveReadSources`
+  /// so the model stays self-sufficient after a Firestore round-trip.
+  static String deriveReadSourceUrl({
+    required String iaId,
+    required String workKey,
+  }) {
+    if (iaId.isNotEmpty && iaId.startsWith('pg') && iaId.length > 2) {
+      final id = iaId.substring(2);
+      return 'https://www.gutenberg.org/cache/epub/$id/pg$id.txt';
+    }
+    if (iaId.isNotEmpty) {
+      return 'https://archive.org/download/$iaId/${iaId}_djvu.txt';
+    }
+    if (workKey.isNotEmpty) {
+      return 'https://openlibrary.org$workKey';
+    }
+    return '';
+  }
+
+  static String deriveReadSourceLabel({required String iaId}) {
+    if (iaId.startsWith('pg')) return 'Project Gutenberg';
+    if (iaId.isNotEmpty) return 'Internet Archive';
+    return 'Open Library';
   }
 
   static DateTime _parseDateTime(dynamic value) {
@@ -136,6 +172,12 @@ class BookItem {
       'status': status,
       'userName': userName,
       'addedAt': Timestamp.fromDate(addedAt),
+      // Persist the resolved read source so the reader can find it
+      // after a round-trip. Without this, [fromFirestore] would
+      // always return an empty URL and the reader would refuse to
+      // load the book.
+      'readSourceUrl': readSourceUrl,
+      'readSourceLabel': readSourceLabel,
     };
   }
 

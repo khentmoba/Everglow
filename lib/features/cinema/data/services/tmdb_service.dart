@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -495,6 +496,125 @@ class TMDBService {
     });
   }
 
+  /// Stream of the combined watch list for the couple
+  /// (khentsgdz + clairjassen), deduplicated by `tmdbId`.
+  ///
+  /// On the merged `MediaItem`:
+  ///   - `userName` is a comma-separated list of partners who have the title
+  ///     (e.g. "khentsgdz", "clairjassen", or "khentsgdz,clairjassen").
+  ///   - `status` is derived from both partners' statuses so the existing
+  ///     `isWatched` / `watchedDisplay` helpers keep working.
+  ///
+  /// The dashboard preview and the wishlist/watched tabs in the cinema
+  /// screen use this for the couple so both partners see the same combined
+  /// catalog with khent/clair/both attribution on each row.
+  Stream<List<MediaItem>> getCoupleWatchListStream({
+    String userA = 'khentsgdz',
+    String userB = 'clairjassen',
+  }) {
+    final controller = StreamController<List<MediaItem>>.broadcast();
+    List<MediaItem> itemsA = const [];
+    List<MediaItem> itemsB = const [];
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? subA;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? subB;
+
+    void emit() {
+      controller.add(_mergeCoupleItems(itemsA, itemsB));
+    }
+
+    controller.onListen = () {
+      subA = _firestore
+          .collection('watch_list')
+          .where('userName', isEqualTo: userA)
+          .snapshots()
+          .listen((snapshot) {
+        itemsA = snapshot.docs
+            .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+            .toList();
+        emit();
+      });
+      subB = _firestore
+          .collection('watch_list')
+          .where('userName', isEqualTo: userB)
+          .snapshots()
+          .listen((snapshot) {
+        itemsB = snapshot.docs
+            .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+            .toList();
+        emit();
+      });
+    };
+
+    controller.onCancel = () async {
+      await subA?.cancel();
+      await subB?.cancel();
+    };
+
+    return controller.stream;
+  }
+
+  /// Merges the two partners' watch lists into a single list. Items are
+  /// deduplicated by `tmdbId`; when both partners have the same title the
+  /// merged `userName` becomes "userA,userB" and the `status` is the
+  /// strongest watched-state across the two (see [_mergeWatchedStatus]).
+  static List<MediaItem> _mergeCoupleItems(
+      List<MediaItem> itemsA, List<MediaItem> itemsB) {
+    final byId = <int, _MergedEntry>{};
+    for (final item in itemsA) {
+      byId[item.tmdbId] = _MergedEntry(primary: item, partner: null);
+    }
+    for (final item in itemsB) {
+      final existing = byId[item.tmdbId];
+      if (existing == null) {
+        byId[item.tmdbId] = _MergedEntry(primary: item, partner: null);
+      } else {
+        byId[item.tmdbId] = _MergedEntry(primary: existing.primary, partner: item);
+      }
+    }
+
+    final merged = byId.values.map((entry) {
+      if (entry.partner == null) return entry.primary;
+      final a = entry.primary;
+      final b = entry.partner!;
+      final userName = '${a.userName},${b.userName}';
+      final status = _mergeWatchedStatus(a.status, b.status);
+      // Use the most recent addedAt so the merged item is positioned
+      // correctly in the sorted list.
+      final addedAt = a.addedAt.isAfter(b.addedAt) ? a.addedAt : b.addedAt;
+      return a.copyWith(userName: userName, status: status, addedAt: addedAt);
+    }).toList()
+      ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
+    return merged;
+  }
+
+  /// Returns the strongest watched status across the two partners.
+  ///   - both watched (any form) -> 'watched-both'
+  ///   - one watched (any form) -> 'watched-khent' or 'watched-clair'
+  ///   - neither -> 'to-watch'
+  static String _mergeWatchedStatus(String a, String b) {
+    bool isWatched(String s) =>
+        s == 'watched' ||
+        s == 'watched-self' ||
+        s == 'watched-khent' ||
+        s == 'watched-clair' ||
+        s == 'watched-both';
+
+    final aWatched = isWatched(a);
+    final bWatched = isWatched(b);
+
+    if (aWatched && bWatched) return 'watched-both';
+    if (aWatched) {
+      // userA == khentsgdz by convention in this method
+      if (a == 'watched-clair') return 'watched-clair';
+      return 'watched-khent';
+    }
+    if (bWatched) {
+      if (b == 'watched-khent') return 'watched-khent';
+      return 'watched-clair';
+    }
+    return 'to-watch';
+  }
+
   /// Cache watchlist items to SharedPreferences, scoped per user.
   Future<void> cacheWatchList(List<MediaItem> items, String userName) async {
     try {
@@ -621,4 +741,13 @@ class TMDBService {
     _trailerCache[cacheKey] = null;
     return null;
   }
+}
+
+/// Internal helper for [TMDBService.getCoupleWatchListStream]. Pairs the
+/// primary entry with an optional partner entry when both partners have
+/// the same `tmdbId`.
+class _MergedEntry {
+  final MediaItem primary;
+  final MediaItem? partner;
+  const _MergedEntry({required this.primary, this.partner});
 }

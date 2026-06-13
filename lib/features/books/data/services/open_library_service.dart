@@ -69,25 +69,51 @@ class OpenLibraryService {
     );
   }
 
-  /// Derive a read source URL for a book. We prefer Internet Archive
-  /// borrowable copies (returned as `ia` ids in search results) since
-  /// the archive exposes both an HTML reader and a plain text
-  /// download we can render with `flutter_html`. We then fall back to
-  /// Open Library's online reader page.
-  String _resolveReadSource({required String iaId, required String workKey}) {
-    if (iaId.isNotEmpty) {
-      // Internet Archive: prefer the plain-text djvu extraction which
-      // is line-oriented and renders cleanly in flutter_html.
-      return 'https://archive.org/download/$iaId/${iaId}_djvu.txt';
+  /// Derive a list of candidate read source URLs for a book, in
+  /// priority order. The reader tries them one at a time and uses
+  /// whichever responds successfully — that way a CORS block or
+  /// 404 on the Internet Archive fallback still leaves us with a
+  /// working Gutenberg or Open Library URL.
+  ///
+  /// Strategy:
+  ///   1. If the `ia` id is a Project Gutenberg id (`pg1342` style),
+  ///      hit the canonical plain text URL (CORS-friendly, public
+  ///      domain, no auth).
+  ///   2. Otherwise try the Internet Archive djvu text extraction.
+  ///   3. As a last resort, the Open Library work page (HTML, always
+  ///      available, but meant to be opened in a browser, not
+  ///      inlined).
+  List<String> _resolveReadSources({
+    required String iaId,
+    required String workKey,
+  }) {
+    final candidates = <String>[];
+    if (iaId.startsWith('pg') && iaId.length > 2) {
+      final id = iaId.substring(2);
+      // Gutenberg plain text (most reliable, CORS-friendly).
+      candidates.add('https://www.gutenberg.org/cache/epub/$id/pg$id.txt');
+      // Alternate Gutenberg URL pattern.
+      candidates.add('https://www.gutenberg.org/files/$id/$id-0.txt');
+    } else if (iaId.isNotEmpty) {
+      // Internet Archive djvu text. Works for ~70% of items.
+      candidates.add('https://archive.org/download/$iaId/${iaId}_djvu.txt');
+      // IA plain text fallback.
+      candidates.add('https://archive.org/download/$iaId/$iaId.txt');
     }
     if (workKey.isNotEmpty) {
-      // Generic Open Library online reader.
-      return 'https://openlibrary.org$workKey';
+      candidates.add('https://openlibrary.org$workKey');
     }
-    return '';
+    return candidates;
+  }
+
+  /// First candidate — used by the model and as the "Open in
+  /// browser" fallback.
+  String _resolveReadSource({required String iaId, required String workKey}) {
+    return _resolveReadSources(iaId: iaId, workKey: workKey).firstOrNull ?? '';
   }
 
   String _readSourceLabel({required String iaId}) {
+    if (iaId.startsWith('pg')) return 'Project Gutenberg';
     if (iaId.isNotEmpty) return 'Internet Archive';
     return 'Open Library';
   }
@@ -335,4 +361,70 @@ class OpenLibraryService {
     }
     return '';
   }
+
+  /// Try each candidate read source URL in order. Returns the first
+  /// one that responds with a 2xx and a non-empty body. This makes
+  /// the reader resilient to CORS blocks and 404s — the model
+  /// stores the highest-priority URL, and the reader falls back
+  /// automatically.
+  Future<FetchResult> fetchBookTextFromCandidates(
+      List<String> candidates) async {
+    if (candidates.isEmpty) {
+      return FetchResult.empty('No read source URLs available.');
+    }
+    for (var i = 0; i < candidates.length; i++) {
+      final url = candidates[i];
+      try {
+        final response = await http.get(Uri.parse(url));
+        if (response.statusCode == 200 && response.body.trim().isNotEmpty) {
+          return FetchResult(
+            text: response.body,
+            usedUrl: url,
+            attempted: candidates.take(i + 1).toList(),
+          );
+        }
+      } catch (e) {
+        print('fetchBookText attempt $i failed ($url): $e');
+        // Continue to next candidate.
+      }
+    }
+    return FetchResult.empty(
+        'Tried ${candidates.length} source(s); none responded with readable text.');
+  }
+
+  /// Build the full ordered list of read source URLs for a book.
+  /// Combines the model's stored URL with re-derived fallbacks.
+  List<String> buildReadSourceCandidates(BookItem item) {
+    final sources = <String>[];
+    if (item.readSourceUrl.isNotEmpty) sources.add(item.readSourceUrl);
+    for (final url in _resolveReadSources(
+        iaId: item.iaId, workKey: item.workKey)) {
+      if (!sources.contains(url)) sources.add(url);
+    }
+    return sources;
+  }
+}
+
+/// Result of [OpenLibraryService.fetchBookTextFromCandidates].
+class FetchResult {
+  final String text;
+  final String usedUrl;
+  final List<String> attempted;
+  final String? error;
+
+  const FetchResult({
+    required this.text,
+    required this.usedUrl,
+    required this.attempted,
+    this.error,
+  });
+
+  factory FetchResult.empty(String error) => FetchResult(
+        text: '',
+        usedUrl: '',
+        attempted: const [],
+        error: error,
+      );
+
+  bool get isSuccess => text.isNotEmpty;
 }
