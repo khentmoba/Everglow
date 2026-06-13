@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
+import 'package:everglow/features/cinema/presentation/screens/our_cinema_screen.dart';
 import 'package:everglow/features/cinema/presentation/widgets/episode_drawer.dart';
 import 'package:everglow/services/auth_service.dart';
 
@@ -390,6 +391,7 @@ class _CinemaScreenState extends State<CinemaScreen>
   Widget _buildTopHeader() {
     final top = MediaQuery.of(context).padding.top;
     final canPop = Navigator.canPop(context);
+    final isCouple = context.watch<AuthService>().isCoupleUser;
     return Container(
       padding: EdgeInsets.fromLTRB(20, top + 14, 20, 10),
       child: Row(
@@ -465,6 +467,20 @@ class _CinemaScreenState extends State<CinemaScreen>
             ],
           ),
           const Spacer(),
+          // "Ours" pill — visible only to the couple (Khent/Clair) so they
+          // can jump into the shared list. Single users (Breyan/Octagram)
+          // never see this entry point.
+          if (isCouple)
+            _CinemaIconBtn(
+              icon: Icons.favorite_rounded,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const OurCinemaScreen()),
+              ),
+            )
+          else
+            const SizedBox(width: 40, height: 40),
+          const SizedBox(width: 8),
           // Search
           _CinemaIconBtn(
             icon: Icons.search_rounded,

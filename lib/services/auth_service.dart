@@ -69,6 +69,11 @@ class AuthService extends ChangeNotifier {
   bool get isCinemaOnlyUser =>
       _currentUser == 'breyan' || _currentUser == 'octagram';
 
+  /// True if the signed-in user is one half of the couple (Khent or Clair).
+  /// These two accounts share the "Our Cinema" list; everyone else does not.
+  bool get isCoupleUser =>
+      _currentUser == 'khentsgdz' || _currentUser == 'clairjassen';
+
   void setCurrentUser(String? name) {
     _currentUser = name;
     _saveSession(name);
