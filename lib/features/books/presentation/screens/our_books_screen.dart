@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/features/books/data/models/book_item.dart';
 import 'package:everglow/features/books/data/models/our_books_item.dart';
 import 'package:everglow/features/books/data/services/our_books_service.dart';
 import 'package:everglow/features/books/presentation/screens/reader_screen.dart';
@@ -665,24 +666,21 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
 
   void _openReader(OurBooksItem item) {
     final book = item.toBookItem();
-    // The couple list may not have a readSourceUrl cached on the
-    // model, so resolve it from workKey / iaId at navigation time.
-    if (book.readSourceUrl.isEmpty) {
-      // Reuse the same logic via copyWith
-      final resolved = book.copyWith(
-        readSourceUrl: book.iaId.isNotEmpty
-            ? 'https://archive.org/download/${book.iaId}/${book.iaId}_djvu.txt'
-            : (book.workKey.isNotEmpty
-                ? 'https://openlibrary.org${book.workKey}'
-                : ''),
-        readSourceLabel: book.iaId.isNotEmpty ? 'Internet Archive' : 'Open Library',
-      );
-      Navigator.push(context,
-          MaterialPageRoute(builder: (_) => ReaderScreen(book: resolved)));
-    } else {
-      Navigator.push(context,
-          MaterialPageRoute(builder: (_) => ReaderScreen(book: book)));
-    }
+    // Stale couple-list items may not have a readSourceUrl cached,
+    // so always re-derive it from iaId / workKey at navigation
+    // time. Reuses the same static helpers as the personal drawer.
+    final resolved = book.readSourceUrl.isNotEmpty
+        ? book
+        : book.copyWith(
+            readSourceUrl: BookItem.deriveReadSourceUrl(
+              iaId: book.iaId,
+              workKey: book.workKey,
+            ),
+            readSourceLabel:
+                BookItem.deriveReadSourceLabel(iaId: book.iaId),
+          );
+    Navigator.push(context,
+        MaterialPageRoute(builder: (_) => ReaderScreen(book: resolved)));
   }
 
   Future<void> _openAddToOurBooks() async {

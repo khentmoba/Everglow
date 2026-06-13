@@ -56,7 +56,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
       _currentChapter = saved;
     }
 
-    if (widget.book.readSourceUrl.isEmpty) {
+    // Build the full ordered list of read source candidates. The
+    // service tries each one until one responds successfully — that
+    // way a CORS block or 404 on the Internet Archive fallback
+    // still leaves us with a working Gutenberg or Open Library URL.
+    final candidates = _service.buildReadSourceCandidates(widget.book);
+    if (candidates.isEmpty) {
       setState(() {
         _isLoading = false;
         _loadError = 'No readable copy available for this title.';
@@ -65,17 +70,17 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
 
     try {
-      final raw = await _service.fetchBookText(widget.book.readSourceUrl);
+      final result = await _service.fetchBookTextFromCandidates(candidates);
       if (!mounted) return;
-      if (raw.isEmpty) {
+      if (!result.isSuccess) {
         setState(() {
           _isLoading = false;
-          _loadError = 'Could not load the book text. '
-              'You can try reading it on Open Library instead.';
+          _loadError = result.error ??
+              'Could not load the book text from any available source.';
         });
         return;
       }
-      final cleaned = _stripGutenbergBoilerplate(raw);
+      final cleaned = _stripGutenbergBoilerplate(result.text);
       final chapters = _splitChapters(cleaned);
       setState(() {
         _chapters = chapters;

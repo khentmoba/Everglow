@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
-import 'package:everglow/features/cinema/presentation/screens/our_cinema_screen.dart';
 import 'package:everglow/features/cinema/presentation/widgets/episode_drawer.dart';
 import 'package:everglow/features/cinema/presentation/widgets/trailer_player.dart';
 import 'package:everglow/services/auth_service.dart';
@@ -158,10 +157,19 @@ class _CinemaScreenState extends State<CinemaScreen>
     // Read auth-dependent state after the first frame so Provider is available.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final userName = context.read<AuthService>().currentUser ?? '';
+      final auth = context.read<AuthService>();
+      final userName = auth.currentUser ?? '';
       if (userName.isEmpty) return;
-      _loadCachedWatchList(userName);
-      _subscribeToWatchList(userName);
+      final isCouple = auth.isCoupleUser;
+      if (isCouple) {
+        // Couple: subscribe to the combined stream so the wishlist and
+        // watched tabs render khent/clair/both attribution for both
+        // partners at once.
+        _subscribeToCoupleWatchList();
+      } else {
+        _loadCachedWatchList(userName);
+        _subscribeToWatchList(userName);
+      }
     });
   }
 
@@ -188,6 +196,22 @@ class _CinemaScreenState extends State<CinemaScreen>
 
   void _subscribeToWatchList(String userName) {
     _watchlistSubscription = _tmdbService.getWatchListStream(userName).listen((items) {
+      if (mounted) {
+        setState(() {
+          _watchlist = items;
+          _splitWatchlists();
+        });
+      }
+    });
+  }
+
+  void _subscribeToCoupleWatchList() {
+    // For the couple, the wishlist and watched tabs render items from both
+    // partners with khent/clair/both attribution. Items come from the
+    // combined stream — no per-user caching, since each partner's
+    // individual list still has its own cache for other views.
+    _watchlistSubscription =
+        _tmdbService.getCoupleWatchListStream().listen((items) {
       if (mounted) {
         setState(() {
           _watchlist = items;
@@ -479,7 +503,6 @@ class _CinemaScreenState extends State<CinemaScreen>
   Widget _buildTopHeader() {
     final top = MediaQuery.of(context).padding.top;
     final canPop = Navigator.canPop(context);
-    final isCouple = context.watch<AuthService>().isCoupleUser;
     return Container(
       padding: EdgeInsets.fromLTRB(20, top + 14, 20, 10),
       child: Row(
@@ -555,19 +578,9 @@ class _CinemaScreenState extends State<CinemaScreen>
             ],
           ),
           const Spacer(),
-          // "Ours" pill — visible only to the couple (Khent/Clair) so they
-          // can jump into the shared list. Single users (Breyan/Octagram)
-          // never see this entry point.
-          if (isCouple)
-            _CinemaIconBtn(
-              icon: Icons.favorite_rounded,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const OurCinemaScreen()),
-              ),
-            )
-          else
-            const SizedBox(width: 40, height: 40),
+          // Spacer keeps the title centered now that the "Ours" entry point
+          // has been retired.
+          const SizedBox(width: 40, height: 40),
           const SizedBox(width: 8),
           // Search
           _CinemaIconBtn(
@@ -1207,6 +1220,18 @@ class _CinemaScreenState extends State<CinemaScreen>
     }
   }
 
+  Color _wantBadgeColor(String wanter) {
+    switch (wanter) {
+      case 'Khent':
+        return const Color(0xFF1976D2);
+      case 'Clair':
+        return const Color(0xFFE91E8C);
+      case 'Both':
+      default:
+        return const Color(0xFFE8C97A);
+    }
+  }
+
   Widget _buildWatchlistTab({required bool isWatchedTab}) {
     final list = isWatchedTab ? _watchedList : _wantToWatchList;
 
@@ -1294,15 +1319,21 @@ class _CinemaScreenState extends State<CinemaScreen>
                   itemCount: list.length,
                   itemBuilder: (context, index) {
                     final item = list[index];
+                    // Wishlist rows show a khent/clair/both attribution
+                    // chip; watched rows keep the existing partner-specific
+                    // watched chip. The wishlist label falls back to "Mine"
+                    // for non-couple users.
+                    final badgeLabel = isWatchedTab
+                        ? item.watchedDisplay.toUpperCase()
+                        : item.wanterDisplay.toUpperCase();
+                    final badgeColor = isWatchedTab
+                        ? _watchedBadgeColor(item.status)
+                        : _wantBadgeColor(item.wanterDisplay);
                     return _WatchlistTile(
                       item: item,
                       isWatched: isWatchedTab,
-                      badgeColor: isWatchedTab
-                          ? _watchedBadgeColor(item.status)
-                          : _cAmber,
-                      badgeLabel: isWatchedTab
-                          ? item.watchedDisplay.toUpperCase()
-                          : 'TO WATCH',
+                      badgeColor: badgeColor,
+                      badgeLabel: badgeLabel,
                       onTap: () => _showMediaDetails(item),
                     );
                   },
