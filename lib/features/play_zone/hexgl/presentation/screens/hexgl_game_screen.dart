@@ -286,7 +286,7 @@ class _HexGLGameScreenState extends State<HexGLGameScreen> {
               ),
 
             // Pre-game dark overlay with start hint
-            if (!_booted)
+            if (!_booted && _loadError != null)
               Positioned.fill(
                 child: Container(
                   color: Colors.black.withValues(alpha: 0.85),
@@ -312,69 +312,77 @@ class _HexGLGameScreenState extends State<HexGLGameScreen> {
                         ),
                       ),
                       const SizedBox(height: 28),
-                      if (_loadError != null) ...[
-                        Icon(Icons.error_outline_rounded,
-                            color: AppTheme.deepRose, size: 32),
-                        const SizedBox(height: 12),
-                        Text(
-                          _loadError!,
-                          style: GoogleFonts.outfit(color: AppTheme.petalWhite),
-                        ),
-                        const SizedBox(height: 24),
-                        TextButton(
-                          onPressed: () =>
-                              Navigator.of(context).maybePop(),
-                          child: Text(
-                            'Back to hub',
-                            style: GoogleFonts.outfit(
-                              color: AppTheme.petalWhite.withValues(alpha: 0.7),
-                            ),
-                          ),
-                        ),
-                      ] else if (_iframeReady) ...[
-                        Text(
-                          'Tap anywhere to start',
+                      Icon(Icons.error_outline_rounded,
+                          color: AppTheme.deepRose, size: 32),
+                      const SizedBox(height: 12),
+                      Text(
+                        _loadError!,
+                        style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+                      ),
+                      const SizedBox(height: 24),
+                      TextButton(
+                        onPressed: () =>
+                            Navigator.of(context).maybePop(),
+                        child: Text(
+                          'Back to hub',
                           style: GoogleFonts.outfit(
-                            color: AppTheme.blushGold,
-                            fontSize: 18,
-                            letterSpacing: 2,
-                            fontWeight: FontWeight.w600,
+                            color: AppTheme.petalWhite.withValues(alpha: 0.7),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _isMobile
-                              ? 'Hold DRIFT, tap BOOST, steer on the left'
-                              : 'Use arrow keys / WASD · Shift to drift · Space to boost',
-                          style: GoogleFonts.outfit(
-                            color: AppTheme.petalWhite.withValues(alpha: 0.55),
-                            fontSize: 13,
-                          ),
-                        ),
-                      ] else ...[
-                        const SizedBox(
-                          width: 28,
-                          height: 28,
-                          child: CircularProgressIndicator(
-                            color: AppTheme.roseQuartz,
-                            strokeWidth: 2.5,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _statusText,
-                          style: GoogleFonts.outfit(
-                            color: AppTheme.petalWhite.withValues(alpha: 0.65),
-                            letterSpacing: 1.5,
-                          ),
-                        ),
-                      ],
+                      ),
                     ],
                   ),
                 ),
               ),
 
-            // Tap-to-start catcher: only the centre 60% is tappable so the
+            if (!_booted && _loadError == null && !_iframeReady)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.85),
+                  alignment: Alignment.center,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'HEXGL',
+                        style: GoogleFonts.cormorantGaramond(
+                          color: AppTheme.roseQuartz,
+                          fontSize: 56,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 8,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Cityscape · Casual',
+                        style: GoogleFonts.outfit(
+                          color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      const SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(
+                          color: AppTheme.roseQuartz,
+                          strokeWidth: 2.5,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _statusText,
+                        style: GoogleFonts.outfit(
+                          color: AppTheme.petalWhite.withValues(alpha: 0.65),
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            // Tap-to-start overlay: only the centre 60% is tappable so the
             // user can't accidentally launch and tap a HUD button at the same
             // time. Once booted, the overlay disappears and the iframe owns
             // pointer events via the Flutter touch controls.
@@ -403,6 +411,52 @@ class _HexGLGameScreenState extends State<HexGLGameScreen> {
                       },
                     );
                   },
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.85),
+                    alignment: Alignment.center,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'HEXGL',
+                          style: GoogleFonts.cormorantGaramond(
+                            color: AppTheme.roseQuartz,
+                            fontSize: 56,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 8,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Cityscape · Casual',
+                          style: GoogleFonts.outfit(
+                            color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                            letterSpacing: 2,
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        Text(
+                          'Tap anywhere to start',
+                          style: GoogleFonts.outfit(
+                            color: AppTheme.blushGold,
+                            fontSize: 18,
+                            letterSpacing: 2,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _isMobile
+                              ? 'Hold DRIFT, tap BOOST, steer on the left'
+                              : 'Use arrow keys / WASD · Shift to drift · Space to boost',
+                          style: GoogleFonts.outfit(
+                            color: AppTheme.petalWhite.withValues(alpha: 0.55),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
 
