@@ -1,16 +1,17 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:animate_do/animate_do.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
-import 'package:everglow/features/manga/data/models/manga_item.dart';
-import 'package:everglow/features/manga/data/services/mangadex_service.dart';
-import 'package:everglow/features/manga/presentation/widgets/manga_cover_card.dart';
-import 'package:everglow/features/manga/presentation/widgets/manga_details_drawer.dart';
-import 'package:everglow/features/manga/presentation/widgets/manga_search_modal.dart';
+import 'package:everglow/features/cinema/data/models/media_item.dart';
+import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
+import 'package:everglow/features/cinema/presentation/widgets/episode_drawer.dart';
+import 'package:everglow/features/cinema/presentation/widgets/tmdb_search_modal.dart';
 import 'package:everglow/services/auth_service.dart';
 
+// Mirror of cinema_screen.dart / manga_library_screen.dart color tokens so
+// the anime feature feels native to the rest of the cinema feature.
 const _cBlack = Color(0xFF080810);
 const _cVelvet = Color(0xFF12091A);
 const _cCard = Color(0xFF1C1228);
@@ -20,43 +21,36 @@ const _cGold = Color(0xFFE8C97A);
 const _cWhite = Color(0xFFFFF5F5);
 const _cMuted = Color(0xFF8A7A92);
 
-/// Main entry for the manga feature. Three-tab IndexedStack:
-///   * Home    — Trending + Latest Updates carousels, content-type
-///               filter chips, "Continue Reading" rail.
-///   * Library — Personal collection (per-user Firestore stream).
-///   * Search  — Full search modal with MangaDex results.
+/// Dedicated entry for the anime rail. Mirrors `MangaLibraryScreen`'s
+/// three-tab structure (Home / Library / Search) but is scoped to
+/// Japanese animation:
 ///
-/// Mirrors `CinemaScreen` from the cinema feature.
-class MangaLibraryScreen extends StatefulWidget {
-  const MangaLibraryScreen({Key? key}) : super(key: key);
+///   * Home     — Trending anime from TMDB (filtered by
+///                `original_language=ja` + Animation genre).
+///   * Library  — Couple's combined anime catalog split into
+///                "Want to Watch" + "Watched" with partner attribution.
+///   * Search   — Opens [TMDBSearchModal]; the auto-detect in the
+///                episode drawer picks up anime from the results
+///                automatically, so search isn't filtered here.
+class AnimeScreen extends StatefulWidget {
+  const AnimeScreen({Key? key}) : super(key: key);
 
   @override
-  State<MangaLibraryScreen> createState() => _MangaLibraryScreenState();
+  State<AnimeScreen> createState() => _AnimeScreenState();
 }
 
-class _MangaLibraryScreenState extends State<MangaLibraryScreen>
+class _AnimeScreenState extends State<AnimeScreen>
     with TickerProviderStateMixin {
-  final MangaDexService _service = MangaDexService();
+  final TMDBService _tmdbService = TMDBService();
   int _currentIndex = 0;
 
-  StreamSubscription<List<MangaItem>>? _librarySub;
-  List<MangaItem> _library = [];
+  // Library / watchlist
+  StreamSubscription<List<MediaItem>>? _watchlistSub;
+  List<MediaItem> _library = [];
 
-  // Content-type filter: '' = all, 'ja' = manga, 'ko' = manhwa, 'zh' = manhua
-  String _selectedLanguage = '';
-
-  // Home tab carousels
-  List<MangaItem> _popular = [];
-  List<MangaItem> _latest = [];
-  List<MangaItem> _mangaList = [];
-  List<MangaItem> _manhwaList = [];
-  List<MangaItem> _manhuaList = [];
+  // Home tab
+  List<MediaItem> _trending = [];
   bool _isLoadingHome = true;
-
-  // Continue reading — items with lastReadChapterId
-  List<MangaItem> get _continueReading => _library
-      .where((i) => i.lastReadChapterId.isNotEmpty)
-      .toList();
 
   @override
   void initState() {
@@ -65,71 +59,61 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
   }
 
   Future<void> _bootstrap() async {
-    final user = context.read<AuthService>().currentUser ?? '';
-    if (user.isNotEmpty) {
-      final cached = await _service.getCachedLibrary(user);
-      if (cached.isNotEmpty && mounted) {
-        setState(() => _library = cached);
-      }
-      _librarySub = _service.getLibraryStream(user).listen((items) {
-        if (!mounted) return;
-        setState(() => _library = items);
-      });
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _subscribeToLibrary();
+    });
     await _loadHome();
+  }
+
+  void _subscribeToLibrary() {
+    final auth = context.read<AuthService>();
+    final isCouple = auth.isCoupleUser;
+    final userName = auth.currentUser ?? '';
+    if (userName.isEmpty) return;
+
+    _watchlistSub?.cancel();
+    _watchlistSub = (isCouple
+            ? _tmdbService.getCoupleAnimeStream()
+            : _tmdbService.getAnimeWatchListStream(userName))
+        .listen((items) {
+      if (!mounted) return;
+      setState(() => _library = items);
+    });
   }
 
   Future<void> _loadHome() async {
     setState(() => _isLoadingHome = true);
-    try {
-      final results = await Future.wait([
-        _service.fetchPopular(),
-        _service.fetchLatest(),
-        _service.fetchPopular(originalLanguage: 'ja'),
-        _service.fetchPopular(originalLanguage: 'ko'),
-        _service.fetchPopular(originalLanguage: 'zh'),
-      ]);
-      if (!mounted) return;
-      setState(() {
-        _popular = results[0];
-        _latest = results[1];
-        _mangaList = results[2];
-        _manhwaList = results[3];
-        _manhuaList = results[4];
-        _isLoadingHome = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoadingHome = false);
-    }
+    final results = await _tmdbService.fetchTrendingAnime();
+    if (!mounted) return;
+    setState(() {
+      _trending = results;
+      _isLoadingHome = false;
+    });
   }
 
   @override
   void dispose() {
-    _librarySub?.cancel();
+    _watchlistSub?.cancel();
     super.dispose();
   }
 
-  void _openSearch(String initialLanguage) {
+  void _openSearch() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => MangaSearchModal(initialLanguage: initialLanguage),
+      builder: (_) => const TMDBSearchModal(),
     );
   }
 
-  void _openDetails(MangaItem item) {
-    // Refresh the item with current library state
-    final liveItem = _library.firstWhere(
-      (l) => l.mangaId == item.mangaId,
-      orElse: () => item,
-    );
+  void _openDetails(MediaItem item) {
+    HapticFeedback.lightImpact();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => MangaDetailsDrawer(item: liveItem),
+      builder: (_) => EpisodeDrawer(item: item),
     );
   }
 
@@ -190,7 +174,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
                 selected: _currentIndex == 2,
                 onTap: () {
                   setState(() => _currentIndex = 2);
-                  _openSearch(_selectedLanguage);
+                  _openSearch();
                 },
               ),
             ],
@@ -211,33 +195,29 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
         children: [
           _buildHeader(),
           const SizedBox(height: 8),
-          _buildLanguageFilter(),
-          const SizedBox(height: 16),
-          if (_continueReading.isNotEmpty) ...[
-            _buildSectionTitle('Continue Reading', icon: Icons.bookmark),
-            _buildCoverRow(_continueReading, height: 180, width: 120),
+          _buildSectionTitle('Trending Anime',
+              icon: Icons.local_fire_department_rounded),
+          _buildPosterRow(_trending, height: 200, width: 130),
+          const SizedBox(height: 24),
+          if (_library.where((i) => i.isToWatch).isNotEmpty) ...[
+            _buildSectionTitle('In Your Queue',
+                icon: Icons.bookmark_rounded),
+            _buildPosterRow(
+              _library.where((i) => i.isToWatch).toList(),
+              height: 180,
+              width: 120,
+            ),
             const SizedBox(height: 24),
           ],
-          _buildSectionTitle(
-            'Trending Now',
-            icon: Icons.local_fire_department_rounded,
-          ),
-          _buildCoverRow(_popular, height: 200, width: 130),
-          const SizedBox(height: 24),
-          _buildSectionTitle(
-            'Latest Updates',
-            icon: Icons.fiber_new_rounded,
-          ),
-          _buildCoverRow(_latest, height: 180, width: 120),
-          const SizedBox(height: 24),
-          _buildSectionTitle('Top Manga', icon: Icons.translate),
-          _buildCoverRow(_mangaList, height: 200, width: 130),
-          const SizedBox(height: 24),
-          _buildSectionTitle('Top Manhwa', icon: Icons.translate),
-          _buildCoverRow(_manhwaList, height: 200, width: 130),
-          const SizedBox(height: 24),
-          _buildSectionTitle('Top Manhua', icon: Icons.translate),
-          _buildCoverRow(_manhuaList, height: 200, width: 130),
+          if (_library.where((i) => i.isWatched).isNotEmpty) ...[
+            _buildSectionTitle('Watched', icon: Icons.remove_red_eye_rounded),
+            _buildPosterRow(
+              _library.where((i) => i.isWatched).toList(),
+              height: 180,
+              width: 120,
+            ),
+            const SizedBox(height: 24),
+          ],
         ],
       ),
     );
@@ -249,10 +229,6 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
       padding: const EdgeInsets.fromLTRB(8, 8, 24, 8),
       child: Row(
         children: [
-          // Back — only when there's a route to pop to (i.e. the user
-          // arrived here from the dashboard). Without this, the only
-          // way out is the browser back button, which breaks nested
-          // routes and on iOS Safari sometimes reloads the app.
           if (canPop)
             IconButton(
               onPressed: () => Navigator.pop(context),
@@ -289,7 +265,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
                 ),
               ],
             ),
-            child: const Icon(Icons.menu_book_rounded,
+            child: const Icon(Icons.animation_rounded,
                 color: _cWhite, size: 22),
           ),
           const SizedBox(width: 12),
@@ -299,7 +275,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Everglow Library',
+                  'Everglow Anime',
                   style: GoogleFonts.cormorantGaramond(
                     fontSize: 26,
                     fontWeight: FontWeight.bold,
@@ -308,7 +284,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
                   ),
                 ),
                 Text(
-                  'Manga · Manhwa · Manhua',
+                  'Japanese Animation',
                   style: GoogleFonts.outfit(
                     fontSize: 12,
                     color: _cRose.withValues(alpha: 0.6),
@@ -318,7 +294,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
             ),
           ),
           IconButton(
-            onPressed: () => _openSearch(_selectedLanguage),
+            onPressed: _openSearch,
             icon: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
@@ -327,40 +303,6 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
               ),
               child: const Icon(Icons.search, color: _cRose, size: 20),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLanguageFilter() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Row(
-        children: [
-          _LangFilterChip(
-            label: 'All',
-            selected: _selectedLanguage == '',
-            onTap: () => setState(() => _selectedLanguage = ''),
-          ),
-          const SizedBox(width: 8),
-          _LangFilterChip(
-            label: '🇯🇵 Manga',
-            selected: _selectedLanguage == 'ja',
-            onTap: () => setState(() => _selectedLanguage = 'ja'),
-          ),
-          const SizedBox(width: 8),
-          _LangFilterChip(
-            label: '🇰🇷 Manhwa',
-            selected: _selectedLanguage == 'ko',
-            onTap: () => setState(() => _selectedLanguage = 'ko'),
-          ),
-          const SizedBox(width: 8),
-          _LangFilterChip(
-            label: '🇨🇳 Manhua',
-            selected: _selectedLanguage == 'zh',
-            onTap: () => setState(() => _selectedLanguage = 'zh'),
           ),
         ],
       ),
@@ -387,8 +329,8 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
     );
   }
 
-  Widget _buildCoverRow(
-    List<MangaItem> items, {
+  Widget _buildPosterRow(
+    List<MediaItem> items, {
     required double height,
     required double width,
   }) {
@@ -399,8 +341,8 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 24),
           itemCount: 6,
-          separatorBuilder: (_, __) => const SizedBox(width: 12),
-          itemBuilder: (_, __) => Container(
+          separatorBuilder: (_, _) => const SizedBox(width: 12),
+          itemBuilder: (_, _) => Container(
             width: width,
             decoration: BoxDecoration(
               color: _cCard,
@@ -414,7 +356,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         child: Text(
-          'Nothing here yet.',
+          'Nothing here yet. Search above to add your first anime!',
           style: GoogleFonts.outfit(
             color: _cMuted,
             fontStyle: FontStyle.italic,
@@ -428,11 +370,11 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 24),
         itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
           return SizedBox(
             width: width,
-            child: MangaCoverCard(
+            child: _AnimePosterTile(
               item: items[index],
               onTap: () => _openDetails(items[index]),
             ),
@@ -445,13 +387,16 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
   // ── LIBRARY TAB ────────────────────────────────────────────────────
 
   Widget _buildLibraryTab() {
+    final wantToWatch =
+        _library.where((i) => i.isToWatch).toList();
+    final watched = _library.where((i) => i.isWatched).toList();
     return ListView(
       padding: const EdgeInsets.only(bottom: 100),
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
           child: Text(
-            'My Library',
+            'Our Anime',
             style: GoogleFonts.cormorantGaramond(
               fontSize: 28,
               fontWeight: FontWeight.bold,
@@ -459,16 +404,13 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
             ),
           ),
         ),
-        _buildLibrarySection('Reading', _library.where((i) => i.isReading).toList()),
-        _buildLibrarySection('Plan to Read', _library.where((i) => i.isPlanToRead).toList()),
-        _buildLibrarySection('Completed', _library.where((i) => i.isCompleted).toList()),
-        _buildLibrarySection('On Hold', _library.where((i) => i.isOnHold).toList()),
-        _buildLibrarySection('Dropped', _library.where((i) => i.isDropped).toList()),
+        _buildLibrarySection('Want to Watch', wantToWatch),
+        _buildLibrarySection('Watched', watched),
       ],
     );
   }
 
-  Widget _buildLibrarySection(String title, List<MangaItem> items) {
+  Widget _buildLibrarySection(String title, List<MediaItem> items) {
     if (items.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -497,7 +439,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
             mainAxisSpacing: 12,
           ),
           itemBuilder: (context, index) {
-            return MangaCoverCard(
+            return _AnimePosterTile(
               item: items[index],
               onTap: () => _openDetails(items[index]),
             );
@@ -507,7 +449,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
     );
   }
 
-  // ── SEARCH TAB (placeholder, opens modal) ──────────────────────────
+  // ── SEARCH TAB (placeholder) ──────────────────────────────────────
 
   Widget _buildSearchTab() {
     return Center(
@@ -516,48 +458,48 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            FadeInDown(
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _cCard,
-                ),
-                child: const Icon(
-                  Icons.search_rounded,
-                  color: _cRose,
-                  size: 64,
-                ),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: _cCard,
+              ),
+              child: const Icon(
+                Icons.search_rounded,
+                color: _cRose,
+                size: 64,
               ),
             ),
             const SizedBox(height: 24),
-            FadeInUp(
-              child: Text(
-                'Find Your Next Read',
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: _cRose,
-                ),
+            Text(
+              'Find Your Next Anime',
+              style: GoogleFonts.cormorantGaramond(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: _cRose,
               ),
             ),
             const SizedBox(height: 8),
-            FadeInUp(
-              delay: const Duration(milliseconds: 200),
-              child: Text(
-                'Tap below to open the search dialog',
-                style: GoogleFonts.outfit(
-                  color: _cMuted,
-                ),
+            Text(
+              'Anime is auto-detected from your saves.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                color: _cMuted,
               ),
             ),
             const SizedBox(height: 32),
-            FadeInUp(
-              delay: const Duration(milliseconds: 300),
-              child: ElevatedButton.icon(
-                onPressed: () => _openSearch(_selectedLanguage),
-                icon: const Icon(Icons.search),
-                label: const Text('Open Search'),
+            ElevatedButton.icon(
+              onPressed: _openSearch,
+              icon: const Icon(Icons.search),
+              label: const Text('Open Search'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _cDeepRose,
+                foregroundColor: _cWhite,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
               ),
             ),
           ],
@@ -566,6 +508,8 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
     );
   }
 }
+
+// ── EXTRACTED WIDGETS ─────────────────────────────────────────────
 
 class _NavItem extends StatelessWidget {
   final IconData icon;
@@ -606,37 +550,55 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-class _LangFilterChip extends StatelessWidget {
-  final String label;
-  final bool selected;
+/// Compact poster tile used in the home + library carousels. Tapping it
+/// opens the standard [EpisodeDrawer] so users can manage their
+/// watchlist / play state without leaving the screen.
+class _AnimePosterTile extends StatelessWidget {
+  final MediaItem item;
   final VoidCallback onTap;
-  const _LangFilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+  const _AnimePosterTile({required this.item, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? _cDeepRose : _cCard,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? _cDeepRose : _cRose.withValues(alpha: 0.15),
-          ),
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.outfit(
-            color: selected ? _cWhite : _cRose,
-            fontSize: 12,
-            fontWeight: selected ? FontWeight.bold : FontWeight.w500,
-          ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            item.posterPath.isNotEmpty
+                ? Image.network(item.posterPath, fit: BoxFit.cover)
+                : Container(
+                    color: _cVelvet,
+                    child: Icon(
+                      Icons.animation_rounded,
+                      color: _cRose.withValues(alpha: 0.4),
+                      size: 28,
+                    ),
+                  ),
+            Positioned(
+              top: 6,
+              left: 6,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _cDeepRose.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'ANIME',
+                  style: GoogleFonts.outfit(
+                    fontSize: 8,
+                    color: _cWhite,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

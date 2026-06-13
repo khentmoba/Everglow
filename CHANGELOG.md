@@ -9,6 +9,29 @@ Conventions: 🚀 Features · 🐛 Bug Fixes · ⚡ Performance · 🔒 Security
 
 ---
 
+## [5.0.0] — 2026-06-14
+
+### 🚀 Features
+- **Anime Screen**: Brand-new dedicated `AnimeScreen` with three-tab layout (Home / Library / Search). Home tab shows trending anime from TMDB filtered by Japanese language + Animation genre. Library tab streams the couple's combined anime catalog split into "To Watch" / "Watched" rails with color-coded chips. Search tab debounces TMDB querying with anime-scoped results.
+- **Anime Dashboard Preview**: New `AnimePreview` widget on the dashboard — a constant-speed marquee carousel of the watched anime catalog. Shows the couple's combined anime list for Khent and Clair, falling back to the current user's own list for cinema-only accounts.
+- **TMDB Anime Detection**: `TMDBService` now auto-detects anime via `_detectAnime()` by checking `original_language == 'ja'` and Animation genre (16) on fetch. New `fetchTrendingAnime()`, `isAnimeByTmdbId()`, `getAnimeWatchListStream()`, `getCoupleAnimeStream()` methods. Watchlist items carry a persisted `isAnime` flag for accurate filtering without re-fetching.
+- **MediaItem `isAnime` Field**: Added `isAnime` boolean to the `MediaItem` model with full `toFirestore` / `fromFirestore` / `copyWith` / JSON serialization support.
+- **Episode Drawer Anime Detection**: Auto-detects anime via `TMDBService.isAnimeByTmdbId()` when saving to watchlist, passing `isAnimeOverride` to ensure accurate flagging.
+- **MangaDex Image Proxy**: New Cloud Function `proxyMangaImage` that proxies MangaDex at-home image server URLs, bypassing CORS/hotlink protection. Validates host against `uploads.mangadex.org` and `*.mangadex.network` / `*.mangadex.org`.
+- **Manga Library Back Navigation**: Added back arrow button on `MangaLibraryScreen` when `Navigator.canPop` is true.
+- **HexGL Auto-Boot**: `HexGLGameScreen` sets `_iframeTouchGuard = false` on boot ready message, clearing start hint automatically.
+
+### 🐛 Bug Fixes
+- None.
+
+### 📝 Docs
+- Updated CHANGELOG, README, and version for v5.0.0.
+
+### ⚠️ Breaking Changes
+- None. v5.0.0 is fully backward compatible with v4.0.0 data — all new Firestore writes include an additive `isAnime` field.
+
+---
+
 ## [4.0.0] — 2026-06-14
 
 ### 🚀 Features
