@@ -15,13 +15,13 @@ class VideoPlayerScreen extends StatefulWidget {
   final String title;
 
   const VideoPlayerScreen({
-    Key? key,
+    super.key,
     required this.tmdbId,
     required this.mediaType,
     this.season,
     this.episode,
     required this.title,
-  }) : super(key: key);
+  });
 
   @override
   State<VideoPlayerScreen> createState() => _VideoPlayerScreenState();
@@ -33,26 +33,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   late final web.HTMLIFrameElement _iframe;
   JSFunction? _onLoadListener;
 
-  final List<Map<String, dynamic>> allVideoProviders = [
-    {"name": "Videasy", "tier": "top", "adPercentage": null, "movieUrl": "https://player.videasy.net/movie/", "tvUrl": "https://player.videasy.net/tv/"},
-    {"name": "VidLink", "tier": "top", "adPercentage": null, "movieUrl": "https://vidlink.pro/movie/", "tvUrl": "https://vidlink.pro/tv/"},
-    {"name": "AutoEmbed", "tier": "top", "adPercentage": null, "movieUrl": "https://player.autoembed.co/embed/movie/", "tvUrl": "https://player.autoembed.co/embed/tv/"},
-    {"name": "VidFast", "tier": "top", "adPercentage": null, "movieUrl": "https://vidfast.pro/movie/", "tvUrl": "https://vidfast.pro/tv/"},
-    {"name": "VidSrc", "tier": "mid", "adPercentage": 65, "movieUrl": "https://vidsrc.me/embed/movie?tmdb=", "tvUrl": "https://vidsrc.me/embed/tv?tmdb="},
-    {"name": "SuperEmbed", "tier": "mid", "adPercentage": 60, "movieUrl": "https://multiembed.mov/?video_id=", "tvUrl": "https://multiembed.mov/?video_id="},
-    {"name": "VidKing", "tier": "mid", "adPercentage": 70, "movieUrl": "https://www.vidking.net/embed/movie/", "tvUrl": "https://www.vidking.net/embed/tv/"},
-    {"name": "VidRock", "tier": "mid", "adPercentage": 60, "movieUrl": "https://vidrock.net/movie/", "tvUrl": "https://vidrock.net/tv/"},
-    {"name": "Vidzee", "tier": "low", "adPercentage": 85, "movieUrl": "https://player.vidzee.wtf/embed/movie/", "tvUrl": "https://player.vidzee.wtf/embed/tv/"},
-    {"name": "111Movies", "tier": "low", "adPercentage": 85, "movieUrl": "https://www.111movies.com/movie/", "tvUrl": "https://www.111movies.com/tv/"},
-    {"name": "VixSrc", "tier": "low", "adPercentage": 80, "movieUrl": "https://vixsrc.to/movie/", "tvUrl": "https://vixsrc.to/tv/"},
-  ];
-
-  late Map<String, dynamic> selectedProvider;
+  final Map<String, dynamic> selectedProvider = const {
+    "name": "Videasy",
+    "tier": "top",
+    "adPercentage": null,
+    "movieUrl": "https://player.videasy.net/movie/",
+    "tvUrl": "https://player.videasy.net/tv/"
+  };
 
   @override
   void initState() {
     super.initState();
-    selectedProvider = allVideoProviders[0];
 
     _viewType =
         'everglow-cinema-player-${widget.tmdbId}-${widget.mediaType}-${widget.season ?? 0}-${widget.episode ?? 0}-${DateTime.now().microsecondsSinceEpoch}';
@@ -130,45 +121,36 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }
   }
 
-  void _changeProvider(Map<String, dynamic> newProvider) {
-    setState(() {
-      selectedProvider = newProvider;
-      _isLoading = true;
-    });
-    _iframe.src = _getPlayerUrl(selectedProvider);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: HtmlElementView(viewType: _viewType),
-          ),
-
-          if (_isLoading)
-            const Center(
-              child: CircularProgressIndicator(color: AppTheme.deepRose),
-            ),
-
-          Positioned(
-            top: 15,
-            left: 20,
-            right: 20,
-            child: SafeArea(
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top control & details bar
+            Container(
+              height: 56,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.black,
+                border: Border(
+                  bottom: BorderSide(
+                    color: Colors.grey[900]!,
+                    width: 1,
+                  ),
+                ),
+              ),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
+                        color: Colors.grey[900],
                         borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey[800]!, width: 1),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
@@ -183,81 +165,66 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       ),
                     ),
                   ),
-
+                  const SizedBox(width: 16),
                   Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-                      child: Text(
-                        widget.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.outfit(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          shadows: [
-                            const Shadow(blurRadius: 6, color: Colors.black),
-                          ],
-                        ),
+                    child: Text(
+                      widget.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.outfit(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
-
-                  SizedBox(
-                    width: 200,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.deepRose.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.deepRose.withValues(alpha: 0.5), width: 1),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[900],
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<Map<String, dynamic>>(
-                              value: selectedProvider,
-                              dropdownColor: Colors.grey[900],
-                              isExpanded: true,
-                              items: allVideoProviders.map((provider) {
-                                return DropdownMenuItem<Map<String, dynamic>>(
-                                  value: provider,
-                                  child: Text(
-                                    provider["name"],
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                  ),
-                                );
-                              }).toList(),
-                              onChanged: (newValue) {
-                                if (newValue == null || newValue == selectedProvider) return;
-                                _changeProvider(newValue);
-                              },
-                            ),
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            color: AppTheme.deepRose,
+                            shape: BoxShape.circle,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        if (selectedProvider["adPercentage"] != null)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4.0),
-                            child: Text(
-                              "it might have ${selectedProvider["adPercentage"]}% chance of ads baby",
-                              style: const TextStyle(
-                                color: Colors.amberAccent,
-                                fontSize: 11,
-                                fontStyle: FontStyle.italic,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
+                        const SizedBox(width: 8),
+                        Text(
+                          "Videasy Server",
+                          style: GoogleFonts.outfit(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
                           ),
+                        ),
                       ],
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+            // Player iframe area
+            Expanded(
+              child: Stack(
+                children: [
+                  HtmlElementView(viewType: _viewType),
+                  if (_isLoading)
+                    const Center(
+                      child: CircularProgressIndicator(color: AppTheme.deepRose),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
