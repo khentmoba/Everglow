@@ -41,6 +41,26 @@ class EnvConfig {
     return '297864503';
   }
 
+  static String get breyanEmail {
+    const fromEnv = String.fromEnvironment('BREYAN_EMAIL', defaultValue: '');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    if (dotenv.isInitialized) {
+      final val = dotenv.env['BREYAN_EMAIL'];
+      if (val != null && val.isNotEmpty) return val;
+    }
+    return 'breyan@scrapbook.local';
+  }
+
+  static String get breyanPassword {
+    const fromEnv = String.fromEnvironment('BREYAN_PASSWORD', defaultValue: '');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    if (dotenv.isInitialized) {
+      final val = dotenv.env['BREYAN_PASSWORD'];
+      if (val != null && val.isNotEmpty) return val;
+    }
+    return '91329132';
+  }
+
   static String get tmdbApiKey {
     const fromEnv = String.fromEnvironment('TMDB_API_KEY', defaultValue: '');
     if (fromEnv.isNotEmpty) return fromEnv;
@@ -63,6 +83,7 @@ class EnvConfig {
 
   static bool get hasClairCreds => clairEmail.isNotEmpty && clairPassword.isNotEmpty;
   static bool get hasKhentCreds => khentEmail.isNotEmpty && khentPassword.isNotEmpty;
+  static bool get hasBreyanCreds => breyanEmail.isNotEmpty && breyanPassword.isNotEmpty;
   static bool get hasTmdbKey => tmdbApiKey.isNotEmpty;
   static bool get hasLastfmKey => lastfmApiKey.isNotEmpty;
 
@@ -70,6 +91,7 @@ class EnvConfig {
     final missing = <String>[];
     if (!hasClairCreds) missing.add('CLAIR_EMAIL / CLAIR_PASSWORD');
     if (!hasKhentCreds) missing.add('KHENT_EMAIL / KHENT_PASSWORD');
+    if (!hasBreyanCreds) missing.add('BREYAN_EMAIL / BREYAN_PASSWORD');
     if (!hasTmdbKey) missing.add('TMDB_API_KEY');
     if (!hasLastfmKey) missing.add('LASTFM_API_KEY');
     return missing;

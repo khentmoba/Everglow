@@ -2,9 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
+import 'package:everglow/services/auth_service.dart';
 import 'media_poster_card.dart';
 
 class TMDBSearchModal extends StatefulWidget {
@@ -132,7 +134,10 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(context); // Close dialog
-                await _tmdbService.saveToWatchList(item, status);
+                final userName = context.read<AuthService>().currentUser ?? '';
+                if (userName.isNotEmpty) {
+                  await _tmdbService.saveToWatchList(item, status, userName);
+                }
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(

@@ -423,12 +423,20 @@ class TMDBService {
     return null;
   }
 
-  Future<void> saveToWatchList(MediaItem item, String status) async {
+  Future<void> saveToWatchList(MediaItem item, String status, String userName) async {
+    if (userName.isEmpty) {
+      print("Error saving to watch list: userName is empty");
+      return;
+    }
     try {
       final collection = _firestore.collection('watch_list');
 
-      // Check if exists
-      final existing = await collection.where('tmdbId', isEqualTo: item.tmdbId).limit(1).get();
+      // Check if the SAME user already has this tmdbId
+      final existing = await collection
+          .where('tmdbId', isEqualTo: item.tmdbId)
+          .where('userName', isEqualTo: userName)
+          .limit(1)
+          .get();
 
       if (existing.docs.isNotEmpty) {
         // Update status if exists
@@ -437,44 +445,55 @@ class TMDBService {
           'addedAt': Timestamp.now(),
         });
       } else {
-        // Create new entry
-        await collection.add(item.copyWith(status: status, addedAt: DateTime.now()).toFirestore());
+        // Create new entry scoped to this user
+        await collection.add(item
+            .copyWith(status: status, userName: userName, addedAt: DateTime.now())
+            .toFirestore());
       }
-      print("Saved to watch list successfully: ${item.title}");
+      print("Saved to watch list successfully: ${item.title} ($userName)");
     } catch (e) {
       print("Error saving to watch list: $e");
     }
   }
 
-  Future<void> removeFromWatchList(int tmdbId) async {
+  Future<void> removeFromWatchList(int tmdbId, String userName) async {
+    if (userName.isEmpty) return;
     try {
       final collection = _firestore.collection('watch_list');
-      final existing = await collection.where('tmdbId', isEqualTo: tmdbId).limit(1).get();
+      final existing = await collection
+          .where('tmdbId', isEqualTo: tmdbId)
+          .where('userName', isEqualTo: userName)
+          .limit(1)
+          .get();
       if (existing.docs.isNotEmpty) {
         await collection.doc(existing.docs.first.id).delete();
-        print("Removed from watch list: $tmdbId");
+        print("Removed from watch list: $tmdbId ($userName)");
       }
     } catch (e) {
       print("Error removing from watch list: $e");
     }
   }
 
-  /// Stream of watch list items (Firestore-based)
-  Stream<List<MediaItem>> getWatchListStream() {
+  /// Stream of watch list items for a specific user (Firestore-based).
+  /// We filter+sort in Dart to avoid needing a composite index in Firestore.
+  Stream<List<MediaItem>> getWatchListStream(String userName) {
     return _firestore
         .collection('watch_list')
-        .orderBy('addedAt', descending: true)
+        .where('userName', isEqualTo: userName)
         .snapshots()
         .map((snapshot) {
-      final items = snapshot.docs.map((doc) => MediaItem.fromFirestore(doc.data(), doc.id)).toList();
-      // Side effect: Cache the list locally
-      cacheWatchList(items);
+      final items = snapshot.docs
+          .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+          .toList()
+        ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
+      // Side effect: Cache the list locally per user
+      cacheWatchList(items, userName);
       return items;
     });
   }
 
-  /// Cache watchlist items to SharedPreferences
-  Future<void> cacheWatchList(List<MediaItem> items) async {
+  /// Cache watchlist items to SharedPreferences, scoped per user.
+  Future<void> cacheWatchList(List<MediaItem> items, String userName) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final listJson = items.map((item) => {
@@ -486,19 +505,20 @@ class TMDBService {
         'backdropPath': item.backdropPath,
         'year': item.year,
         'status': item.status,
+        'userName': item.userName,
         'addedAt': item.addedAt.toIso8601String(),
       }).toList();
-      await prefs.setString('cached_watch_list', json.encode(listJson));
+      await prefs.setString(_cacheKey(userName), json.encode(listJson));
     } catch (e) {
       print('Error caching watchlist: $e');
     }
   }
 
-  /// Retrieve locally cached watchlist items
-  Future<List<MediaItem>> getCachedWatchList() async {
+  /// Retrieve locally cached watchlist items for a specific user.
+  Future<List<MediaItem>> getCachedWatchList(String userName) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final cacheStr = prefs.getString('cached_watch_list');
+      final cacheStr = prefs.getString(_cacheKey(userName));
       if (cacheStr != null) {
         final List decoded = json.decode(cacheStr);
         return decoded.map((data) => MediaItem(
@@ -510,6 +530,7 @@ class TMDBService {
           backdropPath: data['backdropPath'] ?? '',
           year: data['year'] ?? '',
           status: data['status'] ?? 'to-watch',
+          userName: data['userName'] ?? userName,
           addedAt: DateTime.tryParse(data['addedAt'] ?? '') ?? DateTime.now(),
         )).toList();
       }
@@ -518,4 +539,41 @@ class TMDBService {
     }
     return [];
   }
+
+  /// One-time migration: backfill `userName` for legacy watch_list items that
+  /// predate the per-user scoping. Heuristic by status:
+  ///   - watched-clair  -> clairjassen
+  ///   - watched-khent  -> khentsgdz
+  ///   - watched-both / watched / to-watch -> khentsgdz (default)
+  Future<int> migrateWatchListOwnership() async {
+    try {
+      final collection = _firestore.collection('watch_list');
+      final all = await collection.get();
+      int migrated = 0;
+      for (final doc in all.docs) {
+        final data = doc.data();
+        if ((data['userName'] as String?)?.isNotEmpty == true) continue;
+        final status = (data['status'] as String?) ?? 'to-watch';
+        String owner;
+        if (status == 'watched-clair') {
+          owner = 'clairjassen';
+        } else if (status == 'watched-khent') {
+          owner = 'khentsgdz';
+        } else {
+          owner = 'khentsgdz';
+        }
+        await doc.reference.update({'userName': owner});
+        migrated++;
+      }
+      if (migrated > 0) {
+        print("Migrated $migrated legacy watch_list items to user-scoped ownership.");
+      }
+      return migrated;
+    } catch (e) {
+      print("Watchlist migration error: $e");
+      return 0;
+    }
+  }
+
+  String _cacheKey(String userName) => 'cached_watch_list::$userName';
 }

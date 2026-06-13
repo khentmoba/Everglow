@@ -11,6 +11,7 @@ class AuthService extends ChangeNotifier {
   // Specific UIDs provided for robust partner identification
   static const String clairUid = 'bqS6Y5JlzuUB1YcbzUUK7MRpEqA2';
   static const String khentUid = 'nitw0mxAR9WtxtzQtLNHYWRjENj2';
+  static const String breyanUid = 'breyan'; // Resolved at runtime once account exists
 
   AuthService() {
     _loadSession();
@@ -63,6 +64,10 @@ class AuthService extends ChangeNotifier {
     return null;
   }
 
+  /// True if the signed-in user is the cinema-only sibling.
+  /// They get access to the Cinema feature but not the partner-only data.
+  bool get isCinemaOnlyUser => _currentUser == 'breyan';
+
   void setCurrentUser(String? name) {
     _currentUser = name;
     _saveSession(name);
@@ -90,6 +95,14 @@ class AuthService extends ChangeNotifier {
         print("Warning: KHENT environment variables not set. Using local/default credentials.");
         email = "khentplaysmoba@gmail.com";
         password = "297864503";
+      }
+    } else if (username == 'breyan') {
+      email = EnvConfig.breyanEmail;
+      password = EnvConfig.breyanPassword;
+      if (email.isEmpty || password.isEmpty) {
+        print("Warning: BREYAN environment variables not set. Using local/default credentials.");
+        email = "breyan@scrapbook.local";
+        password = "91329132";
       }
     } else {
       throw StateError('Unknown username: $username');
@@ -138,7 +151,7 @@ class AuthService extends ChangeNotifier {
   }
 
   // Option 2: Restricted list of allowed users
-  final List<String> allowedUsernames = ['khentsgdz', 'clairjassen'];
+  final List<String> allowedUsernames = ['khentsgdz', 'clairjassen', 'breyan'];
 
   // Modern Nostalgia: We use simple username login by mapping to a local domain
   Future<String?> login(String username, String password) async {

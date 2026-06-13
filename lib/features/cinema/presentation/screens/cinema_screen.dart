@@ -2,10 +2,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/features/cinema/presentation/widgets/episode_drawer.dart';
+import 'package:everglow/services/auth_service.dart';
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Cinema Color Tokens
@@ -145,9 +147,15 @@ class _CinemaScreenState extends State<CinemaScreen>
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-    _loadCachedWatchList();
-    _subscribeToWatchList();
     _fetchHomeData();
+    // Read auth-dependent state after the first frame so Provider is available.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final userName = context.read<AuthService>().currentUser ?? '';
+      if (userName.isEmpty) return;
+      _loadCachedWatchList(userName);
+      _subscribeToWatchList(userName);
+    });
   }
 
   @override
@@ -161,8 +169,8 @@ class _CinemaScreenState extends State<CinemaScreen>
     super.dispose();
   }
 
-  Future<void> _loadCachedWatchList() async {
-    final cached = await _tmdbService.getCachedWatchList();
+  Future<void> _loadCachedWatchList(String userName) async {
+    final cached = await _tmdbService.getCachedWatchList(userName);
     if (cached.isNotEmpty && mounted) {
       setState(() {
         _watchlist = cached;
@@ -171,8 +179,8 @@ class _CinemaScreenState extends State<CinemaScreen>
     }
   }
 
-  void _subscribeToWatchList() {
-    _watchlistSubscription = _tmdbService.getWatchListStream().listen((items) {
+  void _subscribeToWatchList(String userName) {
+    _watchlistSubscription = _tmdbService.getWatchListStream(userName).listen((items) {
       if (mounted) {
         setState(() {
           _watchlist = items;
@@ -766,8 +774,8 @@ class _CinemaScreenState extends State<CinemaScreen>
                     unselectedLabelStyle: GoogleFonts.outfit(
                         fontWeight: FontWeight.w500, fontSize: 13),
                     tabs: const [
-                      Tab(text: 'ðŸŒ  Global'),
-                      Tab(text: 'ðŸ‡µðŸ‡­  Philippines'),
+                      Tab(text: '\u{1F30D}  Global'),
+                      Tab(text: '\u{1F1F5}\u{1F1ED}  Philippines'),
                     ],
                   ),
                 ),

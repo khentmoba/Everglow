@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:provider/provider.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/features/cinema/presentation/screens/cinema_screen.dart';
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/services/auth_service.dart';
 
 class CinemaPreview extends StatelessWidget {
   const CinemaPreview({Key? key}) : super(key: key);
@@ -12,6 +14,7 @@ class CinemaPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tmdbService = TMDBService();
+    final userName = context.watch<AuthService>().currentUser ?? '';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -47,8 +50,10 @@ class CinemaPreview extends StatelessWidget {
           const SizedBox(height: 12),
           SizedBox(
             height: 150,
-            child: StreamBuilder<List<MediaItem>>(
-              stream: tmdbService.getWatchListStream(),
+            child: userName.isEmpty
+                ? _buildEmptyState(context)
+                : StreamBuilder<List<MediaItem>>(
+              stream: tmdbService.getWatchListStream(userName),
               builder: (context, snapshot) {
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return _buildEmptyState(context);
