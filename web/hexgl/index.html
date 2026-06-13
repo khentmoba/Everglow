@@ -248,6 +248,14 @@
       var step1 = document.getElementById('step-1');
       if (step1) step1.style.display = 'none';
 
+      // Embed bootstrap state. The Flutter parent owns the tap-to-start UI
+      // and the iframe overlay is hidden in embed mode, so loading starts
+      // automatically and we wait for the parent to ask us to begin racing.
+      var embedBooting = false;
+      var embedLoaded = false;
+      var embedStarted = false;
+      var embedPendingStart = false;
+
       // Hook into the loader
       var origInit = window.init;
       window.init = function(controlType, quality, hud, godmode) {
@@ -277,7 +285,6 @@
           mode: replayMode ? 'replay' : 'timeattack'
         });
         window.hexGL = hexGL;
-        postToParent('ready', { quality: chosenQuality });
 
         hexGL.load({
           onLoad: function() {
@@ -305,43 +312,25 @@
             $('step-3').style.display = 'none';
             $('step-4').style.display = 'block';
 
-            // Override default finish flow to broadcast to parent and not navigate.
-            if (hexGL.gameplay) {
-              var gp = hexGL.gameplay;
-              gp.onFinish = function() {
-                hexGL.components.shipControls.terminate();
-                var finishTime = gp.finishTime;
-                var lapTimes = gp.lapTimes || [];
-                var result = gp.result;
-                var replay = null;
-                try { replay = gp.raceData ? gp.raceData.export() : null; } catch (e) { replay = null; }
-                // Visual banner
-                try {
-                  var banner = document.getElementById('everglow-finish-banner');
-                  var titleEl = document.getElementById('everglow-finish-title');
-                  var timeEl = document.getElementById('everglow-finish-time');
-                  var ts = bkcore.Timer.msToTimeString(finishTime || 0);
-                  if (timeEl) timeEl.textContent = (ts.m || '0') + "'" + (ts.s || '00') + "''" + (ts.ms || '000');
-                  if (titleEl) {
-                    titleEl.textContent = (result === gp.results.FINISH) ? 'FINISHED' :
-                                          (result === gp.results.DESTROYED) ? 'DESTROYED' :
-                                          (result === gp.results.REPLAY) ? 'REPLAY END' : 'RACE OVER';
-                  }
-                  if (banner) banner.style.display = 'block';
-                } catch (e) {}
-                postToParent('finish', {
-                  finishTime: finishTime,
-                  lapTimes: lapTimes,
-                  result: result,
-                  resultLabel: (result === gp.results.FINISH) ? 'finished' :
-                                (result === gp.results.DESTROYED) ? 'destroyed' : 'other',
-                  replay: replay
-                });
-              };
-            }
+            // Install the finish hook now so it survives any later restart().
+            installFinishHook(hexGL);
 
-            hexGL.start();
-            postToParent('started', { quality: chosenQuality });
+            embedLoaded = true;
+            postToParent('ready', { quality: chosenQuality });
+
+            if (mode === 'embed') {
+              // In embed mode the race only begins once the parent explicitly
+              // asks for it (via loadAndStartReplay). If the parent already
+              // tapped while we were still loading, kick off the race now.
+              if (embedPendingStart) {
+                startEmbedRace();
+              }
+            } else {
+              // Standalone: legacy behaviour, race begins immediately.
+              hexGL.start();
+              embedStarted = true;
+              postToParent('started', { quality: chosenQuality });
+            }
           },
           onError: function(s) {
             postToParent('error', { message: 'Error loading ' + s });
@@ -355,31 +344,89 @@
         });
       };
 
+      // Override default finish flow to broadcast to parent and not navigate.
+      function installFinishHook(hexGL) {
+        if (!hexGL || !hexGL.gameplay || hexGL.gameplay.__everglowFinishHooked) return;
+        var gp = hexGL.gameplay;
+        gp.__everglowFinishHooked = true;
+        gp.onFinish = function() {
+          try { hexGL.components.shipControls.terminate(); } catch (e) {}
+          var finishTime = gp.finishTime;
+          var lapTimes = gp.lapTimes || [];
+          var result = gp.result;
+          var replay = null;
+          try { replay = gp.raceData ? gp.raceData.export() : null; } catch (e) { replay = null; }
+          try {
+            var banner = document.getElementById('everglow-finish-banner');
+            var titleEl = document.getElementById('everglow-finish-title');
+            var timeEl = document.getElementById('everglow-finish-time');
+            var ts = bkcore.Timer.msToTimeString(finishTime || 0);
+            if (timeEl) timeEl.textContent = (ts.m || '0') + "'" + (ts.s || '00') + "''" + (ts.ms || '000');
+            if (titleEl) {
+              titleEl.textContent = (result === gp.results.FINISH) ? 'FINISHED' :
+                                    (result === gp.results.DESTROYED) ? 'DESTROYED' :
+                                    (result === gp.results.REPLAY) ? 'REPLAY END' : 'RACE OVER';
+            }
+            if (banner) banner.style.display = 'block';
+          } catch (e) {}
+          postToParent('finish', {
+            finishTime: finishTime,
+            lapTimes: lapTimes,
+            result: result,
+            resultLabel: (result === gp.results.FINISH) ? 'finished' :
+                          (result === gp.results.DESTROYED) ? 'destroyed' : 'other',
+            replay: replay
+          });
+        };
+      }
+
       // After the load hook above is installed, call window.init() with the
       // embed's chosen settings if the page is opened in embed mode.
       function tryBootEmbed() {
         if (mode !== 'embed') return;
-        // If the page loaded a replay, use replay mode to view it.
+        if (embedBooting) return;
+        embedBooting = true;
         var quality = getQuality();
         window.init(0, quality, wantHud ? 1 : 0, godmode ? 1 : 0);
       }
 
-      // Click handler: tap-to-start in embed mode.
+      // Called when the parent asks us to begin (or restart) the race.
+      function startEmbedRace() {
+        if (mode !== 'embed') return;
+        if (!window.hexGL || !embedLoaded) {
+          embedPendingStart = true;
+          // Make sure loading has at least started.
+          tryBootEmbed();
+          return;
+        }
+        embedPendingStart = false;
+        if (embedStarted) {
+          try { window.hexGL.restart(); } catch (e) {}
+          // Re-install the hook in case restart rebuilt gameplay.
+          installFinishHook(window.hexGL);
+          postToParent('restarted', {});
+          return;
+        }
+        embedStarted = true;
+        try { window.hexGL.start(); } catch (e) {}
+        installFinishHook(window.hexGL);
+        postToParent('started', { quality: getQuality() });
+      }
+
+      // The iframe's own tap-to-start overlay is hidden in embed mode because
+      // the Flutter parent renders its own overlay on top of us and would
+      // swallow the tap. In standalone we don't use this overlay either.
       var overlay = document.getElementById('everglow-embed-overlay');
+      if (overlay) overlay.style.display = 'none';
+
       if (mode === 'embed') {
-        overlay.addEventListener('click', function() {
-          overlay.style.display = 'none';
-          postToParent('userStart', {});
+        // Begin loading immediately so the parent's "Tap to start" prompt is
+        // actually backed by a HexGL instance that is ready to race.
+        if (document.readyState === 'complete') {
           tryBootEmbed();
-        });
-        overlay.addEventListener('touchend', function(e) {
-          e.preventDefault();
-          overlay.style.display = 'none';
-          postToParent('userStart', {});
-          tryBootEmbed();
-        }, { passive: false });
-      } else {
-        overlay.style.display = 'none';
+        } else {
+          window.addEventListener('load', tryBootEmbed);
+        }
       }
 
       // ---- postMessage input bridge ----
@@ -418,15 +465,10 @@
           try {
             if (data.replay && Array.isArray(data.replay) && data.replay.length > 0) {
               localStorage['race-Cityscape-replay'] = JSON.stringify(data.replay);
-              if (window.hexGL) {
-                try { window.hexGL.restart(); } catch (e) {}
-              } else {
-                // HexGL not initialised yet; hide the start overlay and call init.
-                var ov = document.getElementById('everglow-embed-overlay');
-                if (ov) ov.style.display = 'none';
-                tryBootEmbed();
-              }
+            } else {
+              try { localStorage.removeItem('race-Cityscape-replay'); } catch (e) {}
             }
+            startEmbedRace();
           } catch (e) {
             postToParent('error', { message: 'loadAndStartReplay failed: ' + e });
           }
