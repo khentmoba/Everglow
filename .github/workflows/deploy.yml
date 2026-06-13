@@ -98,6 +98,25 @@ jobs:
       - name: Copy changelog to build
         run: cp CHANGELOG.md build/web/CHANGELOG.md
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Functions dependencies
+        working-directory: functions
+        run: npm install
+
+      - name: Write Firebase service account key
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB }}' > /tmp/firebase-sa.json
+
+      - name: Deploy Cloud Functions
+        working-directory: functions
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa.json
+          FIREBASE_AUTH_EMULATOR_HOST: ''
+        run: npx --yes firebase-tools@latest deploy --only functions --project everglow-1c6db --non-interactive
+
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:

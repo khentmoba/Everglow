@@ -9,6 +9,7 @@ import 'package:web/web.dart' as web;
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../services/auth_service.dart';
+import '../../../presentation/widgets/web_overlay_button.dart';
 import '../../models/hexgl_challenge.dart';
 import '../../models/hexgl_race_result.dart';
 import '../../services/hexgl_service.dart';
@@ -405,14 +406,14 @@ class _HexGLGameScreenState extends State<HexGLGameScreen> {
                 right: 12,
                 child: Row(
                   children: [
-                    _hudButton(
+                    WebOverlayButton(
                       icon: Icons.close_rounded,
                       onTap: _close,
                     ),
                     const Spacer(),
                     if (widget.ghostReplay != null ||
                         widget.challenge?.challengerResult?.replay != null)
-                      _hudButton(
+                      WebOverlayButton(
                         icon: Icons.replay_rounded,
                         onTap: _restart,
                         tooltip: 'Restart race',
@@ -466,32 +467,6 @@ class _HexGLGameScreenState extends State<HexGLGameScreen> {
                 ),
               ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _hudButton({
-    required IconData icon,
-    required VoidCallback onTap,
-    String? tooltip,
-  }) {
-    return Tooltip(
-      message: tooltip ?? '',
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.45),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: AppTheme.petalWhite.withValues(alpha: 0.25),
-              width: 1.0,
-            ),
-          ),
-          child: Icon(icon, color: AppTheme.petalWhite, size: 22),
         ),
       ),
     );

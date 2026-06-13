@@ -6,6 +6,7 @@ import 'package:web/web.dart' as web;
 import 'dart:ui_web' as ui_web;
 
 import '../../../../../core/theme/app_theme.dart';
+import '../../../presentation/widgets/web_overlay_button.dart';
 
 class TableTennisGameScreen extends StatefulWidget {
   const TableTennisGameScreen({super.key});
@@ -136,12 +137,12 @@ class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
                 right: 12,
                 child: Row(
                   children: [
-                    _hudButton(
+                    WebOverlayButton(
                       icon: Icons.close_rounded,
                       onTap: _close,
                     ),
                     const Spacer(),
-                    _hudButton(
+                    WebOverlayButton(
                       icon: Icons.replay_rounded,
                       onTap: _restart,
                       tooltip: 'Restart match',
@@ -194,32 +195,6 @@ class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
                 ),
               ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _hudButton({
-    required IconData icon,
-    required VoidCallback onTap,
-    String? tooltip,
-  }) {
-    return Tooltip(
-      message: tooltip ?? '',
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.45),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: AppTheme.petalWhite.withValues(alpha: 0.25),
-              width: 1.0,
-            ),
-          ),
-          child: Icon(icon, color: AppTheme.petalWhite, size: 22),
         ),
       ),
     );

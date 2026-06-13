@@ -11,6 +11,7 @@ import 'dart:ui_web' as ui_web;
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../services/auth_service.dart';
+import '../../../presentation/widgets/web_overlay_button.dart';
 import '../../models/fun_race_3d_room.dart';
 import '../../services/fun_race_3d_service.dart';
 
@@ -254,11 +255,11 @@ class _FunRace3DOneVOneGameScreenState
   Widget _buildTopBar(FunRace3DRoom room) {
     return Row(
       children: [
-        _hudButton(icon: Icons.close_rounded, onTap: _close),
+        WebOverlayButton(icon: Icons.close_rounded, onTap: _close),
         const SizedBox(width: 12),
         Expanded(child: _buildOpponentPill(room)),
         const SizedBox(width: 12),
-        _hudButton(
+        WebOverlayButton(
           icon: Icons.replay_rounded,
           onTap: _restartIframe,
           tooltip: 'Restart track',
@@ -274,39 +275,19 @@ class _FunRace3DOneVOneGameScreenState
     final partnerSide =
         _isHost ? FunRace3DSide.guest : FunRace3DSide.host;
     final partnerFinished = room.didFinish(partnerSide);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppTheme.petalWhite.withValues(alpha: 0.18),
-          width: 1.0,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            partnerFinished
-                ? Icons.check_circle_rounded
-                : Icons.radio_button_unchecked_rounded,
-            color: partnerFinished
-                ? AppTheme.blushGold
-                : AppTheme.petalWhite.withValues(alpha: 0.6),
-            size: 18,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            partnerFinished ? '$partnerName finished' : 'Waiting for $partnerName',
-            style: GoogleFonts.outfit(
-              color: AppTheme.petalWhite,
-              fontSize: 13,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
-      ),
+    return WebOverlayPill(
+      text: partnerFinished
+          ? '$partnerName finished'
+          : 'Waiting for $partnerName',
+      leadingIcon: partnerFinished
+          ? Icons.check_circle_rounded
+          : Icons.radio_button_unchecked_rounded,
+      leadingIconColor: partnerFinished
+          ? AppTheme.blushGold
+          : AppTheme.petalWhite.withValues(alpha: 0.6),
+      background: Colors.black.withValues(alpha: 0.45),
+      borderColor: AppTheme.petalWhite.withValues(alpha: 0.18),
+      textColor: AppTheme.petalWhite,
     );
   }
 
@@ -348,50 +329,11 @@ class _FunRace3DOneVOneGameScreenState
   }
 
   Widget _buildBigFinishButton() {
-    return GestureDetector(
-      onTap: _submittingFinish ? null : _onIFinished,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 18),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppTheme.warmAmber, AppTheme.deepRose],
-          ),
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.warmAmber.withValues(alpha: 0.4),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (_submittingFinish)
-              const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  color: AppTheme.petalWhite,
-                  strokeWidth: 2.5,
-                ),
-              )
-            else
-              const Icon(Icons.flag_rounded, color: AppTheme.petalWhite, size: 24),
-            const SizedBox(width: 12),
-            Text(
-              'I FINISHED!',
-              style: GoogleFonts.outfit(
-                color: AppTheme.petalWhite,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 3,
-                fontSize: 18,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return WebOverlayTextButton(
+      label: 'I FINISHED!',
+      icon: Icons.flag_rounded,
+      onTap: _onIFinished,
+      busy: _submittingFinish,
     );
   }
 
@@ -652,30 +594,5 @@ class _FunRace3DOneVOneGameScreenState
       ),
     );
   }
-
-  Widget _hudButton({
-    required IconData icon,
-    required VoidCallback onTap,
-    String? tooltip,
-  }) {
-    return Tooltip(
-      message: tooltip ?? '',
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.45),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: AppTheme.petalWhite.withValues(alpha: 0.25),
-              width: 1.0,
-            ),
-          ),
-          child: Icon(icon, color: AppTheme.petalWhite, size: 22),
-        ),
-      ),
-    );
-  }
 }
+

@@ -122,6 +122,9 @@ class BookItem {
   /// Re-derive the read source URL when no explicit one was stored.
   /// Mirrors the logic in `OpenLibraryService._resolveReadSources`
   /// so the model stays self-sufficient after a Firestore round-trip.
+  /// The Open Library work page is only returned as a last resort
+  /// (for the "open in browser" button) when no plain-text source
+  /// is available.
   static String deriveReadSourceUrl({
     required String iaId,
     required String workKey,
