@@ -140,6 +140,7 @@ class _GatewayPageState extends State<GatewayPage> {
     if (newState == GatewayState.unlocking) {
       final passcode = _notifier.lastEnteredPasscode;
       final authService = context.read<AuthService>();
+      final isBreyanAccess = passcode == '9132';
 
       try {
         // Use real authenticated accounts for better persistence and rules compatibility
@@ -164,8 +165,24 @@ class _GatewayPageState extends State<GatewayPage> {
         } catch (_) {}
       }
 
+      // Let the door unlock animation play for 1.5s, then route.
+      // For Breyan, skip the dashboard reveal entirely and push cinema
+      // directly while the gateway is still in `unlocking` state — that
+      // way the dashboard is never rendered behind the door.
       Future.delayed(const Duration(milliseconds: 1500), () {
-        if (mounted) _notifier.updateState(GatewayState.revealingSite);
+        if (!mounted || _hasNavigated) return;
+        if (isBreyanAccess) {
+          _hasNavigated = true;
+          Navigator.of(context).pushReplacement(
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  const CinemaScreen(),
+              transitionDuration: Duration.zero,
+            ),
+          );
+        } else {
+          _notifier.updateState(GatewayState.revealingSite);
+        }
       });
     } else if (newState == GatewayState.revealingSite) {
       Future.delayed(const Duration(milliseconds: 2000), () {
@@ -174,13 +191,10 @@ class _GatewayPageState extends State<GatewayPage> {
     } else if (newState == GatewayState.complete) {
       if (!_hasNavigated) {
         _hasNavigated = true;
-        final isBreyanAccess = _notifier.lastEnteredPasscode == '9132';
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) =>
-                isBreyanAccess
-                    ? const CinemaScreen()
-                    : const DashboardScreen(animate: false),
+                const DashboardScreen(animate: false),
             transitionDuration: Duration.zero,
           ),
         );
