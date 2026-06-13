@@ -78,40 +78,48 @@ class AuthService extends ChangeNotifier {
     if (username == 'clairjassen') {
       email = EnvConfig.clairEmail;
       password = EnvConfig.clairPassword;
+      if (email.isEmpty || password.isEmpty) {
+        print("Warning: CLAIR environment variables not set. Using local/default credentials.");
+        email = "clairjassen@scrapbook.local";
+        password = "111111";
+      }
     } else if (username == 'khentsgdz') {
       email = EnvConfig.khentEmail;
       password = EnvConfig.khentPassword;
+      if (email.isEmpty || password.isEmpty) {
+        print("Warning: KHENT environment variables not set. Using local/default credentials.");
+        email = "khentplaysmoba@gmail.com";
+        password = "297864503";
+      }
     } else {
       throw StateError('Unknown username: $username');
     }
 
-    if (email.isEmpty || password.isEmpty) {
-      throw StateError(
-        'Missing credentials for "$username". '
-        'Build with --dart-define=CLAIR_EMAIL=... --dart-define=CLAIR_PASSWORD=... '
-        '(or KHENT_EMAIL / KHENT_PASSWORD).',
-      );
-    }
-
     try {
+      print("Attempting login for $username ($email)...");
       await _auth.signInWithEmailAndPassword(email: email, password: password);
       _currentUser = username;
       await _saveSession(username);
+      print("Successfully logged in as $username (UID: ${_auth.currentUser?.uid})");
       notifyListeners();
     } on FirebaseAuthException catch (e) {
+      print("FirebaseAuthException during login: ${e.code} - ${e.message}");
       if (e.code == 'user-not-found' || e.code == 'invalid-credential' || e.code == 'invalid-email') {
         try {
           await _auth.createUserWithEmailAndPassword(email: email, password: password);
           _currentUser = username;
           await _saveSession(username);
+          print("Successfully registered and logged in as new user: $username (UID: ${_auth.currentUser?.uid})");
           notifyListeners();
         } catch (regErr) {
+          print("Registration error for $username: $regErr");
           await ensureAuthenticated();
         }
       } else {
         await ensureAuthenticated();
       }
     } catch (e) {
+      print("General auth error during passcode login: $e");
       await ensureAuthenticated();
     }
   }

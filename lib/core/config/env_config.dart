@@ -1,33 +1,59 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class EnvConfig {
-  static const String clairEmail = String.fromEnvironment(
-    'CLAIR_EMAIL',
-    defaultValue: '',
-  );
+  static String get clairEmail {
+    const fromEnv = String.fromEnvironment('CLAIR_EMAIL', defaultValue: '');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    if (dotenv.isInitialized) {
+      return dotenv.env['CLAIR_EMAIL'] ?? '';
+    }
+    return '';
+  }
 
-  static const String clairPassword = String.fromEnvironment(
-    'CLAIR_PASSWORD',
-    defaultValue: '',
-  );
+  static String get clairPassword {
+    const fromEnv = String.fromEnvironment('CLAIR_PASSWORD', defaultValue: '');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    if (dotenv.isInitialized) {
+      return dotenv.env['CLAIR_PASSWORD'] ?? '';
+    }
+    return '';
+  }
 
-  static const String khentEmail = String.fromEnvironment(
-    'KHENT_EMAIL',
-    defaultValue: '',
-  );
+  static String get khentEmail {
+    const fromEnv = String.fromEnvironment('KHENT_EMAIL', defaultValue: '');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    if (dotenv.isInitialized) {
+      return dotenv.env['KHENT_EMAIL'] ?? '';
+    }
+    return '';
+  }
 
-  static const String khentPassword = String.fromEnvironment(
-    'KHENT_PASSWORD',
-    defaultValue: '',
-  );
+  static String get khentPassword {
+    const fromEnv = String.fromEnvironment('KHENT_PASSWORD', defaultValue: '');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    if (dotenv.isInitialized) {
+      return dotenv.env['KHENT_PASSWORD'] ?? '';
+    }
+    return '';
+  }
 
-  static const String tmdbApiKey = String.fromEnvironment(
-    'TMDB_API_KEY',
-    defaultValue: '',
-  );
+  static String get tmdbApiKey {
+    const fromEnv = String.fromEnvironment('TMDB_API_KEY', defaultValue: '');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    if (dotenv.isInitialized) {
+      return dotenv.env['TMDB_API_KEY'] ?? '';
+    }
+    return '';
+  }
 
-  static const String lastfmApiKey = String.fromEnvironment(
-    'LASTFM_API_KEY',
-    defaultValue: '',
-  );
+  static String get lastfmApiKey {
+    const fromEnv = String.fromEnvironment('LASTFM_API_KEY', defaultValue: '');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    if (dotenv.isInitialized) {
+      return dotenv.env['LASTFM_API_KEY'] ?? '';
+    }
+    return '';
+  }
 
   static bool get hasClairCreds => clairEmail.isNotEmpty && clairPassword.isNotEmpty;
   static bool get hasKhentCreds => khentEmail.isNotEmpty && khentPassword.isNotEmpty;
@@ -43,3 +69,4 @@ class EnvConfig {
     return missing;
   }
 }
+
