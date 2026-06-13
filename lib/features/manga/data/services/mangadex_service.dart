@@ -189,7 +189,7 @@ class MangaDexService {
       'title': [query],
       'limit': ['$limit'],
       'offset': ['$offset'],
-      'includes': ['cover_art', 'author', 'artist', 'tag'],
+      'includes[]': ['cover_art', 'author', 'artist', 'tag'],
       'contentRating[]': contentRating == 'safe'
           ? ['safe', 'suggestive']
           : [contentRating],
@@ -230,7 +230,7 @@ class MangaDexService {
     final params = <String, List<String>>{
       'limit': ['$limit'],
       'offset': ['$offset'],
-      'includes': ['cover_art', 'author', 'artist', 'tag'],
+      'includes[]': ['cover_art', 'author', 'artist', 'tag'],
       'contentRating[]': ['safe', 'suggestive'],
       'order[followedCount]': ['desc'],
     };
@@ -264,7 +264,7 @@ class MangaDexService {
   }) async {
     final params = <String, List<String>>{
       'limit': ['$limit'],
-      'includes': ['cover_art', 'author', 'artist', 'tag'],
+      'includes[]': ['cover_art', 'author', 'artist', 'tag'],
       'contentRating[]': ['safe', 'suggestive'],
       'order[latestUploadedChapter]': ['desc'],
     };
@@ -296,7 +296,7 @@ class MangaDexService {
   Future<MangaItem?> getMangaDetails(String mangaId) async {
     final uri = Uri.parse('$_baseUrl/manga/$mangaId').replace(
       queryParameters: {
-        'includes': ['cover_art', 'author', 'artist', 'tag'],
+        'includes[]': ['cover_art', 'author', 'artist', 'tag'],
       },
     );
     try {
@@ -331,7 +331,7 @@ class MangaDexService {
         'translatedLanguage[]': [language],
         'contentRating[]': ['safe', 'suggestive'],
         'order[chapter]': ['desc'],
-        'includes': ['scanlation_group'],
+        'includes[]': ['scanlation_group'],
       },
     );
     try {

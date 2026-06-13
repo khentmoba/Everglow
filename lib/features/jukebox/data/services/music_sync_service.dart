@@ -8,9 +8,21 @@ class MusicSyncService {
   String get _apiKey => EnvConfig.lastfmApiKey;
   final String _baseUrl = 'https://ws.audioscrobbler.com/2.0/';
 
+  // Usernames that Last.fm reported as invalid (HTTP 404 / error code 6
+  // "User not found"). Once we know a username is bad we stop hitting the
+  // API for it so the 30-second poll doesn't spam the console with errors
+  // and trigger downstream "Another exception was thrown" cascades.
+  static final Set<String> _invalidUsers = <String>{};
+
+  bool isUserInvalid(String username) => _invalidUsers.contains(username);
+
   Future<MusicStatus?> fetchRecentTrack(String username) async {
     if (_apiKey.isEmpty) {
       print('Jukebox Service: API Key is missing!');
+      return null;
+    }
+
+    if (username.isEmpty || _invalidUsers.contains(username)) {
       return null;
     }
 
@@ -26,14 +38,17 @@ class MusicSyncService {
         if (data['recenttracks'] != null &&
             data['recenttracks']['track'] != null &&
             (data['recenttracks']['track'] as List).isNotEmpty) {
-          final track = data['recenttracks']['track'][0];
-          final trackName = track['name'];
-          final isLive = track['@attr']?['nowplaying'] == 'true';
-          // print('Jukebox Service: Received data for $username. Track: $trackName. Now playing: $isLive');
           return MusicStatus.fromJson(data, username);
         } else {
           print('Jukebox Service: No tracks found for $username in response.');
         }
+      } else if (response.statusCode == 404) {
+        // Last.fm returns 404 with `{"error": 6, "message": "User not found"}`
+        // for usernames that don't exist (e.g. placeholders in env.txt).
+        // Mark the user as invalid so we never poll for them again this
+        // session and just surface a quiet empty state in the UI.
+        _invalidUsers.add(username);
+        print('Jukebox Service: Last.fm user "$username" not found. Skipping future polls this session.');
       } else {
         print('Jukebox Service Error ($username): Status ${response.statusCode} - ${response.body}');
       }
