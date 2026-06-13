@@ -139,13 +139,20 @@ class _GatewayPageState extends State<GatewayPage> {
       final passcode = _notifier.lastEnteredPasscode;
       final authService = context.read<AuthService>();
       
-      // Use real authenticated accounts for better persistence and rules compatibility
-      if (passcode == '1111') {
-        await authService.loginWithPasscode('clairjassen');
-      } else if (passcode == '2222') {
-        await authService.loginWithPasscode('khentsgdz');
-      } else {
-        await authService.ensureAuthenticated();
+      try {
+        // Use real authenticated accounts for better persistence and rules compatibility
+        if (passcode == '1111') {
+          await authService.loginWithPasscode('clairjassen');
+        } else if (passcode == '2222') {
+          await authService.loginWithPasscode('khentsgdz');
+        } else {
+          await authService.ensureAuthenticated();
+        }
+      } catch (e) {
+        print("Error during passcode login: $e");
+        try {
+          await authService.ensureAuthenticated();
+        } catch (_) {}
       }
 
       Future.delayed(const Duration(milliseconds: 1500), () {
