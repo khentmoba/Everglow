@@ -24,6 +24,7 @@ import '../../../chat/presentation/screens/sanctuary_chat_screen.dart';
 import '../widgets/creator_modal.dart';
 import '../widgets/dashboard_actions.dart';
 import '../widgets/cinema_preview.dart';
+import '../widgets/anime_preview.dart';
 import '../widgets/books_preview.dart';
 import '../widgets/manga_preview.dart';
 import 'package:everglow/features/canvas/presentation/screens/canvas_screen.dart';
@@ -377,6 +378,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   child: child,
                                 ),
                                 child: const CinemaPreview(),
+                              ),
+                            ),
+                            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                            SliverToBoxAdapter(
+                              child: _maybeAnimate(
+                                animation: (child) => FadeInUp(
+                                  delay: const Duration(milliseconds: 1130),
+                                  child: child,
+                                ),
+                                child: const AnimePreview(),
                               ),
                             ),
                             const SliverToBoxAdapter(child: SizedBox(height: 24)),

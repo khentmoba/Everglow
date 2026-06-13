@@ -10,6 +10,11 @@ class MediaItem {
   final String year;
   final String status;
 
+  /// True for Japanese animation (anime). Auto-detected from TMDB details
+  /// (original_language == 'ja' + Animation genre) when the title is saved
+  /// to the watchlist. Powers the dedicated "Anime" rail and screen.
+  final bool isAnime;
+
   /// Owning user. Items in `watch_list` are scoped per user so Khent, Clair,
   /// and Breyan each see only their own queue / watched history.
   final String userName;
@@ -24,6 +29,7 @@ class MediaItem {
     this.backdropPath = '',
     this.year = '',
     required this.status,
+    this.isAnime = false,
     this.userName = '',
     required this.addedAt,
   });
@@ -80,6 +86,7 @@ class MediaItem {
       backdropPath: data['backdropPath'] ?? '',
       year: data['year'] ?? '',
       status: data['status'] ?? 'to-watch',
+      isAnime: data['isAnime'] == true,
       userName: data['userName'] ?? '',
       addedAt: _parseDateTime(data['addedAt']),
     );
@@ -107,6 +114,7 @@ class MediaItem {
       'backdropPath': backdropPath,
       'year': year,
       'status': status,
+      'isAnime': isAnime,
       'userName': userName,
       'addedAt': Timestamp.fromDate(addedAt),
     };
@@ -121,6 +129,7 @@ class MediaItem {
     String? backdropPath,
     String? year,
     String? status,
+    bool? isAnime,
     String? userName,
     DateTime? addedAt,
   }) {
@@ -133,6 +142,7 @@ class MediaItem {
       backdropPath: backdropPath ?? this.backdropPath,
       year: year ?? this.year,
       status: status ?? this.status,
+      isAnime: isAnime ?? this.isAnime,
       userName: userName ?? this.userName,
       addedAt: addedAt ?? this.addedAt,
     );

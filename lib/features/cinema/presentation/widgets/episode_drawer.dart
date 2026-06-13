@@ -205,7 +205,24 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       if (mounted) _showSnack('Removed from watchlist');
     } else {
       setState(() => _currentStatus = newStatus);
-      await _tmdbService.saveToWatchList(widget.item, newStatus, userName);
+      // Auto-detect anime so the dashboard's Anime rail picks it up
+      // automatically. We do this against TMDB /details because that's the
+      // only endpoint that reliably returns `original_language` + nested
+      // `genres` for TV. If the network call fails we just fall back to
+      // whatever the item already has.
+      bool? detectedAnime;
+      if (!widget.item.isAnime) {
+        detectedAnime = await _tmdbService.isAnimeByTmdbId(
+          widget.item.tmdbId,
+          widget.item.mediaType,
+        );
+      }
+      await _tmdbService.saveToWatchList(
+        widget.item,
+        newStatus,
+        userName,
+        isAnimeOverride: detectedAnime,
+      );
       if (mounted) _showSnack('Watchlist updated');
     }
   }

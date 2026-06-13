@@ -176,6 +176,7 @@ class _HexGLGameScreenState extends State<HexGLGameScreen> {
         setState(() {
           _showStartHint = false;
           _booted = true;
+          _iframeTouchGuard = false;
         });
         _startGuardTimer?.cancel();
         break;

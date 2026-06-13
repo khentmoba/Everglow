@@ -14,30 +14,26 @@ Everglow tracks your relationship journey through gamified experiences, shared a
 
 ## Latest Release
 
-> **v4.0.0** — Manga Reader, Play Zone Expansion, WebGL Games & UI Polish
+> **v5.0.0** — Anime Feature, MangaDex Image Proxy, Anime Dashboard Preview
 > [View full changelog →](https://github.com/khentmoba/Everglow/releases/latest)
 
-**v4.0.0 — The Manga & WebGL Games Update:**
+**v5.0.0 — The Anime & Proxy Update:**
 
-1. **Manga Reader Feature**:
-   - **Feature**: Brand-new `MangaLibraryScreen` and custom `MangaSearchModal` interacting with the MangaDex API.
-   - **Feature**: `MangaDetailsDrawer` showing summaries, tags, and reading progress.
-   - **Feature**: `MangaReaderScreen` built for side-by-side or vertical scroll with zoom controls and chapter transitions.
-   - **Feature**: Manga Preview widget on the main dashboard showing trending or recently read items.
+1. **Anime Feature**:
+   - **Feature**: Brand-new `AnimeScreen` with Home / Library / Search tabs. Home shows trending anime from TMDB (Japanese + Animation genre). Library streams the couple's combined anime catalog. Search debounces TMDB querying with anime-scoped results.
+   - **Feature**: `AnimePreview` dashboard widget — constant-speed marquee carousel of the watched anime catalog, showing the couple's combined list.
+   - **Feature**: `TMDBService` anime detection automatically flags Japanese animation via `original_language == 'ja'` + Animation genre. Persisted `isAnime` flag on every watchlist item for accurate filtering.
+   - **Feature**: `MediaItem` model extended with `isAnime` field, full serialization support.
+   - **Feature**: Episode drawer auto-detects anime when saving to watchlist.
 
-2. **Play Zone Expansion & 3D WebGL Games**:
-   - **Feature**: Integrated **Masked Special Forces**, a fully featured 3D WebGL action game.
-   - **Feature**: Added **Table Tennis World Tour** tournament game.
-   - **Feature**: Added **Fun Race 3D** (featuring Solo Gauntlet and 1v1 lobby matchmaking).
-   - **Feature**: Added **1v1 Match** matchmaking lobbies.
+2. **MangaDex Image Proxy**:
+   - **Feature**: New Cloud Function `proxyMangaImage` that proxies MangaDex at-home image server URLs, bypassing CORS/hotlink protection with host validation.
 
-3. **Cloud Function Proxy & Architecture**:
-   - **Feature**: Configured custom Cloud Functions to act as a secure CORS bypass proxy for third-party API fetches.
+3. **UI/UX Polish**:
+   - **Feature**: Manga Library screen now shows a back arrow when navigation stack allows popping.
+   - **Feature**: HexGL auto-boots — touch guard clears on ready message, no manual start hint needed.
 
-4. **UI/UX Polish**:
-   - **Feature**: Expanded gesture overlays for starting games (Table Tennis, Fun Race 3D, HexGL) to cover the entire viewport, fixing tap-to-start issues.
-
-_Previous releases: [v3.2.0 "Books & Cinematic"](https://github.com/khentmoba/Everglow/releases/tag/v3.2.0) · [v3.1.0 "Live & Cinematic"](https://github.com/khentmoba/Everglow/releases/tag/v3.1.0) · [v3.0.0 "Cinematic & Performance"](https://github.com/khentmoba/Everglow/releases/tag/v3.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)_
+_Previous releases: [v4.0.0 "Manga & WebGL Games"](https://github.com/khentmoba/Everglow/releases/tag/v4.0.0) · [v3.4.0 "Manga Reader"](https://github.com/khentmoba/Everglow/releases/tag/v3.4.0) · [v3.3.0 "Play Zone Games"](https://github.com/khentmoba/Everglow/releases/tag/v3.3.0) · [v3.2.0 "Books & Cinematic"](https://github.com/khentmoba/Everglow/releases/tag/v3.2.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)_
 
 ---
 
@@ -98,6 +94,10 @@ _Previous releases: [v3.2.0 "Books & Cinematic"](https://github.com/khentmoba/Ev
 | **Masked Special Forces** | Integrated 3D WebGL action shooter game into Play Zone | **3.4.0** |
 | **Cloud Function Proxy** | CORS bypass proxy cloud handler for external API requests | **3.4.0** |
 | **Play Zone Start Gestures** | Full-screen gesture overlays for starting games, improving tap-to-start reliability | **4.0.0** |
+| **Anime Screen** | Dedicated anime hub with Home (trending), Library (couple catalog), and Search tabs powered by TMDB | **5.0.0** |
+| **Anime Dashboard Preview** | Constant-speed marquee carousel of watched anime on the dashboard | **5.0.0** |
+| **TMDB Anime Detection** | Auto-detects Japanese animation via language + genre; persisted `isAnime` flag on watchlist items | **5.0.0** |
+| **MangaDex Image Proxy** | Cloud Function bypassing CORS/hotlink protection for MangaDex at-home image servers | **5.0.0** |
 
 ## Tech Stack
 
@@ -108,11 +108,12 @@ _Previous releases: [v3.2.0 "Books & Cinematic"](https://github.com/khentmoba/Ev
 - **Real-Time Presence:** Firestore `presence/{uid}` collection with 15 s heartbeat
 - **Trailer Playback:** YouTube IFrame Player API via `dart:ui_web` + `package:web`
 - **Multiplayer:** Firestore real-time snapshots for HexGL time-trial challenges
+- **Cloud Functions:** Proxy endpoints for MangaDex images and Open Library book text
 
 ## Project Structure
 
 ```
-lib/
+  lib/
   main.dart                     # Entry point, Provider setup (incl. PresenceService)
   core/
     audio/                      # Sound effects (just_audio)
@@ -127,8 +128,11 @@ lib/
     guardian/                   # Animated cat mascot
     academy/                    # Trivia game
     books/                      # Book discovery & reader (Open Library API)
-    cinema/                     # Movie watch list (TMDB, multi-provider, trailers)
+    cinema/                     # Movie/anime watch list (TMDB, multi-provider, trailers)
+      data/models/              # MediaItem (with isAnime flag)
+      data/services/            # TMDBService (with anime detection)
       presentation/widgets/     # TrailerPlayer, EpisodeDrawer, TMDBSearchModal
+      presentation/screens/     # AnimeScreen (new in v5.0.0)
     chat/                       # Private couple chat
     starlight_jar/              # Gratitude jar
     canvas/                     # Collaborative drawing + doodle presence
@@ -148,7 +152,9 @@ assets/
   audio/piano/                  # Reference piano samples (a, c, e, f)
 web/
   hexgl/                        # HexGL embed HTML (no-cache)
-CHANGELOG.md                    # Full release-by-release history (v1.0.0 → v3.2.0)
+functions/
+  index.js                      # Cloud Functions: proxyBookText, proxyMangaImage
+CHANGELOG.md                    # Full release-by-release history (v1.0.0 → v5.0.0)
 ```
 
 ## Getting Started
@@ -206,6 +212,7 @@ The workflow:
 
 The full release-by-release history is in [CHANGELOG.md](./CHANGELOG.md). Highlights:
 
+- **v5.0.0** — Anime Feature, MangaDex Image Proxy, Anime Dashboard Preview
 - **v4.0.0** — Play Zone Start Gestures, Gesture Overlay Enhancements
 - **v3.4.0** — Manga Reader (MangaDex API Integration), Masked Special Forces Game, Cloud Function Proxy
 - **v3.3.0** — Play Zone Games (Table Tennis, Fun Race 3D, 1v1 Match), Watchlist Consolidation

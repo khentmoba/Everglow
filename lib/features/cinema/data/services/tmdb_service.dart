@@ -43,9 +43,87 @@ class TMDBService {
           ? '$_imageBaseOriginal${item['backdrop_path']}'
           : '',
       status: 'to-watch',
+      isAnime: _detectAnime(item),
       year: year,
       addedAt: DateTime.now(),
     );
+  }
+
+  /// Best-effort anime detection from a TMDB result payload.
+  ///
+  /// Anime on TMDB is just a TV show with `original_language == 'ja'` and
+  /// the Animation genre (id 16). The exact list of genre ids is sometimes
+  /// absent from search/discover payloads (only `genre_ids` is present on
+  /// list endpoints, while nested `genres` is only available on /details),
+  /// so we handle both shapes here.
+  static bool _detectAnime(Map<String, dynamic> item) {
+    final lang = (item['original_language'] ?? '').toString();
+    if (lang != 'ja') return false;
+
+    final genreIds = item['genre_ids'];
+    if (genreIds is List) {
+      for (final g in genreIds) {
+        if (g is num && g.toInt() == 16) return true;
+      }
+    }
+    final genres = item['genres'];
+    if (genres is List) {
+      for (final g in genres) {
+        if (g is Map && g['id'] is num && (g['id'] as num).toInt() == 16) {
+          return true;
+        }
+      }
+    }
+    final keywords = item['keywords']?['results'];
+    if (keywords is List) {
+      for (final k in keywords) {
+        if (k is Map && k['name']?.toString().toLowerCase() == 'anime') {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /// Fetch trending anime (Japanese animation) from TMDB.
+  ///
+  /// Anime is a content descriptor, not a separate catalog on TMDB, so we
+  /// discover TV shows filtered by `original_language=ja` and the
+  /// Animation genre (id 16). Sorted by popularity so the carousel shows
+  /// what's actually hot right now.
+  Future<List<MediaItem>> fetchTrendingAnime() async {
+    final url = Uri.parse(
+        '$_baseUrl/discover/tv?api_key=${ApiKeys.tmdbApiKey}'
+        '&with_original_language=ja'
+        '&with_genres=16'
+        '&sort_by=popularity.desc'
+        '&include_adult=false'
+        '&vote_count.gte=20'
+        '&page=1');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List results = data['results'] ?? [];
+        return results
+            .map((item) =>
+                _mapResultToMediaItem(item, forcedMediaType: 'tv'))
+            .toList();
+      }
+    } catch (e) {
+      print('TMDB Trending Anime Error: $e');
+    }
+    return [];
+  }
+
+  /// Returns `true` if the given TMDB item represents anime, by looking
+  /// at the detailed payload (which is the only place we reliably have
+  /// `original_language` for TV shows). Used by the episode drawer when
+  /// saving a show to the watchlist.
+  Future<bool> isAnimeByTmdbId(int tmdbId, String mediaType) async {
+    final details = await fetchMediaDetails(tmdbId, mediaType);
+    if (details == null) return false;
+    return _detectAnime(details);
   }
 
   /// Search for movies and TV shows
@@ -427,7 +505,12 @@ class TMDBService {
     return null;
   }
 
-  Future<void> saveToWatchList(MediaItem item, String status, String userName) async {
+  Future<void> saveToWatchList(
+    MediaItem item,
+    String status,
+    String userName, {
+    bool? isAnimeOverride,
+  }) async {
     if (userName.isEmpty) {
       print("Error saving to watch list: userName is empty");
       return;
@@ -442,16 +525,27 @@ class TMDBService {
           .limit(1)
           .get();
 
+      // Determine the anime flag. If the caller passed an explicit override
+      // (e.g. the episode drawer detected anime via /details), trust it.
+      // Otherwise fall back to whatever was already on the item.
+      final isAnime = isAnimeOverride ?? item.isAnime;
+
       if (existing.docs.isNotEmpty) {
         // Update status if exists
         await collection.doc(existing.docs.first.id).update({
           'status': status,
+          'isAnime': isAnime,
           'addedAt': Timestamp.now(),
         });
       } else {
         // Create new entry scoped to this user
         await collection.add(item
-            .copyWith(status: status, userName: userName, addedAt: DateTime.now())
+            .copyWith(
+              status: status,
+              isAnime: isAnime,
+              userName: userName,
+              addedAt: DateTime.now(),
+            )
             .toFirestore());
       }
       print("Saved to watch list successfully: ${item.title} ($userName)");
@@ -553,6 +647,76 @@ class TMDBService {
     return controller.stream;
   }
 
+  /// Stream of anime-only items for a single user. Same source collection
+  /// (`watch_list`) as the regular stream — we filter by `isAnime == true`
+  /// in Dart so the dashboard's Anime rail and the AnimeScreen only show
+  /// Japanese animation, no matter where the title was added.
+  Stream<List<MediaItem>> getAnimeWatchListStream(String userName) {
+    return _firestore
+        .collection('watch_list')
+        .where('userName', isEqualTo: userName)
+        .snapshots()
+        .map((snapshot) {
+      final items = snapshot.docs
+          .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+          .where((i) => i.isAnime)
+          .toList()
+        ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
+      return items;
+    });
+  }
+
+  /// Couple-scoped stream of the anime rail. Identical shape to
+  /// [getCoupleWatchListStream] but the merge keeps only items where at
+  /// least one partner has `isAnime == true`. The merged item's `isAnime`
+  /// is the OR of the two partner entries, so partner-aware attribution
+  /// keeps working.
+  Stream<List<MediaItem>> getCoupleAnimeStream({
+    String userA = 'khentsgdz',
+    String userB = 'clairjassen',
+  }) {
+    final controller = StreamController<List<MediaItem>>.broadcast();
+    List<MediaItem> itemsA = const [];
+    List<MediaItem> itemsB = const [];
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? subA;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? subB;
+
+    void emit() {
+      final merged = _mergeCoupleItems(itemsA, itemsB);
+      controller.add(merged.where((i) => i.isAnime).toList());
+    }
+
+    controller.onListen = () {
+      subA = _firestore
+          .collection('watch_list')
+          .where('userName', isEqualTo: userA)
+          .snapshots()
+          .listen((snapshot) {
+        itemsA = snapshot.docs
+            .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+            .toList();
+        emit();
+      });
+      subB = _firestore
+          .collection('watch_list')
+          .where('userName', isEqualTo: userB)
+          .snapshots()
+          .listen((snapshot) {
+        itemsB = snapshot.docs
+            .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+            .toList();
+        emit();
+      });
+    };
+
+    controller.onCancel = () async {
+      await subA?.cancel();
+      await subB?.cancel();
+    };
+
+    return controller.stream;
+  }
+
   /// Merges the two partners' watch lists into a single list. Items are
   /// deduplicated by `tmdbId`; when both partners have the same title the
   /// merged `userName` becomes "userA,userB" and the `status` is the
@@ -581,7 +745,15 @@ class TMDBService {
       // Use the most recent addedAt so the merged item is positioned
       // correctly in the sorted list.
       final addedAt = a.addedAt.isAfter(b.addedAt) ? a.addedAt : b.addedAt;
-      return a.copyWith(userName: userName, status: status, addedAt: addedAt);
+      // Anime flag is OR-ed across partners so a title tagged as anime by
+      // either partner is considered anime in the merged view.
+      final isAnime = a.isAnime || b.isAnime;
+      return a.copyWith(
+        userName: userName,
+        status: status,
+        isAnime: isAnime,
+        addedAt: addedAt,
+      );
     }).toList()
       ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
     return merged;
@@ -628,6 +800,7 @@ class TMDBService {
         'backdropPath': item.backdropPath,
         'year': item.year,
         'status': item.status,
+        'isAnime': item.isAnime,
         'userName': item.userName,
         'addedAt': item.addedAt.toIso8601String(),
       }).toList();
@@ -653,6 +826,7 @@ class TMDBService {
           backdropPath: data['backdropPath'] ?? '',
           year: data['year'] ?? '',
           status: data['status'] ?? 'to-watch',
+          isAnime: data['isAnime'] == true,
           userName: data['userName'] ?? userName,
           addedAt: DateTime.tryParse(data['addedAt'] ?? '') ?? DateTime.now(),
         )).toList();
