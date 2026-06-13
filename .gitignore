@@ -57,5 +57,6 @@ scratch/
 wiki/
 
 # Binaries and large files
+.firebase/
 firebase.exe
 node_modules/

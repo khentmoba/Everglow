@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:everglow/features/dashboard/domain/models/milestone.dart';
+import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
+import 'package:everglow/features/cinema/presentation/screens/cinema_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/services/auth_service.dart';
 import '../state/gateway_state.dart';
@@ -138,16 +140,23 @@ class _GatewayPageState extends State<GatewayPage> {
     if (newState == GatewayState.unlocking) {
       final passcode = _notifier.lastEnteredPasscode;
       final authService = context.read<AuthService>();
-      
+
       try {
         // Use real authenticated accounts for better persistence and rules compatibility
         if (passcode == '1111') {
           await authService.loginWithPasscode('clairjassen');
         } else if (passcode == '2222') {
           await authService.loginWithPasscode('khentsgdz');
+        } else if (passcode == '9132') {
+          // Breyan's cinema-only access: own user, isolated data
+          await authService.loginWithPasscode('breyan');
         } else {
           await authService.ensureAuthenticated();
         }
+        // Backfill userName on legacy watch_list items (idempotent).
+        // Runs for every passcode so Breyan's fresh start and any future
+        // re-login also covers it.
+        await TMDBService().migrateWatchListOwnership();
       } catch (e) {
         print("Error during passcode login: $e");
         try {
@@ -165,10 +174,13 @@ class _GatewayPageState extends State<GatewayPage> {
     } else if (newState == GatewayState.complete) {
       if (!_hasNavigated) {
         _hasNavigated = true;
+        final isBreyanAccess = _notifier.lastEnteredPasscode == '9132';
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => 
-                const DashboardScreen(animate: false),
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                isBreyanAccess
+                    ? const CinemaScreen()
+                    : const DashboardScreen(animate: false),
             transitionDuration: Duration.zero,
           ),
         );

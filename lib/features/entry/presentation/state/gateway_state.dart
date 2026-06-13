@@ -49,11 +49,13 @@ class GatewayNotifier extends ChangeNotifier {
 
   void _validatePasscode() async {
     updateState(GatewayState.evaluating);
-    
+
     // Small delay to feel intentional
     await Future.delayed(const Duration(milliseconds: 500));
 
-    if (_currentInput == '1111' || _currentInput == '2222') {
+    if (_currentInput == '1111' ||
+        _currentInput == '2222' ||
+        _currentInput == '9132') {
       _lastEnteredPasscode = _currentInput;
       updateState(GatewayState.unlocking);
     } else {

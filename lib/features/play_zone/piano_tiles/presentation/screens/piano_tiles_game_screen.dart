@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,9 +16,21 @@ import 'package:everglow/shared/widgets/bouncy_button.dart';
 import '../../data/piano_audio_service.dart';
 import '../../data/piano_song_provider.dart';
 import '../../models/piano_note.dart';
-import '../widgets/piano_lane_divider.dart';
-import '../widgets/piano_line.dart';
+import '../widgets/piano_board_painter.dart';
 
+/// Piano-Tiles-style rhythm game with continuous, beat-locked scrolling.
+///
+/// Architecture:
+/// * A [Ticker] increments a `ValueNotifier&lt;double&gt;` called
+///   `_currentBeat` every frame in real time. This is the only thing that
+///   changes per frame, so nothing in the widget tree rebuilds.
+/// * A single [PianoBoardPainter] listens to that notifier and paints all
+///   four lanes' tiles in one pass. Tiles below/above the viewport are
+///   culled.
+/// * Each lane has a transparent [GestureDetector] on top of the canvas
+///   for tap input. Taps resolve in O(1) against the "next pending note".
+/// * Audio playback is fire-and-forget against a pre-warmed per-note
+///   player pool — no awaits on the hot tap path.
 class PianoTilesGameScreen extends StatefulWidget {
   final PianoSong song;
 
@@ -47,107 +61,207 @@ class PianoTilesGameScreen extends StatefulWidget {
 
 class _PianoTilesGameScreenState extends State<PianoTilesGameScreen>
     with SingleTickerProviderStateMixin {
+  static const int _laneCount = 4;
+  static const double _judgmentLineFromBottom = 110;
+  // Visible beats above the judgment line — controls fall distance/time.
+  static const double _visibleBeatsAbove = 4.2;
+  // Grace window after a tile crosses the judgment line before we call it a miss.
+  static const double _missToleranceBeats = 0.55;
+
   final PianoAudioService _audio = PianoAudioService();
 
-  late AnimationController _controller;
+  // --- Tick state ----------------------------------------------------------
+  late final Ticker _ticker;
+  // Beat counter, updated every frame. Listened to by the painter.
+  final ValueNotifier<double> _currentBeat = ValueNotifier<double>(0.0);
+  // Tap-pulse list, updated only when a tap lands.
+  final ValueNotifier<List<LanePulse>> _tapPulses =
+      ValueNotifier<List<LanePulse>>(const []);
+  // Lane to flash red when missing.
+  final ValueNotifier<int> _missLane = ValueNotifier<int>(-1);
+
+  // Game state --------------------------------------------------------------
   late List<PianoNote> _notes;
-  int _currentIndex = 0;
+  int _scoringIndex = 0; // index of the next note that needs a tap
   int _points = 0;
   int _streak = 0;
   int _bestStreak = 0;
   bool _hasStarted = false;
-  bool _isPlaying = true;
-  bool _hasFinishedSong = false;
+  bool _isFinished = false;
+  bool _gameOver = false;
+  bool _audioReady = false;
 
-  static const int _tilesAhead = 5;
+  // Time bookkeeping for the ticker — using monotonic Duration from Ticker.
+  Duration _startElapsed = Duration.zero;
+  double _startBeat = 0;
+
+  // Per-song knobs --------------------------------------------------------
+  int get _beatDurationMs => widget.song.beatDurationMs;
+  double get _pixelsPerBeat => _cachedPixelsPerBeat;
+  double _cachedPixelsPerBeat = 180;
+  double _cachedJudgmentY = 600;
 
   @override
   void initState() {
     super.initState();
     _notes = PianoSongProvider.initNotes(widget.song);
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 340),
-    );
-    _controller.addStatusListener(_onAnimationStatus);
-    _audio.load();
+
+    _ticker = createTicker(_onTick);
+
+    // Start with the very first tile sitting flush at the judgment line so
+    // the player can see what to tap first.
+    if (_notes.isNotEmpty) {
+      _startBeat = _notes.first.hitBeat;
+      _currentBeat.value = _startBeat;
+    }
+
+    // Pre-warm the audio pool for every pitch the song will use. Doing this
+    // up front lets every later [playMidi] return instantly.
+    _audio
+        .prepareNotes(PianoSongProvider.uniqueMidiNotes(widget.song))
+        .then((_) {
+      if (mounted) setState(() => _audioReady = true);
+    });
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ticker.dispose();
+    _currentBeat.dispose();
+    _tapPulses.dispose();
+    _missLane.dispose();
     _audio.dispose();
     super.dispose();
   }
 
-  void _onAnimationStatus(AnimationStatus status) {
-    if (status != AnimationStatus.completed || !_isPlaying) return;
+  // ---------------------------------------------------------------------------
+  // Tick loop
+  // ---------------------------------------------------------------------------
+  void _onTick(Duration elapsed) {
+    if (_gameOver || _isFinished) return;
+    final dtMs = (elapsed - _startElapsed).inMicroseconds / 1000.0;
+    final beat = _startBeat + dtMs / _beatDurationMs;
+    _currentBeat.value = beat;
 
-    final currentNote = _notes[_currentIndex];
+    _evaluateMisses(beat);
 
-    if (currentNote.state != PianoNoteState.tapped) {
-      setState(() {
-        _isPlaying = false;
-        currentNote.state = PianoNoteState.missed;
-        _streak = 0;
-      });
-      _controller.reverse().then((_) => _showFinishDialog(songCompleted: false));
-      return;
+    // Prune expired tap pulses so the painter list stays tiny.
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final live = _tapPulses.value
+        .where((p) => now - p.startMs < LanePulse.lifetimeMs)
+        .toList(growable: false);
+    if (live.length != _tapPulses.value.length) {
+      _tapPulses.value = live;
     }
-
-    if (_currentIndex == _notes.length - _tilesAhead) {
-      _hasFinishedSong = true;
-      _showFinishDialog(songCompleted: true);
-      return;
-    }
-
-    setState(() => _currentIndex++);
-
-    // Dynamically set next note's scroll duration based on its beat duration
-    final nextNote = _notes[_currentIndex];
-    final noteDuration = nextNote.line != -1 ? nextNote.duration : 1.0;
-    _controller.duration = Duration(milliseconds: (340 * noteDuration).toInt());
-
-    _controller.forward(from: 0);
   }
 
-  void _onTap(PianoNote note) {
-    final allPreviousTapped = _notes
-        .sublist(0, note.orderNumber)
-        .every((n) => n.state == PianoNoteState.tapped);
-    if (!allPreviousTapped) return;
-
-    if (!_hasStarted) {
-      setState(() => _hasStarted = true);
-      // Set initial note duration
-      final firstNote = _notes[_currentIndex];
-      final noteDuration = firstNote.line != -1 ? firstNote.duration : 1.0;
-      _controller.duration = Duration(milliseconds: (340 * noteDuration).toInt());
-      _controller.forward();
+  void _evaluateMisses(double beat) {
+    while (_scoringIndex < _notes.length) {
+      final note = _notes[_scoringIndex];
+      if (note.state == PianoNoteState.tapped) {
+        _scoringIndex++;
+        continue;
+      }
+      // Has this tile drifted past the judgment line by more than tolerance?
+      if (beat > note.hitBeat + _missToleranceBeats) {
+        _registerMiss(note);
+      }
+      return;
     }
+    // Reached the end of the song with no misses → completed.
+    if (!_isFinished) {
+      _isFinished = true;
+      _ticker.stop();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showFinishDialog(songCompleted: true);
+      });
+    }
+  }
 
-    _audio.playMidi(note.midiNote);
-
-    setState(() {
-      note.state = PianoNoteState.tapped;
-      _points++;
-      _streak++;
-      if (_streak > _bestStreak) _bestStreak = _streak;
+  void _registerMiss(PianoNote note) {
+    if (_gameOver) return;
+    _gameOver = true;
+    note.state = PianoNoteState.missed;
+    _streak = 0;
+    _missLane.value = note.line;
+    _ticker.stop();
+    HapticFeedback.heavyImpact();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showFinishDialog(songCompleted: false);
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Input
+  // ---------------------------------------------------------------------------
+  void _onLaneTap(int lane) {
+    if (_gameOver || _isFinished) return;
+
+    // Walk forward past any already-tapped notes so we always look at the
+    // *current* pending one. Cheap because tapped count grows linearly.
+    while (_scoringIndex < _notes.length &&
+        _notes[_scoringIndex].state == PianoNoteState.tapped) {
+      _scoringIndex++;
+    }
+    if (_scoringIndex >= _notes.length) return;
+
+    final next = _notes[_scoringIndex];
+    if (next.line != lane) {
+      // Wrong lane: ignore — the auto-miss on the real pending tile will end
+      // the game on its own if the player keeps ignoring it.
+      return;
+    }
+
+    _registerHit(next, lane);
+  }
+
+  void _registerHit(PianoNote note, int lane) {
+    note.state = PianoNoteState.tapped;
+    _points++;
+    _streak++;
+    if (_streak > _bestStreak) _bestStreak = _streak;
+
+    _audio.playMidi(note.midiNote);
+    HapticFeedback.selectionClick();
+
+    // Push a tap pulse animation.
+    final now = DateTime.now().millisecondsSinceEpoch;
+    _tapPulses.value = [..._tapPulses.value, LanePulse(lane, now)];
+
+    if (!_hasStarted) {
+      _hasStarted = true;
+      _startBeat = note.hitBeat; // pin t=0 to this note's hit beat
+      _startElapsed = Duration.zero; // Ticker.start() resets elapsed to zero
+      _ticker.start();
+      // First setState only — flips the start-hint off.
+      setState(() {});
+    }
+
+    // Surface the new score in the HUD via a lightweight rebuild. The board
+    // itself does NOT rebuild — the painter is driven by listenables.
+    setState(() {});
+  }
+
+  // ---------------------------------------------------------------------------
+  // Lifecycle helpers
+  // ---------------------------------------------------------------------------
   void _restart() {
+    _ticker.stop();
     setState(() {
       _notes = PianoSongProvider.initNotes(widget.song);
-      _currentIndex = 0;
+      _scoringIndex = 0;
       _points = 0;
       _streak = 0;
       _bestStreak = 0;
       _hasStarted = false;
-      _isPlaying = true;
-      _hasFinishedSong = false;
+      _isFinished = false;
+      _gameOver = false;
+      _startBeat = _notes.isNotEmpty ? _notes.first.hitBeat : 0;
+      _startElapsed = Duration.zero;
+      _currentBeat.value = _startBeat;
+      _missLane.value = -1;
+      _tapPulses.value = const [];
     });
-    _controller.reset();
   }
 
   Future<void> _showFinishDialog({required bool songCompleted}) async {
@@ -155,8 +269,7 @@ class _PianoTilesGameScreenState extends State<PianoTilesGameScreen>
     if (!mounted) return;
 
     final title = songCompleted ? 'Lovely Performance' : 'Note Missed';
-    final accent =
-        songCompleted ? AppTheme.blushGold : AppTheme.roseQuartz;
+    final accent = songCompleted ? AppTheme.blushGold : AppTheme.roseQuartz;
     final icon = songCompleted
         ? Icons.auto_awesome_rounded
         : Icons.favorite_border_rounded;
@@ -297,7 +410,6 @@ class _PianoTilesGameScreenState extends State<PianoTilesGameScreen>
     final auth = context.read<AuthService>();
     final uid = auth.uid;
 
-    // Save high score locally
     try {
       final prefs = await SharedPreferences.getInstance();
       final keyScore = 'melody_tiles_highscore_${widget.song.id}';
@@ -348,6 +460,9 @@ class _PianoTilesGameScreenState extends State<PianoTilesGameScreen>
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -355,43 +470,56 @@ class _PianoTilesGameScreenState extends State<PianoTilesGameScreen>
         child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final tileHeight = constraints.maxHeight / 4;
-              final upcoming = _notes
-                  .sublist(_currentIndex, _currentIndex + _tilesAhead)
-                  .toList();
+              final height = constraints.maxHeight;
+              _cachedJudgmentY = height - _judgmentLineFromBottom;
+              // Make pixels-per-beat scale with the playfield so that the
+              // _visibleBeatsAbove worth of music always fits between the
+              // top edge and the judgment line.
+              _cachedPixelsPerBeat = _cachedJudgmentY / _visibleBeatsAbove;
+
               return Stack(
                 fit: StackFit.expand,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(child: _buildLine(0, upcoming, tileHeight)),
-                      const PianoLaneDivider(),
-                      Expanded(child: _buildLine(1, upcoming, tileHeight)),
-                      const PianoLaneDivider(),
-                      Expanded(child: _buildLine(2, upcoming, tileHeight)),
-                      const PianoLaneDivider(),
-                      Expanded(child: _buildLine(3, upcoming, tileHeight)),
-                    ],
+                  // Render layer (one CustomPaint, no rebuilds).
+                  RepaintBoundary(
+                    child: CustomPaint(
+                      painter: PianoBoardPainter(
+                        currentBeat: _currentBeat,
+                        notes: _notes,
+                        pixelsPerBeat: _pixelsPerBeat,
+                        judgmentY: _cachedJudgmentY,
+                        laneCount: _laneCount,
+                        tapPulses: _tapPulses,
+                        missFlashLane: _missLane,
+                      ),
+                      isComplex: true,
+                      willChange: true,
+                      size: Size.infinite,
+                    ),
                   ),
+
+                  // Input layer (4 transparent lanes).
+                  Row(
+                    children: List.generate(
+                      _laneCount,
+                      (i) => Expanded(
+                        child: _LaneTapTarget(
+                          onTap: () => _onLaneTap(i),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // HUD on top.
                   _buildHud(),
-                  if (!_hasStarted && _isPlaying && !_hasFinishedSong)
-                    _buildStartHint(),
+                  if (!_hasStarted && !_gameOver && !_isFinished)
+                    _buildStartHint(audioReady: _audioReady),
                 ],
               );
             },
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildLine(int lineNumber, List<PianoNote> upcoming, double tileHeight) {
-    return PianoLine(
-      lineNumber: lineNumber,
-      currentNotes: upcoming,
-      tileHeight: tileHeight,
-      onTileTap: _onTap,
-      animation: _controller,
     );
   }
 
@@ -479,7 +607,7 @@ class _PianoTilesGameScreenState extends State<PianoTilesGameScreen>
     );
   }
 
-  Widget _buildStartHint() {
+  Widget _buildStartHint({required bool audioReady}) {
     return IgnorePointer(
       child: Center(
         child: Container(
@@ -518,7 +646,9 @@ class _PianoTilesGameScreenState extends State<PianoTilesGameScreen>
               ),
               const SizedBox(height: 6),
               Text(
-                'Tap the dark petals as they fall',
+                audioReady
+                    ? 'Tap the first tile to begin'
+                    : 'Tuning the piano...',
                 style: GoogleFonts.cormorantGaramond(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -539,6 +669,23 @@ class _PianoTilesGameScreenState extends State<PianoTilesGameScreen>
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Tiny stateless tap target so the painter underneath isn't rebuilt by
+/// the gesture system.
+class _LaneTapTarget extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _LaneTapTarget({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => onTap(),
+      child: const SizedBox.expand(),
     );
   }
 }

@@ -1,9 +1,11 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
+import 'package:everglow/services/auth_service.dart';
 import '../screens/video_player_screen.dart';
 
 // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
@@ -149,13 +151,18 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
 
   Future<void> _updateStatus(String newStatus) async {
     HapticFeedback.selectionClick();
+    final userName = context.read<AuthService>().currentUser ?? '';
+    if (userName.isEmpty) {
+      _showSnack('Please sign in to manage your watchlist');
+      return;
+    }
     if (_currentStatus == newStatus) {
       setState(() => _currentStatus = '');
-      await _tmdbService.removeFromWatchList(widget.item.tmdbId);
+      await _tmdbService.removeFromWatchList(widget.item.tmdbId, userName);
       if (mounted) _showSnack('Removed from watchlist');
     } else {
       setState(() => _currentStatus = newStatus);
-      await _tmdbService.saveToWatchList(widget.item, newStatus);
+      await _tmdbService.saveToWatchList(widget.item, newStatus, userName);
       if (mounted) _showSnack('Watchlist updated');
     }
   }
@@ -521,7 +528,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
             const SizedBox(height: 18),
           ],
 
-          // Watchlist label
+          // Watchlist label + status chips
           Row(
             children: [
               Container(
@@ -545,8 +552,6 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
             ],
           ),
           const SizedBox(height: 10),
-
-          // Status chips
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
