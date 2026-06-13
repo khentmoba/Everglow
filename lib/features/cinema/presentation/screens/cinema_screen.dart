@@ -389,15 +389,21 @@ class _CinemaScreenState extends State<CinemaScreen>
 
   Widget _buildTopHeader() {
     final top = MediaQuery.of(context).padding.top;
+    final canPop = Navigator.canPop(context);
     return Container(
       padding: EdgeInsets.fromLTRB(20, top + 14, 20, 10),
       child: Row(
         children: [
-          // Back
-          _CinemaIconBtn(
-            icon: Icons.arrow_back_ios_new_rounded,
-            onTap: () => Navigator.pop(context),
-          ),
+          // Back — only when there's a route to pop to (e.g. Khent/Clair
+          // arriving from the dashboard). Breyan lands on the cinema
+          // directly, so popping would leave an empty stack and a white screen.
+          if (canPop)
+            _CinemaIconBtn(
+              icon: Icons.arrow_back_ios_new_rounded,
+              onTap: () => Navigator.pop(context),
+            )
+          else
+            const SizedBox(width: 40, height: 40),
           const Spacer(),
           // Title
           Column(
