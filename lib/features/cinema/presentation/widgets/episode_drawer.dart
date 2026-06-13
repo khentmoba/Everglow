@@ -552,28 +552,51 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
             ],
           ),
           const SizedBox(height: 10),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            child: Row(
-              children: [
-                _buildStatusChip('Want to Watch', 'to-watch',
-                    icon: Icons.bookmark_rounded),
-                const SizedBox(width: 8),
-                _buildStatusChip('Khent Watched', 'watched-khent',
-                    icon: Icons.person_rounded,
-                    activeColor: const Color(0xFF1976D2)),
-                const SizedBox(width: 8),
-                _buildStatusChip('Clair Watched', 'watched-clair',
-                    icon: Icons.favorite_rounded,
-                    activeColor: const Color(0xFFE91E8C)),
-                const SizedBox(width: 8),
-                _buildStatusChip('Both Watched', 'watched-both',
-                    icon: Icons.people_rounded,
-                    activeColor: const Color(0xFF2E7D32)),
-              ],
-            ),
-          ),
+          // Cinema-only profiles (Breyan, Octagram) only get generic
+          // "Want to Watch" / "Watched" — never the partner-specific chips,
+          // which would leak Khent/Clair semantics.
+          Builder(builder: (context) {
+            final isCinemaOnly =
+                context.watch<AuthService>().isCinemaOnlyUser;
+            if (isCinemaOnly) {
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children: [
+                    _buildStatusChip('Want to Watch', 'to-watch',
+                        icon: Icons.bookmark_rounded),
+                    const SizedBox(width: 8),
+                    _buildStatusChip('Watched', 'watched-self',
+                        icon: Icons.check_circle_rounded,
+                        activeColor: const Color(0xFF2E7D32)),
+                  ],
+                ),
+              );
+            }
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: [
+                  _buildStatusChip('Want to Watch', 'to-watch',
+                      icon: Icons.bookmark_rounded),
+                  const SizedBox(width: 8),
+                  _buildStatusChip('Khent Watched', 'watched-khent',
+                      icon: Icons.person_rounded,
+                      activeColor: const Color(0xFF1976D2)),
+                  const SizedBox(width: 8),
+                  _buildStatusChip('Clair Watched', 'watched-clair',
+                      icon: Icons.favorite_rounded,
+                      activeColor: const Color(0xFFE91E8C)),
+                  const SizedBox(width: 8),
+                  _buildStatusChip('Both Watched', 'watched-both',
+                      icon: Icons.people_rounded,
+                      activeColor: const Color(0xFF2E7D32)),
+                ],
+              ),
+            );
+          }),
           const SizedBox(height: 20),
 
           // Overview

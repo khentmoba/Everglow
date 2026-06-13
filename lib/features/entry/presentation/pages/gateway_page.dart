@@ -140,23 +140,29 @@ class _GatewayPageState extends State<GatewayPage> {
     if (newState == GatewayState.unlocking) {
       final passcode = _notifier.lastEnteredPasscode;
       final authService = context.read<AuthService>();
-      final isBreyanAccess = passcode == '9132';
+      // Cinema-only profiles (Breyan, Octagram) skip the dashboard reveal
+      // and land directly on the cinema with their own isolated data.
+      const cinemaOnlyPasscodes = {'9132', '8080'};
+      final isCinemaOnlyAccess = cinemaOnlyPasscodes.contains(passcode);
 
       try {
         // Use real authenticated accounts for better persistence and rules compatibility
-        if (passcode == '1111') {
+        if (passcode == '0221') {
           await authService.loginWithPasscode('clairjassen');
-        } else if (passcode == '2222') {
+        } else if (passcode == '0938') {
           await authService.loginWithPasscode('khentsgdz');
         } else if (passcode == '9132') {
           // Breyan's cinema-only access: own user, isolated data
           await authService.loginWithPasscode('breyan');
+        } else if (passcode == '8080') {
+          // Octagram's cinema-only access: own user, isolated data
+          await authService.loginWithPasscode('octagram');
         } else {
           await authService.ensureAuthenticated();
         }
         // Backfill userName on legacy watch_list items (idempotent).
-        // Runs for every passcode so Breyan's fresh start and any future
-        // re-login also covers it.
+        // Runs for every passcode so cinema-only profiles' fresh start
+        // and any future re-login also covers it.
         await TMDBService().migrateWatchListOwnership();
       } catch (e) {
         print("Error during passcode login: $e");
@@ -166,12 +172,12 @@ class _GatewayPageState extends State<GatewayPage> {
       }
 
       // Let the door unlock animation play for 1.5s, then route.
-      // For Breyan, skip the dashboard reveal entirely and push cinema
-      // directly while the gateway is still in `unlocking` state — that
-      // way the dashboard is never rendered behind the door.
+      // For cinema-only profiles, skip the dashboard reveal entirely and
+      // push cinema directly while the gateway is still in `unlocking`
+      // state — that way the dashboard is never rendered behind the door.
       Future.delayed(const Duration(milliseconds: 1500), () {
         if (!mounted || _hasNavigated) return;
-        if (isBreyanAccess) {
+        if (isCinemaOnlyAccess) {
           _hasNavigated = true;
           Navigator.of(context).pushReplacement(
             PageRouteBuilder(

@@ -61,6 +61,26 @@ class EnvConfig {
     return '91329132';
   }
 
+  static String get octagramEmail {
+    const fromEnv = String.fromEnvironment('OCTAGRAM_EMAIL', defaultValue: '');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    if (dotenv.isInitialized) {
+      final val = dotenv.env['OCTAGRAM_EMAIL'];
+      if (val != null && val.isNotEmpty) return val;
+    }
+    return 'octagram@scrapbook.local';
+  }
+
+  static String get octagramPassword {
+    const fromEnv = String.fromEnvironment('OCTAGRAM_PASSWORD', defaultValue: '');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    if (dotenv.isInitialized) {
+      final val = dotenv.env['OCTAGRAM_PASSWORD'];
+      if (val != null && val.isNotEmpty) return val;
+    }
+    return '80808080';
+  }
+
   static String get tmdbApiKey {
     const fromEnv = String.fromEnvironment('TMDB_API_KEY', defaultValue: '');
     if (fromEnv.isNotEmpty) return fromEnv;
@@ -84,6 +104,7 @@ class EnvConfig {
   static bool get hasClairCreds => clairEmail.isNotEmpty && clairPassword.isNotEmpty;
   static bool get hasKhentCreds => khentEmail.isNotEmpty && khentPassword.isNotEmpty;
   static bool get hasBreyanCreds => breyanEmail.isNotEmpty && breyanPassword.isNotEmpty;
+  static bool get hasOctagramCreds => octagramEmail.isNotEmpty && octagramPassword.isNotEmpty;
   static bool get hasTmdbKey => tmdbApiKey.isNotEmpty;
   static bool get hasLastfmKey => lastfmApiKey.isNotEmpty;
 
@@ -92,6 +113,7 @@ class EnvConfig {
     if (!hasClairCreds) missing.add('CLAIR_EMAIL / CLAIR_PASSWORD');
     if (!hasKhentCreds) missing.add('KHENT_EMAIL / KHENT_PASSWORD');
     if (!hasBreyanCreds) missing.add('BREYAN_EMAIL / BREYAN_PASSWORD');
+    if (!hasOctagramCreds) missing.add('OCTAGRAM_EMAIL / OCTAGRAM_PASSWORD');
     if (!hasTmdbKey) missing.add('TMDB_API_KEY');
     if (!hasLastfmKey) missing.add('LASTFM_API_KEY');
     return missing;
