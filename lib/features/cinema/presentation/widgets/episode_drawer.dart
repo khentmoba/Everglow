@@ -55,6 +55,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   String? _trailerKey;
   bool _isLoadingTrailer = false;
   bool _isPlayingTrailer = false;
+  bool _isMobile = false;
 
   // For header parallax/fade
   late AnimationController _fadeCtrl;
@@ -64,6 +65,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   void initState() {
     super.initState();
     _currentStatus = widget.item.status;
+    _isMobile = MediaQuery.of(context).size.width < 600;
     _fadeCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -91,6 +93,12 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         setState(() {
           _trailerKey = key;
           _isLoadingTrailer = false;
+          // On mobile, auto-play the trailer as soon as the key is ready so
+          // the user immediately sees it when they open the info sheet.
+          // Desktop keeps the existing tap-to-play behavior.
+          if (_isMobile && key != null) {
+            _isPlayingTrailer = true;
+          }
         });
       }
     } catch (e) {
@@ -374,7 +382,11 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                   children: [
                     TrailerPlayer(
                       videoKey: _trailerKey!,
-                      muted: false,
+                      // Mute on mobile so browser autoplay policies don't
+                      // silently block playback. Desktop still plays with
+                      // sound because the click on Watch Trailer counts as a
+                      // user gesture.
+                      muted: _isMobile,
                       autoplay: true,
                       loop: true,
                     ),
@@ -456,34 +468,39 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                 ),
         ),
 
-        // Cinematic gradients
+        // Cinematic gradients (wrapped in IgnorePointer so the Watch Trailer
+        // and Close Trailer buttons underneath stay tappable on mobile).
         Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.transparent,
-                  Colors.transparent,
-                  _cVelvet.withValues(alpha: 0.6),
-                  _cVelvet,
-                ],
-                stops: const [0.0, 0.45, 0.75, 1.0],
+          child: IgnorePointer(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.transparent,
+                    _cVelvet.withValues(alpha: 0.6),
+                    _cVelvet,
+                  ],
+                  stops: const [0.0, 0.45, 0.75, 1.0],
+                ),
               ),
             ),
           ),
         ),
         Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [
-                  _cVelvet.withValues(alpha: 0.3),
-                  Colors.transparent,
-                ],
+          child: IgnorePointer(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    _cVelvet.withValues(alpha: 0.3),
+                    Colors.transparent,
+                  ],
+                ),
               ),
             ),
           ),
