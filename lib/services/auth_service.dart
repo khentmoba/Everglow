@@ -64,9 +64,10 @@ class AuthService extends ChangeNotifier {
     return null;
   }
 
-  /// True if the signed-in user is the cinema-only sibling.
+  /// True if the signed-in user is a cinema-only profile (Breyan, Octagram).
   /// They get access to the Cinema feature but not the partner-only data.
-  bool get isCinemaOnlyUser => _currentUser == 'breyan';
+  bool get isCinemaOnlyUser =>
+      _currentUser == 'breyan' || _currentUser == 'octagram';
 
   void setCurrentUser(String? name) {
     _currentUser = name;
@@ -103,6 +104,14 @@ class AuthService extends ChangeNotifier {
         print("Warning: BREYAN environment variables not set. Using local/default credentials.");
         email = "breyan@scrapbook.local";
         password = "91329132";
+      }
+    } else if (username == 'octagram') {
+      email = EnvConfig.octagramEmail;
+      password = EnvConfig.octagramPassword;
+      if (email.isEmpty || password.isEmpty) {
+        print("Warning: OCTAGRAM environment variables not set. Using local/default credentials.");
+        email = "octagram@scrapbook.local";
+        password = "80808080";
       }
     } else {
       throw StateError('Unknown username: $username');
@@ -151,7 +160,7 @@ class AuthService extends ChangeNotifier {
   }
 
   // Option 2: Restricted list of allowed users
-  final List<String> allowedUsernames = ['khentsgdz', 'clairjassen', 'breyan'];
+  final List<String> allowedUsernames = ['khentsgdz', 'clairjassen', 'breyan', 'octagram'];
 
   // Modern Nostalgia: We use simple username login by mapping to a local domain
   Future<String?> login(String username, String password) async {

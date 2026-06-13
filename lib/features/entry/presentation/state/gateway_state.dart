@@ -53,9 +53,10 @@ class GatewayNotifier extends ChangeNotifier {
     // Small delay to feel intentional
     await Future.delayed(const Duration(milliseconds: 500));
 
-    if (_currentInput == '1111' ||
-        _currentInput == '2222' ||
-        _currentInput == '9132') {
+    if (_currentInput == '0221' ||
+        _currentInput == '0938' ||
+        _currentInput == '9132' ||
+        _currentInput == '8080') {
       _lastEnteredPasscode = _currentInput;
       updateState(GatewayState.unlocking);
     } else {
