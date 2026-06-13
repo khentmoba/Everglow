@@ -79,7 +79,11 @@
     "database": {
       "port": 9000
     },
-    "hosting": {
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs20"
+  },
+  "hosting": {
       "port": 5000
     },
     "pubsub": {
