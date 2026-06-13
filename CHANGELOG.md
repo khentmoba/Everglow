@@ -9,6 +9,34 @@ Conventions: 🚀 Features · 🐛 Bug Fixes · ⚡ Performance · 🔒 Security
 
 ---
 
+## [5.1.0] — 2026-06-14
+
+### 🚀 Features
+- **Anime Browse Tab**: Brand-new fourth tab on `AnimeScreen` with filterable category chips grouped into By Format, By Genre, By Status, and Discovery. Each chip lazily fetches its results inline via `TMDBService.discoverAnime()`. Categories include Series, Movies, OVAs, 9 genre chips (Action, Romance, Comedy, Slice of Life, Fantasy & Isekai, Sci-Fi & Mecha, Horror & Thriller, Sports, Mystery), Currently Airing, Completed, New Releases, Trending Now, Popular All Time, Top Rated, Hidden Gems, and Editor's Picks.
+- **Anime Home Tab Curated Sections**: Replaced single "Trending Anime" carousel with 8 independent sections: Trending Now, Currently Airing, Top Rated, New Releases, Popular All Time, Hidden Gems, Editor's Picks, and the user's own queue. Each section loads independently with its own shimmer placeholder.
+- **Anime Hero Carousel**: Trending Now section now uses a larger hero-style `PageView` carousel with backdrop image, gradient overlay, "TRENDING" badge, title, and year overlay.
+- **`TMDBService.discoverAnime()`**: Refactored `fetchTrendingAnime()` into a generic `discoverAnime()` with full query-param support (`sortBy`, `withGenres`, `withKeywords`, `withStatus`, `airDateGte/Lte`, `firstAirDateGte/Lte`, `voteCountGte/Lte`, `voteAverageGte`, `page`). Adds `discoverAnimeMovies()` for anime movies via `/discover/movie`.
+- **`anime_categories.dart`**: New data layer defining `AnimeCategoryOption` and `AnimeCategoryGroup` enums with self-contained fetcher closures. Editor's Picks loads 21 hand-curated TMDB IDs via `fetchMediaDetails()`.
+- **`proxyMangaDex` Cloud Function**: New Firebase Cloud Function that proxies `api.mangadex.org` requests server-side, bypassing CORS restrictions on Flutter web. Accepts `?path=<encoded api path>` and passes through the JSON response with permissive CORS headers. Only `api.mangadex.org` host is allowed.
+- **MangaDex Catalog Proxy**: `MangaDexService` now routes all API calls (`searchManga`, `searchMangaSimple`, `getTrendingManga`, `getMangaDetails`, `getChapterPages`, `getMangaTags`, `fetchChapterFeed`) through the new `proxyMangaDex` Cloud Function via `_proxied()`. Fixes the "Nothing here yet." empty-state bug on Flutter web where the browser dropped MangaDex API responses due to missing CORS headers.
+- **`WebOverlayButton` / `WebOverlayTextButton` / `WebOverlayPill` Widgets**: New reusable HUD widgets rendered as real DOM elements (`<button>` / `<div>`) via `HtmlElementView` so they sit ABOVE sibling iframes in the browser z-order and receive clicks. Non-web platforms fall back to standard Flutter `GestureDetector` widgets.
+- **Play Zone HUD Refactor**: `HexGLGameScreen`, `FunRace3DGameScreen`, `FunRace3DOneVOneGameScreen`, and `TableTennisGameScreen` all replaced their local `_hudButton()` implementations with the shared `WebOverlayButton` / `WebOverlayTextButton` / `WebOverlayPill` widgets. Fixes unclickable close/restart/finish buttons on web when stacked over iframe platform views.
+- **Open Library Service Emulator Support**: `BookProxyURL` now supports `--dart-define=USE_FIREBASE_EMULATOR=true` and `--dart-define=BOOK_PROXY_URL=...` for local Functions emulator development. Falls back to Open Library work page (HTML, browser-only) when no plain-text source is available.
+- **BookItem Firestore Round-Trip**: `readSourceUrl` and `readSourceLabel` are now persisted in Firestore, so the reader can locate the text source after a read/write round-trip without re-deriving from `iaId`/`workKey`. Legacy documents fall back to `deriveReadSourceUrl()`.
+- **CI/CD Functions Deployment**: `.github/workflows/deploy.yml` now includes a `Setup Node.js`, `Install Functions dependencies`, and `Deploy Cloud Functions` step before Hosting deploy, so `proxyMangaDex` (and future functions) are deployed on every push to `main`.
+
+### 🐛 Bug Fixes
+- **MangaDex CORS on Web**: Previously the browser dropped all MangaDex API responses because `api.mangadex.org` doesn't send `Access-Control-Allow-Origin` headers. The new `proxyMangaDex` Cloud Function forwards requests server-side, restoring manga search, trending, chapter loading, and tag browsing on Flutter web.
+- **Play Zone HUD Buttons Unclickable on Web**: Close, restart, and "I FINISHED!" buttons stacked over `HtmlElementView` iframes were consumed by the iframe before Flutter's pointer dispatch. The new DOM-based `WebOverlayButton` family renders buttons as real HTML elements that sit above the iframe z-order and receive click events correctly.
+
+### 📝 Docs
+- Updated CHANGELOG, README, and version for v5.1.0.
+
+### ⚠️ Breaking Changes
+- None. v5.1.0 is fully backward-compatible with v5.0.0 data. All new Firestore writes are additive (`readSourceUrl` / `readSourceLabel` on `book_list` / `our_books` documents).
+
+---
+
 ## [5.0.0] — 2026-06-14
 
 ### 🚀 Features

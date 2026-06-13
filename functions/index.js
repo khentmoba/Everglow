@@ -164,3 +164,85 @@ exports.proxyMangaImage = functions.https.onRequest(async (req, res) => {
     res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
   }
 });
+
+/**
+ * Proxies MangaDex catalog API requests so Flutter web isn't blocked
+ * by CORS. The MangaDex API at api.mangadex.org doesn't send an
+ * `Access-Control-Allow-Origin` header on its responses, so the
+ * browser drops the body and the client sees an empty `data` array
+ * (which is what causes the "Nothing here yet." placeholders in the
+ * manga library). This function forwards the request server-side and
+ * returns the body with permissive CORS headers.
+ *
+ * Accepts:
+ *   GET /proxyMangaDex?path=<encoded api path with query,
+ *                            e.g. "manga?limit=20&includes%5B%5D=cover_art">
+ *
+ * Only the api.mangadex.org host is allowed — the path is sanitized
+ * to prevent abuse. Mirrors the `proxyMangaImage` pattern: optional
+ * Firebase Auth token in the Authorization header, validated if
+ * present.
+ */
+exports.proxyMangaDex = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  if (req.method !== 'GET') {
+    res.status(405).json({ error: 'Only GET is accepted' });
+    return;
+  }
+
+  const idToken = req.get('Authorization')?.replace('Bearer ', '');
+  if (idToken) {
+    try {
+      await admin.auth().verifyIdToken(idToken);
+    } catch {
+      res.status(401).json({ error: 'Invalid or expired auth token' });
+      return;
+    }
+  }
+
+  const pathParam = req.query.path;
+  if (typeof pathParam !== 'string' || pathParam.length === 0) {
+    res.status(400).json({ error: 'Missing ?path=<api path> query param' });
+    return;
+  }
+
+  // Strip a leading slash and any "..". MangaDex endpoints are
+  // first-segment-only (/manga, /manga/{id}, /manga/{id}/feed,
+  // /at-home/server/{id}, /manga/tag) so this is safe.
+  const safePath = pathParam.replace(/^\/+/, '').replace(/\.\.+/g, '');
+  if (safePath.length === 0) {
+    res.status(400).json({ error: 'Empty path' });
+    return;
+  }
+  const targetUrl = `https://api.mangadex.org/${safePath}`;
+
+  try {
+    const upstream = await fetch(targetUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Everglow/1.0 (https://github.com/everglow)',
+        'Accept': 'application/json',
+      },
+      timeout: 20000,
+    });
+    const body = await upstream.text();
+    res.status(upstream.status);
+    res.set(
+      'Content-Type',
+      upstream.headers.get('content-type') || 'application/json',
+    );
+    res.set('Cache-Control', 'public, max-age=60');
+    res.send(body);
+  } catch (e) {
+    console.warn(`proxyMangaDex failed (${targetUrl}):`, e.message);
+    res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
+  }
+});

@@ -32,6 +32,26 @@ class MangaDexService {
   static const String _proxyImageUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyMangaImage';
 
+  /// Cloud Function URL for proxying MangaDex catalog API requests.
+  /// The API at api.mangadex.org doesn't send CORS headers, so the
+  /// browser drops the body on web. Routing every call through this
+  /// proxy keeps Flutter web working the same way native does. The
+  /// native platforms are unaffected (the proxy is just a passthrough)
+  /// so we don't bother with a `kIsWeb` branch.
+  static const String _proxyCatalogUrl =
+      'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyMangaDex';
+
+  /// Rewrite a MangaDex API [Uri] into the proxied version. The proxy
+  /// expects the original path-and-query string in a `path` query
+  /// param, e.g. `?path=manga%3Flimit%3D20`.
+  Uri _proxied(Uri apiUri) {
+    final pathAndQuery = apiUri.path +
+        (apiUri.hasQuery ? '?${apiUri.query}' : '');
+    return Uri.parse(
+      '$_proxyCatalogUrl?path=${Uri.encodeComponent(pathAndQuery)}',
+    );
+  }
+
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Singleton pattern
@@ -205,7 +225,7 @@ class MangaDexService {
       queryParameters: params,
     );
     try {
-      final response = await http.get(uri, headers: _headers);
+      final response = await http.get(_proxied(uri), headers: _headers);
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         final results = (body['data'] as List?) ?? const [];
@@ -241,7 +261,7 @@ class MangaDexService {
       queryParameters: params,
     );
     try {
-      final response = await http.get(uri, headers: _headers);
+      final response = await http.get(_proxied(uri), headers: _headers);
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         final results = (body['data'] as List?) ?? const [];
@@ -275,7 +295,7 @@ class MangaDexService {
       queryParameters: params,
     );
     try {
-      final response = await http.get(uri, headers: _headers);
+      final response = await http.get(_proxied(uri), headers: _headers);
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         final results = (body['data'] as List?) ?? const [];
@@ -300,7 +320,7 @@ class MangaDexService {
       },
     );
     try {
-      final response = await http.get(uri, headers: _headers);
+      final response = await http.get(_proxied(uri), headers: _headers);
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         final data = body['data'] as Map<String, dynamic>?;
@@ -335,7 +355,7 @@ class MangaDexService {
       },
     );
     try {
-      final response = await http.get(uri, headers: _headers);
+      final response = await http.get(_proxied(uri), headers: _headers);
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         final data = body['data'] as List? ?? const [];
@@ -367,7 +387,7 @@ class MangaDexService {
     }
     final uri = Uri.parse('$_baseUrl/at-home/server/$chapterId');
     try {
-      final response = await http.get(uri, headers: _headers);
+      final response = await http.get(_proxied(uri), headers: _headers);
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         final chapter = body['chapter'] as Map<String, dynamic>?;
@@ -411,7 +431,7 @@ class MangaDexService {
     if (_tagCache != null) return _tagCache!;
     final uri = Uri.parse('$_baseUrl/manga/tag');
     try {
-      final response = await http.get(uri, headers: _headers);
+      final response = await http.get(_proxied(uri), headers: _headers);
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         final data = (body['data'] as List?)?.cast<Map<String, dynamic>>() ?? [];

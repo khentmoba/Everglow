@@ -73,16 +73,22 @@ class OpenLibraryService {
   /// priority order. The reader tries them one at a time and uses
   /// whichever responds successfully — that way a CORS block or
   /// 404 on the Internet Archive fallback still leaves us with a
-  /// working Gutenberg or Open Library URL.
+  /// working Gutenberg URL.
+  ///
+  /// Only **plain-text** sources are returned here. The Open Library
+  /// work page is HTML and is intentionally excluded — including it
+  /// would either swallow it as a "successful" empty-book read, or
+  /// confuse the chapter splitter. It's still surfaced separately as
+  /// the "open in browser" URL via [_resolveReadSource].
   ///
   /// Strategy:
   ///   1. If the `ia` id is a Project Gutenberg id (`pg1342` style),
-  ///      hit the canonical plain text URL (CORS-friendly, public
-  ///      domain, no auth).
+  ///      hit the canonical plain text URL (public domain, no auth).
+  ///      Requires the CORS proxy because gutenberg.org sends no
+  ///      `Access-Control-Allow-Origin` header.
   ///   2. Otherwise try the Internet Archive djvu text extraction.
-  ///   3. As a last resort, the Open Library work page (HTML, always
-  ///      available, but meant to be opened in a browser, not
-  ///      inlined).
+  ///      IA *does* send CORS headers, so direct browser fetches
+  ///      succeed without the proxy — handy when the proxy is down.
   List<String> _resolveReadSources({
     required String iaId,
     required String workKey,
@@ -90,7 +96,7 @@ class OpenLibraryService {
     final candidates = <String>[];
     if (iaId.startsWith('pg') && iaId.length > 2) {
       final id = iaId.substring(2);
-      // Gutenberg plain text (most reliable, CORS-friendly).
+      // Gutenberg plain text (most reliable, public domain).
       candidates.add('https://www.gutenberg.org/cache/epub/$id/pg$id.txt');
       // Alternate Gutenberg URL pattern.
       candidates.add('https://www.gutenberg.org/files/$id/$id-0.txt');
@@ -100,16 +106,19 @@ class OpenLibraryService {
       // IA plain text fallback.
       candidates.add('https://archive.org/download/$iaId/$iaId.txt');
     }
-    if (workKey.isNotEmpty) {
-      candidates.add('https://openlibrary.org$workKey');
-    }
     return candidates;
   }
 
   /// First candidate — used by the model and as the "Open in
-  /// browser" fallback.
+  /// browser" fallback. Falls back to the Open Library work page
+  /// (HTML, browser-only) when no plain-text source is available,
+  /// so the reader's "Open on Open Library" button still has
+  /// somewhere to point.
   String _resolveReadSource({required String iaId, required String workKey}) {
-    return _resolveReadSources(iaId: iaId, workKey: workKey).firstOrNull ?? '';
+    final first = _resolveReadSources(iaId: iaId, workKey: workKey).firstOrNull;
+    if (first != null) return first;
+    if (workKey.isNotEmpty) return 'https://openlibrary.org$workKey';
+    return '';
   }
 
   String _readSourceLabel({required String iaId}) {
@@ -364,9 +373,31 @@ class OpenLibraryService {
   }
 
   /// Cloud Function URL for proxying book text requests.
-  /// Points to the deployed `proxyBookText` function or the emulator.
-  static const String _proxyUrl =
-      'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyBookText';
+  /// Defaults to the deployed `proxyBookText` function. When the
+  /// app is built with `--dart-define=USE_FIREBASE_EMULATOR=true`
+  /// (e.g. `flutter run -d chrome --dart-define=USE_FIREBASE_EMULATOR=true`
+  /// against `firebase emulators:start --only functions`), it
+  /// points at the local Functions emulator instead.
+  static const String _proxyUrl = String.fromEnvironment(
+    'BOOK_PROXY_URL',
+    defaultValue:
+        'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyBookText',
+  );
+
+  static const bool _useFunctionsEmulator = bool.fromEnvironment(
+    'USE_FIREBASE_EMULATOR',
+    defaultValue: false,
+  );
+
+  /// Resolved Cloud Function URL. Falls back to the local emulator
+  /// endpoint when the emulator flag is on, otherwise the deployed
+  /// production URL.
+  static String get _proxyEndpoint {
+    if (_useFunctionsEmulator) {
+      return 'http://localhost:5001/everglow-1c6db/us-central1/proxyBookText';
+    }
+    return _proxyUrl;
+  }
 
   /// Try each candidate read source URL via the Firebase Cloud
   /// Function proxy. The function fetches each URL server-side so
@@ -378,7 +409,7 @@ class OpenLibraryService {
     }
     try {
       final response = await http.post(
-        Uri.parse(_proxyUrl),
+        Uri.parse(_proxyEndpoint),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'urls': candidates}),
       );

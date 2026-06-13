@@ -92,14 +92,65 @@ class TMDBService {
   /// Animation genre (id 16). Sorted by popularity so the carousel shows
   /// what's actually hot right now.
   Future<List<MediaItem>> fetchTrendingAnime() async {
+    return discoverAnime(
+      sortBy: 'popularity.desc',
+      voteCountGte: 20,
+    );
+  }
+
+  /// Unified anime discovery used by every category on the Anime screen
+  /// (Trending, Currently Airing, Top Rated, Hidden Gems, By Genre, etc.).
+  ///
+  /// All filters are optional; when none are passed you get the broadest
+  /// anime TV catalog sorted by popularity. The `with_original_language=ja`
+  /// + `with_genres=16` (Animation) constraints are always applied so a
+  /// caller can't accidentally pull non-anime results.
+  Future<List<MediaItem>> discoverAnime({
+    String? sortBy,
+    List<int>? withGenres,
+    List<int>? withKeywords,
+    int? withStatus,
+    String? airDateGte,
+    String? airDateLte,
+    String? firstAirDateGte,
+    String? firstAirDateLte,
+    int? voteCountGte,
+    int? voteCountLte,
+    double? voteAverageGte,
+    int page = 1,
+  }) async {
+    final params = <String, String>{
+      'api_key': ApiKeys.tmdbApiKey,
+      'with_original_language': 'ja',
+      'with_genres': '16',
+      'include_adult': 'false',
+      'page': '$page',
+    };
+    if (sortBy != null) params['sort_by'] = sortBy;
+    if (withGenres != null && withGenres.isNotEmpty) {
+      params['with_genres'] = '${params['with_genres']},${withGenres.join(',')}';
+    }
+    if (withKeywords != null && withKeywords.isNotEmpty) {
+      params['with_keywords'] = withKeywords.join('|');
+    }
+    if (withStatus != null) params['with_status'] = '$withStatus';
+    if (airDateGte != null) params['air_date.gte'] = airDateGte;
+    if (airDateLte != null) params['air_date.lte'] = airDateLte;
+    if (firstAirDateGte != null) {
+      params['first_air_date.gte'] = firstAirDateGte;
+    }
+    if (firstAirDateLte != null) {
+      params['first_air_date.lte'] = firstAirDateLte;
+    }
+    if (voteCountGte != null) params['vote_count.gte'] = '$voteCountGte';
+    if (voteCountLte != null) params['vote_count.lte'] = '$voteCountLte';
+    if (voteAverageGte != null) {
+      params['vote_average.gte'] = voteAverageGte.toString();
+    }
+
     final url = Uri.parse(
-        '$_baseUrl/discover/tv?api_key=${ApiKeys.tmdbApiKey}'
-        '&with_original_language=ja'
-        '&with_genres=16'
-        '&sort_by=popularity.desc'
-        '&include_adult=false'
-        '&vote_count.gte=20'
-        '&page=1');
+        '$_baseUrl/discover/tv?${params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&')}');
+
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -111,7 +162,52 @@ class TMDBService {
             .toList();
       }
     } catch (e) {
-      print('TMDB Trending Anime Error: $e');
+      print('TMDB Discover Anime Error: $e');
+    }
+    return [];
+  }
+
+  /// Discover anime movies. Same constraints as [discoverAnime] but hits
+  /// the `/discover/movie` endpoint since standalone anime films are
+  /// catalogued as movies on TMDB.
+  Future<List<MediaItem>> discoverAnimeMovies({
+    String? sortBy,
+    String? primaryReleaseDateGte,
+    String? primaryReleaseDateLte,
+    int? voteCountGte,
+    int page = 1,
+  }) async {
+    final params = <String, String>{
+      'api_key': ApiKeys.tmdbApiKey,
+      'with_original_language': 'ja',
+      'with_genres': '16',
+      'include_adult': 'false',
+      'page': '$page',
+    };
+    if (sortBy != null) params['sort_by'] = sortBy;
+    if (primaryReleaseDateGte != null) {
+      params['primary_release_date.gte'] = primaryReleaseDateGte;
+    }
+    if (primaryReleaseDateLte != null) {
+      params['primary_release_date.lte'] = primaryReleaseDateLte;
+    }
+    if (voteCountGte != null) params['vote_count.gte'] = '$voteCountGte';
+
+    final url = Uri.parse(
+        '$_baseUrl/discover/movie?${params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&')}');
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List results = data['results'] ?? [];
+        return results
+            .map((item) => _mapResultToMediaItem(
+                item, forcedMediaType: 'movie'))
+            .toList();
+      }
+    } catch (e) {
+      print('TMDB Discover Anime Movies Error: $e');
     }
     return [];
   }
