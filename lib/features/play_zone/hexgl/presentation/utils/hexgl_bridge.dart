@@ -181,4 +181,16 @@ class HexGLMessage {
   }
 
   String? get errorMessage => _data['message'] as String?;
+
+  int? get progressLoaded {
+    final v = _data['loaded'];
+    if (v is num) return v.toInt();
+    return null;
+  }
+
+  int? get progressTotal {
+    final v = _data['total'];
+    if (v is num) return v.toInt();
+    return null;
+  }
 }

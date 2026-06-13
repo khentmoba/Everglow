@@ -286,9 +286,16 @@
         });
         window.hexGL = hexGL;
 
+        // Tell the parent we have a HexGL instance now. We do this BEFORE
+        // textures finish downloading so the parent UI can flip out of the
+        // "Initializing 3D engine..." spinner even on slow networks. The
+        // actual race still won't begin until the parent calls
+        // startEmbedRace() AND embedLoaded becomes true.
+        postToParent('ready', { quality: chosenQuality });
+
         hexGL.load({
           onLoad: function() {
-            console.log('LOADED.');
+            console.log('[everglow-hexgl] LOADED.');
             hexGL.init();
 
             // Monkey-patch shipControls to:
@@ -316,7 +323,7 @@
             installFinishHook(hexGL);
 
             embedLoaded = true;
-            postToParent('ready', { quality: chosenQuality });
+            postToParent('loaded', { quality: chosenQuality });
 
             if (mode === 'embed') {
               // In embed mode the race only begins once the parent explicitly
@@ -333,13 +340,16 @@
             }
           },
           onError: function(s) {
+            console.error("[everglow-hexgl] Error loading " + s + ".");
             postToParent('error', { message: 'Error loading ' + s });
-            console.error("Error loading " + s + ".");
           },
           onProgress: function(p, t, n) {
-            console.log("LOADED " + t + " : " + n + " ( " + p.loaded + " / " + p.total + " ).");
+            if (t && n) {
+              console.log("[everglow-hexgl] " + t + " : " + n + " (" + p.loaded + " / " + p.total + ")");
+            }
             var progressbar = $('progressbar');
             if (progressbar) progressbar.style.width = "" + (p.loaded / p.total * 100) + "%";
+            postToParent('progress', { loaded: p.loaded, total: p.total, type: t, name: n });
           }
         });
       };
@@ -397,6 +407,7 @@
           embedPendingStart = true;
           // Make sure loading has at least started.
           tryBootEmbed();
+          postToParent('startQueued', { loaded: embedLoaded, hasInstance: !!window.hexGL });
           return;
         }
         embedPendingStart = false;
@@ -408,7 +419,10 @@
           return;
         }
         embedStarted = true;
-        try { window.hexGL.start(); } catch (e) {}
+        try { window.hexGL.start(); } catch (e) {
+          postToParent('error', { message: 'hexGL.start failed: ' + e });
+          return;
+        }
         installFinishHook(window.hexGL);
         postToParent('started', { quality: getQuality() });
       }
@@ -419,13 +433,41 @@
       var overlay = document.getElementById('everglow-embed-overlay');
       if (overlay) overlay.style.display = 'none';
 
+      // Surface uncaught errors to the parent so the user gets actual
+      // feedback instead of an infinite spinner.
+      window.addEventListener('error', function(ev) {
+        try {
+          postToParent('error', {
+            message: 'window.error: ' + (ev && ev.message ? ev.message : 'unknown') +
+                     (ev && ev.filename ? ' @ ' + ev.filename + ':' + (ev.lineno || '?') : '')
+          });
+        } catch (e) {}
+      });
+      window.addEventListener('unhandledrejection', function(ev) {
+        try {
+          postToParent('error', {
+            message: 'unhandledrejection: ' + ((ev && ev.reason && (ev.reason.message || ev.reason)) || 'unknown')
+          });
+        } catch (e) {}
+      });
+
       if (mode === 'embed') {
         // Begin loading immediately so the parent's "Tap to start" prompt is
-        // actually backed by a HexGL instance that is ready to race.
-        if (document.readyState === 'complete') {
-          tryBootEmbed();
+        // actually backed by a HexGL instance that is ready to race. We try a
+        // few different timings so we boot regardless of when this script ran
+        // relative to the rest of the page.
+        var boot = function() {
+          try { tryBootEmbed(); } catch (e) {
+            postToParent('error', { message: 'tryBootEmbed failed: ' + e });
+          }
+        };
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+          // DOM is parsed; kick off on the next tick so the postToParent('boot')
+          // below has already fired.
+          setTimeout(boot, 0);
         } else {
-          window.addEventListener('load', tryBootEmbed);
+          window.addEventListener('DOMContentLoaded', boot, { once: true });
+          window.addEventListener('load', boot, { once: true });
         }
       }
 

@@ -100,6 +100,9 @@ class _HexGLGameScreenState extends State<HexGLGameScreen> {
     final params = <String, String>{
       'mode': 'embed',
       'player': Uri.encodeComponent(player),
+      // Cache-buster: bump when web/hexgl/index.html changes so users don't
+      // get a stale iframe HTML from the 1-hour CDN cache.
+      'v': '3',
     };
     final query = params.entries
         .map((e) => '${e.key}=${e.value}')
@@ -137,6 +140,24 @@ class _HexGLGameScreenState extends State<HexGLGameScreen> {
           _bridge?.loadReplay(widget.challenge!.challengerResult!.replay);
         }
         break;
+      case 'progress':
+        // Surface texture/geometry loading progress so the user knows we're
+        // not just hung. We only update the spinner text; once 'ready' has
+        // fired we leave the tap-to-start hint alone.
+        if (!_iframeReady) {
+          final loaded = message.progressLoaded;
+          final total = message.progressTotal;
+          if (loaded != null && total != null && total > 0) {
+            setState(() {
+              _statusText = 'Loading assets... $loaded / $total';
+            });
+          }
+        }
+        break;
+      case 'loaded':
+        // Textures + geometry fully loaded. Race is ready to start as soon
+        // as the user taps.
+        break;
       case 'started':
         setState(() {
           _showStartHint = false;
@@ -154,6 +175,7 @@ class _HexGLGameScreenState extends State<HexGLGameScreen> {
       case 'replayCleared':
       case 'restarted':
       case 'userStart':
+      case 'startQueued':
       case 'pong':
         break;
     }

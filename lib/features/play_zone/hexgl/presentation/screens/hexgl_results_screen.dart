@@ -160,7 +160,7 @@ class _HexGLResultsScreenState extends State<HexGLResultsScreen> {
 
   void _buildWatchBridge() {
     final src =
-        'hexgl/index.html?mode=embed&player=${Uri.encodeComponent(_localName ?? 'You')}&replayMode=1';
+        'hexgl/index.html?mode=embed&player=${Uri.encodeComponent(_localName ?? 'You')}&replayMode=1&v=3';
     final bridge = HexGLBridge.create(src: src, viewId: _watchViewType);
     _watchBridge = bridge;
     _watchSub = bridge.messages.listen((m) {
