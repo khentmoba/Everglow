@@ -14,35 +14,30 @@ Everglow tracks your relationship journey through gamified experiences, shared a
 
 ## Latest Release
 
-> **v3.2.0** — Our Books: Open Library Integration, In-App Reader & Cinema Polish
+> **v4.0.0** — Manga Reader, Play Zone Expansion, WebGL Games & UI Polish
 > [View full changelog →](https://github.com/khentmoba/Everglow/releases/latest)
 
-**v3.2.0 — The Books & Cinematic Polish Update:**
+**v4.0.0 — The Manga & WebGL Games Update:**
 
-1. **Our Books Feature — Full Books Section**:
-   - **Feature**: Brand-new `BooksScreen` with four tabs (Home, Search, To Read, Read) powered by the Open Library API — no API key required.
-   - **Feature**: `OpenLibraryService` provides book search, trending, subject-based discovery, work/edition details, and Internet Archive text extraction.
-   - **Feature**: `ReaderScreen` fetches plain text from Internet Archive or Open Library, parses chapters, and renders inline via `flutter_html` with bookmark persistence.
-   - **Feature**: `OurBooksScreen` / `OurBooksService` backed by Firestore `our_books` collection for a shared couple book wish list with per-partner status tracking.
-   - **Feature**: `BooksPreview` on the dashboard shows recently added books.
-   - **Feature**: Cinematic `BookDetailsDrawer` with cover art, metadata, subject chips, and read-source links.
-   - **Feature**: `OlSearchModal` — Open Library search dialog with debounced querying and add-to-list flow.
+1. **Manga Reader Feature**:
+   - **Feature**: Brand-new `MangaLibraryScreen` and custom `MangaSearchModal` interacting with the MangaDex API.
+   - **Feature**: `MangaDetailsDrawer` showing summaries, tags, and reading progress.
+   - **Feature**: `MangaReaderScreen` built for side-by-side or vertical scroll with zoom controls and chapter transitions.
+   - **Feature**: Manga Preview widget on the main dashboard showing trending or recently read items.
 
-2. **Cinema — Instant Carousel Trailers**:
-   - **Feature**: Removed the 2.5 s artificial delay — trailers now play immediately on page change.
-   - **Feature**: `_prefetchCarouselTrailers()` pre-warms TMDB trailer keys for every trending slide at mount so the first slide lands on a playing trailer.
-   - **Feature**: Auto-rotate timer extended to 18 s (up from 5 s) and resets on every manual swipe so the user gets a full look.
+2. **Play Zone Expansion & 3D WebGL Games**:
+   - **Feature**: Integrated **Masked Special Forces**, a fully featured 3D WebGL action game.
+   - **Feature**: Added **Table Tennis World Tour** tournament game.
+   - **Feature**: Added **Fun Race 3D** (featuring Solo Gauntlet and 1v1 lobby matchmaking).
+   - **Feature**: Added **1v1 Match** matchmaking lobbies.
 
-3. **Cinema — Poster & Gradient Upgrades**:
-   - **Feature**: Desktop poster hover scale increased to 1.5× (from 1.15×) with `Alignment.topCenter` and 220 ms `easeOutCubic` animation.
-   - **Feature**: Hero gradient stops tightened and poster tile gradients strengthened for better legibility against any trailer frame.
-   - **Fix**: `ListView` in genre sections gets `clipBehavior: Clip.none` wrapped in a `Stack` so the 1.5× scale never clips on edges.
+3. **Cloud Function Proxy & Architecture**:
+   - **Feature**: Configured custom Cloud Functions to act as a secure CORS bypass proxy for third-party API fetches.
 
-4. **Episode Drawer Mobile Polish**:
-   - **Feature**: Episode drawer now auto-plays the trailer on mobile as soon as the key is ready (desktop keeps tap-to-play). Trailer is muted on mobile to satisfy browser autoplay policies.
-   - **Fix**: Gradient overlays wrapped in `IgnorePointer` so Watch Trailer and Close Trailer buttons remain tappable on mobile.
+4. **UI/UX Polish**:
+   - **Feature**: Expanded gesture overlays for starting games (Table Tennis, Fun Race 3D, HexGL) to cover the entire viewport, fixing tap-to-start issues.
 
-_Previous releases: [v3.1.0 "Live & Cinematic"](https://github.com/khentmoba/Everglow/releases/tag/v3.1.0) · [v3.0.0 "Cinematic & Performance"](https://github.com/khentmoba/Everglow/releases/tag/v3.0.0) · [v2.1.0 "Play Zone Overhaul"](https://github.com/khentmoba/Everglow/releases/tag/v2.1.0) · [v2.0.0 "Mobile Optimization"](https://github.com/khentmoba/Everglow/releases/tag/v2.0.0) · [v1.5.3 "Real Iframe Fix"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.3) · [v1.5.2 "PH Trending"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.2) · [v1.5.1 "Sandbox Hardening"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.1) · [v1.5.0 "Cinema"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.0) · [v1.4.0 "Multi-Provider"](https://github.com/khentmoba/Everglow/releases/tag/v1.4.0) · [v1.3.0 "Racing Game"](https://github.com/khentmoba/Everglow/releases/tag/v1.3.0) · [v1.2.0 "Play Zone"](https://github.com/khentmoba/Everglow/releases/tag/v1.2.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)_
+_Previous releases: [v3.2.0 "Books & Cinematic"](https://github.com/khentmoba/Everglow/releases/tag/v3.2.0) · [v3.1.0 "Live & Cinematic"](https://github.com/khentmoba/Everglow/releases/tag/v3.1.0) · [v3.0.0 "Cinematic & Performance"](https://github.com/khentmoba/Everglow/releases/tag/v3.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)_
 
 ---
 
@@ -96,6 +91,13 @@ _Previous releases: [v3.1.0 "Live & Cinematic"](https://github.com/khentmoba/Eve
 | **Instant Carousel Trailers** | Zero-delay trailer playback with full-slide prefetch; auto-rotate extended to 18 s | **3.2.0** |
 | **Enhanced Poster Hover** | 1.5× poster scale (up from 1.15×) with `Alignment.topCenter` and faster easing | **3.2.0** |
 | **Mobile Trailer Auto-Play** | Episode drawer auto-plays trailer on mobile (muted) | **3.2.0** |
+| **Play Zone HTML Games** | Added Table Tennis World Tour, Fun Race 3D, and 1v1 Match games | **3.3.0** |
+| **Lobby Multiplay** | Matchmaking & multiplayer room-sharing via Firestore | **3.3.0** |
+| **Consolidated Watchlist** | Personal & couple Cinema lists merged into single Firestore schema | **3.3.0** |
+| **Manga Reader** | Full MangaDex API library, search modal, detail drawers, and multi-page reader view | **3.4.0** |
+| **Masked Special Forces** | Integrated 3D WebGL action shooter game into Play Zone | **3.4.0** |
+| **Cloud Function Proxy** | CORS bypass proxy cloud handler for external API requests | **3.4.0** |
+| **Play Zone Start Gestures** | Full-screen gesture overlays for starting games, improving tap-to-start reliability | **4.0.0** |
 
 ## Tech Stack
 
@@ -204,6 +206,9 @@ The workflow:
 
 The full release-by-release history is in [CHANGELOG.md](./CHANGELOG.md). Highlights:
 
+- **v4.0.0** — Play Zone Start Gestures, Gesture Overlay Enhancements
+- **v3.4.0** — Manga Reader (MangaDex API Integration), Masked Special Forces Game, Cloud Function Proxy
+- **v3.3.0** — Play Zone Games (Table Tennis, Fun Race 3D, 1v1 Match), Watchlist Consolidation
 - **v3.2.0** — Our Books (Open Library Integration, In-App Reader), Instant Carousel Trailers, Mobile Trailer Polish
 - **v3.1.0** — Live Presence, Hover-to-Play Trailers, Our Cinema Glass UI
 - **v3.0.0** — Cinematic Cinema Overhaul, Piano Tiles Rewrite, Breyan + Octagram Access

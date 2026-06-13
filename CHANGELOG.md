@@ -9,6 +9,39 @@ Conventions: 🚀 Features · 🐛 Bug Fixes · ⚡ Performance · 🔒 Security
 
 ---
 
+## [4.0.0] — 2026-06-14
+
+### 🚀 Features
+- **Play Zone Start Gestures**: Expanded gesture recognition areas across full screen overlays for Table Tennis, Fun Race 3D, and HexGL, facilitating smoother booting.
+- **Release Automation**: Prepared configuration metadata and deployment hooks for automatic Firebase deployment.
+
+### 📝 Docs
+- Updated CHANGELOG, README, and version for v4.0.0.
+- New `RELEASE_NOTES_v4.0.0.md` detailing the transition from v3.2.0 to v4.0.0.
+
+---
+
+## [3.4.0] — 2026-06-14
+
+### 🚀 Features
+- **Manga Dex Integration**: Brand-new `MangaLibraryScreen` and custom `MangaSearchModal` interacting with the MangaDex API.
+- **Manga Reader**: High-fidelity vertical and side-by-side reading screens with chapter transition navigation.
+- **Manga Details Drawer**: Sliding card showing covers, summaries, tag lists, and direct reading routes.
+- **Manga Dashboard Preview**: New preview card on the dashboard showing recently read/trending manga.
+- **Masked Special Forces Embed**: Integrated 3D WebGL shooter game "Masked Special Forces" in Play Zone.
+- **Cloud Function Proxy**: Dedicated CORS proxy wrapper for external API forwarding.
+
+---
+
+## [3.3.0] — 2026-06-13
+
+### 🚀 Features
+- **3 New HTML Games**: "Table Tennis World Tour", "Fun Race 3D" (Solo + 1v1 multiplayer obstacle courses), and "1v1 Match" matchmaking.
+- **Lobby System**: Real-time room creation and matchmaking with room code sharing via Firestore.
+- **Cinema Consolidation**: Deprecated separate `our_cinema` components and unified all watchlists under a consolidated Cinema screen and database schema.
+
+---
+
 ## [3.2.0] — 2026-06-13
 
 ### 🚀 Features
