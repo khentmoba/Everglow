@@ -11,6 +11,10 @@
       }
     }
   },
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs20"
+  },
   "hosting": {
     "public": "build/web",
     "ignore": [
@@ -65,7 +69,6 @@
       }
     ]
   },
-
   "emulators": {
     "auth": {
       "port": 9099
@@ -79,11 +82,7 @@
     "database": {
       "port": 9000
     },
-  "functions": {
-    "source": "functions",
-    "runtime": "nodejs20"
-  },
-  "hosting": {
+    "hosting": {
       "port": 5000
     },
     "pubsub": {
