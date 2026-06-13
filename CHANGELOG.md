@@ -9,6 +9,38 @@ Conventions: 🚀 Features · 🐛 Bug Fixes · ⚡ Performance · 🔒 Security
 
 ---
 
+## [3.2.0] — 2026-06-13
+
+### 🚀 Features
+- **Our Books Feature — Full Books Section**: Brand-new `BooksScreen` with four tabs (Home, Search, To Read, Read) mirroring the Cinema stack. Integrates Open Library API for book search, trending, subject discovery, and work details.
+- **Open Library Integration**: `OpenLibraryService` talks to `openlibrary.org/search.json` (no API key required). Supports search, trending, subject-based discovery, work details, editions lookup, and Internet Archive text extraction.
+- **In-App Reader**: `ReaderScreen` fetches plain text from Internet Archive or Open Library, parses chapters, and renders inline via `flutter_html`. Bookmark persistence and per-chapter navigation.
+- **Our Books Shared List**: New `OurBooksScreen` / `OurBooksService` backed by Firestore `our_books` collection. Couple can maintain a shared book wish list with status tracking (To Read / Reading / Read) per partner.
+- **Books Preview on Dashboard**: `BooksPreview` widget on the dashboard shows recently added or trending books.
+- **Book Details Drawer**: Cinematic `BookDetailsDrawer` with cover art, metadata, subject chips, and read-source links. Mirrors the cinema `EpisodeDrawer` pattern.
+- **Book Cover Cards**: `BookCoverCard` with press-scale animation, gradient overlays, and status badges.
+- **OL Search Modal**: `OlSearchModal` — Open Library search dialog with debounced querying and add-to-list flow.
+- **Chapter List**: `ChapterList` widget parses book text into chapter tiles for the reader.
+
+### 🔧 Cinema Enhancements
+- **Instant Carousel Trailers**: Removed the 2.5 s artificial delay for hero trailer playback. Trailers now play immediately on page change and are prefetched for every slide on mount so the first slide lands on a playing trailer, not a static backdrop.
+- **Carousel Hold Duration Extended**: Auto-rotate timer now waits 18 s (up from 5 s) so the user has time to watch the trailer before the carousel advances. Timer resets on every manual swipe.
+- **Carousel Trailer Prefetch**: `_prefetchCarouselTrailers()` warms TMDB trailer keys for every trending slide at mount time, ensuring instant playback on first load and every swipe.
+- **Poster Hover Scale 1.5×**: Desktop poster hover scale increased from 1.15× to 1.5× with `Alignment.topCenter` so the hover preview fills more of the viewport. Animation eased to 220 ms `easeOutCubic`.
+- **Stronger Cinematic Gradient**: Hero gradient stops tightened from `[0.0, 0.35, 0.70, 1.0]` to `[0.0, 0.28, 0.62, 1.0]` and poster tile gradient strengthened so title, year, and badges stay legible against any trailer frame.
+- **ClipBehavior Fix**: `ListView` in the genre section now has `clipBehavior: Clip.none` wrapped in a `Stack` so the 1.5× poster scale doesn't clip on the edges.
+- **Mobile Trailer Auto-Play**: Episode drawer now auto-plays the trailer on mobile as soon as the key is ready (desktop keeps the existing tap-to-play behavior). Trailer is muted on mobile to satisfy browser autoplay policies.
+- **IgnorePointer on Gradients**: Cinematic gradient overlays in the episode drawer are wrapped in `IgnorePointer` so the Watch Trailer and Close Trailer buttons underneath remain tappable on mobile.
+
+### 📝 Docs
+- Updated CHANGELOG, README, and version for v3.2.0.
+- New `RELEASE_NOTES_v3.2.0.md` documenting the full delta.
+
+### ⚠️ Breaking Changes
+- None. v3.2.0 is fully backward compatible with v3.1.0 data — all new Firestore writes are additive (`our_books` and `read_list` collections are new).
+
+---
+
 ## [3.1.0] — 2026-06-13
 
 ### 🚀 Features

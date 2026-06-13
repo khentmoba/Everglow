@@ -10,6 +10,7 @@ import 'services/auth_service.dart';
 import 'services/presence_service.dart';
 import 'services/storage_service.dart';
 import 'features/cinema/data/services/our_cinema_service.dart';
+import 'features/books/data/services/our_books_service.dart';
 import 'features/date_randomizer/data/services/date_idea_service.dart';
 import 'features/guardian/data/services/guardian_service.dart';
 import 'screens/login_screen.dart';
@@ -60,6 +61,7 @@ class EverglowApp extends StatelessWidget {
         Provider(create: (_) => PresenceService()),
         Provider(create: (_) => DateIdeaService()),
         Provider(create: (_) => OurCinemaService()),
+        Provider(create: (_) => OurBooksService()),
         Provider(create: (_) => GuardianService()),
         Provider(create: (_) => ChatService()),
         ChangeNotifierProvider(create: (_) => GardenProvider()),

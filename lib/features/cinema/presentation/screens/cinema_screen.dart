@@ -67,7 +67,6 @@ class _CinemaScreenState extends State<CinemaScreen>
   // Carousel trailer states
   String? _carouselTrailerKey;
   bool _isPlayingCarouselTrailer = false;
-  Timer? _carouselTrailerTimer;
   final Map<int, String?> _carouselTrailerKeysCache = {};
 
   static final List<Map<String, dynamic>> _featuredGenres = [
@@ -174,7 +173,6 @@ class _CinemaScreenState extends State<CinemaScreen>
     _searchDebounce?.cancel();
     _carouselController.dispose();
     _carouselTimer?.cancel();
-    _carouselTrailerTimer?.cancel();
     super.dispose();
   }
 
@@ -247,6 +245,10 @@ class _CinemaScreenState extends State<CinemaScreen>
     });
 
     _startCarouselAutoPlay();
+    _prefetchCarouselTrailers();
+    // Kick off the trailer for the first slide immediately so the user
+    // lands on a playing hero, not a static backdrop.
+    _startTrailerForPage(0);
     _fetchGenreLists();
   }
 
@@ -264,6 +266,11 @@ class _CinemaScreenState extends State<CinemaScreen>
     }
   }
 
+  // Auto-rotate duration. Long enough for the trailer hook to register
+  // ("so the user can actually watch what it's all about") but short enough
+  // to keep the carousel feeling alive.
+  static const Duration _carouselHoldDuration = Duration(seconds: 18);
+
   void _onCarouselPageChanged(int index) {
     setState(() {
       _carouselPage = index;
@@ -271,31 +278,75 @@ class _CinemaScreenState extends State<CinemaScreen>
       _carouselTrailerKey = null;
     });
 
-    _carouselTrailerTimer?.cancel();
-    _carouselTrailerTimer = Timer(const Duration(milliseconds: 2500), () async {
-      if (_carouselPage != index) return;
-      final item = _trendingCarousel[index];
-      
-      String? key;
-      if (_carouselTrailerKeysCache.containsKey(item.tmdbId)) {
-        key = _carouselTrailerKeysCache[item.tmdbId];
-      } else {
-        key = await _tmdbService.fetchTrailerKey(item.tmdbId, item.mediaType);
-        _carouselTrailerKeysCache[item.tmdbId] = key;
-      }
-      
-      if (_carouselPage == index && mounted && key != null) {
+    // Play trailer immediately — no artificial delay. If the key is already
+    // cached (via _prefetchCarouselTrailers) it shows instantly; otherwise
+    // we fetch in the background and update state when ready.
+    _startTrailerForPage(index);
+    // Reset the rotate timer so the user gets a full hold on the slide they
+    // just landed on.
+    _restartCarouselAutoPlay();
+  }
+
+  void _startTrailerForPage(int index) {
+    if (index < 0 || index >= _trendingCarousel.length) return;
+    final item = _trendingCarousel[index];
+
+    String? key;
+    if (_carouselTrailerKeysCache.containsKey(item.tmdbId)) {
+      key = _carouselTrailerKeysCache[item.tmdbId];
+      if (key != null && _carouselPage == index && mounted) {
         setState(() {
           _carouselTrailerKey = key;
+          _isPlayingCarouselTrailer = true;
+        });
+      }
+      return;
+    }
+
+    _tmdbService
+        .fetchTrailerKey(item.tmdbId, item.mediaType)
+        .then((fetchedKey) {
+      _carouselTrailerKeysCache[item.tmdbId] = fetchedKey;
+      if (_carouselPage == index && mounted && fetchedKey != null) {
+        setState(() {
+          _carouselTrailerKey = fetchedKey;
           _isPlayingCarouselTrailer = true;
         });
       }
     });
   }
 
+  // Pre-warm trailer keys for every hero slide so the first one (and any
+  // swipe) plays instantly, with no spinner or fade-in.
+  void _prefetchCarouselTrailers() {
+    for (var i = 0; i < _trendingCarousel.length; i++) {
+      final item = _trendingCarousel[i];
+      if (_carouselTrailerKeysCache.containsKey(item.tmdbId)) continue;
+      _tmdbService
+          .fetchTrailerKey(item.tmdbId, item.mediaType)
+          .then((key) {
+        _carouselTrailerKeysCache[item.tmdbId] = key;
+        // If the first slide resolves after the carousel has mounted, light
+        // it up without waiting for a swipe.
+        if (i == _carouselPage && mounted && key != null && !_isPlayingCarouselTrailer) {
+          setState(() {
+            _carouselTrailerKey = key;
+            _isPlayingCarouselTrailer = true;
+          });
+        }
+      });
+    }
+  }
+
   void _startCarouselAutoPlay() {
+    _restartCarouselAutoPlay();
+  }
+
+  // Re-arms the hold timer. Called on carousel start and on every manual
+  // swipe so the user always gets a full 18s on the slide they landed on.
+  void _restartCarouselAutoPlay() {
     _carouselTimer?.cancel();
-    _carouselTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _carouselTimer = Timer(_carouselHoldDuration, () {
       if (_trendingCarousel.isEmpty || !_carouselController.hasClients) return;
       final nextPage = (_carouselPage + 1) % _trendingCarousel.length;
       _carouselController.animateToPage(
@@ -635,7 +686,8 @@ class _CinemaScreenState extends State<CinemaScreen>
                             ? Image.network(item.posterPath, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: _cVelvet))
                             : Container(color: _cVelvet))),
 
-                // Cinematic gradient
+                // Cinematic gradient — strengthened so the title, year, and
+                // badges stay legible no matter what frame the trailer is on.
                 Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -643,11 +695,11 @@ class _CinemaScreenState extends State<CinemaScreen>
                       end: Alignment.bottomCenter,
                       colors: [
                         Colors.transparent,
-                        Colors.transparent,
-                        _cBlack.withValues(alpha: 0.7),
-                        _cBlack.withValues(alpha: 0.97),
+                        _cBlack.withValues(alpha: 0.15),
+                        _cBlack.withValues(alpha: 0.78),
+                        _cBlack.withValues(alpha: 0.98),
                       ],
-                      stops: const [0.0, 0.35, 0.70, 1.0],
+                      stops: const [0.0, 0.28, 0.62, 1.0],
                     ),
                   ),
                 ),
@@ -659,7 +711,7 @@ class _CinemaScreenState extends State<CinemaScreen>
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
                       colors: [
-                        _cBlack.withValues(alpha: 0.35),
+                        _cBlack.withValues(alpha: 0.45),
                         Colors.transparent,
                         Colors.transparent,
                       ],
@@ -906,17 +958,23 @@ class _CinemaScreenState extends State<CinemaScreen>
         ),
         SizedBox(
           height: 205,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              return _PosterTile(
-                item: items[index],
-                onTap: () => _showMediaDetails(items[index]),
-              );
-            },
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              ListView.builder(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                clipBehavior: Clip.none,
+                itemCount: items.length,
+                itemBuilder: (context, index) {
+                  return _PosterTile(
+                    item: items[index],
+                    onTap: () => _showMediaDetails(items[index]),
+                  );
+                },
+              ),
+            ],
           ),
         ),
       ],
@@ -1541,8 +1599,9 @@ class _PosterTileState extends State<_PosterTile> {
         },
         onTapCancel: () => setState(() => _pressed = false),
         child: AnimatedScale(
-          scale: _pressed ? 0.93 : (_isHovered ? 1.15 : 1.0),
-          duration: const Duration(milliseconds: 200),
+          scale: _pressed ? 0.93 : (_isHovered ? 1.5 : 1.0),
+          alignment: Alignment.topCenter,
+          duration: const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
           child: Container(
             width: 120,
@@ -1604,10 +1663,10 @@ class _PosterTileState extends State<_PosterTile> {
                           colors: [
                             Colors.transparent,
                             Colors.transparent,
-                            Colors.black.withOpacity(0.3),
-                            Colors.black.withOpacity(0.85),
+                            Colors.black.withOpacity(0.45),
+                            Colors.black.withOpacity(0.95),
                           ],
-                          stops: const [0.0, 0.5, 0.75, 1.0],
+                          stops: const [0.0, 0.45, 0.72, 1.0],
                         ),
                       ),
                     ),

@@ -14,44 +14,35 @@ Everglow tracks your relationship journey through gamified experiences, shared a
 
 ## Latest Release
 
-> **v3.1.0** — Live Presence, Hover-to-Play Trailers & Our Cinema Glass UI
+> **v3.2.0** — Our Books: Open Library Integration, In-App Reader & Cinema Polish
 > [View full changelog →](https://github.com/khentmoba/Everglow/releases/latest)
 
-**v3.1.0 — The Live & Cinematic Update:**
+**v3.2.0 — The Books & Cinematic Polish Update:**
 
-1. **Real-Time Presence Service**:
-   - **Feature**: New `PresenceService` writes a 15 s heartbeat to Firestore `presence/{uid}` with `isOnline`, `lastSeen`, `isDoodling`, and `lastDoodleAt` so the partner can see exactly when you're around.
-   - **Feature**: New `PartnerPresenceIndicator` widget renders a pulsing green dot in the Sanctuary chat header — "Clair is active" or "Active 5m ago" with second-level precision.
-   - **Feature**: New `PartnerDoodleIndicator` overlay on the Canvas screen shows a live "Clair is doodling ✨ 12s" banner with an animated dot whenever the partner is actively drawing.
-   - **Feature**: Dashboard wires the heartbeat into `WidgetsBindingObserver` and the browser's `pagehide` / `beforeunload` events — the user flips offline the moment they close the tab.
+1. **Our Books Feature — Full Books Section**:
+   - **Feature**: Brand-new `BooksScreen` with four tabs (Home, Search, To Read, Read) powered by the Open Library API — no API key required.
+   - **Feature**: `OpenLibraryService` provides book search, trending, subject-based discovery, work/edition details, and Internet Archive text extraction.
+   - **Feature**: `ReaderScreen` fetches plain text from Internet Archive or Open Library, parses chapters, and renders inline via `flutter_html` with bookmark persistence.
+   - **Feature**: `OurBooksScreen` / `OurBooksService` backed by Firestore `our_books` collection for a shared couple book wish list with per-partner status tracking.
+   - **Feature**: `BooksPreview` on the dashboard shows recently added books.
+   - **Feature**: Cinematic `BookDetailsDrawer` with cover art, metadata, subject chips, and read-source links.
+   - **Feature**: `OlSearchModal` — Open Library search dialog with debounced querying and add-to-list flow.
 
-2. **Trailer Player + YouTube Integration**:
-   - **Feature**: New `TrailerPlayer` widget uses a dedicated `HTMLIFrameElement` YouTube embed with `autoplay`, `muted`, `controls=0`, `loop=1`, `playlist={key}`, `enablejsapi=1`, `playsinline=1`, `modestbranding=1` and `pointer-events: none` so the iframe never blocks the parent gesture surface.
-   - **Feature**: `TMDBService.fetchTrailerKey(tmdbId, mediaType)` hits `/{type}/{id}/videos` with a priority chain — official YouTube Trailer → any YouTube Trailer → any YouTube video — and caches the result per `mediaType_tmdbId`.
-   - **Feature**: The trending hero carousel now swaps its still backdrop for the live, muted, looping YouTube trailer of the active card 2.5 s after the page settles.
-   - **Feature**: Desktop hover on a poster tile scales it to 1.15×, drops a rose-glow shadow, and 600 ms later swaps the poster for the looping trailer preview.
-   - **Feature**: A floating "Watch Trailer" button on the cinematic hero backdrop of the Episode Drawer opens a full trailer player with a "Close Trailer" pill.
+2. **Cinema — Instant Carousel Trailers**:
+   - **Feature**: Removed the 2.5 s artificial delay — trailers now play immediately on page change.
+   - **Feature**: `_prefetchCarouselTrailers()` pre-warms TMDB trailer keys for every trending slide at mount so the first slide lands on a playing trailer.
+   - **Feature**: Auto-rotate timer extended to 18 s (up from 5 s) and resets on every manual swipe so the user gets a full look.
 
-3. **Our Cinema Glass UI + Couple Badges**:
-   - **Feature**: Glassmorphic dark cards (`Color(0x2E2A1B3D)`) with deep-rose border + 24 px shadow lift on hover.
-   - **Feature**: New "Watched Together 💞" gradient pill (Khent → Clair) replaces the per-user chips when both partners have watched. Otherwise two compact avatar pills (K / C) light up in their respective accent color.
-   - **Feature**: Hover-to-play trailers on every list row with a "TRAILER" green pill that animates in while the trailer plays.
-   - **Feature**: New `+` header button opens `TMDBSearchModal` with `initialScope: 'ours'`, pre-selecting the couple chip.
-   - **Feature**: Empty "To Watch" state shows a glowing "Add a movie or series" CTA that jumps straight to the same modal.
-   - **Feature**: `OurCinemaItem.toMediaItem()` adapter lets the shared list reuse the same `EpisodeDrawer` and watch flow as the personal Cinema screen.
+3. **Cinema — Poster & Gradient Upgrades**:
+   - **Feature**: Desktop poster hover scale increased to 1.5× (from 1.15×) with `Alignment.topCenter` and 220 ms `easeOutCubic` animation.
+   - **Feature**: Hero gradient stops tightened and poster tile gradients strengthened for better legibility against any trailer frame.
+   - **Fix**: `ListView` in genre sections gets `clipBehavior: Clip.none` wrapped in a `Stack` so the 1.5× scale never clips on edges.
 
-4. **Videasy Provider Polish**:
-   - **Feature**: `VideoPlayerScreen` now appends `?autoplay=true` for movies and `?autoplay=true&nextButton=true&episodeSelector=true` for TV when the selected provider is Videasy.
+4. **Episode Drawer Mobile Polish**:
+   - **Feature**: Episode drawer now auto-plays the trailer on mobile as soon as the key is ready (desktop keeps tap-to-play). Trailer is muted on mobile to satisfy browser autoplay policies.
+   - **Fix**: Gradient overlays wrapped in `IgnorePointer` so Watch Trailer and Close Trailer buttons remain tappable on mobile.
 
-5. **Bug Fixes & Polish**:
-   - **Fix**: Guardian particles now animate their position correctly — `AnimatedPositioned` owns the key, `IgnorePointer` is the child.
-   - **Fix**: Guardian color uses `withValues(alpha:)` to silence the deprecation.
-   - **Fix**: Episode drawer backdrop has a proper `errorBuilder` fallback.
-   - **Fix**: Cinema carousel hero backdrop has a velvet fallback on image failure.
-   - **Fix**: Sanctuary chat header now shows the live partner indicator instead of a static version stamp.
-   - **Fix**: Stripped the UTF-8 BOM from `episode_drawer.dart` and tightened the `_trailerKey!` null assertion in the trailer stack.
-
-_Previous releases: [v3.0.0 "Cinematic & Performance"](https://github.com/khentmoba/Everglow/releases/tag/v3.0.0) · [v2.1.0 "Play Zone Overhaul"](https://github.com/khentmoba/Everglow/releases/tag/v2.1.0) · [v2.0.0 "Mobile Optimization"](https://github.com/khentmoba/Everglow/releases/tag/v2.0.0) · [v1.5.3 "Real Iframe Fix"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.3) · [v1.5.2 "PH Trending"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.2) · [v1.5.1 "Sandbox Hardening"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.1) · [v1.5.0 "Cinema"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.0) · [v1.4.0 "Multi-Provider"](https://github.com/khentmoba/Everglow/releases/tag/v1.4.0) · [v1.3.0 "Racing Game"](https://github.com/khentmoba/Everglow/releases/tag/v1.3.0) · [v1.2.0 "Play Zone"](https://github.com/khentmoba/Everglow/releases/tag/v1.2.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)_
+_Previous releases: [v3.1.0 "Live & Cinematic"](https://github.com/khentmoba/Everglow/releases/tag/v3.1.0) · [v3.0.0 "Cinematic & Performance"](https://github.com/khentmoba/Everglow/releases/tag/v3.0.0) · [v2.1.0 "Play Zone Overhaul"](https://github.com/khentmoba/Everglow/releases/tag/v2.1.0) · [v2.0.0 "Mobile Optimization"](https://github.com/khentmoba/Everglow/releases/tag/v2.0.0) · [v1.5.3 "Real Iframe Fix"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.3) · [v1.5.2 "PH Trending"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.2) · [v1.5.1 "Sandbox Hardening"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.1) · [v1.5.0 "Cinema"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.0) · [v1.4.0 "Multi-Provider"](https://github.com/khentmoba/Everglow/releases/tag/v1.4.0) · [v1.3.0 "Racing Game"](https://github.com/khentmoba/Everglow/releases/tag/v1.3.0) · [v1.2.0 "Play Zone"](https://github.com/khentmoba/Everglow/releases/tag/v1.2.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)_
 
 ---
 
@@ -99,13 +90,19 @@ _Previous releases: [v3.0.0 "Cinematic & Performance"](https://github.com/khentm
 | **Our Cinema Hover Trailers** | Hover-to-play trailers on every list row with a "TRAILER" green pill | **3.1.0** |
 | **Add to Our Cinema** | `+` header button + empty-state CTA open `TMDBSearchModal` with `initialScope: 'ours'` | **3.1.0** |
 | **Videasy Autoplay Params** | `?autoplay=true` for movies, `?autoplay=true&nextButton=true&episodeSelector=true` for TV | **3.1.0** |
+| **Our Books Feature** | Full books section with Open Library API, search, discovery, in-app reader, and shared couple list | **3.2.0** |
+| **In-App Reader** | `ReaderScreen` fetches plain text from Internet Archive, parses chapters, renders via `flutter_html` | **3.2.0** |
+| **Our Books Shared List** | Firestore-backed `our_books` collection with per-partner status tracking | **3.2.0** |
+| **Instant Carousel Trailers** | Zero-delay trailer playback with full-slide prefetch; auto-rotate extended to 18 s | **3.2.0** |
+| **Enhanced Poster Hover** | 1.5× poster scale (up from 1.15×) with `Alignment.topCenter` and faster easing | **3.2.0** |
+| **Mobile Trailer Auto-Play** | Episode drawer auto-plays trailer on mobile (muted) | **3.2.0** |
 
 ## Tech Stack
 
 - **Framework:** Flutter (Web)
 - **Backend:** Firebase (Auth, Firestore, Storage, Hosting)
 - **State Management:** Provider
-- **External APIs:** TMDB, OpenTDB (Trivia), Last.fm
+- **External APIs:** TMDB, Open Library (Books), OpenTDB (Trivia), Last.fm
 - **Real-Time Presence:** Firestore `presence/{uid}` collection with 15 s heartbeat
 - **Trailer Playback:** YouTube IFrame Player API via `dart:ui_web` + `package:web`
 - **Multiplayer:** Firestore real-time snapshots for HexGL time-trial challenges
@@ -127,6 +124,7 @@ lib/
     heartbeat/                  # Daily mood tracking
     guardian/                   # Animated cat mascot
     academy/                    # Trivia game
+    books/                      # Book discovery & reader (Open Library API)
     cinema/                     # Movie watch list (TMDB, multi-provider, trailers)
       presentation/widgets/     # TrailerPlayer, EpisodeDrawer, TMDBSearchModal
     chat/                       # Private couple chat
@@ -148,7 +146,7 @@ assets/
   audio/piano/                  # Reference piano samples (a, c, e, f)
 web/
   hexgl/                        # HexGL embed HTML (no-cache)
-CHANGELOG.md                    # Full release-by-release history (v1.0.0 → v3.1.0)
+CHANGELOG.md                    # Full release-by-release history (v1.0.0 → v3.2.0)
 ```
 
 ## Getting Started
@@ -206,6 +204,7 @@ The workflow:
 
 The full release-by-release history is in [CHANGELOG.md](./CHANGELOG.md). Highlights:
 
+- **v3.2.0** — Our Books (Open Library Integration, In-App Reader), Instant Carousel Trailers, Mobile Trailer Polish
 - **v3.1.0** — Live Presence, Hover-to-Play Trailers, Our Cinema Glass UI
 - **v3.0.0** — Cinematic Cinema Overhaul, Piano Tiles Rewrite, Breyan + Octagram Access
 - **v2.1.0** — Play Zone Overhaul (HexGL Drift + Song Selection)
