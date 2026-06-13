@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>HexGL</title>
+    <meta charset="utf-8">
+    <meta name="description" content="HexGL racing game (Everglow embed)">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+    <link rel="stylesheet" href="css/multi.css" type="text/css" charset="utf-8">
+    <link rel="stylesheet" href="css/fonts.css" type="text/css" charset="utf-8">
+    <style>
+      html, body {
+        padding: 0;
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: #000;
+        overflow: hidden;
+        overscroll-behavior: none;
+        touch-action: none;
+      }
+      canvas { pointer-events: none; width: 100%; }
+      #overlay {
+        position: absolute;
+        z-index: 9999;
+        top: 0;
+        left: 0;
+        width: 100%;
+      }
+      #everglow-embed-overlay {
+        position: fixed;
+        z-index: 10000;
+        top: 0; left: 0; right: 0; bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        background: radial-gradient(ellipse at center, rgba(20,20,30,0.85) 0%, rgba(0,0,0,0.95) 100%);
+        color: #f4c2c2;
+        font-family: "BebasNeueRegular", "Helvetica Neue", Arial, sans-serif;
+        text-align: center;
+        cursor: pointer;
+        -webkit-user-select: none;
+        user-select: none;
+        touch-action: manipulation;
+      }
+      #everglow-embed-overlay h1 {
+        font-size: 48px;
+        letter-spacing: 4px;
+        margin: 0 0 8px 0;
+        text-shadow: 0 0 16px rgba(196,24,91,0.6);
+      }
+      #everglow-embed-overlay p {
+        font-size: 16px;
+        opacity: 0.85;
+        margin: 4px 0;
+        letter-spacing: 1px;
+      }
+      #everglow-embed-overlay .pulse {
+        margin-top: 28px;
+        font-size: 20px;
+        letter-spacing: 3px;
+        animation: everglowPulse 1.6s ease-in-out infinite;
+      }
+      @keyframes everglowPulse {
+        0%, 100% { opacity: 0.55; }
+        50% { opacity: 1; }
+      }
+      #everglow-finish-banner {
+        position: fixed;
+        z-index: 10001;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(20, 20, 30, 0.92);
+        border: 1px solid rgba(232, 213, 183, 0.4);
+        border-radius: 20px;
+        padding: 28px 40px;
+        color: #f4c2c2;
+        font-family: "BebasNeueRegular", Arial, sans-serif;
+        text-align: center;
+        display: none;
+        box-shadow: 0 0 40px rgba(196, 24, 91, 0.4);
+      }
+      #everglow-finish-banner .title {
+        font-size: 36px;
+        letter-spacing: 3px;
+        margin-bottom: 8px;
+      }
+      #everglow-finish-banner .time {
+        font-size: 44px;
+        color: #e8d5b7;
+        letter-spacing: 2px;
+      }
+      #everglow-finish-banner .hint {
+        font-size: 14px;
+        opacity: 0.7;
+        margin-top: 14px;
+        letter-spacing: 1px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="step-1" style="display:none">
+      <div id="global"></div>
+      <div id="title"></div>
+      <div id="menucontainer">
+        <div id="menu">
+          <div id="start">Start</div>
+          <div id="s-controlType">Controls: Keyboard</div>
+          <div id="s-quality">Quality: High</div>
+          <div id="s-hud">HUD: On</div>
+          <div id="s-godmode" style="display: none">Godmode: Off</div>
+          <div id="s-credits">Credits</div>
+        </div>
+      </div>
+    </div>
+    <div id="step-2" style="display: none">
+      <div id="ctrl-help">Click/Touch to continue.</div>
+    </div>
+    <div id="step-3" style="display: none">
+      <div id="progressbar"></div>
+    </div>
+    <div id="step-4" style="display: none">
+      <div id="overlay"></div>
+      <div id="main"></div>
+    </div>
+    <div id="step-5" style="display: none">
+      <div id="time"></div>
+      <div id="ctrl-help">Click/Touch to continue.</div>
+    </div>
+    <div id="credits" style="display: none"></div>
+    <div id="leapinfo" style="display: none"></div>
+
+    <div id="everglow-embed-overlay">
+      <h1 id="everglow-title">HEXGL</h1>
+      <p id="everglow-subtitle">Cityscape Track</p>
+      <p class="pulse" id="everglow-start-hint">Tap to start</p>
+    </div>
+
+    <div id="everglow-finish-banner">
+      <div class="title" id="everglow-finish-title">FINISHED</div>
+      <div class="time" id="everglow-finish-time">--:--.---</div>
+      <div class="hint">Returning to Everglow...</div>
+    </div>
+
+    <script src="libs/leap-0.4.1.min.js"></script>
+    <script src="libs/Three.dev.js"></script>
+    <script src="libs/ShaderExtras.js"></script>
+    <script src="libs/postprocessing/EffectComposer.js"></script>
+    <script src="libs/postprocessing/RenderPass.js"></script>
+    <script src="libs/postprocessing/BloomPass.js"></script>
+    <script src="libs/postprocessing/ShaderPass.js"></script>
+    <script src="libs/postprocessing/MaskPass.js"></script>
+    <script src="libs/Detector.js"></script>
+    <script src="libs/Stats.js"></script>
+    <script src="libs/DAT.GUI.min.js"></script>
+
+    <script src="bkcore.coffee/controllers/TouchController.js"></script>
+    <script src="bkcore.coffee/controllers/OrientationController.js"></script>
+    <script src="bkcore.coffee/controllers/GamepadController.js"></script>
+
+    <script src="bkcore.coffee/Timer.js"></script>
+    <script src="bkcore.coffee/ImageData.js"></script>
+    <script src="bkcore.coffee/Utils.js"></script>
+
+    <script src="bkcore/threejs/RenderManager.js"></script>
+    <script src="bkcore/threejs/Shaders.js"></script>
+    <script src="bkcore/threejs/Particles.js"></script>
+    <script src="bkcore/threejs/Loader.js"></script>
+
+    <script src="bkcore/Audio.js"></script>
+
+    <script src="bkcore/hexgl/HUD.js"></script>
+    <script src="bkcore/hexgl/RaceData.js"></script>
+    <script src="bkcore/hexgl/ShipControls.js"></script>
+    <script src="bkcore/hexgl/ShipEffects.js"></script>
+    <script src="bkcore/hexgl/CameraChase.js"></script>
+    <script src="bkcore/hexgl/Gameplay.js"></script>
+
+    <script src="bkcore/hexgl/tracks/Cityscape.js"></script>
+
+    <script src="bkcore/hexgl/HexGL.js"></script>
+
+    <script src="launch.js"></script>
+
+    <script>
+    (function() {
+      // ---- Everglow embed bridge ----
+      var PARENT_ORIGIN = '*';
+      var params = new URLSearchParams(window.location.search);
+      var mode = params.get('mode') || 'standalone';
+      var player = params.get('player') || 'Anonym';
+      var replayRaw = params.get('replay');
+      var wantQuality = parseInt(params.get('quality') || '0', 10); // 0 = auto/low
+      var hudParam = params.get('hud');
+      var wantHud = hudParam == null ? true : hudParam !== '0';
+      var godmode = params.get('godmode') === '1';
+      var replayMode = params.get('replayMode') === '1';
+
+      function postToParent(type, payload) {
+        try {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage(Object.assign({ source: 'hexgl-embed', type: type }, payload || {}), PARENT_ORIGIN);
+          }
+        } catch (e) { /* ignore */ }
+      }
+
+      function getQuality() {
+        // Auto-pick a quality. On small viewports default to LOW (1) for fps.
+        if (wantQuality > 0) return Math.max(0, Math.min(3, wantQuality));
+        try {
+          var w = window.innerWidth, h = window.innerHeight;
+          var shortSide = Math.min(w, h);
+          if (shortSide < 520) return 1; // mobile low
+          if (shortSide < 900) return 2; // tablet mid
+          return 3; // desktop very high
+        } catch (e) { return 2; }
+      }
+
+      // Parse the optional ?replay= base64url encoded JSON array of [t,px,py,pz,qx,qy,qz,qw]
+      function decodeReplay(b64) {
+        if (!b64) return null;
+        try {
+          var b64std = b64.replace(/-/g, '+').replace(/_/g, '/');
+          var pad = b64std.length % 4;
+          if (pad === 2) b64std += '==';
+          else if (pad === 3) b64std += '=';
+          else if (pad === 1) throw new Error('bad length');
+          var json = decodeURIComponent(escape(window.atob(b64std)));
+          var data = JSON.parse(json);
+          if (!Array.isArray(data) || data.length === 0) return null;
+          return data;
+        } catch (e) {
+          console.error('Failed to decode replay', e);
+          return null;
+        }
+      }
+
+      // If a replay was provided, write it into localStorage so the HexGL replay
+      // mode will pick it up.
+      var decodedReplay = decodeReplay(replayRaw);
+      if (decodedReplay) {
+        try { localStorage['race-Cityscape-replay'] = JSON.stringify(decodedReplay); } catch (e) {}
+      }
+
+      // Hide the original start overlay - we'll show our own.
+      var step1 = document.getElementById('step-1');
+      if (step1) step1.style.display = 'none';
+
+      // Hook into the loader
+      var origInit = window.init;
+      window.init = function(controlType, quality, hud, godmode) {
+        var chosenQuality = quality;
+        if (mode === 'embed') {
+          // Force 0 (keyboard) so the embedded shipControls uses the keyboard path,
+          // which we then drive via postMessage from Flutter.
+          controlType = 0;
+          chosenQuality = getQuality();
+          if (hudParam != null) hud = wantHud ? 1 : 0;
+          godmode = !!godmode || false;
+        }
+        var hexGL = new bkcore.hexgl.HexGL({
+          document: document,
+          width: window.innerWidth,
+          height: window.innerHeight,
+          container: $('main'),
+          overlay: $('overlay'),
+          gameover: $('step-5'),
+          quality: chosenQuality,
+          difficulty: 0,
+          hud: hud === 1,
+          controlType: controlType,
+          godmode: godmode,
+          track: 'Cityscape',
+          player: player,
+          mode: replayMode ? 'replay' : 'timeattack'
+        });
+        window.hexGL = hexGL;
+        postToParent('ready', { quality: chosenQuality });
+
+        hexGL.load({
+          onLoad: function() {
+            console.log('LOADED.');
+            hexGL.init();
+
+            // Monkey-patch shipControls to:
+            //  - auto-set key.forward on race start
+            //  - read a custom `key.boost` flag and add thrust
+            try {
+              var sc = hexGL.components.shipControls;
+              if (sc && !sc.__everglowPatched) {
+                sc.__everglowPatched = true;
+                sc.key.boost = false;
+                var origUpdate = sc.update.bind(sc);
+                sc.update = function(dt) {
+                  if (this.key.boost) {
+                    this.speed += 0.045 * dt;
+                  }
+                  origUpdate(dt);
+                };
+              }
+            } catch (e) { console.error('patch error', e); }
+
+            $('step-3').style.display = 'none';
+            $('step-4').style.display = 'block';
+
+            // Override default finish flow to broadcast to parent and not navigate.
+            if (hexGL.gameplay) {
+              var gp = hexGL.gameplay;
+              gp.onFinish = function() {
+                hexGL.components.shipControls.terminate();
+                var finishTime = gp.finishTime;
+                var lapTimes = gp.lapTimes || [];
+                var result = gp.result;
+                var replay = null;
+                try { replay = gp.raceData ? gp.raceData.export() : null; } catch (e) { replay = null; }
+                // Visual banner
+                try {
+                  var banner = document.getElementById('everglow-finish-banner');
+                  var titleEl = document.getElementById('everglow-finish-title');
+                  var timeEl = document.getElementById('everglow-finish-time');
+                  var ts = bkcore.Timer.msToTimeString(finishTime || 0);
+                  if (timeEl) timeEl.textContent = (ts.m || '0') + "'" + (ts.s || '00') + "''" + (ts.ms || '000');
+                  if (titleEl) {
+                    titleEl.textContent = (result === gp.results.FINISH) ? 'FINISHED' :
+                                          (result === gp.results.DESTROYED) ? 'DESTROYED' :
+                                          (result === gp.results.REPLAY) ? 'REPLAY END' : 'RACE OVER';
+                  }
+                  if (banner) banner.style.display = 'block';
+                } catch (e) {}
+                postToParent('finish', {
+                  finishTime: finishTime,
+                  lapTimes: lapTimes,
+                  result: result,
+                  resultLabel: (result === gp.results.FINISH) ? 'finished' :
+                                (result === gp.results.DESTROYED) ? 'destroyed' : 'other',
+                  replay: replay
+                });
+              };
+            }
+
+            hexGL.start();
+            postToParent('started', { quality: chosenQuality });
+          },
+          onError: function(s) {
+            postToParent('error', { message: 'Error loading ' + s });
+            console.error("Error loading " + s + ".");
+          },
+          onProgress: function(p, t, n) {
+            console.log("LOADED " + t + " : " + n + " ( " + p.loaded + " / " + p.total + " ).");
+            var progressbar = $('progressbar');
+            if (progressbar) progressbar.style.width = "" + (p.loaded / p.total * 100) + "%";
+          }
+        });
+      };
+
+      // After the load hook above is installed, call window.init() with the
+      // embed's chosen settings if the page is opened in embed mode.
+      function tryBootEmbed() {
+        if (mode !== 'embed') return;
+        // If the page loaded a replay, use replay mode to view it.
+        var quality = getQuality();
+        window.init(0, quality, wantHud ? 1 : 0, godmode ? 1 : 0);
+      }
+
+      // Click handler: tap-to-start in embed mode.
+      var overlay = document.getElementById('everglow-embed-overlay');
+      if (mode === 'embed') {
+        overlay.addEventListener('click', function() {
+          overlay.style.display = 'none';
+          postToParent('userStart', {});
+          tryBootEmbed();
+        });
+        overlay.addEventListener('touchend', function(e) {
+          e.preventDefault();
+          overlay.style.display = 'none';
+          postToParent('userStart', {});
+          tryBootEmbed();
+        }, { passive: false });
+      } else {
+        overlay.style.display = 'none';
+      }
+
+      // ---- postMessage input bridge ----
+      var keyMap = {
+        forward: 'forward',
+        backward: 'backward',
+        left: 'left',
+        right: 'right',
+        drift: 'ltrigger',
+        boost: 'rtrigger'
+      };
+
+      window.addEventListener('message', function(event) {
+        var data = event.data;
+        if (!data || data.source !== 'everglow-parent' || !data.type) return;
+
+        if (data.type === 'loadReplay') {
+          try {
+            if (data.replay && Array.isArray(data.replay) && data.replay.length > 0) {
+              localStorage['race-Cityscape-replay'] = JSON.stringify(data.replay);
+              postToParent('replayLoaded', { frames: data.replay.length });
+            } else {
+              try { localStorage.removeItem('race-Cityscape-replay'); } catch (e) {}
+              postToParent('replayCleared', {});
+            }
+            if (data.autoStart && window.hexGL) {
+              try { window.hexGL.restart(); } catch (e) {}
+            }
+          } catch (e) {
+            postToParent('error', { message: 'loadReplay failed: ' + e });
+          }
+          return;
+        }
+
+        if (data.type === 'loadAndStartReplay') {
+          try {
+            if (data.replay && Array.isArray(data.replay) && data.replay.length > 0) {
+              localStorage['race-Cityscape-replay'] = JSON.stringify(data.replay);
+              if (window.hexGL) {
+                try { window.hexGL.restart(); } catch (e) {}
+              } else {
+                // HexGL not initialised yet; hide the start overlay and call init.
+                var ov = document.getElementById('everglow-embed-overlay');
+                if (ov) ov.style.display = 'none';
+                tryBootEmbed();
+              }
+            }
+          } catch (e) {
+            postToParent('error', { message: 'loadAndStartReplay failed: ' + e });
+          }
+          return;
+        }
+
+        if (!window.hexGL || !window.hexGL.components || !window.hexGL.components.shipControls) return;
+        var sc = window.hexGL.components.shipControls;
+        if (data.type === 'input') {
+          var key = keyMap[data.key];
+          if (!key) return;
+          var value = !!data.value;
+          sc.key[key] = value;
+          if (key === 'ltrigger' && data.driftSide) {
+            if (data.driftSide === 'left') sc.key.rtrigger = false;
+            else if (data.driftSide === 'right') sc.key.ltrigger = false;
+            else {
+              if (sc.key.left) sc.key.rtrigger = false;
+              else if (sc.key.right) sc.key.ltrigger = false;
+            }
+          }
+          if (data.key === 'customBoost') {
+            sc.key.boost = !!data.value;
+          }
+        } else if (data.type === 'restart') {
+          try { window.hexGL.restart(); } catch (e) {}
+          postToParent('restarted', {});
+        } else if (data.type === 'reset') {
+          try { window.hexGL.reset(); } catch (e) {}
+        } else if (data.type === 'ping') {
+          postToParent('pong', { quality: getQuality() });
+        } else if (data.type === 'setQuality') {
+          postToParent('qualityRequested', { quality: data.value });
+        }
+      });
+
+      // Tell the parent we're alive.
+      postToParent('boot', { mode: mode, hasReplay: !!decodedReplay, quality: getQuality() });
+    })();
+    </script>
+  </body>
+</html>

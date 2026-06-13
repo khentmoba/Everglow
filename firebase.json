@@ -42,13 +42,15 @@
           { "key": "Pragma",        "value": "no-cache" },
           { "key": "Expires",       "value": "0" }
         ]
+      },
+      {
+        "source": "/hexgl/**",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=3600" }
+        ]
       }
     ],
     "rewrites": [
-      {
-        "source": "/racing/**",
-        "destination": "/racing/index.html"
-      },
       {
         "source": "**",
         "destination": "/index.html"

@@ -59,7 +59,3 @@ wiki/
 # Binaries and large files
 firebase.exe
 node_modules/
-
-# Racing game generated output
-/racing-game/dist/
-/racing-game/node_modules/

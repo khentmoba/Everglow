@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Everglow AC Relay — Test Client</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #0e0e18; color: #eee; font: 13px/1.4 -apple-system, sans-serif; }
+  .row { display: flex; gap: 12px; padding: 12px; }
+  .card { background: #181826; border: 1px solid #2a2a3a; border-radius: 8px; padding: 12px; flex: 1; }
+  h2 { margin: 0 0 8px; font-size: 14px; color: #f4c2c2; }
+  .log { height: 200px; overflow: auto; background: #0a0a14; border: 1px solid #2a2a3a; padding: 8px; font-family: monospace; font-size: 11px; }
+  canvas { background: #0a0a14; display: block; border: 1px solid #2a2a3a; }
+  button { background: #c2185b; color: #fff; border: 0; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+  button:disabled { background: #444; cursor: not-allowed; }
+  input { background: #0a0a14; color: #eee; border: 1px solid #2a2a3a; padding: 6px 8px; border-radius: 4px; }
+  #status { padding: 8px 12px; background: #1a1a2e; border-bottom: 1px solid #2a2a3a; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; background: #2a2a3a; margin-right: 6px; font-size: 11px; }
+</style>
+</head>
+<body>
+<div id="status">
+  <span class="pill" id="connPill">disconnected</span>
+  <span class="pill" id="phasePill">idle</span>
+  <span class="pill" id="matchPill">no match</span>
+  <span id="scoreLine" style="margin-left: 8px;"></span>
+</div>
+<div class="row">
+  <div class="card" style="flex: 0 0 280px;">
+    <h2>1. Connect</h2>
+    <p style="margin: 4px 0 8px; color: #aaa;">Open this page in two tabs. Each tab is one player.</p>
+    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+      <input id="nameInput" placeholder="display name" value="Khent" style="flex: 1;">
+      <input id="uidInput" placeholder="user id" value="khent" style="flex: 1;">
+    </div>
+    <div style="margin-top: 8px; display: flex; gap: 6px;">
+      <button id="connectBtn">Connect</button>
+      <button id="disconnectBtn" disabled>Disconnect</button>
+    </div>
+    <h2 style="margin-top: 16px;">2. Log</h2>
+    <div class="log" id="log"></div>
+  </div>
+  <div class="card" style="flex: 1; min-width: 0;">
+    <h2>3. Arena (keyboard: WASD + mouse)</h2>
+    <canvas id="arena" width="800" height="480"></canvas>
+    <p style="margin: 8px 0 0; color: #aaa;">Click the arena first to focus, then move with WASD. Aim with mouse. Left-click to fire.</p>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const log = (msg) => {
+  const el = $('log');
+  const t = new Date().toLocaleTimeString();
+  el.innerHTML = `[${t}] ${msg}<br>` + el.innerHTML;
+};
+
+let ws = null;
+let match = null;
+let you = null;
+let opponent = null;
+let bullets = [];
+let input = { forward: false, backward: false, left: false, right: false, angle: 0 };
+let arena = { width: 1000, height: 600 };
+let scale = 0.8;
+let arenaCanvas = $('arena');
+let arenaCtx = arenaCanvas.getContext('2d');
+let matchStartAt = 0;
+
+function setStatus(conn, phase, matchId, score) {
+  $('connPill').textContent = conn;
+  $('connPill').style.background = conn === 'connected' ? '#1b5e20' : '#5a1b1b';
+  $('phasePill').textContent = phase;
+  $('matchPill').textContent = matchId ? `match: ${matchId.slice(0, 10)}` : 'no match';
+  $('scoreLine').textContent = score || '';
+}
+
+function connect() {
+  const name = $('nameInput').value || 'Player';
+  const uid = $('uidInput').value || ('u_' + Math.random().toString(36).slice(2, 8));
+  const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`;
+  log(`connecting to ${url}`);
+  ws = new WebSocket(url);
+  ws.onopen = () => {
+    log('ws open');
+    setStatus('connected', 'joining', null, '');
+    ws.send(JSON.stringify({
+      type: 'join',
+      userId: uid,
+      displayName: name,
+      color: name === 'Khent' ? '#c2185b' : '#d4b5d6',
+      accentColor: name === 'Khent' ? '#e8d5b7' : '#f4c2c2',
+    }));
+    $('connectBtn').disabled = true;
+    $('disconnectBtn').disabled = false;
+  };
+  ws.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    log(`← ${m.type}${m.matchId ? ' ' + m.matchId.slice(0, 8) : ''}`);
+    if (m.type === 'waiting') {
+      setStatus('connected', 'waiting', null, m.message || '');
+    } else if (m.type === 'welcome') {
+      match = m;
+      you = m.you;
+      opponent = m.opponent;
+      arena = m.config.arena;
+      scale = Math.min(arenaCanvas.width / arena.width, arenaCanvas.height / arena.height);
+      matchStartAt = Date.now();
+      setStatus('connected', 'active', m.matchId, `${you.kills} - ${opponent.kills}`);
+    } else if (m.type === 'state') {
+      you = m.you;
+      opponent = m.opponent;
+      bullets = m.bullets;
+      setStatus('connected', 'active', match?.matchId, `${you.kills} - ${opponent.kills}`);
+      draw();
+    } else if (m.type === 'hit') {
+      log(`  hit: ${m.shooterId.slice(0, 6)} -> ${m.victimId.slice(0, 6)} hp=${m.newHp}`);
+    } else if (m.type === 'kill') {
+      log(`  KILL: ${m.killerId.slice(0, 6)} (${m.killerKills}) killed ${m.victimId.slice(0, 6)} (${m.victimKills})`);
+    } else if (m.type === 'respawn') {
+      log(`  respawn: ${m.playerId.slice(0, 6)} at (${m.x.toFixed(0)},${m.y.toFixed(0)})`);
+    } else if (m.type === 'matchEnd') {
+      const won = m.winnerId === (you && you.id);
+      setStatus('connected', won ? 'won' : 'lost', match?.matchId, `${m.yourKills} - ${m.opponentKills}`);
+      log(`MATCH END: ${won ? 'YOU WON' : 'YOU LOST'} (reason=${m.reason}, ${m.yourKills}-${m.opponentKills})`);
+    } else if (m.type === 'opponentLeft') {
+      log('opponent left');
+    } else if (m.type === 'error') {
+      log('ERROR: ' + m.message);
+    }
+  };
+  ws.onclose = () => {
+    log('ws closed');
+    setStatus('disconnected', 'idle', null, '');
+    $('connectBtn').disabled = false;
+    $('disconnectBtn').disabled = true;
+  };
+  ws.onerror = (e) => log('ws error');
+}
+
+function disconnect() {
+  if (ws) {
+    try { ws.send(JSON.stringify({ type: 'leave' })); } catch (_) {}
+    ws.close();
+    ws = null;
+  }
+}
+
+function sendInput() {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({ type: 'input', ...input }));
+}
+
+function sendShoot() {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({ type: 'shoot' }));
+}
+
+let inputTimer = null;
+function startInputLoop() {
+  if (inputTimer) return;
+  inputTimer = setInterval(sendInput, 50); // 20Hz
+}
+
+// ---- Keyboard ----
+window.addEventListener('keydown', (e) => {
+  if (e.repeat) return;
+  switch (e.key.toLowerCase()) {
+    case 'w': input.forward = true; startInputLoop(); break;
+    case 'a': input.left = true; startInputLoop(); break;
+    case 's': input.backward = true; startInputLoop(); break;
+    case 'd': input.right = true; startInputLoop(); break;
+    case ' ': sendShoot(); e.preventDefault(); break;
+  }
+});
+window.addEventListener('keyup', (e) => {
+  switch (e.key.toLowerCase()) {
+    case 'w': input.forward = false; break;
+    case 'a': input.left = false; break;
+    case 's': input.backward = false; break;
+    case 'd': input.right = false; break;
+  }
+});
+
+// ---- Mouse aim ----
+arenaCanvas.addEventListener('mousemove', (e) => {
+  const rect = arenaCanvas.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  input.angle = Math.atan2(e.clientY - cy, e.clientX - cx);
+});
+arenaCanvas.addEventListener('mousedown', (e) => {
+  if (e.button === 0) sendShoot();
+});
+
+// ---- Render ----
+function draw() {
+  const ctx = arenaCtx;
+  ctx.clearRect(0, 0, arenaCanvas.width, arenaCanvas.height);
+  // Arena border
+  ctx.strokeStyle = '#2a2a3a';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(0, 0, arena.width * scale, arena.height * scale);
+
+  // Bullets
+  ctx.fillStyle = '#e8d5b7';
+  for (const b of bullets) {
+    ctx.beginPath();
+    ctx.arc(b.x * scale, b.y * scale, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Players
+  for (const p of [you, opponent]) {
+    if (!p) continue;
+    ctx.save();
+    ctx.translate(p.x * scale, p.y * scale);
+    ctx.rotate(p.angle);
+    // Body
+    ctx.fillStyle = p.alive ? p.color : '#555';
+    ctx.beginPath();
+    ctx.arc(0, 0, 14, 0, Math.PI * 2);
+    ctx.fill();
+    // Gun
+    ctx.fillStyle = p.accentColor || '#fff';
+    ctx.fillRect(8, -3, 16, 6);
+    ctx.restore();
+    // Name + HP
+    ctx.fillStyle = '#fff';
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${p.displayName} (${p.kills})`, p.x * scale, p.y * scale - 22);
+    // HP bar
+    const bw = 40, bh = 5;
+    const bx = p.x * scale - bw / 2;
+    const by = p.y * scale - 16;
+    ctx.fillStyle = '#333';
+    ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = p.hp > 40 ? '#5dd39e' : '#ff6b6b';
+    ctx.fillRect(bx, by, bw * (p.hp / p.maxHp), bh);
+  }
+}
+
+setInterval(draw, 50);
+
+// ---- Buttons ----
+$('connectBtn').addEventListener('click', connect);
+$('disconnectBtn').addEventListener('click', disconnect);
+</script>
+</body>
+</html>

@@ -14,52 +14,49 @@ Everglow tracks your relationship journey through gamified experiences, shared a
 
 ## Latest Release
 
-> **v2.0.0** — AssaultZone 1v1 Shooter + Mobile Optimization + Bloat Cleanup
+> **v2.1.0** — Play Zone Overhaul: HexGL Drift & Melody Tiles Song Selection
 > [View full changelog →](https://github.com/khentmoba/Everglow/releases/latest)
 
-**v2.0.0 — The Gamified Play Zone Major Release:**
+**v2.1.0 — The Futuristic Drift & Song Selection Update:**
 
-1. **AssaultZone 1v1 Shooter (Native Top-Down Shooter)**:
-   - **Feature**: Native 2D top-down shootout game added to the Play Zone. Supports **Solo Practice** (destroy moving targets) and **1v1 Multiplayer** shootout matchmaking for Khent and Clair.
-   - **Mobile-First Dual Joysticks**: Left virtual joystick for smooth movement, right virtual joystick for aiming with built-in auto-fire on direction push.
-   - **Real-Time Match Synchronization**: Pushes coordinates (X/Y, rotation, HP, kills, alive status), bullet shot logs, and damage events in real-time over Firestore.
-   - **Seamless Rematch Flow**: Automatically restarts the arena and pulls both players back into the game once rematch is initiated.
-   - **Repository Bloat Cleanup**: Cleaned up the legacy C++ desktop AssaultCube binaries and assets, saving over 100MB of unused file storage.
+1. **HexGL Drift Integration (HTML5 3D Racing)**:
+   - **Feature**: Replaced old racing/shooter games with HexGL Drift, a fast-paced 3D WebGL futuristic racing game embedded directly into the Play Zone hub.
+   - **Solo Time Trial**: Players can race against the clock to set their personal best times on the Cityscape track.
+   - **Challenge Partner**: Race against your partner's best ghost replay, stored dynamically on Firebase Firestore.
+   - **Full Replay & Ghost System**: Syncs the driver's exact input path and position data to recreate a smooth ghost replay for the partner to compete against.
+   - **Optimized Mobile Touch HUD**: Seamless custom overlay that translates touch gestures on mobile screens to steering, drifting, and boosting.
 
-2. **Melody Tiles (Piano Tiles)**:
+2. **Melody Tiles Song Selection**:
+   - **Feature**: Replaced the immediate start of the rhythm game with a beautiful, themed song selection screen.
+   - **Track Library**: Browse through custom tracks with details on artist, difficulty (Easy, Medium, Hard), and note count.
+   - **High Score & Streak Tracking**: Persists and displays local high scores and best streaks per song.
+
+3. **Codebase & Asset Cleanup**:
+   - **Feature**: Removed unused legacy components (AssaultCube/AssaultZone and old Three.js racing game) from the Flutter codebase and repository assets, drastically reducing the package and deployment footprint.
+
+_Previous releases: [v2.0.0 "Mobile Optimization"](https://github.com/khentmoba/Everglow/releases/tag/v2.0.0) · [v1.5.3 "Real Iframe Fix"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.3) · [v1.5.2 "PH Trending"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.2) · [v1.5.1 "Sandbox Hardening"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.1) · [v1.5.0 "Cinema"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.0) · [v1.3.0 "Racing Game"](https://github.com/khentmoba/Everglow/releases/tag/v1.3.0) · [v1.2.0 "Play Zone"](https://github.com/khentmoba/Everglow/releases/tag/v1.2.0) · [v1.1.0 "Gamified"](https://github.com/khentmoba/Everglow/releases/tag/v1.1.0) · [v1.0.0 "Bloom"](https://github.com/khentmoba/Everglow/releases/tag/v1.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)
+
+---
+
+### v2.0.0 Changelog Summary
+
+**v2.0.0 — Mobile Optimization & Bloat Cleanup:**
+1. **Melody Tiles (Piano Tiles)**:
    - **Feature**: Rhythm game added to the Play Zone hub. Tap falling dark petals in rhythm to play notes.
    - **Audio Note System**: Loaded with high-quality note sounds (`a.wav`, `c.wav`, `e.wav`, `f.wav`) that play with zero latency upon tapping.
    - **Gamification**: Includes streak counters, score multipliers, high-score tracking, and automatically awards XP via the XP system.
-
-3. **Web-Only Compilation Isolation**:
-   - **Feature**: Refactored the Midnight Drive racing screen by dividing it into conditional stubs (`racing_game_screen_stub.dart` and `racing_game_screen_web.dart`). 
-   - **Resolution**: Isolates `dart:html` imports to web platform compilations only, allowing clean builds and resolving compilation failures on mobile/native platforms.
-
-4. **Cinema Refactoring & Enhancements**:
+2. **Cinema Refactoring & Enhancements**:
    - **Feature**: Substantial updates to `cinema_screen.dart`, `episode_drawer.dart`, and `media_poster_card.dart` to optimize the media browse list, TMDB ratings lookup, and detail card animations.
-
-5. **Dashboard & Auth Enhancements**:
+3. **Dashboard & Auth Enhancements**:
    - **Feature**: Improved passcode authentication routing, anniversary countdown precision, and styled feature navigation cards.
 
-**Cinema — Provider Audit (`lib/features/cinema/presentation/screens/video_player_screen.dart`):**
-- **Removed 6 dead/blocked providers:** *VidSrc CC* (`X-Frame-Options: SAMEORIGIN` permanently blocks the iframe), *VsEmbed*, *Vidify* (turned out to be an unrelated open-source music-video desktop app), *Vares* (parks to `/lander`), *Filmu*, *VidGod* — all DNS-dead or non-functional.
-- **Patched 7 providers' base URLs** after domain/path changes:
+---
 
-  | Provider | Old | New |
-  |---|---|---|
-  | AutoEmbed | `player.autoembed.cc/embed/...` | `player.autoembed.co/embed/...` |
-  | VidKing | `vidking.link/...` | `www.vidking.net/embed/...` |
-  | SuperEmbed | `multiembed.mov/directstream.php?video_id=` | `multiembed.mov/?video_id=` + auto-appended `&tmdb=1` |
-  | 111Movies | `111movies.com/...` | `www.111movies.com/...` |
-  | Vidzee | `vidzee.vip/embed/...` | `player.vidzee.wtf/embed/...` |
-  | VidRock | `vidrock.one/embed/...` | `vidrock.net/movie\|tv/...` |
-  | VixSrc | `vixsrc.xyz/embed/...` | `vixsrc.to/movie\|tv/...` |
+### v1.5.3 Changelog Summary
 
-- **Defaults reordered** so the two providers that ship **zero sandbox-detection JS** sit at the top of the dropdown and are marked ad-free: **VidFast** (now the default) and **VixSrc**. Verified by static-scanning ~9 MB of every provider's actual JS bundles for `sbx.js`-style probes (`frameElement.hasAttribute("sandbox")`, `document.domain = document.domain`), the `sbx-2dl.pages.dev` redirect, the "Please Disable Sandbox" literal, and AutoEmbed's `window.origin === 'null'` + localStorage/cookie probe pattern.
-- `_getPlayerUrl` learned the multiembed.mov `&tmdb=1` flag for both movie and TV (the endpoint defaults to expecting an IMDb id otherwise).
-- Dropped `flutter_inappwebview: ^6.1.5` from `pubspec.yaml`, promoted `web: ^1.1.1` from transitive to direct.
-
-_Previous releases: [v1.5.2 "PH Trending"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.2) · [v1.5.1 "Sandbox Hardening"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.1) · [v1.5.0 "Cinema"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.0) · [v1.4.0 "Cinema"](https://github.com/khentmoba/Everglow/releases/tag/v1.4.0) · [v1.3.0 "Racing Game"](https://github.com/khentmoba/Everglow/releases/tag/v1.3.0) · [v1.2.0 "Play Zone"](https://github.com/khentmoba/Everglow/releases/tag/v1.2.0) · [v1.1.0 "Gamified"](https://github.com/khentmoba/Everglow/releases/tag/v1.1.0) · [v1.0.0 "Bloom"](https://github.com/khentmoba/Everglow/releases/tag/v1.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)
+**v1.5.3 - Cinema: Real Iframe Fix + Provider Cleanup + Popup-Ad Sandbox:**
+- **Iframe bypass**: Registered through `dart:ui_web.platformViewRegistry` with ad-blocking `sandbox` tags that allow script execution but block window redirects.
+- **Provider Audit**: Reordered defaults so VidFast and VixSrc (ad-free) sit at the top. Removed 6 dead/blocked providers and patched 7 base URLs.
 
 ## Features
 
@@ -78,17 +75,16 @@ _Previous releases: [v1.5.2 "PH Trending"](https://github.com/khentmoba/Everglow
 | **Academy** | Trivia game with 8 categories, solo study and 1v1 challenges | 1.1.0 |
 | **Jukebox** | Live music status from Last.fm for both partners | 1.1.0 |
 | **XP System** | Gamified levels, streaks, and sound effects | 1.1.0 |
-| **Play Zone** | Games hub with Midnight Drive racing game | **1.2.0** |
-| **Midnight Drive** | 3D desert racing game with touch controls + 1v1 multiplayer | **1.2.0** |
+| **Play Zone** | Games hub with Melody Tiles + HexGL Drift | **1.2.0** |
 | **Trending Carousel** | Auto-playing PageView carousel for trending titles | **1.5.0** |
 | **Genre Browsing** | Browse by genre (Action, Comedy, Horror, Romance, etc.) | **1.5.0** |
 | **Now Showing** | Movies currently in Philippine cinemas + newly released | **1.5.0** |
 | **Cast & Reviews** | Cast profiles and user reviews in media details drawer | **1.5.0** |
 | **Similar Titles** | "More Like This" recommendations in episode drawer | **1.5.0** |
-| **Reverse Gear** | Reverse button for racing game mobile touch controls | **1.5.0** |
 | **PH Streaming Rankings** | Philippines trending tab uses `watch_region=PH` (Netflix-PH style) | **1.5.2** |
-| **AssaultZone 1v1** | Native 2D top-down shootout game with dual stick joysticks + 1v1 multiplayer | **2.0.0** |
 | **Melody Tiles** | Native rhythm game tapping falling petals to produce piano melodies + XP awards | **2.0.0** |
+| **HexGL Drift** | Futuristic 3D WebGL racing game with Solo Time Trial and 1v1 Ghost Replay Challenges | **2.1.0** |
+| **Song Selection** | Melody Tiles track selector with difficulty, note count, high score, and best streak trackers | **2.1.0** |
 
 ## Tech Stack
 
@@ -96,8 +92,7 @@ _Previous releases: [v1.5.2 "PH Trending"](https://github.com/khentmoba/Everglow
 - **Backend:** Firebase (Auth, Firestore, Storage, Hosting)
 - **State Management:** Provider
 - **External APIs:** TMDB, OpenTDB (Trivia), Last.fm
-- **Racing Game:** React 18 + Three.js + @react-three/fiber + cannon-es physics (Vite build, iframe-embedded)
-- **Multiplayer:** Firestore real-time snapshots + transactions for race & shooter matchmaking
+- **Multiplayer:** Firestore real-time snapshots for HexGL time-trial challenges
 
 ## Project Structure
 
@@ -122,22 +117,10 @@ lib/
     date_randomizer/            # Date idea generator
     xp/                         # Gamification system
     jukebox/                    # Music sync
-    play_zone/                  # Games hub (Midnight Drive racing game)
+    play_zone/                  # Games hub (Melody Tiles, HexGL Drift)
   services/                     # Core Firebase services
   shared/widgets/               # Reusable UI components
-racing-game/                    # Standalone React + Three.js racing game
-  src/
-    App.tsx                     # Root component, 3D canvas + physics
-    Bridge.tsx                  # postMessage bridge to Flutter
-    controls/                   # Keyboard + Touch input handlers
-    models/                     # Vehicle, track, ghost car, physics
-    effects/                    # Particles, audio, cameras
-    ui/                         # HUD, intro, finished screen, leaderboard
-    store.ts                    # Zustand game state
-    firebase-data.ts            # Firestore scores (replaces Supabase)
-    styles.css                  # Everglow-themed Dusk Petal CSS
 scripts/
-  build-racing-game.ps1         # Automated build + copy pipeline
 assets/
   data/                         # Seed JSON files (trivia, date ideas)
   images/                       # Logo and milestone photos
@@ -149,7 +132,6 @@ assets/
 
 - Flutter SDK ^3.11.3
 - Firebase CLI (`npm install -g firebase-tools`)
-- Node.js 18+ (for building the racing game)
 - A Firebase project with the services enabled
 
 ### Setup
@@ -162,11 +144,6 @@ cd Everglow
 # Install Flutter dependencies
 flutter pub get
 
-# Install racing game dependencies
-cd racing-game
-npm install --legacy-peer-deps
-cd ..
-
 # Run locally
 flutter run -d chrome
 ```
@@ -174,26 +151,10 @@ flutter run -d chrome
 ### Full Build & Deploy
 
 ```bash
-# 1. Build the racing game
-cd racing-game
-npm install --legacy-peer-deps
-node node_modules/vite/bin/vite.js build
-cd ..
-
-# 2. Copy racing game to Flutter web build directory
-Copy-Item -Recurse -Force racing-game/dist/* build/web/racing/
-
-# 3. Build Flutter web
+# 1. Build Flutter web
 flutter build web --release
 
-# 4. Deploy to Firebase
-firebase deploy --only hosting
-```
-
-Or use the automated script:
-```bash
-.\scripts\build-racing-game.ps1
-flutter build web --release
+# 2. Deploy to Firebase
 firebase deploy --only hosting
 ```
 
@@ -211,12 +172,10 @@ firebase deploy --only hosting
 Auto-deploys to Firebase Hosting on push to `main` via GitHub Actions.
 
 The workflow:
-1. Builds the racing game (Vite)
-2. Copies assets to Flutter build directory
-3. Builds Flutter web
-4. Generates changelog from commits
-5. Deploys to Firebase Hosting
-6. Creates a GitHub Release
+1. Builds Flutter web
+2. Generates changelog from commits
+3. Deploys to Firebase Hosting
+4. Creates a GitHub Release
 
 ## License
 

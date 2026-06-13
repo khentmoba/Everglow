@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>AssaultCube (Everglow Embed)</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #000;
+    overscroll-behavior: none;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  body { display: block; }
+  #canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    outline: none;
+    touch-action: none;
+  }
+  #status {
+    position: fixed;
+    top: 12px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    padding: 10px 20px;
+    background: rgba(20, 20, 30, 0.92);
+    color: #fff;
+    border-radius: 8px;
+    text-align: center;
+    min-width: 260px;
+    max-width: 90vw;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 13px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  }
+  #status .err { color: #ff6b6b; }
+  #status .ok  { color: #5dd39e; }
+  #progress {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    height: 4px;
+    appearance: none;
+    border: none;
+    border-radius: 2px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.1);
+  }
+  #progress::-webkit-progress-bar { background: rgba(255, 255, 255, 0.1); }
+  #progress::-webkit-progress-value { background: #c2185b; }
+  #progress::-moz-progress-bar { background: #c2185b; }
+</style>
+</head>
+<body>
+<div id="status">
+  <div id="statusText">Initializing AssaultCube...</div>
+  <progress id="progress" value="0" max="100" hidden></progress>
+</div>
+<canvas id="canvas" tabindex="0"></canvas>
+<script>
+  // ---- Bootstrap ----
+  var canvas = document.getElementById("canvas");
+  var statusElement = document.getElementById("statusText");
+  var progressElement = document.getElementById("progress");
+
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resizeCanvas();
+  window.addEventListener("resize", resizeCanvas);
+  window.addEventListener("orientationchange", function() {
+    setTimeout(resizeCanvas, 100);
+  });
+
+  // Prevent default browser shortcuts (F5, F11, Tab) from stealing
+  // the keys the C++ game expects (R = reload, etc.).
+  window.addEventListener("keydown", function(e) {
+    if (e.key === "F12") return;
+    if ((e.ctrlKey || e.metaKey) && (e.key === "c" || e.key === "C")) return;
+    if (["F5","F11","Tab"].indexOf(e.key) !== -1) e.preventDefault();
+  });
+
+  // ---- Emscripten Module ----
+  var Module = {
+    canvas: canvas,
+    print: function(t) { console.log("[AC OUT] " + t); },
+    printErr: function(t) {
+      console.error("[AC ERR] " + t);
+      if (t.indexOf("Error") !== -1 || t.indexOf("Abort") !== -1) {
+        statusElement.innerHTML = "<span class='err'>" + t + "</span>";
+      }
+    },
+    setStatus: function(t) {
+      console.log("[AC STATUS] " + t);
+      if (t) {
+        statusElement.innerHTML = t;
+        if (t.indexOf("Downloading") !== -1 || t.indexOf("Loading") !== -1) {
+          progressElement.hidden = false;
+        }
+      } else {
+        statusElement.innerHTML = "<span class='ok'>&#x2713; Ready</span>";
+        progressElement.hidden = true;
+        setTimeout(function() {
+          if (statusElement.innerHTML.indexOf("Ready") !== -1) {
+            statusElement.style.display = "none";
+          }
+        }, 1500);
+      }
+    },
+    totalDependencies: 0,
+    monitorRunDependencies: function(l) {
+      this.totalDependencies = Math.max(this.totalDependencies, l);
+      var p = this.totalDependencies - l;
+      if (l) {
+        progressElement.value = Math.round(p / this.totalDependencies * 100);
+        Module.setStatus("Loading game data... (" + p + "/" + this.totalDependencies + ")");
+      } else {
+        progressElement.hidden = true;
+        Module.setStatus("");
+      }
+    }
+  };
+  Module.setStatus("Downloading AssaultCube engine...");
+
+  // ---- Flutter Bridge (window.AcApi) ----
+  // Flutter calls these methods to drive the game. Keyboard events go
+  // to `window` (Emscripten SDL2 listens there), mouse events go to the
+  // canvas. We use the .code property (KeyboardEvent.code) so the SDL
+  // shim picks the right keys regardless of keyboard layout.
+  var KEY_MAP = {
+    "Forward":   ["KeyW", "ArrowUp"],
+    "Backward":  ["KeyS", "ArrowDown"],
+    "Left":      ["KeyA", "ArrowLeft"],
+    "Right":     ["KeyD", "ArrowRight"],
+    "Jump":      ["Space"],
+    "Crouch":    ["KeyC", "ControlLeft"],
+    "Reload":    ["KeyR"],
+    "Use":       ["KeyE"],
+    "Melee":     ["KeyF"],
+    "Grenade":   ["KeyG"],
+    "Weapon1":   ["Digit1"],
+    "Weapon2":   ["Digit2"],
+    "Weapon3":   ["Digit3"],
+    "Weapon4":   ["Digit4"],
+    "Weapon5":   ["Digit5"],
+    "Chat":      ["KeyT"],
+    "Menu":      ["Escape"],
+    "Scoreboard":["Tab"],
+    "Fire":      ["Mouse0"]
+  };
+
+  function dispatchKey(code, pressed) {
+    var ev = new KeyboardEvent(pressed ? "keydown" : "keyup", {
+      code: code,
+      key: codeToKey(code),
+      bubbles: true,
+      cancelable: true
+    });
+    window.dispatchEvent(ev);
+  }
+  function dispatchMouseButton(pressed) {
+    var ev = new MouseEvent(pressed ? "mousedown" : "mouseup", {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      buttons: pressed ? 1 : 0
+    });
+    canvas.dispatchEvent(ev);
+  }
+  function dispatchMouseMove(dx, dy) {
+    var ev = new MouseEvent("mousemove", {
+      bubbles: true,
+      cancelable: true,
+      movementX: dx,
+      movementY: dy
+    });
+    canvas.dispatchEvent(ev);
+  }
+  function codeToKey(code) {
+    if (code.indexOf("Key") === 0) return code.substring(3).toLowerCase();
+    if (code.indexOf("Digit") === 0) return code.substring(5);
+    if (code === "Space") return " ";
+    if (code === "ArrowUp") return "ArrowUp";
+    if (code === "ArrowDown") return "ArrowDown";
+    if (code === "ArrowLeft") return "ArrowLeft";
+    if (code === "ArrowRight") return "ArrowRight";
+    if (code === "Escape") return "Escape";
+    if (code === "Tab") return "Tab";
+    if (code === "ControlLeft") return "Control";
+    return code;
+  }
+
+  var held = {};
+  window.AcApi = {
+    ready: function() { return typeof Module !== "undefined" && !!Module.calledRun; },
+    status: function() { return statusElement.innerText || ""; },
+    press: function(action) {
+      var codes = KEY_MAP[action];
+      if (!codes) { console.warn("Unknown action:", action); return; }
+      if (action === "Fire") {
+        if (!held.Fire) { held.Fire = true; dispatchMouseButton(true); }
+        return;
+      }
+      for (var i = 0; i < codes.length; i++) {
+        dispatchKey(codes[i], true);
+      }
+    },
+    release: function(action) {
+      var codes = KEY_MAP[action];
+      if (!codes) return;
+      if (action === "Fire") {
+        if (held.Fire) { held.Fire = false; dispatchMouseButton(false); }
+        return;
+      }
+      for (var i = 0; i < codes.length; i++) {
+        dispatchKey(codes[i], false);
+      }
+    },
+    move: function(dx, dy) { dispatchMouseMove(dx, dy); },
+    click: function(pressed) { dispatchMouseButton(pressed); },
+    enter: function() { canvas.focus(); },
+    fullscreen: function() {
+      var el = document.documentElement;
+      var fn = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+      if (fn) fn.call(el);
+    }
+  };
+</script>
+<script src="ac_client_wasm.js"></script>
+<script>
+  AssaultCubeModule(Module).then(function() {
+    console.log("[AC] Engine ready");
+    canvas.focus();
+  }).catch(function(e) {
+    console.error("[AC] Failed to start:", e);
+    statusElement.innerHTML = "<span class='err'>Failed to start: " + e + "</span>";
+  });
+</script>
+</body>
+</html>

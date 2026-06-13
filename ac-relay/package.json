@@ -1,0 +1,19 @@
+{
+  "name": "everglow-ac-relay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Authoritative game server for the Everglow AssaultCube 1v1 mode. Pairs Khent and Clair in a real-time match, runs the game state at 20Hz, and ships hit/kill/respawn events to both clients over WebSocket.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node test/smoke.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
