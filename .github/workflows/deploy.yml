@@ -95,19 +95,6 @@ jobs:
             --dart-define=TMDB_API_KEY="$TMDB_API_KEY" \
             --dart-define=LASTFM_API_KEY="$LASTFM_API_KEY"
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Build racing game
-        run: |
-          cd racing-game
-          npm install
-          npm run build
-          mkdir -p ../build/web/racing
-          cp -r dist/* ../build/web/racing/
-
       - name: Copy changelog to build
         run: cp CHANGELOG.md build/web/CHANGELOG.md
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/services/auth_service.dart';
@@ -17,12 +18,14 @@ import '../widgets/piano_lane_divider.dart';
 import '../widgets/piano_line.dart';
 
 class PianoTilesGameScreen extends StatefulWidget {
-  const PianoTilesGameScreen({super.key});
+  final PianoSong song;
 
-  static Route<dynamic> route() {
+  const PianoTilesGameScreen({super.key, required this.song});
+
+  static Route<dynamic> route({required PianoSong song}) {
     return PageRouteBuilder(
       pageBuilder: (context, animation, secondaryAnimation) =>
-          const PianoTilesGameScreen(),
+          PianoTilesGameScreen(song: song),
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
         return FadeTransition(
           opacity: animation,
@@ -47,7 +50,7 @@ class _PianoTilesGameScreenState extends State<PianoTilesGameScreen>
   final PianoAudioService _audio = PianoAudioService();
 
   late AnimationController _controller;
-  List<PianoNote> _notes = PianoSongProvider.initNotes();
+  late List<PianoNote> _notes;
   int _currentIndex = 0;
   int _points = 0;
   int _streak = 0;
@@ -61,6 +64,7 @@ class _PianoTilesGameScreenState extends State<PianoTilesGameScreen>
   @override
   void initState() {
     super.initState();
+    _notes = PianoSongProvider.initNotes(widget.song);
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 340),
@@ -98,6 +102,12 @@ class _PianoTilesGameScreenState extends State<PianoTilesGameScreen>
     }
 
     setState(() => _currentIndex++);
+
+    // Dynamically set next note's scroll duration based on its beat duration
+    final nextNote = _notes[_currentIndex];
+    final noteDuration = nextNote.line != -1 ? nextNote.duration : 1.0;
+    _controller.duration = Duration(milliseconds: (340 * noteDuration).toInt());
+
     _controller.forward(from: 0);
   }
 
@@ -109,10 +119,14 @@ class _PianoTilesGameScreenState extends State<PianoTilesGameScreen>
 
     if (!_hasStarted) {
       setState(() => _hasStarted = true);
+      // Set initial note duration
+      final firstNote = _notes[_currentIndex];
+      final noteDuration = firstNote.line != -1 ? firstNote.duration : 1.0;
+      _controller.duration = Duration(milliseconds: (340 * noteDuration).toInt());
       _controller.forward();
     }
 
-    _audio.play(note.line);
+    _audio.playMidi(note.midiNote);
 
     setState(() {
       note.state = PianoNoteState.tapped;
@@ -124,7 +138,7 @@ class _PianoTilesGameScreenState extends State<PianoTilesGameScreen>
 
   void _restart() {
     setState(() {
-      _notes = PianoSongProvider.initNotes();
+      _notes = PianoSongProvider.initNotes(widget.song);
       _currentIndex = 0;
       _points = 0;
       _streak = 0;
@@ -282,6 +296,22 @@ class _PianoTilesGameScreenState extends State<PianoTilesGameScreen>
   Future<int> _awardXp({required bool songCompleted}) async {
     final auth = context.read<AuthService>();
     final uid = auth.uid;
+
+    // Save high score locally
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final keyScore = 'melody_tiles_highscore_${widget.song.id}';
+      final keyStreak = 'melody_tiles_beststreak_${widget.song.id}';
+      final currentBestScore = prefs.getInt(keyScore) ?? 0;
+      final currentBestStreak = prefs.getInt(keyStreak) ?? 0;
+      if (_points > currentBestScore) {
+        await prefs.setInt(keyScore, _points);
+      }
+      if (_bestStreak > currentBestStreak) {
+        await prefs.setInt(keyStreak, _bestStreak);
+      }
+    } catch (_) {}
+
     if (uid == null) return 0;
 
     var xp = (_points * 2).clamp(0, 400);
@@ -478,9 +508,19 @@ class _PianoTilesGameScreenState extends State<PianoTilesGameScreen>
               ),
               const SizedBox(height: 10),
               Text(
-                'Tap the dark petals as they fall',
+                widget.song.title,
                 style: GoogleFonts.cormorantGaramond(
                   fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.blushGold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Tap the dark petals as they fall',
+                style: GoogleFonts.cormorantGaramond(
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.roseQuartz,
                 ),
