@@ -286,9 +286,17 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
             ? episodeRunTimes.first
             : null);
     final backdropPath = _details?['backdrop_path'];
+    // Prefer the full-detail backdrop, then the backdrop that TMDB already
+    // returned in the trending/discover payload (saved on MediaItem), then
+    // finally the vertical poster as a last resort. Without the MediaItem
+    // fallback, Trending-PH titles that haven't finished loading details yet
+    // (or whose /details response also lacks a backdrop) rendered as a flat
+    // gray rectangle, which is what the user was reporting on the PH tab.
     final backdropUrl = backdropPath != null
         ? 'https://image.tmdb.org/t/p/w780$backdropPath'
-        : widget.item.posterPath;
+        : widget.item.backdropPath.isNotEmpty
+            ? widget.item.backdropPath
+            : widget.item.posterPath;
     final ratingVal = double.tryParse(rating) ?? 0;
     final ratingFraction = (ratingVal / 10).clamp(0.0, 1.0);
 
@@ -440,9 +448,18 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                         ? Image.network(
                             backdropUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Container(color: _cCard),
+                            loadingBuilder: (context, child, progress) {
+                              if (progress == null) return child;
+                              return _buildBackdropPlaceholder(
+                                isLoading: true,
+                              );
+                            },
+                            errorBuilder: (_, _, _) =>
+                                _buildBackdropPlaceholder(isLoading: false),
                           )
-                        : Container(color: _cCard),
+                        : _buildBackdropPlaceholder(
+                            isLoading: _details == null,
+                          ),
                     if (_trailerKey != null && !_isLoadingTrailer)
                       Center(
                         child: GestureDetector(
@@ -646,6 +663,54 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
           ),
         ),
       );
+
+  // Replaces the flat `Container(color: _cCard)` that used to fill the hero
+  // when a backdrop image was missing or failed to load. The old behaviour
+  // was indistinguishable from a render glitch, especially on the Trending
+  // PH tab where many discover results have no `backdrop_path`. This shows
+  // a soft gradient + either a spinner (still loading) or a film icon
+  // (genuinely missing) so the user knows what's going on.
+  Widget _buildBackdropPlaceholder({required bool isLoading}) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [_cCard, _cVelvet],
+        ),
+      ),
+      alignment: Alignment.center,
+      child: isLoading
+          ? const SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(
+                color: _cDeepRose,
+                strokeWidth: 2,
+              ),
+            )
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.movie_creation_outlined,
+                  color: _cMuted.withValues(alpha: 0.6),
+                  size: 42,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'No preview available',
+                  style: GoogleFonts.outfit(
+                    color: _cMuted,
+                    fontSize: 11,
+                    letterSpacing: 1.2,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
 
   // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   // META SECTION
