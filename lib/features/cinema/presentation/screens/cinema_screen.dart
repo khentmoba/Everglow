@@ -1,31 +1,47 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/features/cinema/presentation/widgets/episode_drawer.dart';
 
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Cinema Color Tokens
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const _cBlack = Color(0xFF080810);
+const _cVelvet = Color(0xFF12091A);
+const _cCard = Color(0xFF1C1228);
+const _cRose = Color(0xFFF4C2C2);
+const _cDeepRose = Color(0xFFC2185B);
+const _cGold = Color(0xFFE8C97A);
+const _cAmber = Color(0xFFF0A500);
+const _cWhite = Color(0xFFFFF5F5);
+const _cMuted = Color(0xFF8A7A92);
+
+
 class CinemaScreen extends StatefulWidget {
-  const CinemaScreen({Key? key}) : super(key: key);
+  const CinemaScreen({super.key});
 
   @override
   State<CinemaScreen> createState() => _CinemaScreenState();
 }
 
-class _CinemaScreenState extends State<CinemaScreen> {
+class _CinemaScreenState extends State<CinemaScreen>
+    with TickerProviderStateMixin {
   final TMDBService _tmdbService = TMDBService();
   int _currentIndex = 0;
 
-  // Stream subscription for watchlists
+  // Nav animation
+  late AnimationController _navController;
+
   StreamSubscription<List<MediaItem>>? _watchlistSubscription;
 
-  // Watchlist lists
   List<MediaItem> _watchlist = [];
   List<MediaItem> _wantToWatchList = [];
   List<MediaItem> _watchedList = [];
 
-  // Home Lists
   List<MediaItem> _trendingCarousel = [];
   List<MediaItem> _trendingGlobal = [];
   List<MediaItem> _trendingPH = [];
@@ -34,31 +50,89 @@ class _CinemaScreenState extends State<CinemaScreen> {
   List<MediaItem> _nowShowing = [];
   List<MediaItem> _newlyReleased = [];
 
-  // Genre Lists (Map: genreName -> items)
   final Map<String, List<MediaItem>> _genreLists = {};
   final Map<int, String> _movieGenres = {};
   final Map<int, String> _tvGenres = {};
 
   bool _isLoadingHome = true;
-  final PageController _carouselController = PageController(viewportFraction: 0.92);
+  final PageController _carouselController =
+      PageController(viewportFraction: 0.88);
   int _carouselPage = 0;
   Timer? _carouselTimer;
 
-  // Selected featured genre to display
   static final List<Map<String, dynamic>> _featuredGenres = [
-    {'id': 28, 'name': 'Action', 'type': 'movie', 'icon': Icons.local_fire_department_rounded},
-    {'id': 35, 'name': 'Comedy', 'type': 'movie', 'icon': Icons.sentiment_very_satisfied_rounded},
-    {'id': 27, 'name': 'Horror', 'type': 'movie', 'icon': Icons.brightness_3_rounded},
-    {'id': 10749, 'name': 'Romance', 'type': 'movie', 'icon': Icons.favorite_rounded},
-    {'id': 18, 'name': 'Drama', 'type': 'movie', 'icon': Icons.theater_comedy_rounded},
-    {'id': 16, 'name': 'Animation', 'type': 'movie', 'icon': Icons.auto_awesome_rounded},
-    {'id': 9648, 'name': 'Mystery', 'type': 'movie', 'icon': Icons.youtube_searched_for_rounded},
-    {'id': 878, 'name': 'Sci-Fi', 'type': 'movie', 'icon': Icons.rocket_launch_rounded},
-    {'id': 10765, 'name': 'Sci-Fi & Fantasy', 'type': 'tv', 'icon': Icons.public_rounded},
-    {'id': 10759, 'name': 'Action & Adventure', 'type': 'tv', 'icon': Icons.shield_rounded},
+    {
+      'id': 28,
+      'name': 'Action',
+      'type': 'movie',
+      'icon': Icons.local_fire_department_rounded,
+      'color': const Color(0xFFE53935),
+    },
+    {
+      'id': 35,
+      'name': 'Comedy',
+      'type': 'movie',
+      'icon': Icons.sentiment_very_satisfied_rounded,
+      'color': const Color(0xFFFDD835),
+    },
+    {
+      'id': 27,
+      'name': 'Horror',
+      'type': 'movie',
+      'icon': Icons.brightness_3_rounded,
+      'color': const Color(0xFF7B1FA2),
+    },
+    {
+      'id': 10749,
+      'name': 'Romance',
+      'type': 'movie',
+      'icon': Icons.favorite_rounded,
+      'color': const Color(0xFFE91E63),
+    },
+    {
+      'id': 18,
+      'name': 'Drama',
+      'type': 'movie',
+      'icon': Icons.theater_comedy_rounded,
+      'color': const Color(0xFF1565C0),
+    },
+    {
+      'id': 16,
+      'name': 'Animation',
+      'type': 'movie',
+      'icon': Icons.auto_awesome_rounded,
+      'color': const Color(0xFF00ACC1),
+    },
+    {
+      'id': 9648,
+      'name': 'Mystery',
+      'type': 'movie',
+      'icon': Icons.youtube_searched_for_rounded,
+      'color': const Color(0xFF455A64),
+    },
+    {
+      'id': 878,
+      'name': 'Sci-Fi',
+      'type': 'movie',
+      'icon': Icons.rocket_launch_rounded,
+      'color': const Color(0xFF00BCD4),
+    },
+    {
+      'id': 10765,
+      'name': 'Sci-Fi & Fantasy',
+      'type': 'tv',
+      'icon': Icons.public_rounded,
+      'color': const Color(0xFF3949AB),
+    },
+    {
+      'id': 10759,
+      'name': 'Action & Adventure',
+      'type': 'tv',
+      'icon': Icons.shield_rounded,
+      'color': const Color(0xFFEF6C00),
+    },
   ];
 
-  // Search variables
   final TextEditingController _searchController = TextEditingController();
   List<MediaItem> _searchResults = [];
   bool _isSearching = false;
@@ -67,6 +141,10 @@ class _CinemaScreenState extends State<CinemaScreen> {
   @override
   void initState() {
     super.initState();
+    _navController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
     _loadCachedWatchList();
     _subscribeToWatchList();
     _fetchHomeData();
@@ -74,6 +152,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
 
   @override
   void dispose() {
+    _navController.dispose();
     _watchlistSubscription?.cancel();
     _searchController.dispose();
     _searchDebounce?.cancel();
@@ -82,7 +161,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
     super.dispose();
   }
 
-  // Load from local storage / shared_preferences
   Future<void> _loadCachedWatchList() async {
     final cached = await _tmdbService.getCachedWatchList();
     if (cached.isNotEmpty && mounted) {
@@ -93,7 +171,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
     }
   }
 
-  // Subscribe to real-time updates from Firestore
   void _subscribeToWatchList() {
     _watchlistSubscription = _tmdbService.getWatchListStream().listen((items) {
       if (mounted) {
@@ -110,7 +187,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
     _watchedList = _watchlist.where((item) => item.isWatched).toList();
   }
 
-  // Fetch TMDB sections
   Future<void> _fetchHomeData() async {
     setState(() => _isLoadingHome = true);
 
@@ -178,13 +254,12 @@ class _CinemaScreenState extends State<CinemaScreen> {
       final nextPage = (_carouselPage + 1) % _trendingCarousel.length;
       _carouselController.animateToPage(
         nextPage,
-        duration: const Duration(milliseconds: 600),
-        curve: Curves.easeInOut,
+        duration: const Duration(milliseconds: 700),
+        curve: Curves.easeInOutCubic,
       );
     });
   }
 
-  // Handle Search Input
   void _onSearchChanged(String query) {
     if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 500), () {
@@ -210,8 +285,8 @@ class _CinemaScreenState extends State<CinemaScreen> {
     }
   }
 
-  // Show detailed info bottom sheet
   void _showMediaDetails(MediaItem item) {
+    HapticFeedback.lightImpact();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -220,11 +295,16 @@ class _CinemaScreenState extends State<CinemaScreen> {
     );
   }
 
+  void _switchTab(int index) {
+    HapticFeedback.selectionClick();
+    setState(() => _currentIndex = index);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      backgroundColor: AppTheme.twilight,
+      backgroundColor: _cBlack,
       body: SafeArea(
         top: false,
         bottom: false,
@@ -242,97 +322,154 @@ class _CinemaScreenState extends State<CinemaScreen> {
     );
   }
 
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // 1. HOME TAB
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
   Widget _buildHomeTab() {
     if (_isLoadingHome) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.deepRose));
+      return _buildShimmerHome();
     }
 
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
-        // Top App Bar (just title)
         SliverToBoxAdapter(child: _buildTopHeader()),
-
-        // Trending Carousel (at the very top)
-        SliverToBoxAdapter(child: _buildTrendingCarousel()),
-
-        // Two trending rankings: Global and Philippines
+        SliverToBoxAdapter(child: _buildHeroBanner()),
         SliverToBoxAdapter(child: _buildTrendingRankings()),
-
-        // Now Showing in Cinema
-        SliverToBoxAdapter(child: _buildHorizontalRow('Now Showing in Cinema', _nowShowing, showYear: true, icon: Icons.movie_creation_outlined)),
-
-        // Newly Released
-        SliverToBoxAdapter(child: _buildHorizontalRow('Newly Released', _newlyReleased, showYear: true, icon: Icons.new_releases_rounded)),
-
-        // Genre Lists
+        SliverToBoxAdapter(
+          child: _buildSection(
+            'Now Showing',
+            'In Cinemas',
+            _nowShowing,
+            accentColor: _cDeepRose,
+            icon: Icons.movie_creation_outlined,
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: _buildSection(
+            'Newly Released',
+            'Fresh Picks',
+            _newlyReleased,
+            accentColor: _cGold,
+            icon: Icons.new_releases_rounded,
+          ),
+        ),
         ..._buildGenreRows(),
-
-        // Top Rated Movies
-        SliverToBoxAdapter(child: _buildHorizontalRow('Top Rated Movies', _topRatedMovies, showYear: true, icon: Icons.stars_rounded)),
-
-        // Popular TV Shows
-        SliverToBoxAdapter(child: _buildHorizontalRow('Popular TV Shows', _popularTVShows, showYear: true, icon: Icons.tv_rounded)),
-
-        const SliverPadding(padding: EdgeInsets.only(bottom: 40)),
+        SliverToBoxAdapter(
+          child: _buildSection(
+            'Top Rated',
+            'All Time Greats',
+            _topRatedMovies,
+            accentColor: _cAmber,
+            icon: Icons.workspace_premium_rounded,
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: _buildSection(
+            'Popular Series',
+            'TV Shows',
+            _popularTVShows,
+            accentColor: _cRose,
+            icon: Icons.tv_rounded,
+          ),
+        ),
+        const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
       ],
     );
   }
 
   Widget _buildTopHeader() {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 10, 20, 10),
+    final top = MediaQuery.of(context).padding.top;
+    return Container(
+      padding: EdgeInsets.fromLTRB(20, top + 14, 20, 10),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.roseQuartz),
-            onPressed: () => Navigator.pop(context),
+          // Back
+          _CinemaIconBtn(
+            icon: Icons.arrow_back_ios_new_rounded,
+            onTap: () => Navigator.pop(context),
           ),
-          Text(
-            'OUR CINEMA',
-            style: GoogleFonts.cormorantGaramond(
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-              color: AppTheme.roseQuartz,
-              letterSpacing: 2,
-            ),
+          const Spacer(),
+          // Title
+          Column(
+            children: [
+              Text(
+                'OUR CINEMA',
+                style: GoogleFonts.cormorantGaramond(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: _cWhite,
+                  letterSpacing: 4,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 4,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: _cDeepRose,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: _cDeepRose.withValues(alpha: 0.7),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'BY EVERGLOW',
+                    style: GoogleFonts.outfit(
+                      fontSize: 9,
+                      color: _cMuted,
+                      letterSpacing: 2.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    width: 4,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: _cDeepRose,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: _cDeepRose.withValues(alpha: 0.7),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.search, color: AppTheme.roseQuartz),
-            onPressed: () => setState(() => _currentIndex = 1),
+          const Spacer(),
+          // Search
+          _CinemaIconBtn(
+            icon: Icons.search_rounded,
+            onTap: () => _switchTab(1),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTrendingCarousel() {
+  // â”€â”€â”€ HERO CAROUSEL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  Widget _buildHeroBanner() {
     if (_trendingCarousel.isEmpty) return const SizedBox.shrink();
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
-          child: Row(
-            children: [
-              const Icon(Icons.local_fire_department_rounded, color: AppTheme.warmAmber, size: 22),
-              const SizedBox(width: 6),
-              Text(
-                'Trending This Week',
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.roseQuartz,
-                ),
-              ),
-            ],
-          ),
-        ),
         SizedBox(
-          height: 240,
+          height: 320,
           child: PageView.builder(
             controller: _carouselController,
             physics: const BouncingScrollPhysics(),
@@ -343,149 +480,46 @@ class _CinemaScreenState extends State<CinemaScreen> {
               return AnimatedBuilder(
                 animation: _carouselController,
                 builder: (context, child) {
-                  double value = 1.0;
+                  double scale = 1.0;
                   if (_carouselController.position.haveDimensions) {
-                    value = _carouselController.page! - index;
-                    value = (1 - (value.abs() * 0.08)).clamp(0.9, 1.0);
+                    final diff = (_carouselController.page! - index).abs();
+                    scale = (1 - (diff * 0.06)).clamp(0.92, 1.0);
                   } else {
-                    value = index == _carouselPage ? 1.0 : 0.92;
+                    scale = index == _carouselPage ? 1.0 : 0.94;
                   }
                   return Transform.scale(
-                    scale: value,
+                    scale: scale,
                     child: child,
                   );
                 },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                  child: GestureDetector(
-                    onTap: () => _showMediaDetails(item),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.4),
-                            blurRadius: 10,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            if (item.backdropPath.isNotEmpty)
-                              Image.network(item.backdropPath, fit: BoxFit.cover)
-                            else if (item.posterPath.isNotEmpty)
-                              Image.network(item.posterPath, fit: BoxFit.cover)
-                            else
-                              Container(color: AppTheme.velvet),
-                            Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.bottomCenter,
-                                  end: Alignment.topCenter,
-                                  colors: [
-                                    AppTheme.twilight.withOpacity(0.95),
-                                    AppTheme.twilight.withOpacity(0.3),
-                                    Colors.transparent,
-                                  ],
-                                  stops: const [0.0, 0.5, 1.0],
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              bottom: 16,
-                              left: 16,
-                              right: 16,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.deepRose,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      '#${index + 1} TRENDING',
-                                      style: GoogleFonts.outfit(
-                                        color: AppTheme.petalWhite,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 1,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    item.title,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.cormorantGaramond(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.petalWhite,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      Text(
-                                        item.year.isNotEmpty ? item.year : '—',
-                                        style: GoogleFonts.outfit(
-                                          color: AppTheme.blushGold,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          border: Border.all(color: AppTheme.petalWhite.withOpacity(0.4)),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          item.mediaType.toUpperCase(),
-                                          style: GoogleFonts.outfit(
-                                            color: AppTheme.petalWhite,
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                child: _buildHeroCard(item, index),
               );
             },
           ),
         ),
-        const SizedBox(height: 10),
-        // Carousel indicator dots
+        const SizedBox(height: 14),
+        // Dot indicators
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(_trendingCarousel.length, (i) {
             final isActive = i == _carouselPage;
             return AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeInOut,
               margin: const EdgeInsets.symmetric(horizontal: 3),
-              width: isActive ? 18 : 6,
-              height: 6,
+              width: isActive ? 22 : 5,
+              height: 5,
               decoration: BoxDecoration(
-                color: isActive ? AppTheme.deepRose : AppTheme.roseQuartz.withOpacity(0.3),
+                color: isActive ? _cDeepRose : _cMuted.withValues(alpha: 0.35),
                 borderRadius: BorderRadius.circular(3),
+                boxShadow: isActive
+                    ? [
+                        BoxShadow(
+                          color: _cDeepRose.withValues(alpha: 0.6),
+                          blurRadius: 8,
+                        )
+                      ]
+                    : null,
               ),
             );
           }),
@@ -494,82 +528,257 @@ class _CinemaScreenState extends State<CinemaScreen> {
     );
   }
 
-  Widget _buildTrendingRankings() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Row(
+  Widget _buildHeroCard(MediaItem item, int index) {
+    return GestureDetector(
+      onTap: () => _showMediaDetails(item),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: _cDeepRose.withValues(alpha: 0.18),
+                blurRadius: 30,
+                offset: const Offset(0, 12),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.5),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                const Icon(Icons.emoji_events_rounded, color: AppTheme.warmAmber, size: 22),
-                const SizedBox(width: 6),
-                Text(
-                  'Trending Rankings',
-                  style: GoogleFonts.cormorantGaramond(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.roseQuartz,
+                // Backdrop
+                if (item.backdropPath.isNotEmpty)
+                  Image.network(item.backdropPath, fit: BoxFit.cover)
+                else if (item.posterPath.isNotEmpty)
+                  Image.network(item.posterPath, fit: BoxFit.cover)
+                else
+                  Container(color: _cVelvet),
+
+                // Cinematic gradient
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.transparent,
+                        _cBlack.withValues(alpha: 0.7),
+                        _cBlack.withValues(alpha: 0.97),
+                      ],
+                      stops: const [0.0, 0.35, 0.70, 1.0],
+                    ),
+                  ),
+                ),
+
+                // Left vignette
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [
+                        _cBlack.withValues(alpha: 0.35),
+                        Colors.transparent,
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Content
+                Positioned(
+                  bottom: 20,
+                  left: 20,
+                  right: 20,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Trending badge
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _cDeepRose,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.local_fire_department_rounded,
+                                  color: Colors.white,
+                                  size: 11,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '#${index + 1} TRENDING',
+                                  style: GoogleFonts.outfit(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.2),
+                              ),
+                            ),
+                            child: Text(
+                              item.mediaType.toUpperCase(),
+                              style: GoogleFonts.outfit(
+                                color: Colors.white.withValues(alpha: 0.9),
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      // Title
+                      Text(
+                        item.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.cormorantGaramond(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                          color: _cWhite,
+                          height: 1.1,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black.withValues(alpha: 0.6),
+                              blurRadius: 12,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          if (item.year.isNotEmpty) ...[
+                            Text(
+                              item.year,
+                              style: GoogleFonts.outfit(
+                                color: _cGold,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Container(
+                              margin:
+                                  const EdgeInsets.symmetric(horizontal: 8),
+                              width: 3,
+                              height: 3,
+                              decoration: BoxDecoration(
+                                color: _cMuted,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ],
+                          Text(
+                            'Tap to explore',
+                            style: GoogleFonts.outfit(
+                              color: _cMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-          // Tab switcher Global / Philippines
+        ),
+      ),
+    );
+  }
+
+  // â”€â”€â”€ TRENDING RANKINGS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  Widget _buildTrendingRankings() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 32, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildChapterHeader('Trending', 'Rankings', Icons.emoji_events_rounded,
+              accentColor: _cAmber),
+          const SizedBox(height: 16),
           DefaultTabController(
             length: 2,
             child: Column(
               children: [
+                // Tab Bar
                 Container(
-                  height: 42,
+                  height: 44,
                   decoration: BoxDecoration(
-                    color: AppTheme.velvet,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppTheme.roseQuartz.withOpacity(0.15)),
+                    color: _cCard,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                        color: _cRose.withValues(alpha: 0.1), width: 1),
                   ),
                   child: TabBar(
                     indicator: BoxDecoration(
-                      color: AppTheme.deepRose,
-                      borderRadius: BorderRadius.circular(14),
+                      gradient: const LinearGradient(
+                        colors: [_cDeepRose, Color(0xFF8E1444)],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _cDeepRose.withValues(alpha: 0.4),
+                          blurRadius: 12,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    labelColor: AppTheme.petalWhite,
-                    unselectedLabelColor: AppTheme.roseQuartz.withOpacity(0.7),
                     indicatorSize: TabBarIndicatorSize.tab,
                     dividerColor: Colors.transparent,
-                    padding: const EdgeInsets.all(2),
-                    tabs: [
-                      Tab(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.public_rounded, size: 16),
-                            const SizedBox(width: 8),
-                            Text('Global', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12)),
-                          ],
-                        ),
-                      ),
-                      Tab(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.location_on_rounded, size: 16),
-                            const SizedBox(width: 8),
-                            Text('Philippines', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12)),
-                          ],
-                        ),
-                      ),
+                    padding: const EdgeInsets.all(3),
+                    labelColor: _cWhite,
+                    unselectedLabelColor: _cMuted,
+                    labelStyle: GoogleFonts.outfit(
+                        fontWeight: FontWeight.w700, fontSize: 13),
+                    unselectedLabelStyle: GoogleFonts.outfit(
+                        fontWeight: FontWeight.w500, fontSize: 13),
+                    tabs: const [
+                      Tab(text: 'ðŸŒ  Global'),
+                      Tab(text: 'ðŸ‡µðŸ‡­  Philippines'),
                     ],
                   ),
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
-                  height: 340,
+                  height: 370,
                   child: TabBarView(
+                    physics: const NeverScrollableScrollPhysics(),
                     children: [
-                      _buildRankingList(_trendingGlobal, 'Global'),
-                      _buildRankingList(_trendingPH, 'Philippines'),
+                      _buildRankingList(_trendingGlobal),
+                      _buildRankingList(_trendingPH),
                     ],
                   ),
                 ),
@@ -581,281 +790,58 @@ class _CinemaScreenState extends State<CinemaScreen> {
     );
   }
 
-  Widget _buildRankingList(List<MediaItem> items, String region) {
+  Widget _buildRankingList(List<MediaItem> items) {
     if (items.isEmpty) {
-      return Center(
-        child: Text(
-          'No rankings available',
-          style: GoogleFonts.outfit(color: AppTheme.petalWhite.withOpacity(0.5)),
-        ),
-      );
+      return _buildEmptyState('No rankings available');
     }
 
     final top10 = items.take(10).toList();
-
     return ListView.separated(
-      physics: const BouncingScrollPhysics(),
+      physics: const NeverScrollableScrollPhysics(),
       itemCount: top10.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => const SizedBox(height: 6),
       itemBuilder: (context, index) {
         final item = top10[index];
         final rank = index + 1;
-        return GestureDetector(
+        return _RankingTile(
+          item: item,
+          rank: rank,
           onTap: () => _showMediaDetails(item),
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppTheme.velvet.withOpacity(0.6),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: rank <= 3
-                    ? AppTheme.warmAmber.withOpacity(0.3)
-                    : AppTheme.roseQuartz.withOpacity(0.08),
-              ),
-            ),
-            child: Row(
-              children: [
-                // Rank badge
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: rank == 1
-                        ? const LinearGradient(
-                            colors: [Color(0xFFF0A500), Color(0xFFFFD700)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          )
-                        : rank == 2
-                            ? const LinearGradient(
-                                colors: [Color(0xFFD4B5D6), Color(0xFFFFF5F5)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              )
-                            : rank == 3
-                                ? const LinearGradient(
-                                    colors: [Color(0xFFC2185B), Color(0xFFE8D5B7)],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  )
-                                : LinearGradient(
-                                    colors: [
-                                      AppTheme.moonlight.withOpacity(0.1),
-                                      AppTheme.moonlight.withOpacity(0.2),
-                                    ],
-                                  ),
-                    boxShadow: rank <= 3
-                        ? [
-                            BoxShadow(
-                              color: (rank == 1
-                                      ? AppTheme.warmAmber
-                                      : rank == 2
-                                          ? AppTheme.roseQuartz
-                                          : AppTheme.deepRose)
-                                  .withOpacity(0.25),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            )
-                          ]
-                        : null,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    '$rank',
-                    style: GoogleFonts.cormorantGaramond(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: rank <= 3 ? AppTheme.twilight : AppTheme.petalWhite,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Poster
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: SizedBox(
-                    width: 45,
-                    height: 65,
-                    child: item.posterPath.isNotEmpty
-                        ? Image.network(item.posterPath, fit: BoxFit.cover)
-                        : Container(color: AppTheme.velvet),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Title and meta
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        item.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.outfit(
-                          color: AppTheme.petalWhite,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Text(
-                            item.year.isNotEmpty ? item.year : '—',
-                            style: GoogleFonts.outfit(
-                              color: AppTheme.blushGold,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: AppTheme.petalWhite.withOpacity(0.3)),
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: Text(
-                              item.mediaType.toUpperCase(),
-                              style: GoogleFonts.outfit(
-                                color: AppTheme.petalWhite.withOpacity(0.7),
-                                fontSize: 8,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.chevron_right_rounded, color: AppTheme.roseQuartz, size: 20),
-              ],
-            ),
-          ),
         );
       },
     );
   }
 
-  List<Widget> _buildGenreRows() {
-    final rows = <Widget>[];
-    _genreLists.forEach((genreName, items) {
-      final genreMeta = _featuredGenres.firstWhere(
-        (g) => g['name'] == genreName,
-        orElse: () => {'name': genreName, 'icon': Icons.movie_filter_rounded},
-      );
-      final icon = genreMeta['icon'] as IconData?;
-      rows.add(
-        SliverToBoxAdapter(
-          child: _buildHorizontalRow(
-            genreName,
-            items,
-            showYear: true,
-            icon: icon,
-          ),
-        ),
-      );
-    });
-    return rows;
-  }
+  // â”€â”€â”€ SECTION ROW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  Widget _buildHorizontalRow(String title, List<MediaItem> items, {bool showYear = false, IconData? icon}) {
+  Widget _buildSection(
+    String title,
+    String subtitle,
+    List<MediaItem> items, {
+    Color accentColor = _cRose,
+    IconData? icon,
+  }) {
     if (items.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-          child: Row(
-            children: [
-              if (icon != null) ...[
-                Icon(icon, color: AppTheme.roseQuartz, size: 20),
-                const SizedBox(width: 8),
-              ],
-              Text(
-                title,
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.roseQuartz,
-                ),
-              ),
-            ],
-          ),
+          padding: const EdgeInsets.fromLTRB(20, 32, 20, 14),
+          child: _buildChapterHeader(title, subtitle, icon,
+              accentColor: accentColor),
         ),
         SizedBox(
-          height: showYear ? 250 : 180,
+          height: 205,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             itemCount: items.length,
             itemBuilder: (context, index) {
-              final item = items[index];
-              return GestureDetector(
-                onTap: () => _showMediaDetails(item),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: SizedBox(
-                    width: showYear ? 120 : null,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        AspectRatio(
-                          aspectRatio: 2 / 3,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppTheme.roseQuartz.withOpacity(0.1)),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.3),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: item.posterPath.isNotEmpty
-                                  ? Image.network(item.posterPath, fit: BoxFit.cover)
-                                  : Container(
-                                      color: AppTheme.velvet,
-                                      child: const Center(
-                                        child: Icon(Icons.movie_creation_outlined, color: AppTheme.roseQuartz),
-                                      ),
-                                    ),
-                            ),
-                          ),
-                        ),
-                        if (showYear) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            item.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.outfit(
-                              color: AppTheme.petalWhite,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            item.year.isNotEmpty ? item.year : (item.mediaType == 'movie' ? 'Movie' : 'Series'),
-                            style: GoogleFonts.outfit(
-                              color: AppTheme.blushGold.withOpacity(0.7),
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
+              return _PosterTile(
+                item: items[index],
+                onTap: () => _showMediaDetails(items[index]),
               );
             },
           ),
@@ -864,65 +850,187 @@ class _CinemaScreenState extends State<CinemaScreen> {
     );
   }
 
+  List<Widget> _buildGenreRows() {
+    final rows = <Widget>[];
+    _genreLists.forEach((genreName, items) {
+      final genreMeta = _featuredGenres.firstWhere(
+        (g) => g['name'] == genreName,
+        orElse: () => {
+          'name': genreName,
+          'icon': Icons.movie_filter_rounded,
+          'color': _cRose,
+        },
+      );
+      final icon = genreMeta['icon'] as IconData?;
+      final color = genreMeta['color'] as Color? ?? _cRose;
+
+      rows.add(
+        SliverToBoxAdapter(
+          child: _buildSection(
+            genreName,
+            genreMeta['type'] == 'tv' ? 'TV Series' : 'Movies',
+            items,
+            accentColor: color,
+            icon: icon,
+          ),
+        ),
+      );
+    });
+    return rows;
+  }
+
+  // â”€â”€â”€ CHAPTER HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  Widget _buildChapterHeader(
+    String title,
+    String subtitle,
+    IconData? icon, {
+    Color accentColor = _cRose,
+  }) {
+    return Row(
+      children: [
+        // Vertical accent bar
+        Container(
+          width: 3,
+          height: 36,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [accentColor, accentColor.withValues(alpha: 0.3)],
+            ),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: GoogleFonts.cormorantGaramond(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: _cWhite,
+                letterSpacing: 0.3,
+              ),
+            ),
+            Text(
+              subtitle.toUpperCase(),
+              style: GoogleFonts.outfit(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                color: accentColor.withValues(alpha: 0.7),
+                letterSpacing: 2.0,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // 2. SEARCH TAB
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
   Widget _buildSearchTab() {
     return Column(
       children: [
         // Header
-        Padding(
-          padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 10, 20, 0),
+        Container(
+          padding: EdgeInsets.fromLTRB(
+              20, MediaQuery.of(context).padding.top + 14, 20, 0),
           child: Row(
             children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.roseQuartz),
-                onPressed: () => setState(() => _currentIndex = 0),
+              _CinemaIconBtn(
+                icon: Icons.arrow_back_ios_new_rounded,
+                onTap: () => _switchTab(0),
               ),
-              const SizedBox(width: 4),
-              Text(
-                'Search',
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.roseQuartz,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Search',
+                      style: GoogleFonts.cormorantGaramond(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        color: _cWhite,
+                      ),
+                    ),
+                    Text(
+                      'FIND YOUR NEXT OBSESSION',
+                      style: GoogleFonts.outfit(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: _cMuted,
+                        letterSpacing: 2.0,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
+        const SizedBox(height: 16),
 
-        // Search Input Bar
+        // Search Bar
         Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Container(
             decoration: BoxDecoration(
-              color: AppTheme.velvet,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppTheme.roseQuartz.withOpacity(0.3)),
+              color: _cCard,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _cRose.withValues(alpha: 0.15)),
+              boxShadow: [
+                BoxShadow(
+                  color: _cDeepRose.withValues(alpha: 0.08),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: TextField(
               controller: _searchController,
               onChanged: _onSearchChanged,
-              style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+              style: GoogleFonts.outfit(color: _cWhite, fontSize: 15),
               decoration: InputDecoration(
-                hintText: 'Search for a movie or TV show...',
-                hintStyle: GoogleFonts.outfit(color: AppTheme.petalWhite.withOpacity(0.4)),
-                prefixIcon: const Icon(Icons.search, color: AppTheme.roseQuartz),
+                hintText: 'Movies, TV shows...',
+                hintStyle: GoogleFonts.outfit(
+                    color: _cMuted, fontSize: 15),
+                prefixIcon: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Icon(Icons.search_rounded,
+                      color: _cDeepRose, size: 22),
+                ),
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
               ),
             ),
           ),
         ),
+        const SizedBox(height: 16),
 
-        // Search Results List / Grid
+        // Results
         Expanded(
           child: _isSearching
-              ? const Center(child: CircularProgressIndicator(color: AppTheme.deepRose))
+              ? Center(
+                  child: CircularProgressIndicator(
+                    color: _cDeepRose,
+                    strokeWidth: 2.5,
+                  ),
+                )
               : _searchResults.isEmpty
                   ? _buildSearchEmptyState()
                   : GridView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      physics: const BouncingScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 3,
                         childAspectRatio: 2 / 3,
                         crossAxisSpacing: 10,
@@ -931,49 +1039,9 @@ class _CinemaScreenState extends State<CinemaScreen> {
                       itemCount: _searchResults.length,
                       itemBuilder: (context, index) {
                         final item = _searchResults[index];
-                        return GestureDetector(
+                        return _SearchResultTile(
+                          item: item,
                           onTap: () => _showMediaDetails(item),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                item.posterPath.isNotEmpty
-                                    ? Image.network(item.posterPath, fit: BoxFit.cover)
-                                    : Container(
-                                        color: AppTheme.velvet,
-                                        child: const Center(
-                                          child: Icon(Icons.movie_creation_outlined, color: AppTheme.roseQuartz),
-                                        ),
-                                      ),
-                                Positioned(
-                                  bottom: 0,
-                                  left: 0,
-                                  right: 0,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.bottomCenter,
-                                        end: Alignment.topCenter,
-                                        colors: [Colors.black87, Colors.transparent],
-                                      ),
-                                    ),
-                                    child: Text(
-                                      item.title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.outfit(
-                                        color: AppTheme.petalWhite,
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                         );
                       },
                     ),
@@ -983,122 +1051,128 @@ class _CinemaScreenState extends State<CinemaScreen> {
   }
 
   Widget _buildSearchEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.video_library_outlined, size: 60, color: AppTheme.roseQuartz),
-          const SizedBox(height: 16),
-          Text(
-            _searchController.text.isEmpty ? 'Type to discover magic...' : 'No results found',
-            style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withOpacity(0.6), fontSize: 16),
-          ),
-        ],
-      ),
+    return _buildEmptyState(
+      _searchController.text.isEmpty
+          ? 'Type to discover magic...'
+          : 'No results found',
+      icon: Icons.video_library_outlined,
     );
   }
 
-  // 3. WANT TO WATCH / WATCHED TABS
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // 3. WATCHLIST TABS
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  Color _watchedBadgeColor(String status) {
+    switch (status) {
+      case 'watched-clair':
+        return const Color(0xFFE91E8C);
+      case 'watched-khent':
+        return const Color(0xFF1976D2);
+      case 'watched-both':
+      case 'watched':
+      default:
+        return const Color(0xFF2E7D32);
+    }
+  }
+
   Widget _buildWatchlistTab({required bool isWatchedTab}) {
     final list = isWatchedTab ? _watchedList : _wantToWatchList;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 10, 20, 10),
+        // Header
+        Container(
+          padding: EdgeInsets.fromLTRB(
+              20, MediaQuery.of(context).padding.top + 14, 20, 0),
           child: Row(
             children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.roseQuartz),
-                onPressed: () => setState(() => _currentIndex = 0),
+              _CinemaIconBtn(
+                icon: Icons.arrow_back_ios_new_rounded,
+                onTap: () => _switchTab(0),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 12),
               Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isWatchedTab ? 'Watched' : 'Want to Watch',
+                      style: GoogleFonts.cormorantGaramond(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        color: _cWhite,
+                      ),
+                    ),
+                    Text(
+                      isWatchedTab ? 'OUR CATALOG' : 'THE WATCHLIST',
+                      style: GoogleFonts.outfit(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: _cMuted,
+                        letterSpacing: 2.0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Count badge
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _cDeepRose.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border:
+                      Border.all(color: _cDeepRose.withValues(alpha: 0.3)),
+                ),
                 child: Text(
-                  isWatchedTab ? 'Watched Catalog' : 'Want to Watch List',
-                  style: GoogleFonts.cormorantGaramond(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.roseQuartz,
+                  '${list.length}',
+                  style: GoogleFonts.outfit(
+                    color: _cDeepRose,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
                   ),
                 ),
               ),
             ],
           ),
         ),
+        const SizedBox(height: 16),
         Expanded(
           child: list.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        isWatchedTab ? Icons.remove_red_eye_outlined : Icons.bookmark_border_rounded,
-                        size: 60,
-                        color: AppTheme.roseQuartz.withOpacity(0.3),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        isWatchedTab ? 'No movies in Watched Catalog' : 'No movies in Want to Watch list',
-                        style: GoogleFonts.outfit(color: AppTheme.petalWhite.withOpacity(0.5)),
-                      ),
-                    ],
-                  ),
+              ? _buildEmptyState(
+                  isWatchedTab
+                      ? 'Your watched catalog is empty'
+                      : 'Nothing queued yet',
+                  icon: isWatchedTab
+                      ? Icons.remove_red_eye_outlined
+                      : Icons.bookmark_border_rounded,
                 )
               : GridView.builder(
-                  padding: const EdgeInsets.all(20),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 100),
+                  physics: const BouncingScrollPhysics(),
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    childAspectRatio: 0.65,
-                    crossAxisSpacing: 15,
-                    mainAxisSpacing: 15,
+                    childAspectRatio: 0.62,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
                   ),
                   itemCount: list.length,
                   itemBuilder: (context, index) {
                     final item = list[index];
-                    return Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        GestureDetector(
-                          onTap: () => _showMediaDetails(item),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: item.posterPath.isNotEmpty
-                                ? Image.network(item.posterPath, fit: BoxFit.cover)
-                                : Container(
-                                    color: AppTheme.velvet,
-                                    child: const Center(
-                                      child: Icon(Icons.movie_rounded, color: AppTheme.roseQuartz),
-                                    ),
-                                  ),
-                          ),
-                        ),
-
-                        // Status Badge Tag at top right
-                        Positioned(
-                          top: 10,
-                          right: 10,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: isWatchedTab ? Colors.green.withOpacity(0.9) : AppTheme.warmAmber.withOpacity(0.9),
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: const [
-                                BoxShadow(color: Colors.black26, blurRadius: 4),
-                              ],
-                            ),
-                            child: Text(
-                              isWatchedTab ? item.watchedDisplay.toUpperCase() : 'TO WATCH',
-                              style: GoogleFonts.outfit(
-                                color: Colors.white,
-                                fontSize: 8,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                    return _WatchlistTile(
+                      item: item,
+                      isWatched: isWatchedTab,
+                      badgeColor: isWatchedTab
+                          ? _watchedBadgeColor(item.status)
+                          : _cAmber,
+                      badgeLabel: isWatchedTab
+                          ? item.watchedDisplay.toUpperCase()
+                          : 'TO WATCH',
+                      onTap: () => _showMediaDetails(item),
                     );
                   },
                 ),
@@ -1107,62 +1181,332 @@ class _CinemaScreenState extends State<CinemaScreen> {
     );
   }
 
-  // BOTTOM NAVIGATION BAR
-  Widget _buildBottomNavBar() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(18, 0, 18, 24),
-      decoration: BoxDecoration(
-        color: AppTheme.velvet.withOpacity(0.85),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: AppTheme.roseQuartz.withOpacity(0.12),
-          width: 1.0,
+  // â”€â”€â”€ SHIMMER LOADING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  Widget _buildShimmerHome() {
+    return CustomScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+                20, MediaQuery.of(context).padding.top + 14, 20, 20),
+            child: _shimmerBox(height: 40, width: 160, radius: 8),
+          ),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.4),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: _shimmerBox(height: 320, radius: 24),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 32, 20, 0),
+            child: _shimmerBox(height: 280, radius: 16),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 32, 20, 14),
+            child: _shimmerBox(height: 36, width: 200, radius: 8),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: SizedBox(
+            height: 205,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: 6,
+              itemBuilder: (_, _) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 5),
+                child: _shimmerBox(width: 120, height: 205, radius: 14),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _shimmerBox(
+      {double? width, required double height, double radius = 12}) {
+    return _ShimmerWidget(
+      child: Container(
+        width: width ?? double.infinity,
+        height: height,
+        decoration: BoxDecoration(
+          color: _cCard,
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      ),
+    );
+  }
+
+  // â”€â”€â”€ EMPTY STATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  Widget _buildEmptyState(String message,
+      {IconData icon = Icons.video_library_outlined}) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: _cCard,
+              shape: BoxShape.circle,
+              border: Border.all(color: _cRose.withValues(alpha: 0.1)),
+            ),
+            child: Icon(icon, size: 36, color: _cMuted),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.outfit(
+              color: _cMuted,
+              fontSize: 15,
+            ),
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: BackdropFilter(
-          filter: ColorFilter.mode(Colors.black.withOpacity(0.1), BlendMode.dstIn),
-          child: BottomNavigationBar(
-            currentIndex: _currentIndex,
-            onTap: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
-            },
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            type: BottomNavigationBarType.fixed,
-            selectedItemColor: AppTheme.deepRose,
-            unselectedItemColor: AppTheme.roseQuartz.withOpacity(0.45),
-            selectedLabelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 0.2),
-            unselectedLabelStyle: GoogleFonts.outfit(fontSize: 11),
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home_outlined),
-                activeIcon: Icon(Icons.home_rounded),
-                label: 'Home',
+    );
+  }
+
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // BOTTOM NAVIGATION
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  Widget _buildBottomNavBar() {
+    final items = [
+      _NavItem(icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Home'),
+      _NavItem(icon: Icons.search_rounded, activeIcon: Icons.search_rounded, label: 'Search'),
+      _NavItem(icon: Icons.bookmark_border_rounded, activeIcon: Icons.bookmark_rounded, label: 'Queue'),
+      _NavItem(icon: Icons.remove_red_eye_outlined, activeIcon: Icons.remove_red_eye_rounded, label: 'Watched'),
+    ];
+
+    return Container(
+      margin: EdgeInsets.fromLTRB(
+          20, 0, 20, MediaQuery.of(context).padding.bottom + 12),
+      decoration: BoxDecoration(
+        color: _cCard,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: _cRose.withValues(alpha: 0.1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 30,
+            offset: const Offset(0, 10),
+          ),
+          BoxShadow(
+            color: _cDeepRose.withValues(alpha: 0.05),
+            blurRadius: 30,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: List.generate(items.length, (i) {
+            final isActive = _currentIndex == i;
+            final navItem = items[i];
+            return _buildNavItem(navItem, i, isActive);
+          }),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(_NavItem navItem, int index, bool isActive) {
+    return GestureDetector(
+      onTap: () => _switchTab(index),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive ? _cDeepRose.withValues(alpha: 0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                isActive ? navItem.activeIcon : navItem.icon,
+                key: ValueKey('$index-$isActive'),
+                size: 22,
+                color: isActive ? _cDeepRose : _cMuted,
               ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.search_rounded),
-                label: 'Search',
+            ),
+            if (isActive) ...[
+              const SizedBox(width: 6),
+              Text(
+                navItem.label,
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: _cDeepRose,
+                ),
               ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.bookmark_outline_rounded),
-                activeIcon: Icon(Icons.bookmark_rounded),
-                label: 'Want to Watch',
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// EXTRACTED WIDGETS
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+class _NavItem {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  const _NavItem({required this.icon, required this.activeIcon, required this.label});
+}
+
+/// Circular icon button for Cinema header
+class _CinemaIconBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _CinemaIconBtn({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: _cCard,
+          shape: BoxShape.circle,
+          border: Border.all(color: _cRose.withValues(alpha: 0.12)),
+        ),
+        child: Icon(icon, color: _cRose, size: 18),
+      ),
+    );
+  }
+}
+
+/// Poster card in horizontal row
+class _PosterTile extends StatefulWidget {
+  final MediaItem item;
+  final VoidCallback onTap;
+
+  const _PosterTile({required this.item, required this.onTap});
+
+  @override
+  State<_PosterTile> createState() => _PosterTileState();
+}
+
+class _PosterTileState extends State<_PosterTile> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.93 : 1.0,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeInOut,
+        child: Container(
+          width: 120,
+          margin: const EdgeInsets.symmetric(horizontal: 5),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Poster
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.4),
+                        blurRadius: 10,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        widget.item.posterPath.isNotEmpty
+                            ? Image.network(widget.item.posterPath,
+                                fit: BoxFit.cover)
+                            : Container(
+                                color: _cCard,
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.movie_creation_outlined,
+                                    color: _cMuted,
+                                    size: 28,
+                                  ),
+                                ),
+                              ),
+                        // Bottom shimmer overlay
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          child: Container(
+                            height: 40,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.topCenter,
+                                colors: [
+                                  Colors.black.withValues(alpha: 0.7),
+                                  Colors.transparent,
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.remove_red_eye_outlined),
-                activeIcon: Icon(Icons.remove_red_eye_rounded),
-                label: 'Watched',
+              const SizedBox(height: 7),
+              Text(
+                widget.item.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.outfit(
+                  color: _cWhite,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                widget.item.year.isNotEmpty
+                    ? widget.item.year
+                    : (widget.item.mediaType == 'movie' ? 'Movie' : 'Series'),
+                style: GoogleFonts.outfit(
+                  color: _cMuted,
+                  fontSize: 10,
+                ),
               ),
             ],
           ),
@@ -1171,3 +1515,500 @@ class _CinemaScreenState extends State<CinemaScreen> {
     );
   }
 }
+
+/// Ranking list tile
+class _RankingTile extends StatefulWidget {
+  final MediaItem item;
+  final int rank;
+  final VoidCallback onTap;
+
+  const _RankingTile(
+      {required this.item, required this.rank, required this.onTap});
+
+  @override
+  State<_RankingTile> createState() => _RankingTileState();
+}
+
+class _RankingTileState extends State<_RankingTile> {
+  bool _pressed = false;
+
+  Color get _rankColor {
+    switch (widget.rank) {
+      case 1:
+        return const Color(0xFFF0A500);
+      case 2:
+        return const Color(0xFFB0BEC5);
+      case 3:
+        return const Color(0xFFBF8040);
+      default:
+        return _cMuted;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isTop3 = widget.rank <= 3;
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: _pressed
+              ? _cCard.withValues(alpha: 0.8)
+              : _cCard.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isTop3
+                ? _rankColor.withValues(alpha: 0.3)
+                : _cRose.withValues(alpha: 0.07),
+            width: isTop3 ? 1.0 : 0.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            // Rank
+            SizedBox(
+              width: 38,
+              child: isTop3
+                  ? Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _rankColor.withValues(alpha: 0.15),
+                        border: Border.all(
+                            color: _rankColor.withValues(alpha: 0.5), width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _rankColor.withValues(alpha: 0.2),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '${widget.rank}',
+                        style: GoogleFonts.cormorantGaramond(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: _rankColor,
+                        ),
+                      ),
+                    )
+                  : Center(
+                      child: Text(
+                        '${widget.rank}',
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: _cMuted,
+                        ),
+                      ),
+                    ),
+            ),
+            const SizedBox(width: 10),
+            // Poster
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                width: 44,
+                height: 62,
+                child: widget.item.posterPath.isNotEmpty
+                    ? Image.network(widget.item.posterPath, fit: BoxFit.cover)
+                    : Container(color: _cCard),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      color: _cWhite,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Text(
+                        widget.item.year.isNotEmpty
+                            ? widget.item.year
+                            : 'â€”',
+                        style: GoogleFonts.outfit(
+                          color: _cGold,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: _cDeepRose.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          widget.item.mediaType.toUpperCase(),
+                          style: GoogleFonts.outfit(
+                            color: _cDeepRose,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: _cMuted, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Search result grid tile
+class _SearchResultTile extends StatefulWidget {
+  final MediaItem item;
+  final VoidCallback onTap;
+
+  const _SearchResultTile({required this.item, required this.onTap});
+
+  @override
+  State<_SearchResultTile> createState() => _SearchResultTileState();
+}
+
+class _SearchResultTileState extends State<_SearchResultTile> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.93 : 1.0,
+        duration: const Duration(milliseconds: 130),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                widget.item.posterPath.isNotEmpty
+                    ? Image.network(widget.item.posterPath, fit: BoxFit.cover)
+                    : Container(
+                        color: _cCard,
+                        child: const Center(
+                          child: Icon(
+                            Icons.movie_creation_outlined,
+                            color: _cMuted,
+                            size: 28,
+                          ),
+                        ),
+                      ),
+                // Gradient + title
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.9),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                    child: Text(
+                      widget.item.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.outfit(
+                        color: _cWhite,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
+                      ),
+                    ),
+                  ),
+                ),
+                // Media type badge
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _cDeepRose.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      widget.item.mediaType == 'movie' ? 'M' : 'TV',
+                      style: GoogleFonts.outfit(
+                        color: Colors.white,
+                        fontSize: 7,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Watchlist grid tile
+class _WatchlistTile extends StatefulWidget {
+  final MediaItem item;
+  final bool isWatched;
+  final Color badgeColor;
+  final String badgeLabel;
+  final VoidCallback onTap;
+
+  const _WatchlistTile({
+    required this.item,
+    required this.isWatched,
+    required this.badgeColor,
+    required this.badgeLabel,
+    required this.onTap,
+  });
+
+  @override
+  State<_WatchlistTile> createState() => _WatchlistTileState();
+}
+
+class _WatchlistTileState extends State<_WatchlistTile> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.95 : 1.0,
+        duration: const Duration(milliseconds: 130),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Poster
+                widget.item.posterPath.isNotEmpty
+                    ? Image.network(widget.item.posterPath, fit: BoxFit.cover)
+                    : Container(
+                        color: _cCard,
+                        child: const Center(
+                          child: Icon(
+                            Icons.movie_rounded,
+                            color: _cMuted,
+                            size: 36,
+                          ),
+                        ),
+                      ),
+
+                // Bottom gradient + title
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.9),
+                          Colors.black.withValues(alpha: 0.3),
+                          Colors.transparent,
+                        ],
+                        stops: const [0.0, 0.5, 1.0],
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.item.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.outfit(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            height: 1.2,
+                          ),
+                        ),
+                        if (widget.item.year.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            widget.item.year,
+                            style: GoogleFonts.outfit(
+                              color: _cGold.withValues(alpha: 0.9),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Status badge
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: widget.badgeColor,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: widget.badgeColor.withValues(alpha: 0.4),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      widget.badgeLabel,
+                      style: GoogleFonts.outfit(
+                        color: Colors.white,
+                        fontSize: 7,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shimmer animation widget
+class _ShimmerWidget extends StatefulWidget {
+  final Widget child;
+  const _ShimmerWidget({required this.child});
+
+  @override
+  State<_ShimmerWidget> createState() => _ShimmerWidgetState();
+}
+
+class _ShimmerWidgetState extends State<_ShimmerWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat(reverse: false);
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.linear);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, child) {
+        return ShaderMask(
+          blendMode: BlendMode.srcATop,
+          shaderCallback: (bounds) {
+            return LinearGradient(
+              begin: const Alignment(-1.5, 0),
+              end: const Alignment(1.5, 0),
+              colors: const [
+                _cCard,
+                Color(0xFF2A1F3A),
+                _cCard,
+              ],
+              stops: [
+                _anim.value - 0.3,
+                _anim.value,
+                _anim.value + 0.3,
+              ].map((v) => v.clamp(0.0, 1.0)).toList(),
+            ).createShader(bounds);
+          },
+          child: child,
+        );
+      },
+      child: widget.child,
+    );
+  }
+}
+
