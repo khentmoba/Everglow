@@ -11,6 +11,9 @@ class TMDBService {
   final String _imageBaseOriginal = 'https://image.tmdb.org/t/p/original';
   final String _profileBaseUrl = 'https://image.tmdb.org/t/p/w185';
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  
+  // Cache for trailer keys to avoid redundant network requests: 'mediaType_tmdbId' -> Trailer Key
+  final Map<String, String?> _trailerCache = {};
 
   // Singleton pattern
   static final TMDBService _instance = TMDBService._internal();
@@ -576,4 +579,46 @@ class TMDBService {
   }
 
   String _cacheKey(String userName) => 'cached_watch_list::$userName';
+
+  /// Fetch YouTube trailer key for a movie or TV show, with caching.
+  Future<String?> fetchTrailerKey(int id, String mediaType) async {
+    final cacheKey = '${mediaType}_$id';
+    if (_trailerCache.containsKey(cacheKey)) {
+      return _trailerCache[cacheKey];
+    }
+
+    final url = Uri.parse(
+        '$_baseUrl/$mediaType/$id/videos?api_key=${ApiKeys.tmdbApiKey}');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List results = data['results'] ?? [];
+        
+        // Prioritize official YouTube Trailer
+        var trailer = results.firstWhere(
+          (v) => v['site'] == 'YouTube' && v['type'] == 'Trailer' && v['official'] == true,
+          orElse: () => null,
+        );
+        // Fallback to any YouTube Trailer
+        trailer ??= results.firstWhere(
+          (v) => v['site'] == 'YouTube' && v['type'] == 'Trailer',
+          orElse: () => null,
+        );
+        // Fallback to any YouTube video (Teaser, Clip, etc.)
+        trailer ??= results.firstWhere(
+          (v) => v['site'] == 'YouTube',
+          orElse: () => null,
+        );
+
+        final key = trailer != null ? trailer['key'] as String? : null;
+        _trailerCache[cacheKey] = key;
+        return key;
+      }
+    } catch (e) {
+      print('TMDB fetchTrailerKey Error: $e');
+    }
+    _trailerCache[cacheKey] = null;
+    return null;
+  }
 }

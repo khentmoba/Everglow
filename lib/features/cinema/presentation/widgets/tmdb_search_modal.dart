@@ -11,7 +11,11 @@ import 'package:everglow/services/auth_service.dart';
 import 'media_poster_card.dart';
 
 class TMDBSearchModal extends StatefulWidget {
-  const TMDBSearchModal({Key? key}) : super(key: key);
+  /// Pre-selects the "Mine" / "Ours" scope in the add dialog. Pass
+  /// `'ours'` when opening from the shared "Our Cinema" list so the user
+  /// only has to confirm. Defaults to `'mine'`.
+  final String initialScope;
+  const TMDBSearchModal({Key? key, this.initialScope = 'mine'}) : super(key: key);
 
   @override
   State<TMDBSearchModal> createState() => _TMDBSearchModalState();
@@ -64,9 +68,12 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
     String status = 'to-watch';
     // 'mine' = personal watchlist, 'ours' = shared Our Cinema list.
     // The 'ours' option is only shown to the couple (khentsgdz, clairjassen).
-    String scope = 'mine';
+    String scope = widget.initialScope;
     final userName = context.read<AuthService>().currentUser ?? '';
     final isCouple = OurCinemaService.coupleUsernames.contains(userName);
+    // The "Ours" chip can only be pre-selected for couple users; fall back
+    // to "Mine" for cinema-only profiles (breyan, octagram).
+    if (scope == 'ours' && !isCouple) scope = 'mine';
 
     showDialog(
       context: context,
@@ -115,6 +122,7 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
                         icon: Icons.bookmark_rounded,
                         value: 'mine',
                         current: scope,
+                        onTap: () => setDialogState(() => scope = 'mine'),
                       ),
                       _scopeChip(
                         context: context,
@@ -123,6 +131,7 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
                         icon: Icons.favorite_rounded,
                         value: 'ours',
                         current: scope,
+                        onTap: () => setDialogState(() => scope = 'ours'),
                       ),
                     ],
                   ),
@@ -224,11 +233,12 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
     required IconData icon,
     required String value,
     required String current,
+    required VoidCallback onTap,
   }) {
     final active = current == value;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setDialogState(() => current = value),
+        onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),

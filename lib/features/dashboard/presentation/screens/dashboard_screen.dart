@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:js_interop';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:web/web.dart' as web;
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:animate_do/animate_do.dart';
 import '../../domain/models/anniversary_counter.dart';
@@ -16,6 +19,7 @@ import 'package:provider/provider.dart';
 import 'package:everglow/features/daily_bloom/presentation/widgets/daily_bloom.dart';
 import 'package:everglow/features/daily_bloom/presentation/providers/garden_provider.dart';
 import 'package:everglow/services/auth_service.dart';
+import 'package:everglow/services/presence_service.dart';
 import '../../../chat/presentation/screens/sanctuary_chat_screen.dart';
 import '../widgets/creator_modal.dart';
 import '../widgets/dashboard_actions.dart';
@@ -44,9 +48,14 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen>
+    with WidgetsBindingObserver {
   late StreamController<AnniversaryCounter> _counterController;
   late Timer _timer;
+  AuthService? _authService;
+  PresenceService? _presenceService;
+  String? _lastHeartbeatUid;
+  String? _lastHeartbeatUsername;
 
   @override
   void initState() {
@@ -56,6 +65,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       _updateCounter();
     });
+    WidgetsBinding.instance.addObserver(this);
+    if (kIsWeb) _registerUnloadHandlers();
 
     // Initialize services
     Future.microtask(() {
@@ -81,6 +92,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             }
           });
         }
+
+        _syncPresenceHeartbeat();
       }
     });
   }
@@ -104,9 +117,79 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer.cancel();
     _counterController.close();
+    final presence = _presenceService;
+    final uid = _lastHeartbeatUid;
+    if (presence != null && uid != null && uid.isNotEmpty) {
+      presence.stopHeartbeat();
+    }
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    final presence = _presenceService;
+    final auth = _authService;
+    final uid = auth?.uid;
+    if (presence == null || uid == null || uid.isEmpty) return;
+
+    if (state == AppLifecycleState.resumed) {
+      presence.startHeartbeat(uid: uid, username: auth!.currentUser ?? '');
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      presence.setOffline(uid);
+    }
+  }
+
+  void _syncPresenceHeartbeat() {
+    final auth = context.read<AuthService>();
+    final presence = context.read<PresenceService>();
+    _authService = auth;
+    _presenceService = presence;
+    final uid = auth.uid;
+    final username = auth.currentUser ?? '';
+
+    if (uid == null || uid.isEmpty) {
+      if (_lastHeartbeatUid != null) {
+        presence.stopHeartbeat();
+        _lastHeartbeatUid = null;
+        _lastHeartbeatUsername = null;
+      }
+      return;
+    }
+
+    if (uid != _lastHeartbeatUid || username != _lastHeartbeatUsername) {
+      presence.startHeartbeat(uid: uid, username: username);
+      _lastHeartbeatUid = uid;
+      _lastHeartbeatUsername = username;
+    }
+  }
+
+  void _registerUnloadHandlers() {
+    web.window.addEventListener(
+      'pagehide',
+      ((web.Event _) {
+        final uid = _lastHeartbeatUid;
+        final presence = _presenceService;
+        if (uid != null && presence != null) {
+          presence.setOffline(uid);
+        }
+      }).toJS,
+    );
+    web.window.addEventListener(
+      'beforeunload',
+      ((web.Event _) {
+        final uid = _lastHeartbeatUid;
+        final presence = _presenceService;
+        if (uid != null && presence != null) {
+          presence.setOffline(uid);
+        }
+      }).toJS,
+    );
   }
 
   @override

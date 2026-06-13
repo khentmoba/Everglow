@@ -14,47 +14,44 @@ Everglow tracks your relationship journey through gamified experiences, shared a
 
 ## Latest Release
 
-> **v3.0.0** — Cinematic Cinema Overhaul, Piano Tiles Rewrite & Breyan Access
+> **v3.1.0** — Live Presence, Hover-to-Play Trailers & Our Cinema Glass UI
 > [View full changelog →](https://github.com/khentmoba/Everglow/releases/latest)
 
-**v3.0.0 — The Cinematic & Performance Update:**
+**v3.1.0 — The Live & Cinematic Update:**
 
-1. **Cinematic Dark Luxury Cinema UI/UX**:
-   - **Feature**: Complete Cinema screen rebuild with floating pill nav bar, animated active tab indicator, and 320px hero carousel with 4-stop cinematic gradient + shadow bloom.
-   - **Feature**: Chapter-style section headers (accent bar + Cormorant Garamond title typography).
-   - **Feature**: Shimmer skeleton loading replaces the spinner while TMDB data fetches.
-   - **Feature**: Press-scale poster tiles with bottom fade overlay for a tactile feel.
-   - **Feature**: Medal rank badges (gold/silver/bronze glow rings) on trending rankings.
-   - **Feature**: Rich watchlist grid with gradient overlays and colored glowing status badges per item.
-   - **Feature**: Episode drawer rebuilt with 280px cinematic hero backdrop, 5-star visual rating embedded in the backdrop, and per-genre distinct colored chips.
-   - **Feature**: Gradient play button with rose-glow shadow, large-numeral episode tiles, and colored cast avatar rings with glass-feel review cards.
+1. **Real-Time Presence Service**:
+   - **Feature**: New `PresenceService` writes a 15 s heartbeat to Firestore `presence/{uid}` with `isOnline`, `lastSeen`, `isDoodling`, and `lastDoodleAt` so the partner can see exactly when you're around.
+   - **Feature**: New `PartnerPresenceIndicator` widget renders a pulsing green dot in the Sanctuary chat header — "Clair is active" or "Active 5m ago" with second-level precision.
+   - **Feature**: New `PartnerDoodleIndicator` overlay on the Canvas screen shows a live "Clair is doodling ✨ 12s" banner with an animated dot whenever the partner is actively drawing.
+   - **Feature**: Dashboard wires the heartbeat into `WidgetsBindingObserver` and the browser's `pagehide` / `beforeunload` events — the user flips offline the moment they close the tab.
 
-2. **Piano Tiles — Full Engine Rewrite**:
-   - **Feature**: Brand-new renderer using `Ticker` + `ValueNotifier` + a single GPU-friendly `CustomPainter` (`PianoBoardPainter`) that paints all four lanes in one pass — zero per-frame widget rebuilds.
-   - **Feature**: Beat-locked scrolling, miss-tolerance grace window, and tap-pulse ripples.
-   - **Feature**: O(1) tap resolution against the next pending note via per-lane `GestureDetector`s.
-   - **Performance**: New `PianoAudioService` pre-warms a pool of `AudioPlayer`s per MIDI note, pre-loads the nearest reference sample (`a.wav`, `c.wav`, `e.wav`, `f.wav`), and pitch-shifts via `setSpeed`. Taps fire-and-forget on the hot path with zero awaits for near-instant response.
-   - **Feature**: Lazy fallback that prepares an unprepared note on demand if the song touches a pitch outside the pre-warm pool.
-   - **Feature**: Expanded song library — *Twinkle Twinkle Little Star*, *Ode to Joy*, *Für Elise*, and *Canon in D (C-Major)* — with per-song tempo and difficulty (`Easy` / `Medium` / `Hard`).
+2. **Trailer Player + YouTube Integration**:
+   - **Feature**: New `TrailerPlayer` widget uses a dedicated `HTMLIFrameElement` YouTube embed with `autoplay`, `muted`, `controls=0`, `loop=1`, `playlist={key}`, `enablejsapi=1`, `playsinline=1`, `modestbranding=1` and `pointer-events: none` so the iframe never blocks the parent gesture surface.
+   - **Feature**: `TMDBService.fetchTrailerKey(tmdbId, mediaType)` hits `/{type}/{id}/videos` with a priority chain — official YouTube Trailer → any YouTube Trailer → any YouTube video — and caches the result per `mediaType_tmdbId`.
+   - **Feature**: The trending hero carousel now swaps its still backdrop for the live, muted, looping YouTube trailer of the active card 2.5 s after the page settles.
+   - **Feature**: Desktop hover on a poster tile scales it to 1.15×, drops a rose-glow shadow, and 600 ms later swaps the poster for the looping trailer preview.
+   - **Feature**: A floating "Watch Trailer" button on the cinematic hero backdrop of the Episode Drawer opens a full trailer player with a "Close Trailer" pill.
 
-3. **Breyan (Cinema-Only) Access**:
-   - **Feature**: New passcode `9132` signs in as **Breyan**, a cinema-only sibling account. They land directly on the Cinema screen and have isolated watchlist data so the partner-only data stays private.
-   - **Feature**: Gateway passcode `9132` is accepted in addition to `1111` (Clair) and `2222` (Khent).
-   - **Feature**: `AuthService.loginWithPasscode('breyan')` is registered with `isCinemaOnlyUser` flag for future permission gates.
-   - **Feature**: Idempotent `migrateWatchListOwnership()` runs on every login to backfill `userName` on legacy watchlist documents.
+3. **Our Cinema Glass UI + Couple Badges**:
+   - **Feature**: Glassmorphic dark cards (`Color(0x2E2A1B3D)`) with deep-rose border + 24 px shadow lift on hover.
+   - **Feature**: New "Watched Together 💞" gradient pill (Khent → Clair) replaces the per-user chips when both partners have watched. Otherwise two compact avatar pills (K / C) light up in their respective accent color.
+   - **Feature**: Hover-to-play trailers on every list row with a "TRAILER" green pill that animates in while the trailer plays.
+   - **Feature**: New `+` header button opens `TMDBSearchModal` with `initialScope: 'ours'`, pre-selecting the couple chip.
+   - **Feature**: Empty "To Watch" state shows a glowing "Add a movie or series" CTA that jumps straight to the same modal.
+   - **Feature**: `OurCinemaItem.toMediaItem()` adapter lets the shared list reuse the same `EpisodeDrawer` and watch flow as the personal Cinema screen.
 
-4. **HexGL Drift Embed Boot Fixes**:
-   - **Fix**: Iframe no longer deadlocks on "Initializing 3D engine..." — hidden HexGL overlay in embed mode, auto-call `tryBootEmbed()` on iframe load, and defer `hexGL.start()` behind `startEmbedRace()`.
-   - **Fix**: `postToParent('ready')` now fires as soon as the HexGL instance is created (so the Flutter overlay shows "Tap anywhere to start" right away) instead of waiting for every asset to download.
-   - **Feature**: New `progress` messages surface texture/geometry load progress in the spinner, and a `loaded` message marks the race as fully ready.
-   - **Fix**: `web/hexgl/index.html` is now marked `no-cache` to bust the 1-hour Firebase Hosting CDN cache; a `v=3` cache-buster is appended to the Flutter iframe src.
-   - **Fix**: Uncaught errors and unhandled rejections inside the iframe are surfaced to the parent so future load failures show a real message instead of an infinite spinner.
+4. **Videasy Provider Polish**:
+   - **Feature**: `VideoPlayerScreen` now appends `?autoplay=true` for movies and `?autoplay=true&nextButton=true&episodeSelector=true` for TV when the selected provider is Videasy.
 
-5. **Auth & Gateway Hardening**:
-   - **Fix**: Gateway passcode login no longer fails when Firebase env credentials are empty — `EnvConfig` now hardcodes TMDB, Last.fm, Clair, Khent, and Breyan fallbacks.
-   - **Feature**: `EnvConfig.missingRequired()` lists every missing credential for quick diagnostics.
+5. **Bug Fixes & Polish**:
+   - **Fix**: Guardian particles now animate their position correctly — `AnimatedPositioned` owns the key, `IgnorePointer` is the child.
+   - **Fix**: Guardian color uses `withValues(alpha:)` to silence the deprecation.
+   - **Fix**: Episode drawer backdrop has a proper `errorBuilder` fallback.
+   - **Fix**: Cinema carousel hero backdrop has a velvet fallback on image failure.
+   - **Fix**: Sanctuary chat header now shows the live partner indicator instead of a static version stamp.
+   - **Fix**: Stripped the UTF-8 BOM from `episode_drawer.dart` and tightened the `_trailerKey!` null assertion in the trailer stack.
 
-_Previous releases: [v2.1.0 "Play Zone Overhaul"](https://github.com/khentmoba/Everglow/releases/tag/v2.1.0) · [v2.0.0 "Mobile Optimization"](https://github.com/khentmoba/Everglow/releases/tag/v2.0.0) · [v1.5.3 "Real Iframe Fix"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.3) · [v1.5.2 "PH Trending"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.2) · [v1.5.1 "Sandbox Hardening"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.1) · [v1.5.0 "Cinema"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.0) · [v1.4.0 "Multi-Provider"](https://github.com/khentmoba/Everglow/releases/tag/v1.4.0) · [v1.3.0 "Racing Game"](https://github.com/khentmoba/Everglow/releases/tag/v1.3.0) · [v1.2.0 "Play Zone"](https://github.com/khentmoba/Everglow/releases/tag/v1.2.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)_
+_Previous releases: [v3.0.0 "Cinematic & Performance"](https://github.com/khentmoba/Everglow/releases/tag/v3.0.0) · [v2.1.0 "Play Zone Overhaul"](https://github.com/khentmoba/Everglow/releases/tag/v2.1.0) · [v2.0.0 "Mobile Optimization"](https://github.com/khentmoba/Everglow/releases/tag/v2.0.0) · [v1.5.3 "Real Iframe Fix"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.3) · [v1.5.2 "PH Trending"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.2) · [v1.5.1 "Sandbox Hardening"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.1) · [v1.5.0 "Cinema"](https://github.com/khentmoba/Everglow/releases/tag/v1.5.0) · [v1.4.0 "Multi-Provider"](https://github.com/khentmoba/Everglow/releases/tag/v1.4.0) · [v1.3.0 "Racing Game"](https://github.com/khentmoba/Everglow/releases/tag/v1.3.0) · [v1.2.0 "Play Zone"](https://github.com/khentmoba/Everglow/releases/tag/v1.2.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)_
 
 ---
 
@@ -62,7 +59,7 @@ _Previous releases: [v2.1.0 "Play Zone Overhaul"](https://github.com/khentmoba/E
 
 | Feature | Description | Version |
 |---------|-------------|---------|
-| **Gateway** | Animated passcode entry door (1111 = Clair, 2222 = Khent, 9132 = Breyan) | 1.0.0 / 3.0.0 |
+| **Gateway** | Animated passcode entry door (0221 = Clair, 0938 = Khent, 9132 = Breyan, 8080 = Octagram) | 1.0.0 / 3.0.0 |
 | **Dashboard** | Main hub with anniversary counter, XP, and all feature cards | 1.0.0 |
 | **Heartbeat** | Daily mood tracking with partner status indicators | 1.0.0 |
 | **Guardian** | Animated cat mascot with random messages and mood prompts | 1.0.0 |
@@ -89,7 +86,19 @@ _Previous releases: [v2.1.0 "Play Zone Overhaul"](https://github.com/khentmoba/E
 | **Cinematic Dark Luxury UI** | Floating pill nav, hero carousel, shimmer skeletons, medal badges, gradient overlays, glass-feel reviews | **3.0.0** |
 | **Piano Tiles Rewrite** | `Ticker`+`CustomPainter` engine, pre-warmed audio pool, expanded 4-song library | **3.0.0** |
 | **Breyan Cinema Access** | Passcode 9132 lands directly on Cinema with isolated watchlist data | **3.0.0** |
+| **Octagram Cinema Access** | Passcode 8080 lands directly on Cinema with the cinema-only chip set | **3.0.0** |
 | **HexGL Boot Fixes** | No-cache iframe, immediate `ready`, progress messages, surface iframe errors | **3.0.0** |
+| **Live Presence** | `PresenceService` 15 s heartbeat + online/doodle freshness windows; flips offline on `pagehide` / `beforeunload` | **3.1.0** |
+| **Partner Presence Indicator** | Pulsing green dot in Sanctuary chat header ("Clair is active" / "Active 5m ago") | **3.1.0** |
+| **Partner Doodle Indicator** | Live "Clair is doodling ✨ 12s" banner on the Canvas screen | **3.1.0** |
+| **Trailer Player** | `HTMLIFrameElement` YouTube embed with autoplay / muted / loop / `pointer-events: none` | **3.1.0** |
+| **Cinema Hover Trailers** | Desktop poster hover scales 1.15×, drops rose-glow, and plays the looping trailer | **3.1.0** |
+| **Cinema Carousel Trailers** | Trending hero swaps the still backdrop for the live trailer 2.5 s after the page settles | **3.1.0** |
+| **Episode Drawer Trailer** | Floating "Watch Trailer" button on the cinematic hero backdrop | **3.1.0** |
+| **Our Cinema Glass UI** | Glassmorphic cards with deep-rose border, 24 px shadow lift, and "Watched Together 💞" gradient pill | **3.1.0** |
+| **Our Cinema Hover Trailers** | Hover-to-play trailers on every list row with a "TRAILER" green pill | **3.1.0** |
+| **Add to Our Cinema** | `+` header button + empty-state CTA open `TMDBSearchModal` with `initialScope: 'ours'` | **3.1.0** |
+| **Videasy Autoplay Params** | `?autoplay=true` for movies, `?autoplay=true&nextButton=true&episodeSelector=true` for TV | **3.1.0** |
 
 ## Tech Stack
 
@@ -97,28 +106,32 @@ _Previous releases: [v2.1.0 "Play Zone Overhaul"](https://github.com/khentmoba/E
 - **Backend:** Firebase (Auth, Firestore, Storage, Hosting)
 - **State Management:** Provider
 - **External APIs:** TMDB, OpenTDB (Trivia), Last.fm
+- **Real-Time Presence:** Firestore `presence/{uid}` collection with 15 s heartbeat
+- **Trailer Playback:** YouTube IFrame Player API via `dart:ui_web` + `package:web`
 - **Multiplayer:** Firestore real-time snapshots for HexGL time-trial challenges
 
 ## Project Structure
 
 ```
 lib/
-  main.dart                     # Entry point, Provider setup
+  main.dart                     # Entry point, Provider setup (incl. PresenceService)
   core/
     audio/                      # Sound effects (just_audio)
     config/                     # EnvConfig with hardcoded API key fallbacks
     constants/                  # API keys
+    models/                     # Shared models (PresenceStatus)
     theme/                      # Dusk Petal romantic palette
   features/
-    entry/                      # Passcode gateway (Clair, Khent, Breyan)
-    dashboard/                  # Main hub
+    entry/                      # Passcode gateway (Clair, Khent, Breyan, Octagram)
+    dashboard/                  # Main hub + heartbeat lifecycle
     heartbeat/                  # Daily mood tracking
     guardian/                   # Animated cat mascot
     academy/                    # Trivia game
-    cinema/                     # Movie watch list (TMDB, multi-provider)
+    cinema/                     # Movie watch list (TMDB, multi-provider, trailers)
+      presentation/widgets/     # TrailerPlayer, EpisodeDrawer, TMDBSearchModal
     chat/                       # Private couple chat
     starlight_jar/              # Gratitude jar
-    canvas/                     # Collaborative drawing
+    canvas/                     # Collaborative drawing + doodle presence
     daily_bloom/                # Virtual garden
     date_randomizer/            # Date idea generator
     xp/                         # Gamification system
@@ -126,8 +139,8 @@ lib/
     play_zone/                  # Games hub
       piano_tiles/              # Melody Tiles (Ticker+CustomPainter engine)
       hexgl/                    # HexGL Drift (HTML5 3D WebGL racing)
-  services/                     # Core Firebase services
-  shared/widgets/               # Reusable UI components
+  services/                     # Core Firebase services (Auth, Storage, Presence, ...)
+  shared/widgets/               # PartnerPresenceIndicator, PartnerDoodleIndicator, ...
 scripts/
 assets/
   data/                         # Seed JSON files (trivia, date ideas)
@@ -135,6 +148,7 @@ assets/
   audio/piano/                  # Reference piano samples (a, c, e, f)
 web/
   hexgl/                        # HexGL embed HTML (no-cache)
+CHANGELOG.md                    # Full release-by-release history (v1.0.0 → v3.1.0)
 ```
 
 ## Getting Started
@@ -190,7 +204,10 @@ The workflow:
 
 ## Release History
 
-- **v3.0.0** — Cinematic Cinema Overhaul, Piano Tiles Rewrite, Breyan Access
+The full release-by-release history is in [CHANGELOG.md](./CHANGELOG.md). Highlights:
+
+- **v3.1.0** — Live Presence, Hover-to-Play Trailers, Our Cinema Glass UI
+- **v3.0.0** — Cinematic Cinema Overhaul, Piano Tiles Rewrite, Breyan + Octagram Access
 - **v2.1.0** — Play Zone Overhaul (HexGL Drift + Song Selection)
 - **v2.0.0** — Mobile Optimization & Bloat Cleanup
 - **v1.5.3** — Cinema: Real Iframe Fix + Provider Cleanup + Popup-Ad Sandbox
@@ -200,6 +217,8 @@ The workflow:
 - **v1.4.0** — Cinema: multi-provider video player + episode drawer
 - **v1.3.0** — Racing Game: auto-respawn + professional touch UI
 - **v1.2.0** — Play Zone: Midnight Drive racing game
+- **v1.1.0** — Starlight Jar, Canvas, Academy, Jukebox, XP system
+- **v1.0.0** — Initial public release (Gateway, Dashboard, Heartbeat, Guardian, Sanctuary, Daily Bloom, Date Randomizer, Cinema)
 
 See [all releases](https://github.com/khentmoba/Everglow/releases) for the full changelog.
 

@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import '../../../../services/auth_service.dart';
+import '../../../../services/presence_service.dart';
+import '../../../../shared/widgets/partner_doodle_indicator.dart';
 import '../../domain/models/doodle_stroke.dart';
 import '../../data/services/canvas_service.dart';
 import '../widgets/canvas_painter.dart';
@@ -23,6 +25,8 @@ class _CanvasScreenState extends State<CanvasScreen> {
   List<DoodleStroke> _liveStrokes = []; // Strokes currently being drawn by others
   StreamSubscription? _liveSubscription;
   DateTime? _lastSyncTime;
+  DateTime? _lastDoodlePresenceAt;
+  PresenceService? _presenceService;
 
   final List<DoodleStroke> _sessionStrokes = []; 
   final List<DoodleStroke> _redoStack = [];
@@ -45,8 +49,20 @@ class _CanvasScreenState extends State<CanvasScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _presenceService ??= context.read<PresenceService>();
+  }
+
+  @override
   void dispose() {
     _liveSubscription?.cancel();
+    final presence = _presenceService;
+    final auth = mounted ? context.read<AuthService>() : null;
+    final uid = auth?.uid;
+    if (presence != null && uid != null) {
+      presence.clearDoodling(uid);
+    }
     super.dispose();
   }
 
@@ -133,6 +149,19 @@ class _CanvasScreenState extends State<CanvasScreen> {
               canRedo: _redoStack.isNotEmpty,
             ),
           ),
+
+          // 4. Partner Doodle Presence Indicator
+          Positioned(
+            top: 8,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: SafeArea(
+                bottom: false,
+                child: const PartnerDoodleIndicator(),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -182,69 +211,82 @@ class _CanvasScreenState extends State<CanvasScreen> {
   void _onPanStart(DragStartDetails details, String userId) {
     if (_activeTool == CanvasTool.eraser) {
       _handleEraserAction(details.globalPosition);
-      return;
+    } else {
+      setState(() {
+        final RenderBox? box = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
+        if (box == null) return;
+        
+        final localPosition = box.globalToLocal(details.globalPosition);
+        
+        _activeStroke = DoodleStroke(
+          id: '',
+          userId: userId,
+          color: _currentColor,
+          strokeWidth: _currentWidth,
+          points: [
+            {
+              'x': localPosition.dx / box.size.width,
+              'y': localPosition.dy / box.size.height,
+            }
+          ],
+        );
+
+        // Initial sync
+        _canvasService.updateActiveStroke(userId, _activeStroke!);
+        _lastSyncTime = DateTime.now();
+      });
     }
 
-    setState(() {
-      final RenderBox? box = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
-      if (box == null) return;
-      
-      final localPosition = box.globalToLocal(details.globalPosition);
-      
-      _activeStroke = DoodleStroke(
-        id: '',
-        userId: userId,
-        color: _currentColor,
-        strokeWidth: _currentWidth,
-        points: [
-          {
-            'x': localPosition.dx / box.size.width,
-            'y': localPosition.dy / box.size.height,
-          }
-        ],
-      );
-
-      // Initial sync
-      _canvasService.updateActiveStroke(userId, _activeStroke!);
-      _lastSyncTime = DateTime.now();
-    });
+    _bumpDoodlePresence(userId);
   }
 
   void _onPanUpdate(DragUpdateDetails details, String userId) {
     if (_activeTool == CanvasTool.eraser) {
       _handleEraserAction(details.globalPosition);
-      return;
+    } else if (_activeStroke != null) {
+      setState(() {
+        final RenderBox? box = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
+        if (box == null) return;
+        
+        final localPosition = box.globalToLocal(details.globalPosition);
+        
+        final newPoint = {
+          'x': (localPosition.dx / box.size.width).clamp(0.0, 1.0),
+          'y': (localPosition.dy / box.size.height).clamp(0.0, 1.0),
+        };
+
+        final lastPoint = _activeStroke!.points.last;
+        final dx = newPoint['x']! - lastPoint['x']!;
+        final dy = newPoint['y']! - lastPoint['y']!;
+        
+        if ((dx * dx + dy * dy) > 0.000001) {
+          final updatedPoints = List<Map<String, double>>.from(_activeStroke!.points)..add(newPoint);
+          _activeStroke = _activeStroke!.copyWith(points: updatedPoints);
+
+          // Real-time Throttled Sync
+          final now = DateTime.now();
+          if (_lastSyncTime == null || now.difference(_lastSyncTime!) > const Duration(milliseconds: 100)) {
+            _canvasService.updateActiveStroke(userId, _activeStroke!);
+            _lastSyncTime = now;
+          }
+        }
+      });
     }
 
-    if (_activeStroke == null) return;
+    _bumpDoodlePresence(userId);
+  }
 
-    setState(() {
-      final RenderBox? box = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
-      if (box == null) return;
-      
-      final localPosition = box.globalToLocal(details.globalPosition);
-      
-      final newPoint = {
-        'x': (localPosition.dx / box.size.width).clamp(0.0, 1.0),
-        'y': (localPosition.dy / box.size.height).clamp(0.0, 1.0),
-      };
-
-      final lastPoint = _activeStroke!.points.last;
-      final dx = newPoint['x']! - lastPoint['x']!;
-      final dy = newPoint['y']! - lastPoint['y']!;
-      
-      if ((dx * dx + dy * dy) > 0.000001) {
-        final updatedPoints = List<Map<String, double>>.from(_activeStroke!.points)..add(newPoint);
-        _activeStroke = _activeStroke!.copyWith(points: updatedPoints);
-
-        // Real-time Throttled Sync
-        final now = DateTime.now();
-        if (_lastSyncTime == null || now.difference(_lastSyncTime!) > const Duration(milliseconds: 100)) {
-          _canvasService.updateActiveStroke(userId, _activeStroke!);
-          _lastSyncTime = now;
-        }
-      }
-    });
+  void _bumpDoodlePresence(String userId) {
+    final presence = _presenceService;
+    if (presence == null) return;
+    final now = DateTime.now();
+    if (_lastDoodlePresenceAt != null &&
+        now.difference(_lastDoodlePresenceAt!) <
+            const Duration(milliseconds: 1500)) {
+      return;
+    }
+    _lastDoodlePresenceAt = now;
+    presence.markDoodling(userId);
   }
 
   void _handleEraserAction(Offset globalPosition) {

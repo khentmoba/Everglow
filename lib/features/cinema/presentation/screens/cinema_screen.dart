@@ -8,6 +8,7 @@ import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/features/cinema/presentation/screens/our_cinema_screen.dart';
 import 'package:everglow/features/cinema/presentation/widgets/episode_drawer.dart';
+import 'package:everglow/features/cinema/presentation/widgets/trailer_player.dart';
 import 'package:everglow/services/auth_service.dart';
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -62,6 +63,12 @@ class _CinemaScreenState extends State<CinemaScreen>
       PageController(viewportFraction: 0.88);
   int _carouselPage = 0;
   Timer? _carouselTimer;
+
+  // Carousel trailer states
+  String? _carouselTrailerKey;
+  bool _isPlayingCarouselTrailer = false;
+  Timer? _carouselTrailerTimer;
+  final Map<int, String?> _carouselTrailerKeysCache = {};
 
   static final List<Map<String, dynamic>> _featuredGenres = [
     {
@@ -167,6 +174,7 @@ class _CinemaScreenState extends State<CinemaScreen>
     _searchDebounce?.cancel();
     _carouselController.dispose();
     _carouselTimer?.cancel();
+    _carouselTrailerTimer?.cancel();
     super.dispose();
   }
 
@@ -254,6 +262,35 @@ class _CinemaScreenState extends State<CinemaScreen>
         });
       }
     }
+  }
+
+  void _onCarouselPageChanged(int index) {
+    setState(() {
+      _carouselPage = index;
+      _isPlayingCarouselTrailer = false;
+      _carouselTrailerKey = null;
+    });
+
+    _carouselTrailerTimer?.cancel();
+    _carouselTrailerTimer = Timer(const Duration(milliseconds: 2500), () async {
+      if (_carouselPage != index) return;
+      final item = _trendingCarousel[index];
+      
+      String? key;
+      if (_carouselTrailerKeysCache.containsKey(item.tmdbId)) {
+        key = _carouselTrailerKeysCache[item.tmdbId];
+      } else {
+        key = await _tmdbService.fetchTrailerKey(item.tmdbId, item.mediaType);
+        _carouselTrailerKeysCache[item.tmdbId] = key;
+      }
+      
+      if (_carouselPage == index && mounted && key != null) {
+        setState(() {
+          _carouselTrailerKey = key;
+          _isPlayingCarouselTrailer = true;
+        });
+      }
+    });
   }
 
   void _startCarouselAutoPlay() {
@@ -503,7 +540,7 @@ class _CinemaScreenState extends State<CinemaScreen>
           child: PageView.builder(
             controller: _carouselController,
             physics: const BouncingScrollPhysics(),
-            onPageChanged: (i) => setState(() => _carouselPage = i),
+            onPageChanged: _onCarouselPageChanged,
             itemCount: _trendingCarousel.length,
             itemBuilder: (context, index) {
               final item = _trendingCarousel[index];
@@ -584,13 +621,19 @@ class _CinemaScreenState extends State<CinemaScreen>
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Backdrop
-                if (item.backdropPath.isNotEmpty)
-                  Image.network(item.backdropPath, fit: BoxFit.cover)
-                else if (item.posterPath.isNotEmpty)
-                  Image.network(item.posterPath, fit: BoxFit.cover)
-                else
-                  Container(color: _cVelvet),
+                // Backdrop / Live Trailer background
+                index == _carouselPage && _isPlayingCarouselTrailer && _carouselTrailerKey != null
+                    ? TrailerPlayer(
+                        videoKey: _carouselTrailerKey!,
+                        muted: true,
+                        autoplay: true,
+                        loop: true,
+                      )
+                    : (item.backdropPath.isNotEmpty
+                        ? Image.network(item.backdropPath, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: _cVelvet))
+                        : (item.posterPath.isNotEmpty
+                            ? Image.network(item.posterPath, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: _cVelvet))
+                            : Container(color: _cVelvet))),
 
                 // Cinematic gradient
                 Container(
@@ -1443,102 +1486,184 @@ class _PosterTile extends StatefulWidget {
 
 class _PosterTileState extends State<_PosterTile> {
   bool _pressed = false;
+  bool _isHovered = false;
+  bool _showTrailer = false;
+  String? _trailerKey;
+  Timer? _hoverTimer;
+  final TMDBService _tmdbService = TMDBService();
+
+  void _onHoverEnter() {
+    setState(() {
+      _isHovered = true;
+      _showTrailer = false;
+    });
+    
+    _hoverTimer?.cancel();
+    _hoverTimer = Timer(const Duration(milliseconds: 600), () async {
+      if (!_isHovered) return;
+      final key = await _tmdbService.fetchTrailerKey(widget.item.tmdbId, widget.item.mediaType);
+      if (_isHovered && mounted && key != null) {
+        setState(() {
+          _trailerKey = key;
+          _showTrailer = true;
+        });
+      }
+    });
+  }
+
+  void _onHoverExit() {
+    _hoverTimer?.cancel();
+    setState(() {
+      _isHovered = false;
+      _showTrailer = false;
+      _trailerKey = null;
+    });
+  }
+
+  @override
+  void dispose() {
+    _hoverTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.93 : 1.0,
-        duration: const Duration(milliseconds: 150),
-        curve: Curves.easeInOut,
-        child: Container(
-          width: 120,
-          margin: const EdgeInsets.symmetric(horizontal: 5),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Poster
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
+    final showLiveTrailer = _isHovered && _showTrailer && _trailerKey != null;
+    
+    return MouseRegion(
+      onEnter: (_) => _onHoverEnter(),
+      onExit: (_) => _onHoverExit(),
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) {
+          setState(() => _pressed = false);
+          widget.onTap();
+        },
+        onTapCancel: () => setState(() => _pressed = false),
+        child: AnimatedScale(
+          scale: _pressed ? 0.93 : (_isHovered ? 1.15 : 1.0),
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          child: Container(
+            width: 120,
+            margin: const EdgeInsets.symmetric(horizontal: 5),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: _isHovered
+                  ? [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.4),
-                        blurRadius: 10,
-                        offset: const Offset(0, 6),
+                        color: _cDeepRose.withOpacity(0.35),
+                        blurRadius: 15,
+                        offset: const Offset(0, 8),
+                      ),
+                    ]
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.4),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
                       ),
                     ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        widget.item.posterPath.isNotEmpty
-                            ? Image.network(widget.item.posterPath,
-                                fit: BoxFit.cover)
-                            : Container(
-                                color: _cCard,
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.movie_creation_outlined,
-                                    color: _cMuted,
-                                    size: 28,
-                                  ),
-                                ),
-                              ),
-                        // Bottom shimmer overlay
-                        Positioned(
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          child: Container(
-                            height: 40,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.bottomCenter,
-                                end: Alignment.topCenter,
-                                colors: [
-                                  Colors.black.withValues(alpha: 0.7),
-                                  Colors.transparent,
-                                ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Poster Image
+                  if (!showLiveTrailer)
+                    widget.item.posterPath.isNotEmpty
+                        ? Image.network(widget.item.posterPath, fit: BoxFit.cover)
+                        : Container(
+                            color: _cCard,
+                            child: const Center(
+                              child: Icon(
+                                Icons.movie_creation_outlined,
+                                color: _cMuted,
+                                size: 28,
                               ),
                             ),
                           ),
+
+                  // Live Trailer Player
+                  if (showLiveTrailer)
+                    TrailerPlayer(
+                      videoKey: _trailerKey!,
+                      muted: true,
+                      autoplay: true,
+                      loop: true,
+                    ),
+
+                  // Dark gradient at bottom to ensure title readability
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.transparent,
+                            Colors.black.withOpacity(0.3),
+                            Colors.black.withOpacity(0.85),
+                          ],
+                          stops: const [0.0, 0.5, 0.75, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Title and details overlay (floating on it)
+                  Positioned(
+                    bottom: 8,
+                    left: 8,
+                    right: 8,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.item.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.outfit(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            height: 1.1,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              widget.item.year.isNotEmpty
+                                  ? widget.item.year
+                                  : (widget.item.mediaType == 'movie' ? 'Movie' : 'Series'),
+                              style: GoogleFonts.outfit(
+                                color: _cGold,
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (showLiveTrailer)
+                              Container(
+                                width: 4,
+                                height: 4,
+                                decoration: const BoxDecoration(
+                                  color: Colors.green,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                ),
+                ],
               ),
-              const SizedBox(height: 7),
-              Text(
-                widget.item.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.outfit(
-                  color: _cWhite,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Text(
-                widget.item.year.isNotEmpty
-                    ? widget.item.year
-                    : (widget.item.mediaType == 'movie' ? 'Movie' : 'Series'),
-                style: GoogleFonts.outfit(
-                  color: _cMuted,
-                  fontSize: 10,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

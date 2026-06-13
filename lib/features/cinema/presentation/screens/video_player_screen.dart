@@ -100,6 +100,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final epNum = widget.episode ?? 1;
     final movieBase = provider['movieUrl'] as String;
     final tvBase = provider['tvUrl'] as String;
+    final isVideasy =
+        movieBase.contains('videasy') || tvBase.contains('videasy');
 
     if (isTv) {
       if (tvBase.contains('vidsrc.me')) {
@@ -110,14 +112,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         return '$tvBase${widget.tmdbId}&season=$seasonNum&episode=$epNum';
       } else {
         final separator = tvBase.endsWith('/') ? '' : '/';
-        return '$tvBase$separator${widget.tmdbId}/$seasonNum/$epNum';
+        final base = '$tvBase$separator${widget.tmdbId}/$seasonNum/$epNum';
+        return isVideasy
+            ? '$base?autoplay=true&nextButton=true&episodeSelector=true'
+            : base;
       }
     } else {
       if (movieBase.contains('multiembed.mov')) {
         return '$movieBase${widget.tmdbId}&tmdb=1';
       }
       final separator = movieBase.endsWith('/') || movieBase.contains('?') || movieBase.contains('=') ? '' : '/';
-      return '$movieBase$separator${widget.tmdbId}';
+      final base = '$movieBase$separator${widget.tmdbId}';
+      return isVideasy ? '$base?autoplay=true' : base;
     }
   }
 

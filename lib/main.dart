@@ -7,6 +7,7 @@ import 'firebase_options.dart';
 import 'core/theme/app_theme.dart' as custom_theme;
 import 'features/entry/presentation/pages/gateway_page.dart';
 import 'services/auth_service.dart';
+import 'services/presence_service.dart';
 import 'services/storage_service.dart';
 import 'features/cinema/data/services/our_cinema_service.dart';
 import 'features/date_randomizer/data/services/date_idea_service.dart';
@@ -56,6 +57,7 @@ class EverglowApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => StorageService()),
+        Provider(create: (_) => PresenceService()),
         Provider(create: (_) => DateIdeaService()),
         Provider(create: (_) => OurCinemaService()),
         Provider(create: (_) => GuardianService()),

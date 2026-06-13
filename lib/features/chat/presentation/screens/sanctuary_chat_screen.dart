@@ -5,6 +5,7 @@ import 'package:everglow/services/auth_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/shared/widgets/gamified_background.dart';
+import 'package:everglow/shared/widgets/partner_presence_indicator.dart';
 import '../../data/services/chat_service.dart';
 import '../../domain/models/chat_message.dart';
 import 'package:animate_do/animate_do.dart';
@@ -96,13 +97,8 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
                               fontSize: 24,
                             ),
                           ),
-                          Text(
-                            'v2.0.0-STABLE',
-                            style: GoogleFonts.outfit(
-                              color: AppTheme.roseQuartz.withOpacity(0.5),
-                              fontSize: 10,
-                            ),
-                          ),
+                          const SizedBox(height: 2),
+                          const PartnerPresenceIndicator(),
                         ],
                       ),
                     ),

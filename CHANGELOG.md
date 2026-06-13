@@ -1,0 +1,205 @@
+# Changelog
+
+All notable changes to **Everglow** are documented in this file.
+Everglow is a private Flutter Web scrapbook for Khent and Clair, so this changelog is
+the canonical source for everything that has shipped.
+
+Format: `[version] — YYYY-MM-DD`
+Conventions: 🚀 Features · 🐛 Bug Fixes · ⚡ Performance · 🔒 Security · 📝 Docs · 🧹 Chores · ⚠️ Breaking
+
+---
+
+## [3.1.0] — 2026-06-13
+
+### 🚀 Features
+- **Live Presence Service**: New `PresenceService` + `PresenceStatus` model backed by Firestore `presence/{uid}` documents. Heartbeats every 15 s with `isOnline` / `lastSeen` / `isDoodling` / `lastDoodleAt` fields and 30 s online / 15 s doodle freshness windows. `setOffline`, `markDoodling`, `clearDoodling` are throttled and idempotent.
+- **Partner Presence Indicator**: New `PartnerPresenceIndicator` widget renders a pulsing green dot in the Sanctuary chat header — "Clair is active" or "Active 5m ago" with second-level precision.
+- **Partner Doodle Indicator**: New `PartnerDoodleIndicator` overlay on the Canvas screen shows a live "Clair is doodling ✨ 12s" banner with an animated pulsing dot whenever the partner is actively drawing.
+- **Trailer Player**: New `TrailerPlayer` widget using a dedicated `HTMLIFrameElement` YouTube embed (`autoplay`, `muted`, `controls=0`, `loop=1`, `playlist={key}`, `enablejsapi=1`, `disablekb=1`, `playsinline=1`, `modestbranding=1`). Registered via `ui_web.platformViewRegistry` with a unique view-type per video key and pointer-events disabled so the iframe never blocks the parent gesture surface.
+- **TMDB Trailer Fetching**: `TMDBService.fetchTrailerKey(tmdbId, mediaType)` hits `/{type}/{id}/videos` with a priority chain — official YouTube Trailer → any YouTube Trailer → any YouTube video. Results cached in a per-instance `_trailerCache` keyed by `mediaType_tmdbId`.
+- **Cinema Carousel Live Trailers**: The trending hero carousel now swaps its still backdrop for the live, muted, looping YouTube trailer of the active card 2.5 s after the page settles. Cache-prefetches keys on page-change.
+- **Cinema Poster Hover Trailers**: Desktop hover on a poster tile scales it to 1.15×, drops a rose-glow shadow, and 600 ms later swaps the poster for the looping trailer preview.
+- **Our Cinema Hover Trailers**: Identical hover-to-play treatment on the shared list — scale 1.04, glassmorphic card lifts to `Color(0x2E2A1B3D)` with a deep-rose border, and a "TRAILER" green pill animates in while the trailer plays.
+- **Episode Drawer Trailer**: A floating "Watch Trailer" button now sits on the cinematic hero backdrop. Tap to swap the 280 px hero for the full trailer player with a "Close Trailer" pill.
+- **Videasy Autoplay & Next-Episode Params**: `VideoPlayerScreen` now appends `?autoplay=true` for movies and `?autoplay=true&nextButton=true&episodeSelector=true` for TV when the selected provider is Videasy.
+- **Our Cinema Couple Badges**: New "Watched Together 💞" gradient pill (Khent → Clair) replaces the per-user chips when both partners have watched. Otherwise two compact avatar pills (K / C) light up in their respective accent color when watched.
+- **Our Cinema Empty State CTA**: The empty "To Watch" tab now shows a glowing "Add a movie or series" pill that opens the TMDB search modal pre-scoped to "Ours".
+- **Our Cinema Add Flow**: Header has a new `+` action button that opens `TMDBSearchModal` with `initialScope: 'ours'`, pre-selecting the couple chip.
+- **TMDBSearchModal Initial Scope**: New `initialScope` parameter ('mine' or 'ours') with a guard that falls back to 'mine' for cinema-only users. Chip taps are now properly wired through `onTap` so the dialog re-renders the active chip.
+- **Our Cinema Item → MediaItem Bridge**: `OurCinemaItem.toMediaItem()` adapter so the shared list can reuse the same `EpisodeDrawer` and watch flow as the personal Cinema screen.
+- **Dashboard Heartbeat Lifecycle**: `_DashboardScreenState` is now a `WidgetsBindingObserver`. It starts a presence heartbeat on mount, restarts it on `AppLifecycleState.resumed`, and sets the user offline on `paused` / `hidden` / `detached`. Web `pagehide` and `beforeunload` listeners also flip the user offline.
+- **Canvas Doodling Bumps**: `CanvasScreen` now calls `PresenceService.markDoodling(uid)` (1.5 s throttle) on every pan-start / pan-update and `clearDoodling` on dispose.
+
+### 🐛 Bug Fixes
+- **Guardian Particles Render**: Replaced `IgnorePointer(child: AnimatedPositioned(...))` with `AnimatedPositioned(key: ValueKey(angle), child: IgnorePointer(...))` so particle positions animate correctly when toggled.
+- **Guardian Color API**: `Colors.pink[100]!.withOpacity(0.8)` → `Colors.pink[100]!.withValues(alpha: 0.8)` to match the deprecation sweep.
+- **Episode Drawer Encoding**: Stripped a UTF-8 BOM that snuck into `episode_drawer.dart` and cleaned up the box-drawing header comment.
+- **Episode Drawer 280 px Backdrop**: Backdrop image now has a proper `errorBuilder` fallback to `_cCard` instead of crashing on a 404.
+- **Cinema Carousel Backdrop Fallback**: Hero background now uses an `errorBuilder` that falls back to `_cVelvet` so a missing backdrop on a trending item no longer flashes a broken-image icon.
+- **Sanctuary Chat Header**: Replaced the static "v2.0.0-STABLE" label with a live `PartnerPresenceIndicator` so users can see when their partner is online in chat.
+
+### ⚠️ Breaking Changes
+- None. v3.1.0 is fully backward compatible with v3.0.0 data — `OurCinemaItem.toMediaItem()` is a new read-only bridge and all new Firestore writes are additive (`presence/{uid}` collection is new).
+
+---
+
+## [3.0.0] — 2026-06-12
+
+### 🚀 Features
+- **Cinematic Dark Luxury Cinema UI/UX**: Complete Cinema screen rebuild with floating pill nav bar, animated active-tab indicator, 320 px hero carousel with 4-stop cinematic gradient + shadow bloom, chapter-style section headers (accent bar + Cormorant Garamond title typography), shimmer skeleton loading, press-scale poster tiles, medal rank badges (gold / silver / bronze glow rings), rich watchlist grid with gradient overlays, glowing status badges per item, episode drawer rebuilt with 280 px cinematic hero backdrop, 5-star visual rating embedded in the backdrop, and per-genre distinct colored chips, gradient play button with rose-glow shadow, large-numeral episode tiles, colored cast avatar rings, and glass-feel review cards.
+- **Piano Tiles — Full Engine Rewrite**: Brand-new renderer using `Ticker` + `ValueNotifier` + a single GPU-friendly `CustomPainter` (`PianoBoardPainter`) that paints all four lanes in one pass — zero per-frame widget rebuilds. Beat-locked scrolling, miss-tolerance grace window, tap-pulse ripples, O(1) tap resolution against the next pending note via per-lane `GestureDetector`s.
+- **PianoAudioService Pool**: Pre-warms a pool of `AudioPlayer`s per MIDI note, pre-loads the nearest reference sample (`a.wav`, `c.wav`, `e.wav`, `f.wav`), and pitch-shifts via `setSpeed`. Taps fire-and-forget on the hot path with zero awaits for near-instant response. Lazy fallback that prepares an unprepared note on demand if the song touches a pitch outside the pre-warm pool.
+- **Expanded Song Library**: *Twinkle Twinkle Little Star*, *Ode to Joy*, *Für Elise*, and *Canon in D (C-Major)* — with per-song tempo and difficulty (`Easy` / `Medium` / `Hard`).
+- **Breyan (Cinema-Only) Access**: New passcode `9132` signs in as **Breyan**, a cinema-only sibling account. They land directly on the Cinema screen and have isolated watchlist data so the partner-only data stays private. Idempotent `migrateWatchListOwnership()` runs on every login to backfill `userName` on legacy watchlist documents.
+- **Octagram Profile**: New passcode `8080` signs in as **Octagram**, another cinema-only sibling account, sharing the Breyan chip set.
+- **Passcode Reshuffle**: Khent's gateway passcode is now `0938` (previously `2222`). Clair remains `0221`. Breyan is `9132`. Octagram is `8080`.
+- **HexGL Drift Embed Boot Fixes**: Iframe no longer deadlocks on "Initializing 3D engine..." — hidden HexGL overlay in embed mode, auto-call `tryBootEmbed()` on iframe load, defer `hexGL.start()` behind `startEmbedRace()`. `postToParent('ready')` now fires as soon as the HexGL instance is created (so the Flutter overlay shows "Tap anywhere to start" right away) instead of waiting for every asset to download. New `progress` messages surface texture / geometry load progress. `web/hexgl/index.html` is now marked `no-cache` to bust the 1-hour Firebase Hosting CDN cache; a `v=3` cache-buster is appended to the Flutter iframe src. Uncaught errors and unhandled rejections inside the iframe are surfaced to the parent so future load failures show a real message instead of an infinite spinner.
+- **Cinema Mobile Trending Scroll**: Trending list now scrolls on mobile and falls back to a velvet hero backdrop if the carousel image fails to load.
+- **Cinema Back Stack Polish**: Skip the dashboard reveal animation for Breyan; hide the back button when the cinema navigation stack is empty.
+
+### 🐛 Bug Fixes
+- **Gateway Passcode Login on Empty Env**: `EnvConfig` now hardcodes TMDB, Last.fm, Clair, Khent, Breyan, and Octagram fallbacks so the gateway passcode flow no longer fails when Firebase env credentials are empty. `EnvConfig.missingRequired()` lists every missing credential for quick diagnostics.
+- **Cinema Watch Screen Gestures**: Resolved the watch screen back-button click + mobile gesture overlap and defaulted the provider to Videasy.
+- **Cinema Iframe Fix**: Real-iframe `postMessage` plumbing + Provider cleanup + a popup-ad sandbox.
+- **HexGL Cache**: `web/hexgl/index.html` cache headers fixed; `v=3` cache-buster on the Flutter iframe src.
+
+### 📝 Docs
+- README rewritten to spotlight the v3.0.0 cinematic UI / Piano Tiles rewrite / Breyan access.
+- `v2.1.0` / `v2.0.0` / `v1.5.x` release links preserved in the bottom of the file.
+
+### ⚠️ Breaking Changes
+- **Passcode change**: `2222` no longer signs in as Khent — use `0938`. `9132` and `8080` are new cinema-only entry points.
+
+---
+
+## [2.1.0] — 2026-05-18
+
+### 🚀 Features
+- **Play Zone Hub**: New "Play Zone" tile on the dashboard linking to Melody Tiles and HexGL Drift.
+- **Melody Tiles Song Selection**: Track selector with difficulty, note count, high score, and best streak trackers per song.
+- **HexGL Drift 1v1 Ghost Replay**: Firestore-backed `racingChallenges` collection with auto-respawn, professional touch UI, and asset-path fix (use `BASE_URL` for `/racing/`).
+- **HexGL Drift Solo Time Trial**: Self-paced time trial mode with leaderboard persistence.
+
+### 🐛 Bug Fixes
+- Resolved build-context parentheses error in Play Zone launcher.
+- Fixed music-sync relative import path after restructuring `lib/services`.
+
+### 📝 Docs
+- Updated v2.0.0 release details including the Melody Tiles rhythm game.
+
+---
+
+## [2.0.0] — 2026-04-22
+
+### 🚀 Features
+- **AssaultZone 1v1 Shooter**: Real-time two-player WebGL shooter with hit-reg and round-based scoring.
+- **Melody Tiles (Piano Tiles)**: Native rhythm game tapping falling petals to produce piano melodies + XP awards.
+- **Mobile Optimization**: Touch-target rewrites, viewport-aware layouts, and per-screen bottom-pad safe areas across Dashboard, Cinema, and Chat.
+- **Bloat Cleanup**: Removed dead experiments, consolidated Firebase providers, and pruned the dependency tree.
+
+### 🐛 Bug Fixes
+- Resolved a build-context parentheses error in Play Zone.
+- Fixed the music-sync relative import path.
+- Fixed HexGL racing asset paths to use `BASE_URL` for the `/racing/` prefix.
+
+### ⚠️ Breaking Changes
+- Dashboard layout was re-templated; custom CSS overrides will need re-applying.
+
+---
+
+## [1.5.3] — 2026-03-30
+
+### 🚀 Features
+- **Real Iframe Fix**: `postMessage` plumbing for VidFast / VixSrc / Videasy / 2Embed embeds.
+- **Multi-Provider Video**: Add VidFast, VixSrc, Videasy, 2Embed, and MultiEmbed to the cinema provider picker.
+- **Provider Cleanup**: Trimmed dead ChangeNotifier wiring from the Cinema stack.
+- **Popup-Ad Sandbox**: Iframes now run in a sandboxed context to keep popup ads off the parent window.
+
+### 🐛 Bug Fixes
+- Provider reorder no longer breaks the watch screen back button on mobile.
+- Defaulted the cinema provider to Videasy for first-time users.
+
+---
+
+## [1.5.2] — 2026-03-21
+
+### 🚀 Features
+- **PH Streaming Rankings**: The Philippines trending tab now uses `watch_region=PH` so rankings look like the Netflix-PH top 10.
+
+---
+
+## [1.5.1] — 2026-03-12
+
+### 🐛 Bug Fixes
+- Hardened the iframe sandbox so `sandbox="allow-scripts allow-same-origin"` no longer lets providers escape the embed boundary.
+- Polished cinema detail drawer typography.
+- Polished dashboard tile hover states.
+
+---
+
+## [1.5.0] — 2026-03-02
+
+### 🚀 Features
+- **Trending Carousel**: Auto-playing `PageView` carousel for trending titles.
+- **Genre Browsing**: Browse by Action, Comedy, Horror, Romance, etc., with genre-specific color chips.
+- **Now Showing**: Movies currently in Philippine cinemas + newly released in a dedicated section.
+- **Cast & Reviews**: Cast profiles and TMDB user reviews in the media details drawer.
+- **Similar Titles**: "More Like This" recommendations in the episode drawer.
+
+---
+
+## [1.4.0] — 2026-02-18
+
+### 🚀 Features
+- **Cinema: Multi-Provider Video Player**: Provider switcher in the watch screen.
+- **Episode Drawer**: Cinematic drawer with backdrop, rating, genre chips, and a "Play" CTA.
+- **Watchlist Removal**: Swipe-to-remove + confirmation dialog for personal watchlist items.
+
+---
+
+## [1.3.0] — 2026-01-27
+
+### 🚀 Features
+- **Racing Game**: New "Midnight Drive" racing game in the Play Zone.
+- **Auto-Respawn**: Vehicles respawn on crash with a 1.5 s invincibility window.
+- **Professional Touch UI**: Steering assist, brake, and drift buttons sized for thumbs.
+
+### 🐛 Bug Fixes
+- Fixed racing asset paths to use `BASE_URL` for the `/racing/` prefix.
+
+---
+
+## [1.2.0] — 2025-12-22
+
+### 🚀 Features
+- **Play Zone Hub**: First version of the games hub tile on the dashboard.
+
+---
+
+## [1.1.0] — 2025-11-30
+
+### 🚀 Features
+- **Starlight Jar**: Drop gratitude notes and memories into a virtual jar with a glass-feel UI.
+- **Canvas**: Collaborative drawing with real-time Firestore sync.
+- **Academy**: Trivia game with 8 categories, solo study, and 1v1 challenges powered by OpenTDB.
+- **Jukebox**: Live music status from Last.fm for both partners.
+- **XP System**: Gamified levels, streaks, and sound effects awarded for daily check-ins and trivia wins.
+
+---
+
+## [1.0.0] — 2025-10-14 — Initial Release
+
+### 🚀 Features
+- **Gateway**: Animated passcode entry door (1111 = Clair, 2222 = Khent).
+- **Dashboard**: Main hub with anniversary counter, XP, and all feature cards.
+- **Heartbeat**: Daily mood tracking with partner status indicators.
+- **Guardian**: Animated cat mascot with random messages and mood prompts.
+- **Sanctuary**: Private real-time couple's chat.
+- **Daily Bloom**: Virtual garden that grows with daily visits.
+- **Date Randomizer**: 1000+ date ideas — shake to discover.
+- **Cinema**: Shared movie / TV watch list powered by TMDB.
+- **Flutter Web + Firebase Auth + Firestore + Storage + Hosting** baseline.
+
+---
+
+_Pre-1.0 development commits live in the git history; this changelog starts at the first public release._
