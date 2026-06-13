@@ -65,7 +65,6 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   void initState() {
     super.initState();
     _currentStatus = widget.item.status;
-    _isMobile = MediaQuery.of(context).size.width < 600;
     _fadeCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -76,6 +75,12 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     _fetchCast();
     _fetchReviews();
     _fetchSimilar();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _isMobile = MediaQuery.of(context).size.width < 600;
   }
 
   @override
@@ -110,31 +115,35 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   }
 
   Future<void> _fetchMediaDetails() async {
-    final details = await _tmdbService.fetchMediaDetails(
-        widget.item.tmdbId, widget.item.mediaType);
-    if (mounted) {
-      setState(() {
-        _details = details;
-        if (widget.item.mediaType == 'tv' && details != null) {
-          _seasons = details['seasons'] ?? [];
-          if (_seasons.isNotEmpty) {
-            final firstSeason = _seasons.firstWhere(
-              (s) => s['season_number'] != null && s['season_number'] > 0,
-              orElse: () => _seasons.first,
-            );
-            _selectedSeasonNumber = firstSeason['season_number'];
-            if (_selectedSeasonNumber != null) {
-              _fetchSeasonEpisodes(_selectedSeasonNumber!);
+    try {
+      final details = await _tmdbService.fetchMediaDetails(
+          widget.item.tmdbId, widget.item.mediaType);
+      if (mounted) {
+        setState(() {
+          _details = details;
+          if (widget.item.mediaType == 'tv' && details != null) {
+            _seasons = (details['seasons'] as List?) ?? [];
+            if (_seasons.isNotEmpty) {
+              final firstSeason = _seasons.firstWhere(
+                (s) => s['season_number'] != null && s['season_number'] > 0,
+                orElse: () => _seasons.first,
+              );
+              _selectedSeasonNumber = firstSeason['season_number'];
+              if (_selectedSeasonNumber != null) {
+                _fetchSeasonEpisodes(_selectedSeasonNumber!);
+              }
             }
           }
-        }
-        if (details != null && details['genres'] != null) {
-          _genreNames = (details['genres'] as List)
-              .map<String>((g) => g['name']?.toString() ?? '')
-              .where((n) => n.isNotEmpty)
-              .toList();
-        }
-      });
+          if (details != null && details['genres'] != null) {
+            _genreNames = (details['genres'] as List)
+                .map<String>((g) => g['name']?.toString() ?? '')
+                .where((n) => n.isNotEmpty)
+                .toList();
+          }
+        });
+      }
+    } catch (e) {
+      print('Error fetching media details: $e');
     }
   }
 
@@ -263,16 +272,19 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
   @override
   Widget build(BuildContext context) {
-    final rating =
-        _details?['vote_average']?.toStringAsFixed(1) ?? 'N/A';
+    final ratingNum = _details?['vote_average'] as num?;
+    final rating = ratingNum != null ? ratingNum.toDouble().toStringAsFixed(1) : 'N/A';
     final releaseDate = widget.item.mediaType == 'movie'
         ? (_details?['release_date'] ?? '')
         : (_details?['first_air_date'] ?? '');
     final year = releaseDate.isNotEmpty
         ? releaseDate.split('-')[0]
         : widget.item.year;
-    final runtime =
-        _details?['runtime'] ?? _details?['episode_run_time']?[0];
+    final episodeRunTimes = _details?['episode_run_time'] as List?;
+    final runtime = _details?['runtime'] ??
+        (episodeRunTimes != null && episodeRunTimes.isNotEmpty
+            ? episodeRunTimes.first
+            : null);
     final backdropPath = _details?['backdrop_path'];
     final backdropUrl = backdropPath != null
         ? 'https://image.tmdb.org/t/p/w780$backdropPath'
@@ -280,17 +292,19 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     final ratingVal = double.tryParse(rating) ?? 0;
     final ratingFraction = (ratingVal / 10).clamp(0.0, 1.0);
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.93,
-      decoration: const BoxDecoration(
-        color: _cVelvet,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
+    return FractionallySizedBox(
+      heightFactor: 0.93,
+      alignment: Alignment.bottomCenter,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: _cVelvet,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
             // Ã¢â€â‚¬Ã¢â€â‚¬ HERO BACKDROP Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
             SliverToBoxAdapter(
               child: _buildHeroBackdrop(backdropUrl, year, rating,
@@ -361,6 +375,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
             const SliverToBoxAdapter(child: SizedBox(height: 60)),
           ],
         ),
+      ),
       ),
     );
   }
@@ -849,10 +864,10 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                 }
               },
               items: _seasons
-                  .where((s) => s['season_number'] != null)
+                  .where((s) => s['season_number'] is int)
                   .map<DropdownMenuItem<int>>((s) {
                 return DropdownMenuItem<int>(
-                  value: s['season_number'],
+                  value: s['season_number'] as int,
                   child: Text(s['name'] ?? 'Season ${s['season_number']}'),
                 );
               }).toList(),
@@ -1225,7 +1240,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       const Color(0xFF4CAF50),
       const Color(0xFF9C27B0),
     ];
-    final color = colors[name.codeUnitAt(0) % colors.length];
+    final color = name.isEmpty
+        ? _cDeepRose
+        : colors[name.codeUnitAt(0) % colors.length];
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
