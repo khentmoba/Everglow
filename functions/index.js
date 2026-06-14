@@ -1,7 +1,14 @@
 const functions = require('firebase-functions');
-const admin = require('firebase-admin');
 
-admin.initializeApp();
+/** Lazy require+init so Firebase deploy analysis doesn't time out */
+let _admin;
+function getAdmin() {
+  if (!_admin) {
+    _admin = require('firebase-admin');
+    _admin.initializeApp();
+  }
+  return _admin;
+}
 
 /**
  * Proxies book text requests so Flutter web isn't blocked by CORS.
@@ -16,7 +23,6 @@ admin.initializeApp();
  * header, we verify it (optional — useful in dev without a token).
  */
 exports.proxyBookText = functions.https.onRequest(async (req, res) => {
-  // CORS headers so the Flutter web app can call us
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -31,11 +37,10 @@ exports.proxyBookText = functions.https.onRequest(async (req, res) => {
     return;
   }
 
-  // Optional: verify Firebase Auth token
   const idToken = req.get('Authorization')?.replace('Bearer ', '');
   if (idToken) {
     try {
-      await admin.auth().verifyIdToken(idToken);
+      await getAdmin().auth().verifyIdToken(idToken);
     } catch {
       res.status(401).json({ error: 'Invalid or expired auth token' });
       return;
@@ -107,7 +112,7 @@ exports.proxyMangaImage = functions.https.onRequest(async (req, res) => {
   const idToken = req.get('Authorization')?.replace('Bearer ', '');
   if (idToken) {
     try {
-      await admin.auth().verifyIdToken(idToken);
+      await getAdmin().auth().verifyIdToken(idToken);
     } catch {
       res.status(401).json({ error: 'Invalid or expired auth token' });
       return;
@@ -120,8 +125,6 @@ exports.proxyMangaImage = functions.https.onRequest(async (req, res) => {
     return;
   }
 
-  // Only allow MangaDex at-home hosts and the uploads host. This
-  // prevents the proxy from being abused to fetch arbitrary URLs.
   let parsed;
   try {
     parsed = new URL(targetUrl);
@@ -201,7 +204,7 @@ exports.proxyMangaDex = functions.https.onRequest(async (req, res) => {
   const idToken = req.get('Authorization')?.replace('Bearer ', '');
   if (idToken) {
     try {
-      await admin.auth().verifyIdToken(idToken);
+      await getAdmin().auth().verifyIdToken(idToken);
     } catch {
       res.status(401).json({ error: 'Invalid or expired auth token' });
       return;
@@ -214,9 +217,6 @@ exports.proxyMangaDex = functions.https.onRequest(async (req, res) => {
     return;
   }
 
-  // Strip a leading slash and any "..". MangaDex endpoints are
-  // first-segment-only (/manga, /manga/{id}, /manga/{id}/feed,
-  // /at-home/server/{id}, /manga/tag) so this is safe.
   const safePath = pathParam.replace(/^\/+/, '').replace(/\.\.+/g, '');
   if (safePath.length === 0) {
     res.status(400).json({ error: 'Empty path' });
