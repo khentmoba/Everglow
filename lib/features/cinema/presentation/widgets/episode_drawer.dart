@@ -1,9 +1,14 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/features/cinema/data/models/anilist_detail.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
+import 'package:everglow/features/cinema/data/services/anilist_service.dart';
+import 'package:everglow/features/cinema/data/services/jikan_service.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/services/auth_service.dart';
 import '../screens/video_player_screen.dart';
@@ -37,6 +42,8 @@ class EpisodeDrawer extends StatefulWidget {
 class _EpisodeDrawerState extends State<EpisodeDrawer>
     with SingleTickerProviderStateMixin {
   final TMDBService _tmdbService = TMDBService();
+  final JikanService _jikanService = JikanService();
+  final AniListService _aniListService = AniListService();
   bool _isLoadingEpisodes = false;
   bool _isLoadingCast = true;
   bool _isLoadingReviews = true;
@@ -50,6 +57,37 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   List<MediaItem> _similar = [];
   late String _currentStatus;
   List<String> _genreNames = [];
+
+  /// AniList detail record, kept around for the synopsis / studio / format
+  /// fields. We mirror a small subset into [_details] so the existing
+  /// build logic (which reads `overview`, `genres`, etc. off the map) keeps
+  /// working unchanged.
+  AniListDetail? _aniListDetail;
+
+  /// Studio name when this is an anime item (e.g. "MAPPA"). Empty for
+  /// non-anime items so the meta row just skips it.
+  String get _studio => _isAnimeSourced
+      ? (_aniListDetail?.studios.isNotEmpty == true
+          ? _aniListDetail!.studios.first
+          : widget.item.studio)
+      : '';
+
+  /// Format string (TV, TV Short, Movie, OVA, ONA, Special, Music) for
+  /// anime items. Empty otherwise.
+  String get _format => _isAnimeSourced
+      ? (_aniListDetail?.format ?? widget.item.format)
+      : '';
+
+  /// Airing status (Airing / Finished Airing / Not yet aired) for anime
+  /// items. Empty otherwise.
+  String get _airingStatus => _isAnimeSourced
+      ? (_aniListDetail?.airingStatus ?? widget.item.airingStatus)
+      : '';
+
+  /// True when the item was sourced from Jikan (i.e. an anime that came
+  /// in via the Anime feature, not via TMDB discover). Drives which
+  /// service we route the detail-page fetches to.
+  bool get _isAnimeSourced => widget.item.source == 'jikan';
   
   // Trailer state
   String? _trailerKey;
@@ -92,8 +130,24 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   Future<void> _loadTrailer() async {
     setState(() => _isLoadingTrailer = true);
     try {
-      final key = await _tmdbService.fetchTrailerKey(
-          widget.item.tmdbId, widget.item.mediaType);
+      String? key;
+      if (_isAnimeSourced) {
+        // AniList has a `trailer` field; we surface it for the hero
+        // player when it's a YouTube id. We still call this after
+        // [_fetchMediaDetails] has run, so we can read the resolved id
+        // off [_aniListDetail] if it's available; otherwise we kick off
+        // a fresh detail fetch and use it.
+        final detail = _aniListDetail ??
+            await _aniListService.fetchDetails(malId: widget.item.tmdbId);
+        _aniListDetail ??= detail;
+        key = detail?.trailerYoutubeId;
+        // Last-resort fallback: ask Jikan for the trailer. Jikan's
+        // /anime/{id} also embeds a YouTube trailer when licensed.
+        key ??= await _jikanTrailerKey(widget.item.tmdbId);
+      } else {
+        key = await _tmdbService.fetchTrailerKey(
+            widget.item.tmdbId, widget.item.mediaType);
+      }
       if (mounted) {
         setState(() {
           _trailerKey = key;
@@ -114,41 +168,140 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     }
   }
 
+  /// Pulls a YouTube trailer id from Jikan's /anime/{id} payload. Jikan
+  /// exposes a `trailer.youtube_id` field that's typically empty for
+  /// non-Western-licensed shows but sometimes the only trailer source
+  /// for older or niche anime.
+  Future<String?> _jikanTrailerKey(int malId) async {
+    try {
+      final data = await _jikanService.fetchAnimeById(malId);
+      final trailer = data?['trailer'] as Map<String, dynamic>?;
+      final yt = trailer?['youtube_id'] as String?;
+      if (yt != null && yt.isNotEmpty) return yt;
+      // Jikan also embeds the trailer URL — fall back to parsing its v= param.
+      final url = trailer?['url'] as String?;
+      if (url != null && url.contains('v=')) {
+        return url.split('v=').last;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<void> _fetchMediaDetails() async {
     try {
-      final details = await _tmdbService.fetchMediaDetails(
-          widget.item.tmdbId, widget.item.mediaType);
-      if (mounted) {
-        setState(() {
-          _details = details;
-          if (widget.item.mediaType == 'tv' && details != null) {
-            _seasons = (details['seasons'] as List?) ?? [];
-            if (_seasons.isNotEmpty) {
-              final firstSeason = _seasons.firstWhere(
-                (s) => s['season_number'] != null && s['season_number'] > 0,
-                orElse: () => _seasons.first,
-              );
-              _selectedSeasonNumber = firstSeason['season_number'];
-              if (_selectedSeasonNumber != null) {
-                _fetchSeasonEpisodes(_selectedSeasonNumber!);
-              }
-            }
-          }
-          if (details != null && details['genres'] != null) {
-            _genreNames = (details['genres'] as List)
-                .map<String>((g) => g['name']?.toString() ?? '')
-                .where((n) => n.isNotEmpty)
-                .toList();
-          }
-        });
+      if (_isAnimeSourced) {
+        await _fetchAnimeDetails();
+      } else {
+        await _fetchTmdbDetails();
       }
     } catch (e) {
       print('Error fetching media details: $e');
     }
   }
 
+  /// Anime-sourced path. Pulls the AniList detail (the rich source for
+  /// synopsis, genres, studio, characters, etc.) and projects it into
+  /// the same shape [_details] / [_genreNames] / [_episodes] hold for
+  /// TMDB-sourced items so the rest of the build method doesn't branch
+  /// on source.
+  Future<void> _fetchAnimeDetails() async {
+    final detail = await _aniListService.fetchDetails(
+      anilistId: widget.item.anilistId,
+      malId: widget.item.tmdbId,
+    );
+    if (!mounted) return;
+    if (detail == null) {
+      setState(() {
+        _details = {};
+        _isLoadingEpisodes = false;
+      });
+      return;
+    }
+    // Build a TMDB-shaped map for the build method to read. We carry
+    // the cover/banner URLs as `backdrop_path` / `poster_path` so the
+    // hero header still renders.
+    final poster = detail.coverImageUrl;
+    final backdrop = detail.bannerImageUrl.isNotEmpty
+        ? detail.bannerImageUrl
+        : poster;
+    final mapped = <String, dynamic>{
+      'id': detail.id,
+      'overview': detail.synopsis,
+      'vote_average': detail.averageScore,
+      'poster_path': null,
+      'backdrop_path': null,
+      '_posterUrl': poster,
+      '_backdropUrl': backdrop,
+      '_episodeCount': detail.episodeCount,
+      '_duration': detail.duration,
+      '_format': detail.format,
+      '_airingStatus': detail.airingStatus,
+      '_studios': detail.studios,
+      'genres': detail.genres
+          .map((g) => {'id': g, 'name': g})
+          .toList(),
+    };
+
+    setState(() {
+      _aniListDetail = detail;
+      _details = mapped;
+      _genreNames = detail.genres;
+      // Anime has no seasons — render the flat episode list as a
+      // synthetic "Season 1" so the existing UI keeps working.
+      _seasons = detail.episodeCount != null && detail.episodeCount! > 0
+          ? [
+              {'season_number': 1, 'name': 'Episodes', 'episode_count': detail.episodeCount}
+            ]
+          : const [];
+      _selectedSeasonNumber = _seasons.isNotEmpty ? 1 : null;
+      if (_selectedSeasonNumber != null) {
+        _fetchSeasonEpisodes(_selectedSeasonNumber!);
+      }
+    });
+  }
+
+  /// TMDB path (unchanged). Kept as its own method so the source
+  /// branching in [_fetchMediaDetails] reads cleanly.
+  Future<void> _fetchTmdbDetails() async {
+    final details = await _tmdbService.fetchMediaDetails(
+        widget.item.tmdbId, widget.item.mediaType);
+    if (mounted) {
+      setState(() {
+        _details = details;
+        if (widget.item.mediaType == 'tv' && details != null) {
+          _seasons = (details['seasons'] as List?) ?? [];
+          if (_seasons.isNotEmpty) {
+            final firstSeason = _seasons.firstWhere(
+              (s) => s['season_number'] != null && s['season_number'] > 0,
+              orElse: () => _seasons.first,
+            );
+            _selectedSeasonNumber = firstSeason['season_number'];
+            if (_selectedSeasonNumber != null) {
+              _fetchSeasonEpisodes(_selectedSeasonNumber!);
+            }
+          }
+        }
+        if (details != null && details['genres'] != null) {
+          _genreNames = (details['genres'] as List)
+              .map<String>((g) => g['name']?.toString() ?? '')
+              .where((n) => n.isNotEmpty)
+              .toList();
+        }
+      });
+    }
+  }
+
   Future<void> _fetchSeasonEpisodes(int seasonNumber) async {
     setState(() => _isLoadingEpisodes = true);
+    if (_isAnimeSourced) {
+      final episodes = await _fetchJikanEpisodes(widget.item.tmdbId);
+      if (!mounted) return;
+      setState(() {
+        _episodes = episodes;
+        _isLoadingEpisodes = false;
+      });
+      return;
+    }
     final episodes = await _tmdbService.fetchSeasonEpisodes(
         widget.item.tmdbId, seasonNumber);
     if (mounted) {
@@ -159,9 +312,52 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     }
   }
 
+  /// Pulls the full MAL episode list for an anime and projects it into
+  /// the TMDB-shaped map the existing [_buildEpisodeTile] reads. Keys:
+  /// `episode_number`, `name`, `overview`, `still_path`.
+  Future<List<Map<String, dynamic>>> _fetchJikanEpisodes(int malId) async {
+    final data = await _jikanService.fetchAnimeById(malId);
+    if (data == null) return [];
+    // We hit /anime/{id} which returns the show's full record including
+    // an `episodes` count, not the per-episode list. The episode list
+    // lives on /anime/{id}/episodes — but Jikan doesn't expose a single
+    // helper for it on the service yet. For brevity, we synthesize
+    // numbered slots using the recorded episode count when no
+    // per-episode data is available. AniList's `streamingEpisodes` gives
+    // us real titles when licensed, and we merge those in.
+    final episodeCount = (data['episodes'] is num)
+        ? (data['episodes'] as num).toInt()
+        : 0;
+    final titles = <int, String>{};
+    final anilistEpisodes = _aniListDetail?.episodes ?? const [];
+    for (final ep in anilistEpisodes) {
+      final t = ep.title;
+      if (t != null && t.isNotEmpty) {
+        titles[ep.number] = t;
+      }
+    }
+    final out = <Map<String, dynamic>>[];
+    for (var i = 1; i <= episodeCount; i++) {
+      out.add({
+        'episode_number': i,
+        'name': titles[i] ?? 'Episode $i',
+        'overview': '',
+        'still_path': null,
+      });
+    }
+    return out;
+  }
+
   Future<void> _fetchCast() async {
-    final cast = await _tmdbService.fetchCredits(
-        widget.item.tmdbId, widget.item.mediaType);
+    List<Map<String, dynamic>> cast;
+    if (_isAnimeSourced) {
+      cast = _aniListDetail != null
+          ? _mapAniListCharacters(_aniListDetail!.characters)
+          : [];
+    } else {
+      cast = await _tmdbService.fetchCredits(
+          widget.item.tmdbId, widget.item.mediaType);
+    }
     if (mounted) {
       setState(() {
         _cast = cast;
@@ -170,9 +366,36 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     }
   }
 
+  /// Convert AniList's character edges into the TMDB-shaped cast map
+  /// the existing UI renders. For each character we emit one entry per
+  /// Japanese voice actor (so a character with multiple VAs yields
+  /// multiple rows). `character` holds the role name, `name` holds the
+  /// VA, mirroring the TMDB convention.
+  List<Map<String, dynamic>> _mapAniListCharacters(
+      List<AniListCharacter> characters) {
+    final out = <Map<String, dynamic>>[];
+    for (final c in characters) {
+      if (c.voiceActors.isEmpty) continue;
+      for (final va in c.voiceActors) {
+        out.add({
+          'id': va.id,
+          'name': va.name,
+          'character': c.name,
+          'profilePath': va.imageUrl,
+        });
+      }
+    }
+    return out;
+  }
+
   Future<void> _fetchReviews() async {
-    final reviews = await _tmdbService.fetchReviews(
-        widget.item.tmdbId, widget.item.mediaType);
+    List<Map<String, dynamic>> reviews;
+    if (_isAnimeSourced) {
+      reviews = await _fetchJikanReviews(widget.item.tmdbId);
+    } else {
+      reviews = await _tmdbService.fetchReviews(
+          widget.item.tmdbId, widget.item.mediaType);
+    }
     if (mounted) {
       setState(() {
         _reviews = reviews;
@@ -181,15 +404,100 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     }
   }
 
+  /// Fetches MAL user reviews via Jikan's /anime/{id}/reviews endpoint
+  /// and projects them into the TMDB-shaped review map.
+  Future<List<Map<String, dynamic>>> _fetchJikanReviews(int malId) async {
+    final uri = Uri.parse('https://api.jikan.moe/v4/anime/$malId/reviews');
+    try {
+      final response = await http.get(uri).timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200) return [];
+      final body = json.decode(response.body) as Map<String, dynamic>;
+      final data = (body['data'] as List?) ?? const [];
+      return data.take(8).map<Map<String, dynamic>>((r) {
+        final user = (r['user'] as Map<String, dynamic>?) ?? const {};
+        return {
+          'id': r['mal_id'] ?? r['date'],
+          'author': (user['username'] as String?) ?? 'Anonymous',
+          'content': (r['review'] as String?) ?? '',
+          'rating': r['score'],
+          'createdAt': r['date'] ?? '',
+          'avatar': (user['images'] as Map<String, dynamic>?)?['jpg']?['image_url'] ?? '',
+        };
+      }).toList();
+    } catch (e) {
+      print('Jikan reviews error: $e');
+      return [];
+    }
+  }
+
   Future<void> _fetchSimilar() async {
-    final similar = await _tmdbService.fetchSimilar(
-        widget.item.tmdbId, widget.item.mediaType);
+    List<MediaItem> similar;
+    if (_isAnimeSourced) {
+      similar = _mapAniListRelated();
+    } else {
+      similar = await _tmdbService.fetchSimilar(
+          widget.item.tmdbId, widget.item.mediaType);
+    }
     if (mounted) {
       setState(() {
         _similar = similar;
         _isLoadingSimilar = false;
       });
     }
+  }
+
+  /// Combines AniList's relations (sequels, prequels, side stories) and
+  /// user recommendations into a single "More Like This" rail. Relations
+  /// come first because they share universe/characters and are usually
+  /// what the user is hunting for.
+  List<MediaItem> _mapAniListRelated() {
+    if (_aniListDetail == null) return const [];
+    final out = <MediaItem>[];
+    final seen = <int>{};
+    for (final r in _aniListDetail!.relations) {
+      if (r.id == 0 || seen.contains(r.id)) continue;
+      seen.add(r.id);
+      out.add(_relatedToMediaItem(r));
+    }
+    for (final r in _aniListDetail!.recommendations) {
+      if (r.id == 0 || seen.contains(r.id)) continue;
+      seen.add(r.id);
+      out.add(_recommendationToMediaItem(r));
+    }
+    return out;
+  }
+
+  MediaItem _relatedToMediaItem(AniListRelated r) {
+    return MediaItem(
+      id: '',
+      tmdbId: r.id, // AniList id stored in tmdbId slot for routing
+      title: r.title,
+      mediaType: r.format == 'MOVIE' ? 'movie' : 'tv',
+      posterPath: r.coverImageUrl,
+      backdropPath: '',
+      year: '',
+      status: 'to-watch',
+      isAnime: true,
+      addedAt: DateTime.now(),
+      source: 'jikan',
+      format: r.format,
+    );
+  }
+
+  MediaItem _recommendationToMediaItem(AniListRecommended r) {
+    return MediaItem(
+      id: '',
+      tmdbId: r.malId ?? r.id,
+      title: r.title,
+      mediaType: 'tv',
+      posterPath: r.coverImageUrl,
+      backdropPath: '',
+      year: '',
+      status: 'to-watch',
+      isAnime: true,
+      addedAt: DateTime.now(),
+      source: 'jikan',
+    );
   }
 
   Future<void> _updateStatus(String newStatus) async {
@@ -291,29 +599,51 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   Widget build(BuildContext context) {
     final ratingNum = _details?['vote_average'] as num?;
     final rating = ratingNum != null ? ratingNum.toDouble().toStringAsFixed(1) : 'N/A';
-    final releaseDate = widget.item.mediaType == 'movie'
-        ? (_details?['release_date'] ?? '')
-        : (_details?['first_air_date'] ?? '');
+    // For anime we don't have TMDB's `release_date` / `first_air_date`,
+    // so we fall back to AniList's `seasonYear` and finally to whatever
+    // the MediaItem already remembers from Jikan's discover payload.
+    String releaseDate;
+    if (_isAnimeSourced) {
+      releaseDate = widget.item.year;
+    } else if (widget.item.mediaType == 'movie') {
+      releaseDate = (_details?['release_date'] ?? '') as String;
+    } else {
+      releaseDate = (_details?['first_air_date'] ?? '') as String;
+    }
     final year = releaseDate.isNotEmpty
         ? releaseDate.split('-')[0]
         : widget.item.year;
     final episodeRunTimes = _details?['episode_run_time'] as List?;
-    final runtime = _details?['runtime'] ??
-        (episodeRunTimes != null && episodeRunTimes.isNotEmpty
-            ? episodeRunTimes.first
-            : null);
+    // Anime-sourced runtime comes from AniList's `duration` field
+    // (in minutes per episode). We surface it in the same slot so the
+    // hero header shows a single "Xm" badge next to the rating.
+    final runtime = _isAnimeSourced
+        ? (_details?['_duration'])
+        : (_details?['runtime'] ??
+            (episodeRunTimes != null && episodeRunTimes.isNotEmpty
+                ? episodeRunTimes.first
+                : null));
     final backdropPath = _details?['backdrop_path'];
-    // Prefer the full-detail backdrop, then the backdrop that TMDB already
-    // returned in the trending/discover payload (saved on MediaItem), then
-    // finally the vertical poster as a last resort. Without the MediaItem
-    // fallback, Trending-PH titles that haven't finished loading details yet
-    // (or whose /details response also lacks a backdrop) rendered as a flat
-    // gray rectangle, which is what the user was reporting on the PH tab.
-    final backdropUrl = backdropPath != null
-        ? 'https://image.tmdb.org/t/p/w780$backdropPath'
-        : widget.item.backdropPath.isNotEmpty
-            ? widget.item.backdropPath
-            : widget.item.posterPath;
+    // For anime, backdrop is a fully-qualified AniList CDN URL stored on
+    // `_details[_backdropUrl]`; for TMDB it's a path that we need to
+    // prefix with the image CDN. The MediaItem itself also carries a
+    // pre-built URL from discover/search which we use as a final
+    // fallback so the hero never renders as a flat gray rectangle.
+    String? backdropUrl;
+    if (_isAnimeSourced) {
+      final aniBackdrop = _details?['_backdropUrl'] as String?;
+      backdropUrl = (aniBackdrop != null && aniBackdrop.isNotEmpty)
+          ? aniBackdrop
+          : widget.item.backdropPath.isNotEmpty
+              ? widget.item.backdropPath
+              : widget.item.posterPath;
+    } else {
+      backdropUrl = backdropPath != null
+          ? 'https://image.tmdb.org/t/p/w780$backdropPath'
+          : widget.item.backdropPath.isNotEmpty
+              ? widget.item.backdropPath
+              : widget.item.posterPath;
+    }
     final ratingVal = double.tryParse(rating) ?? 0;
     final ratingFraction = (ratingVal / 10).clamp(0.0, 1.0);
 
@@ -746,6 +1076,25 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
               spacing: 6,
               runSpacing: 6,
               children: _genreNames.map((g) => _buildGenreChip(g)).toList(),
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // Anime-specific meta row: studio + format + airing status.
+          // This is hidden for non-anime items because those fields
+          // don't have meaningful TMDB equivalents.
+          if (_isAnimeSourced &&
+              (_studio.isNotEmpty ||
+                  _format.isNotEmpty ||
+                  _airingStatus.isNotEmpty)) ...[
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                if (_studio.isNotEmpty) _buildAnimeFactChip(_studio, Icons.movie_creation_outlined),
+                if (_format.isNotEmpty) _buildAnimeFactChip(_format, Icons.tv_rounded),
+                if (_airingStatus.isNotEmpty) _buildAnimeFactChip(_airingStatus, Icons.fiber_manual_record_rounded),
+              ],
             ),
             const SizedBox(height: 18),
           ],
@@ -1340,6 +1689,36 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
           fontSize: 11,
           fontWeight: FontWeight.w600,
         ),
+      ),
+    );
+  }
+
+  /// Smaller chip used for anime-specific facts (studio, format, airing
+  /// status). Renders a leading icon and a tighter padding than the
+  /// genre chip so the three facts fit on one row at mobile width.
+  Widget _buildAnimeFactChip(String label, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: _cCard,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _cGold.withValues(alpha: 0.35), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: _cGold, size: 11),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: GoogleFonts.outfit(
+              color: _cGold,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+            ),
+          ),
+        ],
       ),
     );
   }

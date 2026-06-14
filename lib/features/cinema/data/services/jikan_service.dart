@@ -1,0 +1,429 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:collection';
+import 'package:http/http.dart' as http;
+import 'package:everglow/features/cinema/data/models/media_item.dart';
+
+/// REST client for the Jikan v4 API (an unofficial MyAnimeList mirror).
+///
+/// Used by the Everglow Anime feature for browse, search, and discovery
+/// (Trending Now, Currently Airing, Top Rated, By Genre, etc.). Detail-page
+/// enrichment (synopsis, characters + VAs, staff, relations) is served by
+/// [AniListService] because AniList's GraphQL endpoint returns richer,
+/// anime-specific metadata in a single round-trip.
+///
+/// Jikan is rate-limited to 30 requests per minute on the public API. To
+/// stay under the limit, this service serializes every outbound request
+/// through a FIFO queue and adds a small gap between calls. When the
+/// queue head gets a `429`, we back off for the duration the response
+/// asks for and then resume.
+class JikanService {
+  static const String _baseUrl = 'https://api.jikan.moe/v4';
+
+  // Singleton — same lifetime as TMDBService so the queue is shared
+  // between the anime screen, the search modal, and the episode drawer.
+  static final JikanService _instance = JikanService._internal();
+  factory JikanService() => _instance;
+  JikanService._internal();
+
+  /// Serial FIFO queue of pending request tasks. Every public method
+  /// appends a [JikanTask] here and waits for its completion. Tasks run
+  /// one-at-a-time so we never fire two requests simultaneously.
+  final Queue<_JikanTask> _queue = Queue<_JikanTask>();
+  bool _dispatching = false;
+
+  /// Minimum gap between two requests. Jikan's burst limit is around 2
+  /// requests per second, so 350ms gives a comfortable margin.
+  static const Duration _minGap = Duration(milliseconds: 350);
+
+  /// How long to back off when the server returns 429.
+  static const Duration _serverBackoff = Duration(seconds: 5);
+
+  DateTime _lastCall = DateTime.fromMillisecondsSinceEpoch(0);
+
+  Future<T> _enqueue<T>(Future<T> Function() task) async {
+    final completer = Completer<T>();
+    _queue.add(_JikanTask(task: () async {
+      try {
+        final result = await task();
+        completer.complete(result);
+      } catch (e, st) {
+        completer.completeError(e, st);
+      }
+    }));
+    _dispatch();
+    return completer.future;
+  }
+
+  void _dispatch() {
+    if (_dispatching) return;
+    _dispatching = true;
+    _runNext();
+  }
+
+  Future<void> _runNext() async {
+    while (_queue.isNotEmpty) {
+      final task = _queue.removeFirst();
+      // Enforce a minimum gap between calls.
+      final now = DateTime.now();
+      final since = now.difference(_lastCall);
+      if (since < _minGap) {
+        await Future.delayed(_minGap - since);
+      }
+      _lastCall = DateTime.now();
+      try {
+        await task.task();
+      } catch (_) {
+        // Errors are surfaced via the per-call completer in _enqueue.
+      }
+    }
+    _dispatching = false;
+  }
+
+  /// Performs a GET against the Jikan v4 API. Returns the raw decoded JSON
+  /// map, or null on a non-200 / network error. Handles 429 by retrying
+  /// once after the server-requested backoff window.
+  Future<Map<String, dynamic>?> _getJson(String path,
+      {Map<String, String>? params, int maxRetries = 1}) async {
+    final uri = Uri.parse('$_baseUrl$path').replace(queryParameters: params);
+    return _enqueue(() async {
+      var attempt = 0;
+      while (true) {
+        try {
+          final response = await http.get(uri).timeout(
+                const Duration(seconds: 20),
+              );
+          if (response.statusCode == 200) {
+            return json.decode(response.body) as Map<String, dynamic>;
+          }
+          if (response.statusCode == 429 && attempt < maxRetries) {
+            attempt++;
+            // Use the server's Retry-After if present, else our default.
+            final retryAfter = _parseRetryAfter(response.headers['retry-after']);
+            await Future.delayed(retryAfter ?? _serverBackoff);
+            continue;
+          }
+          print('Jikan GET $path failed: ${response.statusCode}');
+          return null;
+        } catch (e) {
+          print('Jikan GET $path error: $e');
+          return null;
+        }
+      }
+    });
+  }
+
+  Duration? _parseRetryAfter(String? header) {
+    if (header == null) return null;
+    final seconds = int.tryParse(header);
+    if (seconds != null) return Duration(seconds: seconds);
+    final date = DateTime.tryParse(header);
+    if (date != null) {
+      final delta = date.difference(DateTime.now());
+      if (delta.isNegative) return Duration.zero;
+      return delta;
+    }
+    return null;
+  }
+
+  /// Maps a single Jikan anime data block to a [MediaItem]. We set
+  /// `tmdbId` to the MAL id so the existing watchlist's unique-by-`tmdbId`
+  /// deduplication still works for anime. `source` is tagged `'jikan'`
+  /// so the [EpisodeDrawer] knows to route to [AniListService] for the
+  /// detail page.
+  MediaItem mapJikanToMediaItem(Map<String, dynamic> j) {
+    final malId = (j['mal_id'] as num?)?.toInt() ?? 0;
+    final title = (j['title_english'] as String?)?.isNotEmpty == true
+        ? j['title_english'] as String
+        : (j['title'] as String?) ?? 'Unknown Title';
+    final images = j['images'] as Map<String, dynamic>?;
+    final jpg = images?['jpg'] as Map<String, dynamic>?;
+    final webp = images?['webp'] as Map<String, dynamic>?;
+    String pickImage(String size) {
+      final j = jpg?[size] as String?;
+      if (j != null && j.isNotEmpty) return j;
+      final w = webp?[size] as String?;
+      if (w != null && w.isNotEmpty) return w;
+      return '';
+    }
+
+    final poster = pickImage('large_image_url').isNotEmpty
+        ? pickImage('large_image_url')
+        : pickImage('image_url');
+    final backdrop = pickImage('extra_large_image_url').isNotEmpty
+        ? pickImage('extra_large_image_url')
+        : poster;
+
+    final yearVal = j['year'];
+    final aired = j['aired'] as Map<String, dynamic>?;
+    final airedFrom = aired?['from'] as String?;
+    final year = yearVal != null
+        ? yearVal.toString()
+        : (airedFrom != null && airedFrom.length >= 4
+            ? airedFrom.substring(0, 4)
+            : '');
+
+    final typeStr = (j['type'] as String?) ?? '';
+    // Jikan's type maps loosely to TMDB's mediaType so the existing
+    // Movie vs TV branching in the episode drawer still makes sense.
+    final mediaType = typeStr == 'Movie' ? 'movie' : 'tv';
+
+    final studios = (j['studios'] as List?) ?? const [];
+    String studioName = '';
+    for (final s in studios) {
+      if (s is Map && s['name'] is String) {
+        studioName = s['name'] as String;
+        break;
+      }
+    }
+
+    final episodes = (j['episodes'] is num)
+        ? (j['episodes'] as num).toInt()
+        : null;
+
+    return MediaItem(
+      id: '',
+      tmdbId: malId,
+      title: title,
+      mediaType: mediaType,
+      posterPath: poster,
+      backdropPath: backdrop,
+      year: year,
+      status: 'to-watch',
+      isAnime: true,
+      addedAt: DateTime.now(),
+      source: 'jikan',
+      synopsis: (j['synopsis'] as String?) ?? '',
+      episodeCount: episodes,
+      airingStatus: (j['status'] as String?) ?? '',
+      format: typeStr,
+      studio: studioName,
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  PUBLIC API — used by the anime screen, search modal, and
+  //  episode drawer. All methods return decoded Jikan data so
+  //  callers don't pay an extra mapping step when they want raw
+  //  payloads (e.g. the episode drawer reading /anime/{id}/episodes).
+  // ─────────────────────────────────────────────────────────────
+
+  /// Anime that are currently airing this season.
+  Future<List<MediaItem>> fetchSeasonNow({int page = 1, int limit = 20}) async {
+    final json = await _getJson('/seasons/now', params: {
+      'page': '$page',
+      'limit': '$limit',
+    });
+    if (json == null) return [];
+    final data = (json['data'] as List?) ?? const [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(mapJikanToMediaItem)
+        .toList();
+  }
+
+  /// Upcoming anime (next season + later).
+  Future<List<MediaItem>> fetchUpcoming({int page = 1, int limit = 20}) async {
+    final json = await _getJson('/seasons/upcoming', params: {
+      'page': '$page',
+      'limit': '$limit',
+    });
+    if (json == null) return [];
+    final data = (json['data'] as List?) ?? const [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(mapJikanToMediaItem)
+        .toList();
+  }
+
+  /// A specific historical season (e.g. `year=2024, season='spring'`).
+  Future<List<MediaItem>> fetchSeason({
+    required int year,
+    required String season,
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final json = await _getJson(
+      '/seasons/$year/${Uri.encodeComponent(season)}',
+      params: {'page': '$page', 'limit': '$limit'},
+    );
+    if (json == null) return [];
+    final data = (json['data'] as List?) ?? const [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(mapJikanToMediaItem)
+        .toList();
+  }
+
+  /// Top anime with optional type / filter narrowing.
+  ///
+  /// `type` is one of: `tv`, `movie`, `ova`, `special`, `ona`, `music`.
+  /// `filter` is one of: `airing`, `upcoming`, `bypopularity`, `favorite`.
+  /// `genres` is a comma-separated list of MAL genre ids.
+  Future<List<MediaItem>> fetchTopAnime({
+    String type = 'tv',
+    String filter = 'bypopularity',
+    int page = 1,
+    int limit = 20,
+    String? genres,
+  }) async {
+    final params = <String, String>{
+      'type': type,
+      'filter': filter,
+      'page': '$page',
+      'limit': '$limit',
+    };
+    if (genres != null && genres.isNotEmpty) params['genres'] = genres;
+    final json = await _getJson('/top/anime', params: params);
+    if (json == null) return [];
+    final data = (json['data'] as List?) ?? const [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(mapJikanToMediaItem)
+        .toList();
+  }
+
+  /// Currently-airing anime sorted by score, used for the "Top Rated"
+  /// home rail. We use the `airing` filter so only shows that are
+  /// actively airing compete in the ranking.
+  Future<List<MediaItem>> fetchTopAiring({int page = 1, int limit = 20}) async {
+    return fetchTopAnime(
+      type: 'tv',
+      filter: 'airing',
+      page: page,
+      limit: limit,
+    );
+  }
+
+  /// High-rated anime with limited popularity — the "hidden gems" rail.
+  /// Jikan doesn't expose a score-floor filter directly, so we apply it
+  /// in Dart after the page comes back. We pull a slightly larger page
+  /// than requested so the user still gets a full row of gems.
+  Future<List<MediaItem>> fetchHiddenGems({
+    int page = 1,
+    int limit = 25,
+    double minScore = 7.5,
+    int maxMembers = 50000,
+  }) async {
+    final json = await _getJson('/top/anime', params: {
+      'type': 'tv',
+      'page': '$page',
+      'limit': '$limit',
+    });
+    if (json == null) return [];
+    final data = (json['data'] as List?) ?? const [];
+    final gems = data.whereType<Map<String, dynamic>>().where((j) {
+      final score = (j['score'] as num?)?.toDouble() ?? 0;
+      final members = (j['members'] as num?)?.toInt() ?? 0;
+      return score >= minScore && members > 0 && members <= maxMembers;
+    }).toList();
+    return gems.map(mapJikanToMediaItem).toList();
+  }
+
+  /// "New Releases" rail. We pull the most recent aired entries and
+  /// filter to those that finished airing within the last 180 days.
+  Future<List<MediaItem>> fetchNewReleases({int page = 1, int limit = 20}) async {
+    final cutoff = DateTime.now().subtract(const Duration(days: 180));
+    final json = await _getJson('/top/anime', params: {
+      'type': 'tv',
+      'filter': 'bypopularity',
+      'page': '$page',
+      'limit': '$limit',
+    });
+    if (json == null) return [];
+    final data = (json['data'] as List?) ?? const [];
+    final fresh = data.whereType<Map<String, dynamic>>().where((j) {
+      final aired = j['aired'] as Map<String, dynamic>?;
+      final from = aired?['from'] as String?;
+      if (from == null) return false;
+      final dt = DateTime.tryParse(from);
+      if (dt == null) return false;
+      return dt.isAfter(cutoff);
+    }).toList();
+    return fresh.map(mapJikanToMediaItem).toList();
+  }
+
+  /// Search anime by free-text query. We rely on the standard `q` param
+  /// and return the first page of results (limit capped at 25 to keep
+  /// the search modal snappy).
+  Future<List<MediaItem>> searchAnime(String query,
+      {int page = 1, int limit = 25}) async {
+    if (query.trim().isEmpty) return [];
+    final json = await _getJson('/anime', params: {
+      'q': query,
+      'page': '$page',
+      'limit': '$limit',
+      'order_by': 'popularity',
+      'sort': 'desc',
+    });
+    if (json == null) return [];
+    final data = (json['data'] as List?) ?? const [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(mapJikanToMediaItem)
+        .toList();
+  }
+
+  /// Fetch the full MAL/Jikan record for one anime (used as a fallback
+  /// by the episode drawer if AniList can't be reached).
+  Future<Map<String, dynamic>?> fetchAnimeById(int malId) async {
+    return _getJson('/anime/$malId');
+  }
+
+  /// Anime that share at least one MAL genre with the given title.
+  /// Uses the simple Jikan `/anime` search-with-genre endpoint, then
+  /// sorts by popularity in Dart. `genreIds` is a list of MAL genre ids
+  /// (e.g. `[1, 10]` for Action + Fantasy).
+  Future<List<MediaItem>> fetchByGenres(
+    List<int> genreIds, {
+    int page = 1,
+    int limit = 20,
+  }) async {
+    if (genreIds.isEmpty) return [];
+    final json = await _getJson('/anime', params: {
+      'genres': genreIds.join(','),
+      'page': '$page',
+      'limit': '$limit',
+      'order_by': 'score',
+      'sort': 'desc',
+    });
+    if (json == null) return [];
+    final data = (json['data'] as List?) ?? const [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(mapJikanToMediaItem)
+        .toList();
+  }
+
+  /// Full MAL genre list, used by the Browse tab to render the genre
+  /// picker. Returns a map of `malGenreId -> name`. We hardcode the
+  /// common anime genres so we don't have to make a network call just
+  /// to render chips.
+  static const Map<int, String> malGenres = {
+    1: 'Action',
+    2: 'Adventure',
+    4: 'Comedy',
+    7: 'Mystery',
+    8: 'Drama',
+    10: 'Fantasy',
+    13: 'Historical',
+    14: 'Horror',
+    18: 'Mecha',
+    19: 'Music',
+    22: 'Romance',
+    24: 'Sci-Fi',
+    27: 'Shounen',
+    30: 'Sports',
+    36: 'Slice of Life',
+    37: 'Supernatural',
+    40: 'Psychological',
+    41: 'Thriller',
+    42: 'Seinen',
+    43: 'Josei',
+  };
+}
+
+class _JikanTask {
+  final Future<void> Function() task;
+  _JikanTask({required this.task});
+}

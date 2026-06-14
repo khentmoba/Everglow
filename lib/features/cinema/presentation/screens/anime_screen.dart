@@ -6,9 +6,10 @@ import 'package:provider/provider.dart';
 
 import 'package:everglow/features/cinema/data/anime_categories.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
+import 'package:everglow/features/cinema/data/services/jikan_service.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/features/cinema/presentation/widgets/episode_drawer.dart';
-import 'package:everglow/features/cinema/presentation/widgets/tmdb_search_modal.dart';
+import 'package:everglow/features/cinema/presentation/widgets/jikan_search_modal.dart';
 import 'package:everglow/services/auth_service.dart';
 
 // Mirror of cinema_screen.dart / manga_library_screen.dart color tokens so
@@ -43,6 +44,9 @@ class AnimeScreen extends StatefulWidget {
 
 class _AnimeScreenState extends State<AnimeScreen>
     with TickerProviderStateMixin {
+  final JikanService _jikanService = JikanService();
+  // Kept around for the shared watchlist / Firestore plumbing; the
+  // anime screen itself only reads from Jikan + AniList.
   final TMDBService _tmdbService = TMDBService();
   int _currentIndex = 0;
 
@@ -73,10 +77,7 @@ class _AnimeScreenState extends State<AnimeScreen>
           title: 'Trending Now',
           icon: Icons.local_fire_department_rounded,
           tint: const Color(0xFFFF7043),
-          builder: () => _tmdbService.discoverAnime(
-            sortBy: 'popularity.desc',
-            voteCountGte: 20,
-          ),
+          builder: () => _jikanService.fetchTopAiring(),
           isHero: true,
         ),
         _HomeSection(
@@ -84,27 +85,16 @@ class _AnimeScreenState extends State<AnimeScreen>
           title: 'Currently Airing',
           icon: Icons.live_tv_rounded,
           tint: const Color(0xFFE53935),
-          builder: () {
-            final cutoff = DateTime.now()
-                .subtract(const Duration(days: 365))
-                .toIso8601String()
-                .substring(0, 10);
-            return _tmdbService.discoverAnime(
-              sortBy: 'popularity.desc',
-              withStatus: 0,
-              firstAirDateGte: cutoff,
-              voteCountGte: 5,
-            );
-          },
+          builder: () => _jikanService.fetchSeasonNow(),
         ),
         _HomeSection(
           id: 'top-rated',
           title: 'Top Rated',
           icon: Icons.star_rounded,
           tint: const Color(0xFFFFCA28),
-          builder: () => _tmdbService.discoverAnime(
-            sortBy: 'vote_average.desc',
-            voteCountGte: 200,
+          builder: () => _jikanService.fetchTopAnime(
+            type: 'tv',
+            filter: 'favorite',
           ),
         ),
         _HomeSection(
@@ -112,26 +102,16 @@ class _AnimeScreenState extends State<AnimeScreen>
           title: 'New Releases',
           icon: Icons.fiber_new_rounded,
           tint: const Color(0xFF42A5F5),
-          builder: () {
-            final cutoff = DateTime.now()
-                .subtract(const Duration(days: 180))
-                .toIso8601String()
-                .substring(0, 10);
-            return _tmdbService.discoverAnime(
-              sortBy: 'first_air_date.desc',
-              firstAirDateGte: cutoff,
-              voteCountGte: 5,
-            );
-          },
+          builder: () => _jikanService.fetchNewReleases(),
         ),
         _HomeSection(
           id: 'popular-all',
           title: 'Popular All Time',
           icon: Icons.public_rounded,
           tint: const Color(0xFFAB47BC),
-          builder: () => _tmdbService.discoverAnime(
-            sortBy: 'popularity.desc',
-            voteCountGte: 500,
+          builder: () => _jikanService.fetchTopAnime(
+            type: 'tv',
+            filter: 'bypopularity',
           ),
         ),
         _HomeSection(
@@ -139,12 +119,7 @@ class _AnimeScreenState extends State<AnimeScreen>
           title: 'Hidden Gems',
           icon: Icons.diamond_rounded,
           tint: const Color(0xFF26C6DA),
-          builder: () => _tmdbService.discoverAnime(
-            sortBy: 'vote_average.desc',
-            voteCountGte: 10,
-            voteCountLte: 250,
-            voteAverageGte: 7.5,
-          ),
+          builder: () => _jikanService.fetchHiddenGems(),
         ),
         _HomeSection(
           id: 'editors-picks',
@@ -153,7 +128,7 @@ class _AnimeScreenState extends State<AnimeScreen>
           tint: const Color(0xFFEC407A),
           builder: () =>
               animeCategoryOptions.firstWhere((o) => o.id == 'curated-editors-picks')
-                  .fetch(_tmdbService),
+                  .fetch(_jikanService),
         ),
       ];
 
@@ -219,7 +194,7 @@ class _AnimeScreenState extends State<AnimeScreen>
       _selectedCategoryId = option.id;
       _browseResults[option.id] ??= _AnimeRow(isLoading: true);
     });
-    await _runRow(option.id, _browseResults, () => option.fetch(_tmdbService));
+    await _runRow(option.id, _browseResults, () => option.fetch(_jikanService));
   }
 
   @override
@@ -233,7 +208,7 @@ class _AnimeScreenState extends State<AnimeScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const TMDBSearchModal(),
+      builder: (_) => const JikanSearchModal(),
     );
   }
 
