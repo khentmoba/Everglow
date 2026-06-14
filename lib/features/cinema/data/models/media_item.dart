@@ -20,6 +20,37 @@ class MediaItem {
   final String userName;
   final DateTime addedAt;
 
+  /// Where this item was sourced from. `'tmdb'` for general cinema (movies /
+  /// non-anime TV) and `'jikan'` for anime (MAL-sourced). Defaults to `'tmdb'`
+  /// so existing watchlist entries don't need to be migrated.
+  final String source;
+
+  /// AniList numeric ID, when known. Lets the [EpisodeDrawer] skip the
+  /// `idMal -> id` lookup when opening an anime detail. Optional — when
+  /// null we resolve via AniList's `idMal` filter at detail-open time.
+  final int? anilistId;
+
+  /// Long-form synopsis / description. Populated for Jikan-sourced items
+  /// (AniList's `description` field) so the [EpisodeDrawer] can show a
+  /// real anime plot summary instead of TMDB's truncated `overview`.
+  final String synopsis;
+
+  /// Total episode count for the series (anime only). `null` for movies
+  /// or TMDB-sourced items where we don't have authoritative counts.
+  final int? episodeCount;
+
+  /// MAL/Jikan status string (e.g. `'Airing'`, `'Finished Airing'`,
+  /// `'Not yet aired'`). Anime-only; null for TMDB-sourced items.
+  final String airingStatus;
+
+  /// MAL/Jikan format string (e.g. `'TV'`, `'TV Short'`, `'Movie'`, `'OVA'`,
+  /// `'ONA'`, `'Special'`, `'Music'`). Anime-only; null for TMDB-sourced
+  /// items.
+  final String format;
+
+  /// Studio / production company that made this anime. Anime-only.
+  final String studio;
+
   MediaItem({
     required this.id,
     required this.tmdbId,
@@ -32,6 +63,13 @@ class MediaItem {
     this.isAnime = false,
     this.userName = '',
     required this.addedAt,
+    this.source = 'tmdb',
+    this.anilistId,
+    this.synopsis = '',
+    this.episodeCount,
+    this.airingStatus = '',
+    this.format = '',
+    this.studio = '',
   });
 
   bool get isWatched =>
@@ -89,6 +127,13 @@ class MediaItem {
       isAnime: data['isAnime'] == true,
       userName: data['userName'] ?? '',
       addedAt: _parseDateTime(data['addedAt']),
+      source: data['source'] ?? 'tmdb',
+      anilistId: data['anilistId'] is int ? data['anilistId'] as int : null,
+      synopsis: data['synopsis'] ?? '',
+      episodeCount: data['episodeCount'] is int ? data['episodeCount'] as int : null,
+      airingStatus: data['airingStatus'] ?? '',
+      format: data['format'] ?? '',
+      studio: data['studio'] ?? '',
     );
   }
 
@@ -117,6 +162,13 @@ class MediaItem {
       'isAnime': isAnime,
       'userName': userName,
       'addedAt': Timestamp.fromDate(addedAt),
+      'source': source,
+      if (anilistId != null) 'anilistId': anilistId,
+      'synopsis': synopsis,
+      if (episodeCount != null) 'episodeCount': episodeCount,
+      'airingStatus': airingStatus,
+      'format': format,
+      'studio': studio,
     };
   }
 
@@ -132,6 +184,13 @@ class MediaItem {
     bool? isAnime,
     String? userName,
     DateTime? addedAt,
+    String? source,
+    int? anilistId,
+    String? synopsis,
+    int? episodeCount,
+    String? airingStatus,
+    String? format,
+    String? studio,
   }) {
     return MediaItem(
       id: id ?? this.id,
@@ -145,6 +204,13 @@ class MediaItem {
       isAnime: isAnime ?? this.isAnime,
       userName: userName ?? this.userName,
       addedAt: addedAt ?? this.addedAt,
+      source: source ?? this.source,
+      anilistId: anilistId ?? this.anilistId,
+      synopsis: synopsis ?? this.synopsis,
+      episodeCount: episodeCount ?? this.episodeCount,
+      airingStatus: airingStatus ?? this.airingStatus,
+      format: format ?? this.format,
+      studio: studio ?? this.studio,
     );
   }
 }

@@ -9,6 +9,7 @@ import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/features/cinema/presentation/widgets/episode_drawer.dart';
 import 'package:everglow/features/cinema/presentation/widgets/trailer_player.dart';
 import 'package:everglow/services/auth_service.dart';
+import 'anime_screen.dart';
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Cinema Color Tokens
@@ -503,17 +504,24 @@ class _CinemaScreenState extends State<CinemaScreen>
   Widget _buildTopHeader() {
     final top = MediaQuery.of(context).padding.top;
     final canPop = Navigator.canPop(context);
+    final isCouple = context.watch<AuthService>().isCoupleUser;
     return Container(
       padding: EdgeInsets.fromLTRB(20, top + 14, 20, 10),
       child: Row(
         children: [
-          // Back — only when there's a route to pop to (e.g. Khent/Clair
-          // arriving from the dashboard). Breyan lands on the cinema
-          // directly, so popping would leave an empty stack and a white screen.
-          if (canPop)
+          // Couple → back button; cinema-only → everglow anime link
+          if (isCouple && canPop)
             _CinemaIconBtn(
               icon: Icons.arrow_back_ios_new_rounded,
               onTap: () => Navigator.pop(context),
+            )
+          else if (!isCouple)
+            _CinemaIconBtn(
+              icon: Icons.auto_awesome_rounded,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AnimeScreen()),
+              ),
             )
           else
             const SizedBox(width: 40, height: 40),
@@ -578,8 +586,6 @@ class _CinemaScreenState extends State<CinemaScreen>
             ],
           ),
           const Spacer(),
-          // Spacer keeps the title centered now that the "Ours" entry point
-          // has been retired.
           const SizedBox(width: 40, height: 40),
           const SizedBox(width: 8),
           // Search
