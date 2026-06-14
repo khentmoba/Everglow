@@ -1,4 +1,4 @@
-name: Build and Deploy to Firebase (GCP configured)
+name: Build and Deploy to Firebase (GCP fully configured)
 
 on:
   push:
