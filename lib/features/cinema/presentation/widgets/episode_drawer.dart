@@ -553,6 +553,8 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       MaterialPageRoute(
         builder: (context) => VideoPlayerScreen(
           tmdbId: widget.item.tmdbId,
+          malId: _isAnimeSourced ? widget.item.tmdbId : null,
+          isAnime: _isAnimeSourced,
           mediaType: 'movie',
           title: widget.item.title,
         ),
@@ -566,10 +568,12 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       MaterialPageRoute(
         builder: (context) => VideoPlayerScreen(
           tmdbId: widget.item.tmdbId,
+          malId: _isAnimeSourced ? widget.item.tmdbId : null,
+          isAnime: _isAnimeSourced,
           mediaType: 'tv',
           season: season,
           episode: episode,
-          title: '${widget.item.title} Ã‚Â· S${season}E$episode: $epTitle',
+          title: '${widget.item.title} · S${season}E$episode: $epTitle',
         ),
       ),
     );

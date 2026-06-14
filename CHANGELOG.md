@@ -9,6 +9,46 @@ Conventions: 🚀 Features · 🐛 Bug Fixes · ⚡ Performance · 🔒 Security
 
 ---
 
+## [5.3.0] — 2026-06-14
+
+### 🚀 Features
+- **Anime Embed Support in Video Player**: `VideoPlayerScreen` now supports MAL-id-based anime embeds via VidSrc and VidSrc CC alongside the existing TMDB-based Videasy provider. The player auto-detects anime items and serves the appropriate embed source.
+- **Provider Switching Dropdown**: Anime items get a live provider switcher (VidSrc / VidSrc CC) in the header badge—a `PopupMenuButton` lets users switch embed sources on the fly without leaving the player.
+- **`VideoProvider` Model**: New data class encapsulating embed source configuration (`id`, `name`, `shortName`, `note`, `movieUrl`, `tvUrl`) enabling easy addition of new providers.
+- **`isAnime` / `malId` in VideoPlayerScreen**: New optional parameters so callers can explicitly mark anime playback and pass a MAL id for correct embed URL construction.
+- **EpisodeDrawer Anime Routing**: `_playMovie()` and `_playEpisode()` now pass `isAnime` and `malId` to `VideoPlayerScreen` when the item is anime-sourced, ensuring anime content routes to the correct embed provider.
+
+### 🐛 Bug Fixes
+- **AniList GraphQL Variable Mismatch**: Fixed `'malId': malId` → `'idMal': malId` in `AniListService._fetchMediaByAnilistId()`. The GraphQL query variable name must match the parameter in the query definition (`$idMal`), not the `Media.idMal` field name. This was silently returning null `Media` objects, causing anime taps to show no details.
+
+### 📝 Docs
+- Updated CHANGELOG and version for v5.3.0.
+
+### ⚠️ Breaking Changes
+- None. v5.3.0 is fully backward-compatible with v5.2.0 data.
+
+---
+
+## [5.2.0] — 2026-06-14
+
+### 🚀 Features
+- **AniList/Jikan Rich Anime Details**: New `AniListService` and `JikanService` providing deep anime metadata—synopsis, scores, studios, genres, voice actors, staff, and streaming links—shown in the episode drawer for anime items. AniList GraphQL queries fetch by TMDB cross-referenced ID or MAL id; Jikan REST API serves as the fallback source.
+- **Anime Search Modal (Jikan)**: New `JikanSearchModal` with debounced querying, MAL-id resolution, and "add to watchlist" flow for anime titles. Search results show cover art, type, episodes, score, and status badges.
+- **MediaItem Model Expansion**: Added `anilistId`, `malId`, `jikanSynopsis`, `jikanScore`, `jikanRank`, `jikanPopularity`, `jikanEpisodes`, `jikanStatus`, `jikanType`, `jikanStudios`, `jikanGenres`, `jikanUrl`, and `anilistStreamingLinks` fields with full Firestore round-trip serialization.
+- **Cinema Screen Rewrite**: Major refactor of `CinemaScreen` for unified anime/general media browsing with improved layout and state management.
+- **Episode Drawer Overhaul**: Rich anime details section in the episode drawer showing synopsis, score ring, rank, popularity, studio badges, genre chips, and streaming link pills when viewing an anime item.
+
+### 🐛 Bug Fixes
+- None.
+
+### 📝 Docs
+- Updated CHANGELOG, README, and version for v5.2.0.
+
+### ⚠️ Breaking Changes
+- None. v5.2.0 is fully backward-compatible with v5.1.0 data.
+
+---
+
 ## [5.1.0] — 2026-06-14
 
 ### 🚀 Features
