@@ -370,6 +370,37 @@ class JikanService {
     return _getJson('/anime/$malId');
   }
 
+  /// Per-episode list (titles, air dates, durations) for an anime from
+  /// Jikan's `/anime/{id}/episodes` endpoint. Episodes come back in
+  /// airing order with `mal_id` set to the in-show episode number.
+  ///
+  /// Note that Jikan v4 dropped the per-episode `synopsis` field that
+  /// v3 used to expose — that column is intentionally absent here.
+  /// `title_japanese` and `title_romanji` are also returned by Jikan but
+  /// we keep the envelope raw so the caller can pick the best title
+  /// variant for its UI.
+  ///
+  /// The endpoint is paginated (100 per page) and we walk the pages
+  /// internally up to a cap so long-running shows (One Piece, Naruto)
+  /// come back complete without the caller having to manage pages.
+  Future<List<Map<String, dynamic>>> fetchAnimeEpisodes(int malId) async {
+    const maxPages = 10; // 10 * 100 = 1000 episodes, more than enough.
+    final out = <Map<String, dynamic>>[];
+    for (var page = 1; page <= maxPages; page++) {
+      final json = await _getJson('/anime/$malId/episodes', params: {
+        'page': '$page',
+      });
+      if (json == null) return out;
+      final data = (json['data'] as List?) ?? const [];
+      final entries = data.whereType<Map<String, dynamic>>().toList();
+      out.addAll(entries);
+      final pagination = json['pagination'] as Map<String, dynamic>?;
+      final hasNext = pagination?['has_next_page'] == true;
+      if (!hasNext || entries.isEmpty) break;
+    }
+    return out;
+  }
+
   /// Anime that share at least one MAL genre with the given title.
   /// Uses the simple Jikan `/anime` search-with-genre endpoint, then
   /// sorts by popularity in Dart. `genreIds` is a list of MAL genre ids

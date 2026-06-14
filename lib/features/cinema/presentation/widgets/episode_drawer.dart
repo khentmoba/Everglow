@@ -314,35 +314,52 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
 
   /// Pulls the full MAL episode list for an anime and projects it into
   /// the TMDB-shaped map the existing [_buildEpisodeTile] reads. Keys:
-  /// `episode_number`, `name`, `overview`, `still_path`.
+  /// `episode_number`, `name`, `overview`, `still_path`, `aired`,
+  /// `duration`.
+  ///
+  /// Three sources, in priority order:
+  ///   1. Jikan's `/anime/{id}/episodes` — real titles, air dates,
+  ///      durations for essentially every show.
+  ///   2. AniList's `streamingEpisodes` overlay — fills in titles for
+  ///      Jikan gaps (rare).
+  ///   3. Placeholder `Episode N` — last resort when neither source
+  ///      has a title for that slot.
   Future<List<Map<String, dynamic>>> _fetchJikanEpisodes(int malId) async {
-    final data = await _jikanService.fetchAnimeById(malId);
-    if (data == null) return [];
-    // We hit /anime/{id} which returns the show's full record including
-    // an `episodes` count, not the per-episode list. The episode list
-    // lives on /anime/{id}/episodes — but Jikan doesn't expose a single
-    // helper for it on the service yet. For brevity, we synthesize
-    // numbered slots using the recorded episode count when no
-    // per-episode data is available. AniList's `streamingEpisodes` gives
-    // us real titles when licensed, and we merge those in.
-    final episodeCount = (data['episodes'] is num)
-        ? (data['episodes'] as num).toInt()
-        : 0;
-    final titles = <int, String>{};
-    final anilistEpisodes = _aniListDetail?.episodes ?? const [];
-    for (final ep in anilistEpisodes) {
+    final jikanEps = await _jikanService.fetchAnimeEpisodes(malId);
+    final anime = await _jikanService.fetchAnimeById(malId);
+    final episodeCount = (anime?['episodes'] is num)
+        ? (anime?['episodes'] as num).toInt()
+        : jikanEps.length;
+
+    final anilistTitles = <int, String>{};
+    for (final ep in _aniListDetail?.episodes ?? const []) {
       final t = ep.title;
-      if (t != null && t.isNotEmpty) {
-        titles[ep.number] = t;
-      }
+      if (t != null && t.isNotEmpty) anilistTitles[ep.number] = t;
     }
+
+    final jikanByNum = <int, Map<String, dynamic>>{};
+    for (final e in jikanEps) {
+      final n = (e['mal_id'] as num?)?.toInt();
+      if (n != null) jikanByNum[n] = e;
+    }
+
     final out = <Map<String, dynamic>>[];
     for (var i = 1; i <= episodeCount; i++) {
+      final je = jikanByNum[i];
+      final jikanTitle = je?['title'] as String?;
+      final name = (jikanTitle != null && jikanTitle.isNotEmpty)
+          ? jikanTitle
+          : anilistTitles[i] ?? 'Episode $i';
+      final aired = je?['aired'] as String?;
+      final duration =
+          (je?['duration'] is num) ? (je?['duration'] as num).toInt() : null;
       out.add({
         'episode_number': i,
-        'name': titles[i] ?? 'Episode $i',
+        'name': name,
         'overview': '',
         'still_path': null,
+        'aired': aired,
+        'duration': duration,
       });
     }
     return out;
@@ -351,9 +368,22 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   Future<void> _fetchCast() async {
     List<Map<String, dynamic>> cast;
     if (_isAnimeSourced) {
-      cast = _aniListDetail != null
-          ? _mapAniListCharacters(_aniListDetail!.characters)
-          : [];
+      // `_aniListDetail` is populated by the parallel `_fetchMediaDetails`
+      // call, but it almost always races ahead of us and reads as null
+      // on first open. Pull directly here — AniListService caches
+      // details in-memory for 30 min keyed on the MAL/AniList id, so
+      // this is a cache hit whenever `_fetchAnimeDetails` already ran.
+      AniListDetail? detail = _aniListDetail;
+      if (detail == null) {
+        detail = await _aniListService.fetchDetails(
+          anilistId: widget.item.anilistId,
+          malId: widget.item.tmdbId,
+        );
+        if (detail != null) _aniListDetail = detail;
+      }
+      cast = detail != null
+          ? _mapAniListCharacters(detail.characters)
+          : <Map<String, dynamic>>[];
     } else {
       cast = await _tmdbService.fetchCredits(
           widget.item.tmdbId, widget.item.mediaType);
