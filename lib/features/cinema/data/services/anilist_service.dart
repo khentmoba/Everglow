@@ -87,7 +87,11 @@ class AniListService {
 
     final variables = <String, dynamic>{
       if (anilistId != null) 'id': anilistId,
-      if (anilistId == null && malId != null) 'malId': malId,
+      // GraphQL variable name has to match the query (`$idMal`), not the
+      // `Media.idMal` field. The previous `'malId': malId` mismatch
+      // silently produced errors and returned a null `Media`, which is
+      // why tapping an anime showed no details.
+      if (anilistId == null && malId != null) 'idMal': malId,
       'type': 'ANIME',
     };
 
