@@ -1,13 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Manga / Manhwa / Manhua catalog item, sourced from the MangaDex API.
-/// Mirrors `MediaItem` for the cinema feature so future shared widgets
-/// stay consistent.
+/// Manga / Manhwa / Manhua catalog item, sourced from the Comick API
+/// for discovery and the MangaDex API for chapter pages.
 ///
-/// MangaDex uses UUIDs as the primary id (we store it as `mangaId` to
-/// disambiguate from TMDB-style ints). We also persist the original
-/// language (`ja` = manga, `ko` = manhwa, `zh` = manhua) so the UI can
-/// label and filter by content type without re-fetching the catalog.
+/// Primary identifier is the Comick `hid` (hashed string), stored as
+/// `mangaId`. The `mangaDexId` field stores the MangaDex UUID for
+/// chapter resolution. For existing Firestore entries created before
+/// the Comick migration, `mangaId` may still hold the MangaDex UUID.
+///
+/// `originalLanguage` maps from Comick's `country` field:
+///   `jp` = Manga, `ko` = Manhwa, `cn`/`zh` = Manhua.
 class MangaItem {
   final String id;
   final String mangaId;
@@ -19,7 +21,7 @@ class MangaItem {
   final String year;
   final String status;
 
-  /// `ja` = Manga, `ko` = Manhwa, `zh` = Manhua, `en` etc.
+  /// `jp` = Manga, `ko` = Manhwa, `cn` = Manhua, `en` etc.
   final String originalLanguage;
   final String contentRating;
   final List<String> tags;
@@ -36,6 +38,24 @@ class MangaItem {
   /// 1-indexed page within `lastReadChapterId`.
   final int lastReadPage;
 
+  // ── Comick-specific fields ──────────────────────────────
+
+  /// Comick numeric database ID (0 if not set).
+  final int comickId;
+
+  /// Comick URL slug for the comic (empty if not set).
+  final String comickSlug;
+
+  /// MangaDex UUID for chapter page resolution. Empty for old entries
+  /// where `mangaId` still holds the MangaDex UUID directly.
+  final String mangaDexId;
+
+  /// Comick bayesian rating (0.0–10.0 scale).
+  final double rating;
+
+  /// Comick user follow count (popularity metric).
+  final int followCount;
+
   const MangaItem({
     required this.id,
     required this.mangaId,
@@ -46,7 +66,7 @@ class MangaItem {
     this.coverUrl = '',
     this.year = '',
     this.status = '',
-    this.originalLanguage = 'ja',
+    this.originalLanguage = 'jp',
     this.contentRating = 'safe',
     this.tags = const [],
     this.userName = '',
@@ -54,6 +74,11 @@ class MangaItem {
     this.libraryStatus = 'none',
     this.lastReadChapterId = '',
     this.lastReadPage = 0,
+    this.comickId = 0,
+    this.comickSlug = '',
+    this.mangaDexId = '',
+    this.rating = 0.0,
+    this.followCount = 0,
   });
 
   /// Convenience label for the content type. Used in poster cards and
@@ -63,8 +88,10 @@ class MangaItem {
       case 'ko':
         return 'Manhwa';
       case 'zh':
+      case 'cn':
         return 'Manhua';
       case 'ja':
+      case 'jp':
         return 'Manga';
       default:
         return 'Other';
@@ -106,7 +133,7 @@ class MangaItem {
       coverUrl: data['coverUrl'] ?? '',
       year: data['year'] ?? '',
       status: data['status'] ?? '',
-      originalLanguage: data['originalLanguage'] ?? 'ja',
+      originalLanguage: data['originalLanguage'] ?? 'jp',
       contentRating: data['contentRating'] ?? 'safe',
       tags: (data['tags'] as List?)?.map((e) => e.toString()).toList() ?? const [],
       userName: data['userName'] ?? '',
@@ -114,6 +141,11 @@ class MangaItem {
       libraryStatus: data['libraryStatus'] ?? 'none',
       lastReadChapterId: data['lastReadChapterId'] ?? '',
       lastReadPage: (data['lastReadPage'] as num?)?.toInt() ?? 0,
+      comickId: (data['comickId'] as num?)?.toInt() ?? 0,
+      comickSlug: data['comickSlug'] ?? '',
+      mangaDexId: data['mangaDexId'] ?? '',
+      rating: (data['rating'] as num?)?.toDouble() ?? 0.0,
+      followCount: (data['followCount'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -148,6 +180,11 @@ class MangaItem {
       'libraryStatus': libraryStatus,
       'lastReadChapterId': lastReadChapterId,
       'lastReadPage': lastReadPage,
+      'comickId': comickId,
+      'comickSlug': comickSlug,
+      'mangaDexId': mangaDexId,
+      'rating': rating,
+      'followCount': followCount,
     };
   }
 
@@ -169,6 +206,11 @@ class MangaItem {
     String? libraryStatus,
     String? lastReadChapterId,
     int? lastReadPage,
+    int? comickId,
+    String? comickSlug,
+    String? mangaDexId,
+    double? rating,
+    int? followCount,
   }) {
     return MangaItem(
       id: id ?? this.id,
@@ -188,6 +230,11 @@ class MangaItem {
       libraryStatus: libraryStatus ?? this.libraryStatus,
       lastReadChapterId: lastReadChapterId ?? this.lastReadChapterId,
       lastReadPage: lastReadPage ?? this.lastReadPage,
+      comickId: comickId ?? this.comickId,
+      comickSlug: comickSlug ?? this.comickSlug,
+      mangaDexId: mangaDexId ?? this.mangaDexId,
+      rating: rating ?? this.rating,
+      followCount: followCount ?? this.followCount,
     );
   }
 }

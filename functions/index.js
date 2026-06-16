@@ -186,6 +186,62 @@ exports.proxyMangaImage = functions.https.onRequest(async (req, res) => {
  * Firebase Auth token in the Authorization header, validated if
  * present.
  */
+/**
+ * Proxies Comick catalog API requests so Flutter web isn't blocked by CORS.
+ * Same pattern as `proxyMangaDex` — forwards to api.comick.dev with
+ * permissive CORS headers.
+ */
+exports.proxyComick = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  if (req.method !== 'GET') {
+    res.status(405).json({ error: 'Only GET is accepted' });
+    return;
+  }
+
+  const pathParam = req.query.path;
+  if (typeof pathParam !== 'string' || pathParam.length === 0) {
+    res.status(400).json({ error: 'Missing ?path=<api path> query param' });
+    return;
+  }
+
+  const safePath = pathParam.replace(/^\/+/, '').replace(/\.\.+/g, '');
+  if (safePath.length === 0) {
+    res.status(400).json({ error: 'Empty path' });
+    return;
+  }
+  const targetUrl = `https://api.comick.dev/${safePath}`;
+
+  try {
+    const upstream = await fetch(targetUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Everglow/1.0 (https://github.com/everglow)',
+        'Accept': 'application/json',
+      },
+      timeout: 20000,
+    });
+    const body = await upstream.text();
+    res.status(upstream.status);
+    res.set(
+      'Content-Type',
+      upstream.headers.get('content-type') || 'application/json',
+    );
+    res.set('Cache-Control', 'public, max-age=60');
+    res.send(body);
+  } catch (e) {
+    console.warn(`proxyComick failed (${targetUrl}):`, e.message);
+    res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
+  }
+});
+
 exports.proxyMangaDex = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');

@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'package:everglow/features/manga/data/models/manga_item.dart';
+import 'package:everglow/features/manga/data/services/comick_service.dart';
 import 'package:everglow/features/manga/data/services/mangadex_service.dart';
 import 'package:everglow/features/manga/presentation/widgets/manga_cover_card.dart';
 import 'package:everglow/features/manga/presentation/widgets/manga_details_drawer.dart';
@@ -37,12 +38,13 @@ class MangaLibraryScreen extends StatefulWidget {
 class _MangaLibraryScreenState extends State<MangaLibraryScreen>
     with TickerProviderStateMixin {
   final MangaDexService _service = MangaDexService();
+  final ComickService _comick = ComickService();
   int _currentIndex = 0;
 
   StreamSubscription<List<MangaItem>>? _librarySub;
   List<MangaItem> _library = [];
 
-  // Content-type filter: '' = all, 'ja' = manga, 'ko' = manhwa, 'zh' = manhua
+  // Content-type filter: '' = all, 'jp' = manga, 'ko' = manhwa, 'cn' = manhua
   String _selectedLanguage = '';
 
   // Home tab carousels
@@ -52,6 +54,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
   List<MangaItem> _manhwaList = [];
   List<MangaItem> _manhuaList = [];
   bool _isLoadingHome = true;
+  String? _homeError;
 
   // Continue reading — items with lastReadChapterId
   List<MangaItem> get _continueReading => _library
@@ -80,14 +83,17 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
   }
 
   Future<void> _loadHome() async {
-    setState(() => _isLoadingHome = true);
+    setState(() {
+      _isLoadingHome = true;
+      _homeError = null;
+    });
     try {
       final results = await Future.wait([
-        _service.fetchPopular(),
-        _service.fetchLatest(),
-        _service.fetchPopular(originalLanguage: 'ja'),
-        _service.fetchPopular(originalLanguage: 'ko'),
-        _service.fetchPopular(originalLanguage: 'zh'),
+        _comick.fetchPopular(),
+        _comick.fetchLatest(),
+        _comick.fetchPopular(country: 'jp'),
+        _comick.fetchPopular(country: 'ko'),
+        _comick.fetchPopular(country: 'cn'),
       ]);
       if (!mounted) return;
       setState(() {
@@ -100,7 +106,10 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isLoadingHome = false);
+      setState(() {
+        _isLoadingHome = false;
+        _homeError = 'Could not load library. Pull down to retry.';
+      });
     }
   }
 
@@ -299,7 +308,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Everglow Library',
+                  'Manga Shelf',
                   style: GoogleFonts.cormorantGaramond(
                     fontSize: 26,
                     fontWeight: FontWeight.bold,
@@ -347,8 +356,8 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
           const SizedBox(width: 8),
           _LangFilterChip(
             label: '🇯🇵 Manga',
-            selected: _selectedLanguage == 'ja',
-            onTap: () => setState(() => _selectedLanguage = 'ja'),
+            selected: _selectedLanguage == 'jp',
+            onTap: () => setState(() => _selectedLanguage = 'jp'),
           ),
           const SizedBox(width: 8),
           _LangFilterChip(
@@ -359,8 +368,8 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
           const SizedBox(width: 8),
           _LangFilterChip(
             label: '🇨🇳 Manhua',
-            selected: _selectedLanguage == 'zh',
-            onTap: () => setState(() => _selectedLanguage = 'zh'),
+            selected: _selectedLanguage == 'cn',
+            onTap: () => setState(() => _selectedLanguage = 'cn'),
           ),
         ],
       ),

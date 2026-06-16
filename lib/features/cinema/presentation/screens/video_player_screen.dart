@@ -53,12 +53,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   JSFunction? _onLoadListener;
   JSFunction? _onErrorListener;
   Timer? _loadTimer;
+  Timer? _contentCheckTimer;
+  JSFunction? _messageListener;
 
   /// How long to wait for the iframe to fire `load` before we consider
   /// the embed dead. vidsrc embeds usually load in 2-4s; 15s is a
   /// generous ceiling that still surfaces 404s within a reasonable
   /// user wait.
   static const Duration _loadTimeout = Duration(seconds: 15);
+
+  /// How long to wait for VidLink to send a `MEDIA_DATA` postMessage
+  /// event after the iframe loads. If the event never arrives the
+  /// provider likely showed "content not available", so we fall back.
+  static const Duration _contentCheckTimeout = Duration(seconds: 8);
 
   /// The currently selected embed source. Starts at the first entry
   /// in [_providers]; auto-fallback cycles through the list when one
@@ -133,6 +140,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _onLoadListener = ((web.Event _) {
       _loadTimer?.cancel();
       if (mounted) setState(() => _isLoading = false);
+      _startContentCheck();
     }).toJS;
     _onErrorListener = ((web.Event _) {
       _onIframeLoadError();
@@ -144,6 +152,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       if (!mounted) return;
       if (_isLoading) _onIframeLoadError();
     });
+
+    _messageListener = _buildMessageListener();
+    web.window.addEventListener('message', _messageListener);
 
     // For anime we don't have a TMDB id on the MediaItem — the slot
     // holds the MAL id. Resolve MAL→TMDB via ani.zip, then set the
@@ -172,19 +183,26 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// card with "Open in browser" / "Watch on external site" actions.
   Future<void> _bootstrapAnime() async {
     final malId = widget.malId ?? widget.tmdbId;
+
+    // VidLink anime uses MAL id directly — start loading immediately
+    // without waiting for the ani.zip TMDB resolution.
+    if (_selectedProvider.id == 'vidlink') {
+      _iframe.src = _buildPlayerUrl(_selectedProvider);
+    }
+
     final tmdbId = await AniZipService().fetchTmdbId(malId);
     if (!mounted) return;
     if (tmdbId == null) {
-      // No TMDB cross-reference — show the error card. We deliberately
-      // don't leave the user on a blank black screen.
-      setState(() => _iframeFailed = true);
-      _loadTimer?.cancel();
+      if (_selectedProvider.id != 'vidlink') {
+        setState(() => _iframeFailed = true);
+        _loadTimer?.cancel();
+      }
       return;
     }
-    setState(() {
-      _externalTmdbId = tmdbId;
-    });
-    _iframe.src = _buildPlayerUrl(_activeProvider);
+    _externalTmdbId = tmdbId;
+    if (_selectedProvider.id != 'vidlink') {
+      _iframe.src = _buildPlayerUrl(_selectedProvider);
+    }
   }
 
   /// Called when the iframe fires `error` or the [_loadTimeout] fires
@@ -192,9 +210,41 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// automatically tries the next untried provider in [_providers].
   void _onIframeLoadError() {
     _loadTimer?.cancel();
+    _contentCheckTimer?.cancel();
     if (!mounted) return;
     _failedProviderIds.add(_selectedProvider.id);
     _tryNextProvider();
+  }
+
+  /// Starts the content availability check timer. Only applies to
+  /// VidLink, which sends a `MEDIA_DATA` postMessage when content is
+  /// actually playable. If the event doesn't arrive within
+  /// [_contentCheckTimeout], the embed likely showed "content not
+  /// available" and we fall back to the next provider.
+  void _startContentCheck() {
+    if (_selectedProvider.id != 'vidlink') return;
+    _contentCheckTimer?.cancel();
+    _contentCheckTimer = Timer(_contentCheckTimeout, () {
+      if (!mounted) return;
+      _onIframeLoadError();
+    });
+  }
+
+  /// Builds the postMessage listener for VidLink's `MEDIA_DATA` event.
+  /// When received, it confirms the content is playable and cancels
+  /// the content check timer.
+  JSFunction _buildMessageListener() {
+    return ((web.Event e) {
+      try {
+        final data = (e as web.MessageEvent).data;
+        if (data == null) return;
+        final map = data.dartify();
+        if (map is! Map) return;
+        if (map['type'] == 'MEDIA_DATA') {
+          _contentCheckTimer?.cancel();
+        }
+      } catch (_) {} // ignore cross-origin / parse errors
+    }).toJS;
   }
 
   /// Find the next untried provider and switch to it. If every
@@ -232,6 +282,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _iframeFailed = false;
     });
     _loadTimer?.cancel();
+    _contentCheckTimer?.cancel();
     _loadTimer = Timer(_loadTimeout, () {
       if (!mounted) return;
       if (_isLoading) _onIframeLoadError();
@@ -242,11 +293,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void dispose() {
     _loadTimer?.cancel();
+    _contentCheckTimer?.cancel();
     if (_onLoadListener != null) {
       _iframe.removeEventListener('load', _onLoadListener);
     }
     if (_onErrorListener != null) {
       _iframe.removeEventListener('error', _onErrorListener);
+    }
+    if (_messageListener != null) {
+      web.window.removeEventListener('message', _messageListener);
     }
     _iframe.src = 'about:blank';
 
@@ -289,15 +344,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   String _buildPlayerUrlWithForm(VideoProvider provider, _UrlForm form) {
+    // VidLink has a dedicated anime endpoint using MAL id directly.
+    if (provider.id == 'vidlink' && widget.isAnime && widget.mediaType == 'tv') {
+      final malId = _externalId;
+      final epNum = widget.episode ?? 1;
+      return 'https://vidlink.pro/anime/$malId/$epNum/sub';
+    }
+
     final movieBase = provider.movieUrl;
     final tvBase = provider.tvUrl;
     final isVideasy =
         movieBase.contains('videasy') || tvBase.contains('videasy');
     final isAnime = widget.isAnime;
-    // For anime we always go through the TMDB id we resolved in
-    // [_bootstrapAnime] — never the raw MAL id, since the dead
-    // VidSrc MAL embeds used to be the alternative and we've since
-    // removed them.
     final id = isAnime ? (_activeTmdbId ?? _externalId) : _externalId;
 
     if (widget.mediaType == 'tv') {
@@ -408,6 +466,45 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       child: CircularProgressIndicator(color: AppTheme.deepRose),
                     ),
                   if (_iframeFailed) _buildErrorCard(context),
+                  if (!_isLoading && !_iframeFailed)
+                    Positioned(
+                      right: 12,
+                      bottom: 12,
+                      child: GestureDetector(
+                        onTap: _onIframeLoadError,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.75),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: AppTheme.deepRose.withValues(alpha: 0.5),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.swap_horiz_rounded,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Try Another Source',
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
