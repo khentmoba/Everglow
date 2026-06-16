@@ -125,6 +125,13 @@ class BookItem {
   /// The Open Library work page is only returned as a last resort
   /// (for the "open in browser" button) when no plain-text source
   /// is available.
+  ///
+  /// For non-Gutenberg Internet Archive ids (modern copyrighted
+  /// books that are borrow-only), the URL is the IA **details
+  /// page** rather than the `${iaId}_djvu.txt` file — the djvu text
+  /// is only accessible inside an active loan, so using it as the
+  /// "open in browser" target would just open a 404. The details
+  /// page is where the user can borrow and read the book.
   static String deriveReadSourceUrl({
     required String iaId,
     required String workKey,
@@ -134,7 +141,7 @@ class BookItem {
       return 'https://www.gutenberg.org/cache/epub/$id/pg$id.txt';
     }
     if (iaId.isNotEmpty) {
-      return 'https://archive.org/download/$iaId/${iaId}_djvu.txt';
+      return 'https://archive.org/details/$iaId';
     }
     if (workKey.isNotEmpty) {
       return 'https://openlibrary.org$workKey';
