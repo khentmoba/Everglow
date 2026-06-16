@@ -398,7 +398,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       ..addAll(aniZipImages.keys);
     final needsTmdbFallback =
         episodeCount > 0 && withThumb.length < episodeCount;
-    Map<int, String> tmdbStills = {};
+    Map<int, ({String? stillUrl, String? overview})> tmdbStills = {};
     if (needsTmdbFallback) {
       final tmdbSeriesId = await _aniZipService.fetchTmdbId(malId);
       if (tmdbSeriesId != null) {
@@ -426,13 +426,14 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       final duration =
           (je?['duration'] is num) ? (je?['duration'] as num).toInt() : null;
 
+      final tmdb = tmdbStills[i];
       final stillPath =
-          anilistThumbs[i] ?? aniZipImages[i] ?? tmdbStills[i] ?? posterUrl;
+          anilistThumbs[i] ?? aniZipImages[i] ?? tmdb?.stillUrl ?? posterUrl;
 
       out.add({
         'episode_number': i,
         'name': name,
-        'overview': '',
+        'overview': tmdb?.overview ?? '',
         'still_path': stillPath,
         'aired': aired,
         'duration': duration,
@@ -441,12 +442,14 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     return out;
   }
 
-  /// TMDB fallback for anime episode stills. Matches the anime's
-  /// broadcast year (from AniList) against TMDB seasons' air_date to
-  /// find the right season number, then fetches per-episode stills.
-  /// Returns the episode-number -> image-URL map; empty on any miss.
-  Future<Map<int, String>> _fetchTmdbEpisodeStills(
-      int tmdbSeriesId, AniListDetail? detail) async {
+  /// TMDB fallback for anime episode stills + overviews. Matches the
+  /// anime's broadcast year (from AniList) against TMDB seasons'
+  /// air_date to find the right season number, then fetches per-episode
+  /// data. Returns the episode-number -> {stillUrl, overview} map;
+  /// empty on any miss.
+  Future<Map<int, ({String? stillUrl, String? overview})>>
+      _fetchTmdbEpisodeStills(
+          int tmdbSeriesId, AniListDetail? detail) async {
     final details =
         await _tmdbService.fetchMediaDetails(tmdbSeriesId, 'tv');
     if (details == null) return {};
@@ -481,14 +484,19 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
 
     final eps =
         await _tmdbService.fetchSeasonEpisodes(tmdbSeriesId, bestSn);
-    final out = <int, String>{};
+    final out = <int, ({String? stillUrl, String? overview})>{};
     for (final ep in eps) {
       if (ep is! Map<String, dynamic>) continue;
       final n = (ep['episode_number'] as num?)?.toInt();
+      if (n == null || n <= 0) continue;
       final p = ep['still_path'] as String?;
-      if (n != null && n > 0 && p != null && p.isNotEmpty) {
-        out[n] = 'https://image.tmdb.org/t/p/w300$p';
-      }
+      final o = ep['overview'] as String?;
+      out[n] = (
+        stillUrl: (p != null && p.isNotEmpty)
+            ? 'https://image.tmdb.org/t/p/w300$p'
+            : null,
+        overview: (o != null && o.isNotEmpty) ? o : null,
+      );
     }
     return out;
   }
@@ -547,18 +555,27 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   }
 
   Future<void> _fetchReviews() async {
-    List<Map<String, dynamic>> reviews;
-    if (_isAnimeSourced) {
-      reviews = await _fetchJikanReviews(widget.item.tmdbId);
-    } else {
-      reviews = await _tmdbService.fetchReviews(
-          widget.item.tmdbId, widget.item.mediaType);
-    }
-    if (mounted) {
-      setState(() {
-        _reviews = reviews;
-        _isLoadingReviews = false;
-      });
+    try {
+      List<Map<String, dynamic>> reviews;
+      if (_isAnimeSourced) {
+        reviews = await _fetchJikanReviews(widget.item.tmdbId);
+      } else {
+        reviews = await _tmdbService.fetchReviews(
+            widget.item.tmdbId, widget.item.mediaType);
+      }
+      if (mounted) {
+        setState(() {
+          _reviews = reviews;
+          _isLoadingReviews = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _reviews = [];
+          _isLoadingReviews = false;
+        });
+      }
     }
   }
 
