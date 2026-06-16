@@ -60,48 +60,61 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// user wait.
   static const Duration _loadTimeout = Duration(seconds: 15);
 
-  /// The currently selected embed source. For non-anime items this is
-  /// locked to [_tmdbVideasy]. For anime items it's also locked to
-  /// Videasy once we've resolved the MAL→TMDB id; if the id can't be
-  /// resolved the provider list shows an empty state and the error
-  /// card is what the user sees.
+  /// The currently selected embed source. Starts at the first entry
+  /// in [_providers]; auto-fallback cycles through the list when one
+  /// embed fails to load within [_loadTimeout].
   late VideoProvider _selectedProvider;
 
-  /// TMDB provider — Videasy. Used for general cinema AND anime (after
-  /// we resolve the MAL id to a TMDB id via ani.zip). The old MAL-id
-  /// anime embeds were dropped by vidsrc (see commit history: their
-  /// FAQ explicitly states they don't support anime), so we hand
-  /// every anime that has a TMDB cross-reference off to Videasy on
-  /// the same shape as non-anime content.
-  static const VideoProvider _tmdbVideasy = VideoProvider(
-    id: 'videasy',
-    name: 'Videasy',
-    shortName: 'Videasy',
-    note: 'TMDB-based, general cinema',
-    movieUrl: 'https://player.videasy.net/movie/',
-    tvUrl: 'https://player.videasy.net/tv/',
-  );
+  /// Tracks which providers have already been tried and failed during
+  /// this session so auto-fallback doesn't re-try a dead source.
+  final Set<String> _failedProviderIds = {};
 
-  /// Anime used to offer three VidSrc mirrors here. vidsrc.to
-  /// officially removed anime support (their FAQ: "Currently we do
-  /// not support anime"), and the .cc / .icu mirrors were never
-  /// stable for anime either. The single-provider setup is correct
-  /// now that we resolve MAL→TMDB and reuse the non-anime Videasy
-  /// player. Keeping the [_animeProviders] slot around as an empty
-  /// list so the dropdown code path still has something to iterate
-  /// when (eventually) we want to re-introduce a fallback.
-  static const List<VideoProvider> _animeProviders = [];
+  /// Free embed providers that accept a TMDB id. The player tries
+  /// each one in order, auto-falling back when an embed 404s or
+  /// doesn't respond within [_loadTimeout].
+  static const List<VideoProvider> _providers = [
+    VideoProvider(
+      id: 'vidsrc',
+      name: 'VidSrc',
+      shortName: 'VidSrc',
+      note: 'Most reliable, longest-running',
+      movieUrl: 'https://vidsrc.to/embed/movie/',
+      tvUrl: 'https://vidsrc.to/embed/tv/',
+    ),
+    VideoProvider(
+      id: 'vidlink',
+      name: 'VidLink',
+      shortName: 'VidLink',
+      note: 'Solid, actively maintained',
+      movieUrl: 'https://vidlink.pro/movie/',
+      tvUrl: 'https://vidlink.pro/tv/',
+    ),
+    VideoProvider(
+      id: 'multiembed',
+      name: 'MultiEmbed',
+      shortName: 'MultiEmbed',
+      note: 'Multi-source fallback',
+      movieUrl: 'https://multiembed.mov/directstream/?video_id=',
+      tvUrl: 'https://multiembed.mov/directstream/?video_id=',
+    ),
+    VideoProvider(
+      id: 'videasy',
+      name: 'Videasy',
+      shortName: 'Videasy',
+      note: 'Last resort, least reliable',
+      movieUrl: 'https://player.videasy.net/movie/',
+      tvUrl: 'https://player.videasy.net/tv/',
+    ),
+  ];
 
-  VideoProvider get _activeProvider =>
-      widget.isAnime ? _selectedProvider : _tmdbVideasy;
+  VideoProvider get _activeProvider => _selectedProvider;
 
-  List<VideoProvider> get _selectableProviders =>
-      widget.isAnime ? _animeProviders : const [_tmdbVideasy];
+  List<VideoProvider> get _selectableProviders => _providers;
 
   @override
   void initState() {
     super.initState();
-    _selectedProvider = _tmdbVideasy;
+    _selectedProvider = _providers.first;
 
     _viewType =
         'everglow-cinema-player-${widget.tmdbId}-${widget.mediaType}-${widget.season ?? 0}-${widget.episode ?? 0}-${DateTime.now().microsecondsSinceEpoch}';
@@ -122,17 +135,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       if (mounted) setState(() => _isLoading = false);
     }).toJS;
     _onErrorListener = ((web.Event _) {
-      _loadTimer?.cancel();
-      if (mounted) setState(() => _iframeFailed = true);
+      _onIframeLoadError();
     }).toJS;
     _iframe.addEventListener('load', _onLoadListener);
     _iframe.addEventListener('error', _onErrorListener);
 
-    // vidsrc's HLS bootstrap can take 2-4s; anything past 15s almost
-    // certainly means the MAL id isn't indexed on the chosen provider.
     _loadTimer = Timer(_loadTimeout, () {
       if (!mounted) return;
-      if (_isLoading) setState(() => _iframeFailed = true);
+      if (_isLoading) _onIframeLoadError();
     });
 
     // For anime we don't have a TMDB id on the MediaItem — the slot
@@ -177,17 +187,45 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _iframe.src = _buildPlayerUrl(_activeProvider);
   }
 
-  /// Called when the user picks a different provider from the dropdown.
-  /// Re-points the iframe at the new URL and flips the loader back on
-  /// until the new page's `load` event fires.
-  ///
-  /// Both anime and non-anime are locked to a single provider right
-  /// now (Videasy for both, after the MAL→TMDB resolution for anime).
-  /// The method is kept as a no-op-friendly stub so future providers
-  /// can be dropped in without rewiring the header chip.
+  /// Called when the iframe fires `error` or the [_loadTimeout] fires
+  /// while still loading. Marks the current provider as failed and
+  /// automatically tries the next untried provider in [_providers].
+  void _onIframeLoadError() {
+    _loadTimer?.cancel();
+    if (!mounted) return;
+    _failedProviderIds.add(_selectedProvider.id);
+    _tryNextProvider();
+  }
+
+  /// Find the next untried provider and switch to it. If every
+  /// provider has been tried, show the error card.
+  void _tryNextProvider() {
+    final next = _providers.cast<VideoProvider?>().firstWhere(
+      (p) => !_failedProviderIds.contains(p!.id),
+      orElse: () => null,
+    );
+    if (next != null) {
+      setState(() {
+        _selectedProvider = next;
+        _isLoading = true;
+        _iframeFailed = false;
+      });
+      _loadTimer = Timer(_loadTimeout, () {
+        if (!mounted) return;
+        if (_isLoading) _onIframeLoadError();
+      });
+      _iframe.src = _buildPlayerUrl(next);
+    } else {
+      setState(() => _iframeFailed = true);
+    }
+  }
+
+  /// Called when the user picks a different provider from the dropdown
+  /// or error card. Clears the failed set so the chosen provider gets
+  /// a fresh attempt.
   void _selectProvider(VideoProvider provider) {
-    if (_selectableProviders.length <= 1) return;
     if (provider.id == _selectedProvider.id) return;
+    _failedProviderIds.clear();
     setState(() {
       _selectedProvider = provider;
       _isLoading = true;
@@ -196,7 +234,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _loadTimer?.cancel();
     _loadTimer = Timer(_loadTimeout, () {
       if (!mounted) return;
-      if (_isLoading) setState(() => _iframeFailed = true);
+      if (_isLoading) _onIframeLoadError();
     });
     _iframe.src = _buildPlayerUrl(provider);
   }
@@ -292,34 +330,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }
   }
 
-  /// The URL the user can open in a new tab if every embed provider
-  /// is down. For anime we hand off to Crunchyroll's search-by-MAL
-  /// (which works because MAL ids are in the slug) and fall back to
-  /// the resolved TMDB id on Videasy's own homepage so the user
-  /// always has a real, working destination.
+  /// The URL the user can open in a new tab. Uses the same URL the
+  /// iframe would use for the current provider — if every embed has
+  /// failed, this gives the user a manual escape hatch.
   String _externalOpenUrl() {
-    final id = _externalId;
-    if (widget.isAnime) {
-      // Prefer Crunchyroll — it's the canonical legal stream for most
-      // licensed anime and has a MAL-id routing that works for
-      // Western-licensed shows. The TMDB id also works as a fallback.
-      final tmdb = _activeTmdbId;
-      if (tmdb != null) {
-        // Videasy's own shareable URL uses the same shape as the
-        // embed; it opens in a new tab and is reliable.
-        if (widget.mediaType == 'tv') {
-          return 'https://player.videasy.net/tv/$tmdb/${widget.season ?? 1}/${widget.episode ?? 1}';
-        }
-        return 'https://player.videasy.net/movie/$tmdb';
-      }
-      // No TMDB id — send the user to the MAL page so they can pick
-      // a streaming source themselves.
-      return 'https://myanimelist.net/anime/$id';
-    }
-    if (widget.mediaType == 'tv') {
-      return 'https://vidsrc.to/embed/tv/${widget.tmdbId}/${widget.season ?? 1}-${widget.episode ?? 1}';
-    }
-    return 'https://vidsrc.to/embed/movie/${widget.tmdbId}';
+    return _buildPlayerUrl(_activeProvider);
   }
 
   @override
@@ -402,13 +417,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     );
   }
 
-  /// The chip in the header that shows the current embed source. For
-  /// non-anime items it's a static badge (Videasy is the only sensible
-  /// TMDB-based option). For anime items it's a [PopupMenuButton] that
-  /// lets the user switch between VidSrc and VidSrc CC on the fly.
+  /// The chip in the header that shows the current embed source. A
+  /// [PopupMenuButton] that lets the user switch providers manually.
   Widget _buildProviderBadge() {
     final active = _activeProvider;
-    final isSelectable = widget.isAnime && _selectableProviders.length > 1;
+    final isSelectable = _selectableProviders.length > 1;
 
     final badge = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
