@@ -56,22 +56,14 @@ const _editorPicksIds = <int>[
   44511, // Chainsaw Man
   9253, // Steins;Gate
   48736, // My Dress-Up Darling
-  52127, // Oshi no Ko
+  165122, // Oshi no Ko (corrected from 52127, which was Hige wo Soru)
   11757, // Sword Art Online
   52991, // Frieren: Beyond Journey's End
 ];
 
+/// Batched Editor's Picks lookup — one HTTP call instead of 21.
 Future<List<MediaItem>> _fetchEditorPicks(JikanService jikan) async {
-  final responses = await Future.wait(
-    _editorPicksIds.map((id) async {
-      try {
-        return await jikan.fetchAnimeById(id);
-      } catch (_) {
-        return null;
-      }
-    }),
-  );
-  return responses.whereType<Map<String, dynamic>>().map(jikan.mapJikanToMediaItem).toList();
+  return jikan.fetchAnimeByIds(_editorPicksIds);
 }
 
 /// The four groups of categories rendered on the Browse tab. The UI
