@@ -5,6 +5,7 @@ import 'package:everglow/features/dashboard/presentation/screens/dashboard_scree
 import 'package:everglow/features/dashboard/domain/models/milestone.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/features/cinema/presentation/screens/cinema_screen.dart';
+import 'package:everglow/shared/widgets/adblocker_gate.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/services/auth_service.dart';
 import '../state/gateway_state.dart';
@@ -182,7 +183,7 @@ class _GatewayPageState extends State<GatewayPage> {
           Navigator.of(context).pushReplacement(
             PageRouteBuilder(
               pageBuilder: (context, animation, secondaryAnimation) =>
-                  const CinemaScreen(),
+                  const AdblockerGate(child: CinemaScreen()),
               transitionDuration: Duration.zero,
             ),
           );

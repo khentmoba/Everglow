@@ -81,6 +81,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// doesn't respond within [_loadTimeout].
   static const List<VideoProvider> _providers = [
     VideoProvider(
+      id: 'vidfast',
+      name: 'VidFast',
+      shortName: 'VidFast',
+      note: 'Fast, multiple CDN domains',
+      movieUrl: 'https://vidfast.pro/movie/',
+      tvUrl: 'https://vidfast.pro/tv/',
+    ),
+    VideoProvider(
       id: 'vidlink',
       name: 'VidLink',
       shortName: 'VidLink',
@@ -111,14 +119,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       note: 'Clean, modern player',
       movieUrl: 'https://player.videasy.net/movie/',
       tvUrl: 'https://player.videasy.net/tv/',
-    ),
-    VideoProvider(
-      id: 'vidfast',
-      name: 'VidFast',
-      shortName: 'VidFast',
-      note: 'Fast, multiple CDN domains',
-      movieUrl: 'https://vidfast.pro/movie/',
-      tvUrl: 'https://vidfast.pro/tv/',
     ),
     VideoProvider(
       id: 'vsembed',
@@ -217,33 +217,22 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
-  /// Anime bootstrap: look up the TMDB id for the MAL id, then point
-  /// the iframe at the same Videasy player non-anime content uses.
-  /// On lookup failure the iframe is left at `about:blank`, the load
-  /// timer fires after [_loadTimeout], and the user sees the error
-  /// card with "Open in browser" / "Watch on external site" actions.
+  /// Anime bootstrap: look up the TMDB id for the MAL id via ani.zip,
+  /// then point the iframe at the player URL (all providers use the
+  /// TMDB-based URL for anime). On lookup failure the user sees the
+  /// error card and can pick a different source.
   Future<void> _bootstrapAnime() async {
     final malId = widget.malId ?? widget.tmdbId;
-
-    // VidLink anime uses MAL id directly — start loading immediately
-    // without waiting for the ani.zip TMDB resolution.
-    if (_selectedProvider.id == 'vidlink') {
-      _iframe.src = _buildPlayerUrl(_selectedProvider);
-    }
 
     final tmdbId = await AniZipService().fetchTmdbId(malId);
     if (!mounted) return;
     if (tmdbId == null) {
-      if (_selectedProvider.id != 'vidlink') {
-        setState(() => _iframeFailed = true);
-        _loadTimer?.cancel();
-      }
+      setState(() => _iframeFailed = true);
+      _loadTimer?.cancel();
       return;
     }
     _externalTmdbId = tmdbId;
-    if (_selectedProvider.id != 'vidlink') {
-      _iframe.src = _buildPlayerUrl(_selectedProvider);
-    }
+    _iframe.src = _buildPlayerUrl(_selectedProvider);
   }
 
   /// Called when the iframe fires `error` or the [_loadTimeout] fires
@@ -420,15 +409,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   String _buildPlayerUrlWithForm(VideoProvider provider, _UrlForm form) {
-    // VidLink anime endpoint uses MAL id directly. We always request sub
-    // and include ?fallback=true so VidLink falls back to dub if the sub
-    // stream isn't available for this particular episode.
-    if (provider.id == 'vidlink' && widget.isAnime && widget.mediaType == 'tv') {
-      final malId = _externalId;
-      final epNum = widget.episode ?? 1;
-      return 'https://vidlink.pro/anime/$malId/$epNum/sub?fallback=true';
-    }
-
     final movieBase = provider.movieUrl;
     final tvBase = provider.tvUrl;
     final isVideasy =

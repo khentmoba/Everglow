@@ -78,6 +78,12 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   /// by [_fetchReviews] to try TMDB reviews when Jikan reviews are empty.
   int? _aniSearchedTmdbId;
 
+  /// MAL ID resolved from the AniList detail response. Used for Jikan
+  /// API calls and VideoPlayer navigation instead of [widget.item.tmdbId],
+  /// which may be an AniList ID when navigating from season pills where
+  /// the SEQUEL/PREQUEL relation has no `malId` cross-link.
+  int? _resolvedMalId;
+
   /// Studio name when this is an anime item (e.g. "MAPPA"). Empty for
   /// non-anime items so the meta row just skips it.
   String get _studio => _isAnimeSourced
@@ -154,12 +160,12 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         // off [_aniListDetail] if it's available; otherwise we kick off
         // a fresh detail fetch and use it.
         final detail = _aniListDetail ??
-            await _aniListService.fetchDetails(malId: widget.item.tmdbId);
+            await _aniListService.fetchDetails(malId: _effectiveMalId);
         _aniListDetail ??= detail;
         key = detail?.trailerYoutubeId;
         // Last-resort fallback: ask Jikan for the trailer. Jikan's
         // /anime/{id} also embeds a YouTube trailer when licensed.
-        key ??= await _jikanTrailerKey(widget.item.tmdbId);
+        key ??= await _jikanTrailerKey(_effectiveMalId);
       } else {
         key = await _tmdbService.fetchTrailerKey(
             widget.item.tmdbId, widget.item.mediaType);
@@ -225,6 +231,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       anilistId: widget.item.anilistId,
       malId: widget.item.tmdbId,
     );
+    if (detail?.malId != null) _resolvedMalId = detail!.malId;
     if (!mounted) return;
     if (detail == null) {
       setState(() {
@@ -260,6 +267,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
 
     setState(() {
       _aniListDetail = detail;
+      _resolvedMalId = detail.malId ?? widget.item.tmdbId;
       _details = mapped;
       _genreNames = detail.genres;
       // Anime has no seasons — render the flat episode list as a
@@ -355,7 +363,8 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   Future<void> _fetchSeasonEpisodes(int seasonNumber) async {
     setState(() => _isLoadingEpisodes = true);
     if (_isAnimeSourced) {
-      final episodes = await _fetchJikanEpisodes(widget.item.tmdbId);
+      final malId = _resolvedMalId ?? widget.item.tmdbId;
+      final episodes = await _fetchJikanEpisodes(malId);
       if (!mounted) return;
       setState(() {
         _episodes = episodes;
@@ -628,7 +637,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     try {
       List<Map<String, dynamic>> reviews;
       if (_isAnimeSourced) {
-        reviews = await _fetchJikanReviews(widget.item.tmdbId);
+        reviews = await _fetchJikanReviews(_effectiveMalId);
         // If Jikan returned no reviews, try TMDB as a fallback.
         if (reviews.isEmpty) {
           int? tmdbId = _aniSearchedTmdbId;
@@ -711,7 +720,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       // one-shots. Fall back to Jikan's `/anime/{id}/recommendations`
       // so the rail is rarely empty.
       if (similar.isEmpty) {
-        similar = await _mapJikanRecommendations(widget.item.tmdbId);
+        similar = await _mapJikanRecommendations(_effectiveMalId);
       }
     } else {
       similar = await _tmdbService.fetchSimilar(
@@ -869,13 +878,15 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     );
   }
 
+  int get _effectiveMalId => _resolvedMalId ?? widget.item.tmdbId;
+
   void _playMovie() {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => VideoPlayerScreen(
-          tmdbId: widget.item.tmdbId,
-          malId: _isAnimeSourced ? widget.item.tmdbId : null,
+          tmdbId: _isAnimeSourced ? _effectiveMalId : widget.item.tmdbId,
+          malId: _isAnimeSourced ? _effectiveMalId : null,
           isAnime: _isAnimeSourced,
           mediaType: 'movie',
           title: widget.item.title,
@@ -889,8 +900,8 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       context,
       MaterialPageRoute(
         builder: (context) => VideoPlayerScreen(
-          tmdbId: widget.item.tmdbId,
-          malId: _isAnimeSourced ? widget.item.tmdbId : null,
+          tmdbId: _isAnimeSourced ? _effectiveMalId : widget.item.tmdbId,
+          malId: _isAnimeSourced ? _effectiveMalId : null,
           isAnime: _isAnimeSourced,
           mediaType: 'tv',
           season: season,

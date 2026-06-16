@@ -9,6 +9,7 @@ import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/features/cinema/presentation/widgets/episode_drawer.dart';
 import 'package:everglow/features/cinema/presentation/widgets/trailer_player.dart';
 import 'package:everglow/services/auth_service.dart';
+import 'package:everglow/shared/widgets/adblocker_gate.dart';
 import 'package:everglow/shared/widgets/shelf/atmospheric_backdrop.dart';
 import 'package:everglow/shared/widgets/shelf/scroll_edge_fade.dart';
 import 'package:everglow/shared/widgets/shelf/shelf_icon_button.dart';
@@ -752,7 +753,9 @@ class _CinemaScreenState extends State<CinemaScreen>
               tooltip: 'Everglow Anime',
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const AnimeScreen()),
+                MaterialPageRoute(
+                  builder: (_) => const AdblockerGate(child: AnimeScreen()),
+                ),
               ),
             )
           else
