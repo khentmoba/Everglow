@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:web/web.dart' as web;
-import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/data/services/ani_zip_service.dart';
 
@@ -49,9 +48,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// within [_loadTimeout], or fails three URL-form retries. The error
   /// card takes over from the spinner in that case.
   bool _iframeFailed = false;
-  /// True while the provider picker bottom sheet is open. Used to
-  /// disable [PointerInterceptor] so taps reach the sheet overlay.
-  bool _sheetOpen = false;
   late final String _viewType;
   late final web.HTMLIFrameElement _iframe;
   JSFunction? _onLoadListener;
@@ -456,6 +452,40 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                       ),
                     ),
                   ),
+                  if (!_isLoading && !_iframeFailed) ...[
+                    GestureDetector(
+                      onTap: _onIframeLoadError,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[900],
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: AppTheme.deepRose.withValues(alpha: 0.4),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.swap_horiz_rounded,
+                                color: Colors.white70, size: 14),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Try Another Source',
+                              style: GoogleFonts.outfit(
+                                color: Colors.white70,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   _buildProviderBadge(),
                 ],
               ),
@@ -464,55 +494,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             Expanded(
               child: Stack(
                 children: [
-                  if (!_iframeFailed)
-                    PointerInterceptor(
-                      intercepting: !_sheetOpen,
-                      child: HtmlElementView(viewType: _viewType),
-                    ),
+                  if (!_iframeFailed) HtmlElementView(viewType: _viewType),
                   if (_isLoading && !_iframeFailed)
                     const Center(
                       child: CircularProgressIndicator(color: AppTheme.deepRose),
                     ),
                   if (_iframeFailed) _buildErrorCard(context),
-                  if (!_isLoading && !_iframeFailed)
-                    Positioned(
-                      right: 12,
-                      bottom: 12,
-                      child: GestureDetector(
-                        onTap: _onIframeLoadError,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.75),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: AppTheme.deepRose.withValues(alpha: 0.5),
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.swap_horiz_rounded,
-                                color: Colors.white,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Try Another Source',
-                                style: GoogleFonts.outfit(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -574,7 +561,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   void _showProviderSheet() {
-    setState(() => _sheetOpen = true);
+    _iframe.style.setProperty('pointer-events', 'none');
     showModalBottomSheet<VideoProvider>(
       context: context,
       backgroundColor: const Color(0xFF1C1228),
@@ -650,7 +637,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         ),
       ),
     ).then((provider) {
-      setState(() => _sheetOpen = false);
+      _iframe.style.setProperty('pointer-events', 'auto');
       if (provider != null) _selectProvider(provider);
     });
   }
