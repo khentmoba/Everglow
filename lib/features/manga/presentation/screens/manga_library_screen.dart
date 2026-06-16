@@ -420,6 +420,25 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
       );
     }
     if (items.isEmpty) {
+      if (_homeError != null && !_isLoadingHome) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: Column(
+            children: [
+              const Icon(Icons.cloud_off, color: _cMuted, size: 32),
+              const SizedBox(height: 8),
+              Text(
+                _homeError!,
+                style: GoogleFonts.outfit(
+                  color: _cMuted,
+                  fontStyle: FontStyle.italic,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      }
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         child: Text(
