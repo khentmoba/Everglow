@@ -110,6 +110,11 @@ jobs:
       - name: Write Firebase service account key
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB }}' > /tmp/firebase-sa.json
 
+      - name: Authenticate gcloud
+        run: |
+          gcloud auth activate-service-account --key-file=/tmp/firebase-sa.json
+          gcloud config set project everglow-1c6db
+
       - name: Deploy Cloud Functions
         working-directory: functions
         env:
@@ -134,12 +139,21 @@ jobs:
             echo ""
             echo "  3. Then add the 'Service Usage Admin' role to:"
             echo "     firebase-adminsdk-fbsvc@everglow-1c6db.iam.gserviceaccount.com"
-            echo "     https://console.cloud.google.com/iam-admin/iam?project=everglow-1c6db"
             echo ""
             echo "  After that, push a new commit to re-trigger deploy."
             echo "=============================================="
             exit $EXIT_CODE
           }
+
+      - name: Allow public access to Cloud Functions
+        run: |
+          for fn in proxyMangaDex proxyMangaImage proxyComick; do
+            echo "Making $fn publicly accessible..."
+            gcloud functions add-invoker-policy-binding "$fn" \
+              --region=us-central1 \
+              --member="allUsers" \
+              --quiet 2>&1 || echo "Already public or skipping $fn"
+          done
 
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
