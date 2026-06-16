@@ -97,12 +97,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       tvUrl: 'https://multiembed.mov/?video_id=',
     ),
     VideoProvider(
-      id: 'embed.su',
-      name: 'Embed.su',
-      shortName: 'Embed.su',
-      note: 'Reliable TMDB source',
-      movieUrl: 'https://embed.su/embed/movie/',
-      tvUrl: 'https://embed.su/embed/tv/',
+      id: '2embed.cc',
+      name: '2Embed',
+      shortName: '2Embed',
+      note: 'Direct TMDB-based source',
+      movieUrl: 'https://www.2embed.cc/embed/',
+      tvUrl: 'https://www.2embed.cc/embedtv/',
     ),
     VideoProvider(
       id: 'videasy',
@@ -353,11 +353,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   String _buildPlayerUrlWithForm(VideoProvider provider, _UrlForm form) {
-    // VidLink has a dedicated anime endpoint using MAL id directly.
+    // VidLink anime endpoint uses MAL id directly. We always request sub
+    // and include ?fallback=true so VidLink falls back to dub if the sub
+    // stream isn't available for this particular episode.
     if (provider.id == 'vidlink' && widget.isAnime && widget.mediaType == 'tv') {
       final malId = _externalId;
       final epNum = widget.episode ?? 1;
-      return 'https://vidlink.pro/anime/$malId/$epNum/sub';
+      return 'https://vidlink.pro/anime/$malId/$epNum/sub?fallback=true';
     }
 
     final movieBase = provider.movieUrl;
@@ -374,6 +376,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         return '$tvBase$id&season=$seasonNum&episode=$epNum';
       } else if (tvBase.contains('multiembed.mov')) {
         return '$tvBase$id&tmdb=1&s=$seasonNum&e=$epNum';
+      } else if (tvBase.contains('2embed.cc')) {
+        return '$tvBase$id&s=$seasonNum&e=$epNum';
       } else if (tvBase.contains('embed') && !tvBase.endsWith('/')) {
         return '$tvBase$id&season=$seasonNum&episode=$epNum';
       } else {
