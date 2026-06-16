@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:js_interop' show JSFunction, JSAny, dartify;
+import 'dart:js_interop';
 import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
@@ -247,11 +247,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       try {
         final data = (e as web.MessageEvent).data;
         if (data == null) return;
-        // message events from cross-origin iframes deliver JS values;
-        // dartify() converts them to Dart Maps when possible.
-        final raw = dartify(data as JSAny?);
-        if (raw is! Map) return;
-        if (raw['type'] == 'MEDIA_DATA') {
+        final map = data.dartify();
+        if (map is! Map) return;
+        if (map['type'] == 'MEDIA_DATA') {
           _contentCheckTimer?.cancel();
         }
       } catch (_) {} // ignore cross-origin / parse errors
