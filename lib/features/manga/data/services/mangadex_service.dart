@@ -46,6 +46,16 @@ class MangaDexService {
     );
   }
 
+  /// Try the MangaDex API directly first (works on native), fall back
+  /// to the proxy on failure (needed for Flutter web CORS).
+  Future<http.Response> _request(Uri apiUri) async {
+    try {
+      final direct = await http.get(apiUri, headers: _headers);
+      if (direct.statusCode < 500) return direct;
+    } catch (_) {}
+    return await http.get(_proxied(apiUri), headers: _headers);
+  }
+
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Singleton pattern
@@ -82,7 +92,7 @@ class MangaDexService {
       queryParameters: params,
     );
     try {
-      final response = await http.get(_proxied(uri), headers: _headers);
+      final response = await _request(uri);
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         final results = body['data'] as List? ?? [];
@@ -119,7 +129,7 @@ class MangaDexService {
       },
     );
     try {
-      final response = await http.get(_proxied(uri), headers: _headers);
+      final response = await _request(uri);
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         final data = body['data'] as List? ?? const [];
@@ -151,7 +161,7 @@ class MangaDexService {
     }
     final uri = Uri.parse('$_baseUrl/at-home/server/$chapterId');
     try {
-      final response = await http.get(_proxied(uri), headers: _headers);
+      final response = await _request(uri);
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         final chapter = body['chapter'] as Map<String, dynamic>?;
@@ -195,7 +205,7 @@ class MangaDexService {
     if (_tagCache != null) return _tagCache!;
     final uri = Uri.parse('$_baseUrl/manga/tag');
     try {
-      final response = await http.get(_proxied(uri), headers: _headers);
+      final response = await _request(uri);
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         final data = (body['data'] as List?)?.cast<Map<String, dynamic>>() ?? [];
