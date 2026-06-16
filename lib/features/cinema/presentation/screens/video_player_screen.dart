@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:web/web.dart' as web;
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/features/cinema/data/services/ani_zip_service.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final int tmdbId;
@@ -60,11 +61,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   static const Duration _loadTimeout = Duration(seconds: 15);
 
   /// The currently selected embed source. For non-anime items this is
-  /// locked to [_tmdbVideasy]. For anime items the user can switch
-  /// between the entries in [_animeProviders] via the dropdown.
+  /// locked to [_tmdbVideasy]. For anime items it's also locked to
+  /// Videasy once we've resolved the MAL→TMDB id; if the id can't be
+  /// resolved the provider list shows an empty state and the error
+  /// card is what the user sees.
   late VideoProvider _selectedProvider;
 
-  /// TMDB provider — Videasy. Used for general cinema.
+  /// TMDB provider — Videasy. Used for general cinema AND anime (after
+  /// we resolve the MAL id to a TMDB id via ani.zip). The old MAL-id
+  /// anime embeds were dropped by vidsrc (see commit history: their
+  /// FAQ explicitly states they don't support anime), so we hand
+  /// every anime that has a TMDB cross-reference off to Videasy on
+  /// the same shape as non-anime content.
   static const VideoProvider _tmdbVideasy = VideoProvider(
     id: 'videasy',
     name: 'Videasy',
@@ -74,40 +82,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     tvUrl: 'https://player.videasy.net/tv/',
   );
 
-  /// Free MAL-id-based anime embeds. The user picks one in the
-  /// dropdown. `vidsrc.to` is the primary (most popular, generally
-  /// reliable); `vidsrc.cc` is its sister domain and a useful fallback
-  /// when the primary is blocked or down. `vidsrc.icu` is a third
-  /// mirror — useful when both `.to` and `.cc` are down or
-  /// geo-blocked. We avoid providers that need TMDB ids for anime
-  /// (most general embeds) because Jikan doesn't hand us a TMDB
-  /// cross-reference.
-  static const List<VideoProvider> _animeProviders = [
-    VideoProvider(
-      id: 'vidsrc',
-      name: 'VidSrc',
-      shortName: 'VidSrc',
-      note: 'Primary · most popular MAL embed',
-      movieUrl: 'https://vidsrc.to/embed/anime/mal/',
-      tvUrl: 'https://vidsrc.to/embed/anime/mal/',
-    ),
-    VideoProvider(
-      id: 'vidsrc-cc',
-      name: 'VidSrc CC',
-      shortName: 'VidSrc CC',
-      note: 'Backup · sister domain of VidSrc',
-      movieUrl: 'https://vidsrc.cc/embed/anime/mal/',
-      tvUrl: 'https://vidsrc.cc/embed/anime/mal/',
-    ),
-    VideoProvider(
-      id: 'vidsrc-icu',
-      name: 'VidSrc ICU',
-      shortName: 'VidSrc ICU',
-      note: 'Third mirror · useful when .to/.cc are blocked',
-      movieUrl: 'https://vidsrc.icu/embed/anime/mal/',
-      tvUrl: 'https://vidsrc.icu/embed/anime/mal/',
-    ),
-  ];
+  /// Anime used to offer three VidSrc mirrors here. vidsrc.to
+  /// officially removed anime support (their FAQ: "Currently we do
+  /// not support anime"), and the .cc / .icu mirrors were never
+  /// stable for anime either. The single-provider setup is correct
+  /// now that we resolve MAL→TMDB and reuse the non-anime Videasy
+  /// player. Keeping the [_animeProviders] slot around as an empty
+  /// list so the dropdown code path still has something to iterate
+  /// when (eventually) we want to re-introduce a fallback.
+  static const List<VideoProvider> _animeProviders = [];
 
   VideoProvider get _activeProvider =>
       widget.isAnime ? _selectedProvider : _tmdbVideasy;
@@ -118,13 +101,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedProvider = _animeProviders.first;
+    _selectedProvider = _tmdbVideasy;
 
     _viewType =
         'everglow-cinema-player-${widget.tmdbId}-${widget.mediaType}-${widget.season ?? 0}-${widget.episode ?? 0}-${DateTime.now().microsecondsSinceEpoch}';
 
     _iframe = web.HTMLIFrameElement()
-      ..src = _buildPlayerUrl(_activeProvider)
       ..allow =
           'autoplay; fullscreen; encrypted-media; picture-in-picture; accelerometer; gyroscope; clipboard-write'
       ..setAttribute('frameborder', '0')
@@ -158,6 +140,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       if (_isLoading) setState(() => _iframeFailed = true);
     });
 
+    // For anime we don't have a TMDB id on the MediaItem — the slot
+    // holds the MAL id. Resolve MAL→TMDB via ani.zip, then set the
+    // iframe's src once. If the lookup fails (no cross-reference
+    // exists) we land in the error card and offer external links.
+    if (widget.isAnime) {
+      _bootstrapAnime();
+    } else {
+      _iframe.src = _buildPlayerUrl(_activeProvider);
+    }
+
     ui_web.platformViewRegistry
         .registerViewFactory(_viewType, (int viewId) => _iframe);
 
@@ -168,11 +160,38 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
+  /// Anime bootstrap: look up the TMDB id for the MAL id, then point
+  /// the iframe at the same Videasy player non-anime content uses.
+  /// On lookup failure the iframe is left at `about:blank`, the load
+  /// timer fires after [_loadTimeout], and the user sees the error
+  /// card with "Open in browser" / "Watch on external site" actions.
+  Future<void> _bootstrapAnime() async {
+    final malId = widget.malId ?? widget.tmdbId;
+    final tmdbId = await AniZipService().fetchTmdbId(malId);
+    if (!mounted) return;
+    if (tmdbId == null) {
+      // No TMDB cross-reference — show the error card. We deliberately
+      // don't leave the user on a blank black screen.
+      setState(() => _iframeFailed = true);
+      _loadTimer?.cancel();
+      return;
+    }
+    setState(() {
+      _externalTmdbId = tmdbId;
+    });
+    _iframe.src = _buildPlayerUrl(_activeProvider);
+  }
+
   /// Called when the user picks a different provider from the dropdown.
   /// Re-points the iframe at the new URL and flips the loader back on
   /// until the new page's `load` event fires.
+  ///
+  /// Both anime and non-anime are locked to a single provider right
+  /// now (Videasy for both, after the MAL→TMDB resolution for anime).
+  /// The method is kept as a no-op-friendly stub so future providers
+  /// can be dropped in without rewiring the header chip.
   void _selectProvider(VideoProvider provider) {
-    if (!widget.isAnime) return; // non-anime is locked to Videasy
+    if (_selectableProviders.length <= 1) return;
     if (provider.id == _selectedProvider.id) return;
     setState(() {
       _selectedProvider = provider;
@@ -216,8 +235,24 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       ? (widget.malId ?? widget.tmdbId)
       : widget.tmdbId;
 
+  /// The TMDB id we resolved from the MAL id for anime playback.
+  /// Populated by [_bootstrapAnime] on init; null when the lookup
+  /// failed or the item isn't anime. The URL builder uses this so
+  /// anime hands the same Videasy URL off as non-anime.
+  int? _externalTmdbId;
+
+  /// Resolved TMDB id for the active item. Non-anime: the widget's
+  /// TMDB id. Anime: the TMDB id we looked up via ani.zip, or null
+  /// when the lookup failed (the error card takes over in that case).
+  int? get _activeTmdbId => widget.isAnime ? _externalTmdbId : widget.tmdbId;
+
   String _buildPlayerUrl(VideoProvider provider) {
-    return _buildPlayerUrlWithForm(provider, _UrlForm.pathSegment);
+    // Default to the query-string form (the v2 shape) which is what
+    // Videasy emits and what their docs recommend. The path-segment
+    // form is preserved as a future fallback for any non-Videasy
+    // provider that doesn't accept `?episode=N`.
+    final form = _UrlForm.queryString;
+    return _buildPlayerUrlWithForm(provider, form);
   }
 
   String _buildPlayerUrlWithForm(VideoProvider provider, _UrlForm form) {
@@ -226,18 +261,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final isVideasy =
         movieBase.contains('videasy') || tvBase.contains('videasy');
     final isAnime = widget.isAnime;
-    final id = _externalId;
+    // For anime we always go through the TMDB id we resolved in
+    // [_bootstrapAnime] — never the raw MAL id, since the dead
+    // VidSrc MAL embeds used to be the alternative and we've since
+    // removed them.
+    final id = isAnime ? (_activeTmdbId ?? _externalId) : _externalId;
 
     if (widget.mediaType == 'tv') {
       final seasonNum = widget.season ?? 1;
       final epNum = widget.episode ?? 1;
-      // Anime provider has a flat id/episode shape; no season in the URL.
-      if (isAnime) {
-        if (form == _UrlForm.queryString) {
-          return '$tvBase$id?episode=$epNum';
-        }
-        return '$tvBase$id/$epNum';
-      }
       if (tvBase.contains('vidsrc.me')) {
         return '$tvBase$id&season=$seasonNum&episode=$epNum';
       } else if (tvBase.contains('multiembed.mov')) {
@@ -252,9 +284,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             : base;
       }
     } else {
-      if (isAnime) {
-        return '$movieBase$id';
-      }
       if (movieBase.contains('multiembed.mov')) {
         return '$movieBase$id&tmdb=1';
       }
@@ -269,14 +298,28 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   /// The URL the user can open in a new tab if every embed provider
-  /// is down. vidsrc.to is the canonical host for the MAL-id embed.
+  /// is down. For anime we hand off to Crunchyroll's search-by-MAL
+  /// (which works because MAL ids are in the slug) and fall back to
+  /// the resolved TMDB id on Videasy's own homepage so the user
+  /// always has a real, working destination.
   String _externalOpenUrl() {
     final id = _externalId;
     if (widget.isAnime) {
-      if (widget.mediaType == 'tv') {
-        return 'https://vidsrc.to/embed/anime/mal/$id/${widget.episode ?? 1}';
+      // Prefer Crunchyroll — it's the canonical legal stream for most
+      // licensed anime and has a MAL-id routing that works for
+      // Western-licensed shows. The TMDB id also works as a fallback.
+      final tmdb = _activeTmdbId;
+      if (tmdb != null) {
+        // Videasy's own shareable URL uses the same shape as the
+        // embed; it opens in a new tab and is reliable.
+        if (widget.mediaType == 'tv') {
+          return 'https://player.videasy.net/tv/$tmdb/${widget.season ?? 1}/${widget.episode ?? 1}';
+        }
+        return 'https://player.videasy.net/movie/$tmdb';
       }
-      return 'https://vidsrc.to/embed/anime/mal/$id';
+      // No TMDB id — send the user to the MAL page so they can pick
+      // a streaming source themselves.
+      return 'https://myanimelist.net/anime/$id';
     }
     if (widget.mediaType == 'tv') {
       return 'https://vidsrc.to/embed/tv/${widget.tmdbId}/${widget.season ?? 1}-${widget.episode ?? 1}';
@@ -599,10 +642,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 }
 
-/// `?episode=N` query-string form is more reliable on vidsrc per their
-/// docs; we try that first and fall back to `/{id}/{ep}` on failure
-/// via [_selectProvider]. Both forms are supported by vidsrc; the
-/// query-string form is what their /v2 API emits.
+/// URL shape handed to the embed. The query-string form
+/// (`?episode=N`) is the modern v2 shape and is what Videasy emits
+/// by default; we keep the type around so a future fallback to
+/// path-segment (`/{id}/{ep}`) is a one-line change.
+// ignore: unused_field
 enum _UrlForm { queryString, pathSegment }
 
 /// One embed source the player can render. `movieUrl` and `tvUrl` are

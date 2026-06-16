@@ -334,6 +334,7 @@ class AniListService {
       final cover = (node['coverImage'] as Map<String, dynamic>?) ?? const {};
       return AniListRelated(
         id: (node['id'] as num?)?.toInt() ?? 0,
+        malId: (node['idMal'] as num?)?.toInt(),
         title: (title['english'] as String?) ??
             (title['romaji'] as String?) ??
             '',
@@ -373,11 +374,19 @@ class AniListService {
   /// `episodeCount` with placeholder titles. The episode drawer falls
   /// back to Jikan's `/anime/{id}/episodes` for real titles when this
   /// list is short.
+  ///
+  /// We also capture each entry's `thumbnail` URL — AniList ships the
+  /// licensed-still image from whichever streaming partner owns the
+  /// episode (Crunchyroll, Funimation, etc.). Western-licensed shows
+  /// usually have thumbnails for every entry; non-Western shows are
+  /// sparse and the tile falls back to the anime poster or a color
+  /// block.
   List<AniListEpisode> _mapEpisodes(List? streaming, {int? episodeCount}) {
     final out = <AniListEpisode>[];
     if (streaming is List) {
       for (final e in streaming.whereType<Map<String, dynamic>>()) {
         final title = e['title'] as String?;
+        final thumb = e['thumbnail'] as String?;
         out.add(AniListEpisode(
           number: (e['number'] as num?)?.toInt() ?? (out.length + 1),
           title: title,
@@ -388,6 +397,7 @@ class AniListService {
                   (e['airingAt'] as num).toInt() * 1000)
               : null,
           duration: null,
+          thumbnail: (thumb != null && thumb.isNotEmpty) ? thumb : null,
         ));
       }
     }
@@ -494,6 +504,7 @@ query ($id: Int, $idMal: Int, $type: MediaType) {
         relationType
         node {
           id
+          idMal
           title { romaji english }
           format
           coverImage { large medium }

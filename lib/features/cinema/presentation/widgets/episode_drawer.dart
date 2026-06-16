@@ -1,12 +1,11 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/data/models/anilist_detail.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
+import 'package:everglow/features/cinema/data/services/ani_zip_service.dart';
 import 'package:everglow/features/cinema/data/services/anilist_service.dart';
 import 'package:everglow/features/cinema/data/services/jikan_service.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
@@ -43,6 +42,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   final TMDBService _tmdbService = TMDBService();
   final JikanService _jikanService = JikanService();
   final AniListService _aniListService = AniListService();
+  final AniZipService _aniZipService = AniZipService();
   bool _isLoadingEpisodes = false;
   bool _isLoadingCast = true;
   bool _isLoadingReviews = true;
@@ -320,24 +320,44 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   /// `episode_number`, `name`, `overview`, `still_path`, `aired`,
   /// `duration`.
   ///
-  /// Three sources, in priority order:
+  /// Four sources, merged in priority order:
   ///   1. Jikan's `/anime/{id}/episodes` — real titles, air dates,
   ///      durations for essentially every show.
-  ///   2. AniList's `streamingEpisodes` overlay — fills in titles for
-  ///      Jikan gaps (rare).
-  ///   3. Placeholder `Episode N` — last resort when neither source
-  ///      has a title for that slot.
+  ///   2. AniList's `streamingEpisodes` overlay — fills in titles and
+  ///      licensed stills (Western-licensed shows) for Jikan gaps.
+  ///   3. ani.zip's TVDB-sourced `episodes[].image` — per-episode
+  ///      stills. This is the primary thumbnail source for non-Western
+  ///      shows; it's also what the AniList streaming stills fall back
+  ///      to when AniList's payload is sparse.
+  ///   4. Placeholder `Episode N` — last resort when no source has a
+  ///      title for that slot.
+  ///
+  /// Thumbnails: when an AniList still exists for an episode we prefer
+  /// it (better-looking, already CDN-cached). Otherwise we use the
+  /// TVDB still from ani.zip. If both are missing, `still_path` stays
+  /// null and the [_EpisodeTile] falls back to a gradient + episode
+  /// number — never a broken image box.
   Future<List<Map<String, dynamic>>> _fetchJikanEpisodes(int malId) async {
-    final jikanEps = await _jikanService.fetchAnimeEpisodes(malId);
-    final anime = await _jikanService.fetchAnimeById(malId);
+    // Fire Jikan + ani.zip in parallel — they're independent and the
+    // network wait dominates the total time on slow links.
+    final jikanFuture = _jikanService.fetchAnimeEpisodes(malId);
+    final animeByIdFuture = _jikanService.fetchAnimeById(malId);
+    final aniZipFuture = _aniZipService.fetchEpisodeImages(malId);
+    final jikanEps = await jikanFuture;
+    final anime = await animeByIdFuture;
+    final aniZipImages = await aniZipFuture;
+
     final episodeCount = (anime?['episodes'] is num)
         ? (anime?['episodes'] as num).toInt()
         : jikanEps.length;
 
     final anilistTitles = <int, String>{};
+    final anilistThumbs = <int, String>{};
     for (final ep in _aniListDetail?.episodes ?? const []) {
       final t = ep.title;
       if (t != null && t.isNotEmpty) anilistTitles[ep.number] = t;
+      final th = ep.thumbnail;
+      if (th != null && th.isNotEmpty) anilistThumbs[ep.number] = th;
     }
 
     final jikanByNum = <int, Map<String, dynamic>>{};
@@ -356,11 +376,17 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       final aired = je?['aired'] as String?;
       final duration =
           (je?['duration'] is num) ? (je?['duration'] as num).toInt() : null;
+
+      // Prefer AniList's licensed still when it has one; otherwise the
+      // TVDB still from ani.zip. AniList wins because it's already a
+      // proper aspect-ratio banner (16:9) and is cached at the CDN.
+      final stillPath = anilistThumbs[i] ?? aniZipImages[i];
+
       out.add({
         'episode_number': i,
         'name': name,
         'overview': '',
-        'still_path': null,
+        'still_path': stillPath,
         'aired': aired,
         'duration': duration,
       });
@@ -438,45 +464,47 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   }
 
   /// Fetches MAL user reviews via Jikan's /anime/{id}/reviews endpoint
-  /// and projects them into the TMDB-shaped review map. On a non-200
-  /// response (typically a 429 from the rate-limit storm the Editor's
-  /// Picks fan-out used to trigger) we wait 1.5s and retry once; the
-  /// burst is usually cleared by then.
+  /// and projects them into the TMDB-shaped review map.
+  ///
+  /// Now routed through [JikanService.fetchAnimeReviews] so the call
+  /// respects the rate-limit queue and exponential backoff. The
+  /// previous direct `http.get` path used here was prone to 429
+  /// errors during the Editor's Picks fan-out — the queue serializes
+  /// requests and the exponential backoff is already tuned for Jikan.
   Future<List<Map<String, dynamic>>> _fetchJikanReviews(int malId) async {
-    final uri = Uri.parse('https://api.jikan.moe/v4/anime/$malId/reviews');
-    Future<List<Map<String, dynamic>>> fetchOnce() async {
-      try {
-        final response =
-            await http.get(uri).timeout(const Duration(seconds: 20));
-        if (response.statusCode != 200) return const [];
-        final body = json.decode(response.body) as Map<String, dynamic>;
-        final data = (body['data'] as List?) ?? const [];
-        return data.take(8).map<Map<String, dynamic>>((r) {
-          final user = (r['user'] as Map<String, dynamic>?) ?? const {};
-          return {
-            'id': r['mal_id'] ?? r['date'],
-            'author': (user['username'] as String?) ?? 'Anonymous',
-            'content': (r['review'] as String?) ?? '',
-            'rating': r['score'],
-            'createdAt': r['date'] ?? '',
-            'avatar': (user['images'] as Map<String, dynamic>?)?['jpg']?['image_url'] ?? '',
-          };
-        }).toList();
-      } catch (e) {
-        print('Jikan reviews error: $e');
-        return const [];
-      }
-    }
-
-    final first = await fetchOnce();
-    if (first.isNotEmpty) return first;
-    await Future.delayed(const Duration(milliseconds: 1500));
-    return fetchOnce();
+    final entries = await _jikanService.fetchAnimeReviews(malId);
+    return entries.take(8).map<Map<String, dynamic>>((r) {
+      final user = (r['user'] as Map<String, dynamic>?) ?? const {};
+      return {
+        'id': r['mal_id'] ?? r['date'],
+        'author': (user['username'] as String?) ?? 'Anonymous',
+        'content': (r['review'] as String?) ?? '',
+        'rating': r['score'],
+        'createdAt': r['date'] ?? '',
+        'avatar': (user['images'] as Map<String, dynamic>?)?['jpg']?['image_url'] ?? '',
+      };
+    }).toList();
   }
 
   Future<void> _fetchSimilar() async {
     List<MediaItem> similar;
     if (_isAnimeSourced) {
+      // Race condition: `_fetchMediaDetails()` populates `_aniListDetail`
+      // asynchronously, but `_fetchSimilar()` is kicked off in the
+      // same `initState` burst, so reading `_aniListDetail` here
+      // almost always returns null and the AniList relations are
+      // silently dropped. We await the detail directly — the
+      // [AniListService] has its own 10-min cache so this is a
+      // cache-hit whenever `_fetchMediaDetails()` ran first.
+      if (_aniListDetail == null) {
+        final detail = await _aniListService.fetchDetailsWithFallback(
+          anilistId: widget.item.anilistId,
+          malId: widget.item.tmdbId,
+        );
+        if (detail != null && mounted) {
+          _aniListDetail = detail;
+        }
+      }
       similar = _mapAniListRelated();
       // AniList's `recommendations` field is sparse for most titles
       // (often zero entries) and `relations` is sometimes empty for
@@ -554,9 +582,16 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   }
 
   MediaItem _relatedToMediaItem(AniListRelated r) {
+    // The drawer treats `MediaItem.tmdbId` as the MAL id for
+    // anime-sourced items, so we need the MAL cross-reference here.
+    // AniList's native `id` was used previously — which silently
+    // routed every relation to a non-existent MAL entry and left
+    // the new drawer's detail page blank.
+    final malId = r.malId ?? r.id;
     return MediaItem(
       id: '',
-      tmdbId: r.id, // AniList id stored in tmdbId slot for routing
+      tmdbId: malId,
+      anilistId: r.id,
       title: r.title,
       mediaType: r.format == 'MOVIE' ? 'movie' : 'tv',
       posterPath: r.coverImageUrl,
@@ -574,6 +609,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     return MediaItem(
       id: '',
       tmdbId: r.malId ?? r.id,
+      anilistId: r.id,
       title: r.title,
       mediaType: 'tv',
       posterPath: r.coverImageUrl,
@@ -1923,6 +1959,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
 
   @override
   Widget build(BuildContext context) {
+    final hasThumb = widget.stillUrl != null && widget.stillUrl!.isNotEmpty;
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) {
@@ -1941,30 +1978,16 @@ class _EpisodeTileState extends State<_EpisodeTile> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Left rail: large episode number + vertical accent.
-            // Anime episodes don't have TMDB stills (and Jikan dropped
-            // its per-episode image field in v4), so we lean into the
-            // typography instead of a black placeholder box.
-            Container(
-              width: 56,
-              decoration: BoxDecoration(
-                color: _cDeepRose.withValues(alpha: _pressed ? 0.18 : 0.1),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  bottomLeft: Radius.circular(16),
-                ),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                widget.epNum.toString().padLeft(2, '0'),
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  color: _cDeepRose,
-                  height: 1,
-                ),
-              ),
-            ),
+            // Left rail: thumbnail (when available) or numbered accent.
+            // Anime episode stills come from AniList's `streamingEpisodes`
+            // (Crunchyroll/Funimation licensed) or ani.zip's TVDB feed;
+            // TMDB stills are used for non-anime. When a still is
+            // missing the old typography rail keeps the row looking
+            // intentional instead of a broken-image box.
+            if (hasThumb)
+              _buildThumbnailRail()
+            else
+              _buildNumberedRail(),
             const SizedBox(width: 12),
             // Title + overview
             Expanded(
@@ -2019,6 +2042,122 @@ class _EpisodeTileState extends State<_EpisodeTile> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Original typography rail — large episode number on a deep-rose
+  /// tinted panel. Used when no thumbnail is available (e.g. Jikan
+  /// had no still and neither AniList nor ani.zip could supply one).
+  Widget _buildNumberedRail() {
+    return Container(
+      width: 56,
+      decoration: BoxDecoration(
+        color: _cDeepRose.withValues(alpha: _pressed ? 0.18 : 0.1),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          bottomLeft: Radius.circular(16),
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        widget.epNum.toString().padLeft(2, '0'),
+        style: GoogleFonts.cormorantGaramond(
+          fontSize: 26,
+          fontWeight: FontWeight.w900,
+          color: _cDeepRose,
+          height: 1,
+        ),
+      ),
+    );
+  }
+
+  /// Thumbnail rail. 80px wide so a 16:9 still crops to roughly the
+  /// same vertical footprint as the numbered rail, and a gradient
+  /// overlay on the left edge keeps the episode number readable on
+  /// bright stills. The play badge top-left is a visual cue that the
+  /// row is tappable.
+  Widget _buildThumbnailRail() {
+    return Container(
+      width: 80,
+      decoration: const BoxDecoration(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(16),
+          bottomLeft: Radius.circular(16),
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          bottomLeft: Radius.circular(16),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.network(
+              widget.stillUrl!,
+              fit: BoxFit.cover,
+              loadingBuilder: (context, child, progress) {
+                if (progress == null) return child;
+                return _buildThumbSkeleton();
+              },
+              errorBuilder: (_, _, _) => _buildNumberedRail(),
+            ),
+            // Subtle gradient on the left so the number stays legible
+            // on bright frames.
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [Color(0x55000000), Colors.transparent],
+                  stops: [0.0, 0.6],
+                ),
+              ),
+            ),
+            // Episode number, bottom-left.
+            Positioned(
+              left: 8,
+              bottom: 6,
+              child: Text(
+                widget.epNum.toString().padLeft(2, '0'),
+                style: GoogleFonts.cormorantGaramond(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: _cWhite,
+                  height: 1,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withValues(alpha: 0.7),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThumbSkeleton() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_cCard, _cVelvet],
+        ),
+      ),
+      alignment: Alignment.center,
+      child: const SizedBox(
+        width: 14,
+        height: 14,
+        child: CircularProgressIndicator(
+          color: _cDeepRose,
+          strokeWidth: 1.5,
         ),
       ),
     );

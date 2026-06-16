@@ -104,12 +104,21 @@ class AniListRelated {
   final String coverImageUrl;
   final String relationType; // SEQUEL, PREQUEL, SIDE_STORY, etc.
   final String format; // TV, MOVIE, OVA
+
+  /// MAL id for the related title. Critical for routing: the
+  /// [EpisodeDrawer] uses `MediaItem.tmdbId` as the MAL id for
+  /// anime-sourced items, so the AniList-native `id` alone can't be
+  /// looked up — we need the MAL id too. Optional because AniList
+  /// sometimes returns a relation node that hasn't been cross-linked
+  /// to MAL yet.
+  final int? malId;
   const AniListRelated({
     required this.id,
     required this.title,
     required this.coverImageUrl,
     required this.relationType,
     required this.format,
+    this.malId,
   });
 }
 
@@ -135,6 +144,13 @@ class AniListEpisode {
   final String? synopsis;
   final DateTime? airedAt;
   final int? duration;
+
+  /// Episode still/thumbnail URL from AniList's `streamingEpisodes`
+  /// payload. Western-licensed titles often have licensed stills
+  /// (Crunchyroll, Funimation, etc.) wired up; for others the field is
+  /// null and the episode tile falls back to the anime's poster or a
+  /// generated color block.
+  final String? thumbnail;
   const AniListEpisode({
     required this.number,
     this.title,
@@ -142,5 +158,6 @@ class AniListEpisode {
     this.synopsis,
     this.airedAt,
     this.duration,
+    this.thumbnail,
   });
 }
