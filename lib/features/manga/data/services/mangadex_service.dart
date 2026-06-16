@@ -5,22 +5,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
 
-/// Talks to the public MangaDex REST API and to the personal
-/// `manga_library` Firestore collection. Mirrors `TMDBService` and
-/// `OpenLibraryService` for the cinema and books features.
+/// Talks to the MangaDex API for chapter-page resolution and to the
+/// personal `manga_library` Firestore collection. Catalog browsing
+/// (search, popular, latest) is handled by [ComickService].
 ///
 /// MangaDex endpoints used:
-///   * Search         — `GET /manga?title=...&originalLanguage[]=ko`
-///   * Details        — `GET /manga/{id}?includes[]=cover_art&author`
 ///   * Chapter feed   — `GET /manga/{id}/feed?translatedLanguage[]=en`
 ///   * Page URLs      — `GET /at-home/server/{chapterId}`
-///   * Tags           — `GET /manga/tag`
 ///
-/// No API key is required for read-only catalog browsing. We do need a
-/// descriptive `User-Agent` header as per MangaDex's etiquette. The
-/// at-home image server doesn't send CORS headers, so on Flutter Web
-/// the reader proxies page images through the `proxyMangaImage`
-/// Firebase Cloud Function.
+/// No API key is required. The at-home image server doesn't send CORS
+/// headers, so on Flutter Web the reader proxies page images through
+/// the `proxyMangaImage` Firebase Cloud Function.
 class MangaDexService {
   static const String _baseUrl = 'https://api.mangadex.org';
   static const String _uploadsBase = 'https://uploads.mangadex.org';
@@ -72,155 +67,18 @@ class MangaDexService {
   // keep the resolution here and never let a stale URL escape.
   final Map<String, MangaChapterPages> _pageCache = {};
 
-  // ── MAPPING ────────────────────────────────────────────────────────
-
-  /// Pull the best available title out of a MangaDex title map.
-  /// MangaDex returns titles in many languages under `attributes.title`
-  /// as a map. We try English, then romaji, then the first available.
-  String _pickTitle(Map<String, dynamic> attrs) {
-    final dynamic titleRaw = attrs['title'];
-    if (titleRaw is! Map) return 'Untitled';
-    final title = titleRaw;
-    final en = title['en'];
-    if (en is String && en.isNotEmpty) return en;
-    for (final entry in title.entries) {
-      final v = entry.value;
-      if (v is String && v.isNotEmpty) return v;
-    }
-    return 'Untitled';
-  }
-
-  /// Pull the best available description. MangaDex often ships
-  /// descriptions only in the original language, so we fall back to
-  /// whichever language is available.
-  String _pickDescription(Map<String, dynamic> attrs) {
-    final dynamic descRaw = attrs['description'];
-    if (descRaw is! Map) return '';
-    final desc = descRaw;
-    final en = desc['en'];
-    if (en is String && en.isNotEmpty) return en;
-    for (final entry in desc.entries) {
-      final v = entry.value;
-      if (v is String && v.isNotEmpty) return v;
-    }
-    return '';
-  }
-
-  /// Pull tag names out of a MangaDex relationship list. Tags come
-  /// embedded as inline relationship objects with `attributes.name.en`.
-  List<String> _extractTagNames(List<dynamic> relationships) {
-    final names = <String>[];
-    for (final rel in relationships) {
-      if (rel is Map && rel['type'] == 'tag') {
-        final attrs = rel['attributes'] as Map?;
-        if (attrs == null) continue;
-        final nameMap = attrs['name'] as Map?;
-        String? name;
-        if (nameMap != null) {
-          name = (nameMap['en'] as String?) ??
-              (nameMap.values.isNotEmpty ? nameMap.values.first.toString() : null);
-        }
-        if (name != null && name.isNotEmpty) names.add(name);
-        if (names.length >= 8) break;
-      }
-    }
-    return names;
-  }
-
-  /// Resolve the cover URL by finding the `cover_art` relationship
-  /// and combining its `fileName` with the manga id.
-  String _resolveCoverUrl(String mangaId, List<dynamic> relationships) {
-    for (final rel in relationships) {
-      if (rel is Map && rel['type'] == 'cover_art') {
-        final attrs = rel['attributes'] as Map?;
-        final fileName = attrs?['fileName'] as String?;
-        if (fileName != null && fileName.isNotEmpty) {
-          return '$_uploadsBase/covers/$mangaId/$fileName.256.jpg';
-        }
-      }
-    }
-    return '';
-  }
-
-  /// Pull the author and artist names from the relationship list.
-  (String, String) _extractAuthorArtist(List<dynamic> relationships) {
-    String author = '';
-    String artist = '';
-    for (final rel in relationships) {
-      if (rel is Map) {
-        final type = rel['type'] as String?;
-        if (type == 'author' || type == 'artist') {
-          final attrs = rel['attributes'] as Map?;
-          final name = attrs?['name'] as String?;
-          if (name == null || name.isEmpty) continue;
-          if (type == 'author' && author.isEmpty) author = name;
-          if (type == 'artist' && artist.isEmpty) artist = name;
-        }
-      }
-    }
-    return (author, artist);
-  }
-
-  /// Map a single MangaDex search/listing result to a `MangaItem`.
-  /// Used by search, trending, and discovery endpoints — they all
-  /// return the same shape.
-  MangaItem _mapManga(Map<String, dynamic> data) {
-    final id = data['id'] as String? ?? '';
-    final attrsRaw = data['attributes'];
-    final attrs = attrsRaw is Map
-        ? Map<String, dynamic>.from(attrsRaw)
-        : <String, dynamic>{};
-    final relsRaw = data['relationships'];
-    final rels = relsRaw is List ? relsRaw : const <dynamic>[];
-    final (author, artist) = _extractAuthorArtist(rels);
-    final year = attrs['year'];
-    return MangaItem(
-      id: '',
-      mangaId: id,
-      title: _pickTitle(attrs),
-      author: author,
-      artist: artist,
-      description: _pickDescription(attrs),
-      coverUrl: _resolveCoverUrl(id, rels),
-      year: year is num ? year.toString() : (year is String ? year : ''),
-      status: (attrs['status'] as String?) ?? '',
-      originalLanguage: (attrs['originalLanguage'] as String?) ?? 'ja',
-      contentRating: (attrs['contentRating'] as String?) ?? 'safe',
-      tags: _extractTagNames(rels),
-      addedAt: DateTime.now(),
-    );
-  }
-
-  // ── SEARCH & DISCOVERY ─────────────────────────────────────────────
-
-  /// Search MangaDex by title. Supports content-type filtering
-  /// (manga/manhwa/manhua) via `originalLanguage` and tag filtering
-  /// via `includedTagIds`.
-  Future<List<MangaItem>> searchManga({
-    required String query,
-    int limit = 20,
-    int offset = 0,
-    String? originalLanguage, // 'ja' = manga, 'ko' = manhwa, 'zh' = manhua
-    List<String>? includedTagIds,
-    String contentRating = 'safe',
-  }) async {
-    if (query.trim().isEmpty) return [];
+  /// Search MangaDex by title and return the first matching manga
+  /// UUID. Used to link a Comick-discovered manga to its MangaDex
+  /// counterpart for chapter page resolution.
+  Future<String> searchByTitle(String title, {String language = 'ja'}) async {
+    if (title.isEmpty) return '';
     final params = <String, List<String>>{
-      'title': [query],
-      'limit': ['$limit'],
-      'offset': ['$offset'],
-      'includes[]': ['cover_art', 'author', 'artist', 'tag'],
-      'contentRating[]': contentRating == 'safe'
-          ? ['safe', 'suggestive']
-          : [contentRating],
+      'title': [title],
+      'limit': ['1'],
+      'includes[]': ['cover_art'],
+      'contentRating[]': ['safe', 'suggestive'],
       'order[relevance]': ['desc'],
     };
-    if (originalLanguage != null && originalLanguage.isNotEmpty) {
-      params['originalLanguage[]'] = [originalLanguage];
-    }
-    if (includedTagIds != null) {
-      params['includedTags[]'] = includedTagIds;
-    }
     final uri = Uri.parse('$_baseUrl/manga').replace(
       queryParameters: params,
     );
@@ -228,109 +86,16 @@ class MangaDexService {
       final response = await http.get(_proxied(uri), headers: _headers);
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
-        final results = (body['data'] as List?) ?? const [];
-        return results
-            .whereType<Map<String, dynamic>>()
-            .map(_mapManga)
-            .toList();
+        final results = body['data'] as List? ?? [];
+        if (results.isNotEmpty) {
+          final first = results.first as Map<String, dynamic>?;
+          return first?['id'] as String? ?? '';
+        }
       }
     } catch (e) {
-      print('MangaDex search error: $e');
+      print('MangaDex searchByTitle error: $e');
     }
-    return [];
-  }
-
-  /// Fetch a list of popular manga. Mirrors `fetchTrending` for cinema.
-  /// Supports the same content-type / language filter.
-  Future<List<MangaItem>> fetchPopular({
-    String? originalLanguage,
-    int limit = 20,
-    int offset = 0,
-  }) async {
-    final params = <String, List<String>>{
-      'limit': ['$limit'],
-      'offset': ['$offset'],
-      'includes[]': ['cover_art', 'author', 'artist', 'tag'],
-      'contentRating[]': ['safe', 'suggestive'],
-      'order[followedCount]': ['desc'],
-    };
-    if (originalLanguage != null && originalLanguage.isNotEmpty) {
-      params['originalLanguage[]'] = [originalLanguage];
-    }
-    final uri = Uri.parse('$_baseUrl/manga').replace(
-      queryParameters: params,
-    );
-    try {
-      final response = await http.get(_proxied(uri), headers: _headers);
-      if (response.statusCode == 200) {
-        final body = json.decode(response.body) as Map<String, dynamic>;
-        final results = (body['data'] as List?) ?? const [];
-        return results
-            .whereType<Map<String, dynamic>>()
-            .map(_mapManga)
-            .toList();
-      }
-    } catch (e) {
-      print('MangaDex popular error: $e');
-    }
-    return [];
-  }
-
-  /// Fetch recently updated manga. Used to back the "Latest Updates"
-  /// carousel on the library home.
-  Future<List<MangaItem>> fetchLatest({
-    String? originalLanguage,
-    int limit = 20,
-  }) async {
-    final params = <String, List<String>>{
-      'limit': ['$limit'],
-      'includes[]': ['cover_art', 'author', 'artist', 'tag'],
-      'contentRating[]': ['safe', 'suggestive'],
-      'order[latestUploadedChapter]': ['desc'],
-    };
-    if (originalLanguage != null && originalLanguage.isNotEmpty) {
-      params['originalLanguage[]'] = [originalLanguage];
-    }
-    final uri = Uri.parse('$_baseUrl/manga').replace(
-      queryParameters: params,
-    );
-    try {
-      final response = await http.get(_proxied(uri), headers: _headers);
-      if (response.statusCode == 200) {
-        final body = json.decode(response.body) as Map<String, dynamic>;
-        final results = (body['data'] as List?) ?? const [];
-        return results
-            .whereType<Map<String, dynamic>>()
-            .map(_mapManga)
-            .toList();
-      }
-    } catch (e) {
-      print('MangaDex latest error: $e');
-    }
-    return [];
-  }
-
-  /// Fetch detailed info for a single manga. Includes cover_art,
-  /// author, and artist relationships so the details drawer can
-  /// render without a second round-trip.
-  Future<MangaItem?> getMangaDetails(String mangaId) async {
-    final uri = Uri.parse('$_baseUrl/manga/$mangaId').replace(
-      queryParameters: {
-        'includes[]': ['cover_art', 'author', 'artist', 'tag'],
-      },
-    );
-    try {
-      final response = await http.get(_proxied(uri), headers: _headers);
-      if (response.statusCode == 200) {
-        final body = json.decode(response.body) as Map<String, dynamic>;
-        final data = body['data'] as Map<String, dynamic>?;
-        if (data == null) return null;
-        return _mapManga(data);
-      }
-    } catch (e) {
-      print('MangaDex details error: $e');
-    }
-    return null;
+    return '';
   }
 
   /// Fetch the chapter feed for a manga. We default to English
