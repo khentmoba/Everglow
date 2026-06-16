@@ -1957,6 +1957,14 @@ class _EpisodeTile extends StatefulWidget {
 class _EpisodeTileState extends State<_EpisodeTile> {
   bool _pressed = false;
 
+  /// Minimum height of the row. Set explicitly because the parent
+  /// `SliverList` provides unbounded vertical space, so without an
+  /// explicit `minHeight` the row collapses to the text's intrinsic
+  /// height (a single line) and the left rail + play button end up
+  /// with zero visible height. This guarantees a tappable, well-
+  /// proportioned tile even for one-line episode titles.
+  static const double _minRowHeight = 80;
+
   @override
   Widget build(BuildContext context) {
     final hasThumb = widget.stillUrl != null && widget.stillUrl!.isNotEmpty;
@@ -1970,13 +1978,13 @@ class _EpisodeTileState extends State<_EpisodeTile> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 140),
         margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+        constraints: const BoxConstraints(minHeight: _minRowHeight),
         decoration: BoxDecoration(
           color: _pressed ? _cCard.withValues(alpha: 0.8) : _cCard.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: _cRose.withValues(alpha: 0.08)),
         ),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Left rail: thumbnail (when available) or numbered accent.
             // Anime episode stills come from AniList's `streamingEpisodes`
@@ -1994,6 +2002,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
@@ -2053,6 +2062,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
   Widget _buildNumberedRail() {
     return Container(
       width: 56,
+      height: _minRowHeight,
       decoration: BoxDecoration(
         color: _cDeepRose.withValues(alpha: _pressed ? 0.18 : 0.1),
         borderRadius: const BorderRadius.only(
@@ -2081,6 +2091,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
   Widget _buildThumbnailRail() {
     return Container(
       width: 80,
+      height: _minRowHeight,
       decoration: const BoxDecoration(
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(16),
