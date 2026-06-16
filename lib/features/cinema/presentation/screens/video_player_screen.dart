@@ -74,14 +74,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// doesn't respond within [_loadTimeout].
   static const List<VideoProvider> _providers = [
     VideoProvider(
-      id: 'vidsrc',
-      name: 'VidSrc',
-      shortName: 'VidSrc',
-      note: 'Most reliable, longest-running',
-      movieUrl: 'https://vidsrc.to/embed/movie/',
-      tvUrl: 'https://vidsrc.to/embed/tv/',
-    ),
-    VideoProvider(
       id: 'vidlink',
       name: 'VidLink',
       shortName: 'VidLink',
@@ -101,9 +93,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       id: 'videasy',
       name: 'Videasy',
       shortName: 'Videasy',
-      note: 'Last resort, least reliable',
+      note: 'Alternative source',
       movieUrl: 'https://player.videasy.net/movie/',
       tvUrl: 'https://player.videasy.net/tv/',
+    ),
+    VideoProvider(
+      id: 'vidsrc',
+      name: 'VidSrc',
+      shortName: 'VidSrc',
+      note: 'Last resort, ad-heavy',
+      movieUrl: 'https://vidsrc.to/embed/movie/',
+      tvUrl: 'https://vidsrc.to/embed/tv/',
     ),
   ];
 
