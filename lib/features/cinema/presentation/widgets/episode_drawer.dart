@@ -56,6 +56,12 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   List<dynamic> _seasons = [];
   int? _selectedSeasonNumber;
   List<dynamic> _episodes = [];
+
+  /// Season navigation entries for anime (built from AniList SEQUEL/PREQUEL
+  /// relations). Empty for TMDB-sourced items and for anime with no related
+  /// seasons. Rendered as a horizontal pill strip below the meta section.
+  List<_SeasonNavItem> _animeSeasons = [];
+
   List<Map<String, dynamic>> _cast = [];
   List<Map<String, dynamic>> _reviews = [];
   List<MediaItem> _similar = [];
@@ -268,10 +274,51 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         {'season_number': 1, 'name': 'Episodes', 'episode_count': synthCount}
       ];
       _selectedSeasonNumber = 1;
+
+      // Build season navigation from AniList SEQUEL/PREQUEL relations
+      _animeSeasons = _buildAnimeSeasons(detail);
       if (_selectedSeasonNumber != null) {
         _fetchSeasonEpisodes(_selectedSeasonNumber!);
       }
     });
+  }
+
+  /// Builds the season navigation list from AniList SEQUEL/PREQUEL relations.
+  /// Includes the current anime as the "Current" entry and all related seasons
+  /// (SEQUEL = next, PREQUEL = previous). Sorted so PREQUELs appear first,
+  /// then Current, then SEQUELs. Empty list when there's only 1 season.
+  List<_SeasonNavItem> _buildAnimeSeasons(AniListDetail detail) {
+    final list = <_SeasonNavItem>[];
+    list.add(_SeasonNavItem(
+      id: detail.id,
+      malId: detail.malId ?? widget.item.tmdbId,
+      title: detail.titleEnglish.isNotEmpty ? detail.titleEnglish : detail.titleRomaji,
+      coverImageUrl: detail.coverImageUrl,
+      isCurrent: true,
+      relationType: 'CURRENT',
+    ));
+
+    for (final r in detail.relations) {
+      if (r.relationType != 'SEQUEL' && r.relationType != 'PREQUEL') continue;
+      list.add(_SeasonNavItem(
+        id: r.id,
+        malId: r.malId ?? r.id,
+        title: r.title,
+        coverImageUrl: r.coverImageUrl,
+        isCurrent: false,
+        relationType: r.relationType,
+      ));
+    }
+
+    // Only show navigation if there are other seasons to navigate to
+    if (list.length <= 1) return const [];
+
+    // Sort: PREQUELs first, CURRENT, SEQUELs last
+    const order = {'PREQUEL': 0, 'CURRENT': 1, 'SEQUEL': 2};
+    list.sort((a, b) =>
+        (order[a.relationType] ?? 3).compareTo(order[b.relationType] ?? 3));
+
+    return list;
   }
 
   /// TMDB path (unchanged). Kept as its own method so the source
@@ -864,6 +911,35 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     );
   }
 
+  /// Navigates to a different season of the same anime series. Closes the
+  /// current drawer and opens a new [EpisodeDrawer] for the target season
+  /// entry. No-op when the target is the current season.
+  void _switchAnimeSeason(_SeasonNavItem season) {
+    if (season.isCurrent) return;
+    Navigator.pop(context);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => EpisodeDrawer(
+        item: MediaItem(
+          id: '',
+          tmdbId: season.malId ?? season.id,
+          anilistId: season.id,
+          title: season.title,
+          mediaType: 'tv',
+          posterPath: season.coverImageUrl ?? '',
+          backdropPath: '',
+          year: '',
+          status: 'to-watch',
+          isAnime: true,
+          addedAt: DateTime.now(),
+          source: 'jikan',
+        ),
+      ),
+    );
+  }
+
   String _getInitial(String name) =>
       name.isNotEmpty ? name[0].toUpperCase() : '?';
 
@@ -954,6 +1030,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
             ),
 
             // Ã¢â€â‚¬Ã¢â€â‚¬ PLAY BUTTON (Movie) or EPISODES Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+            if (_isAnimeSourced)
+              SliverToBoxAdapter(child: _buildAnimeSeasonNav()),
+
             if (widget.item.mediaType == 'movie')
               SliverToBoxAdapter(
                 child: Padding(
@@ -1585,6 +1664,135 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
           ),
         ),
       ],
+    );
+  }
+
+  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+  // ANIME SEASON NAV
+  // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+
+  /// Horizontal pill strip showing all available seasons for this anime.
+  /// The current season is highlighted in rose; tapping another season
+  /// navigates to its episode drawer. Only rendered when there are 2+
+  /// seasons (current + at least one related).
+  Widget _buildAnimeSeasonNav() {
+    if (!_isAnimeSourced || _animeSeasons.length <= 1) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 3,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: _cDeepRose,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'SEASONS',
+                style: GoogleFonts.outfit(
+                  color: _cMuted,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 10,
+                  letterSpacing: 2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 36,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: _animeSeasons.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final s = _animeSeasons[index];
+                final isCurrent = s.isCurrent;
+                return GestureDetector(
+                  onTap: () => _switchAnimeSeason(s),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isCurrent
+                          ? _cDeepRose.withOpacity(0.2)
+                          : _cCard,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isCurrent
+                            ? _cDeepRose
+                            : _cRose.withOpacity(0.15),
+                        width: isCurrent ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (s.coverImageUrl != null &&
+                            s.coverImageUrl!.isNotEmpty &&
+                            !isCurrent)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: Image.network(
+                                s.coverImageUrl!,
+                                width: 20,
+                                height: 20,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                              ),
+                            ),
+                          ),
+                        if (isCurrent)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: Icon(Icons.play_arrow_rounded,
+                                color: _cDeepRose, size: 14),
+                          ),
+                        Flexible(
+                          child: Text(
+                            // Shorten long titles to fit the pill
+                            s.title.length > 28
+                                ? '${s.title.substring(0, 26)}…'
+                                : s.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.outfit(
+                              color: isCurrent ? _cDeepRose : _cWhite.withOpacity(0.8),
+                              fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        if (!isCurrent)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4),
+                            child: Icon(
+                              Icons.chevron_right_rounded,
+                              color: _cMuted,
+                              size: 14,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2340,6 +2548,27 @@ class _EpisodeTileState extends State<_EpisodeTile> {
       ),
     );
   }
+}
+
+/// Data class for anime season navigation entries. Each entry represents one
+/// season of a multi-season anime series, built from AniList SEQUEL/PREQUEL
+/// relations. The current season is marked with [isCurrent].
+class _SeasonNavItem {
+  final int id;
+  final int? malId;
+  final String title;
+  final String? coverImageUrl;
+  final bool isCurrent;
+  final String relationType;
+
+  const _SeasonNavItem({
+    required this.id,
+    this.malId,
+    required this.title,
+    this.coverImageUrl,
+    required this.isCurrent,
+    required this.relationType,
+  });
 }
 
 

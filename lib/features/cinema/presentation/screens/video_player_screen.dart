@@ -108,9 +108,41 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       id: 'videasy',
       name: 'Videasy',
       shortName: 'Videasy',
-      note: 'Alternative source',
+      note: 'Clean, modern player',
       movieUrl: 'https://player.videasy.net/movie/',
       tvUrl: 'https://player.videasy.net/tv/',
+    ),
+    VideoProvider(
+      id: 'vidfast',
+      name: 'VidFast',
+      shortName: 'VidFast',
+      note: 'Fast, multiple CDN domains',
+      movieUrl: 'https://vidfast.pro/movie/',
+      tvUrl: 'https://vidfast.pro/tv/',
+    ),
+    VideoProvider(
+      id: 'vsembed',
+      name: 'VsEmbed',
+      shortName: 'VsEmbed',
+      note: 'VidSrc network mirror',
+      movieUrl: 'https://vsembed.ru/embed/movie/',
+      tvUrl: 'https://vsembed.ru/embed/',
+    ),
+    VideoProvider(
+      id: 'vidrock',
+      name: 'VidRock',
+      shortName: 'VidRock',
+      note: 'Reliable VidSrc mirror',
+      movieUrl: 'https://vidrock.ru/movie/',
+      tvUrl: 'https://vidrock.ru/tv/',
+    ),
+    VideoProvider(
+      id: '111movies',
+      name: '111Movies',
+      shortName: '111Movies',
+      note: 'Alternative embed source',
+      movieUrl: 'https://111movies.com/movie/',
+      tvUrl: 'https://111movies.com/tv/',
     ),
     VideoProvider(
       id: 'vidsrc',
@@ -137,7 +169,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _iframe = web.HTMLIFrameElement()
       ..allow =
           'autoplay; fullscreen; encrypted-media; picture-in-picture; accelerometer; gyroscope; clipboard-write'
-      ..setAttribute('referrerpolicy', 'no-referrer-when-downgrade')
+      ..setAttribute('referrerpolicy', 'no-referrer')
       ..setAttribute('frameborder', '0')
       ..setAttribute('scrolling', 'no');
     _iframe.style
@@ -226,9 +258,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   /// Starts the content availability check timer. Only applies to
-  /// VidLink, which sends a `MEDIA_DATA` postMessage when content is
-  /// actually playable. If the event doesn't arrive within
-  /// [_contentCheckTimeout], the embed likely showed "content not
+  /// VidLink, which sends a `MEDIA_DATA` or `PLAYER_EVENT` postMessage
+  /// when content is actually playable. If the event doesn't arrive
+  /// within [_contentCheckTimeout], the embed likely showed "content not
   /// available" and we fall back to the next provider.
   void _startContentCheck() {
     if (_selectedProvider.id != 'vidlink') return;
@@ -239,21 +271,56 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     });
   }
 
-  /// Builds the postMessage listener for VidLink's `MEDIA_DATA` event.
-  /// When received, it confirms the content is playable and cancels
-  /// the content check timer.
+  /// Builds the postMessage listener for embed provider events.
+  /// Confirms content is playable and cancels the content check timer.
+  /// Only accepts messages from the currently active provider's origin
+  /// to avoid cross-provider interference.
   JSFunction _buildMessageListener() {
     return ((web.Event e) {
       try {
-        final data = (e as web.MessageEvent).data;
+        final msg = e as web.MessageEvent;
+        final origin = msg.origin;
+        final data = msg.data;
         if (data == null) return;
+
+        // Only accept messages from the active provider's origin
+        final activeOrigin = _originForProvider(_selectedProvider.id);
+        if (origin != activeOrigin) return;
+
         final map = data.dartify();
         if (map is! Map) return;
-        if (map['type'] == 'MEDIA_DATA') {
+        final type = map['type'];
+        if (type == 'MEDIA_DATA' || type == 'PLAYER_EVENT') {
           _contentCheckTimer?.cancel();
         }
       } catch (_) {} // ignore cross-origin / parse errors
     }).toJS;
+  }
+
+  /// Returns the expected postMessage origin for a given provider id.
+  String _originForProvider(String providerId) {
+    switch (providerId) {
+      case 'vidlink':
+        return 'https://vidlink.pro';
+      case 'multiembed':
+        return 'https://multiembed.mov';
+      case '2embed.cc':
+        return 'https://www.2embed.cc';
+      case 'videasy':
+        return 'https://player.videasy.net';
+      case 'vidfast':
+        return 'https://vidfast.pro';
+      case 'vsembed':
+        return 'https://vsembed.ru';
+      case 'vidrock':
+        return 'https://vidrock.ru';
+      case '111movies':
+        return 'https://111movies.com';
+      case 'vidsrc':
+        return 'https://vidsrc.to';
+      default:
+        return '';
+    }
   }
 
   /// Find the next untried provider and switch to it. If every
@@ -378,6 +445,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         return '$tvBase$id&tmdb=1&s=$seasonNum&e=$epNum';
       } else if (tvBase.contains('2embed.cc')) {
         return '$tvBase$id&s=$seasonNum&e=$epNum';
+      } else if (provider.id == 'vsembed') {
+        return '$tvBase$id?season=$seasonNum&episode=$epNum';
       } else if (tvBase.contains('embed') && !tvBase.endsWith('/')) {
         return '$tvBase$id&season=$seasonNum&episode=$epNum';
       } else {
