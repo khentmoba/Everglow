@@ -1,19 +1,27 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:animate_do/animate_do.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
 import 'package:everglow/features/manga/data/services/comick_service.dart';
 import 'package:everglow/features/manga/data/services/mangadex_service.dart';
-import 'package:everglow/features/manga/presentation/widgets/manga_cover_card.dart';
 import 'package:everglow/features/manga/presentation/widgets/manga_details_drawer.dart';
 import 'package:everglow/features/manga/presentation/widgets/manga_search_modal.dart';
 import 'package:everglow/services/auth_service.dart';
+import 'package:everglow/shared/widgets/shelf/atmospheric_backdrop.dart';
+import 'package:everglow/shared/widgets/shelf/scroll_edge_fade.dart';
+import 'package:everglow/shared/widgets/shelf/shelf_hero_carousel.dart';
+import 'package:everglow/shared/widgets/shelf/shelf_icon_button.dart';
+import 'package:everglow/shared/widgets/shelf/shelf_poster_card.dart';
+import 'package:everglow/shared/widgets/shelf/shelf_section_header.dart';
+import 'package:everglow/shared/widgets/shelf/shelf_empty_state.dart';
+import 'package:everglow/shared/widgets/shelf/shimmer_box.dart';
+import 'package:everglow/shared/widgets/shelf/shelf_pill_bottom_nav.dart';
+import 'package:everglow/shared/widgets/shelf/staggered_entrance.dart';
 
 const _cBlack = Color(0xFF080810);
-const _cVelvet = Color(0xFF12091A);
 const _cCard = Color(0xFF1C1228);
 const _cRose = Color(0xFFF4C2C2);
 const _cDeepRose = Color(0xFFC2185B);
@@ -146,16 +154,36 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _cBlack,
-      body: SafeArea(
-        bottom: false,
-        child: IndexedStack(
-          index: _currentIndex,
-          children: [
-            _buildHomeTab(),
-            _buildLibraryTab(),
-            _buildSearchTab(),
-          ],
-        ),
+      body: Stack(
+        children: [
+          const ShelfAtmosphericBackdrop(
+            glows: [
+              RadialGlow(
+                color: AppTheme.roseQuartz,
+                alignment: Alignment(-0.7, -0.85),
+                size: 0.85,
+                opacity: 0.13,
+              ),
+              RadialGlow(
+                color: AppTheme.deepRose,
+                alignment: Alignment(0.85, 0.95),
+                size: 0.8,
+                opacity: 0.12,
+              ),
+            ],
+          ),
+          SafeArea(
+            bottom: false,
+            child: IndexedStack(
+              index: _currentIndex,
+              children: [
+                _buildHomeTab(),
+                _buildLibraryTab(),
+                _buildSearchTab(),
+              ],
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: _buildBottomNav(),
     );
@@ -164,48 +192,33 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
   // ── BOTTOM NAV ─────────────────────────────────────────────────────
 
   Widget _buildBottomNav() {
-    return Container(
-      decoration: BoxDecoration(
-        color: _cVelvet,
-        border: Border(
-          top: BorderSide(
-            color: _cRose.withValues(alpha: 0.1),
-            width: 1,
-          ),
+    return ShelfPillBottomNav(
+      currentIndex: _currentIndex,
+      onTap: (i) {
+        if (i == 2) {
+          setState(() => _currentIndex = i);
+          _openSearch(_selectedLanguage);
+        } else {
+          setState(() => _currentIndex = i);
+        }
+      },
+      items: const [
+        ShelfNavItem(
+          icon: Icons.home_outlined,
+          activeIcon: Icons.home_rounded,
+          label: 'Home',
         ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _NavItem(
-                icon: Icons.home_rounded,
-                label: 'Home',
-                selected: _currentIndex == 0,
-                onTap: () => setState(() => _currentIndex = 0),
-              ),
-              _NavItem(
-                icon: Icons.collections_bookmark_rounded,
-                label: 'Library',
-                selected: _currentIndex == 1,
-                onTap: () => setState(() => _currentIndex = 1),
-              ),
-              _NavItem(
-                icon: Icons.search_rounded,
-                label: 'Search',
-                selected: _currentIndex == 2,
-                onTap: () {
-                  setState(() => _currentIndex = 2);
-                  _openSearch(_selectedLanguage);
-                },
-              ),
-            ],
-          ),
+        ShelfNavItem(
+          icon: Icons.collections_bookmark_outlined,
+          activeIcon: Icons.collections_bookmark_rounded,
+          label: 'Library',
         ),
-      ),
+        ShelfNavItem(
+          icon: Icons.search_rounded,
+          activeIcon: Icons.search_rounded,
+          label: 'Search',
+        ),
+      ],
     );
   }
 
@@ -214,41 +227,146 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
   Widget _buildHomeTab() {
     return RefreshIndicator(
       color: _cDeepRose,
+      backgroundColor: _cCard,
       onRefresh: _loadHome,
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
         padding: const EdgeInsets.only(bottom: 100),
         children: [
-          _buildHeader(),
+          StaggeredEntrance(index: 0, child: _buildHeader()),
           const SizedBox(height: 8),
-          _buildLanguageFilter(),
+          StaggeredEntrance(
+            index: 1,
+            child: _buildLanguageFilter(),
+          ),
           const SizedBox(height: 16),
+          if (_popular.isNotEmpty)
+            StaggeredEntrance(
+              index: 2,
+              child: _buildHeroFromPopular(_popular),
+            ),
           if (_continueReading.isNotEmpty) ...[
-            _buildSectionTitle('Continue Reading', icon: Icons.bookmark),
-            _buildCoverRow(_continueReading, height: 180, width: 120),
+            StaggeredEntrance(
+              index: 3,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 14),
+                child: ShelfSectionHeader(
+                  eyebrow: 'Pick Up Where You Left Off',
+                  title: 'Continue Reading',
+                  icon: Icons.menu_book_rounded,
+                  accent: _cDeepRose,
+                  count: _continueReading.length,
+                  countLabel: 'titles',
+                ),
+              ),
+            ),
+            _buildCoverRow(_continueReading, height: 230, width: 130),
             const SizedBox(height: 24),
           ],
-          _buildSectionTitle(
-            'Trending Now',
-            icon: Icons.local_fire_department_rounded,
+          StaggeredEntrance(
+            index: 4,
+            child: _buildLibrarySectionHeader(
+              'Trending Now',
+              'Fan favourites this week',
+              Icons.local_fire_department_rounded,
+              _cGold,
+              _popular,
+            ),
           ),
-          _buildCoverRow(_popular, height: 200, width: 130),
-          const SizedBox(height: 24),
-          _buildSectionTitle(
-            'Latest Updates',
-            icon: Icons.fiber_new_rounded,
+          StaggeredEntrance(
+            index: 5,
+            child: _buildLibrarySectionHeader(
+              'Latest Updates',
+              'New chapters hot off the press',
+              Icons.fiber_new_rounded,
+              const Color(0xFF42A5F5),
+              _latest,
+              height: 230,
+            ),
           ),
-          _buildCoverRow(_latest, height: 180, width: 120),
-          const SizedBox(height: 24),
-          _buildSectionTitle('Top Manga', icon: Icons.translate),
-          _buildCoverRow(_mangaList, height: 200, width: 130),
-          const SizedBox(height: 24),
-          _buildSectionTitle('Top Manhwa', icon: Icons.translate),
-          _buildCoverRow(_manhwaList, height: 200, width: 130),
-          const SizedBox(height: 24),
-          _buildSectionTitle('Top Manhua', icon: Icons.translate),
-          _buildCoverRow(_manhuaList, height: 200, width: 130),
+          StaggeredEntrance(
+            index: 6,
+            child: _buildLibrarySectionHeader(
+              'Top Manga',
+              'Japanese',
+              Icons.translate_rounded,
+              const Color(0xFFE91E63),
+              _mangaList,
+            ),
+          ),
+          StaggeredEntrance(
+            index: 7,
+            child: _buildLibrarySectionHeader(
+              'Top Manhwa',
+              'Korean',
+              Icons.translate_rounded,
+              const Color(0xFFE91E63),
+              _manhwaList,
+            ),
+          ),
+          StaggeredEntrance(
+            index: 8,
+            child: _buildLibrarySectionHeader(
+              'Top Manhua',
+              'Chinese',
+              Icons.translate_rounded,
+              const Color(0xFF00BCD4),
+              _manhuaList,
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildHeroFromPopular(List<MangaItem> items) {
+    final heroItems = items.take(5).map((m) {
+      return ShelfHeroItem(
+        id: m.mangaId,
+        title: m.title,
+        subtitle: '${m.contentType.toUpperCase()} · ${m.year}',
+        eyebrow: 'Trending #${items.indexOf(m) + 1}',
+        imageUrl: m.coverUrl,
+        accent: _accentForLanguage(m.originalLanguage),
+        onTap: () => _openDetails(m),
+      );
+    }).toList();
+
+    return ShelfHeroCarousel(
+      items: heroItems,
+      holdDuration: const Duration(seconds: 8),
+      height: 320,
+    );
+  }
+
+  Widget _buildLibrarySectionHeader(
+    String title,
+    String eyebrow,
+    IconData icon,
+    Color accent,
+    List<MangaItem> items, {
+    double height = 230,
+  }) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 14),
+          child: ShelfSectionHeader(
+            eyebrow: eyebrow,
+            title: title,
+            icon: icon,
+            accent: accent,
+            count: items.length,
+            countLabel: 'titles',
+          ),
+        ),
+        _buildCoverRow(items, height: height, width: 130, accent: accent),
+        const SizedBox(height: 24),
+      ],
     );
   }
 
@@ -258,24 +376,14 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
       padding: const EdgeInsets.fromLTRB(8, 8, 24, 8),
       child: Row(
         children: [
-          // Back — only when there's a route to pop to (i.e. the user
-          // arrived here from the dashboard). Without this, the only
-          // way out is the browser back button, which breaks nested
-          // routes and on iOS Safari sometimes reloads the app.
           if (canPop)
-            IconButton(
-              onPressed: () => Navigator.pop(context),
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: _cRose.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  color: _cRose,
-                  size: 18,
-                ),
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: ShelfIconButton(
+                icon: Icons.arrow_back_ios_new_rounded,
+                semanticLabel: 'Back',
+                tooltip: 'Back',
+                onTap: () => Navigator.pop(context),
               ),
             )
           else
@@ -326,16 +434,11 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
               ],
             ),
           ),
-          IconButton(
-            onPressed: () => _openSearch(_selectedLanguage),
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: _cRose.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.search, color: _cRose, size: 20),
-            ),
+          ShelfIconButton(
+            icon: Icons.search_rounded,
+            semanticLabel: 'Search Manga',
+            tooltip: 'Search manga',
+            onTap: () => _openSearch(_selectedLanguage),
           ),
         ],
       ),
@@ -345,29 +448,34 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
   Widget _buildLanguageFilter() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
           _LangFilterChip(
             label: 'All',
+            icon: Icons.public_rounded,
             selected: _selectedLanguage == '',
             onTap: () => setState(() => _selectedLanguage = ''),
           ),
           const SizedBox(width: 8),
           _LangFilterChip(
-            label: '🇯🇵 Manga',
+            label: 'Manga',
+            icon: Icons.translate_rounded,
             selected: _selectedLanguage == 'jp',
             onTap: () => setState(() => _selectedLanguage = 'jp'),
           ),
           const SizedBox(width: 8),
           _LangFilterChip(
-            label: '🇰🇷 Manhwa',
+            label: 'Manhwa',
+            icon: Icons.translate_rounded,
             selected: _selectedLanguage == 'ko',
             onTap: () => setState(() => _selectedLanguage = 'ko'),
           ),
           const SizedBox(width: 8),
           _LangFilterChip(
-            label: '🇨🇳 Manhua',
+            label: 'Manhua',
+            icon: Icons.translate_rounded,
             selected: _selectedLanguage == 'cn',
             onTap: () => setState(() => _selectedLanguage = 'cn'),
           ),
@@ -376,45 +484,33 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
     );
   }
 
-  Widget _buildSectionTitle(String title, {required IconData icon}) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-      child: Row(
-        children: [
-          Icon(icon, color: _cRose, size: 18),
-          const SizedBox(width: 8),
-          Text(
-            title,
-            style: GoogleFonts.cormorantGaramond(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: _cRose,
-            ),
-          ),
-        ],
-      ),
-    );
+  Color _accentForLanguage(String lang) {
+    switch (lang) {
+      case 'ko':
+        return const Color(0xFFE91E63);
+      case 'zh':
+        return const Color(0xFF00BCD4);
+      default:
+        return AppTheme.deepRose;
+    }
   }
 
   Widget _buildCoverRow(
     List<MangaItem> items, {
     required double height,
     required double width,
+    Color? accent,
   }) {
     if (_isLoadingHome) {
-      return SizedBox(
-        height: height,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          itemCount: 6,
-          separatorBuilder: (_, __) => const SizedBox(width: 12),
-          itemBuilder: (_, __) => Container(
+      return ScrollEdgeFade(
+        fadeColor: _cBlack,
+        child: SizedBox(
+          height: height,
+          child: ShimmerPosterRow(
+            height: height,
             width: width,
-            decoration: BoxDecoration(
-              color: _cCard,
-              borderRadius: BorderRadius.circular(12),
-            ),
+            count: 6,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
           ),
         ),
       );
@@ -422,7 +518,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
     if (items.isEmpty) {
       if (_homeError != null && !_isLoadingHome) {
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           child: Column(
             children: [
               const Icon(Icons.cloud_off, color: _cMuted, size: 32),
@@ -435,12 +531,35 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
                 ),
                 textAlign: TextAlign.center,
               ),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () => _loadHome(),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _cDeepRose.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: _cDeepRose.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Text(
+                    'Retry',
+                    style: GoogleFonts.outfit(
+                      color: _cRose,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         );
       }
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: Text(
           'Nothing here yet.',
           style: GoogleFonts.outfit(
@@ -450,196 +569,304 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
         ),
       );
     }
-    return SizedBox(
-      height: height,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
-          return SizedBox(
-            width: width,
-            child: MangaCoverCard(
-              item: items[index],
-              onTap: () => _openDetails(items[index]),
-            ),
-          );
-        },
+    return ScrollEdgeFade(
+      fadeColor: _cBlack,
+      child: SizedBox(
+        height: height,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          itemCount: items.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          itemBuilder: (context, index) {
+            final item = items[index];
+            final typeAccent =
+                accent ?? _accentForLanguage(item.originalLanguage);
+            return SizedBox(
+              width: width,
+              child: ShelfPosterCard(
+                imageUrl: item.coverUrl,
+                title: item.title,
+                subtitle: item.year.isNotEmpty
+                    ? '${item.contentType} · ${item.year}'
+                    : item.contentType,
+                badge: item.contentType.toUpperCase(),
+                badgeColor: typeAccent,
+                badgeIcon: Icons.menu_book_rounded,
+                onTap: () => _openDetails(item),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
 
   // ── LIBRARY TAB ────────────────────────────────────────────────────
 
+  int _libraryTab = 0;
+
   Widget _buildLibraryTab() {
+    final buckets = <_LibraryBucket>[
+      _LibraryBucket(
+        title: 'Reading',
+        icon: Icons.menu_book_rounded,
+        accent: _cDeepRose,
+        items: _library.where((i) => i.isReading).toList(),
+      ),
+      _LibraryBucket(
+        title: 'Plan to Read',
+        icon: Icons.bookmark_outline_rounded,
+        accent: _cGold,
+        items: _library.where((i) => i.isPlanToRead).toList(),
+      ),
+      _LibraryBucket(
+        title: 'Completed',
+        icon: Icons.check_circle_outline_rounded,
+        accent: const Color(0xFF8BC34A),
+        items: _library.where((i) => i.isCompleted).toList(),
+      ),
+      _LibraryBucket(
+        title: 'On Hold',
+        icon: Icons.pause_circle_outline_rounded,
+        accent: const Color(0xFFFFB74D),
+        items: _library.where((i) => i.isOnHold).toList(),
+      ),
+      _LibraryBucket(
+        title: 'Dropped',
+        icon: Icons.cancel_outlined,
+        accent: _cMuted,
+        items: _library.where((i) => i.isDropped).toList(),
+      ),
+    ];
+
+    if (_library.isEmpty) {
+      return ShelfEmptyState(
+        icon: Icons.collections_bookmark_outlined,
+        title: 'Your manga shelf is empty',
+        subtitle:
+            'Search any title on MangaDex and tap "Add to Library" to start tracking your reading. Continue where you left off from the Home tab.',
+        ctaLabel: 'Search Manga',
+        ctaIcon: Icons.search_rounded,
+        onCta: () => _openSearch(_selectedLanguage),
+        accent: _cDeepRose,
+      );
+    }
+
+    final activeBucket =
+        buckets.firstWhere((b) => b.items.isNotEmpty, orElse: () => buckets.first);
+    final safeIndex = _libraryTab.clamp(0, buckets.length - 1);
+    final showing = buckets[safeIndex].items.isNotEmpty
+        ? buckets[safeIndex]
+        : activeBucket;
+
     return ListView(
       padding: const EdgeInsets.only(bottom: 100),
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-          child: Text(
-            'My Library',
-            style: GoogleFonts.cormorantGaramond(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: _cRose,
-            ),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'MANGA SHELF',
+                style: GoogleFonts.cormorantGaramond(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: _cWhite,
+                  letterSpacing: 3,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 4,
+                    decoration: const BoxDecoration(
+                      color: _cDeepRose,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'MANGA · MANHWA · MANHUA',
+                    style: GoogleFonts.outfit(
+                      fontSize: 9,
+                      color: _cMuted,
+                      letterSpacing: 2.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    width: 4,
+                    height: 4,
+                    decoration: const BoxDecoration(
+                      color: _cDeepRose,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (int i = 0; i < buckets.length; i++)
+                    _bucketChip(buckets[i], i == safeIndex,
+                        () => setState(() => _libraryTab = i)),
+                ],
+              ),
+            ],
           ),
         ),
-        _buildLibrarySection('Reading', _library.where((i) => i.isReading).toList()),
-        _buildLibrarySection('Plan to Read', _library.where((i) => i.isPlanToRead).toList()),
-        _buildLibrarySection('Completed', _library.where((i) => i.isCompleted).toList()),
-        _buildLibrarySection('On Hold', _library.where((i) => i.isOnHold).toList()),
-        _buildLibrarySection('Dropped', _library.where((i) => i.isDropped).toList()),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
+          child: ShelfSectionHeader(
+            eyebrow: showing.items.isEmpty
+                ? 'Nothing here yet'
+                : 'Currently Showing',
+            title: showing.title,
+            icon: showing.icon,
+            accent: showing.accent,
+            count: showing.items.length,
+            countLabel: 'titles',
+          ),
+        ),
+        if (showing.items.isEmpty)
+          ShelfEmptyState(
+            icon: showing.icon,
+            title: 'No ${showing.title.toLowerCase()} titles yet',
+            subtitle:
+                'Anything you add to your library with this status will show up here.',
+            accent: showing.accent,
+          )
+        else
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: showing.items.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.65,
+              crossAxisSpacing: 14,
+              mainAxisSpacing: 14,
+            ),
+            itemBuilder: (context, index) {
+              final item = showing.items[index];
+              return ShelfPosterCard(
+                imageUrl: item.coverUrl,
+                title: item.title,
+                subtitle: item.year.isNotEmpty
+                    ? '${item.contentType} · ${item.year}'
+                    : item.contentType,
+                badge: showing.title.toUpperCase(),
+                badgeColor: showing.accent,
+                badgeIcon: showing.icon,
+                onTap: () => _openDetails(item),
+              );
+            },
+          ),
       ],
     );
   }
 
-  Widget _buildLibrarySection(String title, List<MangaItem> items) {
-    if (items.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-          child: Text(
-            title,
-            style: GoogleFonts.outfit(
-              fontSize: 14,
-              color: _cGold,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
+  Widget _bucketChip(_LibraryBucket bucket, bool selected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? bucket.accent.withValues(alpha: 0.18)
+              : _cCard.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected
+                ? bucket.accent.withValues(alpha: 0.5)
+                : _cRose.withValues(alpha: 0.12),
+            width: 0.8,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(bucket.icon, color: selected ? bucket.accent : _cMuted, size: 14),
+            const SizedBox(width: 6),
+            Text(
+              bucket.title,
+              style: GoogleFonts.outfit(
+                fontSize: 11,
+                color: selected ? bucket.accent : _cRose,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: selected
+                    ? bucket.accent.withValues(alpha: 0.3)
+                    : Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '${bucket.items.length}',
+                style: GoogleFonts.outfit(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  color: selected ? Colors.white : _cMuted,
+                ),
+              ),
+            ),
+          ],
         ),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          itemCount: items.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            childAspectRatio: 0.7,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-          ),
-          itemBuilder: (context, index) {
-            return MangaCoverCard(
-              item: items[index],
-              onTap: () => _openDetails(items[index]),
-            );
-          },
-        ),
-      ],
+      ),
     );
   }
 
   // ── SEARCH TAB (placeholder, opens modal) ──────────────────────────
 
   Widget _buildSearchTab() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            FadeInDown(
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _cCard,
-                ),
-                child: const Icon(
-                  Icons.search_rounded,
-                  color: _cRose,
-                  size: 64,
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            FadeInUp(
-              child: Text(
-                'Find Your Next Read',
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: _cRose,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            FadeInUp(
-              delay: const Duration(milliseconds: 200),
-              child: Text(
-                'Tap below to open the search dialog',
-                style: GoogleFonts.outfit(
-                  color: _cMuted,
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-            FadeInUp(
-              delay: const Duration(milliseconds: 300),
-              child: ElevatedButton.icon(
-                onPressed: () => _openSearch(_selectedLanguage),
-                icon: const Icon(Icons.search),
-                label: const Text('Open Search'),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return ShelfEmptyState(
+      icon: Icons.search_rounded,
+      title: 'Find Your Next Read',
+      subtitle:
+          'Search MangaDex by title. Tap any cover to add it to your library, mark chapters as read, and continue where you left off.',
+      ctaLabel: 'Open Search',
+      ctaIcon: Icons.search_rounded,
+      onCta: () => _openSearch(_selectedLanguage),
+      accent: _cDeepRose,
     );
   }
 }
 
-class _NavItem extends StatelessWidget {
+class _LibraryBucket {
+  final String title;
   final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  const _NavItem({
+  final Color accent;
+  final List<MangaItem> items;
+  const _LibraryBucket({
+    required this.title,
     required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
+    required this.accent,
+    required this.items,
   });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: selected ? _cDeepRose : _cMuted, size: 22),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: GoogleFonts.outfit(
-                fontSize: 11,
-                color: selected ? _cRose : _cMuted,
-                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _LangFilterChip extends StatelessWidget {
   final String label;
+  final IconData icon;
   final bool selected;
   final VoidCallback onTap;
   const _LangFilterChip({
     required this.label,
+    required this.icon,
     required this.selected,
     required this.onTap,
   });
@@ -652,19 +879,30 @@ class _LangFilterChip extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? _cDeepRose : _cCard,
+          color: selected
+              ? _cDeepRose.withValues(alpha: 0.2)
+              : _cCard,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: selected ? _cDeepRose : _cRose.withValues(alpha: 0.15),
+            color: selected
+                ? _cDeepRose
+                : _cRose.withValues(alpha: 0.15),
           ),
         ),
-        child: Text(
-          label,
-          style: GoogleFonts.outfit(
-            color: selected ? _cWhite : _cRose,
-            fontSize: 12,
-            fontWeight: selected ? FontWeight.bold : FontWeight.w500,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: selected ? _cWhite : _cRose, size: 14),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: GoogleFonts.outfit(
+                color: selected ? _cWhite : _cRose,
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );

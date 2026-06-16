@@ -7,12 +7,20 @@ import 'package:provider/provider.dart';
 import 'package:everglow/features/books/data/models/book_item.dart';
 import 'package:everglow/features/books/data/services/open_library_service.dart';
 import 'package:everglow/features/books/presentation/screens/our_books_screen.dart';
-import 'package:everglow/features/books/presentation/widgets/book_cover_card.dart';
 import 'package:everglow/features/books/presentation/widgets/book_details_drawer.dart';
 import 'package:everglow/services/auth_service.dart';
+import 'package:everglow/shared/widgets/shelf/atmospheric_backdrop.dart';
+import 'package:everglow/shared/widgets/shelf/scroll_edge_fade.dart';
+import 'package:everglow/shared/widgets/shelf/shelf_icon_button.dart';
+import 'package:everglow/shared/widgets/shelf/shelf_poster_card.dart';
+import 'package:everglow/shared/widgets/shelf/shelf_section_header.dart';
+import 'package:everglow/shared/widgets/shelf/shelf_empty_state.dart';
+import 'package:everglow/shared/widgets/shelf/shimmer_box.dart';
+import 'package:everglow/shared/widgets/shelf/shelf_pill_bottom_nav.dart';
+import 'package:everglow/shared/widgets/shelf/staggered_entrance.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 
 const _cBlack = Color(0xFF080810);
-const _cVelvet = Color(0xFF12091A);
 const _cCard = Color(0xFF1C1228);
 const _cRose = Color(0xFFF4C2C2);
 const _cDeepRose = Color(0xFFC2185B);
@@ -240,18 +248,38 @@ class _BooksScreenState extends State<BooksScreen>
     return Scaffold(
       extendBody: true,
       backgroundColor: _cBlack,
-      body: SafeArea(
-        top: false,
-        bottom: false,
-        child: IndexedStack(
-          index: _currentIndex,
-          children: [
-            _buildHomeTab(),
-            _buildSearchTab(),
-            _buildReadlistTab(isReadTab: false),
-            _buildReadlistTab(isReadTab: true),
-          ],
-        ),
+      body: Stack(
+        children: [
+          const ShelfAtmosphericBackdrop(
+            glows: [
+              RadialGlow(
+                color: AppTheme.warmAmber,
+                alignment: Alignment(-0.7, -0.85),
+                size: 0.85,
+                opacity: 0.14,
+              ),
+              RadialGlow(
+                color: AppTheme.deepRose,
+                alignment: Alignment(0.85, 0.95),
+                size: 0.8,
+                opacity: 0.10,
+              ),
+            ],
+          ),
+          SafeArea(
+            top: false,
+            bottom: false,
+            child: IndexedStack(
+              index: _currentIndex,
+              children: [
+                _buildHomeTab(),
+                _buildSearchTab(),
+                _buildReadlistTab(isReadTab: false),
+                _buildReadlistTab(isReadTab: true),
+              ],
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: _buildBottomNavBar(),
     );
@@ -263,15 +291,209 @@ class _BooksScreenState extends State<BooksScreen>
     if (_isLoadingHome) {
       return _buildShimmerHome();
     }
-    return CustomScrollView(
-      physics: const BouncingScrollPhysics(),
-      slivers: [
-        SliverToBoxAdapter(child: _buildTopHeader()),
-        SliverToBoxAdapter(child: _buildHeroBanner()),
-        SliverToBoxAdapter(child: _buildTrendingRankings()),
-        ..._buildSubjectRows(),
-        const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
-      ],
+    return RefreshIndicator(
+      color: _cAmber,
+      backgroundColor: _cCard,
+      onRefresh: _fetchHomeData,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        slivers: [
+          SliverToBoxAdapter(
+            child: StaggeredEntrance(
+              index: 0,
+              child: _buildTopHeader(),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: StaggeredEntrance(
+              index: 1,
+              child: _buildHeroBanner(),
+            ),
+          ),
+          if (_readHistoryList.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: StaggeredEntrance(
+                index: 2,
+                child: _buildContinueReading(),
+              ),
+            ),
+          ],
+          SliverToBoxAdapter(
+            child: StaggeredEntrance(
+              index: 3,
+              child: _buildTrendingRankings(),
+            ),
+          ),
+          ..._buildSubjectRows(),
+          const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContinueReading() {
+    // The most recent reads surface in a wide rail so users can
+    // jump back into something they were already in.
+    final recent = _readHistoryList.take(8).toList();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const ShelfSectionHeader(
+            eyebrow: 'Open That Book Again',
+            title: 'Continue Reading',
+            icon: Icons.menu_book_rounded,
+            accent: _cAmber,
+            count: 8,
+            countLabel: 'titles',
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 120,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: recent.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (context, i) {
+                final item = recent[i];
+                return SizedBox(
+                  width: 220,
+                  child: GestureDetector(
+                    onTap: () => _showBookDetails(item),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        gradient: LinearGradient(
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.55),
+                            Colors.black.withValues(alpha: 0.05),
+                          ],
+                        ),
+                        border: Border.all(
+                          color: _cAmber.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(13),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            if (item.coverUrl.isNotEmpty)
+                              Image.network(
+                                item.coverUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) =>
+                                    Container(color: _cCard),
+                              )
+                            else
+                              Container(color: _cCard),
+                            Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                  colors: [
+                                    Colors.black.withValues(alpha: 0.85),
+                                    Colors.black.withValues(alpha: 0.2),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              left: 12,
+                              right: 12,
+                              top: 0,
+                              bottom: 0,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: _cAmber,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Text(
+                                      'READ',
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.8,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    item.title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.cormorantGaramond(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: _cWhite,
+                                      height: 1.15,
+                                    ),
+                                  ),
+                                  if (item.author.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'by ${item.author}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.outfit(
+                                        color: _cRose
+                                            .withValues(alpha: 0.85),
+                                        fontSize: 10,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            Positioned(
+                              right: 8,
+                              top: 8,
+                              child: Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: _cAmber.withValues(alpha: 0.9),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: _cAmber.withValues(alpha: 0.5),
+                                      blurRadius: 8,
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.replay_rounded,
+                                  color: Colors.black,
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -284,12 +506,14 @@ class _BooksScreenState extends State<BooksScreen>
       child: Row(
         children: [
           if (canPop)
-            _iconBtn(
+            ShelfIconButton(
               icon: Icons.arrow_back_ios_new_rounded,
+              semanticLabel: 'Back',
+              tooltip: 'Back',
               onTap: () => Navigator.pop(context),
             )
           else
-            const SizedBox(width: 40, height: 40),
+            const SizedBox(width: 44, height: 44),
           const Spacer(),
           Column(
             children: [
@@ -351,18 +575,22 @@ class _BooksScreenState extends State<BooksScreen>
           ),
           const Spacer(),
           if (isCouple)
-            _iconBtn(
+            ShelfIconButton(
               icon: Icons.favorite_rounded,
+              semanticLabel: 'Open Our Books',
+              tooltip: 'Our Books',
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const OurBooksScreen()),
               ),
             )
           else
-            const SizedBox(width: 40, height: 40),
+            const SizedBox(width: 44, height: 44),
           const SizedBox(width: 8),
-          _iconBtn(
+          ShelfIconButton(
             icon: Icons.search_rounded,
+            semanticLabel: 'Search',
+            tooltip: 'Search books',
             onTap: () => _switchTab(1),
           ),
         ],
@@ -465,8 +693,8 @@ class _BooksScreenState extends State<BooksScreen>
                     ? Image.network(item.coverUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (_, _, _) =>
-                            Container(color: _cVelvet))
-                    : Container(color: _cVelvet),
+                            Container(color: _cCard))
+                    : Container(color: _cCard),
                 Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -603,15 +831,23 @@ class _BooksScreenState extends State<BooksScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildChapterHeader('Trending', 'Now',
-              Icons.emoji_events_rounded,
-              accentColor: _cAmber),
+          const ShelfSectionHeader(
+            eyebrow: 'This Week',
+            title: 'Trending Now',
+            icon: Icons.emoji_events_rounded,
+            accent: _cAmber,
+            count: 10,
+            countLabel: 'titles',
+          ),
           const SizedBox(height: 16),
           SizedBox(
             height: 480,
             child: _trendingRankings.isEmpty
-                ? _buildEmptyState('No rankings available',
-                    icon: Icons.emoji_events_outlined)
+                ? const ShelfEmptyState(
+                    icon: Icons.emoji_events_outlined,
+                    title: 'No rankings available',
+                    subtitle: 'Check back soon — the chart refreshes weekly.',
+                  )
                 : ListView.separated(
                     physics: const BouncingScrollPhysics(),
                     itemCount: _trendingRankings.take(10).length,
@@ -635,6 +871,7 @@ class _BooksScreenState extends State<BooksScreen>
 
   List<Widget> _buildSubjectRows() {
     final rows = <Widget>[];
+    var i = 4;
     _subjectLists.forEach((name, items) {
       final meta = _featuredSubjects.firstWhere(
         (s) => s['name'] == name,
@@ -648,10 +885,14 @@ class _BooksScreenState extends State<BooksScreen>
       final color = meta['color'] as Color? ?? _cRose;
       rows.add(
         SliverToBoxAdapter(
-          child: _buildSection(name, 'Books', items,
-              accentColor: color, icon: icon),
+          child: StaggeredEntrance(
+            index: i,
+            child: _buildSection(name, 'Books', items,
+                accentColor: color, icon: icon),
+          ),
         ),
       );
+      i++;
     });
     return rows;
   }
@@ -669,81 +910,46 @@ class _BooksScreenState extends State<BooksScreen>
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 32, 20, 14),
-          child: _buildChapterHeader(title, subtitle, icon,
-              accentColor: accentColor),
+          child: ShelfSectionHeader(
+            eyebrow: subtitle,
+            title: title,
+            icon: icon,
+            accent: accentColor,
+            count: items.length,
+            countLabel: items.length == 1 ? 'title' : 'titles',
+          ),
         ),
-        SizedBox(
-          height: 240,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 5),
-                child: SizedBox(
-                  width: 145,
-                  child: BookCoverCard(
-                    item: items[index],
-                    onTap: () => _showBookDetails(items[index]),
+        ScrollEdgeFade(
+          fadeColor: _cBlack,
+          child: SizedBox(
+            height: 250,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final book = items[index];
+                return Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: SizedBox(
+                    width: 150,
+                    child: ShelfPosterCard(
+                      imageUrl: book.coverUrl,
+                      title: book.title,
+                      subtitle: book.author.isNotEmpty
+                          ? 'by ${book.author}'
+                          : (book.year.isNotEmpty ? book.year : null),
+                      badge: 'BOOK',
+                      badgeIcon: Icons.menu_book_rounded,
+                      badgeColor: accentColor,
+                      onTap: () => _showBookDetails(book),
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildChapterHeader(
-    String title,
-    String subtitle,
-    IconData? icon, {
-    Color accentColor = _cRose,
-  }) {
-    return Row(
-      children: [
-        Container(
-          width: 3,
-          height: 36,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [accentColor, accentColor.withValues(alpha: 0.3)],
-            ),
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 12),
-        if (icon != null) ...[
-          Icon(icon, color: accentColor, size: 18),
-          const SizedBox(width: 8),
-        ],
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: GoogleFonts.cormorantGaramond(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: _cWhite,
-                letterSpacing: 0.3,
-              ),
-            ),
-            Text(
-              subtitle.toUpperCase(),
-              style: GoogleFonts.outfit(
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-                color: accentColor.withValues(alpha: 0.7),
-                letterSpacing: 2.0,
-              ),
-            ),
-          ],
         ),
       ],
     );
@@ -759,8 +965,10 @@ class _BooksScreenState extends State<BooksScreen>
               20, MediaQuery.of(context).padding.top + 14, 20, 0),
           child: Row(
             children: [
-              _iconBtn(
+              ShelfIconButton(
                 icon: Icons.arrow_back_ios_new_rounded,
+                semanticLabel: 'Back to Home',
+                tooltip: 'Back to Home',
                 onTap: () => _switchTab(0),
               ),
               const SizedBox(width: 12),
@@ -839,20 +1047,27 @@ class _BooksScreenState extends State<BooksScreen>
               : _searchResults.isEmpty
                   ? _buildSearchEmptyState()
                   : GridView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
                       physics: const BouncingScrollPhysics(),
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 2,
-                        childAspectRatio: 0.6,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
+                        childAspectRatio: 0.62,
+                        crossAxisSpacing: 14,
+                        mainAxisSpacing: 14,
                       ),
                       itemCount: _searchResults.length,
                       itemBuilder: (context, index) {
-                        return BookCoverCard(
-                          item: _searchResults[index],
-                          onTap: () => _showBookDetails(_searchResults[index]),
+                        final book = _searchResults[index];
+                        return ShelfPosterCard(
+                          imageUrl: book.coverUrl,
+                          title: book.title,
+                          subtitle: book.author.isNotEmpty
+                              ? 'by ${book.author}'
+                              : (book.year.isNotEmpty ? book.year : null),
+                          badge: 'BOOK',
+                          badgeIcon: Icons.menu_book_rounded,
+                          onTap: () => _showBookDetails(book),
                         );
                       },
                     ),
@@ -862,11 +1077,17 @@ class _BooksScreenState extends State<BooksScreen>
   }
 
   Widget _buildSearchEmptyState() {
-    return _buildEmptyState(
-      _searchController.text.isEmpty
-          ? 'Type to discover magic...'
+    return ShelfEmptyState(
+      icon: _searchController.text.isEmpty
+          ? Icons.travel_explore_rounded
+          : Icons.search_off_rounded,
+      title: _searchController.text.isEmpty
+          ? 'Type to discover magic'
           : 'No results found',
-      icon: Icons.menu_book_outlined,
+      subtitle: _searchController.text.isEmpty
+          ? 'Search any book, author, or subject to add it to your shelf or mark it as read.'
+          : 'Try a different keyword — Open Library is vast.',
+      accent: _cDeepRose,
     );
   }
 
@@ -895,8 +1116,10 @@ class _BooksScreenState extends State<BooksScreen>
               20, MediaQuery.of(context).padding.top + 14, 20, 0),
           child: Row(
             children: [
-              _iconBtn(
+              ShelfIconButton(
                 icon: Icons.arrow_back_ios_new_rounded,
+                semanticLabel: 'Back to Home',
+                tooltip: 'Back to Home',
                 onTap: () => _switchTab(0),
               ),
               const SizedBox(width: 12),
@@ -948,36 +1171,47 @@ class _BooksScreenState extends State<BooksScreen>
         const SizedBox(height: 16),
         Expanded(
           child: list.isEmpty
-              ? _buildEmptyState(
-                  isReadTab
-                      ? 'Your read history is empty'
-                      : 'Nothing queued yet',
+              ? ShelfEmptyState(
                   icon: isReadTab
                       ? Icons.auto_stories_outlined
                       : Icons.bookmark_border_rounded,
+                  title: isReadTab
+                      ? 'Your read history is empty'
+                      : 'Nothing queued yet',
+                  subtitle: isReadTab
+                      ? 'Books you mark as read will live here so you can revisit them anytime.'
+                      : 'Tap the bookmark on any book to add it to your reading queue.',
+                  accent: _cAmber,
                 )
               : GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 100),
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
                   physics: const BouncingScrollPhysics(),
                   gridDelegate:
                       const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    childAspectRatio: 0.6,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
+                    childAspectRatio: 0.62,
+                    crossAxisSpacing: 14,
+                    mainAxisSpacing: 14,
                   ),
                   itemCount: list.length,
                   itemBuilder: (context, index) {
                     final item = list[index];
-                    return BookCoverCard(
-                      item: item,
-                      onTap: () => _showBookDetails(item),
-                      statusBadge: isReadTab
+                    return ShelfPosterCard(
+                      imageUrl: item.coverUrl,
+                      title: item.title,
+                      subtitle: item.author.isNotEmpty
+                          ? 'by ${item.author}'
+                          : (item.year.isNotEmpty ? item.year : null),
+                      badge: isReadTab
                           ? item.readDisplay.toUpperCase()
                           : 'TO READ',
                       badgeColor: isReadTab
                           ? _readBadgeColor(item.status)
                           : _cAmber,
+                      badgeIcon: isReadTab
+                          ? Icons.check_rounded
+                          : Icons.bookmark_rounded,
+                      onTap: () => _showBookDetails(item),
                     );
                   },
                 ),
@@ -996,217 +1230,64 @@ class _BooksScreenState extends State<BooksScreen>
           child: Padding(
             padding: EdgeInsets.fromLTRB(
                 20, MediaQuery.of(context).padding.top + 14, 20, 20),
-            child: _shimmerBox(height: 40, width: 160, radius: 8),
+            child: const ShimmerBox(height: 40, width: 160, radius: 8),
           ),
         ),
-        SliverToBoxAdapter(
+        const SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: _shimmerBox(height: 320, radius: 24),
+            padding: EdgeInsets.symmetric(horizontal: 12),
+            child: ShimmerBox(height: 320, radius: 24),
           ),
         ),
-        SliverToBoxAdapter(
+        const SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 32, 20, 0),
-            child: _shimmerBox(height: 280, radius: 16),
+            padding: EdgeInsets.fromLTRB(20, 32, 20, 0),
+            child: ShimmerBox(height: 280, radius: 16),
           ),
         ),
-        SliverToBoxAdapter(
+        const SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 32, 20, 14),
-            child: _shimmerBox(height: 36, width: 200, radius: 8),
+            padding: EdgeInsets.fromLTRB(20, 32, 20, 14),
+            child: ShimmerBox(height: 36, width: 200, radius: 8),
           ),
         ),
-        SliverToBoxAdapter(
-          child: SizedBox(
-            height: 240,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: 6,
-              itemBuilder: (_, _) => Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 5),
-                child: _shimmerBox(width: 145, height: 240, radius: 14),
-              ),
-            ),
-          ),
+        const SliverToBoxAdapter(
+          child: ShimmerPosterRow(height: 240, width: 150, count: 6),
         ),
       ],
-    );
-  }
-
-  Widget _shimmerBox(
-      {double? width, required double height, double radius = 12}) {
-    return _ShimmerWidget(
-      child: Container(
-        width: width ?? double.infinity,
-        height: height,
-        decoration: BoxDecoration(
-          color: _cCard,
-          borderRadius: BorderRadius.circular(radius),
-        ),
-      ),
-    );
-  }
-
-  // ── EMPTY STATE ────────────────────────────────────────────────────
-
-  Widget _buildEmptyState(String message,
-      {IconData icon = Icons.video_library_outlined}) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: _cCard,
-              shape: BoxShape.circle,
-              border: Border.all(color: _cRose.withValues(alpha: 0.1)),
-            ),
-            child: Icon(icon, size: 36, color: _cMuted),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.outfit(color: _cMuted, fontSize: 15),
-          ),
-        ],
-      ),
     );
   }
 
   // ── BOTTOM NAV ─────────────────────────────────────────────────────
 
   Widget _buildBottomNavBar() {
-    final items = [
-      _NavItem(
-        icon: Icons.home_outlined,
-        activeIcon: Icons.home_rounded,
-        label: 'Home',
-      ),
-      _NavItem(
-        icon: Icons.search_rounded,
-        activeIcon: Icons.search_rounded,
-        label: 'Search',
-      ),
-      _NavItem(
-        icon: Icons.bookmark_border_rounded,
-        activeIcon: Icons.bookmark_rounded,
-        label: 'Queue',
-      ),
-      _NavItem(
-        icon: Icons.auto_stories_outlined,
-        activeIcon: Icons.auto_stories_rounded,
-        label: 'Read',
-      ),
-    ];
-
-    return Container(
-      margin: EdgeInsets.fromLTRB(
-          20, 0, 20, MediaQuery.of(context).padding.bottom + 12),
-      decoration: BoxDecoration(
-        color: _cCard,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: _cRose.withValues(alpha: 0.1)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 30,
-            offset: const Offset(0, 10),
-          ),
-          BoxShadow(
-            color: _cDeepRose.withValues(alpha: 0.05),
-            blurRadius: 30,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: List.generate(items.length, (i) {
-            final isActive = _currentIndex == i;
-            final navItem = items[i];
-            return _buildNavItem(navItem, i, isActive);
-          }),
+    return ShelfPillBottomNav(
+      currentIndex: _currentIndex,
+      onTap: _switchTab,
+      items: const [
+        ShelfNavItem(
+          icon: Icons.home_outlined,
+          activeIcon: Icons.home_rounded,
+          label: 'Home',
         ),
-      ),
+        ShelfNavItem(
+          icon: Icons.search_rounded,
+          activeIcon: Icons.search_rounded,
+          label: 'Search',
+        ),
+        ShelfNavItem(
+          icon: Icons.bookmark_border_rounded,
+          activeIcon: Icons.bookmark_rounded,
+          label: 'Queue',
+        ),
+        ShelfNavItem(
+          icon: Icons.auto_stories_outlined,
+          activeIcon: Icons.auto_stories_rounded,
+          label: 'Read',
+        ),
+      ],
     );
   }
-
-  Widget _buildNavItem(_NavItem navItem, int index, bool isActive) {
-    return GestureDetector(
-      onTap: () => _switchTab(index),
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive
-              ? _cDeepRose.withValues(alpha: 0.15)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: Icon(
-                isActive ? navItem.activeIcon : navItem.icon,
-                key: ValueKey('$index-$isActive'),
-                size: 22,
-                color: isActive ? _cDeepRose : _cMuted,
-              ),
-            ),
-            if (isActive) ...[
-              const SizedBox(width: 6),
-              Text(
-                navItem.label,
-                style: GoogleFonts.outfit(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: _cDeepRose,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _iconBtn({required IconData icon, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: _cCard,
-          shape: BoxShape.circle,
-          border: Border.all(color: _cRose.withValues(alpha: 0.12)),
-        ),
-        child: Icon(icon, color: _cRose, size: 18),
-      ),
-    );
-  }
-}
-
-class _NavItem {
-  final IconData icon;
-  final IconData activeIcon;
-  final String label;
-  const _NavItem({
-    required this.icon,
-    required this.activeIcon,
-    required this.label,
-  });
 }
 
 class _RankingTile extends StatelessWidget {
@@ -1372,66 +1453,6 @@ class _RankingTile extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _ShimmerWidget extends StatefulWidget {
-  final Widget child;
-  const _ShimmerWidget({required this.child});
-
-  @override
-  State<_ShimmerWidget> createState() => _ShimmerWidgetState();
-}
-
-class _ShimmerWidgetState extends State<_ShimmerWidget>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: false);
-    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.linear);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _anim,
-      builder: (context, child) {
-        return ShaderMask(
-          blendMode: BlendMode.srcATop,
-          shaderCallback: (bounds) {
-            return LinearGradient(
-              begin: const Alignment(-1.5, 0),
-              end: const Alignment(1.5, 0),
-              colors: const [
-                _cCard,
-                Color(0xFF2A1F3A),
-                _cCard,
-              ],
-              stops: [
-                _anim.value - 0.3,
-                _anim.value,
-                _anim.value + 0.3,
-              ].map((v) => v.clamp(0.0, 1.0)).toList(),
-            ).createShader(bounds);
-          },
-          child: child,
-        );
-      },
-      child: widget.child,
     );
   }
 }

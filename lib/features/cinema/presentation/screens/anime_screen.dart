@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/data/anime_categories.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/jikan_service.dart';
@@ -11,11 +12,20 @@ import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/features/cinema/presentation/widgets/episode_drawer.dart';
 import 'package:everglow/features/cinema/presentation/widgets/jikan_search_modal.dart';
 import 'package:everglow/services/auth_service.dart';
+import 'package:everglow/shared/widgets/shelf/atmospheric_backdrop.dart';
+import 'package:everglow/shared/widgets/shelf/scroll_edge_fade.dart';
+import 'package:everglow/shared/widgets/shelf/shelf_hero_carousel.dart';
+import 'package:everglow/shared/widgets/shelf/shelf_icon_button.dart';
+import 'package:everglow/shared/widgets/shelf/shelf_poster_card.dart';
+import 'package:everglow/shared/widgets/shelf/shelf_section_header.dart';
+import 'package:everglow/shared/widgets/shelf/shelf_empty_state.dart';
+import 'package:everglow/shared/widgets/shelf/shimmer_box.dart';
+import 'package:everglow/shared/widgets/shelf/shelf_pill_bottom_nav.dart';
+import 'package:everglow/shared/widgets/shelf/staggered_entrance.dart';
 
 // Mirror of cinema_screen.dart / manga_library_screen.dart color tokens so
 // the anime feature feels native to the rest of the cinema feature.
 const _cBlack = Color(0xFF080810);
-const _cVelvet = Color(0xFF12091A);
 const _cCard = Color(0xFF1C1228);
 const _cRose = Color(0xFFF4C2C2);
 const _cDeepRose = Color(0xFFC2185B);
@@ -226,17 +236,37 @@ class _AnimeScreenState extends State<AnimeScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _cBlack,
-      body: SafeArea(
-        bottom: false,
-        child: IndexedStack(
-          index: _currentIndex,
-          children: [
-            _buildHomeTab(),
-            _buildBrowseTab(),
-            _buildLibraryTab(),
-            _buildSearchTab(),
-          ],
-        ),
+      body: Stack(
+        children: [
+          const ShelfAtmosphericBackdrop(
+            glows: [
+              RadialGlow(
+                color: AppTheme.softLavender,
+                alignment: Alignment(-0.7, -0.85),
+                size: 0.9,
+                opacity: 0.15,
+              ),
+              RadialGlow(
+                color: AppTheme.deepRose,
+                alignment: Alignment(0.85, 0.95),
+                size: 0.8,
+                opacity: 0.12,
+              ),
+            ],
+          ),
+          SafeArea(
+            bottom: false,
+            child: IndexedStack(
+              index: _currentIndex,
+              children: [
+                _buildHomeTab(),
+                _buildBrowseTab(),
+                _buildLibraryTab(),
+                _buildSearchTab(),
+              ],
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: _buildBottomNav(),
     );
@@ -245,54 +275,40 @@ class _AnimeScreenState extends State<AnimeScreen>
   // ── BOTTOM NAV ─────────────────────────────────────────────────────
 
   Widget _buildBottomNav() {
-    return Container(
-      decoration: BoxDecoration(
-        color: _cVelvet,
-        border: Border(
-          top: BorderSide(
-            color: _cRose.withValues(alpha: 0.1),
-            width: 1,
-          ),
+    return ShelfPillBottomNav(
+      currentIndex: _currentIndex,
+      onTap: (i) {
+        if (i == 3) {
+          // Search tab opens the modal in addition to switching tabs,
+          // matching the previous behaviour.
+          setState(() => _currentIndex = i);
+          _openSearch();
+        } else {
+          setState(() => _currentIndex = i);
+        }
+      },
+      items: const [
+        ShelfNavItem(
+          icon: Icons.home_outlined,
+          activeIcon: Icons.home_rounded,
+          label: 'Home',
         ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _NavItem(
-                icon: Icons.home_rounded,
-                label: 'Home',
-                selected: _currentIndex == 0,
-                onTap: () => setState(() => _currentIndex = 0),
-              ),
-              _NavItem(
-                icon: Icons.explore_rounded,
-                label: 'Browse',
-                selected: _currentIndex == 1,
-                onTap: () => setState(() => _currentIndex = 1),
-              ),
-              _NavItem(
-                icon: Icons.collections_bookmark_rounded,
-                label: 'Library',
-                selected: _currentIndex == 2,
-                onTap: () => setState(() => _currentIndex = 2),
-              ),
-              _NavItem(
-                icon: Icons.search_rounded,
-                label: 'Search',
-                selected: _currentIndex == 3,
-                onTap: () {
-                  setState(() => _currentIndex = 3);
-                  _openSearch();
-                },
-              ),
-            ],
-          ),
+        ShelfNavItem(
+          icon: Icons.explore_outlined,
+          activeIcon: Icons.explore_rounded,
+          label: 'Browse',
         ),
-      ),
+        ShelfNavItem(
+          icon: Icons.collections_bookmark_outlined,
+          activeIcon: Icons.collections_bookmark_rounded,
+          label: 'Library',
+        ),
+        ShelfNavItem(
+          icon: Icons.search_rounded,
+          activeIcon: Icons.search_rounded,
+          label: 'Search',
+        ),
+      ],
     );
   }
 
@@ -301,33 +317,60 @@ class _AnimeScreenState extends State<AnimeScreen>
   Widget _buildHomeTab() {
     return RefreshIndicator(
       color: _cDeepRose,
+      backgroundColor: _cCard,
       onRefresh: _refreshHome,
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
         padding: const EdgeInsets.only(bottom: 100),
         children: [
-          _buildHeader(),
+          StaggeredEntrance(index: 0, child: _buildHeader()),
           const SizedBox(height: 8),
-          for (final section in _homeSections) ...[
-            _buildHomeSection(section),
+          for (var i = 0; i < _homeSections.length; i++) ...[
+            StaggeredEntrance(
+              index: i + 1,
+              child: _buildHomeSection(_homeSections[i]),
+            ),
             const SizedBox(height: 24),
           ],
           if (_library.where((i) => i.isToWatch).isNotEmpty) ...[
-            _buildSectionTitle('In Your Queue',
-                icon: Icons.bookmark_rounded, tint: _cGold),
+            StaggeredEntrance(
+              index: _homeSections.length + 1,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                child: ShelfSectionHeader(
+                  eyebrow: 'Up Next',
+                  title: 'In Your Queue',
+                  icon: Icons.bookmark_rounded,
+                  accent: _cGold,
+                  count: _library.where((i) => i.isToWatch).length,
+                  countLabel: 'titles',
+                ),
+              ),
+            ),
             _buildPosterRow(
               _library.where((i) => i.isToWatch).toList(),
-              height: 180,
-              width: 120,
             ),
             const SizedBox(height: 24),
           ],
           if (_library.where((i) => i.isWatched).isNotEmpty) ...[
-            _buildSectionTitle('Watched',
-                icon: Icons.remove_red_eye_rounded, tint: _cGold),
+            StaggeredEntrance(
+              index: _homeSections.length + 2,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                child: ShelfSectionHeader(
+                  eyebrow: 'Already Finished',
+                  title: 'Watched',
+                  icon: Icons.remove_red_eye_rounded,
+                  accent: _cGold,
+                  count: _library.where((i) => i.isWatched).length,
+                  countLabel: 'titles',
+                ),
+              ),
+            ),
             _buildPosterRow(
               _library.where((i) => i.isWatched).toList(),
-              height: 180,
-              width: 120,
             ),
             const SizedBox(height: 24),
           ],
@@ -339,52 +382,89 @@ class _AnimeScreenState extends State<AnimeScreen>
   Widget _buildHomeSection(_HomeSection section) {
     final row = _homeRows[section.id];
     if (row == null) {
-      return _buildShimmerRow(height: section.isHero ? 220 : 180);
+      return _buildShimmerRow(height: section.isHero ? 280 : 220);
     }
     if (row.isLoading) {
-      return _buildShimmerRow(height: section.isHero ? 220 : 180);
+      return _buildShimmerRow(height: section.isHero ? 280 : 220);
     }
     if (row.items.isEmpty) {
       return const SizedBox.shrink();
     }
     if (section.isHero) {
-      return _buildHeroCarousel(row.items);
+      return _buildHeroCarousel(row.items, section);
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle(section.title,
-            icon: section.icon, tint: section.tint),
-        _buildPosterRow(row.items, height: 180, width: 120),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+          child: ShelfSectionHeader(
+            eyebrow: _eyebrowForSection(section.id),
+            title: section.title,
+            icon: section.icon,
+            accent: section.tint,
+            count: row.items.length,
+            countLabel: 'titles',
+          ),
+        ),
+        _buildPosterRow(row.items, accent: section.tint),
       ],
     );
   }
 
-  Widget _buildHeroCarousel(List<MediaItem> items) {
-    final pageCtrl = PageController(viewportFraction: 0.78);
+  String _eyebrowForSection(String id) {
+    switch (id) {
+      case 'airing':
+        return 'Now Airing';
+      case 'top-rated':
+        return 'All Time Best';
+      case 'new-releases':
+        return 'Just Added';
+      case 'popular-all':
+        return 'Fan Favourites';
+      case 'hidden-gems':
+        return 'Worth Discovering';
+      case 'editors-picks':
+        return 'Curated For You';
+      case 'trending':
+      default:
+        return 'Hot Right Now';
+    }
+  }
+
+  Widget _buildHeroCarousel(List<MediaItem> items, _HomeSection section) {
+    final heroItems = items.take(5).map((m) {
+      return ShelfHeroItem(
+        id: '${m.tmdbId}',
+        title: m.title,
+        subtitle: m.year.isNotEmpty ? m.year : 'Tap to explore',
+        eyebrow: 'Trending #${items.indexOf(m) + 1}',
+        imageUrl: m.backdropPath.isNotEmpty
+            ? m.backdropPath
+            : m.posterPath,
+        accent: section.tint,
+        onTap: () => _openDetails(m),
+      );
+    }).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('Trending Now',
-            icon: Icons.local_fire_department_rounded,
-            tint: const Color(0xFFFF7043)),
-        SizedBox(
-          height: 240,
-          child: PageView.builder(
-            controller: pageCtrl,
-            padEnds: true,
-            itemCount: items.length,
-            itemBuilder: (context, i) {
-              final item = items[i];
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: _AnimeHeroCard(
-                  item: item,
-                  onTap: () => _openDetails(item),
-                ),
-              );
-            },
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+          child: ShelfSectionHeader(
+            eyebrow: _eyebrowForSection(section.id),
+            title: section.title,
+            icon: section.icon,
+            accent: section.tint,
+            count: items.length,
+            countLabel: 'titles',
           ),
+        ),
+        ShelfHeroCarousel(
+          items: heroItems,
+          holdDuration: const Duration(seconds: 7),
+          height: 320,
         ),
       ],
     );
@@ -397,19 +477,13 @@ class _AnimeScreenState extends State<AnimeScreen>
       child: Row(
         children: [
           if (canPop)
-            IconButton(
-              onPressed: () => Navigator.pop(context),
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: _cRose.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  color: _cRose,
-                  size: 18,
-                ),
+            Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: ShelfIconButton(
+                icon: Icons.arrow_back_ios_new_rounded,
+                semanticLabel: 'Back',
+                tooltip: 'Back',
+                onTap: () => Navigator.pop(context),
               ),
             )
           else
@@ -460,16 +534,11 @@ class _AnimeScreenState extends State<AnimeScreen>
               ],
             ),
           ),
-          IconButton(
-            onPressed: _openSearch,
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: _cRose.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.search, color: _cRose, size: 20),
-            ),
+          ShelfIconButton(
+            icon: Icons.search_rounded,
+            semanticLabel: 'Search Anime',
+            tooltip: 'Search anime',
+            onTap: _openSearch,
           ),
         ],
       ),
@@ -477,53 +546,39 @@ class _AnimeScreenState extends State<AnimeScreen>
   }
 
   Widget _buildSectionTitle(String title,
-      {required IconData icon, Color tint = _cRose}) {
+      {required IconData icon, Color tint = _cRose, int? count}) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-      child: Row(
-        children: [
-          Icon(icon, color: tint, size: 18),
-          const SizedBox(width: 8),
-          Text(
-            title,
-            style: GoogleFonts.cormorantGaramond(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: tint,
-            ),
-          ),
-        ],
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+      child: ShelfSectionHeader(
+        eyebrow: 'Collection',
+        title: title,
+        icon: icon,
+        accent: tint,
+        count: count,
+        countLabel: count != null ? 'titles' : null,
       ),
     );
   }
 
   Widget _buildShimmerRow({required double height}) {
-    return SizedBox(
-      height: height,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        itemCount: 6,
-        separatorBuilder: (_, _) => const SizedBox(width: 12),
-        itemBuilder: (_, _) => Container(
-          width: 120,
-          decoration: BoxDecoration(
-            color: _cCard,
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+      child: ShimmerPosterRow(
+        height: height - 14,
+        width: 130,
+        count: 5,
+        padding: EdgeInsets.zero,
       ),
     );
   }
 
   Widget _buildPosterRow(
     List<MediaItem> items, {
-    required double height,
-    required double width,
+    Color accent = _cRose,
   }) {
     if (items.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: Text(
           'Nothing here yet. Search above to add your first anime!',
           style: GoogleFonts.outfit(
@@ -533,22 +588,32 @@ class _AnimeScreenState extends State<AnimeScreen>
         ),
       );
     }
-    return SizedBox(
-      height: height,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        itemCount: items.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
-          return SizedBox(
-            width: width,
-            child: _AnimePosterTile(
-              item: items[index],
-              onTap: () => _openDetails(items[index]),
-            ),
-          );
-        },
+    return ScrollEdgeFade(
+      fadeColor: _cBlack,
+      child: SizedBox(
+        height: 230,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          itemCount: items.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 12),
+          itemBuilder: (context, index) {
+            final item = items[index];
+            return SizedBox(
+              width: 130,
+              child: ShelfPosterCard(
+                imageUrl: item.posterPath,
+                title: item.title,
+                subtitle: item.year.isNotEmpty ? item.year : null,
+                badge: 'ANIME',
+                badgeIcon: Icons.animation_rounded,
+                badgeColor: accent,
+                onTap: () => _openDetails(item),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -655,55 +720,60 @@ class _AnimeScreenState extends State<AnimeScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 16),
-        _buildSectionTitle(option.label, icon: option.icon, tint: option.color),
+        _buildSectionTitle(
+          option.label,
+          icon: option.icon,
+          tint: option.color,
+          count: row?.items.length,
+        ),
         if (row == null || row.isLoading)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             child: GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: 6,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                childAspectRatio: 0.7,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
+                crossAxisCount: 2,
+                childAspectRatio: 0.65,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 14,
               ),
-              itemBuilder: (_, _) => Container(
-                decoration: BoxDecoration(
-                  color: _cCard,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
+              itemBuilder: (_, _) => const ShimmerBox(height: 220, radius: 14),
             ),
           )
         else if (row.items.isEmpty)
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-            child: Text(
-              'No matches in this category yet.',
-              style: GoogleFonts.outfit(
-                color: _cMuted,
-                fontStyle: FontStyle.italic,
-              ),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            child: ShelfEmptyState(
+              icon: Icons.travel_explore_rounded,
+              title: 'No matches in this category yet',
+              subtitle:
+                  'Try another filter, or pull to refresh to fetch the latest from Jikan.',
+              accent: option.color,
             ),
           )
         else
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             itemCount: row.items.length,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              childAspectRatio: 0.7,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
+              crossAxisCount: 2,
+              childAspectRatio: 0.65,
+              crossAxisSpacing: 14,
+              mainAxisSpacing: 14,
             ),
             itemBuilder: (context, i) {
               final item = row.items[i];
-              return _AnimePosterTile(
-                item: item,
+              return ShelfPosterCard(
+                imageUrl: item.posterPath,
+                title: item.title,
+                subtitle: item.year.isNotEmpty ? item.year : null,
+                badge: 'ANIME',
+                badgeIcon: Icons.animation_rounded,
+                badgeColor: option.color,
                 onTap: () => _openDetails(item),
               );
             },
@@ -750,58 +820,137 @@ class _AnimeScreenState extends State<AnimeScreen>
   Widget _buildLibraryTab() {
     final wantToWatch = _library.where((i) => i.isToWatch).toList();
     final watched = _library.where((i) => i.isWatched).toList();
+
+    if (wantToWatch.isEmpty && watched.isEmpty) {
+      return ShelfEmptyState(
+        icon: Icons.collections_bookmark_outlined,
+        title: 'Your anime library is empty',
+        subtitle:
+            'Search for any series and add it to your watchlist. Items you mark as watched will live here too.',
+        ctaLabel: 'Search Anime',
+        ctaIcon: Icons.search_rounded,
+        onCta: _openSearch,
+        accent: AppTheme.deepRose,
+      );
+    }
+
     return ListView(
       padding: const EdgeInsets.only(bottom: 100),
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-          child: Text(
-            'Our Anime',
-            style: GoogleFonts.cormorantGaramond(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: _cRose,
-            ),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'OUR ANIME',
+                style: GoogleFonts.cormorantGaramond(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: _cWhite,
+                  letterSpacing: 3,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 4,
+                    decoration: const BoxDecoration(
+                      color: _cDeepRose,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'JAPANESE ANIMATION',
+                    style: GoogleFonts.outfit(
+                      fontSize: 9,
+                      color: _cMuted,
+                      letterSpacing: 2.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    width: 4,
+                    height: 4,
+                    decoration: const BoxDecoration(
+                      color: _cDeepRose,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _LibraryStat(
+                    label: 'Queue',
+                    count: wantToWatch.length,
+                    color: _cGold,
+                  ),
+                  const SizedBox(width: 8),
+                  _LibraryStat(
+                    label: 'Watched',
+                    count: watched.length,
+                    color: const Color(0xFF8BC34A),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
-        _buildLibrarySection('Want to Watch', wantToWatch),
-        _buildLibrarySection('Watched', watched),
+        _buildLibrarySection(
+            'Want to Watch', wantToWatch, Icons.bookmark_rounded, _cGold),
+        _buildLibrarySection('Watched', watched,
+            Icons.remove_red_eye_rounded, const Color(0xFF8BC34A)),
       ],
     );
   }
 
-  Widget _buildLibrarySection(String title, List<MediaItem> items) {
+  Widget _buildLibrarySection(
+    String title,
+    List<MediaItem> items,
+    IconData icon,
+    Color accent,
+  ) {
     if (items.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-          child: Text(
-            title,
-            style: GoogleFonts.outfit(
-              fontSize: 14,
-              color: _cGold,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
-            ),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+          child: ShelfSectionHeader(
+            eyebrow: 'Collection',
+            title: title,
+            icon: icon,
+            accent: accent,
+            count: items.length,
+            countLabel: 'titles',
           ),
         ),
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           itemCount: items.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            childAspectRatio: 0.7,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
+            crossAxisCount: 2,
+            childAspectRatio: 0.65,
+            crossAxisSpacing: 14,
+            mainAxisSpacing: 14,
           ),
           itemBuilder: (context, index) {
-            return _AnimePosterTile(
-              item: items[index],
-              onTap: () => _openDetails(items[index]),
+            final item = items[index];
+            return ShelfPosterCard(
+              imageUrl: item.posterPath,
+              title: item.title,
+              subtitle: item.year.isNotEmpty ? item.year : null,
+              badge: title == 'Watched' ? 'WATCHED' : 'QUEUE',
+              badgeColor: accent,
+              onTap: () => _openDetails(item),
             );
           },
         ),
@@ -812,59 +961,15 @@ class _AnimeScreenState extends State<AnimeScreen>
   // ── SEARCH TAB ─────────────────────────────────────────────────────
 
   Widget _buildSearchTab() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: _cCard,
-              ),
-              child: const Icon(
-                Icons.search_rounded,
-                color: _cRose,
-                size: 64,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Find Your Next Anime',
-              style: GoogleFonts.cormorantGaramond(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: _cRose,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Anime is auto-detected from your saves.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                color: _cMuted,
-              ),
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: _openSearch,
-              icon: const Icon(Icons.search),
-              label: const Text('Open Search'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _cDeepRose,
-                foregroundColor: _cWhite,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return ShelfEmptyState(
+      icon: Icons.search_rounded,
+      title: 'Find Your Next Anime',
+      subtitle:
+          'Search MyAnimeList / AniList by title. We auto-detect anime from the results and drop it into your library.',
+      ctaLabel: 'Open Search',
+      ctaIcon: Icons.search_rounded,
+      onCta: _openSearch,
+      accent: _cDeepRose,
     );
   }
 }
@@ -909,45 +1014,6 @@ class _BrowseGroupMeta {
 }
 
 // ── EXTRACTED WIDGETS ─────────────────────────────────────────────
-
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: selected ? _cDeepRose : _cMuted, size: 22),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: GoogleFonts.outfit(
-                fontSize: 11,
-                color: selected ? _cRose : _cMuted,
-                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _AnimeFilterChip extends StatelessWidget {
   final AnimeCategoryOption option;
@@ -996,174 +1062,57 @@ class _AnimeFilterChip extends StatelessWidget {
   }
 }
 
-/// Compact poster tile used in the home + library carousels. Tapping it
-/// opens the standard [EpisodeDrawer] so users can manage their
-/// watchlist / play state without leaving the screen.
-class _AnimePosterTile extends StatelessWidget {
-  final MediaItem item;
-  final VoidCallback onTap;
-  const _AnimePosterTile({required this.item, required this.onTap});
+/// Compact poster tile used in the home + library carousels is now
+/// `ShelfPosterCard` (see `lib/shared/widgets/shelf/`).
+
+/// Hero card for the Trending carousel is now `ShelfHeroCarousel`
+/// (see `lib/shared/widgets/shelf/`).
+
+/// Small tinted stat chip used in the library header.
+class _LibraryStat extends StatelessWidget {
+  final String label;
+  final int count;
+  final Color color;
+  const _LibraryStat({
+    required this.label,
+    required this.count,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            item.posterPath.isNotEmpty
-                ? Image.network(item.posterPath, fit: BoxFit.cover)
-                : Container(
-                    color: _cVelvet,
-                    child: Icon(
-                      Icons.animation_rounded,
-                      color: _cRose.withValues(alpha: 0.4),
-                      size: 28,
-                    ),
-                  ),
-            Positioned(
-              top: 6,
-              left: 6,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: _cDeepRose.withValues(alpha: 0.9),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  'ANIME',
-                  style: GoogleFonts.outfit(
-                    fontSize: 8,
-                    color: _cWhite,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-              ),
-            ),
-            if (item.year.isNotEmpty)
-              Positioned(
-                bottom: 6,
-                right: 6,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    item.year,
-                    style: GoogleFonts.outfit(
-                      fontSize: 9,
-                      color: _cWhite,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-          ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: color.withValues(alpha: 0.3),
+          width: 0.8,
         ),
       ),
-    );
-  }
-}
-
-/// Larger hero card for the Trending Now carousel on the home tab.
-class _AnimeHeroCard extends StatelessWidget {
-  final MediaItem item;
-  final VoidCallback onTap;
-  const _AnimeHeroCard({required this.item, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final backdrop = item.backdropPath.isNotEmpty
-        ? item.backdropPath
-        : item.posterPath;
-    return GestureDetector(
-      onTap: onTap,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (backdrop.isNotEmpty)
-              Image.network(backdrop, fit: BoxFit.cover)
-            else
-              Container(color: _cVelvet),
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withValues(alpha: 0.85),
-                  ],
-                  stops: const [0.4, 1.0],
-                ),
-              ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$count',
+            style: GoogleFonts.cormorantGaramond(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: color,
             ),
-            Positioned(
-              top: 12,
-              left: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _cDeepRose.withValues(alpha: 0.9),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'TRENDING',
-                  style: GoogleFonts.outfit(
-                    fontSize: 9,
-                    color: _cWhite,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.0,
-                  ),
-                ),
-              ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: GoogleFonts.outfit(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: color.withValues(alpha: 0.85),
+              letterSpacing: 0.6,
             ),
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 16,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    item.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.cormorantGaramond(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: _cWhite,
-                      height: 1.1,
-                    ),
-                  ),
-                  if (item.year.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      item.year,
-                      style: GoogleFonts.outfit(
-                        fontSize: 12,
-                        color: _cGold,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
