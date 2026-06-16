@@ -347,9 +347,41 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     final anime = await animeByIdFuture;
     final aniZipImages = await aniZipFuture;
 
-    final episodeCount = (anime?['episodes'] is num)
+    // Pick the loop bound carefully. Three signals matter:
+    //   1. Jikan `/anime/{id}` → `episodes` = total announced episode
+    //      count for the whole series (e.g. 24 for an airing show).
+    //   2. Jikan `/anime/{id}/episodes` → only aired episodes with
+    //      titles (e.g. 10 for the same show mid-season).
+    //   3. ani.zip → TVDB-sourced, may cover aired + scheduled.
+    //
+    // If we blindly used #1, an airing show would render 14 placeholder
+    // "Episode N" rows for episodes that haven't aired yet. Instead we
+    // cap at the highest episode number we actually have *any* signal
+    // for — Jikan aired count or ani.zip count, whichever is bigger.
+    final announcedCount = (anime?['episodes'] is num)
         ? (anime?['episodes'] as num).toInt()
-        : jikanEps.length;
+        : 0;
+    final jikanMaxNum = jikanEps
+        .map((e) => (e['mal_id'] as num?)?.toInt() ?? 0)
+        .fold<int>(0, (a, b) => a > b ? a : b);
+    final aniZipMaxNum = aniZipImages.keys.fold<int>(0, (a, b) => a > b ? a : b);
+    final maxKnown = jikanMaxNum > aniZipMaxNum ? jikanMaxNum : aniZipMaxNum;
+
+    int episodeCount;
+    if (maxKnown > 0) {
+      // At least one source has aired/scheduled data. Cap to that so
+      // we don't render empty placeholders for unaired episodes.
+      episodeCount = maxKnown;
+      // If Jikan's announced count is *lower* than what we've found
+      // (e.g. an OVA that bumps the count up after the main series
+      // finishes), respect the higher number.
+      if (announcedCount > episodeCount) episodeCount = announcedCount;
+    } else {
+      // No aired data from any source — fall back to the announced
+      // count or 12 as a last resort, so the UI still renders rows
+      // with placeholder titles.
+      episodeCount = announcedCount > 0 ? announcedCount : 12;
+    }
 
     final anilistTitles = <int, String>{};
     final anilistThumbs = <int, String>{};
@@ -1957,13 +1989,10 @@ class _EpisodeTile extends StatefulWidget {
 class _EpisodeTileState extends State<_EpisodeTile> {
   bool _pressed = false;
 
-  /// Minimum height of the row. Set explicitly because the parent
-  /// `SliverList` provides unbounded vertical space, so without an
-  /// explicit `minHeight` the row collapses to the text's intrinsic
-  /// height (a single line) and the left rail + play button end up
-  /// with zero visible height. This guarantees a tappable, well-
-  /// proportioned tile even for one-line episode titles.
-  static const double _minRowHeight = 80;
+  /// Intrinsic height of the rail widgets (numbered / thumbnail). Set
+  /// to the same value so either rail produces the same row height
+  /// when the title is one line — keeps the list visually uniform.
+  static const double _railHeight = 76;
 
   @override
   Widget build(BuildContext context) {
@@ -1978,79 +2007,88 @@ class _EpisodeTileState extends State<_EpisodeTile> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 140),
         margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-        constraints: const BoxConstraints(minHeight: _minRowHeight),
         decoration: BoxDecoration(
           color: _pressed ? _cCard.withValues(alpha: 0.8) : _cCard.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: _cRose.withValues(alpha: 0.08)),
         ),
-        child: Row(
-          children: [
-            // Left rail: thumbnail (when available) or numbered accent.
-            // Anime episode stills come from AniList's `streamingEpisodes`
-            // (Crunchyroll/Funimation licensed) or ani.zip's TVDB feed;
-            // TMDB stills are used for non-anime. When a still is
-            // missing the old typography rail keeps the row looking
-            // intentional instead of a broken-image box.
-            if (hasThumb)
-              _buildThumbnailRail()
-            else
-              _buildNumberedRail(),
-            const SizedBox(width: 12),
-            // Title + overview
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.epName,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.outfit(
-                        color: _cWhite,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                        height: 1.2,
-                      ),
-                    ),
-                    if (widget.epOverview.isNotEmpty) ...[
-                      const SizedBox(height: 4),
+        // IntrinsicHeight forces the Row's cross-axis to equal the
+        // tallest child's intrinsic height (the rail at _railHeight).
+        // Without it, a SliverList's unbounded vertical constraints
+        // let the Row collapse to the title text's one-line height
+        // and the rail + play button render at zero visible height.
+        // IntrinsicHeight is cheap here because each tile has only
+        // ~5 children and the list is short.
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Left rail: thumbnail (when available) or numbered accent.
+              // Anime episode stills come from AniList's `streamingEpisodes`
+              // (Crunchyroll/Funimation licensed) or ani.zip's TVDB feed;
+              // TMDB stills are used for non-anime. When a still is
+              // missing the old typography rail keeps the row looking
+              // intentional instead of a broken-image box.
+              if (hasThumb)
+                _buildThumbnailRail()
+              else
+                _buildNumberedRail(),
+              const SizedBox(width: 12),
+              // Title + overview
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        widget.epOverview,
-                        maxLines: 3,
+                        widget.epName,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.outfit(
-                          color: _cMuted,
-                          fontSize: 11,
-                          height: 1.4,
+                          color: _cWhite,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          height: 1.2,
                         ),
                       ),
+                      if (widget.epOverview.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.epOverview,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.outfit(
+                            color: _cMuted,
+                            fontSize: 11,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 6),
-            // Play icon
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-              child: Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: _cDeepRose.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                      color: _cDeepRose.withValues(alpha: 0.4), width: 1),
+              const SizedBox(width: 6),
+              // Play icon
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: _cDeepRose.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                        color: _cDeepRose.withValues(alpha: 0.4), width: 1),
+                  ),
+                  child: const Icon(Icons.play_arrow_rounded,
+                      color: _cDeepRose, size: 18),
                 ),
-                child: const Icon(Icons.play_arrow_rounded,
-                    color: _cDeepRose, size: 18),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -2060,44 +2098,39 @@ class _EpisodeTileState extends State<_EpisodeTile> {
   /// tinted panel. Used when no thumbnail is available (e.g. Jikan
   /// had no still and neither AniList nor ani.zip could supply one).
   Widget _buildNumberedRail() {
-    return Container(
+    return SizedBox(
       width: 56,
-      height: _minRowHeight,
-      decoration: BoxDecoration(
-        color: _cDeepRose.withValues(alpha: _pressed ? 0.18 : 0.1),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(16),
-          bottomLeft: Radius.circular(16),
+      height: _railHeight,
+      child: Container(
+        decoration: BoxDecoration(
+          color: _cDeepRose.withValues(alpha: _pressed ? 0.18 : 0.1),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(16),
+            bottomLeft: Radius.circular(16),
+          ),
         ),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        widget.epNum.toString().padLeft(2, '0'),
-        style: GoogleFonts.cormorantGaramond(
-          fontSize: 26,
-          fontWeight: FontWeight.w900,
-          color: _cDeepRose,
-          height: 1,
+        alignment: Alignment.center,
+        child: Text(
+          widget.epNum.toString().padLeft(2, '0'),
+          style: GoogleFonts.cormorantGaramond(
+            fontSize: 26,
+            fontWeight: FontWeight.w900,
+            color: _cDeepRose,
+            height: 1,
+          ),
         ),
       ),
     );
   }
 
-  /// Thumbnail rail. 80px wide so a 16:9 still crops to roughly the
-  /// same vertical footprint as the numbered rail, and a gradient
-  /// overlay on the left edge keeps the episode number readable on
-  /// bright stills. The play badge top-left is a visual cue that the
-  /// row is tappable.
+  /// Thumbnail rail. Sized to the same fixed height as the numbered
+  /// rail so both rails produce a uniform row height; the 16:9 still
+  /// inside scales to fit. A gradient overlay on the left edge keeps
+  /// the episode number readable on bright stills.
   Widget _buildThumbnailRail() {
-    return Container(
+    return SizedBox(
       width: 80,
-      height: _minRowHeight,
-      decoration: const BoxDecoration(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(16),
-          bottomLeft: Radius.circular(16),
-        ),
-      ),
+      height: _railHeight,
       child: ClipRRect(
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(16),
