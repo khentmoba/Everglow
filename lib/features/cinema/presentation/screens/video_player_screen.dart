@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:web/web.dart' as web;
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/data/services/ani_zip_service.dart';
 
@@ -93,8 +94,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       name: 'MultiEmbed',
       shortName: 'MultiEmbed',
       note: 'Multi-source fallback',
-      movieUrl: 'https://multiembed.mov/directstream/?video_id=',
-      tvUrl: 'https://multiembed.mov/directstream/?video_id=',
+      movieUrl: 'https://multiembed.mov/?video_id=',
+      tvUrl: 'https://multiembed.mov/?video_id=',
     ),
     VideoProvider(
       id: 'videasy',
@@ -460,7 +461,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             Expanded(
               child: Stack(
                 children: [
-                  if (!_iframeFailed) HtmlElementView(viewType: _viewType),
+                  if (!_iframeFailed)
+                    PointerInterceptor(
+                      child: HtmlElementView(viewType: _viewType),
+                    ),
                   if (_isLoading && !_iframeFailed)
                     const Center(
                       child: CircularProgressIndicator(color: AppTheme.deepRose),
@@ -559,57 +563,90 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
     if (!isSelectable) return badge;
 
-    return PopupMenuButton<VideoProvider>(
-      tooltip: 'Switch source',
-      color: const Color(0xFF1C1228),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: AppTheme.roseQuartz.withValues(alpha: 0.3)),
-      ),
-      offset: const Offset(0, 36),
-      onSelected: _selectProvider,
-      itemBuilder: (context) => _selectableProviders
-          .map((p) => PopupMenuItem<VideoProvider>(
-                value: p,
-                child: Row(
-                  children: [
-                    Icon(
-                      p.id == _selectedProvider.id
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_unchecked,
-                      color: p.id == _selectedProvider.id
-                          ? AppTheme.deepRose
-                          : Colors.white54,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          p.name,
-                          style: GoogleFonts.outfit(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          p.note,
-                          style: GoogleFonts.outfit(
-                            color: Colors.white60,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ))
-          .toList(),
+    return GestureDetector(
+      onTap: () => _showProviderSheet(),
       child: badge,
     );
+  }
+
+  void _showProviderSheet() {
+    showModalBottomSheet<VideoProvider>(
+      context: context,
+      backgroundColor: const Color(0xFF1C1228),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Switch Source',
+              style: GoogleFonts.outfit(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Select a streaming provider',
+              style: GoogleFonts.outfit(
+                color: Colors.white54,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ..._selectableProviders.map((p) {
+              final isSelected = p.id == _selectedProvider.id;
+              return ListTile(
+                leading: Icon(
+                  isSelected
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                  color: isSelected ? AppTheme.deepRose : Colors.white54,
+                  size: 20,
+                ),
+                title: Text(
+                  p.name,
+                  style: GoogleFonts.outfit(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                subtitle: Text(
+                  p.note,
+                  style: GoogleFonts.outfit(
+                    color: Colors.white54,
+                    fontSize: 11,
+                  ),
+                ),
+                trailing: isSelected
+                    ? const Icon(Icons.check_circle, color: AppTheme.deepRose, size: 20)
+                    : null,
+                onTap: () {
+                  Navigator.pop(ctx, p);
+                },
+              );
+            }),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    ).then((provider) {
+      if (provider != null) _selectProvider(provider);
+    });
   }
 
   /// Inline error card shown when the iframe 404s, errors out, or fails
