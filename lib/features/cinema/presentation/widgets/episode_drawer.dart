@@ -63,6 +63,10 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   /// working unchanged.
   AniListDetail? _aniListDetail;
 
+  /// TMDB series ID found by the anime fallback (search or ani.zip). Used
+  /// by [_fetchReviews] to try TMDB reviews when Jikan reviews are empty.
+  int? _aniSearchedTmdbId;
+
   /// Studio name when this is an anime item (e.g. "MAPPA"). Empty for
   /// non-anime items so the meta row just skips it.
   String get _studio => _isAnimeSourced
@@ -400,7 +404,14 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         episodeCount > 0 && withThumb.length < episodeCount;
     Map<int, ({String? stillUrl, String? overview})> tmdbStills = {};
     if (needsTmdbFallback) {
-      final tmdbSeriesId = await _aniZipService.fetchTmdbId(malId);
+      int? tmdbSeriesId = await _aniZipService.fetchTmdbId(malId);
+      if (tmdbSeriesId == null && widget.item.year.isNotEmpty) {
+        tmdbSeriesId = await _tmdbService.searchTvShow(
+          widget.item.title,
+          firstAirDateYear: widget.item.year,
+        );
+      }
+      _aniSearchedTmdbId = tmdbSeriesId;
       if (tmdbSeriesId != null) {
         tmdbStills =
             await _fetchTmdbEpisodeStills(tmdbSeriesId, _aniListDetail);
@@ -560,6 +571,19 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       List<Map<String, dynamic>> reviews;
       if (_isAnimeSourced) {
         reviews = await _fetchJikanReviews(widget.item.tmdbId);
+        // If Jikan returned no reviews, try TMDB as a fallback.
+        if (reviews.isEmpty) {
+          int? tmdbId = _aniSearchedTmdbId;
+          if (tmdbId == null && widget.item.year.isNotEmpty) {
+            tmdbId = await _tmdbService.searchTvShow(
+              widget.item.title,
+              firstAirDateYear: widget.item.year,
+            );
+          }
+          if (tmdbId != null) {
+            reviews = await _tmdbService.fetchReviews(tmdbId, 'tv');
+          }
+        }
       } else {
         reviews = await _tmdbService.fetchReviews(
             widget.item.tmdbId, widget.item.mediaType);
