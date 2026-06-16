@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:animate_do/animate_do.dart';
 import 'package:provider/provider.dart';
 
-import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/books/data/models/book_item.dart';
 import 'package:everglow/features/books/data/services/open_library_service.dart';
 import 'package:everglow/features/books/presentation/screens/books_screen.dart';
+import 'package:everglow/features/books/presentation/widgets/book_details_drawer.dart';
 import 'package:everglow/services/auth_service.dart';
+import 'shelf_widgets.dart';
 
-/// Dashboard sliver that previews the user's read list. Mirrors
-/// `CinemaPreview` from the cinema feature.
+/// "Our Books" shelf on the dashboard. Mirrors [CinemaPreview] /
+/// [MangaPreview] visually so the four rails read as a family, but
+/// pulls the user's read list from [OpenLibraryService] and uses the
+/// warm amber accent.
 class BooksPreview extends StatelessWidget {
   const BooksPreview({Key? key}) : super(key: key);
 
@@ -21,117 +22,92 @@ class BooksPreview extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Our Books',
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.roseQuartz,
-                ),
-              ),
-              TextButton(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const BooksScreen()),
-                ),
-                child: Text(
-                  'View All',
-                  style: GoogleFonts.outfit(
-                    color: AppTheme.blushGold,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 150,
-            child: userName.isEmpty
-                ? _buildEmptyState(context)
-                : StreamBuilder<List<BookItem>>(
-                    stream: service.getReadListStream(userName),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                        return _buildEmptyState(context);
-                      }
-                      final items = snapshot.data!.take(5).toList();
-                      return ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: items.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(width: 12),
-                        itemBuilder: (context, index) {
-                          final item = items[index];
-                          return ZoomIn(
-                            delay: Duration(milliseconds: index * 100),
-                            child: Container(
-                              width: 100,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppTheme.deepRose
-                                        .withValues(alpha: 0.15),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: item.coverUrl.isNotEmpty
-                                    ? Image.network(item.coverUrl,
-                                        fit: BoxFit.cover)
-                                    : Container(
-                                        color: AppTheme.velvet,
-                                        child: const Center(
-                                          child: Icon(
-                                            Icons.menu_book_rounded,
-                                            color: AppTheme.roseQuartz,
-                                            size: 28,
-                                          ),
-                                        ),
-                                      ),
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
-          ),
-        ],
+      child: _BooksShelf(
+        userName: userName,
+        service: service,
       ),
     );
   }
+}
 
-  Widget _buildEmptyState(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-            color: AppTheme.moonlight.withValues(alpha: 0.15), width: 1),
-      ),
-      child: Center(
-        child: Text(
-          'No books yet. Find your next read!',
-          style: GoogleFonts.outfit(
-            color: AppTheme.roseQuartz.withValues(alpha: 0.6),
-            fontStyle: FontStyle.italic,
+class _BooksShelf extends StatelessWidget {
+  final String userName;
+  final OpenLibraryService service;
+  const _BooksShelf({required this.userName, required this.service});
+
+  void _openDetails(BuildContext context, BookItem item) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => BookDetailsDrawer(item: item),
+    );
+  }
+
+  String _subtitleFor(BookItem item) {
+    if (item.author.isEmpty) return item.year;
+    if (item.year.isEmpty) return item.author;
+    return '${item.author} • ${item.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ShelfHeader(
+          accent: ShelfAccent.books,
+          title: 'Our Books',
+          itemCount: 0,
+          onViewAll: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const BooksScreen()),
           ),
         ),
-      ),
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 168,
+          child: userName.isEmpty
+              ? const ShelfEmpty(
+                  accent: ShelfAccent.books,
+                  message: 'No books yet. Find your next read!',
+                )
+              : StreamBuilder<List<BookItem>>(
+                  stream: service.getReadListStream(userName),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const ShelfMarquee(
+                        hasLoaded: false,
+                        children: [],
+                      );
+                    }
+                    final items = snapshot.data!;
+                    if (items.isEmpty) {
+                      return ShelfEmpty(
+                        accent: ShelfAccent.books,
+                        message: 'No books yet. Find your next read!',
+                      );
+                    }
+                    return ShelfMarquee(
+                      children: items
+                          .map(
+                            (item) => Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: ShelfCard(
+                                accent: ShelfAccent.books,
+                                imageUrl: item.coverUrl,
+                                title: item.title,
+                                subtitle: _subtitleFor(item),
+                                onTap: () => _openDetails(context, item),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }

@@ -49,7 +49,9 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
       _chapterError = null;
     });
     try {
-      final list = await _service.getChapterFeed(_item.mangaId);
+      // Use mangaDexId for new entries, fall back to mangaId for old ones
+      final mdId = _item.mangaDexId.isNotEmpty ? _item.mangaDexId : _item.mangaId;
+      final list = await _service.getChapterFeed(mdId);
       if (!mounted) return;
       setState(() {
         _chapters = list;

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
 
 /// Talks to the public Comick API for catalog browsing (search, popular,

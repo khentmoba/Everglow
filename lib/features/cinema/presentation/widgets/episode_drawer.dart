@@ -25,6 +25,11 @@ const _cAmber = Color(0xFFF0A500);
 const _cWhite = Color(0xFFFFF5F5);
 const _cMuted = Color(0xFF8A7A92);
 
+/// Proxy URL for CORS-blocked anime thumbnail CDNs (Crunchyroll, etc.).
+/// Fetches the image server-side and returns it with permissive CORS headers.
+const _proxyAnimeImageUrl =
+    'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnimeImage';
+
 class EpisodeDrawer extends StatefulWidget {
   final MediaItem item;
 
@@ -114,7 +119,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     _fetchMediaDetails();
     _loadTrailer();
     _fetchCast();
-    _fetchReviews();
+    // Delay reviews by 4s so episode Jikan fetches can clear the queue,
+    // reducing the chance of 429 rate-limit collisions.
+    Future.delayed(const Duration(seconds: 4), _fetchReviews);
     _fetchSimilar();
   }
 
@@ -396,14 +403,17 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       if (th != null && th.isNotEmpty) anilistThumbs[ep.number] = th;
     }
 
-    // TMDB fallback — only when existing thumbnails are sparse.
-    final withThumb = <int>{}
-      ..addAll(anilistThumbs.keys)
-      ..addAll(aniZipImages.keys);
-    final needsTmdbFallback =
-        episodeCount > 0 && withThumb.length < episodeCount;
+    // Always fetch TMDB episode data for overviews (descriptions).
+    // TMDB stills are only preferred as a fallback when anime-source
+    // thumbnails (AniList / ani.zip) are sparse.
+    final needsTmdbFallback = (() {
+      final withThumb = <int>{}
+        ..addAll(anilistThumbs.keys)
+        ..addAll(aniZipImages.keys);
+      return episodeCount > 0 && withThumb.length < episodeCount;
+    })();
     Map<int, ({String? stillUrl, String? overview})> tmdbStills = {};
-    if (needsTmdbFallback) {
+    if (episodeCount > 0) {
       int? tmdbSeriesId = await _aniZipService.fetchTmdbId(malId);
       if (tmdbSeriesId == null && widget.item.year.isNotEmpty) {
         tmdbSeriesId = await _tmdbService.searchTvShow(
@@ -438,8 +448,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
           (je?['duration'] is num) ? (je?['duration'] as num).toInt() : null;
 
       final tmdb = tmdbStills[i];
+      final tmdbStill = needsTmdbFallback ? tmdb?.stillUrl : null;
       final stillPath =
-          anilistThumbs[i] ?? aniZipImages[i] ?? tmdb?.stillUrl ?? posterUrl;
+          anilistThumbs[i] ?? aniZipImages[i] ?? tmdbStill ?? posterUrl;
 
       out.add({
         'episode_number': i,
@@ -594,7 +605,8 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
           _isLoadingReviews = false;
         });
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('_fetchReviews failed: $e');
       if (mounted) {
         setState(() {
           _reviews = [];
@@ -1584,12 +1596,26 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     final epNum = ep['episode_number'] ?? (index + 1);
     final epName = ep['name'] ?? 'Episode $epNum';
     final epOverview = ep['overview'] ?? '';
+    String? proxyIfBlocked(String url) {
+      // Crunchyroll and other streaming CDNs don't send CORS headers, so
+      // the browser drops these image loads. Route them through the
+      // server-side proxy that adds permissive CORS headers.
+      try {
+        final parsed = Uri.parse(url);
+        if (parsed.host.endsWith('.crunchyroll.com') ||
+            parsed.host.endsWith('.funimation.com')) {
+          return '$_proxyAnimeImageUrl?url=${Uri.encodeComponent(url)}';
+        }
+      } catch (_) {}
+      return url;
+    }
+
     final epStillPath = ep['still_path'];
     final isFullUrl = epStillPath != null &&
         (epStillPath.startsWith('http://') || epStillPath.startsWith('https://'));
     final epStillUrl = epStillPath != null
         ? (isFullUrl
-            ? epStillPath
+            ? proxyIfBlocked(epStillPath)
             : 'https://image.tmdb.org/t/p/w300$epStillPath')
         : null;
 

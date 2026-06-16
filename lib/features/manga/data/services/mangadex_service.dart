@@ -18,7 +18,6 @@ import 'package:everglow/features/manga/data/models/manga_item.dart';
 /// the `proxyMangaImage` Firebase Cloud Function.
 class MangaDexService {
   static const String _baseUrl = 'https://api.mangadex.org';
-  static const String _uploadsBase = 'https://uploads.mangadex.org';
 
   /// Cloud Function URL for proxying manga image requests. Mirrors the
   /// `proxyBookText` pattern from the books feature. The function
