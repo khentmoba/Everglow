@@ -49,6 +49,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// within [_loadTimeout], or fails three URL-form retries. The error
   /// card takes over from the spinner in that case.
   bool _iframeFailed = false;
+  /// True while the provider picker bottom sheet is open. Used to
+  /// disable [PointerInterceptor] so taps reach the sheet overlay.
+  bool _sheetOpen = false;
   late final String _viewType;
   late final web.HTMLIFrameElement _iframe;
   JSFunction? _onLoadListener;
@@ -463,6 +466,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 children: [
                   if (!_iframeFailed)
                     PointerInterceptor(
+                      intercepting: !_sheetOpen,
                       child: HtmlElementView(viewType: _viewType),
                     ),
                   if (_isLoading && !_iframeFailed)
@@ -570,6 +574,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   void _showProviderSheet() {
+    setState(() => _sheetOpen = true);
     showModalBottomSheet<VideoProvider>(
       context: context,
       backgroundColor: const Color(0xFF1C1228),
@@ -645,6 +650,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         ),
       ),
     ).then((provider) {
+      setState(() => _sheetOpen = false);
       if (provider != null) _selectProvider(provider);
     });
   }
