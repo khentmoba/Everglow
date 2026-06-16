@@ -1,7 +1,7 @@
 import 'dart:async';
 // ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:html' as html;
-import 'dart:ui' as ui;
+import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_html/flutter_html.dart';
@@ -128,8 +128,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   void _registerIframe(String iaId) {
     try {
-      // ignore: undefined_prefixed_name
-      ui.platformViewRegistry.registerViewFactory(_viewType, (int viewId) {
+      ui_web.platformViewRegistry.registerViewFactory(_viewType, (int viewId) {
         return html.IFrameElement()
           ..src = 'https://archive.org/stream/$iaId?ui=embed'
           ..style.width = '100%'
