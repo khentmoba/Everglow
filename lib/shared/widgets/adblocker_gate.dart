@@ -147,6 +147,8 @@ class _AdblockerGateState extends State<AdblockerGate> {
         ),
         const SizedBox(height: 32),
         _buildUblockCard(),
+        const SizedBox(height: 16),
+        _buildMobileCard(),
         const SizedBox(height: 32),
         _buildActionButtons(),
         const SizedBox(height: 24),
@@ -215,6 +217,77 @@ class _AdblockerGateState extends State<AdblockerGate> {
               color: AppTheme.petalWhite.withValues(alpha: 0.6),
               fontSize: 12,
               height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1228),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppTheme.softLavender.withValues(alpha: 0.15),
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2D1B33),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.phone_android_rounded,
+                  color: AppTheme.blushGold,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Mobile Options',
+                      style: GoogleFonts.outfit(
+                        color: AppTheme.petalWhite,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Works on phones and tablets',
+                      style: GoogleFonts.outfit(
+                        color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '• Firefox for Android → install uBlock Origin\n'
+            '• Samsung Internet → Adblock Plus (add-on store)\n'
+            '• Safari on iOS → Adblock Plus (Settings > Safari > Extensions)\n'
+            '• Kiwi Browser (Android) → install uBlock Origin\n'
+            '• AdGuard (system-wide, any Android browser)',
+            style: GoogleFonts.outfit(
+              color: AppTheme.petalWhite.withValues(alpha: 0.6),
+              fontSize: 12,
+              height: 1.6,
             ),
           ),
         ],
