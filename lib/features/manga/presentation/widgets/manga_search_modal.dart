@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
+import 'package:everglow/features/manga/data/services/comick_service.dart';
 import 'package:everglow/features/manga/data/services/mangadex_service.dart';
 import 'package:everglow/features/manga/presentation/widgets/manga_cover_card.dart';
 import 'package:everglow/services/auth_service.dart';
@@ -25,7 +26,8 @@ class MangaSearchModal extends StatefulWidget {
 }
 
 class _MangaSearchModalState extends State<MangaSearchModal> {
-  final MangaDexService _service = MangaDexService();
+  final ComickService _comick = ComickService();
+  final MangaDexService _md = MangaDexService();
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
   List<MangaItem> _results = [];
@@ -58,9 +60,10 @@ class _MangaSearchModalState extends State<MangaSearchModal> {
 
   Future<void> _performSearch(String query) async {
     setState(() => _isLoading = true);
-    final results = await _service.searchManga(
+    final country = _selectedLanguage.isEmpty ? null : _selectedLanguage;
+    final results = await _comick.search(
       query: query,
-      originalLanguage: _selectedLanguage.isEmpty ? null : _selectedLanguage,
+      country: country,
     );
     if (mounted) {
       setState(() {
@@ -177,7 +180,17 @@ class _MangaSearchModalState extends State<MangaSearchModal> {
                 Navigator.pop(context);
                 final u = context.read<AuthService>().currentUser ?? '';
                 if (u.isEmpty) return;
-                await _service.saveToLibrary(item, status, u);
+                // Resolve MangaDex ID for chapter page access
+                String mangaDexId = item.mangaDexId;
+                if (mangaDexId.isEmpty) {
+                  mangaDexId = await _md.searchByTitle(item.title);
+                }
+                final saved = item.copyWith(
+                  mangaDexId: mangaDexId,
+                  libraryStatus: status,
+                  userName: u,
+                );
+                await _md.saveToLibrary(saved, status, u);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -275,9 +288,9 @@ class _MangaSearchModalState extends State<MangaSearchModal> {
             child: Row(
               children: const [
                 _LangChip(value: '', label: 'All', icon: Icons.all_inclusive),
-                _LangChip(value: 'ja', label: 'Manga', icon: Icons.translate),
+                _LangChip(value: 'jp', label: 'Manga', icon: Icons.translate),
                 _LangChip(value: 'ko', label: 'Manhwa', icon: Icons.translate),
-                _LangChip(value: 'zh', label: 'Manhua', icon: Icons.translate),
+                _LangChip(value: 'cn', label: 'Manhua', icon: Icons.translate),
               ]
                   .map((chip) => Padding(
                         padding: const EdgeInsets.only(right: 8),
