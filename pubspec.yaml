@@ -54,6 +54,7 @@ dependencies:
   flutter_dotenv: ^6.0.1
   just_audio: ^0.9.41
   web: ^1.1.1
+  pointer_interceptor: ^0.10.1
   flutter_html: ^3.0.0
 
 dev_dependencies:
