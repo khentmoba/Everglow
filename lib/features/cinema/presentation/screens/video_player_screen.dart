@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:js_interop';
+import 'dart:js_interop' show JSFunction, JSAny, dartify;
 import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
@@ -97,6 +97,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       tvUrl: 'https://multiembed.mov/?video_id=',
     ),
     VideoProvider(
+      id: 'embed.su',
+      name: 'Embed.su',
+      shortName: 'Embed.su',
+      note: 'Reliable TMDB source',
+      movieUrl: 'https://embed.su/embed/movie/',
+      tvUrl: 'https://embed.su/embed/tv/',
+    ),
+    VideoProvider(
       id: 'videasy',
       name: 'Videasy',
       shortName: 'Videasy',
@@ -129,6 +137,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _iframe = web.HTMLIFrameElement()
       ..allow =
           'autoplay; fullscreen; encrypted-media; picture-in-picture; accelerometer; gyroscope; clipboard-write'
+      ..setAttribute('referrerpolicy', 'no-referrer-when-downgrade')
       ..setAttribute('frameborder', '0')
       ..setAttribute('scrolling', 'no');
     _iframe.style
@@ -238,9 +247,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       try {
         final data = (e as web.MessageEvent).data;
         if (data == null) return;
-        final map = data.dartify();
-        if (map is! Map) return;
-        if (map['type'] == 'MEDIA_DATA') {
+        // message events from cross-origin iframes deliver JS values;
+        // dartify() converts them to Dart Maps when possible.
+        final raw = dartify(data as JSAny?);
+        if (raw is! Map) return;
+        if (raw['type'] == 'MEDIA_DATA') {
           _contentCheckTimer?.cancel();
         }
       } catch (_) {} // ignore cross-origin / parse errors
@@ -361,7 +372,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (widget.mediaType == 'tv') {
       final seasonNum = widget.season ?? 1;
       final epNum = widget.episode ?? 1;
-      if (tvBase.contains('vidsrc.me')) {
+      if (tvBase.contains('vidsrc.to')) {
         return '$tvBase$id&season=$seasonNum&episode=$epNum';
       } else if (tvBase.contains('multiembed.mov')) {
         return '$tvBase$id&tmdb=1&s=$seasonNum&e=$epNum';
