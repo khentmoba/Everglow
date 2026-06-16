@@ -412,6 +412,18 @@ class JikanService {
     ];
   }
 
+  /// Jikan's user-recommendation rail for an anime
+  /// (`/anime/{id}/recommendations`). Used as a fallback when AniList's
+  /// `relations` + `recommendations` come back empty (which happens for
+  /// most niche shows). Returns the raw Jikan envelope entries — the
+  /// caller maps them into [MediaItem].
+  Future<List<Map<String, dynamic>>> fetchAnimeRecommendations(int malId) async {
+    final json = await _getJson('/anime/$malId/recommendations');
+    if (json == null) return const [];
+    final data = (json['data'] as List?) ?? const [];
+    return data.whereType<Map<String, dynamic>>().toList();
+  }
+
   /// Per-episode list (titles, air dates, durations) for an anime from
   /// Jikan's `/anime/{id}/episodes` endpoint. Episodes come back in
   /// airing order with `mal_id` set to the in-show episode number.

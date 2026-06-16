@@ -17,7 +17,6 @@ import 'trailer_player.dart';
 // Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬
 // Cinema token aliases (mirror cinema_screen.dart)
 // Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬
-const _cBlack = Color(0xFF080810);
 const _cVelvet = Color(0xFF12091A);
 const _cCard = Color(0xFF1C1228);
 const _cRose = Color(0xFFF4C2C2);
@@ -439,35 +438,53 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   }
 
   /// Fetches MAL user reviews via Jikan's /anime/{id}/reviews endpoint
-  /// and projects them into the TMDB-shaped review map.
+  /// and projects them into the TMDB-shaped review map. On a non-200
+  /// response (typically a 429 from the rate-limit storm the Editor's
+  /// Picks fan-out used to trigger) we wait 1.5s and retry once; the
+  /// burst is usually cleared by then.
   Future<List<Map<String, dynamic>>> _fetchJikanReviews(int malId) async {
     final uri = Uri.parse('https://api.jikan.moe/v4/anime/$malId/reviews');
-    try {
-      final response = await http.get(uri).timeout(const Duration(seconds: 20));
-      if (response.statusCode != 200) return [];
-      final body = json.decode(response.body) as Map<String, dynamic>;
-      final data = (body['data'] as List?) ?? const [];
-      return data.take(8).map<Map<String, dynamic>>((r) {
-        final user = (r['user'] as Map<String, dynamic>?) ?? const {};
-        return {
-          'id': r['mal_id'] ?? r['date'],
-          'author': (user['username'] as String?) ?? 'Anonymous',
-          'content': (r['review'] as String?) ?? '',
-          'rating': r['score'],
-          'createdAt': r['date'] ?? '',
-          'avatar': (user['images'] as Map<String, dynamic>?)?['jpg']?['image_url'] ?? '',
-        };
-      }).toList();
-    } catch (e) {
-      print('Jikan reviews error: $e');
-      return [];
+    Future<List<Map<String, dynamic>>> fetchOnce() async {
+      try {
+        final response =
+            await http.get(uri).timeout(const Duration(seconds: 20));
+        if (response.statusCode != 200) return const [];
+        final body = json.decode(response.body) as Map<String, dynamic>;
+        final data = (body['data'] as List?) ?? const [];
+        return data.take(8).map<Map<String, dynamic>>((r) {
+          final user = (r['user'] as Map<String, dynamic>?) ?? const {};
+          return {
+            'id': r['mal_id'] ?? r['date'],
+            'author': (user['username'] as String?) ?? 'Anonymous',
+            'content': (r['review'] as String?) ?? '',
+            'rating': r['score'],
+            'createdAt': r['date'] ?? '',
+            'avatar': (user['images'] as Map<String, dynamic>?)?['jpg']?['image_url'] ?? '',
+          };
+        }).toList();
+      } catch (e) {
+        print('Jikan reviews error: $e');
+        return const [];
+      }
     }
+
+    final first = await fetchOnce();
+    if (first.isNotEmpty) return first;
+    await Future.delayed(const Duration(milliseconds: 1500));
+    return fetchOnce();
   }
 
   Future<void> _fetchSimilar() async {
     List<MediaItem> similar;
     if (_isAnimeSourced) {
       similar = _mapAniListRelated();
+      // AniList's `recommendations` field is sparse for most titles
+      // (often zero entries) and `relations` is sometimes empty for
+      // one-shots. Fall back to Jikan's `/anime/{id}/recommendations`
+      // so the rail is rarely empty.
+      if (similar.isEmpty) {
+        similar = await _mapJikanRecommendations(widget.item.tmdbId);
+      }
     } else {
       similar = await _tmdbService.fetchSimilar(
           widget.item.tmdbId, widget.item.mediaType);
@@ -478,6 +495,41 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         _isLoadingSimilar = false;
       });
     }
+  }
+
+  /// Pulls Jikan's user-recommendation rail and projects the entries
+  /// into [MediaItem]s the existing `_buildSimilarSection` can render
+  /// without changes. Jikan returns `entry` blocks where `mal_id` is
+  /// the recommended title and `images.jpg.large_image_url` is the
+  /// cover art.
+  Future<List<MediaItem>> _mapJikanRecommendations(int malId) async {
+    final entries = await _jikanService.fetchAnimeRecommendations(malId);
+    final out = <MediaItem>[];
+    for (final e in entries) {
+      final entry = e['entry'] as Map<String, dynamic>?;
+      if (entry == null) continue;
+      final id = (entry['mal_id'] as num?)?.toInt();
+      if (id == null || id == 0) continue;
+      final images = entry['images'] as Map<String, dynamic>?;
+      final jpg = images?['jpg'] as Map<String, dynamic>?;
+      final poster = (jpg?['large_image_url'] as String?) ??
+          (jpg?['image_url'] as String?) ??
+          '';
+      out.add(MediaItem(
+        id: '',
+        tmdbId: id,
+        title: (entry['title'] as String?) ?? 'Unknown',
+        mediaType: 'tv',
+        posterPath: poster,
+        backdropPath: '',
+        year: '',
+        status: 'to-watch',
+        isAnime: true,
+        addedAt: DateTime.now(),
+        source: 'jikan',
+      ));
+    }
+    return out;
   }
 
   /// Combines AniList's relations (sequels, prequels, side stories) and
@@ -1881,91 +1933,90 @@ class _EpisodeTileState extends State<_EpisodeTile> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 140),
         margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: _pressed ? _cCard.withValues(alpha: 0.8) : _cCard.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: _cRose.withValues(alpha: 0.08)),
         ),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Ep number accent
-            Column(
-              children: [
-                const SizedBox(height: 2),
-                Text(
-                  widget.epNum.toString().padLeft(2, '0'),
-                  style: GoogleFonts.cormorantGaramond(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: _cDeepRose.withValues(alpha: 0.5),
-                    height: 1,
-                  ),
+            // Left rail: large episode number + vertical accent.
+            // Anime episodes don't have TMDB stills (and Jikan dropped
+            // its per-episode image field in v4), so we lean into the
+            // typography instead of a black placeholder box.
+            Container(
+              width: 56,
+              decoration: BoxDecoration(
+                color: _cDeepRose.withValues(alpha: _pressed ? 0.18 : 0.1),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
                 ),
-              ],
-            ),
-            const SizedBox(width: 14),
-            // Still thumbnail
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                width: 130,
-                height: 76,
-                color: _cBlack,
-                child: widget.stillUrl != null
-                    ? Image.network(widget.stillUrl!, fit: BoxFit.cover)
-                    : const Center(
-                        child: Icon(Icons.tv_rounded, color: _cMuted, size: 28),
-                      ),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                widget.epNum.toString().padLeft(2, '0'),
+                style: GoogleFonts.cormorantGaramond(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  color: _cDeepRose,
+                  height: 1,
+                ),
               ),
             ),
             const SizedBox(width: 12),
             // Title + overview
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.epName,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
-                      color: _cWhite,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                      height: 1.2,
-                    ),
-                  ),
-                  if (widget.epOverview.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      widget.epOverview,
-                      maxLines: 3,
+                      widget.epName,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.outfit(
-                        color: _cMuted,
-                        fontSize: 11,
-                        height: 1.4,
+                        color: _cWhite,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        height: 1.2,
                       ),
                     ),
+                    if (widget.epOverview.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.epOverview,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.outfit(
+                          color: _cMuted,
+                          fontSize: 11,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
             const SizedBox(width: 6),
             // Play icon
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: _cDeepRose.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-                border: Border.all(
-                    color: _cDeepRose.withValues(alpha: 0.4), width: 1),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: _cDeepRose.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                      color: _cDeepRose.withValues(alpha: 0.4), width: 1),
+                ),
+                child: const Icon(Icons.play_arrow_rounded,
+                    color: _cDeepRose, size: 18),
               ),
-              child: const Icon(Icons.play_arrow_rounded,
-                  color: _cDeepRose, size: 18),
             ),
           ],
         ),
