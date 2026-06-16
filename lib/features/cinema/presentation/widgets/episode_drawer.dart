@@ -392,6 +392,23 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       if (th != null && th.isNotEmpty) anilistThumbs[ep.number] = th;
     }
 
+    // TMDB fallback — only when existing thumbnails are sparse.
+    final withThumb = <int>{}
+      ..addAll(anilistThumbs.keys)
+      ..addAll(aniZipImages.keys);
+    final needsTmdbFallback =
+        episodeCount > 0 && withThumb.length < episodeCount;
+    Map<int, String> tmdbStills = {};
+    if (needsTmdbFallback) {
+      final tmdbSeriesId = await _aniZipService.fetchTmdbId(malId);
+      if (tmdbSeriesId != null) {
+        tmdbStills =
+            await _fetchTmdbEpisodeStills(tmdbSeriesId, _aniListDetail);
+      }
+    }
+    final posterUrl =
+        _details?['_posterUrl'] as String? ?? widget.item.posterPath;
+
     final jikanByNum = <int, Map<String, dynamic>>{};
     for (final e in jikanEps) {
       final n = (e['mal_id'] as num?)?.toInt();
@@ -409,10 +426,8 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       final duration =
           (je?['duration'] is num) ? (je?['duration'] as num).toInt() : null;
 
-      // Prefer AniList's licensed still when it has one; otherwise the
-      // TVDB still from ani.zip. AniList wins because it's already a
-      // proper aspect-ratio banner (16:9) and is cached at the CDN.
-      final stillPath = anilistThumbs[i] ?? aniZipImages[i];
+      final stillPath =
+          anilistThumbs[i] ?? aniZipImages[i] ?? tmdbStills[i] ?? posterUrl;
 
       out.add({
         'episode_number': i,
@@ -422,6 +437,58 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         'aired': aired,
         'duration': duration,
       });
+    }
+    return out;
+  }
+
+  /// TMDB fallback for anime episode stills. Matches the anime's
+  /// broadcast year (from AniList) against TMDB seasons' air_date to
+  /// find the right season number, then fetches per-episode stills.
+  /// Returns the episode-number -> image-URL map; empty on any miss.
+  Future<Map<int, String>> _fetchTmdbEpisodeStills(
+      int tmdbSeriesId, AniListDetail? detail) async {
+    final details =
+        await _tmdbService.fetchMediaDetails(tmdbSeriesId, 'tv');
+    if (details == null) return {};
+    final seasons = (details['seasons'] as List?)
+            ?.whereType<Map<String, dynamic>>()
+            .toList() ??
+        [];
+    if (seasons.isEmpty) return {};
+
+    // Match by broadcast year. Different seasons of the same anime
+    // almost always air in different years, so year alone disambiguates.
+    final animeYear = detail?.seasonYear;
+    int? bestSn;
+    int bestScore = 9999;
+    for (final s in seasons) {
+      final sn = (s['season_number'] as num?)?.toInt();
+      if (sn == null || sn <= 0) continue; // skip specials
+      final ad = s['air_date'] as String?;
+      int score = 0;
+      if (animeYear != null && ad != null && ad.length >= 4) {
+        final sy = int.tryParse(ad.substring(0, 4));
+        if (sy != null) score += ((animeYear - sy).abs() * 100).toInt();
+      } else {
+        score += 500;
+      }
+      if (score < bestScore) {
+        bestScore = score;
+        bestSn = sn;
+      }
+    }
+    if (bestSn == null || bestScore > 200) return {};
+
+    final eps =
+        await _tmdbService.fetchSeasonEpisodes(tmdbSeriesId, bestSn);
+    final out = <int, String>{};
+    for (final ep in eps) {
+      if (ep is! Map<String, dynamic>) continue;
+      final n = (ep['episode_number'] as num?)?.toInt();
+      final p = ep['still_path'] as String?;
+      if (n != null && n > 0 && p != null && p.isNotEmpty) {
+        out[n] = 'https://image.tmdb.org/t/p/w300$p';
+      }
     }
     return out;
   }
