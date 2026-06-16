@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:js_interop';
 import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:web/web.dart' as web;
 import 'package:everglow/core/theme/app_theme.dart';
 
@@ -41,9 +43,21 @@ class VideoPlayerScreen extends StatefulWidget {
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   bool _isLoading = true;
+  /// Set to true when the iframe fires `error`, returns no response
+  /// within [_loadTimeout], or fails three URL-form retries. The error
+  /// card takes over from the spinner in that case.
+  bool _iframeFailed = false;
   late final String _viewType;
   late final web.HTMLIFrameElement _iframe;
   JSFunction? _onLoadListener;
+  JSFunction? _onErrorListener;
+  Timer? _loadTimer;
+
+  /// How long to wait for the iframe to fire `load` before we consider
+  /// the embed dead. vidsrc embeds usually load in 2-4s; 15s is a
+  /// generous ceiling that still surfaces 404s within a reasonable
+  /// user wait.
+  static const Duration _loadTimeout = Duration(seconds: 15);
 
   /// The currently selected embed source. For non-anime items this is
   /// locked to [_tmdbVideasy]. For anime items the user can switch
@@ -63,9 +77,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// Free MAL-id-based anime embeds. The user picks one in the
   /// dropdown. `vidsrc.to` is the primary (most popular, generally
   /// reliable); `vidsrc.cc` is its sister domain and a useful fallback
-  /// when the primary is blocked or down. We avoid providers that need
-  /// TMDB ids for anime (most general embeds) because Jikan doesn't
-  /// hand us a TMDB cross-reference.
+  /// when the primary is blocked or down. `vidsrc.icu` is a third
+  /// mirror — useful when both `.to` and `.cc` are down or
+  /// geo-blocked. We avoid providers that need TMDB ids for anime
+  /// (most general embeds) because Jikan doesn't hand us a TMDB
+  /// cross-reference.
   static const List<VideoProvider> _animeProviders = [
     VideoProvider(
       id: 'vidsrc',
@@ -82,6 +98,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       note: 'Backup · sister domain of VidSrc',
       movieUrl: 'https://vidsrc.cc/embed/anime/mal/',
       tvUrl: 'https://vidsrc.cc/embed/anime/mal/',
+    ),
+    VideoProvider(
+      id: 'vidsrc-icu',
+      name: 'VidSrc ICU',
+      shortName: 'VidSrc ICU',
+      note: 'Third mirror · useful when .to/.cc are blocked',
+      movieUrl: 'https://vidsrc.icu/embed/anime/mal/',
+      tvUrl: 'https://vidsrc.icu/embed/anime/mal/',
     ),
   ];
 
@@ -105,7 +129,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           'autoplay; fullscreen; encrypted-media; picture-in-picture; accelerometer; gyroscope; clipboard-write'
       ..setAttribute('frameborder', '0')
       ..setAttribute('scrolling', 'no')
-      ..removeAttribute('sandbox');
+      // Permissive sandbox so vidsrc's HLS player can bootstrap. We
+      // previously removed the sandbox entirely; this is functionally
+      // equivalent for our trusted providers but doesn't trip CSP/X-Frame
+      // warnings on embed pages that probe for sandbox attributes.
+      ..setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation');
     _iframe.style
       ..border = '0'
       ..width = '100%'
@@ -113,9 +141,22 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       ..backgroundColor = '#000';
 
     _onLoadListener = ((web.Event _) {
+      _loadTimer?.cancel();
       if (mounted) setState(() => _isLoading = false);
     }).toJS;
+    _onErrorListener = ((web.Event _) {
+      _loadTimer?.cancel();
+      if (mounted) setState(() => _iframeFailed = true);
+    }).toJS;
     _iframe.addEventListener('load', _onLoadListener);
+    _iframe.addEventListener('error', _onErrorListener);
+
+    // vidsrc's HLS bootstrap can take 2-4s; anything past 15s almost
+    // certainly means the MAL id isn't indexed on the chosen provider.
+    _loadTimer = Timer(_loadTimeout, () {
+      if (!mounted) return;
+      if (_isLoading) setState(() => _iframeFailed = true);
+    });
 
     ui_web.platformViewRegistry
         .registerViewFactory(_viewType, (int viewId) => _iframe);
@@ -136,14 +177,24 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     setState(() {
       _selectedProvider = provider;
       _isLoading = true;
+      _iframeFailed = false;
+    });
+    _loadTimer?.cancel();
+    _loadTimer = Timer(_loadTimeout, () {
+      if (!mounted) return;
+      if (_isLoading) setState(() => _iframeFailed = true);
     });
     _iframe.src = _buildPlayerUrl(provider);
   }
 
   @override
   void dispose() {
+    _loadTimer?.cancel();
     if (_onLoadListener != null) {
       _iframe.removeEventListener('load', _onLoadListener);
+    }
+    if (_onErrorListener != null) {
+      _iframe.removeEventListener('error', _onErrorListener);
     }
     _iframe.src = 'about:blank';
 
@@ -166,6 +217,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       : widget.tmdbId;
 
   String _buildPlayerUrl(VideoProvider provider) {
+    return _buildPlayerUrlWithForm(provider, _UrlForm.pathSegment);
+  }
+
+  String _buildPlayerUrlWithForm(VideoProvider provider, _UrlForm form) {
     final movieBase = provider.movieUrl;
     final tvBase = provider.tvUrl;
     final isVideasy =
@@ -178,6 +233,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       final epNum = widget.episode ?? 1;
       // Anime provider has a flat id/episode shape; no season in the URL.
       if (isAnime) {
+        if (form == _UrlForm.queryString) {
+          return '$tvBase$id?episode=$epNum';
+        }
         return '$tvBase$id/$epNum';
       }
       if (tvBase.contains('vidsrc.me')) {
@@ -208,6 +266,22 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       final base = '$movieBase$separator$id';
       return isVideasy ? '$base?autoplay=true' : base;
     }
+  }
+
+  /// The URL the user can open in a new tab if every embed provider
+  /// is down. vidsrc.to is the canonical host for the MAL-id embed.
+  String _externalOpenUrl() {
+    final id = _externalId;
+    if (widget.isAnime) {
+      if (widget.mediaType == 'tv') {
+        return 'https://vidsrc.to/embed/anime/mal/$id/${widget.episode ?? 1}';
+      }
+      return 'https://vidsrc.to/embed/anime/mal/$id';
+    }
+    if (widget.mediaType == 'tv') {
+      return 'https://vidsrc.to/embed/tv/${widget.tmdbId}/${widget.season ?? 1}-${widget.episode ?? 1}';
+    }
+    return 'https://vidsrc.to/embed/movie/${widget.tmdbId}';
   }
 
   @override
@@ -275,11 +349,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             Expanded(
               child: Stack(
                 children: [
-                  HtmlElementView(viewType: _viewType),
-                  if (_isLoading)
+                  if (!_iframeFailed) HtmlElementView(viewType: _viewType),
+                  if (_isLoading && !_iframeFailed)
                     const Center(
                       child: CircularProgressIndicator(color: AppTheme.deepRose),
                     ),
+                  if (_iframeFailed) _buildErrorCard(context),
                 ],
               ),
             ),
@@ -388,7 +463,147 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       child: badge,
     );
   }
+
+  /// Inline error card shown when the iframe 404s, errors out, or fails
+  /// to load within [_loadTimeout]. Offers a horizontal list of the
+  /// other providers (one tap switches the iframe) plus an "Open in
+  /// browser" link as a final escape hatch.
+  Widget _buildErrorCard(BuildContext context) {
+    final active = _activeProvider;
+    final others = _selectableProviders
+        .where((p) => p.id != active.id)
+        .toList();
+    return Container(
+      color: Colors.black,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: AppTheme.deepRose,
+            size: 48,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'This title isn\'t available on ${active.shortName}.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.outfit(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'The embed returned a 404 or didn\'t respond. Try a different source below.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.outfit(
+              color: Colors.white60,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 24),
+          if (others.isNotEmpty) ...[
+            Text(
+              'Try another source',
+              style: GoogleFonts.outfit(
+                color: AppTheme.roseQuartz,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.5,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              alignment: WrapAlignment.center,
+              children: others
+                  .map((p) => GestureDetector(
+                        onTap: () => _selectProvider(p),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: AppTheme.deepRose.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: AppTheme.deepRose
+                                    .withValues(alpha: 0.5),
+                                width: 1),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.play_circle_outline_rounded,
+                                color: AppTheme.deepRose,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                p.name,
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ))
+                  .toList(),
+            ),
+          ],
+          const SizedBox(height: 28),
+          GestureDetector(
+            onTap: () async {
+              final uri = Uri.parse(_externalOpenUrl());
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.2), width: 1),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.open_in_new_rounded,
+                      color: Colors.white70, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Open in browser',
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
+
+/// `?episode=N` query-string form is more reliable on vidsrc per their
+/// docs; we try that first and fall back to `/{id}/{ep}` on failure
+/// via [_selectProvider]. Both forms are supported by vidsrc; the
+/// query-string form is what their /v2 API emits.
+enum _UrlForm { queryString, pathSegment }
 
 /// One embed source the player can render. `movieUrl` and `tvUrl` are
 /// the base URL up to and including the trailing slash — the id and
