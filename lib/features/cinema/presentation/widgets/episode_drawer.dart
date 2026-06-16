@@ -1476,8 +1476,12 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     final epName = ep['name'] ?? 'Episode $epNum';
     final epOverview = ep['overview'] ?? '';
     final epStillPath = ep['still_path'];
+    final isFullUrl = epStillPath != null &&
+        (epStillPath.startsWith('http://') || epStillPath.startsWith('https://'));
     final epStillUrl = epStillPath != null
-        ? 'https://image.tmdb.org/t/p/w300$epStillPath'
+        ? (isFullUrl
+            ? epStillPath
+            : 'https://image.tmdb.org/t/p/w300$epStillPath')
         : null;
 
     return _EpisodeTile(
@@ -1989,10 +1993,12 @@ class _EpisodeTile extends StatefulWidget {
 class _EpisodeTileState extends State<_EpisodeTile> {
   bool _pressed = false;
 
-  /// Intrinsic height of the rail widgets (numbered / thumbnail). Set
-  /// to the same value so either rail produces the same row height
-  /// when the title is one line — keeps the list visually uniform.
-  static const double _railHeight = 76;
+  /// Fixed tile height. Set explicitly because the parent SliverList
+  /// provides unbounded vertical space — without an explicit height
+  /// the Row collapses to the title's one-line intrinsic height and
+  /// the rail + play button render at zero visible height. The
+  /// title is clipped to 2 lines so 80px always fits.
+  static const double _tileHeight = 80;
 
   @override
   Widget build(BuildContext context) {
@@ -2006,29 +2012,18 @@ class _EpisodeTileState extends State<_EpisodeTile> {
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 140),
+        height: _tileHeight,
         margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
         decoration: BoxDecoration(
           color: _pressed ? _cCard.withValues(alpha: 0.8) : _cCard.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: _cRose.withValues(alpha: 0.08)),
         ),
-        // IntrinsicHeight forces the Row's cross-axis to equal the
-        // tallest child's intrinsic height (the rail at _railHeight).
-        // Without it, a SliverList's unbounded vertical constraints
-        // let the Row collapse to the title text's one-line height
-        // and the rail + play button render at zero visible height.
-        // IntrinsicHeight is cheap here because each tile has only
-        // ~5 children and the list is short.
-        child: IntrinsicHeight(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(15),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Left rail: thumbnail (when available) or numbered accent.
-              // Anime episode stills come from AniList's `streamingEpisodes`
-              // (Crunchyroll/Funimation licensed) or ani.zip's TVDB feed;
-              // TMDB stills are used for non-anime. When a still is
-              // missing the old typography rail keeps the row looking
-              // intentional instead of a broken-image box.
               if (hasThumb)
                 _buildThumbnailRail()
               else
@@ -2037,7 +2032,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
               // Title + overview
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2050,14 +2045,14 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                           color: _cWhite,
                           fontWeight: FontWeight.w700,
                           fontSize: 13,
-                          height: 1.2,
+                          height: 1.25,
                         ),
                       ),
                       if (widget.epOverview.isNotEmpty) ...[
                         const SizedBox(height: 4),
                         Text(
                           widget.epOverview,
-                          maxLines: 3,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.outfit(
                             color: _cMuted,
@@ -2071,20 +2066,22 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                 ),
               ),
               const SizedBox(width: 6),
-              // Play icon
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: _cDeepRose.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                        color: _cDeepRose.withValues(alpha: 0.4), width: 1),
+              // Play icon — vertically centered in the 80px row.
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: _cDeepRose.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                          color: _cDeepRose.withValues(alpha: 0.5), width: 1.2),
+                    ),
+                    child: const Icon(Icons.play_arrow_rounded,
+                        color: _cDeepRose, size: 20),
                   ),
-                  child: const Icon(Icons.play_arrow_rounded,
-                      color: _cDeepRose, size: 18),
                 ),
               ),
             ],
@@ -2094,47 +2091,49 @@ class _EpisodeTileState extends State<_EpisodeTile> {
     );
   }
 
-  /// Original typography rail — large episode number on a deep-rose
-  /// tinted panel. Used when no thumbnail is available (e.g. Jikan
-  /// had no still and neither AniList nor ani.zip could supply one).
+  /// Typography rail — 64px wide so the episode number is large
+  /// enough to read at a glance, filling the full 80px height of
+  /// the row.
   Widget _buildNumberedRail() {
-    return SizedBox(
-      width: 56,
-      height: _railHeight,
-      child: Container(
-        decoration: BoxDecoration(
-          color: _cDeepRose.withValues(alpha: _pressed ? 0.18 : 0.1),
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(16),
-            bottomLeft: Radius.circular(16),
-          ),
+    return Container(
+      width: 64,
+      decoration: BoxDecoration(
+        color: _cDeepRose.withValues(alpha: _pressed ? 0.2 : 0.12),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(15),
+          bottomLeft: Radius.circular(15),
         ),
-        alignment: Alignment.center,
-        child: Text(
-          widget.epNum.toString().padLeft(2, '0'),
-          style: GoogleFonts.cormorantGaramond(
-            fontSize: 26,
-            fontWeight: FontWeight.w900,
-            color: _cDeepRose,
-            height: 1,
-          ),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        widget.epNum.toString().padLeft(2, '0'),
+        style: GoogleFonts.cormorantGaramond(
+          fontSize: 28,
+          fontWeight: FontWeight.w900,
+          color: _cDeepRose,
+          height: 1,
         ),
       ),
     );
   }
 
-  /// Thumbnail rail. Sized to the same fixed height as the numbered
-  /// rail so both rails produce a uniform row height; the 16:9 still
-  /// inside scales to fit. A gradient overlay on the left edge keeps
-  /// the episode number readable on bright stills.
+  /// Thumbnail rail. 96px wide so a 16:9 still crops to roughly
+  /// the same vertical footprint as the numbered rail at 80px.
+  /// The episode number sits bottom-left over a dark gradient so
+  /// it's legible on bright frames.
   Widget _buildThumbnailRail() {
-    return SizedBox(
-      width: 80,
-      height: _railHeight,
+    return Container(
+      width: 96,
+      decoration: const BoxDecoration(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(15),
+          bottomLeft: Radius.circular(15),
+        ),
+      ),
       child: ClipRRect(
         borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(16),
-          bottomLeft: Radius.circular(16),
+          topLeft: Radius.circular(15),
+          bottomLeft: Radius.circular(15),
         ),
         child: Stack(
           fit: StackFit.expand,
@@ -2148,32 +2147,32 @@ class _EpisodeTileState extends State<_EpisodeTile> {
               },
               errorBuilder: (_, _, _) => _buildNumberedRail(),
             ),
-            // Subtle gradient on the left so the number stays legible
+            // Dark gradient on the left so the number stays legible
             // on bright frames.
             const DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
-                  colors: [Color(0x55000000), Colors.transparent],
-                  stops: [0.0, 0.6],
+                  colors: [Color(0x99000000), Colors.transparent],
+                  stops: [0.0, 0.55],
                 ),
               ),
             ),
             // Episode number, bottom-left.
             Positioned(
-              left: 8,
+              left: 10,
               bottom: 6,
               child: Text(
                 widget.epNum.toString().padLeft(2, '0'),
                 style: GoogleFonts.cormorantGaramond(
-                  fontSize: 18,
+                  fontSize: 20,
                   fontWeight: FontWeight.w900,
                   color: _cWhite,
                   height: 1,
                   shadows: [
                     Shadow(
-                      color: Colors.black.withValues(alpha: 0.7),
+                      color: Colors.black.withValues(alpha: 0.8),
                       blurRadius: 6,
                     ),
                   ],
@@ -2197,8 +2196,8 @@ class _EpisodeTileState extends State<_EpisodeTile> {
       ),
       alignment: Alignment.center,
       child: const SizedBox(
-        width: 14,
-        height: 14,
+        width: 16,
+        height: 16,
         child: CircularProgressIndicator(
           color: _cDeepRose,
           strokeWidth: 1.5,
