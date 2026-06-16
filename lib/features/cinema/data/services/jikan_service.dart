@@ -458,15 +458,15 @@ class JikanService {
   /// User-submitted reviews for an anime, fetched from Jikan's
   /// `/anime/{id}/reviews` endpoint. Returns the raw Jikan envelope
   /// entries so the caller can pick the fields it cares about. We
-  /// paginate internally and cap at 20 pages (2000 reviews) which is
-  /// way more than the episode drawer needs (it caps at 8).
+  /// fetch one page (25 reviews) which is more than the episode
+  /// drawer needs (it caps at 8).
   ///
   /// Going through [_getJson] means the call respects the rate-limit
   /// queue and exponential backoff — the previous direct `http.get`
   /// path used by the episode drawer would routinely get 429'd during
   /// the Editor's Picks fan-out.
   Future<List<Map<String, dynamic>>> fetchAnimeReviews(int malId) async {
-    const maxPages = 20;
+    const maxPages = 1;
     final out = <Map<String, dynamic>>[];
     for (var page = 1; page <= maxPages; page++) {
       final json = await _getJson('/anime/$malId/reviews', params: {

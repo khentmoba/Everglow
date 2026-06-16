@@ -461,7 +461,8 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
 
     // Match by broadcast year. Different seasons of the same anime
     // almost always air in different years, so year alone disambiguates.
-    final animeYear = detail?.seasonYear;
+    final animeYear =
+        detail?.seasonYear ?? int.tryParse(widget.item.year);
     int? bestSn;
     int bestScore = 9999;
     for (final s in seasons) {
