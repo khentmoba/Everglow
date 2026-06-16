@@ -601,6 +601,33 @@ class TMDBService {
     return null;
   }
 
+  /// Search TMDB for a TV show by title and year. Used as fallback when
+  /// ani.zip doesn't have a TMDB mapping for the MAL id. Returns the
+  /// first result's ID, or null on no match / API error.
+  Future<int?> searchTvShow(String title, {String? firstAirDateYear}) async {
+    final params = <String, String>{
+      'query': title,
+      'api_key': ApiKeys.tmdbApiKey,
+    };
+    if (firstAirDateYear != null && firstAirDateYear.isNotEmpty) {
+      params['first_air_date_year'] = firstAirDateYear;
+    }
+    final url = Uri.parse('$_baseUrl/search/tv').replace(queryParameters: params);
+    try {
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final results = data['results'] as List?;
+        if (results != null && results.isNotEmpty) {
+          return (results[0]['id'] as num?)?.toInt();
+        }
+      }
+    } catch (e) {
+      print('TMDB Search TV Error: $e');
+    }
+    return null;
+  }
+
   Future<void> saveToWatchList(
     MediaItem item,
     String status,
