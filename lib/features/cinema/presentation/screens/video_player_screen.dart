@@ -103,7 +103,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       ..src = _buildPlayerUrl(_activeProvider)
       ..allow =
           'autoplay; fullscreen; encrypted-media; picture-in-picture; accelerometer; gyroscope; clipboard-write'
-      ..allowFullscreen = true
       ..setAttribute('frameborder', '0')
       ..setAttribute('scrolling', 'no')
       ..removeAttribute('sandbox');

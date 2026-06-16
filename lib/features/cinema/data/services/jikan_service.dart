@@ -32,12 +32,18 @@ class JikanService {
   final Queue<_JikanTask> _queue = Queue<_JikanTask>();
   bool _dispatching = false;
 
-  /// Minimum gap between two requests. Jikan's burst limit is around 2
-  /// requests per second, so 350ms gives a comfortable margin.
-  static const Duration _minGap = Duration(milliseconds: 350);
+  /// Minimum gap between two requests. Jikan's documented limit is 60
+  /// req/min plus a burst guard, so 800ms (~75 req/min ceiling) gives
+  /// a ~25% safety margin and keeps the queue under the 429 cliff
+  /// during Editor's Picks / per-episode fan-outs.
+  static const Duration _minGap = Duration(milliseconds: 800);
 
-  /// How long to back off when the server returns 429.
+  /// How long to back off when the server returns 429. The first 429
+  /// uses this; subsequent consecutive 429s double the wait up to a
+  /// cap of [_serverBackoffMax] so a single bad burst doesn't keep the
+  /// queue dead for half a minute.
   static const Duration _serverBackoff = Duration(seconds: 5);
+  static const Duration _serverBackoffMax = Duration(seconds: 20);
 
   DateTime _lastCall = DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -81,10 +87,11 @@ class JikanService {
   }
 
   /// Performs a GET against the Jikan v4 API. Returns the raw decoded JSON
-  /// map, or null on a non-200 / network error. Handles 429 by retrying
-  /// once after the server-requested backoff window.
+  /// map, or null on a non-200 / network error. On 429 we back off
+  /// exponentially (5s, 10s, 20s) up to [_serverBackoffMax] and respect
+  /// the server's `Retry-After` header when present.
   Future<Map<String, dynamic>?> _getJson(String path,
-      {Map<String, String>? params, int maxRetries = 1}) async {
+      {Map<String, String>? params, int maxRetries = 3}) async {
     final uri = Uri.parse('$_baseUrl$path').replace(queryParameters: params);
     return _enqueue(() async {
       var attempt = 0;
@@ -98,9 +105,18 @@ class JikanService {
           }
           if (response.statusCode == 429 && attempt < maxRetries) {
             attempt++;
-            // Use the server's Retry-After if present, else our default.
+            // Prefer the server's Retry-After, else grow exponentially
+            // from [_serverBackoff] up to [_serverBackoffMax] so a
+            // single sustained burst doesn't keep the queue dead.
             final retryAfter = _parseRetryAfter(response.headers['retry-after']);
-            await Future.delayed(retryAfter ?? _serverBackoff);
+            final base = retryAfter ??
+                Duration(
+                  milliseconds: (_serverBackoff.inMilliseconds *
+                          (1 << (attempt - 1).clamp(0, 4)))
+                      .clamp(0, _serverBackoffMax.inMilliseconds),
+                );
+            final clamped = base > _serverBackoffMax ? _serverBackoffMax : base;
+            await Future.delayed(clamped);
             continue;
           }
           print('Jikan GET $path failed: ${response.statusCode}');
@@ -368,6 +384,32 @@ class JikanService {
   /// by the episode drawer if AniList can't be reached).
   Future<Map<String, dynamic>?> fetchAnimeById(int malId) async {
     return _getJson('/anime/$malId');
+  }
+
+  /// Batched lookup for up to 25 MAL ids in a single call. Jikan's
+  /// `/anime` endpoint accepts a comma-separated `ids=` parameter, which
+  /// collapses the 21-way fan-out of the Editor's Picks into one HTTP
+  /// request and one queue slot. The endpoint returns the entries in
+  /// the same order as the input; missing ids are silently dropped, so
+  /// we re-align by `mal_id` to be safe.
+  Future<List<MediaItem>> fetchAnimeByIds(List<int> malIds) async {
+    if (malIds.isEmpty) return [];
+    final json = await _getJson('/anime', params: {
+      'ids': malIds.join(','),
+    });
+    if (json == null) return [];
+    final data = (json['data'] as List?) ?? const [];
+    final items = data
+        .whereType<Map<String, dynamic>>()
+        .map(mapJikanToMediaItem)
+        .toList();
+    // Preserve the caller's order so the Editor's Picks list reads
+    // top-to-bottom the same way regardless of the API's response order.
+    final byId = {for (final i in items) i.tmdbId: i};
+    return [
+      for (final id in malIds)
+        if (byId[id] != null) byId[id]!,
+    ];
   }
 
   /// Per-episode list (titles, air dates, durations) for an anime from
