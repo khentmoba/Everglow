@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:everglow/features/cinema/data/models/anilist_detail.dart';
+import 'package:everglow/features/cinema/data/services/jikan_service.dart';
 
 /// GraphQL client for AniList (https://anilist.co).
 ///
@@ -26,7 +27,7 @@ class AniListService {
   /// we only re-fetch if the user explicitly pulls to refresh.
   final Map<int, AniListDetail> _detailCache = {};
   final Map<int, DateTime> _detailCacheAt = {};
-  static const Duration _detailTtl = Duration(minutes: 30);
+  static const Duration _detailTtl = Duration(minutes: 10);
 
   Future<T> _serialize<T>(Future<T> Function() task) async {
     // No need for a deep queue: AniList's 90 req/min ceiling is way above
@@ -103,6 +104,112 @@ class AniListService {
     _detailCache[cacheKey] = detail;
     _detailCacheAt[cacheKey] = DateTime.now();
     return detail;
+  }
+
+  /// Like [fetchDetails] but falls back to Jikan's `/anime/{id}` payload
+  /// when AniList returns no `Media`. Jikan carries the same fields the
+  /// detail drawer needs (synopsis, status, format, studios, genres,
+  /// episodes, cover image, YouTube trailer) so the UI renders even when
+  /// AniList is rate-limited, transiently down, or doesn't have the id.
+  Future<AniListDetail?> fetchDetailsWithFallback({
+    int? anilistId,
+    int? malId,
+  }) async {
+    if (anilistId == null && malId == null) return null;
+    final primary = await fetchDetails(anilistId: anilistId, malId: malId);
+    if (primary != null) return primary;
+    if (malId == null) return null;
+    final jikan = await JikanService().fetchAnimeById(malId);
+    if (jikan == null) return null;
+    return _mapJikanDetail(jikan, fallbackMalId: malId);
+  }
+
+  /// Maps a Jikan `/anime/{id}` payload into an [AniListDetail] so the
+  /// drawer can render when AniList is unavailable. Only the fields the
+  /// UI actually reads are populated; the rest stay at their defaults.
+  AniListDetail _mapJikanDetail(Map<String, dynamic> j, {required int fallbackMalId}) {
+    final images = j['images'] as Map<String, dynamic>?;
+    final jpg = images?['jpg'] as Map<String, dynamic>?;
+    String pickImage(String size) {
+      final v = jpg?[size] as String?;
+      return (v != null && v.isNotEmpty) ? v : '';
+    }
+
+    final studios = (j['studios'] as List?) ?? const [];
+    final studioNames = studios
+        .whereType<Map<String, dynamic>>()
+        .map((s) => (s['name'] as String?) ?? '')
+        .where((n) => n.isNotEmpty)
+        .toList();
+
+    final genres = ((j['genres'] as List?) ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map((g) => (g['name'] as String?) ?? '')
+        .where((n) => n.isNotEmpty)
+        .toList();
+
+    final trailer = j['trailer'] as Map<String, dynamic>?;
+    final ytId = (trailer?['youtube_id'] as String?) ??
+        ((trailer?['url'] as String?)?.split('v=').last ?? '');
+    final trailerId = (ytId.isNotEmpty && ytId != 'null') ? ytId : null;
+
+    final aired = j['aired'] as Map<String, dynamic>?;
+    final airedFrom = aired?['from'] as String?;
+    final airedTo = aired?['to'] as String?;
+
+    final malId = (j['mal_id'] as num?)?.toInt() ?? fallbackMalId;
+
+    return AniListDetail(
+      id: 0,
+      malId: malId,
+      titleEnglish: (j['title_english'] as String?) ?? (j['title'] as String?) ?? '',
+      titleRomaji: (j['title_japanese'] as String?) ?? '',
+      titleNative: '',
+      synopsis: _stripHtml((j['synopsis'] as String?) ?? ''),
+      coverImageUrl:
+          pickImage('large_image_url').isNotEmpty ? pickImage('large_image_url') : pickImage('image_url'),
+      bannerImageUrl: pickImage('extra_large_image_url'),
+      episodeCount:
+          (j['episodes'] is num) ? (j['episodes'] as num).toInt() : null,
+      duration: (j['duration'] as String?)
+              ?.replaceAll(RegExp(r'[^0-9]'), '')
+              .isNotEmpty == true
+          ? int.tryParse((j['duration'] as String).replaceAll(RegExp(r'[^0-9]'), ''))
+          : null,
+      airingStatus: (j['status'] as String?) ?? '',
+      format: (j['type'] as String?) ?? '',
+      season: (j['season'] as String?),
+      seasonYear: (j['year'] is num) ? (j['year'] as num).toInt() : null,
+      averageScore: (j['score'] is num)
+          ? (j['score'] as num).toDouble()
+          : null,
+      genres: genres,
+      studios: studioNames,
+      trailerYoutubeId: trailerId,
+      // Jikan doesn't return relations/recommendations/characters/staff
+      // here; the drawer treats empty lists as "no data" which is fine.
+      relations: const [],
+      recommendations: const [],
+      episodes: _mapJikanStreaming(
+        malId: malId,
+        episodeCount: (j['episodes'] is num) ? (j['episodes'] as num).toInt() : null,
+        airedFrom: airedFrom,
+        airedTo: airedTo,
+      ),
+    );
+  }
+
+  /// Synthesizes [AniListEpisode] entries for a Jikan-only fallback so
+  /// the episode list still has 1..N entries with air dates. Titles are
+  /// filled in by the episode drawer's Jikan overlay.
+  List<AniListEpisode> _mapJikanStreaming({
+    required int malId,
+    int? episodeCount,
+    String? airedFrom,
+    String? airedTo,
+  }) {
+    if (episodeCount == null || episodeCount <= 0) return const [];
+    return List.generate(episodeCount, (i) => AniListEpisode(number: i + 1));
   }
 
   AniListDetail _mapDetail(Map<String, dynamic> m) {
@@ -408,9 +515,9 @@ query ($id: Int, $idMal: Int, $type: MediaType) {
 
     streamingEpisodes {
       title
-      number
       url
-      airingAt
+      site
+      thumbnail
     }
   }
 }

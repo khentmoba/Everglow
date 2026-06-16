@@ -205,7 +205,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   /// TMDB-sourced items so the rest of the build method doesn't branch
   /// on source.
   Future<void> _fetchAnimeDetails() async {
-    final detail = await _aniListService.fetchDetails(
+    final detail = await _aniListService.fetchDetailsWithFallback(
       anilistId: widget.item.anilistId,
       malId: widget.item.tmdbId,
     );
@@ -247,13 +247,17 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       _details = mapped;
       _genreNames = detail.genres;
       // Anime has no seasons — render the flat episode list as a
-      // synthetic "Season 1" so the existing UI keeps working.
-      _seasons = detail.episodeCount != null && detail.episodeCount! > 0
-          ? [
-              {'season_number': 1, 'name': 'Episodes', 'episode_count': detail.episodeCount}
-            ]
-          : const [];
-      _selectedSeasonNumber = _seasons.isNotEmpty ? 1 : null;
+      // synthetic "Season 1" so the existing UI keeps working. We
+      // always synthesize it (even with episodeCount null/0) so the
+      // Episodes section header + list render and the Jikan overlay
+      // in [_fetchSeasonEpisodes] can populate the rows.
+      final synthCount = detail.episodeCount != null && detail.episodeCount! > 0
+          ? detail.episodeCount
+          : 12;
+      _seasons = [
+        {'season_number': 1, 'name': 'Episodes', 'episode_count': synthCount}
+      ];
+      _selectedSeasonNumber = 1;
       if (_selectedSeasonNumber != null) {
         _fetchSeasonEpisodes(_selectedSeasonNumber!);
       }
