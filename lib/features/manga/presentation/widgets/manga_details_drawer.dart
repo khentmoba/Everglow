@@ -49,8 +49,15 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
       _chapterError = null;
     });
     try {
-      // Use mangaDexId for new entries, fall back to mangaId for old ones
-      final mdId = _item.mangaDexId.isNotEmpty ? _item.mangaDexId : _item.mangaId;
+      String mdId = _item.mangaDexId.isNotEmpty ? _item.mangaDexId : _item.mangaId;
+      // If the ID doesn't look like a MangaDex UUID (36 chars with dashes),
+      // try to resolve it from the title via MangaDex search.
+      if (mdId.length != 36) {
+        final resolved = await _service.searchByTitle(_item.title);
+        if (resolved.isNotEmpty) {
+          mdId = resolved;
+        }
+      }
       final list = await _service.getChapterFeed(mdId);
       if (!mounted) return;
       setState(() {

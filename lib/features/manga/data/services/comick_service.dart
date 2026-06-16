@@ -123,9 +123,12 @@ class ComickService {
     final descRaw = data['desc'];
     if (descRaw is String) desc = descRaw;
 
+    final mangaDexId = data['md_id'] as String? ?? '';
+
     return MangaItem(
       id: '',
       mangaId: hid,
+      mangaDexId: mangaDexId,
       title: _pickTitle(data),
       description: desc ?? '',
       coverUrl: _coverUrl(covers),
@@ -167,9 +170,12 @@ class ComickService {
       desc = _pickDescription(comic['parsed']);
     }
 
+    final mangaDexId = comic['md_id'] as String? ?? '';
+
     return MangaItem(
       id: '',
       mangaId: hid,
+      mangaDexId: mangaDexId,
       title: _pickTitle(comic),
       author: author,
       artist: artist,
