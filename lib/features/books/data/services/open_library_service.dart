@@ -114,9 +114,23 @@ class OpenLibraryService {
   /// (HTML, browser-only) when no plain-text source is available,
   /// so the reader's "Open on Open Library" button still has
   /// somewhere to point.
+  ///
+  /// IMPORTANT: for non-Gutenberg Internet Archive ids, this points
+  /// at the IA **details/borrow page** rather than the first
+  /// candidate from [_resolveReadSources]. Modern copyrighted books
+  /// on IA are borrow-only — the `${iaId}_djvu.txt` / `${iaId}.txt`
+  /// files don't exist outside of an active loan, so using them as
+  /// the "open in browser" URL would just open a 404. The details
+  /// page is where the user can borrow and read the book in IA's
+  /// built-in reader.
   String _resolveReadSource({required String iaId, required String workKey}) {
-    final first = _resolveReadSources(iaId: iaId, workKey: workKey).firstOrNull;
-    if (first != null) return first;
+    if (iaId.startsWith('pg') && iaId.length > 2) {
+      final id = iaId.substring(2);
+      return 'https://www.gutenberg.org/cache/epub/$id/pg$id.txt';
+    }
+    if (iaId.isNotEmpty) {
+      return 'https://archive.org/details/$iaId';
+    }
     if (workKey.isNotEmpty) return 'https://openlibrary.org$workKey';
     return '';
   }
@@ -458,14 +472,29 @@ class OpenLibraryService {
 
   /// Build the full ordered list of read source URLs for a book.
   /// Combines the model's stored URL with re-derived fallbacks.
+  ///
+  /// The model's `readSourceUrl` is the "open in browser" target —
+  /// for borrowable Internet Archive items that's the details page
+  /// (HTML), which the proxy would happily return as "text" and the
+  /// chapter splitter would then choke on. We only fold it into the
+  /// candidate list when it's an actual plain-text URL, so the
+  /// in-app reader never accidentally renders raw HTML.
   List<String> buildReadSourceCandidates(BookItem item) {
     final sources = <String>[];
-    if (item.readSourceUrl.isNotEmpty) sources.add(item.readSourceUrl);
+    final stored = item.readSourceUrl;
+    if (stored.isNotEmpty && _looksLikePlainText(stored)) {
+      sources.add(stored);
+    }
     for (final url in _resolveReadSources(
         iaId: item.iaId, workKey: item.workKey)) {
       if (!sources.contains(url)) sources.add(url);
     }
     return sources;
+  }
+
+  bool _looksLikePlainText(String url) {
+    final lower = url.toLowerCase();
+    return lower.endsWith('.txt') || lower.contains('gutenberg.org');
   }
 }
 
