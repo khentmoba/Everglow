@@ -110,12 +110,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       ..allow =
           'autoplay; fullscreen; encrypted-media; picture-in-picture; accelerometer; gyroscope; clipboard-write'
       ..setAttribute('frameborder', '0')
-      ..setAttribute('scrolling', 'no')
-      // Permissive sandbox so vidsrc's HLS player can bootstrap. We
-      // previously removed the sandbox entirely; this is functionally
-      // equivalent for our trusted providers but doesn't trip CSP/X-Frame
-      // warnings on embed pages that probe for sandbox attributes.
-      ..setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation');
+      ..setAttribute('scrolling', 'no');
     _iframe.style
       ..border = '0'
       ..width = '100%'
