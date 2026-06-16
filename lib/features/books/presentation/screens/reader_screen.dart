@@ -1,4 +1,7 @@
 import 'dart:async';
+// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
+import 'dart:html' as html;
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_html/flutter_html.dart';
@@ -22,6 +25,8 @@ import 'package:url_launcher/url_launcher.dart';
 ///   4. Render the active chapter with `flutter_html`.
 ///   5. Persist progress in `SharedPreferences` per workKey so the
 ///      next open resumes where the user left off.
+enum ReaderMode { text, embed }
+
 class ReaderScreen extends StatefulWidget {
   final BookItem book;
   const ReaderScreen({Key? key, required this.book}) : super(key: key);
@@ -38,6 +43,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
   List<BookChapter> _chapters = const [];
   int _currentChapter = 0;
   double _fontSize = 17.0;
+  ReaderMode _readerMode = ReaderMode.text;
+  late final String _viewType;
+  static int _viewTypeCounter = 0;
   ReaderTheme _theme = ReaderTheme.dark;
 
   // Persisted state keys
@@ -46,6 +54,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   @override
   void initState() {
     super.initState();
+    _viewType = 'reader-iframe-${_viewTypeCounter++}';
     _loadAndSplit();
   }
 
@@ -54,6 +63,19 @@ class _ReaderScreenState extends State<ReaderScreen> {
     final saved = prefs.getInt(_progressKey);
     if (saved != null && saved >= 0) {
       _currentChapter = saved;
+    }
+
+    // Non-Gutenberg Internet Archive books use the IA embedded viewer.
+    // This covers the vast majority of modern copyrighted books that
+    // are borrow-only — they have no publicly accessible plain text.
+    final iaId = widget.book.iaId;
+    if (iaId.isNotEmpty && !iaId.startsWith('pg')) {
+      _registerIframe(iaId);
+      setState(() {
+        _readerMode = ReaderMode.embed;
+        _isLoading = false;
+      });
+      return;
     }
 
     // Build the full ordered list of read source candidates. The
@@ -102,6 +124,19 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Future<void> _saveProgress(int chapter) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_progressKey, chapter);
+  }
+
+  void _registerIframe(String iaId) {
+    try {
+      // ignore: undefined_prefixed_name
+      ui.platformViewRegistry.registerViewFactory(_viewType, (int viewId) {
+        return html.IFrameElement()
+          ..src = 'https://archive.org/stream/$iaId?ui=embed'
+          ..style.width = '100%'
+          ..style.height = '100%'
+          ..style.border = 'none';
+      });
+    } catch (_) {}
   }
 
   // ── TEXT PROCESSING ────────────────────────────────────────────────
@@ -210,9 +245,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
       body: SafeArea(
         child: _isLoading
             ? _buildLoading()
-            : (_loadError != null && _chapters.isEmpty
-                ? _buildError()
-                : _buildReader()),
+            : _readerMode == ReaderMode.embed
+                ? _buildEmbedReader()
+                : (_loadError != null && _chapters.isEmpty
+                    ? _buildError()
+                    : _buildReader()),
       ),
     );
   }
@@ -438,11 +475,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
               ],
             ),
           ),
-          IconButton(
-            tooltip: 'Chapters',
-            onPressed: _showChapterSheet,
-            icon: Icon(Icons.list_rounded, color: _theme.fg, size: 22),
-          ),
+          if (_readerMode == ReaderMode.text)
+            IconButton(
+              tooltip: 'Chapters',
+              onPressed: _showChapterSheet,
+              icon: Icon(Icons.list_rounded, color: _theme.fg, size: 22),
+            ),
           IconButton(
             tooltip: 'Settings',
             onPressed: _showSettingsSheet,
@@ -515,6 +553,64 @@ class _ReaderScreenState extends State<ReaderScreen> {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmbedReader() {
+    return Column(
+      children: [
+        _buildTopBar(),
+        Expanded(
+          child: HtmlElementView(viewType: _viewType),
+        ),
+        _buildEmbedBottomBar(),
+      ],
+    );
+  }
+
+  Widget _buildEmbedBottomBar() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+      decoration: BoxDecoration(
+        color: _theme.bg,
+        border: Border(
+          top: BorderSide(
+            color: _theme.fg.withValues(alpha: 0.08),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Via Internet Archive',
+            style: GoogleFonts.outfit(
+              color: _theme.fg.withValues(alpha: 0.55),
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          if (widget.book.readSourceUrl.isNotEmpty)
+            TextButton.icon(
+              onPressed: () async {
+                final url = widget.book.readSourceUrl;
+                final uri = Uri.parse(url);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri,
+                      mode: LaunchMode.externalApplication);
+                }
+              },
+              icon: const Icon(Icons.open_in_new_rounded, size: 16),
+              label: Text(
+                'Full Screen',
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -692,37 +788,39 @@ class _ReaderScreenState extends State<ReaderScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            Text(
-              'Font size',
-              style: GoogleFonts.outfit(
-                color: AppTheme.roseQuartz,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-                letterSpacing: 1.2,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.text_decrease_rounded,
-                    color: AppTheme.roseQuartz, size: 18),
-                Expanded(
-                  child: Slider(
-                    value: _fontSize,
-                    min: 13,
-                    max: 26,
-                    divisions: 13,
-                    activeColor: AppTheme.deepRose,
-                    inactiveColor:
-                        AppTheme.roseQuartz.withValues(alpha: 0.2),
-                    onChanged: (v) => setState(() => _fontSize = v),
-                  ),
+            if (_readerMode == ReaderMode.text) ...[
+              Text(
+                'Font size',
+                style: GoogleFonts.outfit(
+                  color: AppTheme.roseQuartz,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                  letterSpacing: 1.2,
                 ),
-                const Icon(Icons.text_increase_rounded,
-                    color: AppTheme.roseQuartz, size: 22),
-              ],
-            ),
-            const SizedBox(height: 8),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.text_decrease_rounded,
+                      color: AppTheme.roseQuartz, size: 18),
+                  Expanded(
+                    child: Slider(
+                      value: _fontSize,
+                      min: 13,
+                      max: 26,
+                      divisions: 13,
+                      activeColor: AppTheme.deepRose,
+                      inactiveColor:
+                          AppTheme.roseQuartz.withValues(alpha: 0.2),
+                      onChanged: (v) => setState(() => _fontSize = v),
+                    ),
+                  ),
+                  const Icon(Icons.text_increase_rounded,
+                      color: AppTheme.roseQuartz, size: 22),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
             Text(
               'Theme',
               style: GoogleFonts.outfit(
