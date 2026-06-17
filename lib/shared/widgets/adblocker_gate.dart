@@ -42,23 +42,39 @@ class _AdblockerGateState extends State<AdblockerGate> {
   }
 
   Future<bool> _detectAdblocker() async {
+    final baits = <String>[
+      'pub_300x250 pub_300x250m pub_728x90 text-ad textAd text_ad text_ads text-ads text-ad-links',
+      'ad-container ad-slot banner_ad advertisement adsbygoogle',
+      'advertisement sponsored-ad google-ad block-ad',
+      'ad-zone ad-placeholder ad-unit ad-wrapper',
+    ];
+
+    for (final classes in baits) {
+      try {
+        final bait = web.HTMLDivElement();
+        bait.className = classes;
+        bait.style
+          ..position = 'absolute'
+          ..left = '-9999px'
+          ..width = '1px'
+          ..height = '1px';
+        web.document.body!.appendChild(bait);
+        await Future.delayed(const Duration(milliseconds: 100));
+        final blocked = bait.offsetHeight == 0 || bait.offsetParent == null;
+        bait.remove();
+        if (blocked) return true;
+      } catch (_) {
+        return true;
+      }
+    }
+
     try {
-      final bait = web.HTMLDivElement();
-      bait.className =
-          'pub_300x250 pub_300x250m pub_728x90 text-ad textAd text_ad text_ads text-ads text-ad-links';
-      bait.style
-        ..position = 'absolute'
-        ..left = '-9999px'
-        ..width = '1px'
-        ..height = '1px';
-      web.document.body!.appendChild(bait);
-      await Future.delayed(const Duration(milliseconds: 150));
-      final blocked = bait.offsetHeight == 0 || bait.offsetParent == null;
-      bait.remove();
-      return blocked;
+      await web.window.fetch('https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js');
     } catch (_) {
       return true;
     }
+
+    return false;
   }
 
   @override
@@ -411,13 +427,7 @@ class _AdblockerGateState extends State<AdblockerGate> {
         SizedBox(
           width: double.infinity,
           child: GestureDetector(
-            onTap: () {
-              setState(() {
-                _checking = true;
-                _detected = false;
-              });
-              _runCheck();
-            },
+            onTap: () => setState(() => _detected = true),
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
