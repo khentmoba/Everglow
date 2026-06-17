@@ -93,11 +93,17 @@ class JikanService {
   Future<Map<String, dynamic>?> _getJson(String path,
       {Map<String, String>? params, int maxRetries = 3}) async {
     final uri = Uri.parse('$_baseUrl$path').replace(queryParameters: params);
+    // Jikan strongly recommends a custom User-Agent to avoid aggressive
+    // rate-limiting. The Accept header ensures we always request JSON.
+    const headers = <String, String>{
+      'User-Agent': 'Everglow/5.3 (anime; +https://everglow.app)',
+      'Accept': 'application/json',
+    };
     return _enqueue(() async {
       var attempt = 0;
       while (true) {
         try {
-          final response = await http.get(uri).timeout(
+          final response = await http.get(uri, headers: headers).timeout(
                 const Duration(seconds: 20),
               );
           if (response.statusCode == 200) {
@@ -119,10 +125,11 @@ class JikanService {
             await Future.delayed(clamped);
             continue;
           }
-          print('Jikan GET $path failed: ${response.statusCode}');
+          print('[Jikan] $path failed (${response.statusCode}): '
+              '${response.body.length > 200 ? '${response.body.substring(0, 200)}...' : response.body}');
           return null;
         } catch (e) {
-          print('Jikan GET $path error: $e');
+          print('[Jikan] $path error: $e');
           return null;
         }
       }
@@ -225,17 +232,27 @@ class JikanService {
   // ─────────────────────────────────────────────────────────────
 
   /// Anime that are currently airing this season.
+  ///
+  /// Falls back to [`fetchTopAiring`] when the `/seasons/now` endpoint
+  /// is unavailable (a common Jikan degradation pattern), so the
+  /// "Currently Airing" Browse chip still returns results.
   Future<List<MediaItem>> fetchSeasonNow({int page = 1, int limit = 20}) async {
     final json = await _getJson('/seasons/now', params: {
       'page': '$page',
       'limit': '$limit',
     });
-    if (json == null) return [];
-    final data = (json['data'] as List?) ?? const [];
-    return data
-        .whereType<Map<String, dynamic>>()
-        .map(mapJikanToMediaItem)
-        .toList();
+    if (json != null) {
+      final data = (json['data'] as List?) ?? const [];
+      if (data.isNotEmpty) {
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(mapJikanToMediaItem)
+            .toList();
+      }
+    }
+    // /seasons/now empty or errored – fall back to the airing filter on
+    // the more reliable /top/anime endpoint.
+    return fetchTopAiring(page: page, limit: limit);
   }
 
   /// Upcoming anime (next season + later).
@@ -392,24 +409,66 @@ class JikanService {
   /// request and one queue slot. The endpoint returns the entries in
   /// the same order as the input; missing ids are silently dropped, so
   /// we re-align by `mal_id` to be safe.
+  ///
+  /// Falls back to fetching the anime [`one-by-one`][fetchAnimeById] when
+  /// the `/anime?ids=` batch endpoint fails, so Editor's Picks still
+  /// renders even during partial Jikan outages.
   Future<List<MediaItem>> fetchAnimeByIds(List<int> malIds) async {
     if (malIds.isEmpty) return [];
     final json = await _getJson('/anime', params: {
       'ids': malIds.join(','),
     });
+    if (json != null) {
+      final data = (json['data'] as List?) ?? const [];
+      if (data.isNotEmpty) {
+        final items = data
+            .whereType<Map<String, dynamic>>()
+            .map(mapJikanToMediaItem)
+            .toList();
+        final byId = {for (final i in items) i.tmdbId: i};
+        return [
+          for (final id in malIds)
+            if (byId[id] != null) byId[id]!,
+        ];
+      }
+    }
+    // Batch endpoint failed – fetch each id individually so the
+    // curated list still populates even during a partial outage.
+    final results = <MediaItem>[];
+    for (final id in malIds) {
+      final single = await fetchAnimeById(id);
+      if (single != null && single['mal_id'] != null) {
+        results.add(mapJikanToMediaItem(single));
+      }
+    }
+    return results;
+  }
+
+  /// Fallback: fetch a large batch from `/top/anime` and filter entries whose
+  /// genre list includes at least one of [genreIds]. Used when the primary
+  /// `/anime?genres=...` endpoint fails (common when Jikan's backend is
+  /// degraded but its Cloudflare cache for `/top/anime` still serves).
+  Future<List<MediaItem>> _fetchByGenresFallback(
+    List<int> genreIds, {
+    int limit = 20,
+  }) async {
+    // Pull a bigger page so genre filtering doesn't leave us with 0 items.
+    final json = await _getJson('/top/anime', params: {
+      'type': 'tv',
+      'page': '1',
+      'limit': '50',
+    });
     if (json == null) return [];
     final data = (json['data'] as List?) ?? const [];
-    final items = data
-        .whereType<Map<String, dynamic>>()
-        .map(mapJikanToMediaItem)
-        .toList();
-    // Preserve the caller's order so the Editor's Picks list reads
-    // top-to-bottom the same way regardless of the API's response order.
-    final byId = {for (final i in items) i.tmdbId: i};
-    return [
-      for (final id in malIds)
-        if (byId[id] != null) byId[id]!,
-    ];
+    final genreSet = genreIds.toSet();
+    final matched = data.whereType<Map<String, dynamic>>().where((j) {
+      final genres = j['genres'] as List? ?? const [];
+      for (final g in genres) {
+        if (g is Map && genreSet.contains(g['mal_id'])) return true;
+      }
+      return false;
+    }).take(limit).toList();
+    return matched.map(mapJikanToMediaItem).toList();
   }
 
   /// Jikan's user-recommendation rail for an anime
@@ -487,6 +546,11 @@ class JikanService {
   /// Uses the simple Jikan `/anime` search-with-genre endpoint, then
   /// sorts by popularity in Dart. `genreIds` is a list of MAL genre ids
   /// (e.g. `[1, 10]` for Action + Fantasy).
+  ///
+  /// If the primary endpoint fails (Jikan's `/anime` endpoint is often
+  /// less reliable than `/top/anime`) we fall back to filtering a larger
+  /// `/top/anime` batch by genre client-side so the Browse tab never
+  /// silently shows "No matches".
   Future<List<MediaItem>> fetchByGenres(
     List<int> genreIds, {
     int page = 1,
@@ -500,12 +564,18 @@ class JikanService {
       'order_by': 'score',
       'sort': 'desc',
     });
-    if (json == null) return [];
-    final data = (json['data'] as List?) ?? const [];
-    return data
-        .whereType<Map<String, dynamic>>()
-        .map(mapJikanToMediaItem)
-        .toList();
+    if (json != null) {
+      final data = (json['data'] as List?) ?? const [];
+      if (data.isNotEmpty) {
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(mapJikanToMediaItem)
+            .toList();
+      }
+    }
+    // Primary endpoint returned empty or errored – fall back to
+    // client-side genre filtering from the (more reliable) top-anime list.
+    return _fetchByGenresFallback(genreIds, limit: limit);
   }
 
   /// Full MAL genre list, used by the Browse tab to render the genre

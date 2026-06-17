@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
+import 'package:everglow/features/cinema/data/services/anilist_service.dart';
 import 'package:everglow/features/cinema/data/services/jikan_service.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/services/auth_service.dart';
@@ -25,6 +26,7 @@ class JikanSearchModal extends StatefulWidget {
 
 class _JikanSearchModalState extends State<JikanSearchModal> {
   final JikanService _jikanService = JikanService();
+  final AniListService _aniListService = AniListService();
   final TMDBService _tmdbService = TMDBService();
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
@@ -58,7 +60,12 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
       _isLoading = true;
     });
 
-    final results = await _jikanService.searchAnime(query);
+    var results = await _jikanService.searchAnime(query);
+
+    // Jikan often returns 504 (MAL gateway timeout). Fallback to AniList.
+    if (results.isEmpty) {
+      results = await _aniListService.searchAnime(query);
+    }
 
     if (mounted) {
       setState(() {

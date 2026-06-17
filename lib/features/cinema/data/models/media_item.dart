@@ -51,6 +51,18 @@ class MediaItem {
   /// Studio / production company that made this anime. Anime-only.
   final String studio;
 
+  /// Season the user is currently on (TV series / anime only).
+  final int? currentSeason;
+
+  /// Episode the user is currently on (TV series / anime only).
+  final int? currentEpisode;
+
+  /// Timestamp in seconds into the movie / current episode.
+  final int? currentTimestamp;
+
+  /// When the progress was last updated.
+  final DateTime? progressUpdatedAt;
+
   MediaItem({
     required this.id,
     required this.tmdbId,
@@ -70,6 +82,10 @@ class MediaItem {
     this.airingStatus = '',
     this.format = '',
     this.studio = '',
+    this.currentSeason,
+    this.currentEpisode,
+    this.currentTimestamp,
+    this.progressUpdatedAt,
   });
 
   bool get isWatched =>
@@ -81,11 +97,22 @@ class MediaItem {
 
   bool get isToWatch => status == 'to-watch';
 
+  bool get isCurrentlyWatching =>
+      status == 'watching' ||
+      status == 'watching-khent' ||
+      status == 'watching-clair' ||
+      status == 'watching-both' ||
+      status == 'watching-self';
+
   String get watchedDisplay {
     if (status == 'watched-khent') return 'Watched by Khent';
     if (status == 'watched-clair') return 'Watched by Clair';
     if (status == 'watched-both' || status == 'watched') return 'Watched by Both';
     if (status == 'watched-self') return 'Watched';
+    if (status == 'watching-khent') return 'Khent Watching';
+    if (status == 'watching-clair') return 'Clair Watching';
+    if (status == 'watching-both' || status == 'watching') return 'Watching';
+    if (status == 'watching-self') return 'Watching';
     return 'To Watch';
   }
 
@@ -134,6 +161,10 @@ class MediaItem {
       airingStatus: data['airingStatus'] ?? '',
       format: data['format'] ?? '',
       studio: data['studio'] ?? '',
+      currentSeason: data['currentSeason'] is int ? data['currentSeason'] as int : null,
+      currentEpisode: data['currentEpisode'] is int ? data['currentEpisode'] as int : null,
+      currentTimestamp: data['currentTimestamp'] is int ? data['currentTimestamp'] as int : null,
+      progressUpdatedAt: _parseDateTime(data['progressUpdatedAt']),
     );
   }
 
@@ -169,6 +200,10 @@ class MediaItem {
       'airingStatus': airingStatus,
       'format': format,
       'studio': studio,
+      if (currentSeason != null) 'currentSeason': currentSeason,
+      if (currentEpisode != null) 'currentEpisode': currentEpisode,
+      if (currentTimestamp != null) 'currentTimestamp': currentTimestamp,
+      if (progressUpdatedAt != null) 'progressUpdatedAt': Timestamp.fromDate(progressUpdatedAt!),
     };
   }
 
@@ -191,6 +226,10 @@ class MediaItem {
     String? airingStatus,
     String? format,
     String? studio,
+    int? currentSeason,
+    int? currentEpisode,
+    int? currentTimestamp,
+    DateTime? progressUpdatedAt,
   }) {
     return MediaItem(
       id: id ?? this.id,
@@ -211,6 +250,10 @@ class MediaItem {
       airingStatus: airingStatus ?? this.airingStatus,
       format: format ?? this.format,
       studio: studio ?? this.studio,
+      currentSeason: currentSeason ?? this.currentSeason,
+      currentEpisode: currentEpisode ?? this.currentEpisode,
+      currentTimestamp: currentTimestamp ?? this.currentTimestamp,
+      progressUpdatedAt: progressUpdatedAt ?? this.progressUpdatedAt,
     );
   }
 }

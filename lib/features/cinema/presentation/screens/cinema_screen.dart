@@ -53,7 +53,6 @@ class _CinemaScreenState extends State<CinemaScreen>
   StreamSubscription<List<MediaItem>>? _watchlistSubscription;
 
   List<MediaItem> _watchlist = [];
-  List<MediaItem> _wantToWatchList = [];
   List<MediaItem> _watchedList = [];
 
   List<MediaItem> _trendingCarousel = [];
@@ -233,7 +232,6 @@ class _CinemaScreenState extends State<CinemaScreen>
   }
 
   void _splitWatchlists() {
-    _wantToWatchList = _watchlist.where((item) => item.isToWatch).toList();
     _watchedList = _watchlist.where((item) => item.isWatched).toList();
   }
 
@@ -450,8 +448,7 @@ class _CinemaScreenState extends State<CinemaScreen>
               children: [
                 _buildHomeTab(),
                 _buildSearchTab(),
-                _buildWatchlistTab(isWatchedTab: false),
-                _buildWatchlistTab(isWatchedTab: true),
+                _buildLibraryTab(),
               ],
             ),
           ),
@@ -1468,42 +1465,112 @@ class _CinemaScreenState extends State<CinemaScreen>
   }
 
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // 3. WATCHLIST TABS
+  // 3. LIBRARY TAB
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  Color _watchedBadgeColor(String status) {
-    switch (status) {
-      case 'watched-clair':
-        return const Color(0xFFE91E8C);
-      case 'watched-khent':
-        return const Color(0xFF1976D2);
-      case 'watched-both':
-      case 'watched':
-      default:
-        return const Color(0xFF2E7D32);
+  Widget _buildLibraryTab() {
+    final currentlyWatching =
+        _watchlist.where((i) => i.isCurrentlyWatching).toList();
+    final wantToWatch = _watchlist.where((i) => i.isToWatch).toList();
+    final watched = _watchlist.where((i) => i.isWatched).toList();
+
+    if (currentlyWatching.isEmpty && wantToWatch.isEmpty && watched.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [_cDeepRose, _cAmber],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _cDeepRose.withValues(alpha: 0.3),
+                      blurRadius: 30,
+                      spreadRadius: -8,
+                    ),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: const Icon(Icons.collections_bookmark_rounded,
+                    color: _cWhite, size: 44),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Your cinema library is empty',
+                style: GoogleFonts.cormorantGaramond(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: _cWhite,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Search for movies or shows and add them to your library.\nItems you\'re watching or have watched will appear here.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  color: _cMuted,
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 28),
+              GestureDetector(
+                onTap: () => _switchTab(1),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 24, vertical: 14),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        _cDeepRose.withValues(alpha: 0.3),
+                        _cDeepRose.withValues(alpha: 0.15),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: _cDeepRose.withValues(alpha: 0.5),
+                      width: 1.2,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.search_rounded,
+                          color: _cWhite, size: 18),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Search Movies & TV',
+                        style: GoogleFonts.outfit(
+                          color: _cWhite,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
     }
-  }
 
-  Color _wantBadgeColor(String wanter) {
-    switch (wanter) {
-      case 'Khent':
-        return const Color(0xFF1976D2);
-      case 'Clair':
-        return const Color(0xFFE91E8C);
-      case 'Both':
-      default:
-        return const Color(0xFFE8C97A);
-    }
-  }
-
-  Widget _buildWatchlistTab({required bool isWatchedTab}) {
-    final list = isWatchedTab ? _watchedList : _wantToWatchList;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 100),
       children: [
         // Header
-        Container(
+        Padding(
           padding: EdgeInsets.fromLTRB(
               20, MediaQuery.of(context).padding.top + 14, 20, 0),
           child: Row(
@@ -1520,7 +1587,7 @@ class _CinemaScreenState extends State<CinemaScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isWatchedTab ? 'Watched' : 'Want to Watch',
+                      'Our Library',
                       style: GoogleFonts.cormorantGaramond(
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
@@ -1528,7 +1595,7 @@ class _CinemaScreenState extends State<CinemaScreen>
                       ),
                     ),
                     Text(
-                      isWatchedTab ? 'OUR CATALOG' : 'THE WATCHLIST',
+                      'CINEMA COLLECTION',
                       style: GoogleFonts.outfit(
                         fontSize: 9,
                         fontWeight: FontWeight.w700,
@@ -1539,83 +1606,153 @@ class _CinemaScreenState extends State<CinemaScreen>
                   ],
                 ),
               ),
-              // Count badge
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _cDeepRose.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(20),
-                  border:
-                      Border.all(color: _cDeepRose.withValues(alpha: 0.3)),
-                ),
-                child: Text(
-                  '${list.length}',
-                  style: GoogleFonts.outfit(
-                    color: _cDeepRose,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        Expanded(
-          child: list.isEmpty
-              ? ShelfEmptyState(
-                  icon: isWatchedTab
-                      ? Icons.remove_red_eye_outlined
-                      : Icons.bookmark_border_rounded,
-                  title: isWatchedTab
-                      ? 'Your watched catalog is empty'
-                      : 'Nothing queued yet',
-                  subtitle: isWatchedTab
-                      ? 'Movies and shows you mark as watched will live here so you can revisit them anytime.'
-                      : 'Tap the bookmark on any movie or show to add it to your watch queue.',
-                  accent: _cDeepRose,
-                )
-              : GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                  physics: const BouncingScrollPhysics(),
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 0.65,
-                    crossAxisSpacing: 14,
-                    mainAxisSpacing: 14,
-                  ),
-                  itemCount: list.length,
-                  itemBuilder: (context, index) {
-                    final item = list[index];
-                    // Wishlist rows show a khent/clair/both attribution
-                    // chip; watched rows keep the existing partner-specific
-                    // watched chip. The wishlist label falls back to "Mine"
-                    // for non-couple users.
-                    final badgeLabel = isWatchedTab
-                        ? item.watchedDisplay.toUpperCase()
-                        : item.wanterDisplay.toUpperCase();
-                    final badgeColor = isWatchedTab
-                        ? _watchedBadgeColor(item.status)
-                        : _wantBadgeColor(item.wanterDisplay);
-                    return ShelfPosterCard(
-                      imageUrl: item.posterPath,
-                      title: item.title,
-                      subtitle: item.year.isNotEmpty
-                          ? item.year
-                          : null,
-                      badge: badgeLabel,
-                      badgeColor: badgeColor,
-                      badgeIcon: isWatchedTab
-                          ? Icons.check_rounded
-                          : Icons.bookmark_rounded,
-                      onTap: () => _showMediaDetails(item),
-                    );
-                  },
-                ),
-        ),
+        const SizedBox(height: 8),
+        // Currently Watching
+        if (currentlyWatching.isNotEmpty) ...[
+          _librarySectionHeader(
+            'Currently Watching',
+            'RESUME PLAYING',
+            Icons.play_circle_filled_rounded,
+            const Color(0xFFFF6D00),
+            currentlyWatching.length,
+          ),
+          _libraryGrid(currentlyWatching),
+        ],
+        // Want to Watch
+        if (wantToWatch.isNotEmpty) ...[
+          _librarySectionHeader(
+            'Want to Watch',
+            'YOUR QUEUE',
+            Icons.bookmark_rounded,
+            _cGold,
+            wantToWatch.length,
+          ),
+          _libraryGrid(wantToWatch, badgeColor: _cGold),
+        ],
+        // Watched
+        if (watched.isNotEmpty) ...[
+          _librarySectionHeader(
+            'Watched',
+            'COMPLETED',
+            Icons.check_circle_rounded,
+            const Color(0xFF2E7D32),
+            watched.length,
+          ),
+          _libraryGrid(watched, badgeColor: const Color(0xFF2E7D32)),
+        ],
       ],
+    );
+  }
+
+  Widget _librarySectionHeader(String title, String subtitle, IconData icon,
+      Color accent, int count) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+      child: Row(
+        children: [
+          Container(
+            width: 3,
+            height: 20,
+            decoration: BoxDecoration(
+              color: accent,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Icon(icon, color: accent, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.cormorantGaramond(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: _cWhite,
+                  ),
+                ),
+                if (subtitle.isNotEmpty)
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.outfit(
+                      fontSize: 9,
+                      color: _cMuted,
+                      letterSpacing: 1.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: accent.withValues(alpha: 0.3)),
+            ),
+            child: Text(
+              '$count',
+              style: GoogleFonts.outfit(
+                color: accent,
+                fontWeight: FontWeight.w800,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _libraryGrid(List<MediaItem> items, {Color? badgeColor}) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      itemCount: items.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.65,
+        crossAxisSpacing: 14,
+        mainAxisSpacing: 14,
+      ),
+      itemBuilder: (context, index) {
+        final item = items[index];
+        String badgeLabel;
+        Color bColor;
+        IconData bIcon;
+        if (item.isCurrentlyWatching) {
+          badgeLabel = item.currentEpisode != null
+              ? 'S${item.currentSeason ?? 1}E${item.currentEpisode}'
+              : 'WATCHING';
+          bColor = const Color(0xFFFF6D00);
+          bIcon = Icons.play_circle_filled_rounded;
+        } else if (item.isWatched) {
+          badgeLabel = item.watchedDisplay.toUpperCase();
+          bColor = badgeColor ?? const Color(0xFF2E7D32);
+          bIcon = Icons.check_rounded;
+        } else {
+          badgeLabel = item.wanterDisplay.toUpperCase();
+          bColor = badgeColor ?? _cGold;
+          bIcon = Icons.bookmark_rounded;
+        }
+        return ShelfPosterCard(
+          imageUrl: item.posterPath,
+          title: item.title,
+          subtitle: item.year.isNotEmpty ? item.year : null,
+          badge: badgeLabel,
+          badgeColor: bColor,
+          badgeIcon: bIcon,
+          onTap: () => _showMediaDetails(item),
+        );
+      },
     );
   }
 
@@ -1677,14 +1814,9 @@ class _CinemaScreenState extends State<CinemaScreen>
           label: 'Search',
         ),
         ShelfNavItem(
-          icon: Icons.bookmark_border_rounded,
-          activeIcon: Icons.bookmark_rounded,
-          label: 'Queue',
-        ),
-        ShelfNavItem(
-          icon: Icons.remove_red_eye_outlined,
-          activeIcon: Icons.remove_red_eye_rounded,
-          label: 'Watched',
+          icon: Icons.collections_bookmark_outlined,
+          activeIcon: Icons.collections_bookmark_rounded,
+          label: 'Library',
         ),
       ],
     );

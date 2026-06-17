@@ -27,6 +27,7 @@ import '../widgets/cinema_preview.dart';
 import '../widgets/anime_preview.dart';
 import '../widgets/books_preview.dart';
 import '../widgets/manga_preview.dart';
+import '../widgets/currently_watching_preview.dart';
 import 'package:everglow/features/canvas/presentation/screens/canvas_screen.dart';
 import 'package:everglow/features/starlight_jar/presentation/screens/starlight_jar_widget.dart';
 import 'package:everglow/features/heartbeat/presentation/controllers/mood_controller.dart';
@@ -36,7 +37,6 @@ import 'package:everglow/features/heartbeat/data/services/mood_service.dart';
 import '../../../academy/widgets/academy_portal_card.dart';
 import '../../../../features/play_zone/presentation/widgets/play_zone_portal_card.dart';
 import '../../../../features/jukebox/presentation/widgets/jukebox_widget.dart';
-import '../../../../features/jukebox/presentation/providers/jukebox_provider.dart';
 
 import 'package:everglow/shared/widgets/gamified_background.dart';
 import 'package:everglow/features/xp/data/services/xp_service.dart';
@@ -371,6 +371,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                               ),
                             ),
                             const SliverToBoxAdapter(child: SizedBox(height: 32)),
+                            SliverToBoxAdapter(
+                              child: _maybeAnimate(
+                                animation: (child) => FadeInUp(
+                                  delay: const Duration(milliseconds: 1080),
+                                  child: child,
+                                ),
+                                child: const CurrentlyWatchingPreview(),
+                              ),
+                            ),
+                            const SliverToBoxAdapter(child: SizedBox(height: 24)),
                             SliverToBoxAdapter(
                               child: _maybeAnimate(
                                 animation: (child) => FadeInUp(

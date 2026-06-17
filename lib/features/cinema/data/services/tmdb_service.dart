@@ -677,6 +677,54 @@ class TMDBService {
     }
   }
 
+  /// Update watch progress fields for a specific watch_list item.
+  /// Creates the entry first if it doesn't exist (for first-time watch).
+  Future<void> updateProgress(
+    MediaItem item,
+    String userName, {
+    int? season,
+    int? episode,
+    int? timestamp,
+    String? status,
+  }) async {
+    if (userName.isEmpty) return;
+    try {
+      final collection = _firestore.collection('watch_list');
+      final existing = await collection
+          .where('tmdbId', isEqualTo: item.tmdbId)
+          .where('userName', isEqualTo: userName)
+          .limit(1)
+          .get();
+
+      final now = Timestamp.now();
+      final data = <String, dynamic>{
+        'currentSeason': season,
+        'currentEpisode': episode,
+        'currentTimestamp': timestamp,
+        'progressUpdatedAt': now,
+      };
+      if (status != null) data['status'] = status;
+
+      if (existing.docs.isNotEmpty) {
+        await collection.doc(existing.docs.first.id).update(data);
+      } else {
+        await collection.add(item
+            .copyWith(
+              status: status ?? 'watching-self',
+              userName: userName,
+              addedAt: DateTime.now(),
+              currentSeason: season,
+              currentEpisode: episode,
+              currentTimestamp: timestamp,
+              progressUpdatedAt: DateTime.now(),
+            )
+            .toFirestore());
+      }
+    } catch (e) {
+      print('Error updating watch progress: $e');
+    }
+  }
+
   Future<void> removeFromWatchList(int tmdbId, String userName) async {
     if (userName.isEmpty) return;
     try {
@@ -882,24 +930,26 @@ class TMDBService {
     return merged;
   }
 
-  /// Returns the strongest watched status across the two partners.
-  ///   - both watched (any form) -> 'watched-both'
-  ///   - one watched (any form) -> 'watched-khent' or 'watched-clair'
-  ///   - neither -> 'to-watch'
+  /// Returns the strongest watched/watching status across the two partners.
+  /// Priority (highest to lowest):
+  ///   watched-both > watched-khent/clair > watching-both > watching-khent/clair > to-watch
   static String _mergeWatchedStatus(String a, String b) {
     bool isWatched(String s) =>
-        s == 'watched' ||
-        s == 'watched-self' ||
-        s == 'watched-khent' ||
-        s == 'watched-clair' ||
+        s == 'watched' || s == 'watched-self' ||
+        s == 'watched-khent' || s == 'watched-clair' ||
         s == 'watched-both';
+    bool isWatching(String s) =>
+        s == 'watching' || s == 'watching-self' ||
+        s == 'watching-khent' || s == 'watching-clair' ||
+        s == 'watching-both';
 
     final aWatched = isWatched(a);
     final bWatched = isWatched(b);
+    final aWatching = isWatching(a);
+    final bWatching = isWatching(b);
 
     if (aWatched && bWatched) return 'watched-both';
     if (aWatched) {
-      // userA == khentsgdz by convention in this method
       if (a == 'watched-clair') return 'watched-clair';
       return 'watched-khent';
     }
@@ -907,7 +957,180 @@ class TMDBService {
       if (b == 'watched-khent') return 'watched-khent';
       return 'watched-clair';
     }
+    if (aWatching && bWatching) return 'watching-both';
+    if (aWatching) {
+      if (a == 'watching-clair') return 'watching-clair';
+      return 'watching-khent';
+    }
+    if (bWatching) {
+      if (b == 'watching-khent') return 'watching-khent';
+      return 'watching-clair';
+    }
     return 'to-watch';
+  }
+
+  /// Stream of currently watching items for a single user.
+  Stream<List<MediaItem>> getCurrentlyWatchingStream(String userName) {
+    return _firestore
+        .collection('watch_list')
+        .where('userName', isEqualTo: userName)
+        .snapshots()
+        .map((snapshot) {
+      final items = snapshot.docs
+          .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+          .where((i) => i.isCurrentlyWatching)
+          .toList()
+        ..sort((a, b) {
+          final aTime = a.progressUpdatedAt ?? a.addedAt;
+          final bTime = b.progressUpdatedAt ?? b.addedAt;
+          return bTime.compareTo(aTime);
+        });
+      return items;
+    });
+  }
+
+  /// Couple-scoped currently watching stream.
+  Stream<List<MediaItem>> getCoupleCurrentlyWatchingStream({
+    String userA = 'khentsgdz',
+    String userB = 'clairjassen',
+  }) {
+    final controller = StreamController<List<MediaItem>>.broadcast();
+    List<MediaItem> itemsA = const [];
+    List<MediaItem> itemsB = const [];
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? subA;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? subB;
+
+    void emit() {
+      final merged = _mergeCoupleItems(itemsA, itemsB);
+      controller.add(merged.where((i) => i.isCurrentlyWatching).toList());
+    }
+
+    controller.onListen = () {
+      subA = _firestore
+          .collection('watch_list')
+          .where('userName', isEqualTo: userA)
+          .snapshots()
+          .listen((snapshot) {
+        itemsA = snapshot.docs
+            .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+            .toList();
+        emit();
+      });
+      subB = _firestore
+          .collection('watch_list')
+          .where('userName', isEqualTo: userB)
+          .snapshots()
+          .listen((snapshot) {
+        itemsB = snapshot.docs
+            .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+            .toList();
+        emit();
+      });
+    };
+
+    controller.onCancel = () async {
+      await subA?.cancel();
+      await subB?.cancel();
+    };
+
+    return controller.stream;
+  }
+
+  /// Anime-only currently watching for a single user.
+  Stream<List<MediaItem>> getCurrentlyWatchingAnimeStream(String userName) {
+    return _firestore
+        .collection('watch_list')
+        .where('userName', isEqualTo: userName)
+        .snapshots()
+        .map((snapshot) {
+      final items = snapshot.docs
+          .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+          .where((i) => i.isAnime && i.isCurrentlyWatching)
+          .toList()
+        ..sort((a, b) {
+          final aTime = a.progressUpdatedAt ?? a.addedAt;
+          final bTime = b.progressUpdatedAt ?? b.addedAt;
+          return bTime.compareTo(aTime);
+        });
+      return items;
+    });
+  }
+
+  /// Couple-scoped anime currently watching stream.
+  Stream<List<MediaItem>> getCoupleCurrentlyWatchingAnimeStream({
+    String userA = 'khentsgdz',
+    String userB = 'clairjassen',
+  }) {
+    final controller = StreamController<List<MediaItem>>.broadcast();
+    List<MediaItem> itemsA = const [];
+    List<MediaItem> itemsB = const [];
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? subA;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? subB;
+
+    void emit() {
+      final merged = _mergeCoupleItems(itemsA, itemsB);
+      controller.add(merged.where((i) => i.isAnime && i.isCurrentlyWatching).toList());
+    }
+
+    controller.onListen = () {
+      subA = _firestore
+          .collection('watch_list')
+          .where('userName', isEqualTo: userA)
+          .snapshots()
+          .listen((snapshot) {
+        itemsA = snapshot.docs
+            .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+            .toList();
+        emit();
+      });
+      subB = _firestore
+          .collection('watch_list')
+          .where('userName', isEqualTo: userB)
+          .snapshots()
+          .listen((snapshot) {
+        itemsB = snapshot.docs
+            .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+            .toList();
+        emit();
+      });
+    };
+
+    controller.onCancel = () async {
+      await subA?.cancel();
+      await subB?.cancel();
+    };
+
+    return controller.stream;
+  }
+
+  /// Keep-alive method to update timestamp while watching (debounced).
+  Future<void> heartbeatProgress(
+    int tmdbId,
+    String userName, {
+    int? season,
+    int? episode,
+    int? timestamp,
+  }) async {
+    if (userName.isEmpty) return;
+    try {
+      final collection = _firestore.collection('watch_list');
+      final existing = await collection
+          .where('tmdbId', isEqualTo: tmdbId)
+          .where('userName', isEqualTo: userName)
+          .limit(1)
+          .get();
+      if (existing.docs.isNotEmpty) {
+        final data = <String, dynamic>{
+          'progressUpdatedAt': Timestamp.now(),
+        };
+        if (season != null) data['currentSeason'] = season;
+        if (episode != null) data['currentEpisode'] = episode;
+        if (timestamp != null) data['currentTimestamp'] = timestamp;
+        await collection.doc(existing.docs.first.id).update(data);
+      }
+    } catch (e) {
+      print('Error heartbeating progress: $e');
+    }
   }
 
   /// Cache watchlist items to SharedPreferences, scoped per user.
