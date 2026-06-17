@@ -1025,8 +1025,6 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
 
   Widget _buildBottomBar() {
     if (!widget.isHost) {
-      // Partner sees the follow-host text + a Resync button that sits
-      // outside the iframe Stack so it can actually be tapped on web.
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         color: Colors.black,
@@ -1038,33 +1036,6 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
               child: Text(
                 'Following $_partnerName · you\'re ${_formatT(_displayedTime)} in',
                 style: GoogleFonts.outfit(color: _cWhite.withValues(alpha: 0.7), fontSize: 12),
-              ),
-            ),
-            const SizedBox(width: 12),
-            GestureDetector(
-              onTap: _manualResync,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.75),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: _cDeepRose.withValues(alpha: 0.6), width: 1),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.sync_rounded, color: Colors.white, size: 14),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Resync to ${_formatT(_room.currentTime)}',
-                      style: GoogleFonts.outfit(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
               ),
             ),
           ],

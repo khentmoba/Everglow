@@ -450,3 +450,97 @@ exports.proxyMangaDex = functions.https.onRequest(async (req, res) => {
     res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
   }
 });
+
+/**
+ * Fetches the direct video stream URL from VidLink server-side so Flutter
+ * can play it in a controllable <video> element on the same origin.
+ *
+ * Accepts: POST /proxyVideoStream  { type, id, season?, episode? }
+ * Returns: { url: string|null, debug: {...} }
+ */
+exports.proxyVideoStream = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+  if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
+
+  const { type, id, season, episode } = req.body || {};
+  if (!type || !id) { res.status(400).json({ error: 'type and id required' }); return; }
+
+  const vidlinkUrl = type === 'tv'
+    ? `https://vidlink.pro/tv/${id}/${season || 1}/${episode || 1}`
+    : `https://vidlink.pro/movie/${id}`;
+
+  try {
+    const page = await fetch(vidlinkUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+      },
+      redirect: 'follow',
+    });
+    const html = await page.text();
+
+    // VidLink exposes an internal API: /api/b/tv/{id}/{s}/{e}?multiLang=1
+    let streamData = null;
+    try {
+      const apiPath = type === 'tv'
+        ? `/api/b/tv/${id}/${season||1}/${episode||1}?multiLang=1`
+        : `/api/b/movie/${id}?multiLang=1`;
+      const apiResp = await fetch(`https://vidlink.pro${apiPath}`, {
+        headers: {
+          'Referer': 'https://vidlink.pro/',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'application/json',
+        },
+      });
+      if (apiResp.ok) {
+        const txt = await apiResp.text();
+        try { streamData = JSON.parse(txt); } catch (_) { streamData = txt; }
+      }
+    } catch (_) {}
+
+    // Also try VidLink's v2 API
+    let v2Data = null;
+    if (!streamData) {
+      try {
+        const v2Path = type === 'tv'
+          ? `/api/v2/tv/${id}/${season||1}/${episode||1}`
+          : `/api/v2/movie/${id}`;
+        const v2Resp = await fetch(`https://vidlink.pro${v2Path}`, {
+          headers: {
+            'Referer': 'https://vidlink.pro/',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json',
+          },
+        });
+        if (v2Resp.ok) {
+          const txt = await v2Resp.text();
+          try { v2Data = JSON.parse(txt); } catch (_) { v2Data = txt; }
+        }
+      } catch (_) {}
+    }
+
+    // Extract stream URL from the API response
+    const extractUrl = (data) => {
+      if (!data) return null;
+      const s = JSON.stringify(data);
+      const m = s.match(/(https?:\/\/[^"'\s]*\.m3u8[^"'\s]*)/i)
+        || s.match(/(https?:\/\/[^"'\s]*\.mp4[^"'\s]*)/i);
+      return m ? m[1] : null;
+    };
+
+    res.json({
+      url: extractUrl(streamData) || extractUrl(v2Data),
+      streamData: streamData ? JSON.stringify(streamData).substring(0, 2000) : null,
+      v2Data: v2Data ? JSON.stringify(v2Data).substring(0, 2000) : null,
+      debug: {
+        vidlinkUrl,
+        htmlLen: html.length,
+      },
+    });
+  } catch (e) {
+    res.status(502).json({ error: e.message });
+  }
+});
