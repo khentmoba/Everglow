@@ -62,7 +62,7 @@ class OpenLibraryService {
       coverUrl: coverUrl,
       year: year,
       subjects: subjects,
-      status: 'to-read',
+      status: '',
       addedAt: DateTime.now(),
       readSourceUrl: readSource,
       readSourceLabel: readLabel,

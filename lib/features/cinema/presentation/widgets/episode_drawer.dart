@@ -361,11 +361,15 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   }
 
   Future<void> _fetchSeasonEpisodes(int seasonNumber) async {
-    setState(() => _isLoadingEpisodes = true);
+    setState(() {
+      _isLoadingEpisodes = true;
+      _episodes = [];
+    });
     if (_isAnimeSourced) {
       final malId = _resolvedMalId ?? widget.item.tmdbId;
       final episodes = await _fetchJikanEpisodes(malId);
       if (!mounted) return;
+      if (_selectedSeasonNumber != seasonNumber) return;
       setState(() {
         _episodes = episodes;
         _isLoadingEpisodes = false;
@@ -374,7 +378,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     }
     final episodes = await _tmdbService.fetchSeasonEpisodes(
         widget.item.tmdbId, seasonNumber);
-    if (mounted) {
+    if (mounted && _selectedSeasonNumber == seasonNumber) {
       setState(() {
         _episodes = episodes;
         _isLoadingEpisodes = false;
