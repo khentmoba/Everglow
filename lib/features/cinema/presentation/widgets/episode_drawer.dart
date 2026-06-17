@@ -154,8 +154,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     setState(() => _isLoadingTrailer = true);
     try {
       String? key;
-      if (_isAnimeSourced) {
-        // AniList has a `trailer` field; we surface it for the hero
+    print('[DEBUG] loadTrailer: isAnimeSourced=$_isAnimeSourced resolvedMalId=$_resolvedMalId');
+    if (_isAnimeSourced) {
+      // AniList has a `trailer` field; we surface it for the hero
         // player when it's a YouTube id. We still call this after
         // [_fetchMediaDetails] has run, so we can read the resolved id
         // off [_aniListDetail] if it's available; otherwise we kick off
@@ -228,11 +229,13 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   /// TMDB-sourced items so the rest of the build method doesn't branch
   /// on source.
   Future<void> _fetchAnimeDetails() async {
+    print('[DEBUG] fetchAnimeDetails: anilistId=${widget.item.anilistId} malId=${widget.item.tmdbId} title=${widget.item.title}');
     final detail = await _aniListService.fetchDetailsWithFallback(
       anilistId: widget.item.anilistId,
       malId: widget.item.tmdbId,
     );
     if (detail?.malId != null) _resolvedMalId = detail!.malId;
+    print('[DEBUG] fetchAnimeDetails: resolvedMalId=$_resolvedMalId detailId=${detail?.id} detailMalId=${detail?.malId}');
     if (!mounted) return;
     if (detail == null) {
       setState(() {
@@ -298,6 +301,10 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   /// then Current, then SEQUELs. Empty list when there's only 1 season.
   List<_SeasonNavItem> _buildAnimeSeasons(AniListDetail detail) {
     final list = <_SeasonNavItem>[];
+    print('[DEBUG] buildAnimeSeasons: detailId=${detail.id} detailMalId=${detail.malId} relations=${detail.relations.length}');
+    for (final r in detail.relations) {
+      print('[DEBUG]   relation: id=${r.id} malId=${r.malId} type=${r.relationType} title=${r.title}');
+    }
     list.add(_SeasonNavItem(
       id: detail.id,
       malId: detail.malId ?? widget.item.tmdbId,
@@ -369,7 +376,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     });
     if (_isAnimeSourced) {
       final malId = _resolvedMalId ?? widget.item.tmdbId;
+      print('[DEBUG] fetchSeasonEpisodes anime: malId=$malId resolvedMalId=$_resolvedMalId tmdbId=${widget.item.tmdbId}');
       final episodes = await _fetchJikanEpisodes(malId);
+      print('[DEBUG] fetchSeasonEpisodes anime: got ${episodes.length} episodes');
       if (!mounted) return;
       if (_selectedSeasonNumber != seasonNumber) return;
       setState(() {
@@ -906,6 +915,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   }
 
   void _playEpisode(int season, int episode, String epTitle) {
+    print('[DEBUG] playEpisode: season=$season episode=$episode title=$epTitle isAnime=$_isAnimeSourced tmdbId=${widget.item.tmdbId} malId=$_resolvedMalId');
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -937,6 +947,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   /// entry. No-op when the target is the current season.
   void _switchAnimeSeason(_SeasonNavItem season) {
     if (season.isCurrent) return;
+    print('[DEBUG] switchAnimeSeason: id=${season.id} malId=${season.malId} title=${season.title}');
     Navigator.pop(context);
     showModalBottomSheet(
       context: context,
@@ -1825,6 +1836,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     final epSeason = (ep['season_number'] as int?) ?? _tmdbMatchedSeason ?? _selectedSeasonNumber ?? 1;
     final epNum = ep['episode_number'] ?? (index + 1);
     final epName = ep['name'] ?? 'Episode $epNum';
+    print('[DEBUG] buildEpisodeTile: season=$epSeason epNum=$epNum name=$epName tmdbMatchedSeason=$_tmdbMatchedSeason selectedSeason=$_selectedSeasonNumber');
     final epOverview = ep['overview'] ?? '';
     String? proxyIfBlocked(String url) {
       // Crunchyroll and other streaming CDNs don't send CORS headers, so
