@@ -5,10 +5,14 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:web/web.dart' as web;
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/data/services/ani_zip_service.dart';
+import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
+import 'package:everglow/features/cinema/data/models/media_item.dart';
+import 'package:everglow/services/auth_service.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final int tmdbId;
@@ -55,6 +59,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Timer? _loadTimer;
   Timer? _contentCheckTimer;
   JSFunction? _messageListener;
+
+  /// Tracks whether we've saved the initial "watching" status for this
+  /// playback session so we don't spam Firestore on every rebuild.
+  bool _hasSavedWatchProgress = false;
 
   /// How long to wait for the iframe to fire `load` before we consider
   /// the embed dead. vidsrc embeds usually load in 2-4s; 15s is a
@@ -182,6 +190,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _loadTimer?.cancel();
       if (mounted) setState(() => _isLoading = false);
       _startContentCheck();
+      _saveWatchProgress();
     }).toJS;
     _onErrorListener = ((web.Event _) {
       _onIframeLoadError();
@@ -244,6 +253,52 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (!mounted) return;
     _failedProviderIds.add(_selectedProvider.id);
     _tryNextProvider();
+  }
+
+  /// Saves or updates the watch progress in Firestore so the
+  /// "Currently Watching" shelves across the app reflect what the
+  /// user is watching right now. Runs once per playback session.
+  void _saveWatchProgress() {
+    if (_hasSavedWatchProgress || !mounted) return;
+    _hasSavedWatchProgress = true;
+    try {
+      final tmdb = TMDBService();
+      final userName = context.read<AuthService>().currentUser ?? '';
+      if (userName.isEmpty) return;
+
+      final status = _watchingStatusFor(userName);
+
+      tmdb.updateProgress(
+        MediaItem(
+          id: '',
+          tmdbId: widget.tmdbId,
+          title: widget.title,
+          mediaType: widget.mediaType,
+          posterPath: '',
+          status: status,
+          isAnime: widget.isAnime,
+          userName: userName,
+          addedAt: DateTime.now(),
+        ),
+        userName,
+        season: widget.season,
+        episode: widget.episode,
+        timestamp: 0,
+        status: status,
+      );
+    } catch (_) {}
+  }
+
+  /// Returns the correct watching status value for the user.
+  String _watchingStatusFor(String userName) {
+    switch (userName) {
+      case 'khentsgdz':
+        return 'watching-khent';
+      case 'clairjassen':
+        return 'watching-clair';
+      default:
+        return 'watching-self';
+    }
   }
 
   /// Starts the content availability check timer. Only applies to

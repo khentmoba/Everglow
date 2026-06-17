@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:everglow/features/cinema/data/models/anilist_detail.dart';
+import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/jikan_service.dart';
 
 /// GraphQL client for AniList (https://anilist.co).
@@ -429,6 +430,86 @@ class AniListService {
     if (malId != null) _detailCache.remove(-malId);
     return fetchDetails(anilistId: anilistId, malId: malId);
   }
+
+  /// Search anime by free-text query via AniList's GraphQL API.
+  /// Returns [MediaItem]s compatible with the existing watchlist flow.
+  /// Used as fallback when Jikan is unavailable.
+  Future<List<MediaItem>> searchAnime(String query,
+      {int page = 1, int limit = 25}) async {
+    if (query.trim().isEmpty) return [];
+    final data = await _postGraphQL(_searchQuery, {
+      'search': query,
+      'page': page,
+      'perPage': limit,
+    });
+    if (data == null) return [];
+    final pageData = data['Page'] as Map<String, dynamic>?;
+    if (pageData == null) return [];
+    final media = (pageData['media'] as List?) ?? const [];
+    return media
+        .whereType<Map<String, dynamic>>()
+        .map(_mapAniListSearchResult)
+        .toList();
+  }
+
+  MediaItem _mapAniListSearchResult(Map<String, dynamic> m) {
+    final id = (m['id'] as num?)?.toInt() ?? 0;
+    final malId = (m['idMal'] as num?)?.toInt() ?? 0;
+    final title = m['title'] as Map<String, dynamic>?;
+    final titleEn = (title?['english'] as String?)?.trim();
+    final titleRom = (title?['romaji'] as String?)?.trim();
+    final displayTitle = (titleEn?.isNotEmpty == true ? titleEn : titleRom) ?? 'Unknown Title';
+
+    final cover = m['coverImage'] as Map<String, dynamic>?;
+    final poster = (cover?['extraLarge'] as String?) ??
+        (cover?['large'] as String?) ??
+        (cover?['medium'] as String?) ??
+        '';
+    final banner = (m['bannerImage'] as String?) ?? '';
+
+    final format = (m['format'] as String?) ?? '';
+    final mediaType = format == 'MOVIE' ? 'movie' : 'tv';
+
+    final yearVal = m['seasonYear'];
+    final year = yearVal is num ? yearVal.toString() : '';
+
+    final studios = m['studios'] as Map<String, dynamic>?;
+    final nodes = (studios?['nodes'] as List?) ?? const [];
+    String studioName = '';
+    for (final s in nodes.whereType<Map<String, dynamic>>()) {
+      final name = s['name'] as String?;
+      if (name != null && name.isNotEmpty) {
+        studioName = name;
+        break;
+      }
+    }
+
+    final episodes = (m['episodes'] is num)
+        ? (m['episodes'] as num).toInt()
+        : null;
+
+    final status = (m['status'] as String?) ?? '';
+
+    return MediaItem(
+      id: '',
+      tmdbId: malId,
+      title: displayTitle,
+      mediaType: mediaType,
+      posterPath: poster,
+      backdropPath: banner,
+      year: year,
+      status: '',
+      isAnime: true,
+      addedAt: DateTime.now(),
+      source: 'jikan',
+      anilistId: id,
+      synopsis: '',
+      episodeCount: episodes,
+      airingStatus: status,
+      format: format,
+      studio: studioName,
+    );
+  }
 }
 
 /// Minimal HTML entity unescaper; we don't pull in `html_unescape` here
@@ -447,6 +528,30 @@ String unescapeHtmlEntities(String input) {
 
 /// Comprehensive detail-page query. Fetches everything in one round-trip
 /// to avoid rate-limiting and to keep the detail drawer snappy.
+const String _searchQuery = r'''
+query ($search: String, $page: Int, $perPage: Int) {
+  Page(page: $page, perPage: $perPage) {
+    media(search: $search, type: ANIME, sort: POPULARITY_DESC) {
+      id
+      idMal
+      title { romaji english native }
+      coverImage { extraLarge large medium }
+      bannerImage
+      episodes
+      duration
+      status
+      format
+      season
+      seasonYear
+      averageScore
+      genres
+      studios(isMain: true) { nodes { id name } }
+      trailer { id site }
+    }
+  }
+}
+''';
+
 const String _detailsQuery = r'''
 query ($id: Int, $idMal: Int, $type: MediaType) {
   Media(id: $id, idMal: $idMal, type: $type) {

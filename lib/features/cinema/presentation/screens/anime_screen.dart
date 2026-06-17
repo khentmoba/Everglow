@@ -357,9 +357,29 @@ class _AnimeScreenState extends State<AnimeScreen>
             ),
             const SizedBox(height: 24),
           ],
-          if (_library.where((i) => i.isToWatch).isNotEmpty) ...[
+          if (_library.where((i) => i.isCurrentlyWatching).isNotEmpty) ...[
             StaggeredEntrance(
               index: _homeSections.length + 1,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                child: ShelfSectionHeader(
+                  eyebrow: 'Resume Playing',
+                  title: 'Currently Watching',
+                  icon: Icons.play_circle_filled_rounded,
+                  accent: const Color(0xFFFF6D00),
+                  count: _library.where((i) => i.isCurrentlyWatching).length,
+                  countLabel: 'titles',
+                ),
+              ),
+            ),
+            _buildPosterRow(
+              _library.where((i) => i.isCurrentlyWatching).toList(),
+            ),
+            const SizedBox(height: 24),
+          ],
+          if (_library.where((i) => i.isToWatch).isNotEmpty) ...[
+            StaggeredEntrance(
+              index: _homeSections.length + 2,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
                 child: ShelfSectionHeader(
@@ -379,7 +399,7 @@ class _AnimeScreenState extends State<AnimeScreen>
           ],
           if (_library.where((i) => i.isWatched).isNotEmpty) ...[
             StaggeredEntrance(
-              index: _homeSections.length + 2,
+              index: _homeSections.length + 3,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
                 child: ShelfSectionHeader(
@@ -860,10 +880,11 @@ class _AnimeScreenState extends State<AnimeScreen>
   // ── LIBRARY TAB ────────────────────────────────────────────────────
 
   Widget _buildLibraryTab() {
+    final currentlyWatching = _library.where((i) => i.isCurrentlyWatching).toList();
     final wantToWatch = _library.where((i) => i.isToWatch).toList();
     final watched = _library.where((i) => i.isWatched).toList();
 
-    if (wantToWatch.isEmpty && watched.isEmpty) {
+    if (currentlyWatching.isEmpty && wantToWatch.isEmpty && watched.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -978,6 +999,12 @@ class _AnimeScreenState extends State<AnimeScreen>
               Row(
                 children: [
                   _LibraryStat(
+                    label: 'Watching',
+                    count: currentlyWatching.length,
+                    color: const Color(0xFFFF6D00),
+                  ),
+                  const SizedBox(width: 8),
+                  _LibraryStat(
                     label: 'Queue',
                     count: wantToWatch.length,
                     color: _cCyan,
@@ -991,7 +1018,7 @@ class _AnimeScreenState extends State<AnimeScreen>
                   const SizedBox(width: 8),
                   _LibraryStat(
                     label: 'Total',
-                    count: wantToWatch.length + watched.length,
+                    count: currentlyWatching.length + wantToWatch.length + watched.length,
                     color: _cVibrantPink,
                   ),
                 ],
@@ -999,6 +1026,8 @@ class _AnimeScreenState extends State<AnimeScreen>
             ],
           ),
         ),
+        _buildLibrarySection('Currently Watching', currentlyWatching,
+            Icons.play_circle_filled_rounded, const Color(0xFFFF6D00)),
         _buildLibrarySection(
             'Want to Watch', wantToWatch, Icons.bookmark_rounded, _cCyan),
         _buildLibrarySection('Watched', watched,
@@ -1041,11 +1070,18 @@ class _AnimeScreenState extends State<AnimeScreen>
           ),
           itemBuilder: (context, index) {
             final item = items[index];
+            final badge = title == 'Currently Watching'
+                ? (item.currentEpisode != null
+                    ? 'S${item.currentSeason ?? 1}E${item.currentEpisode}'
+                    : 'WATCHING')
+                : title == 'Watched'
+                    ? 'WATCHED'
+                    : 'QUEUE';
             return ShelfPosterCard(
               imageUrl: item.posterPath,
               title: item.title,
               subtitle: item.year.isNotEmpty ? item.year : null,
-              badge: title == 'Watched' ? 'WATCHED' : 'QUEUE',
+              badge: badge,
               badgeColor: accent,
               onTap: () => _openDetails(item),
             );
