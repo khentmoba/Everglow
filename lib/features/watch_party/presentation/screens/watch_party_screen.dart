@@ -428,9 +428,11 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     _heartbeatTimer = Timer.periodic(_heartbeatInterval, (_) async {
       if (!mounted) return;
       final t = _estimatedLocalTime();
+      final s = _hostExplicitlyPaused ? 'paused' : 'playing';
+      debugPrint('WatchPartyScreen heartbeat: state=$s time=$t anchorTime=$_anchorTime anchorEpoch=$_anchorEpoch hostPaused=$_hostExplicitlyPaused');
       await _service.heartbeat(
         roomId: _room.id,
-        state: _hostExplicitlyPaused ? 'paused' : 'playing',
+        state: s,
         currentTime: t,
         updatedBy: _myUid,
       );
@@ -716,18 +718,21 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
 
   Future<void> _togglePlayPause() async {
     final nextState = _hostExplicitlyPaused ? 'playing' : 'paused';
+    final nowPlaying = nextState == 'playing';
     debugPrint('WatchPartyScreen _togglePlayPause: hostExplicitlyPaused=$_hostExplicitlyPaused → nextState=$nextState');
     setState(() {
-      _hostExplicitlyPaused = !_hostExplicitlyPaused;
+      _hostExplicitlyPaused = nowPlaying;
     });
-    if (_hostExplicitlyPaused) {
+    if (!nowPlaying) {
       _anchorTime = _estimatedLocalTime();
       _anchorEpoch = DateTime.now();
     } else {
       _anchorEpoch = DateTime.now();
     }
-    // Try to control the iframe via postMessage (works for VidLink).
-    _postCommand(_hostExplicitlyPaused ? 'pause' : 'play');
+    // Reload the iframe via DOM so the user-gesture window stays open
+    // and the browser allows autoplay on the new document.
+    final url = _buildPlayerUrl(_selectedProvider, startSeconds: _estimatedLocalTime());
+    _iframe.setAttribute('src', url);
     await _service.updatePlayback(
       roomId: _room.id,
       state: nextState,
@@ -736,8 +741,8 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     );
   }
 
-  /// Send a command to the iframe via postMessage.  Some providers
-  /// (VidLink) accept play / pause / seek over their existing channel.
+  /// Send a command to the iframe via postMessage.  Kept for providers
+  /// that may add support later; not relied on for core functionality.
   void _postCommand(String command, [double? seekTime]) {
     try {
       final win = _iframe.contentWindow;
@@ -746,10 +751,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
           ? {'type': command, 'time': seekTime.round()}
           : {'type': command}).jsify()!;
       win.postMessage(payload);
-      debugPrint('WatchPartyScreen _postCommand: $command sent');
-    } catch (_) {
-      debugPrint('WatchPartyScreen _postCommand: $command failed');
-    }
+    } catch (_) {}
   }
 
   Future<void> _manualResync() async {
