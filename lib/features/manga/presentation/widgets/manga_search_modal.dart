@@ -6,11 +6,11 @@ import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
 import 'package:everglow/features/manga/data/services/comick_service.dart';
-import 'package:everglow/features/manga/data/services/mangadex_service.dart';
+import 'package:everglow/features/manga/data/services/mangakakalot_service.dart';
 import 'package:everglow/features/manga/presentation/widgets/manga_cover_card.dart';
 import 'package:everglow/services/auth_service.dart';
 
-/// Search modal for finding manga / manhwa / manhua on MangaDex.
+/// Search modal for finding manga / manhwa / manhua.
 /// Mirrors `TMDBSearchModal` from the cinema feature — same UX, same
 /// debounce pattern, but the result list updates per content-type
 /// filter and the "Add to Library" dialog uses a wider status set
@@ -27,7 +27,7 @@ class MangaSearchModal extends StatefulWidget {
 
 class _MangaSearchModalState extends State<MangaSearchModal> {
   final ComickService _comick = ComickService();
-  final MangaDexService _md = MangaDexService();
+  final MangaKakalotService _md = MangaKakalotService();
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
   List<MangaItem> _results = [];
@@ -180,13 +180,13 @@ class _MangaSearchModalState extends State<MangaSearchModal> {
                 Navigator.pop(context);
                 final u = context.read<AuthService>().currentUser ?? '';
                 if (u.isEmpty) return;
-                // Resolve MangaDex ID for chapter page access
-                String mangaDexId = item.mangaDexId;
-                if (mangaDexId.isEmpty) {
-                  mangaDexId = await _md.searchByTitle(item.title);
+                // Resolve MangaKakalot slug for chapter page access
+                String mangaKakalotId = item.mangaKakalotId;
+                if (mangaKakalotId.isEmpty) {
+                  mangaKakalotId = await _md.searchByTitle(item.title);
                 }
                 final saved = item.copyWith(
-                  mangaDexId: mangaDexId,
+                  mangaKakalotId: mangaKakalotId,
                   libraryStatus: status,
                   userName: u,
                 );

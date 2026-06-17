@@ -5,226 +5,150 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
 
-/// Talks to the MangaDex API for chapter-page resolution and to the
-/// personal `manga_library` Firestore collection. Catalog browsing
-/// (search, popular, latest) is handled by [ComickService].
+/// Scrapes mangakakalot.com for chapter data and page images. Catalog
+/// browsing (search, popular, latest) is still handled by [ComickService].
 ///
-/// MangaDex endpoints used:
-///   * Chapter feed   — `GET /manga/{id}/feed?translatedLanguage[]=en`
-///   * Page URLs      — `GET /at-home/server/{chapterId}`
-///
-/// No API key is required. The at-home image server doesn't send CORS
-/// headers, so on Flutter Web the reader proxies page images through
-/// the `proxyMangaImage` Firebase Cloud Function.
-class MangaDexService {
-  static const String _baseUrl = 'https://api.mangadex.org';
+/// MangaKakalot doesn't offer a public API — we scrape HTML pages:
+///   * Search       — `GET /search/story/{title}`
+///   * Chapter list — `GET /manga/{slug}`
+///   * Page images  — `GET /chapter/{slug}/{chapterId}`
+class MangaKakalotService {
+  static const String _baseUrl = 'https://mangakakalot.com';
 
-  /// Cloud Function URL for proxying manga image requests. Mirrors the
-  /// `proxyBookText` pattern from the books feature. The function
-  /// fetches chapter images server-side so Flutter web is never
-  /// blocked by CORS or hotlink protection.
   static const String _proxyImageUrl =
-      'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyMangaImage';
-
-  /// Cloud Function URL for proxying MangaDex catalog API requests.
-  /// The API at api.mangadex.org doesn't send CORS headers, so the
-  /// browser drops the body on web. Routing every call through this
-  /// proxy keeps Flutter web working the same way native does. The
-  /// native platforms are unaffected (the proxy is just a passthrough)
-  /// so we don't bother with a `kIsWeb` branch.
-  static const String _proxyCatalogUrl =
-      'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyMangaDex';
-
-  /// Rewrite a MangaDex API [Uri] into the proxied version. The proxy
-  /// expects the original path-and-query string in a `path` query
-  /// param, e.g. `?path=manga%3Flimit%3D20`.
-  Uri _proxied(Uri apiUri) {
-    final pathAndQuery = apiUri.path +
-        (apiUri.hasQuery ? '?${apiUri.query}' : '');
-    return Uri.parse(
-      '$_proxyCatalogUrl?path=${Uri.encodeComponent(pathAndQuery)}',
-    );
-  }
-
-  /// Try the MangaDex API directly first (works on native), fall back
-  /// to the proxy on failure (needed for Flutter web CORS).
-  Future<http.Response> _request(Uri apiUri) async {
-    try {
-      final direct = await http.get(apiUri, headers: _headers);
-      if (direct.statusCode < 500) return direct;
-    } catch (_) {}
-    return await http.get(_proxied(apiUri), headers: _headers);
-  }
+      'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyMangaKakalotImage';
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Singleton pattern
-  static final MangaDexService _instance = MangaDexService._internal();
-  factory MangaDexService() => _instance;
-  MangaDexService._internal();
+  static final MangaKakalotService _instance = MangaKakalotService._internal();
+  factory MangaKakalotService() => _instance;
+  MangaKakalotService._internal();
 
-  // Headers used on every MangaDex call. The descriptive User-Agent
-  // is required by their API guidelines and helps us get a polite
-  // rate-limit tier.
   Map<String, String> get _headers => {
     'User-Agent': 'Everglow/1.0 (https://github.com/everglow)',
-    'Accept': 'application/json',
+    'Accept': 'text/html,application/json',
   };
 
-  // In-memory cache for page-URL resolutions. The `baseUrl` returned
-  // by `/at-home/server/{id}` is only valid for 15 minutes, so we
-  // keep the resolution here and never let a stale URL escape.
   final Map<String, MangaChapterPages> _pageCache = {};
 
-  /// Search MangaDex by title and return the first matching manga
-  /// UUID. Used to link a Comick-discovered manga to its MangaDex
-  /// counterpart for chapter page resolution.
-  Future<String> searchByTitle(String title, {String language = 'ja'}) async {
-    if (title.isEmpty) return '';
-    final params = <String, List<String>>{
-      'title': [title],
-      'limit': ['1'],
-      'includes[]': ['cover_art'],
-      'contentRating[]': ['safe', 'suggestive'],
-      'order[relevance]': ['desc'],
-    };
-    final uri = Uri.parse('$_baseUrl/manga').replace(
-      queryParameters: params,
-    );
+  /// Search MangaKakalot by title and return the manga slug
+  /// (e.g. "manga-abc123456789").
+  Future<String> searchByTitle(String title) async {
+    if (title.trim().isEmpty) return '';
+    final uri = Uri.parse('$_baseUrl/search/story/${Uri.encodeComponent(title)}');
     try {
-      final response = await _request(uri);
+      final response = await http.get(uri, headers: _headers);
       if (response.statusCode == 200) {
-        final body = json.decode(response.body) as Map<String, dynamic>;
-        final results = body['data'] as List? ?? [];
-        if (results.isNotEmpty) {
-          final first = results.first as Map<String, dynamic>?;
-          return first?['id'] as String? ?? '';
+        final body = response.body;
+        final hrefReg = RegExp(r'<a[^>]*href="([^"]*)"[^>]*>');
+        final matches = hrefReg.allMatches(body);
+        for (final m in matches) {
+          final href = m.group(1) ?? '';
+          if (href.startsWith('/manga/')) {
+            return href.replaceFirst('/manga/', '');
+          }
         }
       }
     } catch (e) {
-      print('MangaDex searchByTitle error: $e');
+      print('MangaKakalot searchByTitle error: $e');
     }
     return '';
   }
 
-  /// Fetch the chapter feed for a manga. We default to English
-  /// translations but allow overrides for the (rare) case where
-  /// someone wants to read in another language. Results are ordered
-  /// by chapter number descending so the most recent chapter is
-  /// first in the list.
+  /// Scrape the manga detail page for its chapter list.
+  /// [slug] is the MangaKakalot slug (e.g. "manga-abc123456789").
   Future<List<MangaChapter>> getChapterFeed(
-    String mangaId, {
+    String slug, {
     String language = 'en',
     int limit = 500,
     int offset = 0,
   }) async {
-    final uri = Uri.parse('$_baseUrl/manga/$mangaId/feed').replace(
-      queryParameters: {
-        'limit': ['$limit'],
-        'offset': ['$offset'],
-        'translatedLanguage[]': [language],
-        'contentRating[]': ['safe', 'suggestive'],
-        'order[chapter]': ['desc'],
-        'includes[]': ['scanlation_group'],
-      },
-    );
+    if (slug.isEmpty) return [];
+    final uri = Uri.parse('$_baseUrl/manga/$slug');
     try {
-      final response = await _request(uri);
+      final response = await http.get(uri, headers: _headers);
       if (response.statusCode == 200) {
-        final body = json.decode(response.body) as Map<String, dynamic>;
-        final data = body['data'] as List? ?? const [];
-        return data
-            .whereType<Map<String, dynamic>>()
-            .map((d) {
-              final attrs = (d['attributes'] as Map?) ?? const {};
-              return MangaChapter.fromApi(
-                attrs.cast<String, dynamic>(),
-                d,
-              );
-            })
-            .where((c) => c.id.isNotEmpty)
-            .toList();
+        return _parseChapterList(response.body, slug);
       }
     } catch (e) {
-      print('MangaDex chapter feed error: $e');
+      print('MangaKakalot chapter feed error: $e');
     }
     return [];
   }
 
-  /// Fetch the page image filenames + baseUrl for a chapter. The
-  /// `baseUrl` is valid for 15 minutes — we cache the result and
-  /// hand the reader full URLs to consume.
+  List<MangaChapter> _parseChapterList(String html, String slug) {
+    final chapters = <MangaChapter>[];
+    final linkReg = RegExp(
+      r'<a[^>]*href="([^"]*\/chapter\/[^"]+)"[^>]*>([^<]*)',
+    );
+    final matches = linkReg.allMatches(html);
+    final seen = <String>{};
+    for (final m in matches) {
+      final href = m.group(1)?.trim() ?? '';
+      final text = m.group(2)?.trim() ?? '';
+      if (href.isEmpty || !seen.add(href)) continue;
+      final id = href.startsWith('/') ? href.substring(1) : href;
+      final numMatch = RegExp(r'chapter[_-]?([\d.]+)', caseSensitive: false)
+          .firstMatch(href);
+      final chapterNum = numMatch?.group(1) ?? '';
+      chapters.add(MangaChapter(
+        id: id,
+        title: text,
+        chapter: chapterNum,
+        volume: '',
+        pages: 0,
+        translatedLanguage: 'en',
+        scanlationGroup: '',
+        publishAt: DateTime.now(),
+      ));
+    }
+    return chapters;
+  }
+
+  /// Scrape a chapter page for image URLs.
+  /// [chapterId] is the URL path (e.g. "chapter/{slug}/chapter_1").
   Future<MangaChapterPages?> getChapterPages(String chapterId) async {
     final cached = _pageCache[chapterId];
     if (cached != null && DateTime.now().isBefore(cached.expiresAt)) {
       return cached;
     }
-    final uri = Uri.parse('$_baseUrl/at-home/server/$chapterId');
+    final uri = Uri.parse('$_baseUrl/$chapterId');
     try {
-      final response = await _request(uri);
+      final response = await http.get(uri, headers: _headers);
       if (response.statusCode == 200) {
-        final body = json.decode(response.body) as Map<String, dynamic>;
-        final chapter = body['chapter'] as Map<String, dynamic>?;
-        final baseUrl = body['baseUrl'] as String?;
-        if (chapter == null || baseUrl == null) return null;
-        final hash = chapter['hash'] as String? ?? '';
-        final files = (chapter['data'] as List?)?.cast<String>() ?? const [];
+        final imgReg = RegExp(r'<img[^>]*src="([^"]+)"[^>]*>');
+        final matches = imgReg.allMatches(response.body);
+        final urls = <String>[];
+        for (final m in matches) {
+          final src = m.group(1)?.trim() ?? '';
+          if (src.isNotEmpty && !src.contains('ads') && !src.contains('logo')) {
+            urls.add(src);
+          }
+        }
+        if (urls.isEmpty) return null;
         final result = MangaChapterPages(
           chapterId: chapterId,
-          baseUrl: baseUrl,
-          hash: hash,
-          filenames: files,
-          // The /at-home/server baseUrl is valid for 15 minutes; we
-          // cap the cache a little earlier to be safe.
+          baseUrl: '',
+          hash: '',
+          filenames: urls,
           expiresAt: DateTime.now().add(const Duration(minutes: 14)),
         );
         _pageCache[chapterId] = result;
         return result;
       }
     } catch (e) {
-      print('MangaDex chapter pages error: $e');
+      print('MangaKakalot chapter pages error: $e');
     }
     return null;
   }
 
-  /// Build a proxied image URL for a chapter page. The reader uses
-  /// this for every `Image.network` request on web so the browser
-  /// doesn't get blocked by CORS. The proxy adds the right headers
-  /// and forwards the request to the MangaDex at-home server.
   String proxiedImageUrl(String pageUrl) {
     if (pageUrl.isEmpty) return '';
     return '$_proxyImageUrl?url=${Uri.encodeComponent(pageUrl)}';
   }
 
-  /// Fetch all available tags. Used to render the filter chips on
-  /// the search modal. We keep results in-memory after the first
-  /// call since tags are stable and the user won't notice a 50ms
-  /// difference on subsequent filter operations.
-  List<Map<String, dynamic>>? _tagCache;
-  Future<List<Map<String, dynamic>>> fetchTags() async {
-    if (_tagCache != null) return _tagCache!;
-    final uri = Uri.parse('$_baseUrl/manga/tag');
-    try {
-      final response = await _request(uri);
-      if (response.statusCode == 200) {
-        final body = json.decode(response.body) as Map<String, dynamic>;
-        final data = (body['data'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-        _tagCache = data;
-        return data;
-      }
-    } catch (e) {
-      print('MangaDex tags error: $e');
-    }
-    return const [];
-  }
-
   // ── LIBRARY (Firestore) ────────────────────────────────────────────
 
-  /// Save a manga to the user's library with the given status.
-  /// Items are scoped per user so Khent, Clair, and Breyan each see
-  /// only their own list. If the same mangaId is already in the
-  /// user's library, we update the status instead of creating a
-  /// duplicate row.
   Future<void> saveToLibrary(
     MangaItem item,
     String libraryStatus,
@@ -238,7 +162,6 @@ class MangaDexService {
           .where('userName', isEqualTo: userName)
           .limit(1)
           .get();
-
       if (existing.docs.isNotEmpty) {
         await collection.doc(existing.docs.first.id).update({
           'libraryStatus': libraryStatus,
@@ -258,7 +181,6 @@ class MangaDexService {
     }
   }
 
-  /// Remove a manga from the user's library entirely.
   Future<void> removeFromLibrary(String mangaId, String userName) async {
     if (userName.isEmpty) return;
     try {
@@ -276,9 +198,6 @@ class MangaDexService {
     }
   }
 
-  /// Persist reading progress for a manga. We store the last-read
-  /// chapter id and 1-indexed page so the "Continue Reading" rail
-  /// can resume exactly where the user left off.
   Future<void> saveReadingProgress({
     required String mangaId,
     required String userName,
@@ -304,8 +223,6 @@ class MangaDexService {
     }
   }
 
-  /// Stream of library items for a single user, ordered most-recent
-  /// first. Side effect: caches the list locally for offline access.
   Stream<List<MangaItem>> getLibraryStream(String userName) {
     return _firestore
         .collection('manga_library')
@@ -321,11 +238,6 @@ class MangaDexService {
     });
   }
 
-  /// Stream of the combined library for the couple, deduplicated by
-  /// `mangaId`. When both partners have the same title, `userName`
-  /// becomes "userA,userB" and `libraryStatus` is the strongest
-  /// active status across the two (reading > plan-to-read > completed
-  /// > on-hold > dropped).
   Stream<List<MangaItem>> getCoupleLibraryStream({
     String userA = 'khentsgdz',
     String userB = 'clairjassen',
@@ -404,8 +316,6 @@ class MangaDexService {
     return merged;
   }
 
-  /// Returns the most "active" library status across the two partners.
-  /// Reading > plan-to-read > completed > on-hold > dropped > none.
   static String _mergeLibraryStatus(String a, String b) {
     const priority = [
       'reading',

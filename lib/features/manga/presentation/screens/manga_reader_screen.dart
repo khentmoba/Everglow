@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
-import 'package:everglow/features/manga/data/services/mangadex_service.dart';
+import 'package:everglow/features/manga/data/services/mangakakalot_service.dart';
 import 'package:everglow/services/auth_service.dart';
 
 /// Page turn mode — one image per page, swipe / arrow keys to advance.
@@ -16,7 +16,7 @@ enum _ReaderMode { paginated, longStrip }
 ///
 /// Pipeline:
 ///   1. Resolve page filenames + baseUrl from
-///      `MangaDexService.getChapterPages`.
+///      `MangaKakalotService.getChapterPages`.
 ///   2. Build proxy URLs (so the browser doesn't get blocked by CORS).
 ///   3. Display pages through `Image.network` in a `PageView` (paginated)
 ///      or a vertical `ListView` (long-strip).
@@ -39,7 +39,7 @@ class MangaReaderScreen extends StatefulWidget {
 }
 
 class _MangaReaderScreenState extends State<MangaReaderScreen> {
-  final MangaDexService _service = MangaDexService();
+  final MangaKakalotService _service = MangaKakalotService();
 
   MangaChapterPages? _pages;
   bool _isLoading = true;

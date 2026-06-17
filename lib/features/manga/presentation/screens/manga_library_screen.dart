@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
 import 'package:everglow/features/manga/data/services/comick_service.dart';
-import 'package:everglow/features/manga/data/services/mangadex_service.dart';
+import 'package:everglow/features/manga/data/services/mangakakalot_service.dart';
 import 'package:everglow/features/manga/presentation/widgets/manga_details_drawer.dart';
 import 'package:everglow/features/manga/presentation/widgets/manga_search_modal.dart';
 import 'package:everglow/services/auth_service.dart';
@@ -33,7 +33,7 @@ const _cMuted = Color(0xFF8A7A92);
 ///   * Home    — Trending + Latest Updates carousels, content-type
 ///               filter chips, "Continue Reading" rail.
 ///   * Library — Personal collection (per-user Firestore stream).
-///   * Search  — Full search modal with MangaDex results.
+  ///   * Search  — Full search modal.
 ///
 /// Mirrors `CinemaScreen` from the cinema feature.
 class MangaLibraryScreen extends StatefulWidget {
@@ -45,7 +45,7 @@ class MangaLibraryScreen extends StatefulWidget {
 
 class _MangaLibraryScreenState extends State<MangaLibraryScreen>
     with TickerProviderStateMixin {
-  final MangaDexService _service = MangaDexService();
+  final MangaKakalotService _service = MangaKakalotService();
   final ComickService _comick = ComickService();
   int _currentIndex = 0;
 
@@ -646,7 +646,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
         icon: Icons.collections_bookmark_outlined,
         title: 'Your manga shelf is empty',
         subtitle:
-            'Search any title on MangaDex and tap "Add to Library" to start tracking your reading. Continue where you left off from the Home tab.',
+            'Search any title and tap "Add to Library" to start tracking your reading. Continue where you left off from the Home tab.',
         ctaLabel: 'Search Manga',
         ctaIcon: Icons.search_rounded,
         onCta: () => _openSearch(_selectedLanguage),
@@ -837,7 +837,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
       icon: Icons.search_rounded,
       title: 'Find Your Next Read',
       subtitle:
-          'Search MangaDex by title. Tap any cover to add it to your library, mark chapters as read, and continue where you left off.',
+          'Search by title. Tap any cover to add it to your library, mark chapters as read, and continue where you left off.',
       ctaLabel: 'Open Search',
       ctaIcon: Icons.search_rounded,
       onCta: () => _openSearch(_selectedLanguage),
