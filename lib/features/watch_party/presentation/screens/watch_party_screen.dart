@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:js_interop';
-import 'dart:js_util' as js_util;
 import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
@@ -108,6 +107,11 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   /// hasn't pressed play yet"). Triggers the "Paused by Clair" pill
   /// on the partner's screen.
   bool _hostExplicitlyPaused = false;
+
+  /// Whether the iframe should autoplay.  Toggled on every play/pause
+  /// so that reloading the iframe actually stops or starts the video.
+  /// The only reliable way to control a cross-origin embed.
+  bool _autoplay = true;
 
   /// Timestamp of the last remote Firestore snapshot we applied.
   /// Used to discard stale heartbeats that were sent before a newer
@@ -268,6 +272,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     } else {
       _hostExplicitlyPaused = _room.state == 'paused';
     }
+    _autoplay = !_hostExplicitlyPaused;
 
     _selectedProvider = _providers.first;
 
@@ -299,9 +304,6 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
       // wall time until the next anchor (next heartbeat or seek).
       _anchorEpoch = DateTime.now();
       _anchorTime = _localStartHint();
-      // Many embed players ignore URL seek parameters but accept a
-      // postMessage seek command.  Try several common formats.
-      _tryPostMessageSeek();
     }).toJS;
     _onErrorListener = ((web.Event _) {
       _onIframeLoadError();
@@ -499,14 +501,25 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     _lastRemoteUpdate = incoming.updatedAt;
 
     final mediaChanged = _mediaIdentityChanged(incoming, _room);
+    final stateChanged = incoming.state != _room.state;
     _room = incoming;
     _hostExplicitlyPaused = incoming.state == 'paused';
 
     if (mediaChanged) {
+      _autoplay = true;
       _anchorEpoch = DateTime.now();
       _anchorTime = 0.0;
       _iframe.src = _buildPlayerUrl(_selectedProvider, startSeconds: 0);
       setState(() {});
+      return;
+    }
+
+    // When the host toggles play/pause we must reload the iframe so
+    // that the autoplay flag in the URL actually stops/starts the video.
+    // A simple anchor nudge won't control the cross-origin embed.
+    if (stateChanged) {
+      _autoplay = !_hostExplicitlyPaused;
+      _rebuildAt(incoming.currentTime);
       return;
     }
 
@@ -598,26 +611,6 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
       if (!mounted) return;
       _onIframeLoadError();
     });
-  }
-
-  /// After the iframe fires `load`, try to seek the embedded video via
-  /// postMessage.  Many embed players honour a `seek` / `seekTo` command
-  /// even when they ignore URL seek parameters.
-  void _tryPostMessageSeek() {
-    final seekSeconds = _localStartHint().round();
-    if (seekSeconds <= 0) return;
-    try {
-      final win = _iframe.contentWindow;
-      if (win == null) return;
-      // Use dart:js_util to bypass package:web's strict postMessage types.
-      for (final payload in <Map<String, dynamic>>[
-        {'type': 'seek', 'time': seekSeconds},
-        {'type': 'seekTo', 'value': seekSeconds},
-        {'action': 'seek', 'position': seekSeconds},
-      ]) {
-        js_util.callMethod(win, 'postMessage', [payload.jsify(), '*']);
-      }
-    } catch (_) {}
   }
 
   /// Returns the expected postMessage origin for a given provider id.
@@ -712,12 +705,14 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
       }
     }
 
-    // Videasy: always enable autoplay + TV flags, plus optional seek hint.
+    // Videasy: autoplay flag mirrors the host's play/pause state so
+    // that reloading the iframe actually starts or stops the video.
     if (provider.id == 'videasy') {
       final isTv = _room.mediaType == 'tv';
+      final auto = _autoplay ? 'true' : 'false';
       final flags = isTv
-          ? 'autoplay=true&nextButton=true&episodeSelector=true'
-          : 'autoplay=true';
+          ? 'autoplay=$auto&nextButton=true&episodeSelector=true'
+          : 'autoplay=$auto';
       final sep = base.contains('?') ? '&' : '?';
       base = '$base$sep$flags';
       if (start > 0) {
@@ -744,17 +739,22 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   Future<void> _togglePlayPause() async {
     final nextState = _hostExplicitlyPaused ? 'playing' : 'paused';
     debugPrint('WatchPartyScreen _togglePlayPause: hostExplicitlyPaused=$_hostExplicitlyPaused → nextState=$nextState');
+    final nowPlaying = !_hostExplicitlyPaused; // after toggle
     setState(() {
-      _hostExplicitlyPaused = !_hostExplicitlyPaused;
+      _hostExplicitlyPaused = nowPlaying ? false : true; // explicit
+      _autoplay = nowPlaying;
     });
     // Re-anchor the clock at the moment of pause/play so the local
     // estimate is exact from the toggle point forward.
-    if (_hostExplicitlyPaused) {
+    if (!nowPlaying) {
       _anchorTime = _estimatedLocalTime();
       _anchorEpoch = DateTime.now();
     } else {
       _anchorEpoch = DateTime.now();
     }
+    // Reload the iframe so the autoplay flag in the URL takes effect.
+    // This is the only way to actually stop/start a cross-origin embed.
+    _rebuildAt(_estimatedLocalTime());
     await _service.updatePlayback(
       roomId: _room.id,
       state: nextState,
