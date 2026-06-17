@@ -170,7 +170,19 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   /// watch-party player have slightly different needs (offset hint in
   /// the URL, no provider switcher UI) and trying to share logic
   /// across two iframes is messier than re-declaring the URLs.
+  /// Videasy leads the list because it is the only free provider that
+  /// honours a seek hint (`startTime=N` in the URL), which is essential
+  /// for the watch-party resync to land at the host's position instead
+  /// of always restarting from 0.  All other providers silently ignore
+  /// the hint.
   static const List<VideoProvider> _providers = [
+    VideoProvider(
+      id: 'videasy',
+      name: 'Videasy',
+      shortName: 'Videasy',
+      movieUrl: 'https://player.videasy.net/movie/',
+      tvUrl: 'https://player.videasy.net/tv/',
+    ),
     VideoProvider(
       id: 'vidfast',
       name: 'VidFast',
@@ -198,13 +210,6 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
       shortName: '2Embed',
       movieUrl: 'https://www.2embed.cc/embed/',
       tvUrl: 'https://www.2embed.cc/embedtv/',
-    ),
-    VideoProvider(
-      id: 'videasy',
-      name: 'Videasy',
-      shortName: 'Videasy',
-      movieUrl: 'https://player.videasy.net/movie/',
-      tvUrl: 'https://player.videasy.net/tv/',
     ),
     VideoProvider(
       id: 'vsembed',
@@ -464,6 +469,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     }
 
     final isLocalWrite = incoming.updatedBy == _myUid;
+    debugPrint('WatchPartyScreen _onRoomUpdate: isLocal=$isLocalWrite, state=${incoming.state}, time=${incoming.currentTime}, updatedBy=${incoming.updatedBy}');
     if (isLocalWrite) {
       _room = incoming;
       return;
@@ -693,6 +699,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
 
   Future<void> _togglePlayPause() async {
     final nextState = _hostExplicitlyPaused ? 'playing' : 'paused';
+    debugPrint('WatchPartyScreen _togglePlayPause: hostExplicitlyPaused=$_hostExplicitlyPaused → nextState=$nextState');
     setState(() {
       _hostExplicitlyPaused = !_hostExplicitlyPaused;
     });
@@ -713,14 +720,15 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   }
 
   Future<void> _manualResync() async {
+    // The partner only reloads their own iframe at the host's last known
+    // position — we never write to Firestore here because the partner's
+    // view of the host's play/pause state may be stale and would race
+    // with the host's real state.  The host's heartbeat is the single
+    // source of truth for both time and state.
+    if (!mounted) return;
+    debugPrint('WatchPartyScreen _manualResync: rebuilding at ${_room.currentTime}');
     setState(() => _isResyncing = true);
     _rebuildAt(_room.currentTime, immediate: true);
-    await _service.updatePlayback(
-      roomId: _room.id,
-      state: _hostExplicitlyPaused ? 'paused' : 'playing',
-      currentTime: _estimatedLocalTime(),
-      updatedBy: _myUid,
-    );
   }
 
   Future<void> _endParty() async {
