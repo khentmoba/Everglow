@@ -718,12 +718,12 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
 
   Future<void> _togglePlayPause() async {
     final nextState = _hostExplicitlyPaused ? 'playing' : 'paused';
-    final nowPlaying = nextState == 'playing';
+    final willPause = nextState == 'paused';
     debugPrint('WatchPartyScreen _togglePlayPause: hostExplicitlyPaused=$_hostExplicitlyPaused → nextState=$nextState');
     setState(() {
-      _hostExplicitlyPaused = nowPlaying;
+      _hostExplicitlyPaused = willPause;
     });
-    if (!nowPlaying) {
+    if (willPause) {
       _anchorTime = _estimatedLocalTime();
       _anchorEpoch = DateTime.now();
     } else {
