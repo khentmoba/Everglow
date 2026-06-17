@@ -493,6 +493,9 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     } else {
       _anchorEpoch = DateTime.now();
       _anchorTime = incoming.currentTime;
+      // Host changed play/pause (or a small drift) — we need to rebuild the
+      // overlay so "Khent paused" flips to "Synced" and the time updates.
+      setState(() {});
     }
   }
 
@@ -776,13 +779,6 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
                     right: 12,
                     child: _buildSyncOverlay(),
                   ),
-                  if (!widget.isHost)
-                    Positioned(
-                      bottom: 16,
-                      left: 16,
-                      right: 16,
-                      child: _buildPartnerControls(),
-                    ),
                   VoiceChatOverlay(
                     service: _voiceChat,
                     partnerName: _partnerName,
@@ -950,44 +946,10 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     );
   }
 
-  Widget _buildPartnerControls() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        GestureDetector(
-          onTap: _manualResync,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.75),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: _cDeepRose.withValues(alpha: 0.6), width: 1),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.sync_rounded, color: Colors.white, size: 16),
-                const SizedBox(width: 6),
-                Text(
-                  'Resync to ${_formatT(_room.currentTime)}',
-                  style: GoogleFonts.outfit(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildBottomBar() {
     if (!widget.isHost) {
-      // Partner sees a slim "follow host" bar — they don't get
-      // play/pause because their player mirrors the host's anyway.
+      // Partner sees the follow-host text + a Resync button that sits
+      // outside the iframe Stack so it can actually be tapped on web.
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         color: Colors.black,
@@ -999,6 +961,33 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
               child: Text(
                 'Following $_partnerName · you\'re ${_formatT(_displayedTime)} in',
                 style: GoogleFonts.outfit(color: _cWhite.withValues(alpha: 0.7), fontSize: 12),
+              ),
+            ),
+            const SizedBox(width: 12),
+            GestureDetector(
+              onTap: _manualResync,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.75),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: _cDeepRose.withValues(alpha: 0.6), width: 1),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.sync_rounded, color: Colors.white, size: 14),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Resync to ${_formatT(_room.currentTime)}',
+                      style: GoogleFonts.outfit(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
