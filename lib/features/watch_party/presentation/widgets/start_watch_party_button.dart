@@ -351,11 +351,16 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
 
     WatchPartyRoom toOpen;
     bool isHost;
+    debugPrint('SWP _onTap: hasParty=$hasParty, media.tmdbId=${widget.media.tmdbId}, room.tmdbId=${room?.tmdbId}');
     if (hasParty && room != null) {
-      // Check if user is picking a different movie/episode
-      final mediaChanged = room.tmdbId != widget.media.tmdbId ||
-          room.season != widget.media.season ||
-          room.episode != widget.media.episode;
+      // Check if user is picking a different movie/episode.
+      // A tmdbId of 0 means the button was built from a dummy MediaRef
+      // (e.g. the dashboard card) — in that case we should never switch
+      // the room to the dummy id.
+      final mediaChanged = widget.media.tmdbId != 0 &&
+          (room.tmdbId != widget.media.tmdbId ||
+              room.season != widget.media.season ||
+              room.episode != widget.media.episode);
       if (mediaChanged) {
         await _service.updateMedia(
           roomId: room.id,
@@ -396,6 +401,20 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
         isHost = room.hostUid == myUid;
       }
     } else {
+      if (widget.media.tmdbId == 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Browse a title first to start a party.',
+              style: GoogleFonts.outfit(color: Colors.white),
+            ),
+            backgroundColor: _cDeepRose,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+        return;
+      }
       toOpen = await _service.startRoom(
         hostUid: myUid,
         hostName: myName,

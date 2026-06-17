@@ -244,6 +244,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     _room = widget.initialRoom;
     _myUid = _auth.uid ?? '';
     _partnerName = _auth.partnerName;
+    debugPrint('WatchPartyScreen init: tmdbId=${_room.tmdbId}, mediaType=${_room.mediaType}, isAnime=${_room.isAnime}, season=${_room.season}, episode=${_room.episode}');
 
     // The host decides when play/pause/seek happens, the partner
     // listens + auto-resyncs. We do honour explicit "Resync" taps
@@ -628,6 +629,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     final tvBase = provider.tvUrl;
     final id = _room.isAnime ? (_resolvedTmdbId ?? _room.malId ?? _room.tmdbId) : _room.tmdbId;
     final start = startSeconds.round();
+    debugPrint('WatchPartyScreen _buildPlayerUrl: provider=${provider.id}, id=$id, mediaType=${_room.mediaType}, season=${_room.season}, episode=${_room.episode}');
 
     String base;
     if (_room.mediaType == 'tv') {
