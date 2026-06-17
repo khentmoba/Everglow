@@ -205,7 +205,7 @@ class JikanService {
       posterPath: poster,
       backdropPath: backdrop,
       year: year,
-      status: 'to-watch',
+      status: '',
       isAnime: true,
       addedAt: DateTime.now(),
       source: 'jikan',

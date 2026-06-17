@@ -42,7 +42,7 @@ class TMDBService {
       backdropPath: item['backdrop_path'] != null
           ? '$_imageBaseOriginal${item['backdrop_path']}'
           : '',
-      status: 'to-watch',
+      status: '',
       isAnime: _detectAnime(item),
       year: year,
       addedAt: DateTime.now(),
