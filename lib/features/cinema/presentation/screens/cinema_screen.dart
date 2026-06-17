@@ -170,16 +170,8 @@ class _CinemaScreenState extends State<CinemaScreen>
       final auth = context.read<AuthService>();
       final userName = auth.currentUser ?? '';
       if (userName.isEmpty) return;
-      final isCouple = auth.isCoupleUser;
-      if (isCouple) {
-        // Couple: subscribe to the combined stream so the wishlist and
-        // watched tabs render khent/clair/both attribution for both
-        // partners at once.
-        _subscribeToCoupleWatchList();
-      } else {
-        _loadCachedWatchList(userName);
-        _subscribeToWatchList(userName);
-      }
+      _loadCachedWatchList(userName);
+      _subscribeToWatchList(userName);
     });
   }
 
@@ -206,22 +198,6 @@ class _CinemaScreenState extends State<CinemaScreen>
 
   void _subscribeToWatchList(String userName) {
     _watchlistSubscription = _tmdbService.getWatchListStream(userName).listen((items) {
-      if (mounted) {
-        setState(() {
-          _watchlist = items;
-          _splitWatchlists();
-        });
-      }
-    });
-  }
-
-  void _subscribeToCoupleWatchList() {
-    // For the couple, the wishlist and watched tabs render items from both
-    // partners with khent/clair/both attribution. Items come from the
-    // combined stream — no per-user caching, since each partner's
-    // individual list still has its own cache for other views.
-    _watchlistSubscription =
-        _tmdbService.getCoupleWatchListStream().listen((items) {
       if (mounted) {
         setState(() {
           _watchlist = items;

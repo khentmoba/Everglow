@@ -159,15 +159,11 @@ class _AnimeScreenState extends State<AnimeScreen>
 
   void _subscribeToLibrary() {
     final auth = context.read<AuthService>();
-    final isCouple = auth.isCoupleUser;
     final userName = auth.currentUser ?? '';
     if (userName.isEmpty) return;
 
     _watchlistSub?.cancel();
-    _watchlistSub = (isCouple
-            ? _tmdbService.getCoupleAnimeStream()
-            : _tmdbService.getAnimeWatchListStream(userName))
-        .listen((items) {
+    _watchlistSub = _tmdbService.getAnimeWatchListStream(userName).listen((items) {
       if (!mounted) return;
       setState(() => _library = items);
     });
