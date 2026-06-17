@@ -154,7 +154,7 @@ class WatchPartyRoom {
       partnerUid: (data['partnerUid'] as String?) ?? '',
       partnerName: (data['partnerName'] as String?) ?? '',
       mediaType: (data['mediaType'] as String?) ?? 'movie',
-      tmdbId: (data['tmdbId'] as num?)?.toInt() ?? 0,
+      tmdbId: _parseInt(data['tmdbId']) ?? 0,
       malId: (data['malId'] is num) ? (data['malId'] as num).toInt() : null,
       isAnime: data['isAnime'] == true,
       season: (data['season'] is num) ? (data['season'] as num).toInt() : null,
@@ -233,6 +233,15 @@ class WatchPartyRoom {
         return null;
       }
     }
+    return null;
+  }
+
+  /// Parses a dynamic value into an int, handling both numeric and string
+  /// Firestore types (e.g. a tmdbId stored as a String).
+  static int? _parseInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
     return null;
   }
 }
