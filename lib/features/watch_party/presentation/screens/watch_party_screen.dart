@@ -501,6 +501,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     _lastRemoteUpdate = incoming.updatedAt;
 
     final mediaChanged = _mediaIdentityChanged(incoming, _room);
+    final stateChanged = incoming.state != _room.state;
     _room = incoming;
     _hostExplicitlyPaused = incoming.state == 'paused';
 
@@ -510,6 +511,16 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
       _anchorTime = 0.0;
       _iframe.src = _buildPlayerUrl(_selectedProvider, startSeconds: 0);
       setState(() {});
+      return;
+    }
+
+    // When the host toggles play/pause, the remote side must also
+    // reload its iframe so the autoplay flag takes effect.  Without
+    // this the partner's iframe keeps its old src and stays paused
+    // (or keeps playing) regardless of what the overlay says.
+    if (stateChanged) {
+      _autoplay = !_hostExplicitlyPaused;
+      _rebuildAt(incoming.currentTime);
       return;
     }
 
@@ -697,6 +708,8 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
 
     // VidLink / Videasy: autoplay flag mirrors play/pause so the
     // DOM-level reload actually stops or starts the video.
+    // When autoplay is on, we also emit muted=1 so the browser
+    // allows autoplay even without a user gesture on the partner's side.
     if (provider.id == 'vidlink' || provider.id == 'videasy') {
       final isTv = _room.mediaType == 'tv';
       final auto = _autoplay ? 'true' : 'false';
@@ -705,6 +718,9 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
           : 'autoplay=$auto';
       final sep = base.contains('?') ? '&' : '?';
       base = '$base$sep$flags';
+      if (_autoplay) {
+        base = '$base&muted=1';
+      }
       return base;
     }
     // VidFast doesn't support seek parameters — we always return the
