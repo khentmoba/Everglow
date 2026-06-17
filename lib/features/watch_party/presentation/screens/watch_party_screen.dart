@@ -6,9 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:web/web.dart' as web;
 
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/features/cinema/data/services/ani_zip_service.dart';
 import 'package:everglow/services/auth_service.dart';
 import '../../data/models/watch_party_room.dart';
 import '../../data/services/voice_chat_service.dart';
@@ -111,6 +113,19 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   JSFunction? _onLoadListener;
   JSFunction? _onErrorListener;
   Timer? _loadTimer;
+
+  /// Checks if VidLink actually serves content (postMessage-based).
+  /// Ensures we don't hang on "content not available" pages.
+  Timer? _contentCheckTimer;
+
+  /// Listens for VidLink's MEDIA_DATA / PLAYER_EVENT postMessage to
+  /// confirm content is playable.
+  JSFunction? _messageListener;
+
+  /// Resolved TMDB id for anime items. Populated by [_bootstrapAnime]
+  /// on init; null when the lookup failed or the item isn't anime.
+  int? _resolvedTmdbId;
+
   late VideoProvider _selectedProvider;
   final Set<String> _failedProviderIds = {};
 
@@ -139,6 +154,11 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   /// How long we wait for the iframe to fire `load` before declaring
   /// the embed dead and trying the next provider.
   static const Duration _loadTimeout = Duration(seconds: 15);
+
+  /// How long to wait for VidLink to send a `MEDIA_DATA` postMessage
+  /// event after the iframe loads. If the event never arrives the
+  /// provider likely showed "content not available", so we fall back.
+  static const Duration _contentCheckTimeout = Duration(seconds: 8);
 
   /// Heartbeat interval. 5s keeps the partner's local clock within
   /// ~5s of the host without thrashing Firestore.
@@ -256,6 +276,9 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
       if (mounted) {
         setState(() => _isLoading = false);
       }
+      // Start the content-available check for VidLink so we fall back
+      // quickly when it shows "content not available".
+      _startContentCheck();
       // Re-anchor the local clock: the iframe is "officially" at the
       // hint we put in the URL right now. The clock then runs off
       // wall time until the next anchor (next heartbeat or seek).
@@ -268,12 +291,24 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     _iframe.addEventListener('load', _onLoadListener);
     _iframe.addEventListener('error', _onErrorListener);
 
+    // Listen for postMessage events from embed providers (VidLink)
+    // to confirm content is actually playable.
+    _messageListener = _buildMessageListener();
+    web.window.addEventListener('message', _messageListener);
+
     _loadTimer = Timer(_loadTimeout, () {
       if (!mounted) return;
       if (_isLoading) _onIframeLoadError();
     });
 
-    _iframe.src = _buildPlayerUrl(_selectedProvider, startSeconds: _localStartHint());
+    // For anime we don't have a TMDB id on the room — the slot holds
+    // the MAL id. Resolve MAL→TMDB via ani.zip, then set the iframe's
+    // src once. If the lookup fails we land in the error card.
+    if (_room.isAnime) {
+      _bootstrapAnime();
+    } else {
+      _iframe.src = _buildPlayerUrl(_selectedProvider, startSeconds: _localStartHint());
+    }
 
     ui_web.platformViewRegistry
         .registerViewFactory(_viewType, (int viewId) => _iframe);
@@ -323,6 +358,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     _clockTicker?.cancel();
     _resyncHideTimer?.cancel();
     _loadTimer?.cancel();
+    _contentCheckTimer?.cancel();
     _roomSub?.cancel();
     _voiceChat.dispose();
     if (_onLoadListener != null) {
@@ -330,6 +366,9 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     }
     if (_onErrorListener != null) {
       _iframe.removeEventListener('error', _onErrorListener);
+    }
+    if (_messageListener != null) {
+      web.window.removeEventListener('message', _messageListener);
     }
     _iframe.src = 'about:blank';
     SystemChrome.setPreferredOrientations([
@@ -384,6 +423,23 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
         updatedBy: _myUid,
       );
     });
+  }
+
+  /// Anime bootstrap: look up the TMDB id for the MAL id via ani.zip,
+  /// then point the iframe at the player URL. The embed providers
+  /// expect TMDB ids, not MAL ids, so this resolution is required for
+  /// anime items to play.
+  Future<void> _bootstrapAnime() async {
+    final malId = _room.malId ?? _room.tmdbId;
+    final tmdbId = await AniZipService().fetchTmdbId(malId);
+    if (!mounted) return;
+    if (tmdbId == null) {
+      setState(() => _iframeFailed = true);
+      _loadTimer?.cancel();
+      return;
+    }
+    _resolvedTmdbId = tmdbId;
+    _iframe.src = _buildPlayerUrl(_selectedProvider, startSeconds: _localStartHint());
   }
 
   // ─── Snapshot pipeline ────────────────────────────────────────────
@@ -444,10 +500,15 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     setState(() {
       _isResyncing = true;
     });
-    // Tear down and re-mount the iframe at the new offset. This is
-    // a hard seek (third-party providers don't expose a JS seek
-    // API we can call from outside), but for our 4s drift threshold
-    // it's invisible to the user.
+    // Cancel any pending load timer from a previous provider attempt
+    // so it doesn't fire and incorrectly mark the current provider as
+    // failed while we're rebuilding the iframe at a new offset.
+    _loadTimer?.cancel();
+    _contentCheckTimer?.cancel();
+    // Reset the failed set so every provider gets a fresh attempt on
+    // rebuild — the previous failures may have been caused by the
+    // stale timer race rather than actual provider errors.
+    _failedProviderIds.clear();
     _isLoading = true;
     _iframeFailed = false;
     _anchorEpoch = DateTime.now();
@@ -488,6 +549,69 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     }
   }
 
+  /// Starts the content availability check timer. Only applies to
+  /// VidLink, which sends a `MEDIA_DATA` or `PLAYER_EVENT` postMessage
+  /// when content is actually playable. If the event doesn't arrive
+  /// within [_contentCheckTimeout], the embed likely showed "content not
+  /// available" and we fall back to the next provider.
+  void _startContentCheck() {
+    if (_selectedProvider.id != 'vidlink') return;
+    _contentCheckTimer?.cancel();
+    _contentCheckTimer = Timer(_contentCheckTimeout, () {
+      if (!mounted) return;
+      _onIframeLoadError();
+    });
+  }
+
+  /// Returns the expected postMessage origin for a given provider id.
+  String _originForProvider(String providerId) {
+    switch (providerId) {
+      case 'vidlink':
+        return 'https://vidlink.pro';
+      case 'multiembed':
+        return 'https://multiembed.mov';
+      case '2embed.cc':
+        return 'https://www.2embed.cc';
+      case 'videasy':
+        return 'https://player.videasy.net';
+      case 'vidfast':
+        return 'https://vidfast.pro';
+      case 'vsembed':
+        return 'https://vsembed.ru';
+      case 'vidrock':
+        return 'https://vidrock.ru';
+      case '111movies':
+        return 'https://111movies.com';
+      case 'vidsrc':
+        return 'https://vidsrc.to';
+      default:
+        return '';
+    }
+  }
+
+  /// Builds the postMessage listener for embed provider events.
+  /// Confirms content is playable and cancels the content check timer.
+  /// Only accepts messages from the currently active provider's origin
+  /// to avoid cross-provider interference.
+  JSFunction _buildMessageListener() {
+    return ((web.Event e) {
+      try {
+        final msg = e as web.MessageEvent;
+        final origin = msg.origin;
+        final data = msg.data;
+        if (data == null) return;
+        final activeOrigin = _originForProvider(_selectedProvider.id);
+        if (origin != activeOrigin) return;
+        final map = data.dartify();
+        if (map is! Map) return;
+        final type = map['type'];
+        if (type == 'MEDIA_DATA' || type == 'PLAYER_EVENT') {
+          _contentCheckTimer?.cancel();
+        }
+      } catch (_) {}
+    }).toJS;
+  }
+
   // ─── URL building ─────────────────────────────────────────────────
   // Mirrors the regular player. The only addition is a trailing
   // `&start=N` for providers that support it (Videasy accepts
@@ -498,7 +622,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   String _buildPlayerUrl(VideoProvider provider, {required double startSeconds}) {
     final movieBase = provider.movieUrl;
     final tvBase = provider.tvUrl;
-    final id = _room.isAnime ? (_room.malId ?? _room.tmdbId) : _room.tmdbId;
+    final id = _room.isAnime ? (_resolvedTmdbId ?? _room.malId ?? _room.tmdbId) : _room.tmdbId;
     final start = startSeconds.round();
 
     String base;
@@ -514,30 +638,48 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
       } else if (provider.id == 'vsembed') {
         base = '$tvBase$id?season=$s&episode=$e';
       } else {
-        final sep = tvBase.endsWith('/') ? '' : '/';
-        base = '$tvBase$sep$id/$s/$e';
+        final separator = tvBase.endsWith('/') ? '' : '/';
+        base = '$tvBase$separator$id/$s/$e';
       }
     } else {
       if (movieBase.contains('multiembed.mov')) {
         base = '$movieBase$id&tmdb=1';
       } else {
-        final sep = movieBase.endsWith('/') ? '' : '/';
-        base = '$movieBase$sep$id';
+        final separator = movieBase.endsWith('/') ||
+                movieBase.contains('?') ||
+                movieBase.contains('=')
+            ? ''
+            : '/';
+        base = '$movieBase$separator$id';
       }
     }
 
-    // Only Videasy honours startTime in our supported provider set.
-    // For everything else we still load — the start hint is just a
-    // "would be nice". We never block on it.
-    if (provider.id == 'videasy' && start > 0) {
+    // Videasy: always enable autoplay + TV flags, plus optional seek hint.
+    if (provider.id == 'videasy') {
+      final isTv = _room.mediaType == 'tv';
+      final flags = isTv
+          ? 'autoplay=true&nextButton=true&episodeSelector=true'
+          : 'autoplay=true';
       final sep = base.contains('?') ? '&' : '?';
-      return '$base${sep}startTime=$start&autoplay=true';
+      base = '$base$sep$flags';
+      if (start > 0) {
+        base = '$base&startTime=$start';
+      }
+      return base;
     }
+    // VidFast: optional seek hint (may be silently ignored by the provider).
     if (provider.id == 'vidfast' && start > 0) {
       final sep = base.contains('?') ? '&' : '?';
       return '$base${sep}start=$start';
     }
     return base;
+  }
+
+  /// The URL the user can open in a new tab. Uses the same URL the
+  /// iframe would use for the current provider — if every embed has
+  /// failed, this gives the user a manual escape hatch.
+  String _externalOpenUrl() {
+    return _buildPlayerUrl(_selectedProvider, startSeconds: _localStartHint());
   }
 
   // ─── User actions ─────────────────────────────────────────────────
@@ -978,37 +1120,122 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   }
 
   Widget _buildErrorCard() {
+    final active = _selectedProvider;
+    final others = _providers.where((p) => p.id != active.id).toList();
     return Container(
       color: Colors.black,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       child: Center(
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.error_outline_rounded, color: _cDeepRose, size: 48),
             const SizedBox(height: 12),
             Text(
-              'No provider could load this title.',
+              'This title isn\'t available on ${active.shortName}.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+              style: GoogleFonts.outfit(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-            const SizedBox(height: 16),
-            GestureDetector(
-              onTap: _onIframeLoadError,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                decoration: BoxDecoration(
-                  color: _cDeepRose.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: _cDeepRose.withValues(alpha: 0.6)),
+            const SizedBox(height: 6),
+            Text(
+              'The embed returned a 404 or didn\'t respond. Try a different source below.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                color: Colors.white60,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 24),
+            if (others.isNotEmpty) ...[
+              Text(
+                'Try another source',
+                style: GoogleFonts.outfit(
+                  color: _cMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.5,
                 ),
-                child: Text(
-                  'Try next source',
-                  style: GoogleFonts.outfit(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                  ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                alignment: WrapAlignment.center,
+                children: others
+                    .map((p) => GestureDetector(
+                          onTap: () => _selectProvider(p),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: _cDeepRose.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                  color: _cDeepRose.withValues(alpha: 0.5),
+                                  width: 1),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.play_circle_outline_rounded,
+                                  color: _cDeepRose,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  p.name,
+                                  style: GoogleFonts.outfit(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ))
+                    .toList(),
+              ),
+            ],
+            const SizedBox(height: 28),
+            GestureDetector(
+              onTap: () async {
+                final uri = Uri.parse(_externalOpenUrl());
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.2), width: 1),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.open_in_new_rounded,
+                        color: Colors.white70, size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Open in browser',
+                      style: GoogleFonts.outfit(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -1016,6 +1243,23 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
         ),
       ),
     );
+  }
+
+  void _selectProvider(VideoProvider provider) {
+    if (provider.id == _selectedProvider.id) return;
+    _loadTimer?.cancel();
+    _contentCheckTimer?.cancel();
+    _failedProviderIds.clear();
+    setState(() {
+      _selectedProvider = provider;
+      _isLoading = true;
+      _iframeFailed = false;
+    });
+    _loadTimer = Timer(_loadTimeout, () {
+      if (!mounted) return;
+      if (_isLoading) _onIframeLoadError();
+    });
+    _iframe.src = _buildPlayerUrl(provider, startSeconds: _localStartHint());
   }
 
   String _formatT(double seconds) {
