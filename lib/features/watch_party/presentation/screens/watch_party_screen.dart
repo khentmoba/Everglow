@@ -108,11 +108,6 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   /// on the partner's screen.
   bool _hostExplicitlyPaused = false;
 
-  /// Whether the iframe should autoplay.  Toggled on every play/pause
-  /// so that reloading the iframe actually stops or starts the video.
-  /// The only reliable way to control a cross-origin embed.
-  bool _autoplay = true;
-
   /// Timestamp of the last remote Firestore snapshot we applied.
   /// Used to discard stale heartbeats that were sent before a newer
   /// play/pause event but arrived later due to network reordering.
@@ -183,12 +178,17 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   /// watch-party player have slightly different needs (offset hint in
   /// the URL, no provider switcher UI) and trying to share logic
   /// across two iframes is messier than re-declaring the URLs.
-  /// Videasy leads the list because it is the only free provider that
-  /// honours a seek hint (`startTime=N` in the URL), which is essential
-  /// for the watch-party resync to land at the host's position instead
-  /// of always restarting from 0.  All other providers silently ignore
-  /// the hint.
+  /// VidLink leads the list because it has a known postMessage API
+  /// (MEDIA_DATA / PLAYER_EVENT outbound) and may accept inbound
+  /// play / pause / seek commands over the same channel.
   static const List<VideoProvider> _providers = [
+    VideoProvider(
+      id: 'vidlink',
+      name: 'VidLink',
+      shortName: 'VidLink',
+      movieUrl: 'https://vidlink.pro/movie/',
+      tvUrl: 'https://vidlink.pro/tv/',
+    ),
     VideoProvider(
       id: 'videasy',
       name: 'Videasy',
@@ -202,13 +202,6 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
       shortName: 'VidFast',
       movieUrl: 'https://vidfast.pro/movie/',
       tvUrl: 'https://vidfast.pro/tv/',
-    ),
-    VideoProvider(
-      id: 'vidlink',
-      name: 'VidLink',
-      shortName: 'VidLink',
-      movieUrl: 'https://vidlink.pro/movie/',
-      tvUrl: 'https://vidlink.pro/tv/',
     ),
     VideoProvider(
       id: 'multiembed',
@@ -272,7 +265,6 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     } else {
       _hostExplicitlyPaused = _room.state == 'paused';
     }
-    _autoplay = !_hostExplicitlyPaused;
 
     _selectedProvider = _providers.first;
 
@@ -501,25 +493,14 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     _lastRemoteUpdate = incoming.updatedAt;
 
     final mediaChanged = _mediaIdentityChanged(incoming, _room);
-    final stateChanged = incoming.state != _room.state;
     _room = incoming;
     _hostExplicitlyPaused = incoming.state == 'paused';
 
     if (mediaChanged) {
-      _autoplay = true;
       _anchorEpoch = DateTime.now();
       _anchorTime = 0.0;
       _iframe.src = _buildPlayerUrl(_selectedProvider, startSeconds: 0);
       setState(() {});
-      return;
-    }
-
-    // When the host toggles play/pause we must reload the iframe so
-    // that the autoplay flag in the URL actually stops/starts the video.
-    // A simple anchor nudge won't control the cross-origin embed.
-    if (stateChanged) {
-      _autoplay = !_hostExplicitlyPaused;
-      _rebuildAt(incoming.currentTime);
       return;
     }
 
@@ -705,18 +686,15 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
       }
     }
 
-    // Videasy: autoplay flag mirrors the host's play/pause state so
-    // that reloading the iframe actually starts or stops the video.
+    // Videasy: always autoplay + TV flags.
     if (provider.id == 'videasy') {
       final isTv = _room.mediaType == 'tv';
-      final auto = _autoplay ? 'true' : 'false';
       final flags = isTv
-          ? 'autoplay=$auto&nextButton=true&episodeSelector=true'
-          : 'autoplay=$auto';
+          ? 'autoplay=true&nextButton=true&episodeSelector=true'
+          : 'autoplay=true';
       final sep = base.contains('?') ? '&' : '?';
       base = '$base$sep$flags';
       if (start > 0) {
-        // Videasy may honour `t` or `startTime` — we emit both so one sticks.
         base = '$base&startTime=$start&t=$start';
       }
       return base;
@@ -739,22 +717,17 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   Future<void> _togglePlayPause() async {
     final nextState = _hostExplicitlyPaused ? 'playing' : 'paused';
     debugPrint('WatchPartyScreen _togglePlayPause: hostExplicitlyPaused=$_hostExplicitlyPaused → nextState=$nextState');
-    final nowPlaying = !_hostExplicitlyPaused; // after toggle
     setState(() {
-      _hostExplicitlyPaused = nowPlaying ? false : true; // explicit
-      _autoplay = nowPlaying;
+      _hostExplicitlyPaused = !_hostExplicitlyPaused;
     });
-    // Re-anchor the clock at the moment of pause/play so the local
-    // estimate is exact from the toggle point forward.
-    if (!nowPlaying) {
+    if (_hostExplicitlyPaused) {
       _anchorTime = _estimatedLocalTime();
       _anchorEpoch = DateTime.now();
     } else {
       _anchorEpoch = DateTime.now();
     }
-    // Reload the iframe so the autoplay flag in the URL takes effect.
-    // This is the only way to actually stop/start a cross-origin embed.
-    _rebuildAt(_estimatedLocalTime());
+    // Try to control the iframe via postMessage (works for VidLink).
+    _postCommand(_hostExplicitlyPaused ? 'pause' : 'play');
     await _service.updatePlayback(
       roomId: _room.id,
       state: nextState,
@@ -763,16 +736,28 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     );
   }
 
+  /// Send a command to the iframe via postMessage.  Some providers
+  /// (VidLink) accept play / pause / seek over their existing channel.
+  void _postCommand(String command, [double? seekTime]) {
+    try {
+      final win = _iframe.contentWindow;
+      if (win == null) return;
+      final payload = (seekTime != null
+          ? {'type': command, 'time': seekTime.round()}
+          : {'type': command}).jsify()!;
+      win.postMessage(payload);
+      debugPrint('WatchPartyScreen _postCommand: $command sent');
+    } catch (_) {
+      debugPrint('WatchPartyScreen _postCommand: $command failed');
+    }
+  }
+
   Future<void> _manualResync() async {
-    // The partner only reloads their own iframe at the host's last known
-    // position — we never write to Firestore here because the partner's
-    // view of the host's play/pause state may be stale and would race
-    // with the host's real state.  The host's heartbeat is the single
-    // source of truth for both time and state.
     if (!mounted) return;
     debugPrint('WatchPartyScreen _manualResync: rebuilding at ${_room.currentTime}');
     setState(() => _isResyncing = true);
     _rebuildAt(_room.currentTime, immediate: true);
+    _postCommand('seek', _room.currentTime);
   }
 
   Future<void> _endParty() async {
