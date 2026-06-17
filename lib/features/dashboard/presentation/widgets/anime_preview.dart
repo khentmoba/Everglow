@@ -10,12 +10,9 @@ import 'package:everglow/shared/widgets/adblocker_gate.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'shelf_widgets.dart';
 
-/// "Anime" shelf on the dashboard.
-///
-/// For the couple (khentsgdz / clairjassen) it streams the combined
-/// anime list from both partners. For other users it falls back to
-/// the current user's own list. Anime filtering happens in
-/// [TMDBService.getAnimeWatchListStream] / [TMDBService.getCoupleAnimeStream].
+/// "Anime" shelf on the dashboard. Each user sees only their own
+/// watched anime. Anime filtering happens in
+/// [TMDBService.getAnimeWatchListStream].
 class AnimePreview extends StatelessWidget {
   const AnimePreview({Key? key}) : super(key: key);
 
@@ -24,14 +21,11 @@ class AnimePreview extends StatelessWidget {
     final tmdbService = TMDBService();
     final auth = context.watch<AuthService>();
     final userName = auth.currentUser ?? '';
-    final isCouple = auth.isCoupleUser;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: _AnimeShelf(
-        stream: isCouple
-            ? tmdbService.getCoupleAnimeStream()
-            : tmdbService.getAnimeWatchListStream(userName),
+        stream: tmdbService.getAnimeWatchListStream(userName),
       ),
     );
   }

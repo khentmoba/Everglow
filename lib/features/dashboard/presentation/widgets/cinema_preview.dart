@@ -10,12 +10,8 @@ import 'package:everglow/shared/widgets/adblocker_gate.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'shelf_widgets.dart';
 
-/// "Watched" shelf on the dashboard.
-///
-/// For the couple (khentsgdz / clairjassen) it streams the combined
-/// watched catalog from both partners so Khent and Clair always see
-/// the same shared reel. For other users (Breyan / Octagram) it
-/// falls back to the current user's own watched list.
+/// "Watched" shelf on the dashboard. Each user sees only their own
+/// watched movies and shows.
 class CinemaPreview extends StatelessWidget {
   const CinemaPreview({Key? key}) : super(key: key);
 
@@ -24,14 +20,11 @@ class CinemaPreview extends StatelessWidget {
     final tmdbService = TMDBService();
     final auth = context.watch<AuthService>();
     final userName = auth.currentUser ?? '';
-    final isCouple = auth.isCoupleUser;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: _CinemaShelf(
-        stream: isCouple
-            ? tmdbService.getCoupleWatchListStream()
-            : tmdbService.getWatchListStream(userName),
+        stream: tmdbService.getWatchListStream(userName),
       ),
     );
   }
