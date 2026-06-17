@@ -526,8 +526,12 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   // ─── Provider failover (mirrors VideoPlayerScreen) ─────────────────
 
   void _onIframeLoadError() {
-    _loadTimer?.cancel();
     if (!mounted) return;
+    // Ignore stale errors from a previous load that was aborted by a
+    // rebuild or provider switch — the current load may still succeed.
+    if (!_isLoading) return;
+    _loadTimer?.cancel();
+    _contentCheckTimer?.cancel();
     _failedProviderIds.add(_selectedProvider.id);
     final next = _providers.cast<VideoProvider?>().firstWhere(
       (p) => !_failedProviderIds.contains(p!.id),
@@ -667,11 +671,9 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
       }
       return base;
     }
-    // VidFast: optional seek hint (may be silently ignored by the provider).
-    if (provider.id == 'vidfast' && start > 0) {
-      final sep = base.contains('?') ? '&' : '?';
-      return '$base${sep}start=$start';
-    }
+    // VidFast doesn't support seek parameters — we always return the
+    // clean URL so the default first provider never fails due to an
+    // unsupported `?start=N`. Only Videasy honours startTime.
     return base;
   }
 
