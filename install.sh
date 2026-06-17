@@ -49,10 +49,15 @@ cat << 'EOF'
   │  Mobile Options                          │
   │                                          │
   │  • Firefox for Android → install uBlock  │
+  │    https://mzl.la/3RTVF2p               │
   │  • Samsung Internet → Adblock Plus       │
+  │    https://adblockplus.org               │
   │  • Safari on iOS → Adblock Plus          │
+  │    https://adblockplus.org               │
   │  • Kiwi Browser (Android) → uBlock       │
+  │    https://bit.ly/3RTVF2p               │
   │  • AdGuard (system-wide, any browser)    │
+  │    https://adguard.com                   │
   └──────────────────────────────────────────┘
 
 EOF
