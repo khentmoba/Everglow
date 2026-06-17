@@ -108,11 +108,6 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   /// on the partner's screen.
   bool _hostExplicitlyPaused = false;
 
-  /// Whether the iframe URL should include autoplay=true.  Toggled
-  /// on every play/pause so the DOM-level reload actually stops/starts
-  /// the cross-origin embed.
-  bool _autoplay = true;
-
   /// Timestamp of the last remote Firestore snapshot we applied.
   /// Used to discard stale heartbeats that were sent before a newer
   /// play/pause event but arrived later due to network reordering.
@@ -270,7 +265,6 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     } else {
       _hostExplicitlyPaused = _room.state == 'paused';
     }
-    _autoplay = !_hostExplicitlyPaused;
 
     _selectedProvider = _providers.first;
 
@@ -505,7 +499,6 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     _hostExplicitlyPaused = incoming.state == 'paused';
 
     if (mediaChanged) {
-      _autoplay = true;
       _anchorEpoch = DateTime.now();
       _anchorTime = 0.0;
       _iframe.src = _buildPlayerUrl(_selectedProvider, startSeconds: 0);
@@ -695,19 +688,15 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
       }
     }
 
-    // VidLink / Videasy: autoplay flag mirrors the host's state so
-    // that the DOM-level iframe reload actually starts or stops video.
+    // VidLink / Videasy: always autoplay — the video runs continuously
+    // behind a pause overlay so its real position stays correct.
     if (provider.id == 'vidlink' || provider.id == 'videasy') {
       final isTv = _room.mediaType == 'tv';
-      final auto = _autoplay ? 'true' : 'false';
       final flags = isTv
-          ? 'autoplay=$auto&nextButton=true&episodeSelector=true'
-          : 'autoplay=$auto';
+          ? 'autoplay=true&nextButton=true&episodeSelector=true'
+          : 'autoplay=true';
       final sep = base.contains('?') ? '&' : '?';
       base = '$base$sep$flags';
-      if (start > 0) {
-        base = '$base&startTime=$start&t=$start';
-      }
       return base;
     }
     // VidFast doesn't support seek parameters — we always return the
@@ -731,7 +720,6 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     debugPrint('WatchPartyScreen _togglePlayPause: hostExplicitlyPaused=$_hostExplicitlyPaused → nextState=$nextState');
     setState(() {
       _hostExplicitlyPaused = willPause;
-      _autoplay = !willPause;
     });
     if (willPause) {
       _anchorTime = _estimatedLocalTime();
@@ -739,11 +727,8 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     } else {
       _anchorEpoch = DateTime.now();
     }
-    // Reload the iframe via DOM so the user-gesture window stays open
-    // and the browser allows autoplay on the new document.
-    final url = _buildPlayerUrl(_selectedProvider, startSeconds: _estimatedLocalTime());
-    debugPrint('WatchPartyScreen _togglePlayPause: reloading iframe autoplay=$_autoplay');
-    _iframe.setAttribute('src', url);
+    // No iframe reload — the video keeps playing behind the overlay
+    // so the position stays correct.  The overlay hides everything.
     await _service.updatePlayback(
       roomId: _room.id,
       state: nextState,
@@ -812,13 +797,55 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
         child: Column(
           children: [
             _buildHeader(),
-            Expanded(
+              Expanded(
               child: Stack(
                 children: [
                   if (!_iframeFailed) HtmlElementView(viewType: _viewType),
                   if (_isLoading && !_iframeFailed)
                     const Center(
                       child: CircularProgressIndicator(color: AppTheme.deepRose),
+                    ),
+                  // Opaque overlay that hides the iframe while "paused".
+                  // The video keeps playing behind it so the real position
+                  // stays correct — cross-origin iframes can't be seeked.
+                  if (_hostExplicitlyPaused)
+                    Positioned.fill(
+                      child: GestureDetector(
+                        onTap: () {},
+                        child: Container(
+                          color: Colors.black,
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.pause_circle_outline_rounded,
+                                    color: _cDeepRose, size: 64),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'PAUSED',
+                                  style: GoogleFonts.outfit(
+                                    color: _cWhite.withValues(alpha: 0.8),
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 4,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _isResyncing
+                                      ? 'Syncing to ${_formatT(_room.currentTime)}…'
+                                      : '${_formatT(_displayedTime)}',
+                                  style: GoogleFonts.outfit(
+                                    color: _cWhite.withValues(alpha: 0.5),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   if (_iframeFailed) _buildErrorCard(),
                   // The sync overlay is always on top so the partner
