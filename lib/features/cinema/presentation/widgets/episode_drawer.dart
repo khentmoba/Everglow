@@ -960,7 +960,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
           mediaType: 'tv',
           season: season,
           episode: episode,
-          title: '${widget.item.title} · S${season}E$episode: $epTitle',
+          title: '${widget.item.title}: $epTitle',
         ),
       ),
     );
