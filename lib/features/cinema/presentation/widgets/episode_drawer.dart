@@ -244,9 +244,6 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       });
       return;
     }
-    // Build a TMDB-shaped map for the build method to read. We carry
-    // the cover/banner URLs as `backdrop_path` / `poster_path` so the
-    // hero header still renders.
     final poster = detail.coverImageUrl;
     final backdrop = detail.bannerImageUrl.isNotEmpty
         ? detail.bannerImageUrl
@@ -274,24 +271,48 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       _resolvedMalId = detail.malId ?? widget.item.tmdbId;
       _details = mapped;
       _genreNames = detail.genres;
-      // Anime has no seasons — render the flat episode list as a
-      // synthetic "Season 1" so the existing UI keeps working. We
-      // always synthesize it (even with episodeCount null/0) so the
-      // Episodes section header + list render and the Jikan overlay
-      // in [_fetchSeasonEpisodes] can populate the rows.
-      final synthCount = detail.episodeCount != null && detail.episodeCount! > 0
-          ? detail.episodeCount
-          : 12;
+    });
+
+    // Try using TMDB seasons like cinema. Resolve MAL→TMDB via ani.zip.
+    final malId = _resolvedMalId ?? widget.item.tmdbId;
+    int? tmdbSeriesId = await _aniZipService.fetchTmdbId(malId);
+    if (tmdbSeriesId == null && widget.item.year.isNotEmpty) {
+      tmdbSeriesId = await _tmdbService.searchTvShow(
+        widget.item.title,
+        firstAirDateYear: widget.item.year,
+      );
+    }
+
+    if (tmdbSeriesId != null) {
+      final tmdbDetails = await _tmdbService.fetchMediaDetails(tmdbSeriesId, 'tv');
+      if (tmdbDetails != null && mounted) {
+        final tmdbSeasons = (tmdbDetails['seasons'] as List?)
+            ?.whereType<Map<String, dynamic>>()
+            .where((s) => (s['season_number'] is int) && (s['season_number'] as int) > 0)
+            .toList() ?? [];
+        if (tmdbSeasons.isNotEmpty) {
+          setState(() {
+            _aniSearchedTmdbId = tmdbSeriesId;
+            _seasons = tmdbSeasons;
+            final firstSn = tmdbSeasons.first['season_number'] as int;
+            _selectedSeasonNumber = firstSn;
+            _fetchSeasonEpisodes(firstSn);
+          });
+          return;
+        }
+      }
+    }
+
+    // Fallback: synthetic Season 1 with Jikan episodes (legacy)
+    final synthCount = detail.episodeCount != null && detail.episodeCount! > 0
+        ? detail.episodeCount
+        : 12;
+    setState(() {
       _seasons = [
         {'season_number': 1, 'name': 'Episodes', 'episode_count': synthCount}
       ];
       _selectedSeasonNumber = 1;
-
-      // Build season navigation from AniList SEQUEL/PREQUEL relations
-      _animeSeasons = _buildAnimeSeasons(detail);
-      if (_selectedSeasonNumber != null) {
-        _fetchSeasonEpisodes(_selectedSeasonNumber!);
-      }
+      _fetchSeasonEpisodes(1);
     });
   }
 
@@ -374,11 +395,24 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       _episodes = [];
       _tmdbMatchedSeason = null;
     });
+    if (_isAnimeSourced && _aniSearchedTmdbId != null) {
+      // Use TMDB season data like cinema for anime with a TMDB mapping.
+      final episodes = await _tmdbService.fetchSeasonEpisodes(
+          _aniSearchedTmdbId!, seasonNumber);
+      if (mounted && _selectedSeasonNumber == seasonNumber) {
+        setState(() {
+          _episodes = episodes;
+          _isLoadingEpisodes = false;
+        });
+      }
+      return;
+    }
     if (_isAnimeSourced) {
+      // Fallback: Jikan-sourced episodes for anime without TMDB mapping.
       final malId = _resolvedMalId ?? widget.item.tmdbId;
-      print('[DEBUG] fetchSeasonEpisodes anime: malId=$malId resolvedMalId=$_resolvedMalId tmdbId=${widget.item.tmdbId}');
+      print('[DEBUG] fetchSeasonEpisodes anime Jikan fallback: malId=$malId');
       final episodes = await _fetchJikanEpisodes(malId);
-      print('[DEBUG] fetchSeasonEpisodes anime: got ${episodes.length} episodes');
+      print('[DEBUG] fetchSeasonEpisodes anime Jikan fallback: got ${episodes.length} episodes');
       if (!mounted) return;
       if (_selectedSeasonNumber != seasonNumber) return;
       setState(() {
@@ -1060,10 +1094,6 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                 child: _buildMetaSection(year, rating, ratingFraction, runtime),
               ),
             ),
-
-            // Ã¢â€â‚¬Ã¢â€â‚¬ PLAY BUTTON (Movie) or EPISODES Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
-            if (_isAnimeSourced)
-              SliverToBoxAdapter(child: _buildAnimeSeasonNav()),
 
             if (widget.item.mediaType == 'movie')
               SliverToBoxAdapter(
