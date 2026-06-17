@@ -201,15 +201,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     // holds the MAL id. Resolve MAL→TMDB via ani.zip, then set the
     // iframe's src once. If the lookup fails (no cross-reference
     // exists) we land in the error card and offer external links.
-    // VidLink is used first for anime since it has a dedicated MAL-based
-    // endpoint that correctly handles split seasons (e.g. Part 1 vs Part 2)
-    // where TMDB-based URLs all map to the same TMDB season.
     if (widget.isAnime) {
-      final vidLink = _providers.firstWhere(
-        (p) => p.id == 'vidlink',
-        orElse: () => _providers.first,
-      );
-      _selectedProvider = vidLink;
       _bootstrapAnime();
     } else {
       _iframe.src = _buildPlayerUrl(_activeProvider);
@@ -234,7 +226,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
     final tmdbId = await AniZipService().fetchTmdbId(malId);
     if (!mounted) return;
-    if (tmdbId == null && _selectedProvider.id != 'vidlink') {
+    if (tmdbId == null) {
       setState(() => _iframeFailed = true);
       _loadTimer?.cancel();
       return;
@@ -427,16 +419,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (widget.mediaType == 'tv') {
       final seasonNum = widget.season ?? 1;
       final epNum = widget.episode ?? 1;
-
-      // VidLink has a dedicated anime endpoint using MAL ID directly.
-      // Many anime are split across AniList entries that share the same
-      // TMDB show/season (e.g. Season 2 Part 1 vs Part 2), so the
-      // TMDB-based URL plays the wrong content. The MAL-based URL
-      // respects the specific AniList entry's episode numbering.
-      if (provider.id == 'vidlink' && isAnime) {
-        final malId = widget.malId ?? widget.tmdbId;
-        return 'https://vidlink.pro/anime/$malId/$epNum/sub?fallback=true';
-      }
 
       if (tvBase.contains('vidsrc.to')) {
         return '$tvBase$id&season=$seasonNum&episode=$epNum';
