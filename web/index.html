@@ -45,6 +45,16 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', function(event) {
+        if (event.data && event.data.type === 'NEW_VERSION') {
+          window.location.reload();
+        }
+      });
+      navigator.serviceWorker.register('/sw.js').catch(function() {});
+    }
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

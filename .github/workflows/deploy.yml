@@ -78,6 +78,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Generate service worker with commit hash
+        run: dart run tool/generate_sw.dart
+
       - name: Build web
         env:
           CLAIR_EMAIL: ${{ secrets.CLAIR_EMAIL }}
