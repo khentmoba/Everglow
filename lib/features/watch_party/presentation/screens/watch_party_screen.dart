@@ -89,8 +89,11 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   double _anchorTime = 0.0;
 
   /// One-shot guard so we don't re-process the initial snapshot we
-  /// already have on screen.
-  bool _hasAppliedInitialSnapshot = false;
+  /// already have on screen.  True from the start because the iframe
+  /// was already positioned via `widget.initialRoom` in `initState`;
+  /// the first Firestore snapshot coming in should only nudge the
+  /// anchor, never trigger a redundant rebuild.
+  bool _hasAppliedInitialSnapshot = true;
 
   /// True while we're rebuilding the iframe to land at a new offset.
   /// The partner sees a "Syncing..." pill during this window.
@@ -105,6 +108,11 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   /// hasn't pressed play yet"). Triggers the "Paused by Clair" pill
   /// on the partner's screen.
   bool _hostExplicitlyPaused = false;
+
+  /// Timestamp of the last remote Firestore snapshot we applied.
+  /// Used to discard stale heartbeats that were sent before a newer
+  /// play/pause event but arrived later due to network reordering.
+  DateTime? _lastRemoteUpdate;
 
   // ─── iframe plumbing (mirrors VideoPlayerScreen) ──────────────────
   bool _isLoading = true;
@@ -473,11 +481,22 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     }
 
     final isLocalWrite = incoming.updatedBy == _myUid;
-    debugPrint('WatchPartyScreen _onRoomUpdate: isLocal=$isLocalWrite, state=${incoming.state}, time=${incoming.currentTime}, updatedBy=${incoming.updatedBy}');
+    debugPrint('WatchPartyScreen _onRoomUpdate: isLocal=$isLocalWrite, state=${incoming.state}, time=${incoming.currentTime}, updatedBy=${incoming.updatedBy}, updatedAt=${incoming.updatedAt}');
     if (isLocalWrite) {
       _room = incoming;
       return;
     }
+
+    // Discard remote snapshots that are older than the last one we
+    // applied.  Without this gate a heartbeat (sent at T with
+    // state='playing') can beat a pause (sent at T+0.5 with
+    // state='paused') to the partner's screen, flipping the overlay
+    // from "Khent paused" back to "Synced" and kicking the clock.
+    if (_lastRemoteUpdate != null && !incoming.updatedAt.isAfter(_lastRemoteUpdate!)) {
+      debugPrint('WatchPartyScreen _onRoomUpdate: discarding stale update (updatedAt=${incoming.updatedAt} ≤ last=$_lastRemoteUpdate)');
+      return;
+    }
+    _lastRemoteUpdate = incoming.updatedAt;
 
     final mediaChanged = _mediaIdentityChanged(incoming, _room);
     _room = incoming;
