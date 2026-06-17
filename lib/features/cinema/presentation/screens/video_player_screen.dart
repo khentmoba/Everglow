@@ -64,6 +64,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// playback session so we don't spam Firestore on every rebuild.
   bool _hasSavedWatchProgress = false;
 
+  /// Cached username to avoid [context.read] from JS interop callbacks
+  /// where the widget tree traversal can silently fail.
+  String _currentUserName = '';
+
   /// How long to wait for the iframe to fire `load` before we consider
   /// the embed dead. vidsrc embeds usually load in 2-4s; 15s is a
   /// generous ceiling that still surfaces 404s within a reasonable
@@ -170,6 +174,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   void initState() {
     super.initState();
     _selectedProvider = _providers.first;
+    _currentUserName = context.read<AuthService>().currentUser ?? '';
 
     _viewType =
         'everglow-cinema-player-${widget.tmdbId}-${widget.mediaType}-${widget.season ?? 0}-${widget.episode ?? 0}-${DateTime.now().microsecondsSinceEpoch}';
@@ -259,34 +264,40 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// "Currently Watching" shelves across the app reflect what the
   /// user is watching right now. Runs once per playback session.
   void _saveWatchProgress() {
-    if (_hasSavedWatchProgress || !mounted) return;
+    if (_hasSavedWatchProgress) return;
     _hasSavedWatchProgress = true;
-    try {
-      final tmdb = TMDBService();
-      final userName = context.read<AuthService>().currentUser ?? '';
-      if (userName.isEmpty) return;
 
-      final status = _watchingStatusFor(userName);
+    // If the cached username is empty (shouldn't happen since we capture
+    // it in initState, but be defensive), attempt a direct read.
+    String userName = _currentUserName;
+    if (userName.isEmpty) {
+      try {
+        userName = context.read<AuthService>().currentUser ?? '';
+      } catch (_) {}
+    }
+    if (userName.isEmpty) return;
 
-      tmdb.updateProgress(
-        MediaItem(
-          id: '',
-          tmdbId: widget.tmdbId,
-          title: widget.title,
-          mediaType: widget.mediaType,
-          posterPath: '',
-          status: status,
-          isAnime: widget.isAnime,
-          userName: userName,
-          addedAt: DateTime.now(),
-        ),
-        userName,
-        season: widget.season,
-        episode: widget.episode,
-        timestamp: 0,
+    final tmdb = TMDBService();
+    final status = _watchingStatusFor(userName);
+
+    tmdb.updateProgress(
+      MediaItem(
+        id: '',
+        tmdbId: widget.tmdbId,
+        title: widget.title,
+        mediaType: widget.mediaType,
+        posterPath: '',
         status: status,
-      );
-    } catch (_) {}
+        isAnime: widget.isAnime,
+        userName: userName,
+        addedAt: DateTime.now(),
+      ),
+      userName,
+      season: widget.season,
+      episode: widget.episode,
+      timestamp: 0,
+      status: status,
+    );
   }
 
   /// Returns the correct watching status value for the user.
