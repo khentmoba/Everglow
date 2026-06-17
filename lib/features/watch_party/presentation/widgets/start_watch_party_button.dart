@@ -10,6 +10,7 @@ import '../screens/watch_party_screen.dart';
 
 const _cDeepRose = Color(0xFFC2185B);
 const _cGold = Color(0xFFE8C97A);
+const _cAmber = Color(0xFFF0A500);
 const _cVelvet = Color(0xFF12091A);
 const _cWhite = Color(0xFFFFF5F5);
 
@@ -108,13 +109,17 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
       builder: (context, snap) {
         final room = snap.data;
         final hasActiveParty = room != null && room.active;
+        final mediaDiffers = hasActiveParty &&
+            (room.tmdbId != widget.media.tmdbId ||
+                room.season != widget.media.season ||
+                room.episode != widget.media.episode);
         switch (widget.variant) {
           case WatchPartyButtonVariant.pill:
-            return _buildPill(context, hasActiveParty, room);
+            return _buildPill(context, hasActiveParty, mediaDiffers, room);
           case WatchPartyButtonVariant.card:
-            return _buildCard(context, hasActiveParty, room);
+            return _buildCard(context, hasActiveParty, mediaDiffers, room);
           case WatchPartyButtonVariant.icon:
-            return _buildIcon(context, hasActiveParty, room);
+            return _buildIcon(context, hasActiveParty, mediaDiffers, room);
         }
       },
     );
@@ -122,9 +127,13 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
 
   // ─── Variants ─────────────────────────────────────────────────────
 
-  Widget _buildPill(BuildContext context, bool hasParty, WatchPartyRoom? room) {
+  Widget _buildPill(BuildContext context, bool hasParty, bool mediaDiffers, WatchPartyRoom? room) {
     final label = widget.labelOverride ??
-        (hasParty ? 'Resume Night' : 'Watch Together 💞');
+        (mediaDiffers
+            ? 'Switch to this'
+            : hasParty
+                ? 'Resume Night'
+                : 'Watch Together');
     return GestureDetector(
       onTap: () => _onTap(context, hasParty, room),
       child: Container(
@@ -145,8 +154,12 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              hasParty ? Icons.replay_rounded : Icons.favorite_rounded,
-              color: hasParty ? _cGold : _cDeepRose,
+              mediaDiffers
+                  ? Icons.swap_horiz_rounded
+                  : hasParty
+                      ? Icons.replay_rounded
+                      : Icons.favorite_rounded,
+              color: mediaDiffers ? _cAmber : hasParty ? _cGold : _cDeepRose,
               size: 16,
             ),
             const SizedBox(width: 6),
@@ -165,9 +178,10 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
     );
   }
 
-  Widget _buildCard(BuildContext context, bool hasParty, WatchPartyRoom? room) {
-    // The dashboard tile. Big glass card with the title, partner
-    // avatar, and a CTA that morphs between "Start" and "Resume".
+  Widget _buildCard(
+      BuildContext context, bool hasParty, bool mediaDiffers, WatchPartyRoom? room) {
+    final iconColor = mediaDiffers ? _cAmber : hasParty ? _cGold : _cDeepRose;
+    final label = mediaDiffers ? 'Switch' : hasParty ? 'Resume' : 'Start';
     return GestureDetector(
       onTap: () => _onTap(context, hasParty, room),
       child: Container(
@@ -178,7 +192,7 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
             end: Alignment.bottomRight,
             colors: hasParty
                 ? [
-                    _cGold.withValues(alpha: 0.20),
+                    iconColor.withValues(alpha: 0.20),
                     _cDeepRose.withValues(alpha: 0.12),
                   ]
                 : [
@@ -188,9 +202,7 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
           ),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: hasParty
-                ? _cGold.withValues(alpha: 0.6)
-                : _cDeepRose.withValues(alpha: 0.45),
+            color: iconColor.withValues(alpha: 0.6),
             width: 1.2,
           ),
         ),
@@ -215,9 +227,11 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
                 ],
               ),
               child: Icon(
-                hasParty
-                    ? Icons.movie_filter_rounded
-                    : Icons.favorite_rounded,
+                mediaDiffers
+                    ? Icons.swap_horiz_rounded
+                    : hasParty
+                        ? Icons.movie_filter_rounded
+                        : Icons.favorite_rounded,
                 color: Colors.white,
                 size: 28,
               ),
@@ -228,7 +242,11 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    hasParty ? 'Watching now' : 'Movie Night',
+                    mediaDiffers
+                        ? 'Switch movie'
+                        : hasParty
+                            ? 'Watching now'
+                            : 'Movie Night',
                     style: GoogleFonts.cormorantGaramond(
                       color: _cWhite,
                       fontSize: 18,
@@ -237,9 +255,11 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    hasParty
-                        ? (room?.title ?? 'Resuming your party…')
-                        : 'Watch a film in real time with your love',
+                    mediaDiffers
+                        ? 'Tap to switch to ${widget.media.title}'
+                        : hasParty
+                            ? (room?.title ?? 'Resuming your party…')
+                            : 'Watch a film in real time with your love',
                     style: GoogleFonts.outfit(
                       color: _cWhite.withValues(alpha: 0.7),
                       fontSize: 11.5,
@@ -255,12 +275,10 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
               padding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: hasParty
-                    ? _cGold.withValues(alpha: 0.25)
-                    : _cDeepRose.withValues(alpha: 0.25),
+                color: iconColor.withValues(alpha: 0.25),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: hasParty ? _cGold : _cDeepRose,
+                  color: iconColor,
                   width: 1,
                 ),
               ),
@@ -268,9 +286,9 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    hasParty ? 'Resume' : 'Start',
+                    label,
                     style: GoogleFonts.outfit(
-                      color: hasParty ? _cGold : _cDeepRose,
+                      color: iconColor,
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 1,
@@ -279,7 +297,7 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
                   const SizedBox(width: 4),
                   Icon(
                     Icons.arrow_forward_rounded,
-                    color: hasParty ? _cGold : _cDeepRose,
+                    color: iconColor,
                     size: 14,
                   ),
                 ],
@@ -291,27 +309,29 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
     );
   }
 
-  Widget _buildIcon(BuildContext context, bool hasParty, WatchPartyRoom? room) {
+  Widget _buildIcon(
+      BuildContext context, bool hasParty, bool mediaDiffers, WatchPartyRoom? room) {
+    final iconColor = mediaDiffers ? _cAmber : hasParty ? _cGold : _cDeepRose;
     return GestureDetector(
       onTap: () => _onTap(context, hasParty, room),
       child: Container(
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: hasParty
-              ? _cGold.withValues(alpha: 0.25)
-              : _cDeepRose.withValues(alpha: 0.25),
+          color: iconColor.withValues(alpha: 0.25),
           shape: BoxShape.circle,
           border: Border.all(
-            color: hasParty ? _cGold : _cDeepRose,
+            color: iconColor,
             width: 1.2,
           ),
         ),
         child: Icon(
-          hasParty
-              ? Icons.replay_rounded
-              : Icons.favorite_rounded,
-          color: hasParty ? _cGold : _cDeepRose,
+          mediaDiffers
+              ? Icons.swap_horiz_rounded
+              : hasParty
+                  ? Icons.replay_rounded
+                  : Icons.favorite_rounded,
+          color: iconColor,
           size: 16,
         ),
       ),
@@ -332,8 +352,49 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
     WatchPartyRoom toOpen;
     bool isHost;
     if (hasParty && room != null) {
-      toOpen = room;
-      isHost = room.hostUid == myUid;
+      // Check if user is picking a different movie/episode
+      final mediaChanged = room.tmdbId != widget.media.tmdbId ||
+          room.season != widget.media.season ||
+          room.episode != widget.media.episode;
+      if (mediaChanged) {
+        await _service.updateMedia(
+          roomId: room.id,
+          mediaType: widget.media.mediaType,
+          tmdbId: widget.media.tmdbId,
+          malId: widget.media.malId,
+          isAnime: widget.media.isAnime,
+          season: widget.media.season,
+          episode: widget.media.episode,
+          title: widget.media.title,
+          posterPath: widget.media.posterPath,
+          updatedBy: myUid,
+        );
+        toOpen = WatchPartyRoom(
+          id: room.id,
+          hostUid: room.hostUid,
+          hostName: room.hostName,
+          partnerUid: room.partnerUid,
+          partnerName: room.partnerName,
+          mediaType: widget.media.mediaType,
+          tmdbId: widget.media.tmdbId,
+          malId: widget.media.malId,
+          isAnime: widget.media.isAnime,
+          season: widget.media.season,
+          episode: widget.media.episode,
+          title: widget.media.title,
+          posterPath: widget.media.posterPath,
+          state: 'paused',
+          currentTime: 0.0,
+          updatedAt: DateTime.now(),
+          updatedBy: myUid,
+          createdAt: room.createdAt,
+          active: true,
+        );
+        isHost = room.hostUid == myUid;
+      } else {
+        toOpen = room;
+        isHost = room.hostUid == myUid;
+      }
     } else {
       toOpen = await _service.startRoom(
         hostUid: myUid,

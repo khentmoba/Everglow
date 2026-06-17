@@ -158,6 +158,44 @@ class WatchPartyService {
     }
   }
 
+  /// Switch the room to a different movie/episode without ending the
+  /// party. Resets playback to 0 so both clients start the new title
+  /// at the same time.
+  Future<void> updateMedia({
+    required String roomId,
+    required String mediaType,
+    required int tmdbId,
+    int? malId,
+    bool isAnime = false,
+    int? season,
+    int? episode,
+    required String title,
+    required String posterPath,
+    required String updatedBy,
+  }) async {
+    try {
+      await _db.collection(_collection).doc(roomId).update({
+        'mediaType': mediaType,
+        'tmdbId': tmdbId,
+        // ignore: use_null_aware_elements
+        if (malId != null) 'malId': malId,
+        // ignore: use_null_aware_elements
+        if (season != null) 'season': season,
+        // ignore: use_null_aware_elements
+        if (episode != null) 'episode': episode,
+        'isAnime': isAnime,
+        'title': title,
+        'posterPath': posterPath,
+        'state': 'paused',
+        'currentTime': 0.0,
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+        'updatedBy': updatedBy,
+      });
+    } catch (e) {
+      debugPrint('WatchPartyService.updateMedia failed: $e');
+    }
+  }
+
   /// End the party. Sets `active=false` and leaves the document in
   /// place (so the dashboard can show "Party ended 5m ago" for a
   /// brief grace period) but flips it so the partner's listener

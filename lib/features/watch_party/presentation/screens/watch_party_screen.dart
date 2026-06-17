@@ -94,6 +94,10 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   bool _isResyncing = false;
   Timer? _resyncHideTimer;
 
+  // ─── In‑stack dialog (avoids iframe event capture on web) ─────
+  bool _showEndDialog = false;
+  void Function(bool)? _endDialogCallback;
+
   /// True if the host has explicitly paused (separate from "the host
   /// hasn't pressed play yet"). Triggers the "Paused by Clair" pill
   /// on the partner's screen.
@@ -384,10 +388,16 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
 
   // ─── Snapshot pipeline ────────────────────────────────────────────
 
+  bool _mediaIdentityChanged(WatchPartyRoom a, WatchPartyRoom b) {
+    return a.tmdbId != b.tmdbId ||
+        a.mediaType != b.mediaType ||
+        a.season != b.season ||
+        a.episode != b.episode;
+  }
+
   void _onRoomUpdate(WatchPartyRoom? incoming) {
     if (!mounted) return;
     if (incoming == null) {
-      // Doc deleted under us — treat as party ended.
       _showEndedAndPop();
       return;
     }
@@ -396,23 +406,26 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
       return;
     }
 
-    // Ignore our own writes — they echo back to us through the
-    // snapshot pipeline and would cause an infinite iframe reload
-    // loop on every heartbeat.
     final isLocalWrite = incoming.updatedBy == _myUid;
     if (isLocalWrite) {
       _room = incoming;
       return;
     }
 
+    final mediaChanged = _mediaIdentityChanged(incoming, _room);
     _room = incoming;
     _hostExplicitlyPaused = incoming.state == 'paused';
 
+    if (mediaChanged) {
+      _anchorEpoch = DateTime.now();
+      _anchorTime = 0.0;
+      _iframe.src = _buildPlayerUrl(_selectedProvider, startSeconds: 0);
+      setState(() {});
+      return;
+    }
+
     if (!_hasAppliedInitialSnapshot) {
       _hasAppliedInitialSnapshot = true;
-      // First remote snapshot after we mounted: jump the iframe
-      // to the host's current position. After that we only
-      // re-resync on drift.
       _rebuildAt(incoming.currentTime, immediate: true);
       return;
     }
@@ -421,8 +434,6 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     if (drift > _resyncThresholdSeconds) {
       _rebuildAt(incoming.currentTime);
     } else {
-      // Small drift — just re-anchor our clock without reloading
-      // the iframe. The partner catches up smoothly.
       _anchorEpoch = DateTime.now();
       _anchorTime = incoming.currentTime;
     }
@@ -564,40 +575,14 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   }
 
   Future<void> _endParty() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.6),
-      builder: (ctx) => AlertDialog(
-        backgroundColor: _cCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          'End the night?',
-          style: GoogleFonts.cormorantGaramond(
-            color: _cWhite,
-            fontWeight: FontWeight.w700,
-            fontSize: 22,
-          ),
-        ),
-        content: Text(
-          'Your partner will be sent back to the cinema.',
-          style: GoogleFonts.outfit(color: _cWhite.withValues(alpha: 0.7), fontSize: 13),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Stay',
-                style: GoogleFonts.outfit(color: _cRose, fontWeight: FontWeight.w600)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text('End',
-                style: GoogleFonts.outfit(
-                    color: _cDeepRose, fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
-    );
-    if (confirm != true) return;
+    if (_showEndDialog) return;
+    final completer = Completer<bool>();
+    setState(() {
+      _showEndDialog = true;
+      _endDialogCallback = completer.complete;
+    });
+    final result = await completer.future;
+    if (result != true) return;
     await _service.endRoom(_room.id);
     if (mounted) Navigator.of(context).pop();
   }
@@ -656,6 +641,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
                     service: _voiceChat,
                     partnerName: _partnerName,
                   ),
+                  if (_showEndDialog) _buildEndDialog(),
                 ],
               ),
             ),
@@ -681,14 +667,14 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.grey[800]!, width: 1),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.arrow_back_ios_new_rounded,
                       color: Colors.white, size: 14),
                   SizedBox(width: 6),
-                  Text('Back',
-                      style: TextStyle(
+                  Text(widget.isHost ? 'Change' : 'Browse',
+                      style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 12)),
@@ -922,6 +908,72 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildEndDialog() {
+    return Stack(
+      children: [
+        GestureDetector(
+          onTap: () {},
+          child: Container(color: Colors.black.withValues(alpha: 0.6)),
+        ),
+        Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 32),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: _cCard,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'End the night?',
+                  style: GoogleFonts.cormorantGaramond(
+                    color: _cWhite,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 22,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Your partner will be sent back to the cinema.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(
+                      color: _cWhite.withValues(alpha: 0.7), fontSize: 13),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        _endDialogCallback?.call(false);
+                        setState(() => _showEndDialog = false);
+                      },
+                      child: Text('Stay',
+                          style: GoogleFonts.outfit(
+                              color: _cRose, fontWeight: FontWeight.w600)),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: () {
+                        _endDialogCallback?.call(true);
+                        setState(() => _showEndDialog = false);
+                      },
+                      child: Text('End',
+                          style: GoogleFonts.outfit(
+                              color: _cDeepRose, fontWeight: FontWeight.w700)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
