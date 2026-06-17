@@ -188,6 +188,13 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   /// play / pause / seek commands over the same channel.
   static const List<VideoProvider> _providers = [
     VideoProvider(
+      id: 'vidfast',
+      name: 'VidFast',
+      shortName: 'VidFast',
+      movieUrl: 'https://vidfast.pro/movie/',
+      tvUrl: 'https://vidfast.pro/tv/',
+    ),
+    VideoProvider(
       id: 'vidlink',
       name: 'VidLink',
       shortName: 'VidLink',
@@ -200,13 +207,6 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
       shortName: 'Videasy',
       movieUrl: 'https://player.videasy.net/movie/',
       tvUrl: 'https://player.videasy.net/tv/',
-    ),
-    VideoProvider(
-      id: 'vidfast',
-      name: 'VidFast',
-      shortName: 'VidFast',
-      movieUrl: 'https://vidfast.pro/movie/',
-      tvUrl: 'https://vidfast.pro/tv/',
     ),
     VideoProvider(
       id: 'multiembed',
@@ -710,7 +710,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     // DOM-level reload actually stops or starts the video.
     // When autoplay is on, we also emit muted=1 so the browser
     // allows autoplay even without a user gesture on the partner's side.
-    if (provider.id == 'vidlink' || provider.id == 'videasy') {
+    if (provider.id == 'vidlink' || provider.id == 'videasy' || provider.id == 'vidfast') {
       final isTv = _room.mediaType == 'tv';
       final auto = _autoplay ? 'true' : 'false';
       final flags = isTv
