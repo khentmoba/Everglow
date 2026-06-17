@@ -1,0 +1,82 @@
+rules_version = '2';
+
+// Everglow Firestore security rules. The companion to storage.rules
+// in this repo.
+//
+// This file only locks down the new `watch_party_rooms` collection
+// added for the v5.4.0 Watch Together feature. The existing app's
+// rules (chat, canvas, presence, mood, watchlist, etc.) are managed
+// in the Firebase console because they predate this repo's rule
+// files — we intentionally don't re-declare them here so a `firebase
+// deploy --only firestore:rules` doesn't blow away the production
+// configuration.
+//
+// The collection is keyed on a deterministic `${lowerUid}_${higherUid}`
+// document id (see WatchPartyRoom.buildRoomId). Both members of the
+// couple need read/write access; no one else is allowed to read or
+// mutate the room.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /watch_party_rooms/{roomId} {
+      // Read: either the host or the partner (the document id is
+      // the joined, sorted uids, so we check against both fields).
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.hostUid ||
+        request.auth.uid == resource.data.partnerUid
+      );
+
+      // Create: the caller must be either the host or the partner
+      // (we let the host write the first version of the room — the
+      // host is whichever uid the client writes into `hostUid`).
+      allow create: if isAuthenticated() && (
+        request.auth.uid == request.resource.data.hostUid ||
+        request.auth.uid == request.resource.data.partnerUid
+      ) && isValidRoomShape(request.resource.data);
+
+      // Update: same access rule, plus a constraint that the
+      // hostUid / partnerUid pair can never be reassigned. The
+      // couple is fixed for the lifetime of the room; only state
+      // and timestamps change.
+      allow update: if isAuthenticated() && (
+        request.auth.uid == resource.data.hostUid ||
+        request.auth.uid == resource.data.partnerUid
+      ) && isValidRoomShape(request.resource.data) && (
+        request.resource.data.hostUid == resource.data.hostUid &&
+        request.resource.data.partnerUid == resource.data.partnerUid
+      );
+
+      allow delete: if isAuthenticated() && (
+        request.auth.uid == resource.data.hostUid ||
+        request.auth.uid == resource.data.partnerUid
+      );
+    }
+  }
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────
+
+function isAuthenticated() {
+  return request.auth != null && request.auth.uid != null;
+}
+
+// Shape validation. We only require a few critical fields; the rest
+// are app-defined and may grow over time. The `mediaType` enum
+// protects against arbitrary writes (someone could otherwise create
+// a doc with a 10MB string and burn our bandwidth).
+function isValidRoomShape(data) {
+  return data.keys().hasAll([
+        'hostUid',
+        'hostName',
+        'partnerUid',
+        'partnerName',
+        'mediaType',
+        'state',
+        'updatedAt',
+        'updatedBy',
+        'active',
+      ]) &&
+      data.mediaType in ['movie', 'tv'] &&
+      data.state in ['playing', 'paused', 'buffering'] &&
+      data.active is bool;
+}

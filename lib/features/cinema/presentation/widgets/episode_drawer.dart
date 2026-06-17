@@ -10,6 +10,7 @@ import 'package:everglow/features/cinema/data/services/anilist_service.dart';
 import 'package:everglow/features/cinema/data/services/jikan_service.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/services/auth_service.dart';
+import 'package:everglow/features/watch_party/presentation/widgets/start_watch_party_button.dart';
 import '../screens/video_player_screen.dart';
 import 'trailer_player.dart';
 
@@ -1105,7 +1106,25 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                 child: Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  child: _buildPlayButton(),
+                  child: Column(
+                    children: [
+                      _buildPlayButton(),
+                      const SizedBox(height: 10),
+                      if (context.watch<AuthService>().isCoupleUser)
+                        StartWatchPartyButton(
+                          media: MediaRef(
+                            tmdbId: _isAnimeSourced
+                                ? _effectiveMalId
+                                : widget.item.tmdbId,
+                            malId: _isAnimeSourced ? _effectiveMalId : null,
+                            mediaType: 'movie',
+                            isAnime: _isAnimeSourced,
+                            title: widget.item.title,
+                            posterPath: widget.item.posterPath,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               )
             else ...[
@@ -1908,12 +1927,31 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
             : 'https://image.tmdb.org/t/p/w300$epStillPath')
         : null;
 
+    final isCouple = context.read<AuthService>().isCoupleUser;
     return _EpisodeTile(
       epNum: epNum,
       epName: epName,
       epOverview: epOverview,
       stillUrl: epStillUrl,
       onTap: () => _playEpisode(epSeason, epNum, epName),
+      watchTogether: isCouple
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: StartWatchPartyButton(
+                variant: WatchPartyButtonVariant.icon,
+                media: MediaRef(
+                  tmdbId: _isAnimeSourced ? _effectiveMalId : widget.item.tmdbId,
+                  malId: _isAnimeSourced ? _effectiveMalId : null,
+                  mediaType: 'tv',
+                  isAnime: _isAnimeSourced,
+                  season: epSeason,
+                  episode: epNum,
+                  title: '${_cleanTitle(widget.item.title)}: $epName',
+                  posterPath: widget.item.posterPath,
+                ),
+              ),
+            )
+          : null,
     );
   }
 
@@ -2401,12 +2439,20 @@ class _EpisodeTile extends StatefulWidget {
   final String? stillUrl;
   final VoidCallback onTap;
 
+  /// Optional "Watch Together" action widget. When non-null, it's
+  /// rendered as a small chip beneath the play icon so the couple
+  /// can open a synchronized party directly from the episode row
+  /// without scrolling up to the meta section. Cinema-only profiles
+  /// (Breyan / Octagram) pass `null` to hide the affordance.
+  final Widget? watchTogether;
+
   const _EpisodeTile({
     required this.epNum,
     required this.epName,
     required this.epOverview,
     this.stillUrl,
     required this.onTap,
+    this.watchTogether,
   });
 
   @override
@@ -2489,22 +2535,34 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                 ),
               ),
               const SizedBox(width: 6),
-              // Play icon — vertically centered in the 80px row.
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: _cDeepRose.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                          color: _cDeepRose.withValues(alpha: 0.5), width: 1.2),
+              // Right side action column: solo play (top) + Watch
+              // Together (bottom). Two stacked 32px circles fit
+              // within the 80px tile height with vertical padding.
+              // The solo play preserves the existing tap behaviour;
+              // the heart opens a watch-party directly.
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: _cDeepRose.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                            color: _cDeepRose.withValues(alpha: 0.5),
+                            width: 1.2),
+                      ),
+                      child: const Icon(Icons.play_arrow_rounded,
+                          color: _cDeepRose, size: 18),
                     ),
-                    child: const Icon(Icons.play_arrow_rounded,
-                        color: _cDeepRose, size: 20),
-                  ),
+                    if (widget.watchTogether != null) ...[
+                      const SizedBox(height: 6),
+                      widget.watchTogether!,
+                    ],
+                  ],
                 ),
               ),
             ],
