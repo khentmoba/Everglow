@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
-import 'package:everglow/features/manga/data/services/mangadex_service.dart';
+import 'package:everglow/features/manga/data/services/mangakakalot_service.dart';
 import 'package:everglow/features/manga/presentation/screens/manga_library_screen.dart';
 import 'package:everglow/features/manga/presentation/widgets/manga_details_drawer.dart';
 import 'package:everglow/services/auth_service.dart';
@@ -19,7 +19,7 @@ class MangaPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final service = MangaDexService();
+    final service = MangaKakalotService();
     final auth = context.watch<AuthService>();
     final userName = auth.currentUser ?? '';
     final isCouple = auth.isCoupleUser;

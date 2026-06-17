@@ -3,8 +3,8 @@ import 'package:http/http.dart' as http;
 import 'package:everglow/features/manga/data/models/manga_item.dart';
 
 /// Talks to the public Comick API for catalog browsing (search, popular,
-/// latest, details, cover images). Chapter pages still come from the
-/// MangaDex API via [MangaDexService].
+/// latest, details, cover images). Chapter pages come from MangaKakalot
+/// via [MangaKakalotService].
 ///
 /// Comick endpoints used:
 ///   * Search    — `GET /v1.0/search?q=...&type=comic`
@@ -128,7 +128,7 @@ class ComickService {
     return MangaItem(
       id: '',
       mangaId: hid,
-      mangaDexId: mangaDexId,
+      mangaKakalotId: mangaDexId,
       title: _pickTitle(data),
       description: desc ?? '',
       coverUrl: _coverUrl(covers),
@@ -175,7 +175,7 @@ class ComickService {
     return MangaItem(
       id: '',
       mangaId: hid,
-      mangaDexId: mangaDexId,
+      mangaKakalotId: mangaDexId,
       title: _pickTitle(comic),
       author: author,
       artist: artist,
@@ -316,9 +316,8 @@ class ComickService {
   }
 
   /// Fetch chapter feed for a comic by its Comick numeric [id].
-  /// Returns chapters mapped to [MangaChapter] (only fields shared
-  /// with MangaDex chapters). Chapter page resolution still goes
-  /// through MangaDex.
+  /// Returns chapters mapped to [MangaChapter]. Chapter page resolution
+  /// still goes through MangaKakalot.
   Future<List<MangaChapter>> getChapterFeed(int comickId, {
     String language = 'en',
     int limit = 500,

@@ -1,12 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Manga / Manhwa / Manhua catalog item, sourced from the Comick API
-/// for discovery and the MangaDex API for chapter pages.
+/// for discovery and MangaKakalot for chapter pages.
 ///
 /// Primary identifier is the Comick `hid` (hashed string), stored as
-/// `mangaId`. The `mangaDexId` field stores the MangaDex UUID for
-/// chapter resolution. For existing Firestore entries created before
-/// the Comick migration, `mangaId` may still hold the MangaDex UUID.
+/// `mangaId`. The `mangaKakalotId` field stores the MangaKakalot slug
+/// for chapter resolution.
 ///
 /// `originalLanguage` maps from Comick's `country` field:
 ///   `jp` = Manga, `ko` = Manhwa, `cn`/`zh` = Manhua.
@@ -46,9 +45,8 @@ class MangaItem {
   /// Comick URL slug for the comic (empty if not set).
   final String comickSlug;
 
-  /// MangaDex UUID for chapter page resolution. Empty for old entries
-  /// where `mangaId` still holds the MangaDex UUID directly.
-  final String mangaDexId;
+  /// MangaKakalot slug for chapter page resolution.
+  final String mangaKakalotId;
 
   /// Comick bayesian rating (0.0–10.0 scale).
   final double rating;
@@ -76,7 +74,7 @@ class MangaItem {
     this.lastReadPage = 0,
     this.comickId = 0,
     this.comickSlug = '',
-    this.mangaDexId = '',
+    this.mangaKakalotId = '',
     this.rating = 0.0,
     this.followCount = 0,
   });
@@ -143,7 +141,7 @@ class MangaItem {
       lastReadPage: (data['lastReadPage'] as num?)?.toInt() ?? 0,
       comickId: (data['comickId'] as num?)?.toInt() ?? 0,
       comickSlug: data['comickSlug'] ?? '',
-      mangaDexId: data['mangaDexId'] ?? '',
+      mangaKakalotId: data['mangaKakalotId'] ?? data['mangaDexId'] ?? '',
       rating: (data['rating'] as num?)?.toDouble() ?? 0.0,
       followCount: (data['followCount'] as num?)?.toInt() ?? 0,
     );
@@ -182,7 +180,7 @@ class MangaItem {
       'lastReadPage': lastReadPage,
       'comickId': comickId,
       'comickSlug': comickSlug,
-      'mangaDexId': mangaDexId,
+      'mangaKakalotId': mangaKakalotId,
       'rating': rating,
       'followCount': followCount,
     };
@@ -208,7 +206,7 @@ class MangaItem {
     int? lastReadPage,
     int? comickId,
     String? comickSlug,
-    String? mangaDexId,
+    String? mangaKakalotId,
     double? rating,
     int? followCount,
   }) {
@@ -232,17 +230,17 @@ class MangaItem {
       lastReadPage: lastReadPage ?? this.lastReadPage,
       comickId: comickId ?? this.comickId,
       comickSlug: comickSlug ?? this.comickSlug,
-      mangaDexId: mangaDexId ?? this.mangaDexId,
+      mangaKakalotId: mangaKakalotId ?? this.mangaKakalotId,
       rating: rating ?? this.rating,
       followCount: followCount ?? this.followCount,
     );
   }
 }
 
-/// A single chapter of a manga. Source: MangaDex
-/// `GET /manga/{id}/feed`. We surface the minimum needed for both the
-/// chapter list and the reader (title, number, volume, language, page
-/// count, publish date, scanlation group name).
+/// A single chapter of a manga. Sourced from MangaKakalot.
+/// We surface the minimum needed for both the chapter list and the
+/// reader (title, number, volume, language, page count, scanlation
+/// group name).
 class MangaChapter {
   final String id;
   final String title;
@@ -304,7 +302,7 @@ class MangaChapter {
 }
 
 /// Resolved page image URLs for a chapter. Returned by
-/// `MangaDexService.getChapterPages` and consumed by `MangaReaderScreen`.
+/// `MangaKakalotService.getChapterPages` and consumed by `MangaReaderScreen`.
 class MangaChapterPages {
   final String chapterId;
   final String baseUrl;
@@ -321,8 +319,10 @@ class MangaChapterPages {
   });
 
   /// Build the full image URL for the given 0-indexed page.
+  /// When [baseUrl] is empty, [filenames] are treated as direct URLs.
   String urlForPage(int index) {
     if (index < 0 || index >= filenames.length) return '';
+    if (baseUrl.isEmpty) return filenames[index];
     return '$baseUrl/data/$hash/${filenames[index]}';
   }
 }

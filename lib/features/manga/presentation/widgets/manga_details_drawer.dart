@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
-import 'package:everglow/features/manga/data/services/mangadex_service.dart';
+import 'package:everglow/features/manga/data/services/mangakakalot_service.dart';
 import 'package:everglow/features/manga/presentation/screens/manga_reader_screen.dart';
 import 'package:everglow/services/auth_service.dart';
 
@@ -22,7 +22,7 @@ class MangaDetailsDrawer extends StatefulWidget {
 }
 
 class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
-  final MangaDexService _service = MangaDexService();
+  final MangaKakalotService _service = MangaKakalotService();
   final ScrollController _chapterScrollController = ScrollController();
 
   late MangaItem _item;
@@ -49,16 +49,14 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
       _chapterError = null;
     });
     try {
-      String mdId = _item.mangaDexId.isNotEmpty ? _item.mangaDexId : _item.mangaId;
-      // If the ID doesn't look like a MangaDex UUID (36 chars with dashes),
-      // try to resolve it from the title via MangaDex search.
-      if (mdId.length != 36) {
+      String slug = _item.mangaKakalotId.isNotEmpty
+          ? _item.mangaKakalotId
+          : _item.mangaId;
+      if (slug.isEmpty || slug.length < 5) {
         final resolved = await _service.searchByTitle(_item.title);
-        if (resolved.isNotEmpty) {
-          mdId = resolved;
-        }
+        if (resolved.isNotEmpty) slug = resolved;
       }
-      final list = await _service.getChapterFeed(mdId);
+      final list = await _service.getChapterFeed(slug);
       if (!mounted) return;
       setState(() {
         _chapters = list;
