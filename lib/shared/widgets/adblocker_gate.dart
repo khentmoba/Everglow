@@ -37,6 +37,10 @@ class _AdblockerGateState extends State<AdblockerGate> {
     });
   }
 
+  void _openUrl(String url) {
+    web.window.open(url, '_blank');
+  }
+
   Future<bool> _detectAdblocker() async {
     try {
       final bait = web.HTMLDivElement();
@@ -219,6 +223,38 @@ class _AdblockerGateState extends State<AdblockerGate> {
               height: 1.4,
             ),
           ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: GestureDetector(
+              onTap: () => _openUrl('https://ublockorigin.com'),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2D1B33),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppTheme.blushGold.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.open_in_new_rounded, color: AppTheme.blushGold, size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Install uBlock Origin',
+                      style: GoogleFonts.outfit(
+                        color: AppTheme.blushGold,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -235,6 +271,7 @@ class _AdblockerGateState extends State<AdblockerGate> {
         ),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
@@ -266,7 +303,7 @@ class _AdblockerGateState extends State<AdblockerGate> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Works on phones and tablets',
+                      'Tap to install',
                       style: GoogleFonts.outfit(
                         color: AppTheme.petalWhite.withValues(alpha: 0.5),
                         fontSize: 12,
@@ -277,20 +314,93 @@ class _AdblockerGateState extends State<AdblockerGate> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            '• Firefox for Android → install uBlock Origin\n'
-            '• Samsung Internet → Adblock Plus (add-on store)\n'
-            '• Safari on iOS → Adblock Plus (Settings > Safari > Extensions)\n'
-            '• Kiwi Browser (Android) → install uBlock Origin\n'
-            '• AdGuard (system-wide, any Android browser)',
-            style: GoogleFonts.outfit(
-              color: AppTheme.petalWhite.withValues(alpha: 0.6),
-              fontSize: 12,
-              height: 1.6,
-            ),
+          const SizedBox(height: 16),
+          _mobileOption(
+            icon: Icons.public,
+            label: 'Firefox for Android',
+            detail: 'uBlock Origin',
+            url: 'https://addons.mozilla.org/en-US/firefox/addon/ublock-origin/',
+          ),
+          const SizedBox(height: 10),
+          _mobileOption(
+            icon: Icons.travel_explore,
+            label: 'Samsung Internet',
+            detail: 'Adblock Plus',
+            url: 'https://adblockplus.org',
+          ),
+          const SizedBox(height: 10),
+          _mobileOption(
+            icon: Icons.public,
+            label: 'Safari on iOS',
+            detail: 'Adblock Plus',
+            url: 'https://adblockplus.org',
+          ),
+          const SizedBox(height: 10),
+          _mobileOption(
+            icon: Icons.public,
+            label: 'Kiwi Browser (Android)',
+            detail: 'uBlock Origin',
+            url: 'https://chrome.google.com/webstore/detail/ublock-origin/cjpalhdlnbpafiamejdnhcphjbkeiagm',
+          ),
+          const SizedBox(height: 10),
+          _mobileOption(
+            icon: Icons.shield_rounded,
+            label: 'AdGuard',
+            detail: 'System-wide, any Android browser',
+            url: 'https://adguard.com',
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _mobileOption({
+    required IconData icon,
+    required String label,
+    required String detail,
+    required String url,
+  }) {
+    return GestureDetector(
+      onTap: () => _openUrl(url),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2D1B33),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: AppTheme.roseQuartz, size: 18),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: GoogleFonts.outfit(
+                      color: AppTheme.petalWhite,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    detail,
+                    style: GoogleFonts.outfit(
+                      color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.open_in_new_rounded,
+              color: AppTheme.roseQuartz,
+              size: 14,
+            ),
+          ],
+        ),
       ),
     );
   }
