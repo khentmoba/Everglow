@@ -433,7 +433,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       } else {
         final separator = tvBase.endsWith('/') ? '' : '/';
         final base = '$tvBase$separator$id/$seasonNum/$epNum';
-        web.console.log('[Player] URL=$base season=$seasonNum ep=$epNum id=$id provider=${provider.id}');
+        web.console.log(('[Player] URL=$base season=$seasonNum ep=$epNum id=$id provider=${provider.id}').toJS);
         return isVideasy
             ? '$base?autoplay=true&nextButton=true&episodeSelector=true'
             : base;
