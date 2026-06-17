@@ -1847,8 +1847,10 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       epName: epName,
       epOverview: epOverview,
       stillUrl: epStillUrl,
-      onTap: () =>
-          _playEpisode(_selectedSeasonNumber ?? 1, epNum, epName),
+      onTap: () => _playEpisode(
+          (ep['season_number'] as int?) ?? _selectedSeasonNumber ?? 1,
+          epNum,
+          epName),
     );
   }
 
