@@ -419,6 +419,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (widget.mediaType == 'tv') {
       final seasonNum = widget.season ?? 1;
       final epNum = widget.episode ?? 1;
+
       if (tvBase.contains('vidsrc.to')) {
         return '$tvBase$id&season=$seasonNum&episode=$epNum';
       } else if (tvBase.contains('multiembed.mov')) {
@@ -431,10 +432,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         return '$tvBase$id&season=$seasonNum&episode=$epNum';
       } else {
         final separator = tvBase.endsWith('/') ? '' : '/';
-        final base = '$tvBase$separator$id/$seasonNum/$epNum';
+        final base = '$tvBase$separator$id';
+        final params = 'season=$seasonNum&episode=$epNum';
         return isVideasy
-            ? '$base?autoplay=true&nextButton=true&episodeSelector=true'
-            : base;
+            ? '$base?autoplay=true&nextButton=true&episodeSelector=true&$params'
+            : '$base?$params';
       }
     } else {
       if (movieBase.contains('multiembed.mov')) {
