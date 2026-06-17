@@ -639,9 +639,10 @@ class _ShelfMarqueeState extends State<ShelfMarquee>
 
     final viewport = _scrollController.position.viewportDimension;
     final singleSetWidth = widget.children.length * widget.itemStride;
-    final effectiveSingleSet = singleSetWidth < viewport
-        ? (viewport * 2)
-        : singleSetWidth;
+    final needsLoop = singleSetWidth >= viewport;
+    if (!needsLoop) return;
+
+    final effectiveSingleSet = singleSetWidth;
 
     var newOffset = _scrollController.offset + widget.pixelsPerSecond * dt;
     if (newOffset >= effectiveSingleSet) {
@@ -665,18 +666,24 @@ class _ShelfMarqueeState extends State<ShelfMarquee>
     if (widget.children.isEmpty) {
       return const SizedBox.shrink();
     }
-    return ClipRect(
-      child: SingleChildScrollView(
-        controller: _scrollController,
-        scrollDirection: Axis.horizontal,
-        physics: const NeverScrollableScrollPhysics(),
-        child: Row(
-          children: [
-            ...widget.children,
-            ...widget.children,
-          ],
-        ),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final singleSetWidth = widget.children.length * widget.itemStride;
+        final needsLoop = singleSetWidth >= constraints.maxWidth;
+        return ClipRect(
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            scrollDirection: Axis.horizontal,
+            physics: const NeverScrollableScrollPhysics(),
+            child: Row(
+              children: [
+                ...widget.children,
+                if (needsLoop) ...widget.children,
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
