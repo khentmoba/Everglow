@@ -960,7 +960,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
           mediaType: 'tv',
           season: season,
           episode: episode,
-          title: '${widget.item.title}: $epTitle',
+          title: '${_cleanTitle(widget.item.title)}: $epTitle',
         ),
       ),
     );
@@ -1004,6 +1004,11 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         ),
       ),
     );
+  }
+
+  String _cleanTitle(String title) {
+    // Strip trailing " Season X", " Season X Part Y", " 2nd Season", etc.
+    return title.replaceAll(RegExp(r'\s+(Season\s+\d+(\s+Part\s+\d+)?|\d+(st|nd|rd|th)\s+Season)$', caseSensitive: false), '');
   }
 
   String _getInitial(String name) =>
@@ -1356,7 +1361,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                widget.item.title,
+                _cleanTitle(widget.item.title),
                 style: GoogleFonts.cormorantGaramond(
                   fontSize: 30,
                   fontWeight: FontWeight.w900,
