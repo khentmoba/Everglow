@@ -42,14 +42,19 @@ class _AdblockerGateState extends State<AdblockerGate> {
   }
 
   Future<bool> _detectAdblocker() async {
-    final baits = <String>[
+    // ── Bait elements ─────────────────────────
+    //   Multiple class sets catch cosmetic filtering from
+    //   uBlock Origin, Adblock Plus, AdGuard, Safari CB.
+    final baitSets = <String>[
       'pub_300x250 pub_300x250m pub_728x90 text-ad textAd text_ad text_ads text-ads text-ad-links',
-      'ad-container ad-slot banner_ad advertisement adsbygoogle',
-      'advertisement sponsored-ad google-ad block-ad',
-      'ad-zone ad-placeholder ad-unit ad-wrapper',
+      'ad-container ad-slot banner_ad advertisement adsbygoogle adsense',
+      'advertisement sponsored-ad google-ad block-ad ad-box',
+      'ad-zone ad-placeholder ad-unit ad-wrapper ad-area',
+      'google_ads ad_global_header ad_global_footer adlabel ad_notice',
+      'adv-box adv-top adv-marker sponsor-header sponsored-head',
     ];
 
-    for (final classes in baits) {
+    for (final classes in baitSets) {
       try {
         final bait = web.HTMLDivElement();
         bait.className = classes;
@@ -68,8 +73,55 @@ class _AdblockerGateState extends State<AdblockerGate> {
       }
     }
 
+    // ── Image probes ──────────────────────────
+    //   Adblockers block ad-server images at the network level.
+    //   uBlock Origin, Adblock Plus, AdGuard (system-wide),
+    //   and Safari CB all intercept image requests to ad domains.
+    final adImages = <String>[
+      'https://pagead2.googlesyndication.com/pagead/imgad.png',
+      'https://tpc.googlesyndication.com/safeframe/1-0-45/html/container.html',
+      'https://adservice.google.com/ads/ads.js',
+    ];
+
+    for (final url in adImages) {
+      try {
+        final img = web.HTMLImageElement();
+        img.src = url;
+        img.style
+          ..position = 'absolute'
+          ..left = '-9999px'
+          ..width = '1px'
+          ..height = '1px';
+        web.document.body!.appendChild(img);
+        await Future.delayed(const Duration(milliseconds: 200));
+        final blocked = img.offsetHeight == 0 ||
+            img.offsetParent == null ||
+            img.naturalWidth == 0;
+        img.remove();
+        if (blocked) return true;
+      } catch (_) {
+        return true;
+      }
+    }
+
+    // ── iframe probe ──────────────────────────
+    //   System-wide AdGuard / DNS-level blockers
+    //   will fail to load ad-server content in an iframe.
     try {
-      await web.window.fetch('https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js');
+      final frm = web.HTMLIFrameElement();
+      frm.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js';
+      frm.style
+        ..position = 'absolute'
+        ..left = '-9999px'
+        ..width = '1px'
+        ..height = '1px';
+      web.document.body!.appendChild(frm);
+      await Future.delayed(const Duration(milliseconds: 300));
+      final blocked = frm.offsetHeight == 0 ||
+          frm.offsetParent == null ||
+          frm.contentDocument == null;
+      frm.remove();
+      if (blocked) return true;
     } catch (_) {
       return true;
     }
