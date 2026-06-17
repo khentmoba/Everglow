@@ -432,11 +432,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         return '$tvBase$id&season=$seasonNum&episode=$epNum';
       } else {
         final separator = tvBase.endsWith('/') ? '' : '/';
-        final base = '$tvBase$separator$id';
-        final params = 'season=$seasonNum&episode=$epNum';
+        final base = '$tvBase$separator$id/$seasonNum/$epNum';
+        web.console.log('[Player] URL=$base season=$seasonNum ep=$epNum id=$id provider=${provider.id}');
         return isVideasy
-            ? '$base?autoplay=true&nextButton=true&episodeSelector=true&$params'
-            : '$base?$params';
+            ? '$base?autoplay=true&nextButton=true&episodeSelector=true'
+            : base;
       }
     } else {
       if (movieBase.contains('multiembed.mov')) {

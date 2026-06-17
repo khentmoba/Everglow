@@ -900,6 +900,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   }
 
   void _playEpisode(int season, int episode, String epTitle) {
+    print('[EpisodeDrawer] playEpisode season=$season episode=$episode title=$epTitle source=${widget.item.source}');
     Navigator.push(
       context,
       MaterialPageRoute(
