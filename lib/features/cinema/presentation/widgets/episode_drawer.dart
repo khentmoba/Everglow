@@ -55,6 +55,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   Map<String, dynamic>? _details;
   List<dynamic> _seasons = [];
   int? _selectedSeasonNumber;
+  int? _tmdbMatchedSeason;
   List<dynamic> _episodes = [];
 
   /// Season navigation entries for anime (built from AniList SEQUEL/PREQUEL
@@ -364,6 +365,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     setState(() {
       _isLoadingEpisodes = true;
       _episodes = [];
+      _tmdbMatchedSeason = null;
     });
     if (_isAnimeSourced) {
       final malId = _resolvedMalId ?? widget.item.tmdbId;
@@ -563,7 +565,11 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         bestSn = sn;
       }
     }
-    if (bestSn == null || bestScore > 200) return {};
+    if (bestSn == null || bestScore > 200) {
+      _tmdbMatchedSeason = null;
+      return {};
+    }
+    _tmdbMatchedSeason = bestSn;
 
     final eps =
         await _tmdbService.fetchSeasonEpisodes(tmdbSeriesId, bestSn);
@@ -900,7 +906,6 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   }
 
   void _playEpisode(int season, int episode, String epTitle) {
-    print('[EpisodeDrawer] playEpisode season=$season episode=$episode title=$epTitle source=${widget.item.source}');
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -1817,7 +1822,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
   Widget _buildEpisodeTile(dynamic ep, int index) {
-    final epSeason = (ep['season_number'] as int?) ?? _selectedSeasonNumber ?? 1;
+    final epSeason = (ep['season_number'] as int?) ?? _tmdbMatchedSeason ?? _selectedSeasonNumber ?? 1;
     final epNum = ep['episode_number'] ?? (index + 1);
     final epName = ep['name'] ?? 'Episode $epNum';
     final epOverview = ep['overview'] ?? '';
