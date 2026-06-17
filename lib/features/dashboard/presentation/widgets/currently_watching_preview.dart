@@ -9,9 +9,8 @@ import 'package:everglow/services/auth_service.dart';
 import 'shelf_widgets.dart';
 
 /// "Currently Watching" shelf on the dashboard. Shows items that have
-/// a watching status across both cinema and anime, sorted by most
-/// recently updated. For the couple it merges both partners' lists;
-/// for other users it shows their own.
+/// a watching status, sorted by most recently updated. Each user sees
+/// only their own currently-watching entries.
 class CurrentlyWatchingPreview extends StatelessWidget {
   const CurrentlyWatchingPreview({Key? key}) : super(key: key);
 
@@ -20,14 +19,11 @@ class CurrentlyWatchingPreview extends StatelessWidget {
     final tmdbService = TMDBService();
     final auth = context.watch<AuthService>();
     final userName = auth.currentUser ?? '';
-    final isCouple = auth.isCoupleUser;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: _CurrentlyWatchingShelf(
-        stream: isCouple
-            ? tmdbService.getCoupleCurrentlyWatchingStream()
-            : tmdbService.getCurrentlyWatchingStream(userName),
+        stream: tmdbService.getCurrentlyWatchingStream(userName),
       ),
     );
   }
