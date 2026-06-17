@@ -6,7 +6,6 @@ import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/features/cinema/presentation/screens/cinema_screen.dart';
 import 'package:everglow/features/cinema/presentation/widgets/episode_drawer.dart';
-import 'package:everglow/shared/widgets/adblocker_gate.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'shelf_widgets.dart';
 
@@ -93,7 +92,7 @@ class _CinemaShelfState extends State<_CinemaShelf> {
           onViewAll: () => Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => const AdblockerGate(child: CinemaScreen()),
+              builder: (context) => const CinemaScreen(),
             ),
           ),
         ),
