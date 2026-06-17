@@ -9,6 +9,7 @@ class ShimmerBox extends StatefulWidget {
   final double height;
   final double radius;
   final Color base;
+  final Color highlight;
 
   const ShimmerBox({
     super.key,
@@ -16,6 +17,7 @@ class ShimmerBox extends StatefulWidget {
     required this.height,
     this.radius = 12,
     this.base = const Color(0xFF1C1228),
+    this.highlight = const Color(0xFF2A1F3A),
   });
 
   @override
@@ -56,7 +58,7 @@ class _ShimmerBoxState extends State<ShimmerBox>
               end: const Alignment(1.5, 0),
               colors: [
                 widget.base,
-                const Color(0xFF2A1F3A),
+                widget.highlight,
                 widget.base,
               ],
               stops: [
@@ -88,6 +90,8 @@ class ShimmerPosterRow extends StatelessWidget {
   final int count;
   final EdgeInsets padding;
   final double radius;
+  final Color base;
+  final Color highlight;
 
   const ShimmerPosterRow({
     super.key,
@@ -97,6 +101,8 @@ class ShimmerPosterRow extends StatelessWidget {
     this.padding =
         const EdgeInsets.symmetric(horizontal: 20),
     this.radius = 12,
+    this.base = const Color(0xFF1C1228),
+    this.highlight = const Color(0xFF2A1F3A),
   });
 
   @override
@@ -113,6 +119,8 @@ class ShimmerPosterRow extends StatelessWidget {
           width: width,
           height: height,
           radius: radius,
+          base: base,
+          highlight: highlight,
         ),
       ),
     );
