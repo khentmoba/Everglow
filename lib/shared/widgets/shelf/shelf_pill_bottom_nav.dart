@@ -19,12 +19,16 @@ class ShelfPillBottomNav extends StatelessWidget {
   final int currentIndex;
   final List<ShelfNavItem> items;
   final void Function(int) onTap;
+  final Color accentColor;
+  final Color glowColor;
 
   const ShelfPillBottomNav({
     super.key,
     required this.currentIndex,
     required this.items,
     required this.onTap,
+    this.accentColor = AppTheme.deepRose,
+    this.glowColor = AppTheme.deepRose,
   });
 
   @override
@@ -49,7 +53,7 @@ class ShelfPillBottomNav extends StatelessWidget {
             offset: const Offset(0, 10),
           ),
           BoxShadow(
-            color: AppTheme.deepRose.withValues(alpha: 0.05),
+            color: glowColor.withValues(alpha: 0.08),
             blurRadius: 30,
             offset: const Offset(0, -5),
           ),
@@ -84,7 +88,7 @@ class ShelfPillBottomNav extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: isActive
-              ? AppTheme.deepRose.withValues(alpha: 0.18)
+              ? accentColor.withValues(alpha: 0.18)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
         ),
@@ -98,7 +102,7 @@ class ShelfPillBottomNav extends StatelessWidget {
                 key: ValueKey('$index-$isActive'),
                 size: 22,
                 color: isActive
-                    ? AppTheme.deepRose
+                    ? accentColor
                     : AppTheme.roseQuartz.withValues(alpha: 0.55),
               ),
             ),
@@ -109,7 +113,7 @@ class ShelfPillBottomNav extends StatelessWidget {
                 style: GoogleFonts.outfit(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.deepRose,
+                  color: accentColor,
                 ),
               ),
             ],

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -22,9 +23,11 @@ import 'package:everglow/shared/widgets/shelf/shelf_empty_state.dart';
 import 'package:everglow/shared/widgets/shelf/shimmer_box.dart';
 import 'package:everglow/shared/widgets/shelf/shelf_pill_bottom_nav.dart';
 import 'package:everglow/shared/widgets/shelf/staggered_entrance.dart';
+import 'package:everglow/shared/widgets/shelf/motion.dart';
 
-// Mirror of cinema_screen.dart / manga_library_screen.dart color tokens so
-// the anime feature feels native to the rest of the cinema feature.
+// Anime-specific palette — more vibrant and energetic than the cinema
+// palette, drawing from iconic anime colour schemes (magenta, cyan,
+// electric violet) while staying in the dusk-romantic universe.
 const _cBlack = Color(0xFF080810);
 const _cCard = Color(0xFF1C1228);
 const _cRose = Color(0xFFF4C2C2);
@@ -32,6 +35,10 @@ const _cDeepRose = Color(0xFFC2185B);
 const _cGold = Color(0xFFE8C97A);
 const _cWhite = Color(0xFFFFF5F5);
 const _cMuted = Color(0xFF8A7A92);
+const _cCyan = Color(0xFF00BCD4);
+const _cMagenta = Color(0xFFFF2D55);
+const _cElectricPurple = Color(0xFF7C3AED);
+const _cVibrantPink = Color(0xFFFF4081);
 
 /// Dedicated entry for the anime rail. Four tabs:
 ///   * Home     — Leads with Trending Now + Currently Airing (the two
@@ -238,21 +245,36 @@ class _AnimeScreenState extends State<AnimeScreen>
       backgroundColor: _cBlack,
       body: Stack(
         children: [
+          // Anime-specific atmosphere — vibrant magenta + cyan + electric
+          // purple glows instead of the default cinema palette.
           const ShelfAtmosphericBackdrop(
+            baseColor: _cBlack,
             glows: [
               RadialGlow(
-                color: AppTheme.softLavender,
-                alignment: Alignment(-0.7, -0.85),
+                color: _cMagenta,
+                alignment: Alignment(-0.8, -0.8),
+                size: 1.0,
+                opacity: 0.20,
+              ),
+              RadialGlow(
+                color: _cCyan,
+                alignment: Alignment(0.85, 0.7),
+                size: 0.7,
+                opacity: 0.12,
+              ),
+              RadialGlow(
+                color: _cElectricPurple,
+                alignment: Alignment(0.0, 1.2),
                 size: 0.9,
                 opacity: 0.15,
               ),
-              RadialGlow(
-                color: AppTheme.deepRose,
-                alignment: Alignment(0.85, 0.95),
-                size: 0.8,
-                opacity: 0.12,
-              ),
             ],
+          ),
+          // Floating sparkle particles for anime energy
+          const Positioned.fill(
+            child: IgnorePointer(
+              child: _AnimeSparkles(),
+            ),
           ),
           SafeArea(
             bottom: false,
@@ -277,10 +299,11 @@ class _AnimeScreenState extends State<AnimeScreen>
   Widget _buildBottomNav() {
     return ShelfPillBottomNav(
       currentIndex: _currentIndex,
+      accentColor: _cMagenta,
+      glowColor: _cCyan,
       onTap: (i) {
+        HapticFeedback.selectionClick();
         if (i == 3) {
-          // Search tab opens the modal in addition to switching tabs,
-          // matching the previous behaviour.
           setState(() => _currentIndex = i);
           _openSearch();
         } else {
@@ -434,15 +457,16 @@ class _AnimeScreenState extends State<AnimeScreen>
 
   Widget _buildHeroCarousel(List<MediaItem> items, _HomeSection section) {
     final heroItems = items.take(5).map((m) {
+      final rank = items.indexOf(m) + 1;
       return ShelfHeroItem(
         id: '${m.tmdbId}',
         title: m.title,
         subtitle: m.year.isNotEmpty ? m.year : 'Tap to explore',
-        eyebrow: 'Trending #${items.indexOf(m) + 1}',
+        eyebrow: rank <= 3 ? '★ Top $rank' : 'Trending #$rank',
         imageUrl: m.backdropPath.isNotEmpty
             ? m.backdropPath
             : m.posterPath,
-        accent: section.tint,
+        accent: _cMagenta,
         onTap: () => _openDetails(m),
       );
     }).toList();
@@ -456,15 +480,16 @@ class _AnimeScreenState extends State<AnimeScreen>
             eyebrow: _eyebrowForSection(section.id),
             title: section.title,
             icon: section.icon,
-            accent: section.tint,
+            accent: _cMagenta,
             count: items.length,
             countLabel: 'titles',
           ),
         ),
         ShelfHeroCarousel(
           items: heroItems,
-          holdDuration: const Duration(seconds: 7),
-          height: 320,
+          holdDuration: const Duration(seconds: 8),
+          height: 340,
+          viewportFraction: 0.85,
         ),
       ],
     );
@@ -488,27 +513,8 @@ class _AnimeScreenState extends State<AnimeScreen>
             )
           else
             const SizedBox(width: 48),
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [_cDeepRose, _cGold],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: _cDeepRose.withValues(alpha: 0.4),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: const Icon(Icons.animation_rounded,
-                color: _cWhite, size: 22),
-          ),
+          // Animated gradient icon with pulsing glow
+          _AnimeLogo(size: 44),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -525,10 +531,11 @@ class _AnimeScreenState extends State<AnimeScreen>
                   ),
                 ),
                 Text(
-                  'Japanese Animation',
+                  'Discover · Watch · Collect',
                   style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    color: _cRose.withValues(alpha: 0.6),
+                    fontSize: 11,
+                    color: _cCyan.withValues(alpha: 0.8),
+                    letterSpacing: 1.2,
                   ),
                 ),
               ],
@@ -568,6 +575,8 @@ class _AnimeScreenState extends State<AnimeScreen>
         width: 130,
         count: 5,
         padding: EdgeInsets.zero,
+        base: const Color(0xFF1C1228),
+        highlight: const Color(0xFF2A1F3A),
       ),
     );
   }
@@ -607,8 +616,8 @@ class _AnimeScreenState extends State<AnimeScreen>
                 title: item.title,
                 subtitle: item.year.isNotEmpty ? item.year : null,
                 badge: 'ANIME',
-                badgeIcon: Icons.animation_rounded,
-                badgeColor: accent,
+                badgeIcon: Icons.auto_awesome_rounded,
+                badgeColor: _cVibrantPink,
                 onTap: () => _openDetails(item),
               ),
             );
@@ -625,14 +634,31 @@ class _AnimeScreenState extends State<AnimeScreen>
       padding: const EdgeInsets.only(bottom: 100),
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 4),
-          child: Text(
-            'Browse',
-            style: GoogleFonts.cormorantGaramond(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: _cRose,
-            ),
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 4),
+          child: Row(
+            children: [
+              Container(
+                width: 3,
+                height: 28,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [_cMagenta, _cCyan],
+                  ),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Browse',
+                style: GoogleFonts.cormorantGaramond(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: _cRose,
+                ),
+              ),
+            ],
           ),
         ),
         Padding(
@@ -665,6 +691,22 @@ class _AnimeScreenState extends State<AnimeScreen>
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
             child: Row(
               children: [
+                Container(
+                  width: 3,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        groupMeta.tint,
+                        groupMeta.tint.withValues(alpha: 0.25),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 12),
                 Icon(groupMeta.icon, color: groupMeta.tint, size: 18),
                 const SizedBox(width: 8),
                 Text(
@@ -789,28 +831,28 @@ class _AnimeScreenState extends State<AnimeScreen>
           title: 'By Format',
           subtitle: 'MOVIES · SERIES · OVAs',
           icon: Icons.movie_filter_rounded,
-          tint: _cGold,
+          tint: _cCyan,
         );
       case AnimeCategoryGroup.genre:
         return const _BrowseGroupMeta(
           title: 'By Genre',
           subtitle: 'TAP TO FILTER',
           icon: Icons.theater_comedy_rounded,
-          tint: _cRose,
+          tint: _cVibrantPink,
         );
       case AnimeCategoryGroup.status:
         return const _BrowseGroupMeta(
           title: 'By Status',
           subtitle: 'AIRING · COMPLETED · NEW',
           icon: Icons.live_tv_rounded,
-          tint: Color(0xFFE53935),
+          tint: _cMagenta,
         );
       case AnimeCategoryGroup.discovery:
         return const _BrowseGroupMeta(
           title: 'Discovery',
           subtitle: 'CURATED PICKS',
           icon: Icons.workspace_premium_rounded,
-          tint: Color(0xFFEC407A),
+          tint: _cElectricPurple,
         );
     }
   }
@@ -822,15 +864,66 @@ class _AnimeScreenState extends State<AnimeScreen>
     final watched = _library.where((i) => i.isWatched).toList();
 
     if (wantToWatch.isEmpty && watched.isEmpty) {
-      return ShelfEmptyState(
-        icon: Icons.collections_bookmark_outlined,
-        title: 'Your anime library is empty',
-        subtitle:
-            'Search for any series and add it to your watchlist. Items you mark as watched will live here too.',
-        ctaLabel: 'Search Anime',
-        ctaIcon: Icons.search_rounded,
-        onCta: _openSearch,
-        accent: AppTheme.deepRose,
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      _cMagenta,
+                      _cElectricPurple,
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _cMagenta.withValues(alpha: 0.3),
+                      blurRadius: 30,
+                      spreadRadius: -8,
+                    ),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: const Icon(Icons.collections_bookmark_rounded,
+                    color: _cWhite, size: 44),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Your anime library is empty',
+                style: GoogleFonts.cormorantGaramond(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: _cWhite,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Search for any series and add it to your watchlist.\nItems you mark as watched will live here too.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  color: _cMuted,
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 28),
+              _AnimeCtaButton(
+                label: 'Search Anime',
+                icon: Icons.search_rounded,
+                onTap: _openSearch,
+              ),
+            ],
+          ),
+        ),
       );
     }
 
@@ -842,54 +935,52 @@ class _AnimeScreenState extends State<AnimeScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'OUR ANIME',
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: _cWhite,
-                  letterSpacing: 3,
-                ),
-              ),
-              const SizedBox(height: 4),
               Row(
                 children: [
                   Container(
                     width: 4,
-                    height: 4,
-                    decoration: const BoxDecoration(
-                      color: _cDeepRose,
-                      shape: BoxShape.circle,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [_cMagenta, _cCyan],
+                      ),
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 12),
                   Text(
-                    'JAPANESE ANIMATION',
-                    style: GoogleFonts.outfit(
-                      fontSize: 9,
-                      color: _cMuted,
-                      letterSpacing: 2.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Container(
-                    width: 4,
-                    height: 4,
-                    decoration: const BoxDecoration(
-                      color: _cDeepRose,
-                      shape: BoxShape.circle,
+                    'OUR ANIME',
+                    style: GoogleFonts.cormorantGaramond(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: _cWhite,
+                      letterSpacing: 3,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 6),
+              Padding(
+                padding: const EdgeInsets.only(left: 16),
+                child: Text(
+                  'JAPANESE ANIMATION',
+                  style: GoogleFonts.outfit(
+                    fontSize: 9,
+                    color: _cMuted,
+                    letterSpacing: 2.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
               Row(
                 children: [
                   _LibraryStat(
                     label: 'Queue',
                     count: wantToWatch.length,
-                    color: _cGold,
+                    color: _cCyan,
                   ),
                   const SizedBox(width: 8),
                   _LibraryStat(
@@ -897,13 +988,19 @@ class _AnimeScreenState extends State<AnimeScreen>
                     count: watched.length,
                     color: const Color(0xFF8BC34A),
                   ),
+                  const SizedBox(width: 8),
+                  _LibraryStat(
+                    label: 'Total',
+                    count: wantToWatch.length + watched.length,
+                    color: _cVibrantPink,
+                  ),
                 ],
               ),
             ],
           ),
         ),
         _buildLibrarySection(
-            'Want to Watch', wantToWatch, Icons.bookmark_rounded, _cGold),
+            'Want to Watch', wantToWatch, Icons.bookmark_rounded, _cCyan),
         _buildLibrarySection('Watched', watched,
             Icons.remove_red_eye_rounded, const Color(0xFF8BC34A)),
       ],
@@ -923,7 +1020,7 @@ class _AnimeScreenState extends State<AnimeScreen>
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
           child: ShelfSectionHeader(
-            eyebrow: 'Collection',
+            eyebrow: 'COLLECTION',
             title: title,
             icon: icon,
             accent: accent,
@@ -961,15 +1058,63 @@ class _AnimeScreenState extends State<AnimeScreen>
   // ── SEARCH TAB ─────────────────────────────────────────────────────
 
   Widget _buildSearchTab() {
-    return ShelfEmptyState(
-      icon: Icons.search_rounded,
-      title: 'Find Your Next Anime',
-      subtitle:
-          'Search MyAnimeList / AniList by title. We auto-detect anime from the results and drop it into your library.',
-      ctaLabel: 'Open Search',
-      ctaIcon: Icons.search_rounded,
-      onCta: _openSearch,
-      accent: _cDeepRose,
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [_cCyan, _cElectricPurple],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: _cCyan.withValues(alpha: 0.3),
+                    blurRadius: 30,
+                    spreadRadius: -8,
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: const Icon(Icons.search_rounded,
+                  color: _cWhite, size: 44),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Find Your Next Anime',
+              style: GoogleFonts.cormorantGaramond(
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: _cWhite,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Search MyAnimeList or AniList by title. We auto-detect anime and add it to your library.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                color: _cMuted,
+                fontSize: 13,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 28),
+            _AnimeCtaButton(
+              label: 'Open Search',
+              icon: Icons.search_rounded,
+              onTap: _openSearch,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1015,7 +1160,7 @@ class _BrowseGroupMeta {
 
 // ── EXTRACTED WIDGETS ─────────────────────────────────────────────
 
-class _AnimeFilterChip extends StatelessWidget {
+class _AnimeFilterChip extends StatefulWidget {
   final AnimeCategoryOption option;
   final bool selected;
   final VoidCallback onTap;
@@ -1026,36 +1171,75 @@ class _AnimeFilterChip extends StatelessWidget {
   });
 
   @override
+  State<_AnimeFilterChip> createState() => _AnimeFilterChipState();
+}
+
+class _AnimeFilterChipState extends State<_AnimeFilterChip> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final tint = option.color;
-    return InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? tint.withValues(alpha: 0.18) : _cCard,
-          border: Border.all(
-            color: selected ? tint : _cRose.withValues(alpha: 0.12),
-            width: 1,
-          ),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(option.icon, color: selected ? tint : _cMuted, size: 14),
-            const SizedBox(width: 6),
-            Text(
-              option.label,
-              style: GoogleFonts.outfit(
-                fontSize: 12,
-                color: selected ? tint : _cRose.withValues(alpha: 0.85),
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+    final tint = widget.option.color;
+    final selected = widget.selected;
+    return FocusableActionDetector(
+      mouseCursor: SystemMouseCursors.click,
+      onShowFocusHighlight: (show) => setState(() => _hovered = show),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: widget.onTap,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit: (_) => setState(() => _hovered = false),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeInOut,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: selected
+                  ? tint.withValues(alpha: 0.2)
+                  : _hovered
+                      ? _cCard.withValues(alpha: 0.8)
+                      : _cCard,
+              border: Border.all(
+                color: selected
+                    ? tint.withValues(alpha: 0.6)
+                    : _hovered
+                        ? tint.withValues(alpha: 0.25)
+                        : _cRose.withValues(alpha: 0.12),
+                width: selected ? 1.2 : 1,
               ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: tint.withValues(alpha: 0.25),
+                        blurRadius: 12,
+                        offset: const Offset(0, 3),
+                      ),
+                    ]
+                  : null,
             ),
-          ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(widget.option.icon,
+                    color: selected ? tint : _cMuted, size: 14),
+                const SizedBox(width: 6),
+                Text(
+                  widget.option.label,
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: selected
+                        ? tint
+                        : _cRose.withValues(alpha: 0.85),
+                    fontWeight:
+                        selected ? FontWeight.w600 : FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -1113,6 +1297,254 @@ class _LibraryStat extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── ANIME-SPECIFIC WIDGETS ─────────────────────────────────────────
+
+/// Animated gradient logo icon with pulsing glow for the header.
+class _AnimeLogo extends StatefulWidget {
+  final double size;
+  const _AnimeLogo({this.size = 44});
+
+  @override
+  State<_AnimeLogo> createState() => _AnimeLogoState();
+}
+
+class _AnimeLogoState extends State<_AnimeLogo>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+    _pulse = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _pulse,
+      builder: (context, _) {
+        return Container(
+          width: widget.size,
+          height: widget.size,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [_cMagenta, _cElectricPurple],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: _cMagenta.withValues(alpha: 0.3 + _pulse.value * 0.25),
+                blurRadius: 12 + _pulse.value * 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: const Icon(Icons.auto_awesome_rounded,
+              color: _cWhite, size: 22),
+        );
+      },
+    );
+  }
+}
+
+/// Floating diamond/star sparkle particles that drift across the anime
+/// screen background. Gives the page a magical, energetic feel without
+/// distracting from the content.
+class _AnimeSparkles extends StatefulWidget {
+  const _AnimeSparkles();
+
+  @override
+  State<_AnimeSparkles> createState() => _AnimeSparklesState();
+}
+
+class _AnimeSparklesState extends State<_AnimeSparkles>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  static const _count = 18;
+  late final List<_Sparkle> _sparkles;
+
+  @override
+  void initState() {
+    super.initState();
+    final rng = math.Random(42);
+    _sparkles = List.generate(_count, (_) => _Sparkle(rng));
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 12),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (AppTheme.shouldReduceMotion) return const SizedBox.shrink();
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, __) => CustomPaint(
+        size: Size.infinite,
+        painter: _SparklePainter(_sparkles, _ctrl.value),
+      ),
+    );
+  }
+}
+
+class _Sparkle {
+  final double x, y, size, speed, delay;
+  final double hue; // 0..1 — maps to pink/cyan/purple
+  _Sparkle(math.Random rng)
+      : x = rng.nextDouble(),
+        y = rng.nextDouble(),
+        size = 1.5 + rng.nextDouble() * 2.5,
+        speed = 0.4 + rng.nextDouble() * 0.6,
+        delay = rng.nextDouble(),
+        hue = rng.nextDouble();
+}
+
+class _SparklePainter extends CustomPainter {
+  final List<_Sparkle> sparkles;
+  final double progress;
+
+  _SparklePainter(this.sparkles, this.progress);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final colors = [
+      const Color(0x80FF2D55), // magenta
+      const Color(0x8000BCD4), // cyan
+      const Color(0x807C3AED), // purple
+      const Color(0x80FF4081), // vibrant pink
+    ];
+    for (final s in sparkles) {
+      final t = (progress + s.delay) % 1.0;
+      final alpha = (math.sin(t * math.pi) * 0.6 + 0.1).clamp(0.0, 1.0);
+      final drift = (t - 0.5) * 40;
+      final px = (s.x * size.width + drift) % size.width;
+      final py = (s.y * size.height - t * size.height * s.speed * 0.15) %
+          size.height;
+      final paint = Paint()
+        ..color = colors[s.hue.floor() % colors.length]
+            .withValues(alpha: alpha * 0.9)
+        ..style = PaintingStyle.fill;
+      canvas.save();
+      canvas.translate(px, py);
+      canvas.rotate(t * 6.28);
+      final r = s.size;
+      // Draw a diamond/star shape
+      final path = Path()
+        ..moveTo(0, -r)
+        ..lineTo(r * 0.4, -r * 0.3)
+        ..lineTo(r, 0)
+        ..lineTo(r * 0.4, r * 0.3)
+        ..lineTo(0, r)
+        ..lineTo(-r * 0.4, r * 0.3)
+        ..lineTo(-r, 0)
+        ..lineTo(-r * 0.4, -r * 0.3)
+        ..close();
+      canvas.drawPath(path, paint);
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SparklePainter old) => old.progress != progress;
+}
+
+/// Anime-themed CTA button with gradient border and hover glow.
+class _AnimeCtaButton extends StatefulWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  const _AnimeCtaButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  State<_AnimeCtaButton> createState() => _AnimeCtaButtonState();
+}
+
+class _AnimeCtaButtonState extends State<_AnimeCtaButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: AnimatedContainer(
+          duration: ShelfMotion.orZero(ShelfMotion.medium),
+          curve: ShelfMotion.easeOutStrong,
+          transform: Matrix4.identity()
+            ..setTranslationRaw(0.0, _hovered ? -2.0 : 0.0, 0.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                _cMagenta.withValues(alpha: _hovered ? 0.35 : 0.25),
+                _cElectricPurple.withValues(alpha: _hovered ? 0.35 : 0.25),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: _hovered
+                  ? _cCyan.withValues(alpha: 0.7)
+                  : _cMagenta.withValues(alpha: 0.4),
+              width: 1.2,
+            ),
+            boxShadow: _hovered
+                ? [
+                    BoxShadow(
+                      color: _cMagenta.withValues(alpha: 0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 6),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.icon, color: _cWhite, size: 18),
+              const SizedBox(width: 10),
+              Text(
+                widget.label,
+                style: GoogleFonts.outfit(
+                  color: _cWhite,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
