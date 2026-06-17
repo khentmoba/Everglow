@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:js_interop';
+import 'dart:js_util' as js_util;
 import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
@@ -290,6 +291,9 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
       // wall time until the next anchor (next heartbeat or seek).
       _anchorEpoch = DateTime.now();
       _anchorTime = _localStartHint();
+      // Many embed players ignore URL seek parameters but accept a
+      // postMessage seek command.  Try several common formats.
+      _tryPostMessageSeek();
     }).toJS;
     _onErrorListener = ((web.Event _) {
       _onIframeLoadError();
@@ -577,6 +581,26 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     });
   }
 
+  /// After the iframe fires `load`, try to seek the embedded video via
+  /// postMessage.  Many embed players honour a `seek` / `seekTo` command
+  /// even when they ignore URL seek parameters.
+  void _tryPostMessageSeek() {
+    final seekSeconds = _localStartHint().round();
+    if (seekSeconds <= 0) return;
+    try {
+      final win = _iframe.contentWindow;
+      if (win == null) return;
+      // Use dart:js_util to bypass package:web's strict postMessage types.
+      for (final payload in <Map<String, dynamic>>[
+        {'type': 'seek', 'time': seekSeconds},
+        {'type': 'seekTo', 'value': seekSeconds},
+        {'action': 'seek', 'position': seekSeconds},
+      ]) {
+        js_util.callMethod(win, 'postMessage', [payload.jsify(), '*']);
+      }
+    } catch (_) {}
+  }
+
   /// Returns the expected postMessage origin for a given provider id.
   String _originForProvider(String providerId) {
     switch (providerId) {
@@ -678,7 +702,8 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
       final sep = base.contains('?') ? '&' : '?';
       base = '$base$sep$flags';
       if (start > 0) {
-        base = '$base&startTime=$start';
+        // Videasy may honour `t` or `startTime` — we emit both so one sticks.
+        base = '$base&startTime=$start&t=$start';
       }
       return base;
     }
