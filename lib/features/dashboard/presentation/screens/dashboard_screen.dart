@@ -37,6 +37,7 @@ import 'package:everglow/features/heartbeat/data/services/mood_service.dart';
 import '../../../academy/widgets/academy_portal_card.dart';
 import '../../../../features/play_zone/presentation/widgets/play_zone_portal_card.dart';
 import '../../../../features/jukebox/presentation/widgets/jukebox_widget.dart';
+import '../../../../features/watch_party/presentation/widgets/watch_party_card.dart';
 
 import 'package:everglow/shared/widgets/gamified_background.dart';
 import 'package:everglow/features/xp/data/services/xp_service.dart';
@@ -378,6 +379,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   child: child,
                                 ),
                                 child: const CurrentlyWatchingPreview(),
+                              ),
+                            ),
+                            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                            SliverToBoxAdapter(
+                              child: _maybeAnimate(
+                                animation: (child) => FadeInUp(
+                                  delay: const Duration(milliseconds: 1100),
+                                  child: child,
+                                ),
+                                child: const WatchPartyCard(),
                               ),
                             ),
                             const SliverToBoxAdapter(child: SizedBox(height: 24)),
