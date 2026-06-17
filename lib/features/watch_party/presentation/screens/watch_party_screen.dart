@@ -11,7 +11,9 @@ import 'package:web/web.dart' as web;
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/services/auth_service.dart';
 import '../../data/models/watch_party_room.dart';
+import '../../data/services/voice_chat_service.dart';
 import '../../data/services/watch_party_service.dart';
+import '../widgets/voice_chat_overlay.dart';
 
 // ─── Color tokens (mirror cinema_screen.dart / episode_drawer.dart) ──
 const _cRose = Color(0xFFF4C2C2);
@@ -107,6 +109,9 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   Timer? _loadTimer;
   late VideoProvider _selectedProvider;
   final Set<String> _failedProviderIds = {};
+
+  // ─── Voice chat ───────────────────────────────────────────────────
+  final VoiceChatService _voiceChat = VoiceChatService();
 
   // Heartbeat keeps the partner's local clock fresh — every 5s we
   // publish our estimated position so they can drift-correct.
@@ -288,11 +293,24 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
       _startHeartbeat();
     }
 
+    _initVoiceChat();
+
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
+  Future<void> _initVoiceChat() async {
+    final partnerUid = _auth.partnerUid;
+    if (partnerUid == null) return;
+    await _voiceChat.init(
+      roomId: _room.id,
+      myUid: _myUid,
+      remoteUid: partnerUid,
+      isCaller: widget.isHost,
+    );
   }
 
   @override
@@ -302,6 +320,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     _resyncHideTimer?.cancel();
     _loadTimer?.cancel();
     _roomSub?.cancel();
+    _voiceChat.dispose();
     if (_onLoadListener != null) {
       _iframe.removeEventListener('load', _onLoadListener);
     }
@@ -633,6 +652,10 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
                       right: 16,
                       child: _buildPartnerControls(),
                     ),
+                  VoiceChatOverlay(
+                    service: _voiceChat,
+                    partnerName: _partnerName,
+                  ),
                 ],
               ),
             ),
