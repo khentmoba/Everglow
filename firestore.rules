@@ -120,6 +120,35 @@ service cloud.firestore {
         request.auth.uid == 'nitw0mxAR9WtxtzQtLNHYWRjENj2'
       );
     }
+
+    // ─── General app collections (authenticated access only) ──────
+    // These were previously managed in the Firebase console. We
+    // redeclare them here so the repo is the single source of
+    // truth and a `firebase deploy --only firestore:rules` does
+    // not break existing features.
+    //
+    // For a private 4-user app, any authenticated user (Khent,
+    // Clair, Breyan, Octagram, or anonymous) can read and write
+    // their own data in these collections.
+    match /academy_questions/{docId} { allow read, write: if isAuthenticated(); }
+    match /active_matches/{docId} { allow read, write: if isAuthenticated(); }
+    match /date_ideas/{docId} { allow read, write: if isAuthenticated(); }
+    match /garden_stats/{docId} { allow read, write: if isAuthenticated(); }
+    match /guardian_messages/{docId} { allow read, write: if isAuthenticated(); }
+    match /hexgl_best_times/{docId} { allow read, write: if isAuthenticated(); }
+    match /hexgl_challenges/{docId} { allow read, write: if isAuthenticated(); }
+    match /live_canvas/{docId} { allow read, write: if isAuthenticated(); }
+    match /manga_library/{docId} { allow read, write: if isAuthenticated(); }
+    match /memories/{docId} { allow read, write: if isAuthenticated(); }
+    match /milestones/{docId} { allow read, write: if isAuthenticated(); }
+    match /moods/{docId} { allow read, write: if isAuthenticated(); }
+    match /notes/{docId} { allow read, write: if isAuthenticated(); }
+    match /presence/{docId} { allow read, write: if isAuthenticated(); }
+    match /progress/{docId} { allow read, write: if isAuthenticated(); }
+    match /read_list/{docId} { allow read, write: if isAuthenticated(); }
+    match /starlight_jar/{docId} { allow read, write: if isAuthenticated(); }
+    match /users/{docId} { allow read, write: if isAuthenticated(); }
+    match /watch_list/{docId} { allow read, write: if isAuthenticated(); }
   }
 }
 
