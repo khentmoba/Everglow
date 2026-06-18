@@ -62,7 +62,10 @@ service cloud.firestore {
     // the couple (roomId is the sorted uids), not to the media — so
     // switching movies keeps the chat history alive.
     match /watch_party_chats/{roomId}/messages/{messageId} {
-      allow read, write: if isCoupleMemberOnRoom(roomId);
+      allow read, write: if isAuthenticated() && (
+        request.auth.uid == get(/databases/$(database)/documents/watch_party_rooms/$(roomId)).data.hostUid ||
+        request.auth.uid == get(/databases/$(database)/documents/watch_party_rooms/$(roomId)).data.partnerUid
+      );
     }
 
     // ─── Voice rooms (WebRTC signaling) ───────────────────────────
@@ -100,9 +103,10 @@ service cloud.firestore {
       );
 
       match /candidates/{candidateId} {
-        // Re-derive the couple from the parent room so we don't
-        // trust any field on the candidate document itself.
-        allow read, write: if isCoupleMemberOnVoiceRoom(roomId);
+        allow read, write: if isAuthenticated() && (
+          request.auth.uid == get(/databases/$(database)/documents/voice_rooms/$(roomId)).data.callerUid ||
+          request.auth.uid == get(/databases/$(database)/documents/voice_rooms/$(roomId)).data.calleeUid
+        );
       }
     }
 
@@ -123,26 +127,6 @@ service cloud.firestore {
 
 function isAuthenticated() {
   return request.auth != null && request.auth.uid != null;
-}
-
-// True if the caller is one of the two uids in a watch_party_rooms
-// document. Used by both watch_party_chats and voice_rooms/candidates
-// so the access control lives in one place.
-function isCoupleMemberOnRoom(roomId) {
-  return isAuthenticated() && (
-    request.auth.uid == get(/databases/$(database)/documents/watch_party_rooms/$(roomId)).data.hostUid ||
-    request.auth.uid == get(/databases/$(database)/documents/watch_party_rooms/$(roomId)).data.partnerUid
-  );
-}
-
-// True if the caller is one of the two uids named in a voice_rooms
-// document. Same shape as isCoupleMemberOnRoom but reads from the
-// voice_rooms collection instead.
-function isCoupleMemberOnVoiceRoom(roomId) {
-  return isAuthenticated() && (
-    request.auth.uid == get(/databases/$(database)/documents/voice_rooms/$(roomId)).data.callerUid ||
-    request.auth.uid == get(/databases/$(database)/documents/voice_rooms/$(roomId)).data.calleeUid
-  );
 }
 
 // Shape validation. We only require a few critical fields; the rest
