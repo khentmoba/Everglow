@@ -94,7 +94,13 @@ class _AnimeScreenState extends State<AnimeScreen>
           title: 'Trending Now',
           icon: Icons.local_fire_department_rounded,
           tint: const Color(0xFFFF7043),
-          builder: () => _jikanService.fetchTopAiring(),
+          builder: () async {
+            try {
+              final items = await _jikanService.fetchTopAiring();
+              if (items.isNotEmpty) return items;
+            } catch (_) {}
+            return _tmdbService.fetchTrendingAnime();
+          },
           isHero: true,
         ),
         _HomeSection(
@@ -102,50 +108,107 @@ class _AnimeScreenState extends State<AnimeScreen>
           title: 'Currently Airing',
           icon: Icons.live_tv_rounded,
           tint: const Color(0xFFE53935),
-          builder: () => _jikanService.fetchSeasonNow(),
+          builder: () async {
+            try {
+              final items = await _jikanService.fetchSeasonNow();
+              if (items.isNotEmpty) return items;
+            } catch (_) {}
+            return _tmdbService.discoverAnime(
+              sortBy: 'popularity.desc',
+              withStatus: 0,
+            );
+          },
         ),
         _HomeSection(
           id: 'top-rated',
           title: 'Top Rated',
           icon: Icons.star_rounded,
           tint: const Color(0xFFFFCA28),
-          builder: () => _jikanService.fetchTopAnime(
-            type: 'tv',
-            filter: 'favorite',
-          ),
+          builder: () async {
+            try {
+              final items = await _jikanService.fetchTopAnime(
+                type: 'tv',
+                filter: 'favorite',
+              );
+              if (items.isNotEmpty) return items;
+            } catch (_) {}
+            return _tmdbService.discoverAnime(
+              sortBy: 'vote_average.desc',
+              voteCountGte: 200,
+            );
+          },
         ),
         _HomeSection(
           id: 'new-releases',
           title: 'New Releases',
           icon: Icons.fiber_new_rounded,
           tint: const Color(0xFF42A5F5),
-          builder: () => _jikanService.fetchNewReleases(),
+          builder: () async {
+            try {
+              final items = await _jikanService.fetchNewReleases();
+              if (items.isNotEmpty) return items;
+            } catch (_) {}
+            final now = DateTime.now();
+            final sixMonthsAgo = now.subtract(const Duration(days: 180));
+            return _tmdbService.discoverAnime(
+              sortBy: 'first_air_date.desc',
+              firstAirDateGte: sixMonthsAgo.toIso8601String().substring(0, 10),
+              voteCountGte: 10,
+            );
+          },
         ),
         _HomeSection(
           id: 'popular-all',
           title: 'Popular All Time',
           icon: Icons.public_rounded,
           tint: const Color(0xFFAB47BC),
-          builder: () => _jikanService.fetchTopAnime(
-            type: 'tv',
-            filter: 'bypopularity',
-          ),
+          builder: () async {
+            try {
+              final items = await _jikanService.fetchTopAnime(
+                type: 'tv',
+                filter: 'bypopularity',
+              );
+              if (items.isNotEmpty) return items;
+            } catch (_) {}
+            return _tmdbService.discoverAnime(
+              sortBy: 'popularity.desc',
+            );
+          },
         ),
         _HomeSection(
           id: 'hidden-gems',
           title: 'Hidden Gems',
           icon: Icons.diamond_rounded,
           tint: const Color(0xFF26C6DA),
-          builder: () => _jikanService.fetchHiddenGems(),
+          builder: () async {
+            try {
+              final items = await _jikanService.fetchHiddenGems();
+              if (items.isNotEmpty) return items;
+            } catch (_) {}
+            return _tmdbService.discoverAnime(
+              sortBy: 'vote_average.desc',
+              voteCountGte: 50,
+              voteAverageGte: 7.0,
+            );
+          },
         ),
         _HomeSection(
           id: 'editors-picks',
           title: "Editor's Picks",
           icon: Icons.workspace_premium_rounded,
           tint: const Color(0xFFEC407A),
-          builder: () =>
-              animeCategoryOptions.firstWhere((o) => o.id == 'curated-editors-picks')
-                  .fetch(_jikanService),
+          builder: () async {
+            try {
+              final items = await animeCategoryOptions
+                  .firstWhere((o) => o.id == 'curated-editors-picks')
+                  .fetch(_jikanService);
+              if (items.isNotEmpty) return items;
+            } catch (_) {}
+            return _tmdbService.discoverAnime(
+              sortBy: 'vote_average.desc',
+              voteCountGte: 500,
+            );
+          },
         ),
       ];
 
@@ -189,7 +252,7 @@ class _AnimeScreenState extends State<AnimeScreen>
       setState(() {});
     } catch (e) {
       if (!mounted) return;
-      rows[id] = _AnimeRow(items: const [], isLoading: false);
+      rows[id] = _AnimeRow(items: const [], isLoading: false, hasError: true);
       setState(() {});
     }
   }
@@ -207,7 +270,85 @@ class _AnimeScreenState extends State<AnimeScreen>
       _selectedCategoryId = option.id;
       _browseResults[option.id] ??= _AnimeRow(isLoading: true);
     });
-    await _runRow(option.id, _browseResults, () => option.fetch(_jikanService));
+    await _runRow(option.id, _browseResults, () async {
+      // Try Jikan first, fall back to TMDB discover
+      try {
+        final items = await option.fetch(_jikanService);
+        if (items.isNotEmpty) return items;
+      } catch (_) {}
+      return _discoverAnimeForCategory(option.id);
+    });
+  }
+
+  Future<List<MediaItem>> _discoverAnimeForCategory(String categoryId) {
+    switch (categoryId) {
+      case 'series':
+        return _tmdbService.discoverAnime(sortBy: 'popularity.desc');
+      case 'movies':
+        return _tmdbService.discoverAnimeMovies(sortBy: 'popularity.desc');
+      case 'ovas':
+        return _tmdbService.discoverAnime(sortBy: 'popularity.desc');
+      case 'genre-action':
+        return _tmdbService.discoverAnime(
+            sortBy: 'popularity.desc', withGenres: [10759]);
+      case 'genre-romance':
+        return _tmdbService.discoverAnime(
+            sortBy: 'popularity.desc', withGenres: [10749]);
+      case 'genre-comedy':
+        return _tmdbService.discoverAnime(
+            sortBy: 'popularity.desc', withGenres: [35]);
+      case 'genre-slice-of-life':
+        return _tmdbService.discoverAnime(
+            sortBy: 'popularity.desc', withGenres: [10765]);
+      case 'genre-fantasy-isekai':
+        return _tmdbService.discoverAnime(
+            sortBy: 'popularity.desc', withGenres: [10765, 18]);
+      case 'genre-scifi-mecha':
+        return _tmdbService.discoverAnime(
+            sortBy: 'popularity.desc', withGenres: [10765, 878]);
+      case 'genre-horror-thriller':
+        return _tmdbService.discoverAnime(
+            sortBy: 'popularity.desc', withGenres: [9648, 10768]);
+      case 'genre-sports':
+        return _tmdbService.discoverAnime(
+            sortBy: 'popularity.desc', withGenres: [10770]);
+      case 'genre-mystery':
+        return _tmdbService.discoverAnime(
+            sortBy: 'popularity.desc', withGenres: [9648]);
+      case 'status-airing':
+        return _tmdbService.discoverAnime(
+            sortBy: 'popularity.desc',
+            firstAirDateGte:
+                DateTime.now().subtract(const Duration(days: 90)).toIso8601String().substring(0, 10));
+      case 'status-completed':
+        return _tmdbService.discoverAnime(
+            sortBy: 'vote_average.desc', voteCountGte: 100);
+      case 'status-new':
+        final now = DateTime.now();
+        return _tmdbService.discoverAnime(
+          sortBy: 'first_air_date.desc',
+          firstAirDateGte:
+              now.subtract(const Duration(days: 180)).toIso8601String().substring(0, 10),
+          voteCountGte: 10,
+        );
+      case 'status-trending':
+        return _tmdbService.discoverAnime(sortBy: 'popularity.desc');
+      case 'curated-popular-all':
+        return _tmdbService.discoverAnime(sortBy: 'popularity.desc');
+      case 'curated-top-rated':
+        return _tmdbService.discoverAnime(
+            sortBy: 'vote_average.desc', voteCountGte: 500);
+      case 'curated-hidden-gems':
+        return _tmdbService.discoverAnime(
+            sortBy: 'vote_average.desc',
+            voteCountGte: 50,
+            voteAverageGte: 7.0);
+      case 'curated-editors-picks':
+        return _tmdbService.discoverAnime(
+            sortBy: 'vote_average.desc', voteCountGte: 500);
+      default:
+        return _tmdbService.discoverAnime(sortBy: 'popularity.desc');
+    }
   }
 
   @override
@@ -427,6 +568,9 @@ class _AnimeScreenState extends State<AnimeScreen>
       return _buildShimmerRow(height: section.isHero ? 280 : 220);
     }
     if (row.items.isEmpty) {
+      if (row.hasError) {
+        return _buildErrorRow(section);
+      }
       return const SizedBox.shrink();
     }
     if (section.isHero) {
@@ -593,6 +737,80 @@ class _AnimeScreenState extends State<AnimeScreen>
         padding: EdgeInsets.zero,
         base: const Color(0xFF1C1228),
         highlight: const Color(0xFF2A1F3A),
+      ),
+    );
+  }
+
+  Widget _buildErrorRow(_HomeSection section) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+            child: ShelfSectionHeader(
+              eyebrow: _eyebrowForSection(section.id),
+              title: section.title,
+              icon: section.icon,
+              accent: section.tint,
+            ),
+          ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              color: _cCard.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: section.tint.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.cloud_off_rounded,
+                    color: _cMuted, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Couldn\'t load ${section.title.toLowerCase()}',
+                    style: GoogleFonts.outfit(
+                      color: _cMuted,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _homeRows[section.id] = _AnimeRow(isLoading: true);
+                    });
+                    _runRow(section.id, _homeRows, section.builder);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: section.tint.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: section.tint.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Text(
+                      'Retry',
+                      style: GoogleFonts.outfit(
+                        color: section.tint,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -803,13 +1021,62 @@ class _AnimeScreenState extends State<AnimeScreen>
         else if (row.items.isEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-            child: ShelfEmptyState(
-              icon: Icons.travel_explore_rounded,
-              title: 'No matches in this category yet',
-              subtitle:
-                  'Try another filter, or pull to refresh to fetch the latest from Jikan.',
-              accent: option.color,
-            ),
+            child: row.hasError
+                ? Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: _cCard.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: option.color.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(Icons.cloud_off_rounded,
+                            color: _cMuted, size: 28),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Couldn\'t load results',
+                          style: GoogleFonts.outfit(
+                            color: _cMuted,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        GestureDetector(
+                          onTap: () => _selectCategory(option),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 18, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: option.color.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: option.color.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Text(
+                              'Retry',
+                              style: GoogleFonts.outfit(
+                                color: option.color,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ShelfEmptyState(
+                    icon: Icons.travel_explore_rounded,
+                    title: 'No matches in this category yet',
+                    subtitle:
+                        'Try another filter, or pull to refresh to fetch the latest.',
+                    accent: option.color,
+                  ),
           )
         else
           GridView.builder(
@@ -1156,7 +1423,8 @@ class _AnimeScreenState extends State<AnimeScreen>
 class _AnimeRow {
   final List<MediaItem> items;
   final bool isLoading;
-  const _AnimeRow({this.items = const [], this.isLoading = false});
+  final bool hasError;
+  const _AnimeRow({this.items = const [], this.isLoading = false, this.hasError = false});
 }
 
 class _HomeSection {
