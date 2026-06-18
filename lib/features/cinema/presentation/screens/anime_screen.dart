@@ -113,9 +113,12 @@ class _AnimeScreenState extends State<AnimeScreen>
               final items = await _jikanService.fetchSeasonNow();
               if (items.isNotEmpty) return items;
             } catch (_) {}
+            final now = DateTime.now();
+            final threeMonthsAgo = now.subtract(const Duration(days: 90));
             return _tmdbService.discoverAnime(
               sortBy: 'popularity.desc',
-              withStatus: 0,
+              airDateGte: threeMonthsAgo.toIso8601String().substring(0, 10),
+              voteCountGte: 5,
             );
           },
         ),
@@ -134,7 +137,7 @@ class _AnimeScreenState extends State<AnimeScreen>
             } catch (_) {}
             return _tmdbService.discoverAnime(
               sortBy: 'vote_average.desc',
-              voteCountGte: 200,
+              voteCountGte: 300,
             );
           },
         ),
@@ -172,6 +175,7 @@ class _AnimeScreenState extends State<AnimeScreen>
             } catch (_) {}
             return _tmdbService.discoverAnime(
               sortBy: 'popularity.desc',
+              voteCountGte: 100,
             );
           },
         ),
@@ -188,7 +192,8 @@ class _AnimeScreenState extends State<AnimeScreen>
             return _tmdbService.discoverAnime(
               sortBy: 'vote_average.desc',
               voteCountGte: 50,
-              voteAverageGte: 7.0,
+              voteCountLte: 5000,
+              voteAverageGte: 7.5,
             );
           },
         ),
@@ -206,7 +211,7 @@ class _AnimeScreenState extends State<AnimeScreen>
             } catch (_) {}
             return _tmdbService.discoverAnime(
               sortBy: 'vote_average.desc',
-              voteCountGte: 500,
+              voteCountGte: 1000,
             );
           },
         ),
@@ -299,30 +304,35 @@ class _AnimeScreenState extends State<AnimeScreen>
             sortBy: 'popularity.desc', withGenres: [35]);
       case 'genre-slice-of-life':
         return _tmdbService.discoverAnime(
-            sortBy: 'popularity.desc', withGenres: [10765]);
+            sortBy: 'vote_average.desc', voteCountGte: 50);
       case 'genre-fantasy-isekai':
         return _tmdbService.discoverAnime(
-            sortBy: 'popularity.desc', withGenres: [10765, 18]);
+            sortBy: 'popularity.desc', withGenres: [10765]);
       case 'genre-scifi-mecha':
         return _tmdbService.discoverAnime(
-            sortBy: 'popularity.desc', withGenres: [10765, 878]);
+            sortBy: 'popularity.desc', withGenres: [878]);
       case 'genre-horror-thriller':
         return _tmdbService.discoverAnime(
-            sortBy: 'popularity.desc', withGenres: [9648, 10768]);
+            sortBy: 'popularity.desc', withGenres: [9648]);
       case 'genre-sports':
         return _tmdbService.discoverAnime(
-            sortBy: 'popularity.desc', withGenres: [10770]);
+            sortBy: 'popularity.desc', voteCountGte: 20);
       case 'genre-mystery':
         return _tmdbService.discoverAnime(
             sortBy: 'popularity.desc', withGenres: [9648]);
       case 'status-airing':
         return _tmdbService.discoverAnime(
             sortBy: 'popularity.desc',
-            firstAirDateGte:
-                DateTime.now().subtract(const Duration(days: 90)).toIso8601String().substring(0, 10));
+            airDateGte: DateTime.now()
+                .subtract(const Duration(days: 90))
+                .toIso8601String()
+                .substring(0, 10),
+            voteCountGte: 5);
       case 'status-completed':
         return _tmdbService.discoverAnime(
-            sortBy: 'vote_average.desc', voteCountGte: 100);
+            sortBy: 'vote_average.desc',
+            voteCountGte: 100,
+            voteCountLte: 50000);
       case 'status-new':
         final now = DateTime.now();
         return _tmdbService.discoverAnime(
@@ -342,10 +352,11 @@ class _AnimeScreenState extends State<AnimeScreen>
         return _tmdbService.discoverAnime(
             sortBy: 'vote_average.desc',
             voteCountGte: 50,
-            voteAverageGte: 7.0);
+            voteCountLte: 5000,
+            voteAverageGte: 7.5);
       case 'curated-editors-picks':
         return _tmdbService.discoverAnime(
-            sortBy: 'vote_average.desc', voteCountGte: 500);
+            sortBy: 'vote_average.desc', voteCountGte: 1000);
       default:
         return _tmdbService.discoverAnime(sortBy: 'popularity.desc');
     }
