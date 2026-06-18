@@ -11,8 +11,6 @@ import 'services/storage_service.dart';
 import 'features/books/data/services/our_books_service.dart';
 import 'features/date_randomizer/data/services/date_idea_service.dart';
 import 'features/guardian/data/services/guardian_service.dart';
-import 'screens/login_screen.dart';
-import 'screens/timeline_screen.dart';
 import 'features/chat/data/services/chat_service.dart';
 import 'features/daily_bloom/presentation/providers/garden_provider.dart';
 import 'features/heartbeat/data/services/mood_service.dart';
@@ -78,46 +76,57 @@ class EverglowApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: custom_theme.AppTheme.gamifiedTheme,
         home: const GatewayPage(),
+        builder: (context, child) => _AppRoot(child: child!),
       ),
     );
   }
 }
 
-class AuthWrapper extends StatelessWidget {
-  const AuthWrapper({super.key});
+/// Wraps every route (gateway, dashboard, chat, cinema, etc.)
+/// so the silent incoming-call banner appears regardless of
+/// which screen the user is on. Also keeps the global
+/// `VoiceChatService.watchIncoming()` listener in sync with
+/// the auth state.
+class _AppRoot extends StatefulWidget {
+  final Widget child;
+  const _AppRoot({required this.child});
+
+  @override
+  State<_AppRoot> createState() => _AppRootState();
+}
+
+class _AppRootState extends State<_AppRoot> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncListener();
+    });
+  }
+
+  void _syncListener() {
+    final auth = context.read<AuthService>();
+    final myUid = auth.uid;
+    final partnerUid = auth.partnerUid;
+    if (auth.isCoupleUser && myUid != null && myUid.isNotEmpty) {
+      VoiceChatService.watchIncoming(
+        myUid: myUid,
+        partnerUid: partnerUid,
+      );
+    } else {
+      VoiceChatService.clearIncomingWatcher();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthService>(
       builder: (context, auth, _) {
-        // Keep the global "incoming watch party" listener in sync
-        // with the auth state. Start watching as soon as we have a
-        // signed-in couple user; stop when they log out (or when
-        // there's no partner to watch for).
-        final myUid = auth.uid;
-        final partnerUid = auth.partnerUid;
-        if (auth.isCoupleUser && myUid != null && myUid.isNotEmpty) {
-          VoiceChatService.watchIncoming(
-            myUid: myUid,
-            partnerUid: partnerUid,
-          );
-        } else {
-          VoiceChatService.clearIncomingWatcher();
-        }
-
-        final body = auth.isAuthenticated
-            ? const TimelineScreen()
-            : const LoginScreen();
-
-        // The incoming-call banner sits on a Stack above whatever
-        // screen the user is on, so it can appear from any
-        // context. Only render for couple users — cinema-only
-        // profiles never receive watch party notifications.
-        if (!auth.isCoupleUser) return body;
-
+        _syncListener();
+        if (!auth.isCoupleUser) return widget.child;
         return Stack(
           children: [
-            body,
+            widget.child,
             const Positioned(
               top: 0,
               left: 0,

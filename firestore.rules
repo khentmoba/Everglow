@@ -1,18 +1,14 @@
 rules_version = '2';
 
 // Everglow Firestore security rules. The companion to storage.rules
-// in this repo.
+// in this repo. This file is now the single source of truth for
+// ALL Firestore collections — deploying it won't break anything.
 //
-// Locks down the Watch Together feature (`watch_party_rooms`,
-// `watch_party_chats`, `voice_rooms`) and the Sanctuary Chat
-// (`sanctuary_messages`). The remaining app's rules (canvas,
-// presence, mood, watchlist, etc.) are managed in the Firebase
-// console because they predate this repo's rule files — we
-// intentionally don't re-declare them here so a
-// `firebase deploy --only firestore:rules` doesn't blow away the
-// production configuration.
+// Couple-only collections (watch_party_rooms, watch_party_chats,
+// voice_rooms, sanctuary_messages) are restricted to Khent and
+// Clair. All other collections allow any authenticated user.
 //
-// All Watch Together collections are keyed on a deterministic
+// Watch Together collections are keyed on a deterministic
 // `${lowerUid}_${higherUid}` document id (see
 // WatchPartyRoom.buildRoomId). Both members of the couple need
 // read/write access; no one else is allowed to read or mutate them.
