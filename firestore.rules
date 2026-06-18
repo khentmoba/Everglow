@@ -3,21 +3,26 @@ rules_version = '2';
 // Everglow Firestore security rules. The companion to storage.rules
 // in this repo.
 //
-// This file only locks down the new `watch_party_rooms` collection
-// added for the v5.4.0 Watch Together feature. The existing app's
-// rules (chat, canvas, presence, mood, watchlist, etc.) are managed
-// in the Firebase console because they predate this repo's rule
-// files — we intentionally don't re-declare them here so a `firebase
-// deploy --only firestore:rules` doesn't blow away the production
-// configuration.
+// Locks down the Watch Together feature (`watch_party_rooms`,
+// `watch_party_chats`, `voice_rooms`) and the Sanctuary Chat
+// (`sanctuary_messages`). The remaining app's rules (canvas,
+// presence, mood, watchlist, etc.) are managed in the Firebase
+// console because they predate this repo's rule files — we
+// intentionally don't re-declare them here so a
+// `firebase deploy --only firestore:rules` doesn't blow away the
+// production configuration.
 //
-// The collection is keyed on a deterministic `${lowerUid}_${higherUid}`
-// document id (see WatchPartyRoom.buildRoomId). Both members of the
-// couple need read/write access; no one else is allowed to read or
-// mutate the room.
+// All Watch Together collections are keyed on a deterministic
+// `${lowerUid}_${higherUid}` document id (see
+// WatchPartyRoom.buildRoomId). Both members of the couple need
+// read/write access; no one else is allowed to read or mutate them.
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ─── Watch Together rooms ──────────────────────────────────────
+    // The room that mirrors playback state between the host and the
+    // partner. Document id is the sorted-joined uids, so both halves
+    // of the couple compute the same id without coordination.
     match /watch_party_rooms/{roomId} {
       // Read: either the host or the partner (the document id is
       // the joined, sorted uids, so we check against both fields).
@@ -51,6 +56,66 @@ service cloud.firestore {
         request.auth.uid == resource.data.partnerUid
       );
     }
+
+    // ─── Watch Together chat ───────────────────────────────────────
+    // Persistent chat history scoped to a watch party room. Tied to
+    // the couple (roomId is the sorted uids), not to the media — so
+    // switching movies keeps the chat history alive.
+    match /watch_party_chats/{roomId}/messages/{messageId} {
+      allow read, write: if isCoupleMemberOnRoom(roomId);
+    }
+
+    // ─── Voice rooms (WebRTC signaling) ───────────────────────────
+    // One document per active call between the couple. Carries the
+    // SDP offer/answer. The candidates subcollection carries trickle
+    // ICE candidates. Restricted to the two uids named in the room
+    // document so a third party cannot snoop on the call.
+    //
+    // The room is created by the caller (callerUid == auth.uid) and
+    // updated by either side. We explicitly forbid reassigning the
+    // caller/callee pair — once a call is up, the two ends are
+    // fixed for its lifetime.
+    match /voice_rooms/{roomId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.callerUid ||
+        request.auth.uid == resource.data.calleeUid
+      );
+
+      allow create: if isAuthenticated() && (
+        request.auth.uid == request.resource.data.callerUid ||
+        request.auth.uid == request.resource.data.calleeUid
+      ) && isValidVoiceRoomShape(request.resource.data);
+
+      allow update: if isAuthenticated() && (
+        request.auth.uid == resource.data.callerUid ||
+        request.auth.uid == resource.data.calleeUid
+      ) && isValidVoiceRoomShape(request.resource.data) && (
+        request.resource.data.callerUid == resource.data.callerUid &&
+        request.resource.data.calleeUid == resource.data.calleeUid
+      );
+
+      allow delete: if isAuthenticated() && (
+        request.auth.uid == resource.data.callerUid ||
+        request.auth.uid == resource.data.calleeUid
+      );
+
+      match /candidates/{candidateId} {
+        // Re-derive the couple from the parent room so we don't
+        // trust any field on the candidate document itself.
+        allow read, write: if isCoupleMemberOnVoiceRoom(roomId);
+      }
+    }
+
+    // ─── Sanctuary Chat (dashboard) ────────────────────────────────
+    // Hard-coded to the two known couple uids. Mirrors the rule
+    // currently managed in the Firebase console, redeclared here
+    // so the repo is the source of truth.
+    match /sanctuary_messages/{messageId} {
+      allow read, write: if isAuthenticated() && (
+        request.auth.uid == 'bqS6Y5JlzuUB1YcbzUUK7MRpEqA2' ||
+        request.auth.uid == 'nitw0mxAR9WtxtzQtLNHYWRjENj2'
+      );
+    }
   }
 }
 
@@ -58,6 +123,26 @@ service cloud.firestore {
 
 function isAuthenticated() {
   return request.auth != null && request.auth.uid != null;
+}
+
+// True if the caller is one of the two uids in a watch_party_rooms
+// document. Used by both watch_party_chats and voice_rooms/candidates
+// so the access control lives in one place.
+function isCoupleMemberOnRoom(roomId) {
+  return isAuthenticated() && (
+    request.auth.uid == get(/databases/$(database)/documents/watch_party_rooms/$(roomId)).data.hostUid ||
+    request.auth.uid == get(/databases/$(database)/documents/watch_party_rooms/$(roomId)).data.partnerUid
+  );
+}
+
+// True if the caller is one of the two uids named in a voice_rooms
+// document. Same shape as isCoupleMemberOnRoom but reads from the
+// voice_rooms collection instead.
+function isCoupleMemberOnVoiceRoom(roomId) {
+  return isAuthenticated() && (
+    request.auth.uid == get(/databases/$(database)/documents/voice_rooms/$(roomId)).data.callerUid ||
+    request.auth.uid == get(/databases/$(database)/documents/voice_rooms/$(roomId)).data.calleeUid
+  );
 }
 
 // Shape validation. We only require a few critical fields; the rest
@@ -79,4 +164,19 @@ function isValidRoomShape(data) {
       data.mediaType in ['movie', 'tv'] &&
       data.state in ['playing', 'paused', 'buffering'] &&
       data.active is bool;
+}
+
+// Shape validation for voice_rooms. Keeps the SDP payloads bounded
+// and forbids arbitrary state strings. State is one of the WebRTC
+// call phases the client writes: 'ringing' (host has published an
+// offer and is waiting for the partner), 'calling' (partner has
+// answered and the call is connecting), 'connected' (peer
+// connection open), or 'ended' (graceful hangup).
+function isValidVoiceRoomShape(data) {
+  return data.keys().hasAll(['callerUid', 'calleeUid', 'state', 'updatedAt']) &&
+      data.callerUid is string &&
+      data.calleeUid is string &&
+      data.state in ['ringing', 'calling', 'connected', 'ended'] &&
+      (!('offer' in data) || data.offer is string) &&
+      (!('answer' in data) || data.answer is string);
 }
