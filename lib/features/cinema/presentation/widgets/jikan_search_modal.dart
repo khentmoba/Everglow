@@ -67,6 +67,12 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
       results = await _aniListService.searchAnime(query);
     }
 
+    // If both Jikan and AniList fail, fall back to TMDB anime discover
+    // with a text search filter.
+    if (results.isEmpty) {
+      results = await _tmdbService.searchMedia(query);
+    }
+
     if (mounted) {
       setState(() {
         _results = results;
