@@ -16,6 +16,7 @@ import '../../data/models/watch_party_room.dart';
 import '../../data/services/voice_chat_service.dart';
 import '../../data/services/watch_party_service.dart';
 import '../widgets/voice_chat_overlay.dart';
+import '../widgets/watch_party_chat_drawer.dart';
 
 // ─── Color tokens (mirror cinema_screen.dart / episode_drawer.dart) ──
 const _cRose = Color(0xFFF4C2C2);
@@ -362,11 +363,21 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   Future<void> _initVoiceChat() async {
     final partnerUid = _auth.partnerUid;
     if (partnerUid == null) return;
+    // We're on the watch party screen now, so suppress the
+    // app-wide "incoming call" banner — otherwise it would float
+    // on top of the active call UI.
+    VoiceChatService.clearIncomingWatcher();
     await _voiceChat.init(
       roomId: _room.id,
       myUid: _myUid,
       remoteUid: partnerUid,
       isCaller: widget.isHost,
+      callerName: widget.isHost ? _auth.currentUser : _room.hostName,
+      mediaTitle: _room.title,
+      mediaPosterPath: _room.posterPath,
+      mediaType: _room.mediaType,
+      season: _room.season,
+      episode: _room.episode,
     );
   }
 
@@ -846,6 +857,10 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
                     service: _voiceChat,
                     partnerName: _partnerName,
                   ),
+                  // Persistent chat drawer. Toggled via the small
+                  // "Chat" pill in the top-right; the drawer itself
+                  // slides in from the right edge.
+                  WatchPartyChatDrawer(roomId: _room.id),
                   if (_showEndDialog) _buildEndDialog(),
                 ],
               ),

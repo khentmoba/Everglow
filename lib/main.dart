@@ -1,6 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
@@ -21,6 +20,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'features/jukebox/presentation/providers/jukebox_provider.dart';
 import 'features/heartbeat/presentation/controllers/mood_controller.dart';
 import 'features/guardian/presentation/controllers/guardian_controller.dart';
+import 'features/watch_party/data/services/voice_chat_service.dart';
+import 'features/watch_party/presentation/widgets/incoming_watch_party_banner.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -87,12 +88,48 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final authService = Provider.of<AuthService>(context);
+    return Consumer<AuthService>(
+      builder: (context, auth, _) {
+        // Keep the global "incoming watch party" listener in sync
+        // with the auth state. Start watching as soon as we have a
+        // signed-in couple user; stop when they log out (or when
+        // there's no partner to watch for).
+        final myUid = auth.uid;
+        final partnerUid = auth.partnerUid;
+        if (auth.isCoupleUser && myUid != null && myUid.isNotEmpty) {
+          VoiceChatService.watchIncoming(
+            myUid: myUid,
+            partnerUid: partnerUid,
+          );
+        } else {
+          VoiceChatService.clearIncomingWatcher();
+        }
 
-    if (authService.isAuthenticated) {
-      return const TimelineScreen();
-    } else {
-      return const LoginScreen();
-    }
+        final body = auth.isAuthenticated
+            ? const TimelineScreen()
+            : const LoginScreen();
+
+        // The incoming-call banner sits on a Stack above whatever
+        // screen the user is on, so it can appear from any
+        // context. Only render for couple users — cinema-only
+        // profiles never receive watch party notifications.
+        if (!auth.isCoupleUser) return body;
+
+        return Stack(
+          children: [
+            body,
+            const Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                ignoring: false,
+                child: IncomingWatchPartyBanner(),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
