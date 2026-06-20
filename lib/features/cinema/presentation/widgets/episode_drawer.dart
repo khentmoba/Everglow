@@ -910,14 +910,52 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
           widget.item.mediaType,
         );
       }
+      // Use the poster URL from the fetched details when the item from
+      // Firestore didn't have one (e.g. older items saved before posterPath
+      // was stored). This ensures the dashboard cards get their images.
+      final resolvedItem = _resolvePosterFromDetails(widget.item);
+
       await _tmdbService.saveToWatchList(
-        widget.item,
+        resolvedItem,
         newStatus,
         userName,
         isAnimeOverride: detectedAnime,
       );
       if (mounted) _showSnack('Watchlist updated');
     }
+  }
+
+  /// When the item from Firestore has an empty posterPath, pull the
+  /// poster from the TMDB or AniList details that were fetched when
+  /// the drawer opened. This backfills missing posters on save.
+  MediaItem _resolvePosterFromDetails(MediaItem item) {
+    if (item.posterPath.isNotEmpty) return item;
+
+    final String? resolvedPoster;
+    final String? resolvedBackdrop;
+
+    if (_isAnimeSourced) {
+      // AniList stores the full URL in _posterUrl / _backdropUrl.
+      resolvedPoster = _details?['_posterUrl'] as String?;
+      resolvedBackdrop = _details?['_backdropUrl'] as String?;
+    } else {
+      // TMDB poster_path is a relative path — prepend the base URL.
+      final rawPoster = _details?['poster_path'] as String?;
+      resolvedPoster = rawPoster != null && rawPoster.isNotEmpty
+          ? 'https://image.tmdb.org/t/p/w500$rawPoster'
+          : null;
+      final rawBackdrop = _details?['backdrop_path'] as String?;
+      resolvedBackdrop = rawBackdrop != null && rawBackdrop.isNotEmpty
+          ? 'https://image.tmdb.org/t/p/w780$rawBackdrop'
+          : null;
+    }
+
+    if (resolvedPoster == null && resolvedBackdrop == null) return item;
+
+    return item.copyWith(
+      posterPath: resolvedPoster ?? item.posterPath,
+      backdropPath: resolvedBackdrop ?? item.backdropPath,
+    );
   }
 
   void _showSnack(String msg) {

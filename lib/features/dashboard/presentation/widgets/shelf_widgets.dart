@@ -597,6 +597,7 @@ class _ShelfMarqueeState extends State<ShelfMarquee>
   late final Ticker _ticker;
   Duration _lastTick = Duration.zero;
   bool _showShimmer = true;
+  bool _paused = false;
 
   @override
   void initState() {
@@ -629,6 +630,11 @@ class _ShelfMarqueeState extends State<ShelfMarquee>
 
   void _onTick(Duration elapsed) {
     if (!_scrollController.hasClients || widget.children.isEmpty) {
+      _lastTick = elapsed;
+      return;
+    }
+
+    if (_paused) {
       _lastTick = elapsed;
       return;
     }
@@ -670,16 +676,20 @@ class _ShelfMarqueeState extends State<ShelfMarquee>
       builder: (context, constraints) {
         final singleSetWidth = widget.children.length * widget.itemStride;
         final needsLoop = singleSetWidth >= constraints.maxWidth;
-        return ClipRect(
-          child: SingleChildScrollView(
-            controller: _scrollController,
-            scrollDirection: Axis.horizontal,
-            physics: const NeverScrollableScrollPhysics(),
-            child: Row(
-              children: [
-                ...widget.children,
-                if (needsLoop) ...widget.children,
-              ],
+        return MouseRegion(
+          onEnter: (_) => setState(() => _paused = true),
+          onExit: (_) => setState(() => _paused = false),
+          child: ClipRect(
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              physics: const NeverScrollableScrollPhysics(),
+              child: Row(
+                children: [
+                  ...widget.children,
+                  if (needsLoop) ...widget.children,
+                ],
+              ),
             ),
           ),
         );

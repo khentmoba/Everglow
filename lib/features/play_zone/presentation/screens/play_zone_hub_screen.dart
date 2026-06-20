@@ -15,6 +15,7 @@ import '../../hexgl/presentation/screens/hexgl_game_screen.dart';
 import '../../hexgl/services/hexgl_service.dart';
 import '../../piano_tiles/presentation/screens/piano_tiles_song_select_screen.dart';
 import '../../table_tennis/presentation/screens/table_tennis_game_screen.dart';
+import '../../table_tennis/presentation/screens/tt_multiplayer_lobby_screen.dart';
 import '../../fun_race_3d/presentation/screens/fun_race_3d_game_screen.dart';
 import '../../fun_race_3d/presentation/screens/fun_race_3d_lobby_screen.dart';
 import '../../one_v_one/presentation/screens/one_v_one_lobby_screen.dart';
@@ -252,34 +253,76 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 28),
-            BouncyButton(
-              onTap: () => _startTableTennis(),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 14),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppTheme.warmAmber, AppTheme.deepRose],
-                  ),
-                  borderRadius: BorderRadius.circular(24.0),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.warmAmber.withValues(alpha: 0.3),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                BouncyButton(
+                  onTap: () => _startTableTennis(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppTheme.warmAmber, AppTheme.deepRose],
+                      ),
+                      borderRadius: BorderRadius.circular(24.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.warmAmber.withValues(alpha: 0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: Text(
-                  'PLAY',
-                  style: GoogleFonts.outfit(
-                    fontWeight: FontWeight.w900,
-                    color: AppTheme.petalWhite,
-                    letterSpacing: 2.0,
-                    fontSize: 16,
+                    child: Text(
+                      'SOLO',
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.petalWhite,
+                        letterSpacing: 2.0,
+                        fontSize: 14,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                BouncyButton(
+                  onTap: () => _startTableTennis1v1(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppTheme.softLavender, AppTheme.deepRose],
+                      ),
+                      borderRadius: BorderRadius.circular(24.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.softLavender.withValues(alpha: 0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.people_rounded,
+                            color: AppTheme.petalWhite, size: 18),
+                        const SizedBox(width: 6),
+                        Text(
+                          '1v1',
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.w900,
+                            color: AppTheme.petalWhite,
+                            letterSpacing: 2.0,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -292,6 +335,15 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => const TableTennisGameScreen(),
+      ),
+    );
+  }
+
+  void _startTableTennis1v1() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const TTMultiplayerLobbyScreen(),
       ),
     );
   }

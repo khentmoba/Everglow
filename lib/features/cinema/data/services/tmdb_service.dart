@@ -654,11 +654,19 @@ class TMDBService {
       final isAnime = isAnimeOverride ?? item.isAnime;
 
       if (existing.docs.isNotEmpty) {
-        // Update status if exists
+        // Update status if exists — also refresh metadata fields so the
+        // dashboard cards always have the latest poster, title, etc.
+        // (Items saved before posterPath was stored get their poster
+        //  on the next status change rather than staying blank forever.)
         await collection.doc(existing.docs.first.id).update({
           'status': status,
           'isAnime': isAnime,
           'addedAt': Timestamp.now(),
+          'posterPath': item.posterPath,
+          'backdropPath': item.backdropPath,
+          'title': item.title,
+          'year': item.year,
+          'mediaType': item.mediaType,
         });
       } else {
         // Create new entry scoped to this user

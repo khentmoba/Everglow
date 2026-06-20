@@ -1,35 +1,44 @@
+import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:web/web.dart' as web;
 import 'dart:ui_web' as ui_web;
 
 import '../../../../../core/theme/app_theme.dart';
+import '../../../../../services/auth_service.dart';
 import '../../../presentation/widgets/web_overlay_button.dart';
+import '../../services/tt_bridge_service.dart';
+import '../../services/tt_multiplayer_service.dart';
 
-class TableTennisGameScreen extends StatefulWidget {
-  const TableTennisGameScreen({super.key});
+class TTMultiplayerGameScreen extends StatefulWidget {
+  final String roomId;
+  final bool isHost;
+
+  const TTMultiplayerGameScreen({
+    super.key,
+    required this.roomId,
+    required this.isHost,
+  });
 
   @override
-  State<TableTennisGameScreen> createState() => _TableTennisGameScreenState();
+  State<TTMultiplayerGameScreen> createState() => _TTMultiplayerGameScreenState();
 }
 
-class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
-  // Local self-contained build of the Famobi Table Tennis World Tour
-  // (originally hosted at games.cdn.famobi.com/.../table-tennis-world-tour/,
-  // now serving placeholder files). The single-file embed lives at
-  // web/table_tennis/index.html and is bundled by `flutter build web`.
-  // The `v=1` cache-buster mirrors the hexgl/index.html convention so
-  // future updates aren't pinned to a stale iframe HTML by the 1-hour
-  // Firebase Hosting CDN cache.
-  static const String _gameSrc = 'table_tennis/assets/index.html?v=1';
+class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
+  static const String _gameSrc = 'table_tennis/assets/index.html?v=1&mode=mp';
 
   late final String _viewType =
-      'tabletennis-iframe-${DateTime.now().microsecondsSinceEpoch}-${identityHashCode(Object())}';
+      'ttmp-iframe-${DateTime.now().microsecondsSinceEpoch}-${identityHashCode(Object())}';
 
+  TTBridgeService? _bridge;
+  JSFunction? _messageListener;
   bool _booted = true;
   bool _isMobile = false;
+  bool _gameEnded = false;
+  int _finalScore = 0;
 
   @override
   void initState() {
@@ -37,17 +46,42 @@ class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
     _isMobile = _detectMobile();
     if (kIsWeb) {
       _registerIframe();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _initBridge();
+      });
+      _messageListener = _onMessage.toJS;
+      web.window.addEventListener('message', _messageListener);
     }
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
   @override
   void dispose() {
+    if (_messageListener != null) {
+      web.window.removeEventListener('message', _messageListener);
+    }
+    _bridge?.dispose();
     try {
       web.document.querySelector('iframe[data-everglow-tt="1"]')?.remove();
     } catch (_) {}
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
+  }
+
+  void _onMessage(web.Event event) {
+    TTMultiplayerState.handleMessage(event as web.MessageEvent);
+  }
+
+  void _initBridge() {
+    final auth = context.read<AuthService>();
+    final uid = auth.uid;
+    if (uid == null) return;
+
+    _bridge = TTBridgeService(mpService: TTMultiplayerService());
+    _bridge!.connect(
+      roomId: widget.roomId,
+      isHost: widget.isHost,
+    );
   }
 
   bool _detectMobile() {
@@ -84,22 +118,8 @@ class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
   }
 
   void _close() {
+    _bridge?.disconnect();
     Navigator.of(context).maybePop();
-  }
-
-  void _restart() {
-    try {
-      final iframe =
-          web.document.querySelector('iframe[data-everglow-tt="1"]')
-              as web.HTMLIFrameElement?;
-      final w = iframe?.contentWindow;
-      if (w != null) {
-        w.location.reload();
-      }
-      if (mounted) {
-        setState(() {});
-      }
-    } catch (_) {}
   }
 
   @override
@@ -124,7 +144,7 @@ class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
                   color: Colors.black,
                   alignment: Alignment.center,
                   child: Text(
-                    'Table Tennis World Tour is only available in the web build.',
+                    'Table Tennis is only available in the web build.',
                     style: GoogleFonts.outfit(color: AppTheme.petalWhite),
                   ),
                 ),
@@ -134,20 +154,51 @@ class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
               Positioned(
                 top: MediaQuery.of(context).padding.top + 8,
                 left: 12,
-                right: 12,
-                child: Row(
-                  children: [
-                    WebOverlayButton(
-                      icon: Icons.close_rounded,
-                      onTap: _close,
+                child: WebOverlayButton(
+                  icon: Icons.close_rounded,
+                  onTap: _close,
+                ),
+              ),
+
+            if (_gameEnded)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.85),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          _finalScore > 0
+                              ? Icons.emoji_events_rounded
+                              : Icons.sentiment_dissatisfied_rounded,
+                          size: 64,
+                          color: _finalScore > 0
+                              ? AppTheme.warmAmber
+                              : AppTheme.softLavender,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          _finalScore > 0 ? 'You Win!' : 'Game Over',
+                          style: GoogleFonts.cormorantGaramond(
+                            fontSize: 36,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.roseQuartz,
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        TextButton(
+                          onPressed: _close,
+                          child: Text(
+                            'Back to Hub',
+                            style: GoogleFonts.outfit(
+                              color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const Spacer(),
-                    WebOverlayButton(
-                      icon: Icons.replay_rounded,
-                      onTap: _restart,
-                      tooltip: 'Restart match',
-                    ),
-                  ],
+                  ),
                 ),
               ),
 
