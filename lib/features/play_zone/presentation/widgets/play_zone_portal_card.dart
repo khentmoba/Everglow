@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:everglow/features/play_zone/presentation/screens/play_zone_hub_screen.dart';
+import 'package:go_router/go_router.dart';
 import 'package:everglow/shared/widgets/glass_container.dart';
 import 'package:everglow/shared/widgets/animated_emblem.dart';
 import 'package:everglow/shared/widgets/bouncy_button.dart';
@@ -58,7 +58,7 @@ class PlayZonePortalCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   BouncyButton(
-                    onTap: () => Navigator.push(context, PlayZoneHubScreen.route()),
+                    onTap: () => context.push('/play-zone'),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
                       decoration: BoxDecoration(

@@ -280,6 +280,16 @@ class ShelfCard extends StatefulWidget {
 
 class _ShelfCardState extends State<ShelfCard> {
   bool _pressed = false;
+  bool _hovered = false;
+
+  static const _tmdbImageBase = 'https://image.tmdb.org/t/p/w500';
+
+  String get _resolvedImageUrl {
+    final url = widget.imageUrl;
+    if (url.isEmpty) return '';
+    if (url.startsWith('http')) return url;
+    return '$_tmdbImageBase$url';
+  }
 
   void _handleTap() {
     if (widget.onTap == null) return;
@@ -288,10 +298,14 @@ class _ShelfCardState extends State<ShelfCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isHovered = _hovered && !_pressed && widget.onTap != null;
+
     return MouseRegion(
       cursor: widget.onTap == null
           ? SystemMouseCursors.basic
           : SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
         onTapDown: (_) {
           if (widget.onTap == null) return;
@@ -303,19 +317,33 @@ class _ShelfCardState extends State<ShelfCard> {
           _handleTap();
         },
         onTapCancel: () => setState(() => _pressed = false),
-        child: AnimatedScale(
-          scale: _pressed ? 0.95 : 1.0,
-          duration: const Duration(milliseconds: 140),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
           curve: Curves.easeOut,
-          child: Container(
-            width: 110,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: widget.accent.color.withValues(alpha: 0.22),
-                width: 1,
-              ),
-              boxShadow: [
+          transform: Matrix4.identity()
+            ..translate(0.0, isHovered ? -4.0 : 0.0)
+            ..scale(_pressed ? 0.95 : (isHovered ? 1.04 : 1.0)),
+          width: 110,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: widget.accent.color
+                  .withValues(alpha: isHovered ? 0.45 : 0.22),
+              width: 1,
+            ),
+            boxShadow: [
+              if (isHovered) ...[
+                BoxShadow(
+                  color: widget.accent.glow.withValues(alpha: 0.35),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.25),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ] else ...[
                 BoxShadow(
                   color: widget.accent.glow.withValues(alpha: 0.28),
                   blurRadius: 12,
@@ -327,51 +355,72 @@ class _ShelfCardState extends State<ShelfCard> {
                   offset: const Offset(0, 6),
                 ),
               ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(13),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (widget.imageUrl.isNotEmpty)
-                    Image.network(
-                      widget.imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) =>
-                          _Placeholder(accent: widget.accent, title: widget.title),
-                    )
-                  else
-                    _Placeholder(accent: widget.accent, title: widget.title),
-                  // Bottom gradient for the title overlay.
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      padding: const EdgeInsets.fromLTRB(8, 18, 8, 8),
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                          colors: [
-                            Color(0xCC000000),
-                            Color(0x66000000),
-                            Color(0x00000000),
-                          ],
-                          stops: [0.0, 0.55, 1.0],
-                        ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(13),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (_resolvedImageUrl.isNotEmpty)
+                  Image.network(
+                    _resolvedImageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) =>
+                        _Placeholder(accent: widget.accent, title: widget.title),
+                  )
+                else
+                  _Placeholder(accent: widget.accent, title: widget.title),
+                // Bottom gradient for the title overlay.
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(8, 18, 8, 8),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Color(0xCC000000),
+                          Color(0x66000000),
+                          Color(0x00000000),
+                        ],
+                        stops: [0.0, 0.55, 1.0],
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.title,
+                          style: GoogleFonts.outfit(
+                            color: AppTheme.petalWhite,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            height: 1.15,
+                            shadows: const [
+                              Shadow(
+                                color: Color(0xCC000000),
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (widget.subtitle != null &&
+                            widget.subtitle!.isNotEmpty) ...[
+                          const SizedBox(height: 2),
                           Text(
-                            widget.title,
+                            widget.subtitle!,
                             style: GoogleFonts.outfit(
-                              color: AppTheme.petalWhite,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              height: 1.15,
+                              color: widget.accent.color,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.3,
                               shadows: const [
                                 Shadow(
                                   color: Color(0xCC000000),
@@ -379,64 +428,43 @@ class _ShelfCardState extends State<ShelfCard> {
                                 ),
                               ],
                             ),
-                            maxLines: 2,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          if (widget.subtitle != null &&
-                              widget.subtitle!.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              widget.subtitle!,
-                              style: GoogleFonts.outfit(
-                                color: widget.accent.color,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.3,
-                                shadows: const [
-                                  Shadow(
-                                    color: Color(0xCC000000),
-                                    blurRadius: 4,
-                                  ),
-                                ],
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
                         ],
+                      ],
+                    ),
+                  ),
+                ),
+                if (widget.topBadge != null)
+                  Positioned(
+                    top: 6,
+                    left: 6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: widget.accent.color.withValues(alpha: 0.6),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Text(
+                        widget.topBadge!,
+                        style: GoogleFonts.outfit(
+                          color: widget.accent.color,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.6,
+                        ),
                       ),
                     ),
                   ),
-                  if (widget.topBadge != null)
-                    Positioned(
-                      top: 6,
-                      left: 6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.55),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: widget.accent.color.withValues(alpha: 0.6),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: Text(
-                          widget.topBadge!,
-                          style: GoogleFonts.outfit(
-                            color: widget.accent.color,
-                            fontSize: 8,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.6,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+              ],
             ),
           ),
         ),

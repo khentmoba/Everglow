@@ -31,6 +31,24 @@ class OurBooksService {
     });
   }
 
+  /// Stream of "Our Books" entries filtered to the books added by
+  /// [adder]. Used by the dashboard's per-partner sub-row so each
+  /// partner sees their own additions alongside the other's.
+  Stream<List<OurBooksItem>> getOurBooksByAdderStream(String adder) {
+    if (adder.isEmpty) return Stream.value(const <OurBooksItem>[]);
+    return _firestore
+        .collection(_collection)
+        .where('addedBy', isEqualTo: adder)
+        .snapshots()
+        .map((snapshot) {
+      final items = snapshot.docs
+          .map((doc) => OurBooksItem.fromFirestore(doc.data(), doc.id))
+          .toList();
+      items.sort((a, b) => b.addedAt.compareTo(a.addedAt));
+      return items;
+    });
+  }
+
   Future<List<OurBooksItem>> getCachedOurBooks() async {
     try {
       final prefs = await SharedPreferences.getInstance();

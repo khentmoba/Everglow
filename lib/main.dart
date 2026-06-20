@@ -6,7 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'core/theme/app_theme.dart' as custom_theme;
-import 'features/entry/presentation/pages/gateway_page.dart';
+import 'core/router/app_router.dart';
 import 'services/auth_service.dart';
 import 'services/presence_service.dart';
 import 'services/storage_service.dart';
@@ -82,11 +82,11 @@ class EverglowApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => JukeboxProvider()),
       ],
-      child: MaterialApp(
-        title: 'Everglow v1.2.0',
+      child: MaterialApp.router(
+        title: 'Everglow v6.0.0',
         debugShowCheckedModeBanner: false,
         theme: custom_theme.AppTheme.gamifiedTheme,
-        home: const GatewayPage(),
+        routerConfig: appRouter,
         builder: (context, child) => _AppRoot(child: child!),
       ),
     );

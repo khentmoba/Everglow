@@ -18,6 +18,7 @@ import 'package:everglow/shared/widgets/shelf/shelf_empty_state.dart';
 import 'package:everglow/shared/widgets/shelf/shimmer_box.dart';
 import 'package:everglow/shared/widgets/shelf/shelf_pill_bottom_nav.dart';
 import 'package:everglow/shared/widgets/shelf/staggered_entrance.dart';
+import 'package:go_router/go_router.dart';
 import 'anime_screen.dart';
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -723,12 +724,7 @@ class _CinemaScreenState extends State<CinemaScreen>
               icon: Icons.auto_awesome_rounded,
               semanticLabel: 'Open Everglow Anime',
               tooltip: 'Everglow Anime',
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const AnimeScreen(),
-                ),
-              ),
+              onTap: () => context.push('/anime'),
             )
           else
             const SizedBox(width: 44, height: 44),
@@ -910,8 +906,8 @@ class _CinemaScreenState extends State<CinemaScreen>
                       )
                     : (item.backdropPath.isNotEmpty
                         ? Image.network(item.backdropPath, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: _cVelvet))
-                        : (item.posterPath.isNotEmpty
-                            ? Image.network(item.posterPath, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: _cVelvet))
+                        : (item.posterUrl.isNotEmpty
+                            ? Image.network(item.posterUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: _cVelvet))
                             : Container(color: _cVelvet))),
 
                 // Cinematic gradient — strengthened so the title, year, and
@@ -1909,8 +1905,8 @@ class _RankingTileState extends State<_RankingTile> {
               child: SizedBox(
                 width: 44,
                 height: 62,
-                child: widget.item.posterPath.isNotEmpty
-                    ? Image.network(widget.item.posterPath, fit: BoxFit.cover)
+                child: widget.item.posterUrl.isNotEmpty
+                    ? Image.network(widget.item.posterUrl, fit: BoxFit.cover)
                     : Container(color: _cCard),
               ),
             ),

@@ -48,6 +48,15 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
   bool _hovered = false;
   bool _focused = false;
 
+  static const _tmdbImageBase = 'https://image.tmdb.org/t/p/w500';
+
+  String get _resolvedImageUrl {
+    final url = widget.imageUrl;
+    if (url.isEmpty) return '';
+    if (url.startsWith('http')) return url;
+    return '$_tmdbImageBase$url';
+  }
+
   @override
   Widget build(BuildContext context) {
     final badgeColor = widget.badgeColor ?? AppTheme.deepRose;
@@ -110,9 +119,9 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (widget.imageUrl.isNotEmpty)
+            if (_resolvedImageUrl.isNotEmpty)
               Image.network(
-                widget.imageUrl,
+                _resolvedImageUrl,
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => _Placeholder(
                   title: widget.title,

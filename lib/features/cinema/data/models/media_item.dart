@@ -95,6 +95,17 @@ class MediaItem {
       status == 'watched-both' ||
       status == 'watched-self';
 
+  /// Always returns a full image URL. If [posterPath] is already absolute
+  /// (starts with `http`), it is returned as-is.  When it is a relative
+  /// TMDB path like `/abc.jpg`, the w500 base URL is prepended.
+  static const _tmdbImageBase = 'https://image.tmdb.org/t/p/w500';
+
+  String get posterUrl {
+    if (posterPath.isEmpty) return '';
+    if (posterPath.startsWith('http')) return posterPath;
+    return '$_tmdbImageBase$posterPath';
+  }
+
   bool get isToWatch => status == 'to-watch';
 
   bool get isCurrentlyWatching =>

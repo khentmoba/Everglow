@@ -20,6 +20,7 @@ class StarlightJarWidget extends StatefulWidget {
 class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProviderStateMixin {
   final StarlightService _service = StarlightService();
   late AnimationController _shakeController;
+  late AnimationController _idleController;
   final Random _random = Random();
   
   // For the "drop" animation
@@ -39,11 +40,16 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
+    _idleController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat();
   }
 
   @override
   void dispose() {
     _shakeController.dispose();
+    _idleController.dispose();
     _dropController?.dispose();
     _floatController?.dispose();
     super.dispose();
@@ -169,30 +175,40 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
             ),
           ),
 
-          // Piled Stars (from Stream)
-          StreamBuilder<List<StarNote>>(
-            stream: _service.getStarNotes(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) return const SizedBox.shrink();
-              
-              final notes = snapshot.data!;
-              return Stack(
-                children: notes.map((note) {
-                  // Determinitic random based on ID for consistent positioning
-                  final rand = Random(note.id.hashCode);
-                  final position = Offset(
-                    120 + rand.nextDouble() * 160,
-                    300 + rand.nextDouble() * 100,
-                  );
-                  final rotation = rand.nextDouble() * pi;
-                  final color = _getPastelColor(rand);
+          // Piled Stars (from Stream) with idle bob animation
+          AnimatedBuilder(
+            animation: _idleController,
+            builder: (context, _) {
+              return StreamBuilder<List<StarNote>>(
+                stream: _service.getStarNotes(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) return const SizedBox.shrink();
+                  
+                  final notes = snapshot.data!;
+                  final t = _idleController.value;
+                  return Stack(
+                    children: notes.map((note) {
+                      final rand = Random(note.id.hashCode);
+                      final baseX = 120.0 + rand.nextDouble() * 160;
+                      final baseY = 300.0 + rand.nextDouble() * 100;
+                      final phase = rand.nextDouble() * 2 * pi;
+                      final bobAmp = 2.0 + rand.nextDouble() * 3.0;
 
-                  return StarWidget(
-                    color: color,
-                    position: position,
-                    rotation: rotation,
+                      final dx = baseX + sin(t * 2 * pi + phase) * bobAmp;
+                      final dy = baseY + cos(t * 2 * pi + phase * 1.3) * bobAmp * 0.6;
+                      final rotation = rand.nextDouble() * pi + sin(t * 2 * pi + phase) * 0.1;
+                      final color = _getPastelColor(rand);
+                      final scale = 1.0 + sin(t * 2 * pi + phase * 0.7) * 0.08;
+
+                      return StarWidget(
+                        color: color,
+                        position: Offset(dx, dy),
+                        rotation: rotation,
+                        size: 24 * scale,
+                      );
+                    }).toList(),
                   );
-                }).toList(),
+                },
               );
             },
           ),

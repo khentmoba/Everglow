@@ -8,7 +8,7 @@ import '../services/academy_service.dart';
 import '../widgets/score_tracker.dart';
 import '../widgets/answer_button.dart';
 import '../presentation/widgets/trivia_loading_overlay.dart';
-import 'podium_screen.dart';
+import 'package:go_router/go_router.dart';
 
 class GameBoardScreen extends StatefulWidget {
   final String matchId;
@@ -76,12 +76,7 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
           if (match.status == 'finished') {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => PodiumScreen(match: match),
-                  ),
-                );
+                context.pushReplacement('/academy/podium', extra: match);
               }
             });
             return const Center(child: Text('Calculating Results...'));

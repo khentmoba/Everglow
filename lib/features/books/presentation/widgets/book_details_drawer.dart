@@ -4,10 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:go_router/go_router.dart';
 import 'package:everglow/features/books/data/models/book_item.dart';
 import 'package:everglow/features/books/data/services/open_library_service.dart';
 import 'package:everglow/services/auth_service.dart';
-import '../screens/reader_screen.dart';
 
 /// Re-derive a fully-resolved [BookItem] before opening the reader.
 /// Stale Firestore documents may carry an empty `readSourceUrl`
@@ -109,12 +109,7 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
     // persisted), re-derive it from iaId / workKey so the reader
     // still has something to work with.
     final resolved = _resolveReaderBook(widget.item);
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ReaderScreen(book: resolved),
-      ),
-    );
+    context.push('/books/reader', extra: resolved);
   }
 
   @override

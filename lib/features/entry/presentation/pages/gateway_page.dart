@@ -4,9 +4,9 @@ import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:everglow/features/dashboard/domain/models/milestone.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
-import 'package:everglow/features/cinema/presentation/screens/cinema_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/services/auth_service.dart';
+import 'package:go_router/go_router.dart';
 import '../state/gateway_state.dart';
 import '../widgets/animated_door.dart';
 import '../widgets/passcode_input.dart';
@@ -179,13 +179,7 @@ class _GatewayPageState extends State<GatewayPage> {
         if (!mounted || _hasNavigated) return;
         if (isCinemaOnlyAccess) {
           _hasNavigated = true;
-          Navigator.of(context).pushReplacement(
-            PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) =>
-                  const CinemaScreen(),
-              transitionDuration: Duration.zero,
-            ),
-          );
+          context.go('/cinema');
         } else {
           _notifier.updateState(GatewayState.revealingSite);
         }
@@ -197,13 +191,7 @@ class _GatewayPageState extends State<GatewayPage> {
     } else if (newState == GatewayState.complete) {
       if (!_hasNavigated) {
         _hasNavigated = true;
-        Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) =>
-                const DashboardScreen(animate: false),
-            transitionDuration: Duration.zero,
-          ),
-        );
+        context.go('/dashboard');
       }
     }
   }

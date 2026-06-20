@@ -10,15 +10,10 @@ import 'package:everglow/shared/widgets/gamified_background.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/services/auth_service.dart';
 
+import 'package:go_router/go_router.dart';
+import 'package:everglow/core/router/app_router.dart';
 import '../../hexgl/models/hexgl_challenge.dart';
-import '../../hexgl/presentation/screens/hexgl_game_screen.dart';
 import '../../hexgl/services/hexgl_service.dart';
-import '../../piano_tiles/presentation/screens/piano_tiles_song_select_screen.dart';
-import '../../table_tennis/presentation/screens/table_tennis_game_screen.dart';
-import '../../table_tennis/presentation/screens/tt_multiplayer_lobby_screen.dart';
-import '../../fun_race_3d/presentation/screens/fun_race_3d_game_screen.dart';
-import '../../fun_race_3d/presentation/screens/fun_race_3d_lobby_screen.dart';
-import '../../one_v_one/presentation/screens/one_v_one_lobby_screen.dart';
 
 class PlayZoneHubScreen extends StatefulWidget {
   const PlayZoneHubScreen({super.key});
@@ -331,21 +326,11 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
   }
 
   void _startTableTennis() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const TableTennisGameScreen(),
-      ),
-    );
+    context.push('/play-zone/tt');
   }
 
   void _startTableTennis1v1() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const TTMultiplayerLobbyScreen(),
-      ),
-    );
+    context.push('/play-zone/tt/lobby');
   }
 
   Widget _buildOneVOneCard() {
@@ -364,12 +349,7 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
   }
 
   void _startOneVOne() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const OneVOneLobbyScreen(),
-      ),
-    );
+    context.push('/play-zone/1v1/lobby');
   }
 
   Widget _buildFunRace3DCard() {
@@ -488,21 +468,11 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
   }
 
   void _startFunRace3D() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const FunRace3DGameScreen(),
-      ),
-    );
+    context.push('/play-zone/fr3d');
   }
 
   void _startFunRace3D1v1() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const FunRace3DLobbyScreen(),
-      ),
-    );
+    context.push('/play-zone/fr3d/lobby');
   }
 
   Widget _buildModeOption({
@@ -571,10 +541,7 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
   }
 
   void _startPianoTiles() {
-    Navigator.push(
-      context,
-      PianoTilesSongSelectScreen.route(),
-    );
+    context.push('/play-zone/piano/select');
   }
 
   Widget _buildHexGLCard() {
@@ -808,12 +775,7 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
   }
 
   Future<void> _startHexGLSolo() async {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const HexGLGameScreen(),
-      ),
-    );
+    context.push('/play-zone/hexgl');
   }
 
   Future<void> _startHexGLChallengePartner() async {
@@ -836,26 +798,13 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
         );
         return;
       }
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => HexGLGameScreen(ghostReplay: best),
-        ),
-      );
+      context.push('/play-zone/hexgl', extra: HexGLArgs(ghostReplay: best));
     } catch (e) {
       if (kDebugMode) debugPrint('HexGL challenge partner error: $e');
     }
   }
 
   Future<void> _respondToHexGLChallenge(HexGLChallenge challenge) async {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => HexGLGameScreen(
-          challenge: challenge,
-          ghostReplay: challenge.challengerResult,
-        ),
-      ),
-    );
+    context.push('/play-zone/hexgl', extra: HexGLArgs(challenge: challenge, ghostReplay: challenge.challengerResult));
   }
 }

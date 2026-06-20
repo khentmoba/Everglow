@@ -159,6 +159,9 @@ service cloud.firestore {
     match /read_list/{docId} { allow read, write: if isAuthenticated(); }
     match /starlight_jar/{docId} { allow read, write: if isAuthenticated(); }
     match /users/{docId} { allow read, write: if isAuthenticated(); }
+    match /users/{userId}/progress/{docId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
     match /watch_list/{docId} { allow read, write: if isAuthenticated(); }
   }
 }

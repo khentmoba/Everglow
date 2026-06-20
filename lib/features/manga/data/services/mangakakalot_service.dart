@@ -238,6 +238,27 @@ class MangaKakalotService {
     });
   }
 
+  /// Per-user stream of titles the user is currently reading
+  /// (`libraryStatus == 'reading'`). Used by the dashboard's partner
+  /// sub-row so each partner's active reads surface alongside the
+  /// other's. Filtering is done in Dart so we don't need a composite
+  /// Firestore index.
+  Stream<List<MangaItem>> getReadingStream(String userName) {
+    if (userName.isEmpty) return Stream.value(const <MangaItem>[]);
+    return _firestore
+        .collection('manga_library')
+        .where('userName', isEqualTo: userName)
+        .snapshots()
+        .map((snapshot) {
+      final items = snapshot.docs
+          .map((doc) => MangaItem.fromFirestore(doc.data(), doc.id))
+          .where((i) => i.isReading)
+          .toList()
+        ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
+      return items;
+    });
+  }
+
   Stream<List<MangaItem>> getCoupleLibraryStream({
     String userA = 'khentsgdz',
     String userB = 'clairjassen',

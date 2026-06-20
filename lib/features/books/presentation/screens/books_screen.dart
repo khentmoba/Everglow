@@ -5,8 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'package:everglow/features/books/data/models/book_item.dart';
+import 'package:go_router/go_router.dart';
 import 'package:everglow/features/books/data/services/open_library_service.dart';
-import 'package:everglow/features/books/presentation/screens/our_books_screen.dart';
 import 'package:everglow/features/books/presentation/widgets/book_details_drawer.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'package:everglow/shared/widgets/shelf/atmospheric_backdrop.dart';
@@ -579,10 +579,7 @@ class _BooksScreenState extends State<BooksScreen>
               icon: Icons.favorite_rounded,
               semanticLabel: 'Open Our Books',
               tooltip: 'Our Books',
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const OurBooksScreen()),
-              ),
+              onTap: () => context.push('/our-books'),
             )
           else
             const SizedBox(width: 44, height: 44),
