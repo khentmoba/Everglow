@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="viewport" content="initial-scale=1.0,maximum-scale=1.01,minimal-ui">
+<meta name="robots" content="noindex, nofollow">
+<title>Table Tennis World Tour</title>
+<link rel="stylesheet" href="css/play.css">
+<style>
+  body { margin:0; padding:0; width:100%; overflow:hidden; background:#000; }
+  canvas {
+    -ms-touch-action: none;
+    image-rendering: -o-crisp-edges;
+    image-rendering: optimize-contrast;
+    -ms-interpolation-mode: nearest-neighbor;
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+  }
+</style>
+</head>
+<body>
+<div id="canvas-wrapper" style="overflow:hidden;width:100%;height:100%;margin:0;padding:0;position:absolute;">
+  <canvas id="canvas" moz-opaque></canvas>
+</div>
+<script src="js/TweenMax.min.js"></script>
+<script src="js/Howler.min.js"></script>
+<script src="js/VisibilityManager.js"></script>
+<script src="js/famobi-stub.js"></script>
+<script>window.famobi_gameID="table-tennis-world-tour";window.famobi_gameJS=["TweenMax.min.js","Howler.min.js","VisibilityManager.js","app37.js",function(){extGameLoad()}];</script>
+<script src="js/game.js"></script>
+<script>
+(function(){
+  function makePlaceholder() {
+    var c = document.createElement('canvas');
+    c.width = 64; c.height = 64;
+    return c;
+  }
+  if (typeof Utils !== 'undefined' && Utils.AssetLoader) {
+    Utils.AssetLoader.prototype.loadImage = function(_oData) {
+      var _this = this;
+      var img = new Image();
+      img.onload = function() {
+        _this.oAssetData[_oData.id] = _this.oAssetData[_oData.id] || {};
+        _this.oAssetData[_oData.id].img = img;
+        _this.oAssetData[_oData.id].loaded = true;
+        _this.oAssetData[_oData.id].oData = _this.oAssetData[_oData.id].oData || {};
+        _this.oAssetData[_oData.id].oData.oAtlasData = _oData.oAtlasData || {};
+        ++_this.assetsLoaded;
+        _this.checkLoadComplete();
+      };
+      img.onerror = function() {
+        var ph = makePlaceholder();
+        _this.oAssetData[_oData.id] = _this.oAssetData[_oData.id] || {};
+        _this.oAssetData[_oData.id].img = ph;
+        _this.oAssetData[_oData.id].loaded = true;
+        _this.oAssetData[_oData.id].oData = _this.oAssetData[_oData.id].oData || {};
+        _this.oAssetData[_oData.id].oData.oAtlasData = _oData.oAtlasData || {};
+        ++_this.assetsLoaded;
+        _this.checkLoadComplete();
+      };
+      img.src = _oData.file;
+    };
+    Utils.AssetLoader.prototype.loadJSON = function(_oData) {
+      var _this = this;
+      var xobj = new XMLHttpRequest();
+      xobj.open('GET', _oData.file, true);
+      xobj.onreadystatechange = function() {
+        if (xobj.readyState == 4) {
+          if (xobj.status == 200) { try { _this.textData[_oData.id] = JSON.parse(xobj.responseText); } catch(e) {} }
+          ++_this.assetsLoaded;
+          _this.checkLoadComplete();
+        }
+      };
+      xobj.onerror = function() { ++_this.assetsLoaded; _this.checkLoadComplete(); };
+      xobj.send(null);
+    };
+  }
+  if (typeof Utils !== 'undefined' && Utils.UserInput && Utils.UserInput.prototype) {
+    var _origAH = Utils.UserInput.prototype.addHitArea;
+    Utils.UserInput.prototype.addHitArea = function(_id,_func,_oD,_sT,_oO,_bF){
+      if(_oO&&_oO.oImgData&&_oO.oImgData.oData&&_oO.oImgData.oData.oAtlasData){
+        var atlas=_oO.oImgData.oData.oAtlasData;
+        var fid=_oO.id;
+        if(fid!=null&&!atlas[fid])atlas[fid]={x:0,y:0,width:64,height:64};
+      }
+      return _origAH.call(this,_id,_func,_oD,_sT,_oO,_bF);
+    };
+  }
+})();
+</script>
+<script src="js/mp-hooks.js"></script>
+<script src="js/bridge.js"></script>
+<script>
+extGameLoad();
+if (typeof resizeCanvas === 'function') resizeCanvas();
+</script>
+</body>
+</html>

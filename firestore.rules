@@ -126,6 +126,21 @@ service cloud.firestore {
     // For a private 4-user app, any authenticated user (Khent,
     // Clair, Breyan, Octagram, or anonymous) can read and write
     // their own data in these collections.
+    // �?�?�? Table Tennis 1v1 rooms �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
+    // Auto-detect rooms for Table Tennis 1v1. Host creates a waiting room,
+    // guest detects it and joins. Host is authoritative for ball state.
+    match /tt_rooms/{roomId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.resource.data.hostUid == request.auth.uid
+        && request.resource.data.status == 'waiting';
+      allow update: if isAuthenticated()
+        && (request.auth.uid == resource.data.hostUid
+            || request.auth.uid == resource.data.guestUid);
+      allow delete: if isAuthenticated()
+        && request.auth.uid == resource.data.hostUid;
+    }
+
     match /academy_questions/{docId} { allow read, write: if isAuthenticated(); }
     match /active_matches/{docId} { allow read, write: if isAuthenticated(); }
     match /date_ideas/{docId} { allow read, write: if isAuthenticated(); }

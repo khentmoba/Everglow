@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -43,8 +45,17 @@ void main() async {
   );
   print("Firestore persistence enabled for robust real-time experience");
 
-  
-  runApp(const EverglowApp());
+  runZonedGuarded(
+    () => runApp(const EverglowApp()),
+    (error, stack) {
+      final msg = error.toString();
+      if (msg.contains('onSnapshotUnsubscribe') || msg.contains('FIRESTORE INTERNAL ASSERTION')) {
+        if (kDebugMode) debugPrint('[Firestore] Swallowed known race condition: $error');
+      } else {
+        if (kDebugMode) debugPrint('[Unhandled] $error\n$stack');
+      }
+    },
+  );
 }
 
 class EverglowApp extends StatelessWidget {
