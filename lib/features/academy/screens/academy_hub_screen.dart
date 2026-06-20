@@ -6,8 +6,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:everglow/services/auth_service.dart';
 import '../services/academy_service.dart';
 import '../models/game_match.dart';
-import 'game_board_screen.dart';
-import 'solo_study_screen.dart';
+import 'package:go_router/go_router.dart';
+import 'package:everglow/core/router/app_router.dart';
 import '../services/academy_sync_service.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/shared/widgets/gamified_background.dart';
@@ -225,14 +225,9 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
       
       if (mounted) {
         setState(() => _isSearching = false);
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => SoloStudyScreen(
-              questions: questions,
-              category: category,
-            ),
-          ),
+        context.push(
+          '/academy/solo',
+          extra: SoloStudyArgs(questions: questions, category: category),
         );
       }
     } catch (e) {
@@ -266,14 +261,12 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
       final questions = await _academyService.getQuestions(match.category);
       
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => GameBoardScreen(
-              matchId: match.matchId,
-              userId: authService.currentUser ?? 'guest',
-              questions: questions,
-            ),
+        context.pushReplacement(
+          '/academy/match',
+          extra: GameBoardArgs(
+            matchId: match.matchId,
+            userId: authService.currentUser ?? 'guest',
+            questions: questions,
           ),
         );
       }

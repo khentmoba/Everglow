@@ -1,27 +1,52 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import 'app_colors.dart';
+import 'app_typography.dart';
+import 'app_radius.dart';
+
+/// Dusk Petal v2 — Master theme.
+///
+/// This file wires the token files into a Flutter `ThemeData`.
+/// All token values live in their dedicated files:
+/// - `app_colors.dart`      — color & semantic tokens
+/// - `app_typography.dart`  — type scale & TextTheme
+/// - `app_spacing.dart`     — 4-pt grid spacing
+/// - `app_radius.dart`      — radius tokens
+/// - `app_elevation.dart`   — shadow tokens
+/// - `app_motion.dart`      — motion tokens (curves, durations, reduced)
+/// - `app_breakpoints.dart` — responsive breakpoints
 class AppTheme {
-  // Dusk Petal Romantic Palette
-  static const Color roseQuartz = Color(0xFFF4C2C2);
-  static const Color deepRose = Color(0xFFC2185B);
-  static const Color blushGold = Color(0xFFE8D5B7);
-  static const Color twilight = Color(0xFF1A1A2E);
-  static const Color velvet = Color(0xFF2D1B33);
-  static const Color petalWhite = Color(0xFFFFF5F5);
-  static const Color softLavender = Color(0xFFD4B5D6);
-  static const Color warmAmber = Color(0xFFF0A500);
-  static const Color moonlight = Color(0xFFF0E6FF);
+  AppTheme._();
 
-  // Deprecated/Legacy Mapping to maintain backwards compatibility where direct constants were referenced
-  static const Color primaryPink = roseQuartz;
-  static const Color peachyMagenta = deepRose;
-  static const Color neonTeal = softLavender;
-  static const Color electricBlue = twilight;
-  static const Color champagneGold = blushGold;
-  
+  // ── Re-export palette for backwards compat ─────────────────
+  // These now delegate to AppColors. Existing code that references
+  // `AppTheme.roseQuartz` etc. will continue to work.
+  static const Color roseQuartz   = AppColors.roseQuartz;
+  static const Color deepRose     = AppColors.deepRose;
+  static const Color blushGold    = AppColors.blushGold;
+  static const Color twilight     = AppColors.twilight;
+  static const Color velvet       = AppColors.velvet;
+  static const Color petalWhite   = AppColors.petalWhite;
+  static const Color softLavender = AppColors.softLavender;
+  static const Color warmAmber    = AppColors.warmAmber;
+  static const Color moonlight    = AppColors.moonlight;
+
+  // ── Legacy aliases (remove after full migration) ───────────
+  @Deprecated('Use roseQuartz instead')
+  static const Color primaryPink   = AppColors.roseQuartz;
+  @Deprecated('Use deepRose instead')
+  static const Color peachyMagenta = AppColors.deepRose;
+  @Deprecated('Use softLavender instead')
+  static const Color neonTeal      = AppColors.softLavender;
+  @Deprecated('Use twilight instead')
+  static const Color electricBlue  = AppColors.twilight;
+  @Deprecated('Use blushGold instead')
+  static const Color champagneGold = AppColors.blushGold;
+
+  // ── Gradient / glass constants ─────────────────────────────
+
   static const LinearGradient gamifiedGradient = LinearGradient(
-    colors: [twilight, velvet, deepRose],
+    colors: [AppColors.twilight, AppColors.velvet, AppColors.deepRose],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -29,110 +54,45 @@ class AppTheme {
   static const double glassBlur = 18.0;
   static const double glassOpacity = 0.12;
 
+  // ── ThemeData ──────────────────────────────────────────────
+
   static ThemeData get gamifiedTheme {
-    final baseTextTheme = GoogleFonts.outfitTextTheme();
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: deepRose,
-        primary: deepRose,
-        secondary: softLavender,
-        tertiary: blushGold,
-        surface: twilight,
+        seedColor: AppColors.deepRose,
+        primary: AppColors.deepRose,
+        secondary: AppColors.softLavender,
+        tertiary: AppColors.blushGold,
+        surface: AppColors.twilight,
         brightness: Brightness.dark,
       ),
-      scaffoldBackgroundColor: twilight,
-      
-      // Beautiful typography combo: Cormorant Garamond for titles/display, Outfit for body
-      textTheme: baseTextTheme.copyWith(
-        displayLarge: GoogleFonts.cormorantGaramond(
-          fontSize: 57,
-          fontWeight: FontWeight.bold,
-          color: roseQuartz,
-        ),
-        displayMedium: GoogleFonts.cormorantGaramond(
-          fontSize: 45,
-          fontWeight: FontWeight.bold,
-          color: roseQuartz,
-        ),
-        displaySmall: GoogleFonts.cormorantGaramond(
-          fontSize: 36,
-          fontWeight: FontWeight.bold,
-          color: roseQuartz,
-        ),
-        headlineLarge: GoogleFonts.cormorantGaramond(
-          fontSize: 32,
-          fontWeight: FontWeight.w700,
-          color: roseQuartz,
-        ),
-        headlineMedium: GoogleFonts.cormorantGaramond(
-          fontSize: 28,
-          fontWeight: FontWeight.w600,
-          color: roseQuartz,
-        ),
-        headlineSmall: GoogleFonts.cormorantGaramond(
-          fontSize: 24,
-          fontWeight: FontWeight.w600,
-          color: roseQuartz,
-        ),
-        titleLarge: GoogleFonts.cormorantGaramond(
-          fontSize: 22,
-          fontWeight: FontWeight.w600,
-          color: roseQuartz,
-          letterSpacing: 0.5,
-        ),
-        titleMedium: GoogleFonts.outfit(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-          color: petalWhite,
-        ),
-        titleSmall: GoogleFonts.outfit(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: petalWhite,
-        ),
-        bodyLarge: GoogleFonts.outfit(
-          fontSize: 16,
-          color: petalWhite.withValues(alpha: 0.9),
-        ),
-        bodyMedium: GoogleFonts.outfit(
-          fontSize: 14,
-          color: petalWhite.withValues(alpha: 0.8),
-        ),
-        bodySmall: GoogleFonts.outfit(
-          fontSize: 12,
-          color: petalWhite.withValues(alpha: 0.6),
-        ),
-      ),
-      
+      scaffoldBackgroundColor: AppColors.twilight,
+      textTheme: AppTypography.textTheme,
       cardTheme: CardThemeData(
-        color: moonlight.withValues(alpha: glassOpacity),
+        color: AppColors.surfaceGlass,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24.0),
-          side: BorderSide(color: moonlight.withValues(alpha: 0.18), width: 1.0),
+          borderRadius: AppRadius.radiusX2,
+          side: BorderSide(color: AppColors.border, width: 1.0),
         ),
       ),
-      
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: deepRose,
-          foregroundColor: petalWhite,
+          backgroundColor: AppColors.deepRose,
+          foregroundColor: AppColors.petalWhite,
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24.0),
+          borderRadius: AppRadius.radiusX2,
           ),
-          textStyle: GoogleFonts.outfit(
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
-            letterSpacing: 1.0,
-          ),
+          textStyle: AppTypography.labelLarge(),
         ),
       ),
     );
   }
 
-  static bool get shouldReduceMotion => 
+  // ── Accessibility ──────────────────────────────────────────
+
+  static bool get shouldReduceMotion =>
       WidgetsBinding.instance.platformDispatcher.accessibilityFeatures.reduceMotion;
 }
-

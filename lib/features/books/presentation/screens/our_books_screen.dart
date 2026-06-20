@@ -5,10 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:go_router/go_router.dart';
 import 'package:everglow/features/books/data/models/book_item.dart';
 import 'package:everglow/features/books/data/models/our_books_item.dart';
 import 'package:everglow/features/books/data/services/our_books_service.dart';
-import 'package:everglow/features/books/presentation/screens/reader_screen.dart';
 import 'package:everglow/features/books/presentation/widgets/ol_search_modal.dart';
 import 'package:everglow/services/auth_service.dart';
 
@@ -679,8 +679,7 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
             readSourceLabel:
                 BookItem.deriveReadSourceLabel(iaId: book.iaId),
           );
-    Navigator.push(context,
-        MaterialPageRoute(builder: (_) => ReaderScreen(book: resolved)));
+    context.push('/books/reader', extra: resolved);
   }
 
   Future<void> _openAddToOurBooks() async {

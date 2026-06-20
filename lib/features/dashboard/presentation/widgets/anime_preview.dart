@@ -2,16 +2,23 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/features/cinema/presentation/screens/anime_screen.dart';
 import 'package:everglow/features/cinema/presentation/widgets/episode_drawer.dart';
 import 'package:everglow/services/auth_service.dart';
+import '_partner_label.dart';
+import 'partner_subrow.dart';
 import 'shelf_widgets.dart';
 
-/// "Anime" shelf on the dashboard. Each user sees only their own
-/// watched anime. Anime filtering happens in
-/// [TMDBService.getAnimeWatchListStream].
+/// "Anime" shelf on the dashboard.
+///
+/// For couple users (khentsgdz / clairjassen) the shelf splits into
+/// two labeled sub-rows — "Me" and the partner — so each partner can
+/// see what the other has finished watching in the anime column.
+/// Non-couple users keep the original single-row layout (one stream
+/// of their own watched anime only).
 class AnimePreview extends StatelessWidget {
   const AnimePreview({Key? key}) : super(key: key);
 
@@ -20,19 +27,89 @@ class AnimePreview extends StatelessWidget {
     final tmdbService = TMDBService();
     final auth = context.watch<AuthService>();
     final userName = auth.currentUser ?? '';
+    final isCouple = auth.isCoupleUser;
+    final partner = auth.partnerUsername;
+    final partnerLabel = partnerEyebrowLabelFor(userName);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: _AnimeShelf(
-        stream: tmdbService.getAnimeWatchListStream(userName),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _AnimeHeader(stream: tmdbService.getAnimeWatchListStream(userName)),
+          if (isCouple && partner != null && partner.isNotEmpty) ...[
+            _AnimeShelf(
+              stream: tmdbService.getAnimeWatchListStream(userName),
+              label: 'ME',
+              isSelf: true,
+            ),
+            _AnimeShelf(
+              stream: tmdbService.getAnimeWatchListStream(partner),
+              label: partnerLabel,
+              isSelf: false,
+            ),
+          ] else
+            _AnimeShelf(
+              stream: tmdbService.getAnimeWatchListStream(userName),
+              label: null,
+              isSelf: true,
+            ),
+        ],
       ),
+    );
+  }
+}
+
+class _AnimeHeader extends StatefulWidget {
+  final Stream<List<MediaItem>> stream;
+  const _AnimeHeader({required this.stream});
+
+  @override
+  State<_AnimeHeader> createState() => _AnimeHeaderState();
+}
+
+class _AnimeHeaderState extends State<_AnimeHeader> {
+  List<MediaItem> _items = [];
+  StreamSubscription<List<MediaItem>>? _streamSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _streamSub = widget.stream.listen((items) {
+      final watched = items.where((i) => i.isWatched).toList();
+      watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
+      if (!mounted) return;
+      setState(() => _items = watched);
+    });
+  }
+
+  @override
+  void dispose() {
+    _streamSub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ShelfHeader(
+      accent: ShelfAccent.anime,
+      title: 'Anime',
+      itemCount: _items.length,
+      badge: _items.isNotEmpty ? null : 'NEW',
+      onViewAll: () => context.push('/anime'),
     );
   }
 }
 
 class _AnimeShelf extends StatefulWidget {
   final Stream<List<MediaItem>> stream;
-  const _AnimeShelf({required this.stream});
+  final String? label;
+  final bool isSelf;
+  const _AnimeShelf({
+    required this.stream,
+    required this.label,
+    required this.isSelf,
+  });
 
   @override
   State<_AnimeShelf> createState() => _AnimeShelfState();
@@ -84,61 +161,54 @@ class _AnimeShelfState extends State<_AnimeShelf> {
     return parts.join(' • ');
   }
 
+  List<Widget> _buildCards() {
+    return _items
+        .map(
+          (item) => Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: ShelfCard(
+              accent: ShelfAccent.anime,
+              imageUrl: item.posterPath,
+              title: item.title,
+              subtitle: _subtitleFor(item),
+              onTap: () => _openDetails(item),
+            ),
+          ),
+        )
+        .toList();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ShelfHeader(
-          accent: ShelfAccent.anime,
-          title: 'Anime',
-          itemCount: _items.length,
-          badge: _items.isNotEmpty ? null : 'NEW',
-          onViewAll: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const AnimeScreen(),
-            ),
+    final cards = _buildCards();
+    if (widget.label == null) {
+      if (!_hasLoaded) {
+        return const SizedBox(
+          height: 160,
+          child: ShelfMarquee(hasLoaded: false, children: []),
+        );
+      }
+      if (cards.isEmpty) {
+        return SizedBox(
+          height: 110,
+          child: ShelfEmpty(
+            accent: ShelfAccent.anime,
+            message: 'No anime watched yet. Time for a binge!',
           ),
-        ),
-        const SizedBox(height: 14),
-        if (!_hasLoaded)
-          const SizedBox(
-            height: 160,
-            child: ShelfMarquee(
-              hasLoaded: false,
-              children: [],
-            ),
-          )
-        else if (_items.isEmpty)
-          SizedBox(
-            height: 110,
-            child: ShelfEmpty(
-              accent: ShelfAccent.anime,
-              message: 'No anime watched yet. Time for a binge!',
-            ),
-          )
-        else
-          SizedBox(
-            height: 168,
-            child: ShelfMarquee(
-              children: _items
-                  .map(
-                    (item) => Padding(
-                      padding: const EdgeInsets.only(right: 12),
-                      child: ShelfCard(
-                        accent: ShelfAccent.anime,
-                        imageUrl: item.posterPath,
-                        title: item.title,
-                        subtitle: _subtitleFor(item),
-                        onTap: () => _openDetails(item),
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ),
-      ],
+        );
+      }
+      return SizedBox(
+        height: 168,
+        child: ShelfMarquee(children: cards),
+      );
+    }
+    return PartnerSubrow(
+      label: widget.label!,
+      accent: ShelfAccent.anime,
+      children: _hasLoaded ? cards : const [],
+      emptyMessage: widget.isSelf
+          ? 'You haven\'t finished any anime yet.'
+          : 'Nothing finished on their end.',
     );
   }
 }

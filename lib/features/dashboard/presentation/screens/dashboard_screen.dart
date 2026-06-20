@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:web/web.dart' as web;
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:go_router/go_router.dart';
 import '../../domain/models/anniversary_counter.dart';
 import '../widgets/metric_card.dart';
 import '../widgets/letterbox_view.dart';
@@ -548,16 +549,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         const DashboardActions(),
                         const SizedBox(width: 16),
                         GestureDetector(
-                          onTap: () => Navigator.push(
-                            context,
-                            PageRouteBuilder(
-                              pageBuilder: (context, animation, secondaryAnimation) => 
-                                  const CanvasScreen(),
-                              transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                return FadeTransition(opacity: animation, child: child);
-                              },
-                            ),
-                          ),
+                          onTap: () => context.push('/canvas'),
                           child: Container(
                             width: 56,
                             height: 56,
@@ -592,20 +584,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   child: FadeInDown(
                     delay: const Duration(milliseconds: 1500),
                     child: GestureDetector(
-                      onTap: () => Navigator.push(
-                        context,
-                        PageRouteBuilder(
-                          pageBuilder: (context, animation, secondaryAnimation) => 
-                              const SanctuaryChatScreen(),
-                          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                            var begin = const Offset(1.0, 0.0);
-                            var end = Offset.zero;
-                            var curve = Curves.easeOutQuint;
-                            var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-                            return SlideTransition(position: animation.drive(tween), child: child);
-                          },
-                        ),
-                      ),
+                      onTap: () => context.push('/sanctuary'),
                       child: Container(
                         width: 56,
                         height: 56,

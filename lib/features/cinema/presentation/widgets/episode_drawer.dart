@@ -11,7 +11,7 @@ import 'package:everglow/features/cinema/data/services/jikan_service.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'package:everglow/features/watch_party/presentation/widgets/start_watch_party_button.dart';
-import '../screens/video_player_screen.dart';
+import 'package:go_router/go_router.dart';
 import 'trailer_player.dart';
 
 // Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬
@@ -973,36 +973,17 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   int get _effectiveMalId => _resolvedMalId ?? widget.item.tmdbId;
 
   void _playMovie() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => VideoPlayerScreen(
-          tmdbId: _isAnimeSourced ? _effectiveMalId : widget.item.tmdbId,
-          malId: _isAnimeSourced ? _effectiveMalId : null,
-          isAnime: _isAnimeSourced,
-          mediaType: 'movie',
-          title: widget.item.title,
-        ),
-      ),
-    );
+    final id = _isAnimeSourced ? _effectiveMalId : widget.item.tmdbId;
+    final malIdParam = _isAnimeSourced ? '&malId=$_effectiveMalId' : '';
+    context.push('/cinema/video/$id?type=movie&title=${Uri.encodeComponent(widget.item.title)}&anime=$_isAnimeSourced$malIdParam');
   }
 
   void _playEpisode(int season, int episode, String epTitle) {
     print('[DEBUG] playEpisode: season=$season episode=$episode title=$epTitle isAnime=$_isAnimeSourced tmdbId=${widget.item.tmdbId} malId=$_resolvedMalId');
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => VideoPlayerScreen(
-          tmdbId: _isAnimeSourced ? _effectiveMalId : widget.item.tmdbId,
-          malId: _isAnimeSourced ? _effectiveMalId : null,
-          isAnime: _isAnimeSourced,
-          mediaType: 'tv',
-          season: season,
-          episode: episode,
-          title: '${_cleanTitle(widget.item.title)}: $epTitle',
-        ),
-      ),
-    );
+    final id = _isAnimeSourced ? _effectiveMalId : widget.item.tmdbId;
+    final malIdParam = _isAnimeSourced ? '&malId=$_effectiveMalId' : '';
+    final title = '${_cleanTitle(widget.item.title)}: $epTitle';
+    context.push('/cinema/video/$id?type=tv&title=${Uri.encodeComponent(title)}&season=$season&episode=$episode&anime=$_isAnimeSourced$malIdParam');
   }
 
   void _showSimilarItem(MediaItem item) {
@@ -2241,8 +2222,8 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: item.posterPath.isNotEmpty
-                            ? Image.network(item.posterPath,
+                        child: item.posterUrl.isNotEmpty
+                            ? Image.network(item.posterUrl,
                                 fit: BoxFit.cover)
                             : Container(
                                 color: _cCard,

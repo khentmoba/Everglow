@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/shared/widgets/gamified_background.dart';
@@ -7,7 +8,6 @@ import 'package:everglow/shared/widgets/glass_container.dart';
 import 'package:everglow/shared/widgets/bouncy_button.dart';
 
 import '../../data/piano_song_provider.dart';
-import 'piano_tiles_game_screen.dart';
 
 class PianoTilesSongSelectScreen extends StatefulWidget {
   const PianoTilesSongSelectScreen({super.key});
@@ -72,12 +72,7 @@ class _PianoTilesSongSelectScreenState
   }
 
   void _startSong(PianoSong song) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => PianoTilesGameScreen(song: song),
-      ),
-    ).then((_) => _loadHighScores()); // Reload high scores when returning
+    context.push('/play-zone/piano', extra: song).then((_) => _loadHighScores());
   }
 
   @override

@@ -103,8 +103,8 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(16),
-                child: item.posterPath.isNotEmpty
-                    ? Image.network(item.posterPath, height: 150, fit: BoxFit.cover)
+                child: item.posterUrl.isNotEmpty
+                    ? Image.network(item.posterUrl, height: 150, fit: BoxFit.cover)
                     : Container(height: 150, color: AppTheme.twilight),
               ),
               const SizedBox(height: 12),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:everglow/features/academy/screens/academy_hub_screen.dart';
+import 'package:go_router/go_router.dart';
 import 'package:everglow/shared/widgets/glass_container.dart';
 import 'package:everglow/shared/widgets/animated_emblem.dart';
 import 'package:everglow/shared/widgets/bouncy_button.dart';
@@ -61,7 +61,7 @@ class AcademyPortalCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   BouncyButton(
-                    onTap: () => Navigator.push(context, AcademyHubScreen.route()),
+                    onTap: () => context.push('/academy'),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
                       decoration: BoxDecoration(
