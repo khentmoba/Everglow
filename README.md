@@ -192,13 +192,14 @@ firebase deploy --only hosting
 
 ## Deployment
 
-Auto-deploys to Firebase Hosting on push to `main` via GitHub Actions.
+Auto-deploys to **[everglow-1c6db.web.app](https://everglow-1c6db.web.app)** on every push to `main` via GitHub Actions.
 
 The workflow:
 1. Builds Flutter web
-2. Generates changelog from commits
+2. Generates cache-busting service worker
 3. Deploys to Firebase Hosting
-4. Creates a GitHub Release
+
+> **Note:** The GitHub Actions workflow expects a repository secret named `FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB` containing a Firebase service account JSON key with the **Firebase Hosting Admin** role.
 
 ## Release History
 
