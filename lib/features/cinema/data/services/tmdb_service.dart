@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:everglow/core/constants/api_keys.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/ani_zip_service.dart';
+import 'package:everglow/features/cinema/data/services/anilist_service.dart';
 
 class TMDBService {
   final String _baseUrl = 'https://api.themoviedb.org/3';
@@ -655,6 +656,39 @@ class TMDBService {
         });
       } catch (e) {
         print('TMDB Backfill Poster Error for ${item.title}: $e');
+      }
+    }
+    return updated;
+  }
+
+  /// For Jikan-sourced anime items that have a TMDB poster (empty or
+  /// backfilled from a potentially wrong ani.zip mapping), fetch the
+  /// correct poster from AniList/Jikan using the MAL ID stored in tmdbId.
+  Future<List<MediaItem>> refreshAnimePosters(List<MediaItem> items) async {
+    final needsRefresh = items
+        .where((i) => i.source == 'jikan' && i.tmdbId > 0)
+        .where((i) => i.posterPath.isEmpty || i.posterPath.contains('image.tmdb.org'))
+        .toList();
+    if (needsRefresh.isEmpty) return items;
+
+    final aniListService = AniListService();
+    final updated = List<MediaItem>.from(items);
+    for (final item in needsRefresh) {
+      try {
+        final detail = await aniListService.fetchDetailsWithFallback(malId: item.tmdbId);
+        final correctPoster = detail?.coverImageUrl;
+        if (correctPoster == null || correctPoster.isEmpty) continue;
+        if (correctPoster == item.posterPath) continue;
+
+        final idx = updated.indexWhere((u) => u.id == item.id);
+        if (idx != -1) {
+          updated[idx] = updated[idx].copyWith(posterPath: correctPoster);
+        }
+        await _firestore.collection('watch_list').doc(item.id).update({
+          'posterPath': correctPoster,
+        });
+      } catch (e) {
+        print('Refresh anime poster error for ${item.title}: $e');
       }
     }
     return updated;
