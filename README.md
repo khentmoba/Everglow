@@ -31,7 +31,6 @@ Everglow tracks your relationship journey through gamified experiences, shared a
 
 3. **UI/UX Polish**:
    - **Feature**: Manga Library screen now shows a back arrow when navigation stack allows popping.
-   - **Feature**: HexGL auto-boots — touch guard clears on ready message, no manual start hint needed.
 
 _Previous releases: [v4.0.0 "Manga & WebGL Games"](https://github.com/khentmoba/Everglow/releases/tag/v4.0.0) · [v3.4.0 "Manga Reader"](https://github.com/khentmoba/Everglow/releases/tag/v3.4.0) · [v3.3.0 "Play Zone Games"](https://github.com/khentmoba/Everglow/releases/tag/v3.3.0) · [v3.2.0 "Books & Cinematic"](https://github.com/khentmoba/Everglow/releases/tag/v3.2.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)_
 
@@ -54,7 +53,7 @@ _Previous releases: [v4.0.0 "Manga & WebGL Games"](https://github.com/khentmoba/
 | **Academy** | Trivia game with 8 categories, solo study and 1v1 challenges | 1.1.0 |
 | **Jukebox** | Live music status from Last.fm for both partners | 1.1.0 |
 | **XP System** | Gamified levels, streaks, and sound effects | 1.1.0 |
-| **Play Zone** | Games hub with Melody Tiles + HexGL Drift | 1.2.0 |
+| **Play Zone** | Games hub with Table Tennis World Tour | 1.2.0 |
 | **Trending Carousel** | Auto-playing PageView carousel for trending titles | 1.5.0 |
 | **Genre Browsing** | Browse by genre (Action, Comedy, Horror, Romance, etc.) | 1.5.0 |
 | **Now Showing** | Movies currently in Philippine cinemas + newly released | 1.5.0 |
@@ -62,14 +61,10 @@ _Previous releases: [v4.0.0 "Manga & WebGL Games"](https://github.com/khentmoba/
 | **Similar Titles** | "More Like This" recommendations in episode drawer | 1.5.0 |
 | **PH Streaming Rankings** | Philippines trending tab uses `watch_region=PH` (Netflix-PH style) | 1.5.2 |
 | **Multi-Provider Video** | VidFast, VixSrc, Videasy, 2Embed, etc. with sandbox iframe | 1.5.3 |
-| **Melody Tiles** | Native rhythm game tapping falling petals to produce piano melodies + XP awards | 2.0.0 |
-| **HexGL Drift** | Futuristic 3D WebGL racing game with Solo Time Trial and 1v1 Ghost Replay Challenges | 2.1.0 |
-| **Song Selection** | Melody Tiles track selector with difficulty, note count, high score, and best streak trackers | 2.1.0 |
 | **Cinematic Dark Luxury UI** | Floating pill nav, hero carousel, shimmer skeletons, medal badges, gradient overlays, glass-feel reviews | **3.0.0** |
-| **Piano Tiles Rewrite** | `Ticker`+`CustomPainter` engine, pre-warmed audio pool, expanded 4-song library | **3.0.0** |
+
 | **Breyan Cinema Access** | Passcode 9132 lands directly on Cinema with isolated watchlist data | **3.0.0** |
 | **Octagram Cinema Access** | Passcode 8080 lands directly on Cinema with the cinema-only chip set | **3.0.0** |
-| **HexGL Boot Fixes** | No-cache iframe, immediate `ready`, progress messages, surface iframe errors | **3.0.0** |
 | **Live Presence** | `PresenceService` 15 s heartbeat + online/doodle freshness windows; flips offline on `pagehide` / `beforeunload` | **3.1.0** |
 | **Partner Presence Indicator** | Pulsing green dot in Sanctuary chat header ("Clair is active" / "Active 5m ago") | **3.1.0** |
 | **Partner Doodle Indicator** | Live "Clair is doodling ✨ 12s" banner on the Canvas screen | **3.1.0** |
@@ -87,7 +82,7 @@ _Previous releases: [v4.0.0 "Manga & WebGL Games"](https://github.com/khentmoba/
 | **Instant Carousel Trailers** | Zero-delay trailer playback with full-slide prefetch; auto-rotate extended to 18 s | **3.2.0** |
 | **Enhanced Poster Hover** | 1.5× poster scale (up from 1.15×) with `Alignment.topCenter` and faster easing | **3.2.0** |
 | **Mobile Trailer Auto-Play** | Episode drawer auto-plays trailer on mobile (muted) | **3.2.0** |
-| **Play Zone HTML Games** | Added Table Tennis World Tour, Fun Race 3D, and 1v1 Match games | **3.3.0** |
+| **Play Zone HTML Games** | Added Table Tennis World Tour game | **3.3.0** |
 | **Lobby Multiplay** | Matchmaking & multiplayer room-sharing via Firestore | **3.3.0** |
 | **Consolidated Watchlist** | Personal & couple Cinema lists merged into single Firestore schema | **3.3.0** |
 | **Manga Reader** | Full MangaDex API library, search modal, detail drawers, and multi-page reader view | **3.4.0** |
@@ -107,7 +102,7 @@ _Previous releases: [v4.0.0 "Manga & WebGL Games"](https://github.com/khentmoba/
 - **External APIs:** TMDB, Open Library (Books), OpenTDB (Trivia), Last.fm
 - **Real-Time Presence:** Firestore `presence/{uid}` collection with 15 s heartbeat
 - **Trailer Playback:** YouTube IFrame Player API via `dart:ui_web` + `package:web`
-- **Multiplayer:** Firestore real-time snapshots for HexGL time-trial challenges
+- **Multiplayer:** Firestore real-time snapshots for Table Tennis 1v1 matches
 - **Cloud Functions:** Proxy endpoints for MangaDex images and Open Library book text
 
 ## Project Structure
@@ -141,17 +136,14 @@ _Previous releases: [v4.0.0 "Manga & WebGL Games"](https://github.com/khentmoba/
     xp/                         # Gamification system
     jukebox/                    # Music sync
     play_zone/                  # Games hub
-      piano_tiles/              # Melody Tiles (Ticker+CustomPainter engine)
-      hexgl/                    # HexGL Drift (HTML5 3D WebGL racing)
+
   services/                     # Core Firebase services (Auth, Storage, Presence, ...)
   shared/widgets/               # PartnerPresenceIndicator, PartnerDoodleIndicator, ...
 scripts/
 assets/
   data/                         # Seed JSON files (trivia, date ideas)
   images/                       # Logo and milestone photos
-  audio/piano/                  # Reference piano samples (a, c, e, f)
 web/
-  hexgl/                        # HexGL embed HTML (no-cache)
 functions/
   index.js                      # Cloud Functions: proxyBookText, proxyMangaImage
 CHANGELOG.md                    # Full release-by-release history (v1.0.0 → v5.0.0)
@@ -215,11 +207,11 @@ The full release-by-release history is in [CHANGELOG.md](./CHANGELOG.md). Highli
 - **v5.0.0** — Anime Feature, MangaDex Image Proxy, Anime Dashboard Preview
 - **v4.0.0** — Play Zone Start Gestures, Gesture Overlay Enhancements
 - **v3.4.0** — Manga Reader (MangaDex API Integration), Masked Special Forces Game, Cloud Function Proxy
-- **v3.3.0** — Play Zone Games (Table Tennis, Fun Race 3D, 1v1 Match), Watchlist Consolidation
+- **v3.3.0** — Play Zone Games (Table Tennis World Tour), Watchlist Consolidation
 - **v3.2.0** — Our Books (Open Library Integration, In-App Reader), Instant Carousel Trailers, Mobile Trailer Polish
 - **v3.1.0** — Live Presence, Hover-to-Play Trailers, Our Cinema Glass UI
 - **v3.0.0** — Cinematic Cinema Overhaul, Piano Tiles Rewrite, Breyan + Octagram Access
-- **v2.1.0** — Play Zone Overhaul (HexGL Drift + Song Selection)
+- **v2.1.0** — Play Zone Overhaul
 - **v2.0.0** — Mobile Optimization & Bloat Cleanup
 - **v1.5.3** — Cinema: Real Iframe Fix + Provider Cleanup + Popup-Ad Sandbox
 - **v1.5.2** — Philippines Trending: Real Streaming Rankings

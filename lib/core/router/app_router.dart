@@ -6,10 +6,7 @@ import '../../features/books/data/models/book_item.dart';
 import '../../features/manga/data/models/manga_item.dart';
 import '../../features/academy/models/academy_question.dart';
 import '../../features/academy/models/game_match.dart';
-import '../../features/play_zone/hexgl/models/hexgl_race_result.dart';
-import '../../features/play_zone/hexgl/models/hexgl_challenge.dart';
-import '../../features/play_zone/piano_tiles/data/piano_song_provider.dart';
-import '../../features/play_zone/one_v_one/models/one_v_one_room.dart';
+
 import '../../features/watch_party/data/models/watch_party_room.dart';
 
 import '../../features/entry/presentation/pages/gateway_page.dart';
@@ -27,16 +24,8 @@ import '../../features/academy/screens/game_board_screen.dart';
 import '../../features/academy/screens/solo_study_screen.dart';
 import '../../features/academy/screens/podium_screen.dart';
 import '../../features/play_zone/presentation/screens/play_zone_hub_screen.dart';
-import '../../features/play_zone/hexgl/presentation/screens/hexgl_game_screen.dart';
-import '../../features/play_zone/hexgl/presentation/screens/hexgl_results_screen.dart';
-import '../../features/play_zone/piano_tiles/presentation/screens/piano_tiles_game_screen.dart';
-import '../../features/play_zone/piano_tiles/presentation/screens/piano_tiles_song_select_screen.dart';
 import '../../features/play_zone/table_tennis/presentation/screens/table_tennis_game_screen.dart';
 import '../../features/play_zone/table_tennis/presentation/screens/tt_multiplayer_lobby_screen.dart';
-import '../../features/play_zone/fun_race_3d/presentation/screens/fun_race_3d_game_screen.dart';
-import '../../features/play_zone/fun_race_3d/presentation/screens/fun_race_3d_lobby_screen.dart';
-import '../../features/play_zone/one_v_one/presentation/screens/one_v_one_game_screen.dart';
-import '../../features/play_zone/one_v_one/presentation/screens/one_v_one_lobby_screen.dart';
 import '../../features/canvas/presentation/screens/canvas_screen.dart';
 import '../../features/chat/presentation/screens/sanctuary_chat_screen.dart';
 import '../../features/starlight_jar/presentation/screens/starlight_jar_widget.dart';
@@ -173,56 +162,12 @@ final GoRouter appRouter = GoRouter(
       builder: (_, __) => const PlayZoneHubScreen(),
       routes: [
         GoRoute(
-          path: 'hexgl',
-          builder: (_, state) {
-            final args = state.extra as HexGLArgs?;
-            return HexGLGameScreen(
-              challenge: args?.challenge,
-              ghostReplay: args?.ghostReplay,
-            );
-          },
-        ),
-        GoRoute(
-          path: 'hexgl/results',
-          builder: (_, state) => HexGLResultsScreen(
-            result: state.extra! as HexGLRaceResult,
-          ),
-        ),
-        GoRoute(
-          path: 'piano',
-          builder: (_, state) => PianoTilesGameScreen(
-            song: state.extra! as PianoSong,
-          ),
-        ),
-        GoRoute(
-          path: 'piano/select',
-          builder: (_, __) => const PianoTilesSongSelectScreen(),
-        ),
-        GoRoute(
           path: 'tt',
           builder: (_, __) => const TableTennisGameScreen(),
         ),
         GoRoute(
           path: 'tt/lobby',
           builder: (_, __) => const TTMultiplayerLobbyScreen(),
-        ),
-        GoRoute(
-          path: 'fr3d',
-          builder: (_, __) => const FunRace3DGameScreen(),
-        ),
-        GoRoute(
-          path: 'fr3d/lobby',
-          builder: (_, __) => const FunRace3DLobbyScreen(),
-        ),
-        GoRoute(
-          path: '1v1',
-          builder: (_, state) => OneVOneGameScreen(
-            initialRoom: state.extra! as OneVOneRoom,
-          ),
-        ),
-        GoRoute(
-          path: '1v1/lobby',
-          builder: (_, __) => const OneVOneLobbyScreen(),
         ),
       ],
     ),
@@ -334,14 +279,6 @@ class GameBoardArgs {
     required this.userId,
     required this.questions,
   });
-}
-
-/// Args for HexGLGameScreen.
-class HexGLArgs {
-  final HexGLChallenge? challenge;
-  final HexGLRaceResult? ghostReplay;
-
-  HexGLArgs({this.challenge, this.ghostReplay});
 }
 
 /// Args for WatchPartyScreen.

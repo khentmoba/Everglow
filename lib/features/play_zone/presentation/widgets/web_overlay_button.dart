@@ -188,8 +188,8 @@ class _WebOverlayButtonState extends State<WebOverlayButton> {
 /// Large rectangular overlay button (gradient background, optional
 /// leading icon + label) rendered as a DOM `<button>` element so it
 /// sits above any sibling iframe platform view. Used for the
-/// critical "I FINISHED!" finish button on the Fun Race 3D 1v1
-/// screen, which would otherwise be eaten by the iframe.
+/// critical "I FINISHED!" finish button on multiplayer game
+/// screens, which would otherwise be eaten by the iframe.
 class WebOverlayTextButton extends StatefulWidget {
   const WebOverlayTextButton({
     super.key,
@@ -432,7 +432,7 @@ class _WebOverlayTextButtonState extends State<WebOverlayTextButton> {
 
 /// Non-interactive status pill rendered as a DOM `<div>` so it can sit
 /// above an iframe platform view. Used for the partner-status display
-/// in the Fun Race 3D 1v1 top bar.
+/// in the multiplayer game top bar.
 class WebOverlayPill extends StatefulWidget {
   const WebOverlayPill({
     super.key,
