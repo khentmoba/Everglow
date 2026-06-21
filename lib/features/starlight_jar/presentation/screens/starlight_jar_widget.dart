@@ -61,6 +61,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
   Future<void> _showDropDialog() async {
     final String? content = await showDialog<String>(
       context: context,
+      barrierColor: Colors.transparent,
       builder: (context) => const DropStarDialog(),
     );
 
@@ -162,6 +163,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
   Future<void> _showNoteDialog(StarNote note) async {
     await showDialog(
       context: context,
+      barrierColor: Colors.transparent,
       barrierDismissible: false,
       builder: (context) => NoteDisplayDialog(note: note),
     );
@@ -197,7 +199,9 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
           ),
 
           // Floating Stars (from Stream) with organic drift animation
-          IgnorePointer(
+          ClipPath(
+            clipper: JarClipper(),
+            child: IgnorePointer(
             child: AnimatedBuilder(
             animation: _idleController,
             builder: (context, _) {
@@ -214,12 +218,19 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
                       final tX = t * m.speedX;
                       final tY = t * m.speedY;
 
-                      final dx = m.baseX
+                      final rawDx = m.baseX
                         + sin(tX * 2 * pi + m.phaseX) * m.ampX
                         + sin(tX * 2 * pi * 0.37 + m.phaseX * 1.7) * m.ampX * 0.3;
-                      final dy = m.baseY
+                      final rawDy = m.baseY
                         + cos(tY * 2 * pi + m.phaseY) * m.ampY
                         + cos(tY * 2 * pi * 0.43 + m.phaseY * 1.3) * m.ampY * 0.25;
+                      const jarLeft = 60.0;
+                      const jarTop = 75.0;
+                      const jarRight = 340.0;
+                      const jarBottom = 425.0;
+                      const halfSize = 12.0;
+                      final dx = rawDx.clamp(jarLeft + halfSize, jarRight - halfSize);
+                      final dy = rawDy.clamp(jarTop + halfSize, jarBottom - halfSize);
                       final rotation = m.baseRotation + sin(t * 2 * pi * m.rotSpeed) * 0.5;
                       final opacity = 0.55 + sin(t * 2 * pi * 2.3 + m.twinklePhase) * 0.35;
                       final scale = 0.85 + sin(t * 2 * pi * 1.2 + m.phaseX) * 0.15;
@@ -236,6 +247,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
                 },
               );
             },
+          ),
           ),
           ),
 
@@ -319,10 +331,10 @@ class _StarMotion {
 
   _StarMotion.fromSeed(int seed) {
     final r = Random(seed);
-    baseX = 90 + r.nextDouble() * 190;
-    baseY = 120 + r.nextDouble() * 200;
-    ampX = 15 + r.nextDouble() * 20;
-    ampY = 12 + r.nextDouble() * 18;
+    baseX = 103 + r.nextDouble() * 194;
+    baseY = 112 + r.nextDouble() * 276;
+    ampX = 10 + r.nextDouble() * 14;
+    ampY = 8 + r.nextDouble() * 12;
     speedX = 0.55 + r.nextDouble() * 0.45;
     speedY = 0.4 + r.nextDouble() * 0.4;
     phaseX = r.nextDouble() * 2 * pi;
