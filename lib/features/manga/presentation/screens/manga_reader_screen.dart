@@ -303,6 +303,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
               child: Image.network(
                 _service.proxiedImageUrl(url),
                 fit: BoxFit.contain,
+                cacheWidth: 1200,
                 loadingBuilder: (context, child, loadingProgress) {
                   if (loadingProgress == null) return child;
                   return Center(
@@ -346,6 +347,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
           return Image.network(
             _service.proxiedImageUrl(url),
             fit: BoxFit.contain,
+            cacheWidth: 1200,
             loadingBuilder: (context, child, loadingProgress) {
               if (loadingProgress == null) return child;
               return Container(
