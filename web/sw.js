@@ -1,4 +1,4 @@
-const BUILD = '__AUTO_GENERATED_BY_DEPLOY_SCRIPT__';
+const BUILD = '5.3.0+1-61d22f9';
 let isUpdate = false;
 
 self.addEventListener('install', (event) => {
@@ -16,7 +16,7 @@ self.addEventListener('activate', (event) => {
       if (isUpdate) {
         return self.clients.matchAll().then((clients) => {
           clients.forEach((client) => {
-            client.postMessage({ type: 'NEW_VERSION', version: BUILD });
+            client.postMessage({ type: 'NEW_VERSION', version: '5.3.0+1-61d22f9' });
           });
         });
       }
