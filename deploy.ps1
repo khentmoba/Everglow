@@ -50,4 +50,4 @@ Write-Host "Deploying to Firebase..."
 firebase deploy --only hosting
 if ($LASTEXITCODE -ne 0) { Write-Host "Deploy failed"; exit 1 }
 
-Write-Host "Done. BUILD=$buildConst — users will get fresh cache."
+Write-Host "Done. BUILD=$buildConst - users will get fresh cache."
