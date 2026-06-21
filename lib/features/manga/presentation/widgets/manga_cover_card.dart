@@ -59,6 +59,7 @@ class MangaCoverCard extends StatelessWidget {
                   Image.network(
                     item.coverUrl,
                     fit: BoxFit.cover,
+                    cacheWidth: 300,
                     errorBuilder: (context, error, stackTrace) =>
                         _buildPlaceholder(),
                   )

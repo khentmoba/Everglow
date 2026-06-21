@@ -45,6 +45,7 @@ class MediaPosterCard extends StatelessWidget {
                   Image.network(
                     item.posterUrl,
                     fit: BoxFit.cover,
+                    cacheWidth: 400,
                     errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
                   )
                 else

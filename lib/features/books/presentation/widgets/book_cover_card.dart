@@ -49,6 +49,7 @@ class BookCoverCard extends StatelessWidget {
                 Image.network(
                   item.coverUrl,
                   fit: BoxFit.cover,
+                  cacheWidth: 300,
                   errorBuilder: (_, _, _) => _placeholder(),
                 )
               else
