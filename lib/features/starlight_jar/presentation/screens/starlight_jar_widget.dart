@@ -200,7 +200,10 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
 
           // Floating Stars (from Stream) with organic drift animation
           ClipPath(
-            clipper: JarClipper(),
+            clipper: const JarClipperAtOffset(
+              offset: Offset(60, 75),
+              size: Size(280, 350),
+            ),
             child: IgnorePointer(
             child: AnimatedBuilder(
             animation: _idleController,
@@ -228,9 +231,9 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
                       const jarTop = 75.0;
                       const jarRight = 340.0;
                       const jarBottom = 425.0;
-                      const halfSize = 12.0;
-                      final dx = rawDx.clamp(jarLeft + halfSize, jarRight - halfSize);
-                      final dy = rawDy.clamp(jarTop + halfSize, jarBottom - halfSize);
+                      const maxSize = 24.0;
+                      final dx = rawDx.clamp(jarLeft, jarRight - maxSize);
+                      final dy = rawDy.clamp(jarTop, jarBottom - maxSize);
                       final rotation = m.baseRotation + sin(t * 2 * pi * m.rotSpeed) * 0.5;
                       final opacity = 0.55 + sin(t * 2 * pi * 2.3 + m.twinklePhase) * 0.35;
                       final scale = 0.85 + sin(t * 2 * pi * 1.2 + m.phaseX) * 0.15;
@@ -331,10 +334,10 @@ class _StarMotion {
 
   _StarMotion.fromSeed(int seed) {
     final r = Random(seed);
-    baseX = 103 + r.nextDouble() * 194;
-    baseY = 112 + r.nextDouble() * 276;
-    ampX = 10 + r.nextDouble() * 14;
-    ampY = 8 + r.nextDouble() * 12;
+    baseX = 100 + r.nextDouble() * 176;
+    baseY = 110 + r.nextDouble() * 246;
+    ampX = 8 + r.nextDouble() * 12;
+    ampY = 6 + r.nextDouble() * 10;
     speedX = 0.55 + r.nextDouble() * 0.45;
     speedY = 0.4 + r.nextDouble() * 0.4;
     phaseX = r.nextDouble() * 2 * pi;
