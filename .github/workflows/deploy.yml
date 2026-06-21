@@ -1,4 +1,4 @@
-name: Build & Deploy to GitHub Pages
+name: Build & Deploy to GitHub Pages + Firebase Hosting
 
 on:
   push:
@@ -30,10 +30,13 @@ jobs:
       - name: Build web
         run: flutter build web --release --base-href "/Everglow/"
 
-      - name: Upload artifact
+      - name: Upload artifact for GitHub Pages
         uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
+
+      - name: Deploy to Firebase Hosting
+        run: npx firebase-tools deploy --only hosting --token "${{ secrets.FIREBASE_TOKEN }}"
 
   deploy:
     needs: build
