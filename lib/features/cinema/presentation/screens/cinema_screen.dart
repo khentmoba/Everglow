@@ -197,10 +197,11 @@ class _CinemaScreenState extends State<CinemaScreen>
   }
 
   void _subscribeToWatchList(String userName) {
-    _watchlistSubscription = _tmdbService.getWatchListStream(userName).listen((items) {
+    _watchlistSubscription = _tmdbService.getWatchListStream(userName).listen((items) async {
       if (mounted) {
+        final refreshed = await _tmdbService.refreshAnimePosters(items);
         setState(() {
-          _watchlist = items;
+          _watchlist = refreshed;
           _splitWatchlists();
         });
       }
