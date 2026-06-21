@@ -9,8 +9,10 @@ $buildConst = "$version-$commitHash"
 
 $swContent = @"
 const BUILD = '$buildConst';
+let isUpdate = false;
 
-self.addEventListener('install', () => {
+self.addEventListener('install', (event) => {
+  isUpdate = !!self.registration.active;
   self.skipWaiting();
 });
 
@@ -21,11 +23,13 @@ self.addEventListener('activate', (event) => {
     }).then(() => {
       return self.clients.claim();
     }).then(() => {
-      return self.clients.matchAll().then((clients) => {
-        clients.forEach((client) => {
-          client.postMessage({ type: 'NEW_VERSION', version: '$buildConst' });
+      if (isUpdate) {
+        return self.clients.matchAll().then((clients) => {
+          clients.forEach((client) => {
+            client.postMessage({ type: 'NEW_VERSION', version: '$buildConst' });
+          });
         });
-      });
+      }
     })
   );
 });
