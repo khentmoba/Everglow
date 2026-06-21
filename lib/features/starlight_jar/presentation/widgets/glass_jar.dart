@@ -104,3 +104,37 @@ class JarClipper extends CustomClipper<Path> {
   @override
   bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }
+
+class JarClipperAtOffset extends CustomClipper<Path> {
+  final Offset offset;
+  final Size size;
+  final double topRadius;
+  final double bottomRadius;
+
+  const JarClipperAtOffset({
+    required this.offset,
+    required this.size,
+    this.topRadius = 40,
+    this.bottomRadius = 80,
+  });
+
+  @override
+  Path getClip(Size _) {
+    return Path()
+      ..addRRect(RRect.fromRectAndCorners(
+        Rect.fromLTWH(offset.dx, offset.dy, size.width, size.height),
+        topLeft: Radius.circular(topRadius),
+        topRight: Radius.circular(topRadius),
+        bottomLeft: Radius.circular(bottomRadius),
+        bottomRight: Radius.circular(bottomRadius),
+      ));
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) {
+    if (oldClipper is JarClipperAtOffset) {
+      return oldClipper.offset != offset || oldClipper.size != size;
+    }
+    return true;
+  }
+}
