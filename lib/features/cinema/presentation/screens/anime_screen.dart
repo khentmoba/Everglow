@@ -231,9 +231,11 @@ class _AnimeScreenState extends State<AnimeScreen>
     if (userName.isEmpty) return;
 
     _watchlistSub?.cancel();
-    _watchlistSub = _tmdbService.getAnimeWatchListStream(userName).listen((items) {
+    _watchlistSub = _tmdbService.getAnimeWatchListStream(userName).listen((items) async {
       if (!mounted) return;
-      setState(() => _library = items);
+      final refreshed = await _tmdbService.refreshAnimePosters(items);
+      if (!mounted) return;
+      setState(() => _library = refreshed);
     });
   }
 
