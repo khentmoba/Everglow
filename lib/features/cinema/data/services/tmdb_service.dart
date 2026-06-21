@@ -661,12 +661,13 @@ class TMDBService {
     return updated;
   }
 
-  /// For Jikan-sourced anime items that have a TMDB poster (empty or
-  /// backfilled from a potentially wrong ani.zip mapping), fetch the
-  /// correct poster from AniList/Jikan using the MAL ID stored in tmdbId.
+  /// For anime items that have a TMDB poster (empty or backfilled from
+  /// a potentially wrong ani.zip mapping), fetch the correct poster from
+  /// AniList/Jikan using the MAL ID stored in tmdbId and verify the title
+  /// matches before saving.
   Future<List<MediaItem>> refreshAnimePosters(List<MediaItem> items) async {
     final needsRefresh = items
-        .where((i) => i.source == 'jikan' && i.tmdbId > 0)
+        .where((i) => i.isAnime && i.tmdbId > 0)
         .where((i) => i.posterPath.isEmpty || i.posterPath.contains('image.tmdb.org'))
         .toList();
     if (needsRefresh.isEmpty) return items;
@@ -680,12 +681,18 @@ class TMDBService {
         if (correctPoster == null || correctPoster.isEmpty) continue;
         if (correctPoster == item.posterPath) continue;
 
+        // Verify the AniList title matches the stored title to avoid
+        // saving a wrong poster when tmdbId isn't actually a MAL ID.
+        final anilistTitle = detail?.titleEnglish ?? detail?.titleRomaji ?? '';
+        if (anilistTitle.isNotEmpty && !_titlesMatch(item.title, anilistTitle)) continue;
+
         final idx = updated.indexWhere((u) => u.id == item.id);
         if (idx != -1) {
           updated[idx] = updated[idx].copyWith(posterPath: correctPoster);
         }
         await _firestore.collection('watch_list').doc(item.id).update({
           'posterPath': correctPoster,
+          'source': 'jikan',
         });
       } catch (e) {
         print('Refresh anime poster error for ${item.title}: $e');

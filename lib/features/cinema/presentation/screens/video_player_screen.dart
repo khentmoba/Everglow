@@ -291,6 +291,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         isAnime: widget.isAnime,
         userName: userName,
         addedAt: DateTime.now(),
+        source: widget.isAnime ? 'jikan' : 'tmdb',
       ),
       userName,
       season: widget.season,
