@@ -619,7 +619,7 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
 
   Widget _buildChallengeBanner(HexGLChallenge challenge) {
     final auth = context.read<AuthService>();
-    final isKhent = auth.uid == AuthService.khentUid;
+    final isKhent = auth.currentUser == 'khentsgdz';
     final opponent = isKhent ? 'Clair' : 'Khent';
     return BouncyButton(
       onTap: () => _respondToHexGLChallenge(challenge),

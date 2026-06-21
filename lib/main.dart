@@ -50,7 +50,7 @@ void main() async {
     (error, stack) {
       final msg = error.toString();
       if (msg.contains('onSnapshotUnsubscribe') || msg.contains('FIRESTORE INTERNAL ASSERTION')) {
-        if (kDebugMode) debugPrint('[Firestore] Swallowed known race condition: $error');
+        if (kDebugMode) debugPrint('[Firestore] Known race condition (suppressed): $error');
       } else {
         if (kDebugMode) debugPrint('[Unhandled] $error\n$stack');
       }

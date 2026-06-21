@@ -32,7 +32,7 @@ class BooksPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ourBooksService = OurBooksService();
+    final ourBooksService = context.read<OurBooksService>();
     final openLibraryService = OpenLibraryService();
     final auth = context.watch<AuthService>();
     final userName = auth.currentUser ?? '';
@@ -85,6 +85,19 @@ class _BooksHeaderState extends State<_BooksHeader> {
   @override
   void initState() {
     super.initState();
+    _subscribe();
+  }
+
+  @override
+  void didUpdateWidget(covariant _BooksHeader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.ourBooksService != widget.ourBooksService) {
+      _sub?.cancel();
+      _subscribe();
+    }
+  }
+
+  void _subscribe() {
     _sub = widget.ourBooksService.getOurBooksStream().listen((items) {
       if (!mounted) return;
       setState(() => _count = items.length);
@@ -132,6 +145,21 @@ class _OurBooksSubrowState extends State<_OurBooksSubrow> {
   @override
   void initState() {
     super.initState();
+    _subscribe();
+  }
+
+  @override
+  void didUpdateWidget(covariant _OurBooksSubrow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.ourBooksService != widget.ourBooksService ||
+        oldWidget.adder != widget.adder) {
+      _sub?.cancel();
+      setState(() { _items = const []; _hasLoaded = false; });
+      _subscribe();
+    }
+  }
+
+  void _subscribe() {
     _sub = widget.ourBooksService
         .getOurBooksByAdderStream(widget.adder)
         .listen((items) {
@@ -229,6 +257,12 @@ class _PersonalBooksShelf extends StatelessWidget {
           : StreamBuilder<List<BookItem>>(
               stream: openLibraryService.getReadListStream(userName),
               builder: (context, snapshot) {
+                if (snapshot.hasError || (!snapshot.hasData && snapshot.connectionState == ConnectionState.done)) {
+                  return ShelfEmpty(
+                    accent: ShelfAccent.books,
+                    message: 'Could not load books. Tap to retry.',
+                  );
+                }
                 if (!snapshot.hasData) {
                   return const ShelfMarquee(
                     hasLoaded: false,

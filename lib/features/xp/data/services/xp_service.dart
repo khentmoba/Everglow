@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:everglow/core/audio/audio_service.dart';
+import 'package:everglow/core/utils/firestore_stream_utils.dart';
 import '../../domain/models/user_progress.dart';
 
 class XPService {
@@ -10,16 +11,19 @@ class XPService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   Stream<UserProgress?> watchProgress(String uid) {
-    return _firestore
-        .collection('users')
-        .doc(uid)
-        .collection('progress')
-        .doc('main')
-        .snapshots()
-        .map((snapshot) {
-      if (!snapshot.exists) return null;
-      return UserProgress.fromMap(uid, snapshot.data()!);
-    });
+    return withFirestoreTimeout(
+      _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('progress')
+          .doc('main')
+          .snapshots()
+          .map((snapshot) {
+        if (!snapshot.exists) return null;
+        return UserProgress.fromMap(uid, snapshot.data()!);
+      }),
+      label: 'xp-progress',
+    );
   }
 
   Future<void> addXp(String uid, int amount) async {

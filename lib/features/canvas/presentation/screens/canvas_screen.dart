@@ -27,6 +27,8 @@ class _CanvasScreenState extends State<CanvasScreen> {
   DateTime? _lastSyncTime;
   DateTime? _lastDoodlePresenceAt;
   PresenceService? _presenceService;
+  DragStartDetails? _pendingPanStartDetails;
+  String? _pendingPanUserId;
 
   final List<DoodleStroke> _sessionStrokes = []; 
   final List<DoodleStroke> _redoStack = [];
@@ -92,38 +94,64 @@ class _CanvasScreenState extends State<CanvasScreen> {
       body: Stack(
         children: [
           // 1. Combined Strokes
-          StreamBuilder<List<DoodleStroke>>(
-            stream: _canvasService.getStrokesStream(),
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return Center(
-                  child: Text(
-                    'Error: ${snapshot.error}',
-                    style: GoogleFonts.outfit(color: Colors.redAccent),
-                  ),
-                );
-              }
-              
-              final historyStrokes = snapshot.data ?? [];
-              
-              // Combine history with live strokes from others
-              final othersLiveStrokes = _liveStrokes.where((s) => s.userId != userId).toList();
-              final allStrokes = [...historyStrokes, ...othersLiveStrokes];
+          Positioned.fill(
+            child: StreamBuilder<List<DoodleStroke>>(
+              stream: _canvasService.getStrokesStream(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text(
+                      'Error: ${snapshot.error}',
+                      style: GoogleFonts.outfit(color: Colors.redAccent),
+                    ),
+                  );
+                }
 
-              return RepaintBoundary(
-                child: CustomPaint(
-                  key: _canvasKey,
-                  painter: CanvasPainter(
-                    strokes: allStrokes,
-                    activeStroke: _activeStroke,
-                  ),
-                  size: Size.infinite,
-                ),
-              );
-            },
+                final isLoading = !snapshot.hasData;
+                final historyStrokes = snapshot.data ?? [];
+
+                // Combine history with live strokes from others
+                final othersLiveStrokes = _liveStrokes.where((s) => s.userId != userId).toList();
+                final allStrokes = [...historyStrokes, ...othersLiveStrokes];
+
+                return Stack(
+                  children: [
+                    RepaintBoundary(
+                      child: CustomPaint(
+                        key: _canvasKey,
+                        painter: CanvasPainter(
+                          strokes: allStrokes,
+                          activeStroke: _activeStroke,
+                        ),
+                        size: Size.infinite,
+                      ),
+                    ),
+                    if (isLoading)
+                      const Center(
+                        child: CircularProgressIndicator(
+                          color: AppTheme.roseQuartz,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    if (!isLoading && allStrokes.isEmpty && _activeStroke == null)
+                      Center(
+                        child: Text(
+                          'Draw something together',
+                          style: GoogleFonts.cormorantGaramond(
+                            color: AppTheme.roseQuartz.withOpacity(0.18),
+                            fontSize: 26,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
           ),
 
-          // 2. Gesture Detector - Fix: use a non-fully-transparent color for reliable hits
+          // 2. Gesture Detector
           Positioned.fill(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -212,10 +240,23 @@ class _CanvasScreenState extends State<CanvasScreen> {
     if (_activeTool == CanvasTool.eraser) {
       _handleEraserAction(details.globalPosition);
     } else {
+      final RenderBox? box = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
+      if (box == null) {
+        _pendingPanStartDetails = details;
+        _pendingPanUserId = userId;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final pending = _pendingPanStartDetails;
+          final pendingUid = _pendingPanUserId;
+          if (pending != null && pendingUid != null) {
+            _pendingPanStartDetails = null;
+            _pendingPanUserId = null;
+            _onPanStart(pending, pendingUid);
+          }
+        });
+        return;
+      }
+
       setState(() {
-        final RenderBox? box = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
-        if (box == null) return;
-        
         final localPosition = box.globalToLocal(details.globalPosition);
         
         _activeStroke = DoodleStroke(

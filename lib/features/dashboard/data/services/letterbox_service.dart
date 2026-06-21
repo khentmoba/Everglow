@@ -1,18 +1,26 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:everglow/core/utils/firestore_stream_utils.dart';
 import '../../domain/models/hidden_note.dart';
 
 class LetterboxService {
+  static final LetterboxService _instance = LetterboxService._internal();
+  factory LetterboxService() => _instance;
+  LetterboxService._internal();
+
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   // Stream of all notes, shared globally, ordered by unlock date
   Stream<List<HiddenNote>> get notes {
-    return _db
-        .collection('notes')
-        .orderBy('unlockDate', descending: false)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) => HiddenNote.fromFirestore(doc)).toList();
-    });
+    return withFirestoreTimeout(
+      _db
+          .collection('notes')
+          .orderBy('unlockDate', descending: false)
+          .snapshots()
+          .map((snapshot) {
+        return snapshot.docs.map((doc) => HiddenNote.fromFirestore(doc)).toList();
+      }),
+      label: 'letterbox-notes',
+    );
   }
 
   // Persist read state to Firestore

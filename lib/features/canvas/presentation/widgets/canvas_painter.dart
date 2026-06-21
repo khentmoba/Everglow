@@ -14,7 +14,11 @@ class CanvasPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Phase 1: Draw blueprint dot-grid background
+    // Phase 1: Subtle canvas tint so the drawing area is distinguishable
+    final bgPaint = Paint()..color = AppTheme.velvet.withOpacity(0.25);
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
+
+    // Phase 2: Draw blueprint dot-grid background
     final List<Offset> gridPoints = [];
     const double spacing = 28.0;
     for (double x = spacing; x < size.width; x += spacing) {
@@ -24,8 +28,8 @@ class CanvasPainter extends CustomPainter {
     }
     if (gridPoints.isNotEmpty) {
       final gridPaint = Paint()
-        ..color = AppTheme.roseQuartz.withOpacity(0.04)
-        ..strokeWidth = 2.0
+        ..color = AppTheme.roseQuartz.withOpacity(0.10)
+        ..strokeWidth = 1.5
         ..strokeCap = StrokeCap.round;
       canvas.drawPoints(PointMode.points, gridPoints, gridPaint);
     }

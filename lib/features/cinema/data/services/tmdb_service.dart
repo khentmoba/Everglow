@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:everglow/core/constants/api_keys.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
+import 'package:everglow/features/cinema/data/services/ani_zip_service.dart';
 
 class TMDBService {
   final String _baseUrl = 'https://api.themoviedb.org/3';
@@ -613,14 +614,27 @@ class TMDBService {
 
   /// Backfill missing posterPath for items in a list.
   /// Returns the updated list with posters fetched where possible.
+  ///
+  /// For Jikan-sourced anime items, `tmdbId` is actually a MAL ID, not
+  /// a TMDB ID. We resolve the real TMDB ID via ani.zip first so we
+  /// don't fetch the poster for a completely unrelated title.
   Future<List<MediaItem>> backfillMissingPosters(List<MediaItem> items) async {
     final needsPoster = items.where((i) => i.posterPath.isEmpty && i.tmdbId > 0).toList();
     if (needsPoster.isEmpty) return items;
 
+    final aniZipService = AniZipService();
     final updated = List<MediaItem>.from(items);
     for (final item in needsPoster) {
       try {
-        final posterUrl = await fetchPosterUrl(item.tmdbId, item.mediaType);
+        // Jikan/AniList-sourced anime store MAL IDs in tmdbId.
+        // Resolve the real TMDB ID via ani.zip before fetching the poster.
+        int tmdbId = item.tmdbId;
+        if (item.source == 'jikan') {
+          final resolved = await aniZipService.fetchTmdbId(item.tmdbId);
+          if (resolved == null) continue; // no TMDB mapping → keep placeholder
+          tmdbId = resolved;
+        }
+        final posterUrl = await fetchPosterUrl(tmdbId, item.mediaType);
         if (posterUrl.isNotEmpty) {
           final idx = updated.indexWhere((u) => u.id == item.id);
           if (idx != -1) {
@@ -695,16 +709,23 @@ class TMDBService {
         // dashboard cards always have the latest poster, title, etc.
         // (Items saved before posterPath was stored get their poster
         //  on the next status change rather than staying blank forever.)
-        await collection.doc(existing.docs.first.id).update({
+        //
+        // Only overwrite posterPath when the incoming item actually has
+        // one — prevents an empty posterPath (e.g. from a stale Jikan
+        // search result) from clobbering an already-saved poster.
+        final updateData = <String, dynamic>{
           'status': status,
           'isAnime': isAnime,
           'addedAt': Timestamp.now(),
-          'posterPath': item.posterPath,
           'backdropPath': item.backdropPath,
           'title': item.title,
           'year': item.year,
           'mediaType': item.mediaType,
-        });
+        };
+        if (item.posterPath.isNotEmpty) {
+          updateData['posterPath'] = item.posterPath;
+        }
+        await collection.doc(existing.docs.first.id).update(updateData);
       } else {
         // Create new entry scoped to this user
         await collection.add(item

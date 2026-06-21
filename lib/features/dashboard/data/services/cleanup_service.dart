@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../../services/auth_service.dart';
 
 class CleanupService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -19,16 +18,23 @@ class CleanupService {
       }
       print("CLEANUP: Deleted ${starDocs.docs.length} stars.");
 
-      // 2. Delete Chat Messages
-      final chatDocs = await _db
-          .collection('sanctuary_messages')
-          .where('senderUid', isEqualTo: AuthService.clairUid)
+      // 2. Delete Chat Messages — find Clair's UID dynamically from /users
+      final clairUser = await _db
+          .collection('users')
+          .where('username', isEqualTo: 'clairjassen')
+          .limit(1)
           .get();
-      
-      for (var doc in chatDocs.docs) {
-        await doc.reference.delete();
+      if (clairUser.docs.isNotEmpty) {
+        final clairUid = clairUser.docs.first.id;
+        final chatDocs = await _db
+            .collection('sanctuary_messages')
+            .where('senderUid', isEqualTo: clairUid)
+            .get();
+        for (var doc in chatDocs.docs) {
+          await doc.reference.delete();
+        }
+        print("CLEANUP: Deleted ${chatDocs.docs.length} chat messages.");
       }
-      print("CLEANUP: Deleted ${chatDocs.docs.length} chat messages.");
 
       // 3. Delete Mood Entries
       final moodDocs = await _db
@@ -41,14 +47,16 @@ class CleanupService {
       }
       print("CLEANUP: Deleted ${moodDocs.docs.length} mood entries.");
 
-      // 4. Reset XP Progress
-      await _db
-          .collection('users')
-          .doc(AuthService.clairUid)
-          .collection('progress')
-          .doc('main')
-          .delete();
-      print("CLEANUP: Reset XP progress for Clair.");
+      // 4. Reset XP Progress — find Clair's UID dynamically
+      if (clairUser.docs.isNotEmpty) {
+        await _db
+            .collection('users')
+            .doc(clairUser.docs.first.id)
+            .collection('progress')
+            .doc('main')
+            .delete();
+        print("CLEANUP: Reset XP progress for Clair.");
+      }
 
       print("CLEANUP COMPLETE: Clair Jassen is now a fresh user.");
     } catch (e) {

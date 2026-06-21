@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:everglow/core/utils/firestore_stream_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/book_item.dart';
@@ -18,17 +19,20 @@ class OurBooksService {
   static const Set<String> coupleUsernames = {'khentsgdz', 'clairjassen'};
 
   Stream<List<OurBooksItem>> getOurBooksStream() {
-    return _firestore
-        .collection(_collection)
-        .snapshots()
-        .map((snapshot) {
-      final items = snapshot.docs
-          .map((doc) => OurBooksItem.fromFirestore(doc.data(), doc.id))
-          .toList();
-      items.sort((a, b) => b.addedAt.compareTo(a.addedAt));
-      _writeCache(items);
-      return items;
-    });
+    return withFirestoreTimeout(
+      _firestore
+          .collection(_collection)
+          .snapshots()
+          .map((snapshot) {
+        final items = snapshot.docs
+            .map((doc) => OurBooksItem.fromFirestore(doc.data(), doc.id))
+            .toList();
+        items.sort((a, b) => b.addedAt.compareTo(a.addedAt));
+        _writeCache(items);
+        return items;
+      }),
+      label: 'our-books',
+    );
   }
 
   /// Stream of "Our Books" entries filtered to the books added by
@@ -36,17 +40,20 @@ class OurBooksService {
   /// partner sees their own additions alongside the other's.
   Stream<List<OurBooksItem>> getOurBooksByAdderStream(String adder) {
     if (adder.isEmpty) return Stream.value(const <OurBooksItem>[]);
-    return _firestore
-        .collection(_collection)
-        .where('addedBy', isEqualTo: adder)
-        .snapshots()
-        .map((snapshot) {
-      final items = snapshot.docs
-          .map((doc) => OurBooksItem.fromFirestore(doc.data(), doc.id))
-          .toList();
-      items.sort((a, b) => b.addedAt.compareTo(a.addedAt));
-      return items;
-    });
+    return withFirestoreTimeout(
+      _firestore
+          .collection(_collection)
+          .where('addedBy', isEqualTo: adder)
+          .snapshots()
+          .map((snapshot) {
+        final items = snapshot.docs
+            .map((doc) => OurBooksItem.fromFirestore(doc.data(), doc.id))
+            .toList();
+        items.sort((a, b) => b.addedAt.compareTo(a.addedAt));
+        return items;
+      }),
+      label: 'our-books-$adder',
+    );
   }
 
   Future<List<OurBooksItem>> getCachedOurBooks() async {

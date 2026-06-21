@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:everglow/core/utils/firestore_stream_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:everglow/features/books/data/models/book_item.dart';
 
@@ -290,18 +291,21 @@ class OpenLibraryService {
   }
 
   Stream<List<BookItem>> getReadListStream(String userName) {
-    return _firestore
-        .collection('read_list')
-        .where('userName', isEqualTo: userName)
-        .snapshots()
-        .map((snapshot) {
-      final items = snapshot.docs
-          .map((doc) => BookItem.fromFirestore(doc.data(), doc.id))
-          .toList()
-        ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
-      cacheReadList(items, userName);
-      return items;
-    });
+    return withFirestoreTimeout(
+      _firestore
+          .collection('read_list')
+          .where('userName', isEqualTo: userName)
+          .snapshots()
+          .map((snapshot) {
+        final items = snapshot.docs
+            .map((doc) => BookItem.fromFirestore(doc.data(), doc.id))
+            .toList()
+          ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
+        cacheReadList(items, userName);
+        return items;
+      }),
+      label: 'read-list-$userName',
+    );
   }
 
   // ── LOCAL CACHE ────────────────────────────────────────────────────

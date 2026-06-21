@@ -85,7 +85,7 @@ class PresenceService {
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {
-      if (kDebugMode) print('PresenceService setOnline error: $e');
+      print('PresenceService.setOnline FAILED for $uid ($username): $e');
     }
   }
 
@@ -101,7 +101,7 @@ class PresenceService {
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {
-      if (kDebugMode) print('PresenceService setOffline error: $e');
+      print('PresenceService.setOffline FAILED for $uid: $e');
     }
   }
 

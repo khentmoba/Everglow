@@ -81,20 +81,51 @@ class _TimelineViewState extends State<TimelineView> {
             stream: _milestoneService.milestones,
             builder: (context, snapshot) {
               if (snapshot.hasError) {
-                print('Milestone Stream Error: ${snapshot.error}');
-                return const SizedBox.shrink();
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.cloud_off_rounded, size: 32, color: AppTheme.roseQuartz.withValues(alpha: 0.4)),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Could not load memories',
+                        style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 13),
+                      ),
+                    ],
+                  ),
+                );
               }
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator(color: AppTheme.deepRose));
+
+              if (!snapshot.hasData && snapshot.connectionState == ConnectionState.waiting) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppTheme.deepRose.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Loading memories...',
+                        style: GoogleFonts.outfit(
+                          color: AppTheme.roseQuartz.withValues(alpha: 0.5),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
               }
 
               final milestones = snapshot.data ?? [];
               if (milestones.isEmpty) {
-                print('Milestone List is empty');
                 return const SizedBox.shrink();
               }
-              
-              print('📚 Loaded ${milestones.length} milestones: ${milestones.map((m) => m.title).join(", ")}');
 
               return PageView.builder(
                 controller: _pageController,

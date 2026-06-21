@@ -107,14 +107,13 @@ service cloud.firestore {
     }
 
     // ─── Sanctuary Chat (dashboard) ────────────────────────────────
-    // Hard-coded to the two known couple uids. Mirrors the rule
-    // currently managed in the Firebase console, redeclared here
-    // so the repo is the source of truth.
+    // Dynamic couple-based access. A user is considered a "couple
+    // user" if a document exists in /users/{uid}. This is resilient
+    // to Firebase Auth account recreations — the user just needs to
+    // re-login and their new UID will be written to the users
+    // collection automatically.
     match /sanctuary_messages/{messageId} {
-      allow read, write: if isAuthenticated() && (
-        request.auth.uid == 'bqS6Y5JlzuUB1YcbzUUK7MRpEqA2' ||
-        request.auth.uid == 'nitw0mxAR9WtxtzQtLNHYWRjENj2'
-      );
+      allow read, write: if isAuthenticated() && isCoupleUser(request.auth.uid);
     }
 
     // ─── General app collections (authenticated access only) ──────
@@ -206,4 +205,11 @@ function isValidVoiceRoomShape(data) {
       data.state in ['ringing', 'calling', 'connected', 'ended'] &&
       (!('offer' in data) || data.offer is string) &&
       (!('answer' in data) || data.answer is string);
+}
+
+// Returns true if a document exists at /users/{uid}. This replaces
+// the previous hard-coded UID check and is resilient to account
+// recreations — the app writes the user doc on every login.
+function isCoupleUser(uid) {
+  return exists(/databases/$(database)/documents/users/$(uid));
 }
