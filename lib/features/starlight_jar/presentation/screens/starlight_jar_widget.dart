@@ -23,6 +23,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
   late AnimationController _shakeController;
   late AnimationController _idleController;
   final Random _random = Random();
+  final Map<int, _StarMotion> _motionCache = {};
   
   // For the "drop" animation
   StarNote? _droppingStar;
@@ -44,7 +45,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
     );
     _idleController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 4),
+      duration: const Duration(seconds: 14),
     )..repeat();
   }
 
@@ -113,11 +114,28 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
     if (_shakeController.isAnimating || _floatController?.isAnimating == true) return;
 
     await _shakeController.forward(from: 0);
-    
+
+    if (!mounted) return;
     final randomNote = await _service.getRandomStarNote();
+    if (!mounted) return;
+
     if (randomNote != null) {
       _startFloatAnimation(randomNote);
+    } else {
+      if (!mounted) return;
+      _showEmptyJarMessage();
     }
+  }
+
+  void _showEmptyJarMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text("No stars in the jar yet — drop one first!"),
+        backgroundColor: AppTheme.velvet,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   void _startFloatAnimation(StarNote note) {
@@ -148,8 +166,9 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
       builder: (context) => NoteDisplayDialog(note: note),
     );
 
-    // Return star to jar
+    if (!mounted) return;
     await _floatController!.reverse();
+    if (!mounted) return;
     setState(() {
       _floatingStar = null;
     });
@@ -177,36 +196,40 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
             ),
           ),
 
-          // Piled Stars (from Stream) with idle bob animation
-          AnimatedBuilder(
+          // Floating Stars (from Stream) with organic drift animation
+          IgnorePointer(
+            child: AnimatedBuilder(
             animation: _idleController,
             builder: (context, _) {
               return StreamBuilder<List<StarNote>>(
                 stream: _starNotesStream,
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) return const SizedBox.shrink();
-                  
+
                   final notes = snapshot.data!;
                   final t = _idleController.value;
                   return Stack(
                     children: notes.map((note) {
-                      final rand = Random(note.id.hashCode);
-                      final baseX = 120.0 + rand.nextDouble() * 160;
-                      final baseY = 300.0 + rand.nextDouble() * 100;
-                      final phase = rand.nextDouble() * 2 * pi;
-                      final bobAmp = 2.0 + rand.nextDouble() * 3.0;
+                      final m = _getMotion(note.id.hashCode);
+                      final tX = t * m.speedX;
+                      final tY = t * m.speedY;
 
-                      final dx = baseX + sin(t * 2 * pi + phase) * bobAmp;
-                      final dy = baseY + cos(t * 2 * pi + phase * 1.3) * bobAmp * 0.6;
-                      final rotation = rand.nextDouble() * pi + sin(t * 2 * pi + phase) * 0.1;
-                      final color = _getPastelColor(rand);
-                      final scale = 1.0 + sin(t * 2 * pi + phase * 0.7) * 0.08;
+                      final dx = m.baseX
+                        + sin(tX * 2 * pi + m.phaseX) * m.ampX
+                        + sin(tX * 2 * pi * 0.37 + m.phaseX * 1.7) * m.ampX * 0.3;
+                      final dy = m.baseY
+                        + cos(tY * 2 * pi + m.phaseY) * m.ampY
+                        + cos(tY * 2 * pi * 0.43 + m.phaseY * 1.3) * m.ampY * 0.25;
+                      final rotation = m.baseRotation + sin(t * 2 * pi * m.rotSpeed) * 0.5;
+                      final opacity = 0.55 + sin(t * 2 * pi * 2.3 + m.twinklePhase) * 0.35;
+                      final scale = 0.85 + sin(t * 2 * pi * 1.2 + m.phaseX) * 0.15;
 
                       return StarWidget(
-                        color: color,
+                        color: m.color,
                         position: Offset(dx, dy),
                         rotation: rotation,
                         size: 24 * scale,
+                        opacity: opacity.clamp(0.0, 1.0),
                       );
                     }).toList(),
                   );
@@ -214,37 +237,41 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
               );
             },
           ),
+          ),
 
           // The Animating "Drop" Star
           if (_droppingStar != null && _dropAnimation != null)
-            AnimatedBuilder(
-              animation: _dropAnimation!,
-              builder: (context, child) {
-                return StarWidget(
-                  color: AppTheme.blushGold,
-                  position: _dropAnimation!.value,
-                  rotation: _dropController!.value * pi * 2,
-                );
-              },
+            IgnorePointer(
+              child: AnimatedBuilder(
+                animation: _dropAnimation!,
+                builder: (context, child) {
+                  return StarWidget(
+                    color: AppTheme.blushGold,
+                    position: _dropAnimation!.value,
+                    rotation: _dropController!.value * pi * 2,
+                  );
+                },
+              ),
             ),
 
           // The Animating "Float Out" Star
           if (_floatingStar != null && _floatAnimation != null)
-            AnimatedBuilder(
-              animation: _floatAnimation!,
-              builder: (context, child) {
-                final Offset end = Offset(MediaQuery.of(context).size.width / 2 - 12, 100);
-                // Simple lerp from a random bottom position to the center
-                final Offset start = Offset(200, 350);
-                final currentPos = Offset.lerp(start, end, _floatAnimation!.value)!;
+            IgnorePointer(
+              child: AnimatedBuilder(
+                animation: _floatAnimation!,
+                builder: (context, child) {
+                  final Offset end = const Offset(200, 80);
+                  final Offset start = const Offset(200, 350);
+                  final currentPos = Offset.lerp(start, end, _floatAnimation!.value)!;
 
-                return StarWidget(
-                  color: AppTheme.deepRose,
-                  position: currentPos,
-                  size: 24 + (16 * _floatAnimation!.value), // Scales up as it floats out
-                  rotation: _floatController!.value * pi,
-                );
-              },
+                  return StarWidget(
+                    color: AppTheme.deepRose,
+                    position: currentPos,
+                    size: 24 + (16 * _floatAnimation!.value),
+                    rotation: _floatController!.value * pi,
+                  );
+                },
+              ),
             ),
 
           // Drop Button
@@ -263,14 +290,48 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
     );
   }
 
-  Color _getPastelColor(Random rand) {
-    final colors = [
-      AppTheme.roseQuartz.withValues(alpha: 0.7),
-      AppTheme.blushGold.withValues(alpha: 0.7),
-      AppTheme.softLavender.withValues(alpha: 0.7),
-      Colors.yellow[200]!.withValues(alpha: 0.7),
-      Colors.cyan[100]!.withValues(alpha: 0.7),
-    ];
-    return colors[rand.nextInt(colors.length)];
+  _StarMotion _getMotion(int seed) {
+    return _motionCache.putIfAbsent(seed, () => _StarMotion.fromSeed(seed));
+  }
+}
+
+class _StarMotion {
+  static const _colors = [
+    AppTheme.roseQuartz,
+    AppTheme.blushGold,
+    AppTheme.softLavender,
+    Color(0xFFFFF176),
+    Color(0xFF80DEEA),
+  ];
+
+  late double baseX;
+  late double baseY;
+  late double ampX;
+  late double ampY;
+  late double speedX;
+  late double speedY;
+  late double phaseX;
+  late double phaseY;
+  late double rotSpeed;
+  late double twinklePhase;
+  late double baseRotation;
+  late Color color;
+
+  _StarMotion.fromSeed(int seed) {
+    final r = Random(seed);
+    baseX = 90 + r.nextDouble() * 190;
+    baseY = 120 + r.nextDouble() * 200;
+    ampX = 15 + r.nextDouble() * 20;
+    ampY = 12 + r.nextDouble() * 18;
+    speedX = 0.55 + r.nextDouble() * 0.45;
+    speedY = 0.4 + r.nextDouble() * 0.4;
+    phaseX = r.nextDouble() * 2 * pi;
+    phaseY = r.nextDouble() * 2 * pi;
+    rotSpeed = 0.25 + r.nextDouble() * 0.55;
+    twinklePhase = r.nextDouble() * 2 * pi;
+    baseRotation = r.nextDouble() * 2 * pi;
+
+    final base = _colors[r.nextInt(_colors.length)];
+    color = base.withValues(alpha: 0.7);
   }
 }

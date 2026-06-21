@@ -634,22 +634,49 @@ class TMDBService {
           if (resolved == null) continue; // no TMDB mapping → keep placeholder
           tmdbId = resolved;
         }
-        final posterUrl = await fetchPosterUrl(tmdbId, item.mediaType);
-        if (posterUrl.isNotEmpty) {
-          final idx = updated.indexWhere((u) => u.id == item.id);
-          if (idx != -1) {
-            updated[idx] = updated[idx].copyWith(posterPath: posterUrl);
-          }
-          // Also update Firestore so future loads have the poster
-          await _firestore.collection('watch_list').doc(item.id).update({
-            'posterPath': posterUrl,
-          });
+        // Fetch full TMDB details to verify the title matches before saving.
+        // ani.zip can return an incorrect TMDB ID for some MAL IDs, which
+        // would save a completely unrelated poster to Firestore.
+        final details = await fetchMediaDetails(tmdbId, item.mediaType);
+        if (details == null) continue;
+        final tmdbTitle = (details['name'] as String?) ??
+            (details['title'] as String?) ??
+            '';
+        if (!_titlesMatch(item.title, tmdbTitle)) continue;
+        final posterPath = details['poster_path'] as String?;
+        if (posterPath == null || posterPath.isEmpty) continue;
+        final posterUrl = '$_imageBaseUrl$posterPath';
+        final idx = updated.indexWhere((u) => u.id == item.id);
+        if (idx != -1) {
+          updated[idx] = updated[idx].copyWith(posterPath: posterUrl);
         }
+        await _firestore.collection('watch_list').doc(item.id).update({
+          'posterPath': posterUrl,
+        });
       } catch (e) {
         print('TMDB Backfill Poster Error for ${item.title}: $e');
       }
     }
     return updated;
+  }
+
+  static bool _titlesMatch(String storedTitle, String tmdbTitle) {
+    String normalize(String s) {
+      return s
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^a-z0-9\s]'), '')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+    }
+    final a = normalize(storedTitle);
+    final b = normalize(tmdbTitle);
+    if (a.isEmpty || b.isEmpty) return false;
+    if (a == b || a.contains(b) || b.contains(a)) return true;
+    final wordsA = a.split(' ');
+    final wordsB = b.split(' ');
+    final overlap = wordsA.where((w) => w.length > 2 && wordsB.contains(w)).length;
+    final minLen = wordsA.length < wordsB.length ? wordsA.length : wordsB.length;
+    return overlap >= (minLen * 0.5).ceil();
   }
 
   /// Search TMDB for a TV show by title and year. Used as fallback when
