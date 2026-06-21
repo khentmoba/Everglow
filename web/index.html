@@ -48,8 +48,12 @@
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', function(event) {
-        if (event.data && event.data.type === 'NEW_VERSION') {
-          window.location.reload();
+        if (event.data && event.data.type === 'NEW_VERSION' && event.data.version) {
+          const stored = sessionStorage.getItem('sw_version');
+          if (stored !== event.data.version) {
+            sessionStorage.setItem('sw_version', event.data.version);
+            window.location.reload();
+          }
         }
       });
       navigator.serviceWorker.register('/sw.js').catch(function() {});
