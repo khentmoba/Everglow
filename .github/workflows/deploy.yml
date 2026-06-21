@@ -1,169 +1,47 @@
-name: Build and Deploy to Firebase (GCP + Billing configured)
+name: Build & Deploy to GitHub Pages
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
-  build_and_deploy:
+  build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           channel: stable
-
-      - name: Generate changelog
-        id: changelog
-        run: |
-          DATE=$(date +"%Y-%m-%d %H:%M")
-          
-          # Use tag if available, else fallback to date
-          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          if [ -n "$TAG" ]; then
-            VERSION="$TAG"
-          else
-            # Extract version from pubspec.yaml
-            VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
-            if [ -z "$VERSION" ]; then
-              VERSION=$(date +"%Y.%m.%d")
-            fi
-          fi
-          
-          # Get commits since last tag or last 20 commits
-          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          if [ -z "$LAST_TAG" ]; then
-            COMMITS=$(git log --pretty=format:"- %s" -20)
-          else
-            COMMITS=$(git log --pretty=format:"- %s" "$LAST_TAG"..HEAD)
-          fi
-          
-          # Categorize commits
-          FEATURES=$(echo "$COMMITS" | grep -i "^- \(feat\|add\|new\|implement\|feature\)" || echo "- No new features")
-          FIXES=$(echo "$COMMITS" | grep -i "^- \(fix\|bug\|patch\|resolve\|correct\)" || echo "- No bug fixes")
-          UPDATES=$(echo "$COMMITS" | grep -iv "^- \(feat\|add\|new\|implement\|feature\|fix\|bug\|patch\|resolve\|correct\)" || echo "- General updates")
-          
-          # Create CHANGELOG.md
-          cat > CHANGELOG.md << EOF
-          # Changelog
-          
-          ## Version $VERSION - $DATE
-          
-          ### 🚀 Features
-          $FEATURES
-          
-          ### 🐛 Bug Fixes
-          $FIXES
-          
-          ### 📝 Updates
-          $UPDATES
-          
-          ---
-          *Auto-generated on $DATE*
-          EOF
-          
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "date=$DATE" >> $GITHUB_OUTPUT
-          echo "Generated changelog:"
-          cat CHANGELOG.md
+          cache: true
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Generate service worker with commit hash
-        run: dart run tool/generate_sw.dart
-
       - name: Build web
-        env:
-          CLAIR_EMAIL: ${{ secrets.CLAIR_EMAIL }}
-          CLAIR_PASSWORD: ${{ secrets.CLAIR_PASSWORD }}
-          KHENT_EMAIL: ${{ secrets.KHENT_EMAIL }}
-          KHENT_PASSWORD: ${{ secrets.KHENT_PASSWORD }}
-          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
-          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
-        run: |
-          flutter build web --release \
-            --dart-define=CLAIR_EMAIL="$CLAIR_EMAIL" \
-            --dart-define=CLAIR_PASSWORD="$CLAIR_PASSWORD" \
-            --dart-define=KHENT_EMAIL="$KHENT_EMAIL" \
-            --dart-define=KHENT_PASSWORD="$KHENT_PASSWORD" \
-            --dart-define=TMDB_API_KEY="$TMDB_API_KEY" \
-            --dart-define=LASTFM_API_KEY="$LASTFM_API_KEY"
+        run: flutter build web --release --base-href "/Everglow/"
 
-      - name: Copy changelog to build
-        run: cp CHANGELOG.md build/web/CHANGELOG.md
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          node-version: '20'
+          path: build/web
 
-      - name: Install Functions dependencies
-        working-directory: functions
-        run: npm install
-
-      - name: Write Firebase service account key
-        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB }}' > /tmp/firebase-sa.json
-
-      - name: Authenticate gcloud
-        run: |
-          gcloud auth activate-service-account --key-file=/tmp/firebase-sa.json
-          gcloud config set project everglow-1c6db
-
-      - name: Deploy Cloud Functions
-        working-directory: functions
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa.json
-          FIREBASE_AUTH_EMULATOR_HOST: ''
-        run: |
-          npx --yes firebase-tools@latest deploy --only functions --project everglow-1c6db --non-interactive 2>&1 || {
-            EXIT_CODE=$?
-            echo ""
-            echo "=============================================="
-            echo "  Cloud Functions deploy failed (exit $EXIT_CODE)."
-            echo ""
-            echo "  The Firebase SA needs one-time setup:"
-            echo ""
-            echo "  1. Open GCP APIs & Services:"
-            echo "     https://console.cloud.google.com/apis/library?project=everglow-1c6db"
-            echo ""
-            echo "  2. Search for and ENABLE these three APIs:"
-            echo "     - Cloud Functions API"
-            echo "     - Cloud Build API"
-            echo "     - Artifact Registry API"
-            echo ""
-            echo "  3. Then add the 'Service Usage Admin' role to:"
-            echo "     firebase-adminsdk-fbsvc@everglow-1c6db.iam.gserviceaccount.com"
-            echo ""
-            echo "  After that, push a new commit to re-trigger deploy."
-            echo "=============================================="
-            exit $EXIT_CODE
-          }
-
-      - name: Allow public access to Cloud Functions
-        run: |
-          for fn in proxyMangaDex proxyMangaImage proxyComick; do
-            echo "Making $fn publicly accessible..."
-            gcloud functions add-invoker-policy-binding "$fn" \
-              --region=us-central1 \
-              --member="allUsers" \
-              --quiet 2>&1 || echo "Already public or skipping $fn"
-          done
-
-      - name: Deploy to Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB }}
-          channelId: live
-          projectId: everglow-1c6db
-
-
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
