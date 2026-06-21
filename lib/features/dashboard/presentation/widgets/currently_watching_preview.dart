@@ -157,11 +157,10 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
   }
 
   Future<void> _backfillPosters(List<MediaItem> items) async {
-    final missing = items.where((i) => i.posterPath.isEmpty && i.tmdbId > 0).toList();
-    if (missing.isEmpty) return;
     try {
       final tmdbService = TMDBService();
-      final updated = await tmdbService.backfillMissingPosters(items);
+      var updated = await tmdbService.backfillMissingPosters(items);
+      updated = await tmdbService.refreshAnimePosters(updated);
       if (mounted) setState(() => _items = updated);
     } catch (e) {
       // Silently fail — placeholder will show
