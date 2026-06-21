@@ -156,7 +156,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
             indicatorColor: Colors.pinkAccent,
             labelColor: Colors.pinkAccent,
             unselectedLabelColor: Colors.pink.shade200,
-            labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+            labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold),
             tabs: const [
               Tab(text: 'Add Memory'),
               Tab(text: 'Drop a Letter'),
@@ -290,7 +290,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
       children: [
         Text(
           label,
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.outfit(
             fontSize: 14,
             fontWeight: FontWeight.w600,
             color: Colors.pink.shade700,
@@ -300,7 +300,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
         TextFormField(
           controller: controller,
           maxLines: maxLines,
-          style: GoogleFonts.poppins(fontSize: 16),
+          style: GoogleFonts.outfit(fontSize: 16),
           decoration: InputDecoration(
             hintText: hint,
             prefixIcon: Icon(icon, color: Colors.pink.shade200),
@@ -328,7 +328,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
       children: [
         Text(
           label,
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.outfit(
             fontSize: 14,
             fontWeight: FontWeight.w600,
             color: Colors.pink.shade700,
@@ -349,7 +349,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
                 const SizedBox(width: 12),
                 Text(
                   DateFormat('MMMM dd, yyyy').format(currentDate),
-                  style: GoogleFonts.poppins(fontSize: 16),
+                  style: GoogleFonts.outfit(fontSize: 16),
                 ),
               ],
             ),
@@ -365,7 +365,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
       children: [
         Text(
           'Add a Photo',
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.outfit(
             fontSize: 14,
             fontWeight: FontWeight.w600,
             color: Colors.pink.shade700,
@@ -422,7 +422,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
                         const SizedBox(height: 4),
                         Text(
                           'Tap to pick an image',
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.outfit(
                             fontSize: 12,
                             color: Colors.pink.shade200,
                           ),
@@ -463,7 +463,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
             )
           : Text(
               label,
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.outfit(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
@@ -483,7 +483,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
           Text(
             'Movie Night Planner',
             textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.outfit(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: Colors.pink.shade700,
@@ -493,7 +493,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
           Text(
             'Search for movies and TV shows to add to our shared watch list.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.outfit(
               fontSize: 14,
               color: Colors.pink.shade300,
             ),
@@ -529,7 +529,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
           Text(
             'System Maintenance',
             textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.outfit(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: Colors.pink.shade700,
@@ -539,7 +539,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
           Text(
             'Dangerous operations for clearing test data and resetting user states.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.outfit(
               fontSize: 14,
               color: Colors.pink.shade300,
             ),
@@ -631,7 +631,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
           Text(
             'Note: This ensures her "first time" experience is genuine.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.outfit(
               fontSize: 12,
               fontStyle: FontStyle.italic,
               color: Colors.pink.shade200,

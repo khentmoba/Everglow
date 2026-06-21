@@ -9,6 +9,7 @@ import '../widgets/star_widget.dart';
 import '../widgets/drop_star_dialog.dart';
 import '../widgets/note_display_dialog.dart';
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class StarlightJarWidget extends StatefulWidget {
   const StarlightJarWidget({super.key});
@@ -35,13 +36,16 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
   AnimationController? _floatController;
   Animation<double>? _floatAnimation;
 
+  // Tap scale feedback
+  double _tapScale = 1.0;
+
   @override
   void initState() {
     super.initState();
     _starNotesStream = _service.getStarNotes();
     _shakeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 600),
     );
     _idleController = AnimationController(
       vsync: this,
@@ -78,7 +82,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
     _dropController?.dispose();
     _dropController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1000),
     );
 
     final start = Offset(MediaQuery.of(context).size.width / 2, -50);
@@ -114,7 +118,13 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
   Future<void> _onJarTap() async {
     if (_shakeController.isAnimating || _floatController?.isAnimating == true) return;
 
+    // Scale down immediately for tactile press feedback (Emil: 0.95–0.98)
+    setState(() => _tapScale = 0.95);
+
     await _shakeController.forward(from: 0);
+
+    // Bounce back to full size
+    if (mounted) setState(() => _tapScale = 1.0);
 
     if (!mounted) return;
     final randomNote = await _service.getRandomStarNote();
@@ -143,12 +153,12 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
     _floatController?.dispose();
     _floatController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 500),
     );
 
     _floatAnimation = CurvedAnimation(
       parent: _floatController!,
-      curve: Curves.easeOutBack,
+      curve: Curves.easeOutExpo,
     );
 
     setState(() {
@@ -178,23 +188,81 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: 400,
-      height: 500,
+      height: 560,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // The Jar
-          GestureDetector(
-            onTap: _onJarTap,
-            child: GlassJar(
-              shakeAnimation: _shakeController.drive(
-                TweenSequence<double>([
-                  TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.05), weight: 1),
-                  TweenSequenceItem(tween: Tween(begin: 0.05, end: -0.05), weight: 2),
-                  TweenSequenceItem(tween: Tween(begin: -0.05, end: 0.0), weight: 1),
-                ]),
+          // Jar Title
+          Positioned(
+            top: 0,
+            child: Text(
+              'Starlight Jar',
+              style: GoogleFonts.cormorantGaramond(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.roseQuartz,
+                letterSpacing: 1.5,
               ),
+            ),
+          ),
+
+          // The Jar — with scale animation on tap
+          Positioned(
+            top: 36,
+            child: GestureDetector(
+              onTap: _onJarTap,
+              child: AnimatedScale(
+                scale: _tapScale,
+                duration: const Duration(milliseconds: 150),
+                curve: Curves.easeOutExpo,
+                child: GlassJar(
+                  shakeAnimation: _shakeController.drive(
+                    TweenSequence<double>([
+                      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.12), weight: 1),
+                      TweenSequenceItem(tween: Tween(begin: 0.12, end: -0.12), weight: 2),
+                      TweenSequenceItem(tween: Tween(begin: -0.12, end: 0.08), weight: 2),
+                      TweenSequenceItem(tween: Tween(begin: 0.08, end: -0.05), weight: 2),
+                      TweenSequenceItem(tween: Tween(begin: -0.05, end: 0.0), weight: 1),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Star Count Badge (on jar lid)
+          Positioned(
+            top: 38,
+            child: StreamBuilder<List<StarNote>>(
+              stream: _starNotesStream,
+              builder: (context, snapshot) {
+                final count = snapshot.data?.length ?? 0;
+                if (count == 0) return const SizedBox.shrink();
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.deepRose.withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.deepRose.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    '$count ${count == 1 ? 'star' : 'stars'}',
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.petalWhite,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                );
+              },
             ),
           ),
 
@@ -205,6 +273,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
               size: Size(280, 350),
             ),
             child: IgnorePointer(
+            child: RepaintBoundary(
             child: AnimatedBuilder(
             animation: _idleController,
             builder: (context, _) {
@@ -250,6 +319,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
                 },
               );
             },
+          ),
           ),
           ),
           ),
