@@ -125,7 +125,20 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
         _items = items;
         _hasLoaded = true;
       });
+      _backfillPosters(items);
     });
+  }
+
+  Future<void> _backfillPosters(List<MediaItem> items) async {
+    final missing = items.where((i) => i.posterPath.isEmpty && i.tmdbId > 0).toList();
+    if (missing.isEmpty) return;
+    try {
+      final tmdbService = TMDBService();
+      final updated = await tmdbService.backfillMissingPosters(items);
+      if (mounted) setState(() => _items = updated);
+    } catch (e) {
+      // Silently fail — placeholder will show
+    }
   }
 
   @override
@@ -141,6 +154,16 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
       backgroundColor: Colors.transparent,
       builder: (_) => EpisodeDrawer(item: item),
     );
+  }
+
+  /// Sanitize title to remove CSS class artifacts like "css-1dbjc4n".
+  static final _cssArtifactRegex = RegExp(r'\bcss-[a-zA-Z0-9_-]+\b');
+
+  static String _sanitizeTitle(String title) {
+    var cleaned = title.replaceAll(_cssArtifactRegex, ' ').trim();
+    // Collapse multiple spaces
+    cleaned = cleaned.replaceAll(RegExp(r'\s{2,}'), ' ');
+    return cleaned.isNotEmpty ? cleaned : title;
   }
 
   String? _subtitleFor(MediaItem item) {
@@ -161,7 +184,7 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
               accent:
                   item.isAnime ? ShelfAccent.anime : ShelfAccent.cinema,
               imageUrl: item.posterPath,
-              title: item.title,
+              title: _sanitizeTitle(item.title),
               subtitle: _subtitleFor(item),
               topBadge: item.currentEpisode != null
                   ? 'S${item.currentSeason ?? 1}E${item.currentEpisode}'
