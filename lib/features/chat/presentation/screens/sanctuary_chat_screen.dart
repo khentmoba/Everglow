@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/services/auth_service.dart';
@@ -23,13 +22,25 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   late Stream<List<ChatMessage>> _messagesStream;
-  bool _isInitialLoad = true;
+  bool _hasTimedOut = false;
 
   @override
   void initState() {
     super.initState();
+    _connectStream();
+  }
+
+  void _connectStream() {
     final chatService = context.read<ChatService>();
-    _messagesStream = chatService.getMessagesStream();
+    _messagesStream = chatService
+        .getMessagesStream()
+        .timeout(
+          const Duration(seconds: 5),
+          onTimeout: (sink) {
+            if (mounted) setState(() => _hasTimedOut = true);
+            sink.close();
+          },
+        );
   }
 
   @override
@@ -114,6 +125,35 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
               child: StreamBuilder<List<ChatMessage>>(
                 stream: _messagesStream,
                 builder: (context, snapshot) {
+                  if (_hasTimedOut || (snapshot.connectionState == ConnectionState.done && !snapshot.hasData)) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.cloud_off_rounded, size: 64, color: AppTheme.roseQuartz.withValues(alpha: 0.4)),
+                          const SizedBox(height: 20),
+                          Text(
+                            'Unable to connect to our sanctuary',
+                            style: GoogleFonts.outfit(color: AppTheme.roseQuartz, fontSize: 16),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Your account may need to be re-linked.',
+                            style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 13),
+                          ),
+                          const SizedBox(height: 16),
+                          TextButton(
+                            onPressed: () => _resetAndRetry(context),
+                            child: Text(
+                              'Reset & Retry',
+                              style: GoogleFonts.outfit(color: AppTheme.roseQuartz, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return Center(
                       child: Column(
@@ -127,19 +167,15 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
                           ),
                           const SizedBox(height: 10),
                           TextButton(
-                            onPressed: () => _resetFirestore(context),
+                            onPressed: () => _resetAndRetry(context),
                             child: Text(
-                              'Taking too long? Tap to reset',
-                              style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withOpacity(0.6), fontSize: 12),
+                              'Taking too long? Tap to retry',
+                              style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 12),
                             ),
                           ),
                         ],
                       ),
                     );
-                  }
-                  
-                  if (snapshot.hasData) {
-                    _isInitialLoad = false;
                   }
                   
                   if (snapshot.hasError) {
@@ -327,16 +363,6 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                await _resetFirestore(context);
-              },
-              child: Text(
-                'Reset & Clear Cache',
-                style: GoogleFonts.outfit(color: Colors.redAccent, fontWeight: FontWeight.bold),
-              ),
-            ),
-            TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text(
                 'OK',
@@ -349,51 +375,12 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
     }
   }
 
-  Future<void> _resetFirestore(BuildContext context) async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.velvet,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(color: AppTheme.roseQuartz),
-            const SizedBox(height: 16),
-            Text(
-              'Clearing local cache and restarting...',
-              style: GoogleFonts.outfit(color: AppTheme.petalWhite),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    try {
-      final db = FirebaseFirestore.instance;
-      await db.terminate();
-      await db.clearPersistence();
-      
-      if (context.mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Cache cleared! Refresh the page now.', style: GoogleFonts.outfit()),
-            backgroundColor: AppTheme.deepRose,
-          ),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Reset failed: $e', style: GoogleFonts.outfit()),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      }
-    }
+  /// Clears the timeout state and reconnects the stream without a full
+  /// Firestore termination — a lighter alternative to the old reset.
+  void _resetAndRetry(BuildContext context) {
+    setState(() {
+      _hasTimedOut = false;
+      _connectStream();
+    });
   }
 }

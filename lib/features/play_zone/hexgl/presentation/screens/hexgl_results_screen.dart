@@ -67,18 +67,12 @@ class _HexGLResultsScreenState extends State<HexGLResultsScreen> {
 
   void _loadIdentities() {
     final auth = context.read<AuthService>();
-    _localName = auth.partnerName == 'Partner'
-        ? (auth.currentUser ?? 'You')
-        : (auth.partnerName == 'Khent' ? 'Clair' : 'Khent');
-    if (auth.partnerName == 'Partner') {
-      _localName = auth.currentUser ?? 'You';
-      _partnerName = 'Partner';
-    } else if (auth.uid == AuthService.khentUid) {
-      _localName = 'Khent';
-      _partnerName = 'Clair';
-    } else if (auth.uid == AuthService.clairUid) {
+    if (auth.partnerName == 'Khent') {
       _localName = 'Clair';
       _partnerName = 'Khent';
+    } else if (auth.partnerName == 'Clair') {
+      _localName = 'Khent';
+      _partnerName = 'Clair';
     } else {
       _localName = auth.currentUser ?? 'You';
       _partnerName = 'Partner';

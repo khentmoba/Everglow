@@ -1,22 +1,26 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:everglow/core/utils/firestore_stream_utils.dart';
 import '../models/garden_stats.dart';
 
 class GardenService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   Stream<GardenStats> watchStats(String userId) {
-    return _db
-        .collection('users')
-        .doc(userId)
-        .collection('garden_stats')
-        .doc('stats')
-        .snapshots()
-        .map((snapshot) {
-      if (!snapshot.exists) {
-        return GardenStats.initial();
-      }
-      return GardenStats.fromFirestore(snapshot);
-    });
+    return withFirestoreTimeout(
+      _db
+          .collection('users')
+          .doc(userId)
+          .collection('garden_stats')
+          .doc('stats')
+          .snapshots()
+          .map((snapshot) {
+        if (!snapshot.exists) {
+          return GardenStats.initial();
+        }
+        return GardenStats.fromFirestore(snapshot);
+      }),
+      label: 'garden-stats',
+    );
   }
 
   Future<void> recordInteraction(String userId) async {

@@ -163,17 +163,44 @@ class _LetterboxViewState extends State<LetterboxView> {
           child: StreamBuilder<List<HiddenNote>>(
             stream: _letterboxService.notes,
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(
-                  child: CircularProgressIndicator(color: AppTheme.deepRose),
+              if (snapshot.hasError) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.cloud_off_rounded, size: 32, color: AppTheme.roseQuartz.withValues(alpha: 0.4)),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Could not load letters',
+                        style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 13),
+                      ),
+                    ],
+                  ),
                 );
               }
 
-              if (snapshot.hasError) {
+              if (!snapshot.hasData && snapshot.connectionState == ConnectionState.waiting) {
                 return Center(
-                  child: Text(
-                    'Oops! Something went wrong. 🌸',
-                    style: GoogleFonts.outfit(color: AppTheme.roseQuartz),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppTheme.deepRose.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Loading letters...',
+                        style: GoogleFonts.outfit(
+                          color: AppTheme.roseQuartz.withValues(alpha: 0.5),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
                 );
               }

@@ -52,7 +52,11 @@ class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator> {
     final partnerName = authService.partnerName;
 
     if (partnerUid == null) {
-      return _buildText(context, '$partnerName · no partner link', dim: true);
+      return _buildText(
+        context,
+        'Partner link unavailable · re-login to sync',
+        dim: true,
+      );
     }
 
     return StreamBuilder<PresenceStatus>(

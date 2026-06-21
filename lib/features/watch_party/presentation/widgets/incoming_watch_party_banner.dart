@@ -57,74 +57,104 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
           duration: const Duration(milliseconds: 260),
           child: SlideInDown(
             duration: const Duration(milliseconds: 260),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: _navigating ? null : () => _openParty(context, incoming),
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppTheme.deepRose.withValues(alpha: 0.92),
-                        AppTheme.twilight.withValues(alpha: 0.92),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+            child: Stack(
+              children: [
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppTheme.roseQuartz.withValues(alpha: 0.45),
-                      width: 1.2,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.deepRose.withValues(alpha: 0.25),
-                        blurRadius: 18,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      _buildAvatar(incoming),
-                      const SizedBox(width: 12),
-                      Expanded(child: _buildText(context, incoming)),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.roseQuartz,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Join',
-                              style: GoogleFonts.outfit(
-                                color: AppTheme.twilight,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            const Icon(
-                              Icons.arrow_forward_rounded,
-                              color: AppTheme.twilight,
-                              size: 14,
-                            ),
+                    onTap:
+                        _navigating ? null : () => _openParty(context, incoming),
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 40, 10),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppTheme.deepRose.withValues(alpha: 0.92),
+                            AppTheme.twilight.withValues(alpha: 0.92),
                           ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppTheme.roseQuartz.withValues(alpha: 0.45),
+                          width: 1.2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.deepRose.withValues(alpha: 0.25),
+                            blurRadius: 18,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                       ),
-                    ],
+                      child: Row(
+                        children: [
+                          _buildAvatar(incoming),
+                          const SizedBox(width: 12),
+                          Expanded(child: _buildText(context, incoming)),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.roseQuartz,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Join',
+                                  style: GoogleFonts.outfit(
+                                    color: AppTheme.twilight,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.arrow_forward_rounded,
+                                  color: AppTheme.twilight,
+                                  size: 14,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: GestureDetector(
+                    onTap: () {
+                      VoiceChatService.clearIncomingWatcher();
+                      setState(() => _current = null);
+                    },
+                    child: Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: AppTheme.petalWhite.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.close_rounded,
+                        color: AppTheme.petalWhite.withValues(alpha: 0.8),
+                        size: 15,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
               ),
             ),
           ),

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,16 +8,18 @@ class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   User? _user;
   String? _currentUser;
-
-  // Specific UIDs provided for robust partner identification
-  static const String clairUid = 'bqS6Y5JlzuUB1YcbzUUK7MRpEqA2';
-  static const String khentUid = 'nitw0mxAR9WtxtzQtLNHYWRjENj2';
-  static const String breyanUid = 'breyan'; // Resolved at runtime once account exists
+  String? _partnerUid;
+  String? _partnerNameResolved;
+  bool _hasSyncedUserDoc = false;
 
   AuthService() {
     _loadSession();
-    _auth.authStateChanges().listen((User? user) {
+    _auth.authStateChanges().listen((User? user) async {
       _user = user;
+      _hasSyncedUserDoc = false;
+      if (user != null && _currentUser != null) {
+        await _syncUserDoc();
+      }
       notifyListeners();
     });
   }
@@ -27,6 +30,11 @@ class AuthService extends ChangeNotifier {
     if (_currentUser != null) {
       print("Restored session for: $_currentUser");
       notifyListeners();
+      // If auth state already fired before we loaded the session,
+      // sync the user doc now that _currentUser is available.
+      if (_auth.currentUser != null && !_hasSyncedUserDoc) {
+        await _syncUserDoc();
+      }
     }
   }
 
@@ -44,19 +52,16 @@ class AuthService extends ChangeNotifier {
   String? get currentUser => _currentUser;
   String? get uid => _auth.currentUser?.uid;
 
-  String? get partnerUid {
-    final currentUid = uid;
-    if (currentUid == clairUid) return khentUid;
-    if (currentUid == khentUid) return clairUid;
-    return null;
-  }
+  /// True once both Firebase Auth and SharedPreferences have resolved.
+  /// Dashboard and partner-dependent features should wait for this.
+  bool get isReady => _user != null && _currentUser != null;
 
-  String get partnerName {
-    final currentUid = uid;
-    if (currentUid == clairUid) return 'Khent';
-    if (currentUid == khentUid) return 'Clair';
-    return 'Partner';
-  }
+  /// Dynamically resolved partner UID from the /users collection.
+  /// Populated after login via [_syncUserDoc].
+  String? get partnerUid => _partnerUid;
+
+  /// Partner display name resolved alongside [partnerUid].
+  String get partnerName => _partnerNameResolved ?? 'Partner';
 
   String? get partnerUsername {
     if (_currentUser == 'clairjassen') return 'khentsgdz';
@@ -127,6 +132,7 @@ class AuthService extends ChangeNotifier {
       await _auth.signInWithEmailAndPassword(email: email, password: password);
       _currentUser = username;
       await _saveSession(username);
+      await _syncUserDoc();
       print("Successfully logged in as $username (UID: ${_auth.currentUser?.uid})");
       notifyListeners();
     } on FirebaseAuthException catch (e) {
@@ -136,6 +142,7 @@ class AuthService extends ChangeNotifier {
           await _auth.createUserWithEmailAndPassword(email: email, password: password);
           _currentUser = username;
           await _saveSession(username);
+          await _syncUserDoc();
           print("Successfully registered and logged in as new user: $username (UID: ${_auth.currentUser?.uid})");
           notifyListeners();
         } catch (regErr) {
@@ -164,6 +171,67 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  /// Writes/updates the /users/{uid} document and resolves the partner's UID
+  /// dynamically from Firestore. This replaces the old hard-coded UID system
+  /// and is resilient to account recreations.
+  Future<void> _syncUserDoc() async {
+    final myUid = _auth.currentUser?.uid;
+    if (myUid == null || _currentUser == null) return;
+    if (_hasSyncedUserDoc) return;
+
+    try {
+      final db = FirebaseFirestore.instance;
+
+      // Write/update my user doc
+      await db.collection('users').doc(myUid).set({
+        'username': _currentUser,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      // Resolve partner dynamically
+      await _resolvePartnerInfo();
+      _hasSyncedUserDoc = true;
+    } catch (e) {
+      print("AuthService._syncUserDoc error: $e");
+    }
+  }
+
+  /// Queries /users to find the partner's UID by username. If the partner's
+  /// account was recreated, this automatically finds their new UID.
+  Future<void> _resolvePartnerInfo() async {
+    final partnerUser = partnerUsername;
+    if (partnerUser == null) {
+      _partnerUid = null;
+      _partnerNameResolved = null;
+      notifyListeners();
+      return;
+    }
+
+    try {
+      final db = FirebaseFirestore.instance;
+      final query = await db
+          .collection('users')
+          .where('username', isEqualTo: partnerUser)
+          .limit(1)
+          .get();
+
+      if (query.docs.isNotEmpty) {
+        _partnerUid = query.docs.first.id;
+        _partnerNameResolved =
+            partnerUser == 'khentsgdz' ? 'Khent' : 'Clair';
+      } else {
+        _partnerUid = null;
+        _partnerNameResolved = null;
+      }
+    } catch (e) {
+      print("AuthService._resolvePartnerInfo error: $e");
+      _partnerUid = null;
+      _partnerNameResolved = null;
+    }
+
+    notifyListeners();
+  }
+
   // Option 2: Restricted list of allowed users
   final List<String> allowedUsernames = ['khentsgdz', 'clairjassen', 'breyan', 'octagram'];
 
@@ -179,6 +247,9 @@ class AuthService extends ChangeNotifier {
     try {
       final String email = "$cleanUsername@scrapbook.local";
       await _auth.signInWithEmailAndPassword(email: email, password: password);
+      _currentUser = cleanUsername;
+      await _saveSession(cleanUsername);
+      await _syncUserDoc();
       return null; // Success
     } on FirebaseAuthException catch (e) {
       if (e.code == 'user-not-found') {
@@ -195,6 +266,9 @@ class AuthService extends ChangeNotifier {
     try {
       final String email = "$username@scrapbook.local";
       await _auth.createUserWithEmailAndPassword(email: email, password: password);
+      _currentUser = username;
+      await _saveSession(username);
+      await _syncUserDoc();
       return null; // Success
     } on FirebaseAuthException catch (e) {
       return e.message;

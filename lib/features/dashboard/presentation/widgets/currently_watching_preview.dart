@@ -74,6 +74,19 @@ class _CurrentlyWatchingHeaderState extends State<_CurrentlyWatchingHeader> {
   @override
   void initState() {
     super.initState();
+    _subscribe();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CurrentlyWatchingHeader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.stream != widget.stream) {
+      _streamSub?.cancel();
+      _subscribe();
+    }
+  }
+
+  void _subscribe() {
     _streamSub = widget.stream.listen((items) {
       if (!mounted) return;
       setState(() => _items = items);
@@ -119,6 +132,20 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
   @override
   void initState() {
     super.initState();
+    _subscribe();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CurrentlyWatchingShelf oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.stream != widget.stream) {
+      _streamSub?.cancel();
+      setState(() { _items = []; _hasLoaded = false; });
+      _subscribe();
+    }
+  }
+
+  void _subscribe() {
     _streamSub = widget.stream.listen((items) {
       if (!mounted) return;
       setState(() {

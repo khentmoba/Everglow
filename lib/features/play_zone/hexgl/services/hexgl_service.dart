@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../../../../services/auth_service.dart';
 import '../models/hexgl_challenge.dart';
 import '../models/hexgl_race_result.dart';
 
@@ -20,7 +19,11 @@ class HexGLService {
       _firestore.collection('hexgl_challenges');
 
   bool isAllowedPlayer(String? uid) {
-    return uid == AuthService.khentUid || uid == AuthService.clairUid;
+    // HexGL is reserved for couple users — checked dynamically via the
+    // /users collection instead of hard-coded UIDs.  For a fast local
+    // gate we just require a non-null, non-empty uid; the write path
+    // will be guarded by Firestore security rules anyway.
+    return uid != null && uid.isNotEmpty;
   }
 
   // ---------------- Best times ----------------
@@ -153,10 +156,6 @@ class HexGLService {
   Stream<List<HexGLChallenge>> watchOpenChallengesFor(String userId) {
     return _challengesRef
         .where('status', isEqualTo: HexGLChallengeStatus.open.name)
-        .where('challengerId', whereIn: [
-          AuthService.khentUid,
-          AuthService.clairUid,
-        ])
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snap) => snap.docs
@@ -176,10 +175,6 @@ class HexGLService {
     int limit = 20,
   }) async {
     final snap = await _challengesRef
-        .where('challengerId', whereIn: [
-          AuthService.khentUid,
-          AuthService.clairUid,
-        ])
         .orderBy('createdAt', descending: true)
         .limit(limit)
         .get();

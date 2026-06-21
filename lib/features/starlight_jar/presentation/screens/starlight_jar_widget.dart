@@ -19,6 +19,7 @@ class StarlightJarWidget extends StatefulWidget {
 
 class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProviderStateMixin {
   final StarlightService _service = StarlightService();
+  late final Stream<List<StarNote>> _starNotesStream;
   late AnimationController _shakeController;
   late AnimationController _idleController;
   final Random _random = Random();
@@ -36,6 +37,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
   @override
   void initState() {
     super.initState();
+    _starNotesStream = _service.getStarNotes();
     _shakeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1000),
@@ -180,7 +182,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
             animation: _idleController,
             builder: (context, _) {
               return StreamBuilder<List<StarNote>>(
-                stream: _service.getStarNotes(),
+                stream: _starNotesStream,
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) return const SizedBox.shrink();
                   

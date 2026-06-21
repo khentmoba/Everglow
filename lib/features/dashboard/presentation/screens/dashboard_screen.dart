@@ -124,6 +124,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _timer.cancel();
+    _heartbeatRetryTimer?.cancel();
     _counterController.close();
     final presence = _presenceService;
     final uid = _lastHeartbeatUid;
@@ -150,6 +151,10 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
+  Timer? _heartbeatRetryTimer;
+  int _heartbeatRetryCount = 0;
+  static const int _maxHeartbeatRetries = 5;
+
   void _syncPresenceHeartbeat() {
     final auth = context.read<AuthService>();
     final presence = context.read<PresenceService>();
@@ -164,8 +169,20 @@ class _DashboardScreenState extends State<DashboardScreen>
         _lastHeartbeatUid = null;
         _lastHeartbeatUsername = null;
       }
+      // Retry with exponential backoff, capped at max attempts
+      if (_heartbeatRetryCount < _maxHeartbeatRetries) {
+        _heartbeatRetryCount++;
+        final delay = Duration(seconds: 1 + _heartbeatRetryCount);
+        _heartbeatRetryTimer?.cancel();
+        _heartbeatRetryTimer = Timer(delay, () {
+          if (mounted) _syncPresenceHeartbeat();
+        });
+      }
       return;
     }
+
+    _heartbeatRetryTimer?.cancel();
+    _heartbeatRetryCount = 0;
 
     if (uid != _lastHeartbeatUid || username != _lastHeartbeatUsername) {
       presence.startHeartbeat(uid: uid, username: username);
@@ -199,6 +216,27 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthService>();
+
+    // Auth-readiness gate: don't render the dashboard until both
+    // Firebase Auth and SharedPreferences have resolved.
+    if (!auth.isReady) {
+      return Scaffold(
+        body: GamifiedBackground(
+          child: const Center(
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppTheme.deepRose,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       body: GamifiedBackground(
         child: SafeArea(

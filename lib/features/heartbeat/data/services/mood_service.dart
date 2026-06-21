@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:everglow/core/utils/firestore_stream_utils.dart';
 import '../models/user_mood.dart';
 
 class MoodService {
@@ -35,15 +36,18 @@ class MoodService {
 
   /// Streams the latest mood for a specific user.
   Stream<UserMood?> watchLatestMood(String username) {
-    return _db
-        .collection('moods')
-        .where('username', isEqualTo: username)
-        .orderBy('timestamp', descending: true)
-        .limit(1)
-        .snapshots()
-        .map((snapshot) {
-      if (snapshot.docs.isEmpty) return null;
-      return UserMood.fromFirestore(snapshot.docs.first.data());
-    });
+    return withFirestoreTimeout(
+      _db
+          .collection('moods')
+          .where('username', isEqualTo: username)
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .snapshots()
+          .map((snapshot) {
+        if (snapshot.docs.isEmpty) return null;
+        return UserMood.fromFirestore(snapshot.docs.first.data());
+      }),
+      label: 'mood-$username',
+    );
   }
 }
