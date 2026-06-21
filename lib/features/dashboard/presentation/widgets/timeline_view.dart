@@ -312,6 +312,6 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
 
   Widget _buildImage(String path) {
     if (path.startsWith('assets/')) return Image.asset(path, fit: BoxFit.cover);
-    return Image.network(path, fit: BoxFit.cover);
+    return Image.network(path, fit: BoxFit.cover, cacheWidth: 300);
   }
 }

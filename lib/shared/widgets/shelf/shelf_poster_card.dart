@@ -48,7 +48,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
   bool _hovered = false;
   bool _focused = false;
 
-  static const _tmdbImageBase = 'https://image.tmdb.org/t/p/w500';
+  static const _tmdbImageBase = 'https://image.tmdb.org/t/p/w342';
 
   String get _resolvedImageUrl {
     final url = widget.imageUrl;
@@ -123,6 +123,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
               Image.network(
                 _resolvedImageUrl,
                 fit: BoxFit.cover,
+                cacheWidth: 400,
                 errorBuilder: (_, _, _) => _Placeholder(
                   title: widget.title,
                   accent: badgeColor,

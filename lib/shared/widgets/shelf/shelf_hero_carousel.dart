@@ -190,6 +190,7 @@ class _HeroSlide extends StatelessWidget {
                   Image.network(
                     item.imageUrl,
                     fit: BoxFit.cover,
+                    cacheWidth: 900,
                     errorBuilder: (_, _, _) => Container(
                       color: AppTheme.velvet,
                     ),

@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'core/theme/app_theme.dart' as custom_theme;
@@ -46,6 +47,9 @@ void main() async {
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
   print("Firestore persistence enabled for robust real-time experience");
+
+  // Self-hosted Google Fonts only — never fetch from the network at runtime.
+  GoogleFonts.config.allowRuntimeFetching = false;
 
   runZonedGuarded(
     () => runApp(const EverglowApp()),
@@ -109,16 +113,29 @@ class _AppRoot extends StatefulWidget {
 }
 
 class _AppRootState extends State<_AppRoot> {
+  AuthService? _authService;
+
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _syncListener();
-    });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final auth = context.read<AuthService>();
+    if (_authService != auth) {
+      _authService?.removeListener(_syncListener);
+      _authService = auth;
+      auth.addListener(_syncListener);
+      _syncListener();
+    }
+  }
+
+  @override
+  void dispose() {
+    _authService?.removeListener(_syncListener);
+    super.dispose();
   }
 
   void _syncListener() {
-    final auth = context.read<AuthService>();
+    final auth = _authService;
+    if (auth == null || !mounted) return;
     final myUid = auth.uid;
     final partnerUid = auth.partnerUid;
     if (auth.isCoupleUser && myUid != null && myUid.isNotEmpty) {
@@ -133,10 +150,10 @@ class _AppRootState extends State<_AppRoot> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AuthService>(
-      builder: (context, auth, _) {
-        _syncListener();
-        if (!auth.isCoupleUser) return widget.child;
+    return Selector<AuthService, bool>(
+      selector: (_, auth) => auth.isCoupleUser,
+      builder: (context, isCoupleUser, child) {
+        if (!isCoupleUser) return widget.child;
         return Stack(
           children: [
             widget.child,

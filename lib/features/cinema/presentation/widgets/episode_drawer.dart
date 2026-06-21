@@ -1258,6 +1258,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                         ? Image.network(
                             backdropUrl,
                             fit: BoxFit.cover,
+                            cacheWidth: 900,
                             loadingBuilder: (context, child, progress) {
                               if (progress == null) return child;
                               return _buildBackdropPlaceholder(

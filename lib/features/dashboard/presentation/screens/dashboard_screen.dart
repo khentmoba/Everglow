@@ -55,8 +55,6 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen>
     with WidgetsBindingObserver {
-  late StreamController<AnniversaryCounter> _counterController;
-  late Timer _timer;
   AuthService? _authService;
   PresenceService? _presenceService;
   String? _lastHeartbeatUid;
@@ -65,11 +63,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   void initState() {
     super.initState();
-    _counterController = StreamController<AnniversaryCounter>();
-    _updateCounter();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      _updateCounter();
-    });
     WidgetsBinding.instance.addObserver(this);
     if (kIsWeb) _registerUnloadHandlers();
 
@@ -103,15 +96,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     });
   }
 
-  void _updateCounter() {
-    final now = DateTime.now();
-    final counter = AnniversaryCounter.calculate(
-      AnniversaryCounter.anniversaryDate,
-      now,
-    );
-    _counterController.add(counter);
-  }
-
   Widget _maybeAnimate({
     required Widget child,
     required Widget Function(Widget) animation,
@@ -123,9 +107,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _timer.cancel();
     _heartbeatRetryTimer?.cancel();
-    _counterController.close();
     final presence = _presenceService;
     final uid = _lastHeartbeatUid;
     if (presence != null && uid != null && uid.isNotEmpty) {
@@ -242,139 +224,76 @@ class _DashboardScreenState extends State<DashboardScreen>
         child: SafeArea(
           child: Stack(
             children: [
-              StreamBuilder<AnniversaryCounter>(
-                  stream: _counterController.stream,
-                  initialData: AnniversaryCounter.calculate(
-                    AnniversaryCounter.anniversaryDate,
-                    DateTime.now(),
-                  ),
-                    builder: (context, snapshot) {
-                    final counter = snapshot.data!;
-                    return Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 500),
-                        child: CustomScrollView(
-                          slivers: [
-                            // ... existing slivers ...
-                            SliverToBoxAdapter(
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(24, 60, 24, 40),
-                                child: _maybeAnimate(
-                                  animation: (child) => FadeInDown(
-                                    duration: const Duration(milliseconds: 800),
-                                    child: child,
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 500),
+                  child: CustomScrollView(
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 60, 24, 40),
+                          child: _maybeAnimate(
+                            animation: (child) => FadeInDown(
+                              duration: const Duration(milliseconds: 800),
+                              child: child,
+                            ),
+                            child: Center(
+                              child: Column(
+                                children: [
+                                  Image.asset(
+                                    'assets/images/logo.png',
+                                    height: 80,
                                   ),
-                                  child: Center(
-                                    child: Column(
-                                      children: [
-                                        Image.asset(
-                                          'assets/images/logo.png',
-                                          height: 80,
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Text(
-                                          'Forever In Bloom',
-                                          style: GoogleFonts.cormorantGaramond(
-                                            fontSize: 40,
-                                            fontWeight: FontWeight.w900,
-                                            color: AppTheme.roseQuartz,
-                                            letterSpacing: -0.5,
-                                            shadows: [
-                                              BoxShadow(
-                                                color: AppTheme.deepRose.withValues(alpha: 0.5),
-                                                blurRadius: 20,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Text(
-                                          'since February 14, 2026',
-                                          style: GoogleFonts.outfit(
-                                            fontSize: 14,
-                                            color: AppTheme.petalWhite.withValues(alpha: 0.6),
-                                            fontWeight: FontWeight.w500,
-                                            letterSpacing: 2.0,
-                                          ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Forever In Bloom',
+                                    style: GoogleFonts.cormorantGaramond(
+                                      fontSize: 40,
+                                      fontWeight: FontWeight.w900,
+                                      color: AppTheme.roseQuartz,
+                                      letterSpacing: -0.5,
+                                      shadows: [
+                                        BoxShadow(
+                                          color: AppTheme.deepRose.withValues(alpha: 0.5),
+                                          blurRadius: 20,
                                         ),
                                       ],
                                     ),
                                   ),
-                                ),
+                                  Text(
+                                    'since February 14, 2026',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 14,
+                                      color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: 2.0,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            SliverToBoxAdapter(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                                child: Consumer<AuthService>(
-                                  builder: (context, auth, _) {
-                                    final uid = auth.user?.uid;
-                                    if (uid == null || uid.isEmpty) return const SizedBox.shrink();
-                                    return StreamBuilder<UserProgress?>(
-                                      stream: XPService().watchProgress(uid),
-                                      builder: (context, snapshot) {
-                                        if (!snapshot.hasData || snapshot.data == null) return const SizedBox.shrink();
-                                        return XPProgressBar(progress: snapshot.data!);
-                                      },
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                            SliverPadding(
-                              padding: const EdgeInsets.symmetric(horizontal: 24),
-                              sliver: SliverGrid(
-                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  mainAxisSpacing: 24,
-                                  crossAxisSpacing: 24,
-                                  childAspectRatio: 1.3,
-                                ),
-                                delegate: SliverChildListDelegate([
-                                  _maybeAnimate(
-                                    animation: (child) => FadeInLeft(
-                                      delay: const Duration(milliseconds: 200),
-                                      child: child,
-                                    ),
-                                    child: MetricCard(label: 'Years', value: counter.years),
-                                  ),
-                                  _maybeAnimate(
-                                    animation: (child) => FadeInRight(
-                                      delay: const Duration(milliseconds: 300),
-                                      child: child,
-                                    ),
-                                    child: MetricCard(label: 'Months', value: counter.months),
-                                  ),
-                                  _maybeAnimate(
-                                    animation: (child) => FadeInLeft(
-                                      delay: const Duration(milliseconds: 400),
-                                      child: child,
-                                    ),
-                                    child: MetricCard(label: 'Days', value: counter.days),
-                                  ),
-                                  _maybeAnimate(
-                                    animation: (child) => FadeInRight(
-                                      delay: const Duration(milliseconds: 500),
-                                      child: child,
-                                    ),
-                                    child: MetricCard(label: 'Hours', value: counter.hours),
-                                  ),
-                                  _maybeAnimate(
-                                    animation: (child) => FadeInLeft(
-                                      delay: const Duration(milliseconds: 600),
-                                      child: child,
-                                    ),
-                                    child: MetricCard(label: 'Minutes', value: counter.minutes),
-                                  ),
-                                  _maybeAnimate(
-                                    animation: (child) => FadeInRight(
-                                      delay: const Duration(milliseconds: 700),
-                                      child: child,
-                                    ),
-                                    child: MetricCard(label: 'Seconds', value: counter.seconds),
-                                  ),
-                                ]),
-                              ),
-                            ),
+                          ),
+                        ),
+                      ),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                          child: Consumer<AuthService>(
+                            builder: (context, auth, _) {
+                              final uid = auth.user?.uid;
+                              if (uid == null || uid.isEmpty) return const SizedBox.shrink();
+                              return StreamBuilder<UserProgress?>(
+                                stream: XPService().watchProgress(uid),
+                                builder: (context, snapshot) {
+                                  if (!snapshot.hasData || snapshot.data == null) return const SizedBox.shrink();
+                                  return XPProgressBar(progress: snapshot.data!);
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      _AnniversaryMetrics(animate: widget.animate),
                             const SliverToBoxAdapter(child: SizedBox(height: 32)),
                             SliverToBoxAdapter(
                               child: _maybeAnimate(
@@ -522,9 +441,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           ],
                         ),
                       ),
-                    );
-                  },
-                ),
+                    ),
                 
                 // Persistent Guardian Overlay
                 Positioned(
@@ -661,6 +578,121 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Localized anniversary counter that rebuilds only the metric grid
+/// every second instead of the entire dashboard scroll view.
+class _AnniversaryMetrics extends StatefulWidget {
+  final bool animate;
+  const _AnniversaryMetrics({required this.animate});
+
+  @override
+  State<_AnniversaryMetrics> createState() => _AnniversaryMetricsState();
+}
+
+class _AnniversaryMetricsState extends State<_AnniversaryMetrics> {
+  late final StreamController<AnniversaryCounter> _controller;
+  late final Timer _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = StreamController<AnniversaryCounter>();
+    _emit();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _emit());
+  }
+
+  void _emit() {
+    final counter = AnniversaryCounter.calculate(
+      AnniversaryCounter.anniversaryDate,
+      DateTime.now(),
+    );
+    _controller.add(counter);
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    _controller.close();
+    super.dispose();
+  }
+
+  Widget _maybeAnimate({
+    required Widget child,
+    required Widget Function(Widget) animation,
+  }) {
+    if (!widget.animate) return child;
+    return animation(child);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<AnniversaryCounter>(
+      stream: _controller.stream,
+      initialData: AnniversaryCounter.calculate(
+        AnniversaryCounter.anniversaryDate,
+        DateTime.now(),
+      ),
+      builder: (context, snapshot) {
+        final counter = snapshot.data!;
+        return SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          sliver: SliverGrid(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 24,
+              crossAxisSpacing: 24,
+              childAspectRatio: 1.3,
+            ),
+            delegate: SliverChildListDelegate([
+              _maybeAnimate(
+                animation: (child) => FadeInLeft(
+                  delay: const Duration(milliseconds: 200),
+                  child: child,
+                ),
+                child: MetricCard(label: 'Years', value: counter.years),
+              ),
+              _maybeAnimate(
+                animation: (child) => FadeInRight(
+                  delay: const Duration(milliseconds: 300),
+                  child: child,
+                ),
+                child: MetricCard(label: 'Months', value: counter.months),
+              ),
+              _maybeAnimate(
+                animation: (child) => FadeInLeft(
+                  delay: const Duration(milliseconds: 400),
+                  child: child,
+                ),
+                child: MetricCard(label: 'Days', value: counter.days),
+              ),
+              _maybeAnimate(
+                animation: (child) => FadeInRight(
+                  delay: const Duration(milliseconds: 500),
+                  child: child,
+                ),
+                child: MetricCard(label: 'Hours', value: counter.hours),
+              ),
+              _maybeAnimate(
+                animation: (child) => FadeInLeft(
+                  delay: const Duration(milliseconds: 600),
+                  child: child,
+                ),
+                child: MetricCard(label: 'Minutes', value: counter.minutes),
+              ),
+              _maybeAnimate(
+                animation: (child) => FadeInRight(
+                  delay: const Duration(milliseconds: 700),
+                  child: child,
+                ),
+                child: MetricCard(label: 'Seconds', value: counter.seconds),
+              ),
+            ]),
+          ),
+        );
+      },
     );
   }
 }

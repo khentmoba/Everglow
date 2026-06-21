@@ -282,7 +282,7 @@ class _ShelfCardState extends State<ShelfCard> {
   bool _pressed = false;
   bool _hovered = false;
 
-  static const _tmdbImageBase = 'https://image.tmdb.org/t/p/w500';
+  static const _tmdbImageBase = 'https://image.tmdb.org/t/p/w342';
 
   String get _resolvedImageUrl {
     final url = widget.imageUrl;
@@ -366,6 +366,7 @@ class _ShelfCardState extends State<ShelfCard> {
                   Image.network(
                     _resolvedImageUrl,
                     fit: BoxFit.cover,
+                    cacheWidth: 400,
                     errorBuilder: (_, _, _) =>
                         _Placeholder(accent: widget.accent, title: widget.title),
                   )
@@ -700,28 +701,30 @@ class _ShelfMarqueeState extends State<ShelfMarquee>
     if (widget.children.isEmpty) {
       return const SizedBox.shrink();
     }
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final singleSetWidth = widget.children.length * widget.itemStride;
-        final needsLoop = singleSetWidth >= constraints.maxWidth;
-        return MouseRegion(
-          onEnter: (_) => setState(() => _paused = true),
-          onExit: (_) => setState(() => _paused = false),
-          child: ClipRect(
-            child: SingleChildScrollView(
-              controller: _scrollController,
-              scrollDirection: Axis.horizontal,
-              physics: const NeverScrollableScrollPhysics(),
-              child: Row(
-                children: [
-                  ...widget.children,
-                  if (needsLoop) ...widget.children,
-                ],
+    return RepaintBoundary(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final singleSetWidth = widget.children.length * widget.itemStride;
+          final needsLoop = singleSetWidth >= constraints.maxWidth;
+          return MouseRegion(
+            onEnter: (_) => setState(() => _paused = true),
+            onExit: (_) => setState(() => _paused = false),
+            child: ClipRect(
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                scrollDirection: Axis.horizontal,
+                physics: const NeverScrollableScrollPhysics(),
+                child: Row(
+                  children: [
+                    ...widget.children,
+                    if (needsLoop) ...widget.children,
+                  ],
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

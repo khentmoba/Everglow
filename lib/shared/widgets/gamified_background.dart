@@ -46,35 +46,41 @@ class _GamifiedBackgroundState extends State<GamifiedBackground> with SingleTick
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppTheme.twilight,
-                AppTheme.velvet,
-                AppTheme.deepRose,
-              ],
-              begin: _topAlignmentAnimation.value,
-              end: _bottomAlignmentAnimation.value,
-            ),
-          ),
-          child: Stack(
-            children: [
-              CustomPaint(
+    return Stack(
+      children: [
+        // Animated background layer isolated from the content tree.
+        Positioned.fill(
+          child: RepaintBoundary(
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, child) {
+                return Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: const [
+                        AppTheme.twilight,
+                        AppTheme.velvet,
+                        AppTheme.deepRose,
+                      ],
+                      begin: _topAlignmentAnimation.value,
+                      end: _bottomAlignmentAnimation.value,
+                    ),
+                  ),
+                  child: child,
+                );
+              },
+              child: CustomPaint(
                 size: Size.infinite,
                 painter: PetalFieldPainter(
                   color: AppTheme.roseQuartz,
                   opacity: 0.08,
                 ),
               ),
-              widget.child,
-            ],
+            ),
           ),
-        );
-      },
+        ),
+        widget.child,
+      ],
     );
   }
 }

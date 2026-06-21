@@ -86,6 +86,21 @@ flutter:
     - assets/images/milestones/
     - assets/data/
     - assets/env.txt
+    - assets/google_fonts/
+
+  fonts:
+    - family: Cormorant Garamond
+      fonts:
+        - asset: assets/google_fonts/CormorantGaramond-Regular.ttf
+    - family: Outfit
+      fonts:
+        - asset: assets/google_fonts/Outfit-Regular.ttf
+    - family: Dancing Script
+      fonts:
+        - asset: assets/google_fonts/DancingScript-Regular.ttf
+    - family: Caveat
+      fonts:
+        - asset: assets/google_fonts/Caveat-Regular.ttf
 
 
   # An image asset can refer to one or more resolution-specific "variants", see

@@ -589,6 +589,7 @@ class _CinemaScreenState extends State<CinemaScreen>
                               Image.network(
                                 item.backdropPath,
                                 fit: BoxFit.cover,
+                                cacheWidth: 900,
                                 errorBuilder: (_, _, _) =>
                                     Container(color: _cCard),
                               )
@@ -596,6 +597,7 @@ class _CinemaScreenState extends State<CinemaScreen>
                               Image.network(
                                 item.posterPath,
                                 fit: BoxFit.cover,
+                                cacheWidth: 500,
                                 errorBuilder: (_, _, _) =>
                                     Container(color: _cCard),
                               )
@@ -906,9 +908,9 @@ class _CinemaScreenState extends State<CinemaScreen>
                         loop: true,
                       )
                     : (item.backdropPath.isNotEmpty
-                        ? Image.network(item.backdropPath, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: _cVelvet))
+                        ? Image.network(item.backdropPath, fit: BoxFit.cover, cacheWidth: 900, errorBuilder: (_, __, ___) => Container(color: _cVelvet))
                         : (item.posterUrl.isNotEmpty
-                            ? Image.network(item.posterUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: _cVelvet))
+                            ? Image.network(item.posterUrl, fit: BoxFit.cover, cacheWidth: 500, errorBuilder: (_, __, ___) => Container(color: _cVelvet))
                             : Container(color: _cVelvet))),
 
                 // Cinematic gradient — strengthened so the title, year, and
@@ -1907,7 +1909,7 @@ class _RankingTileState extends State<_RankingTile> {
                 width: 44,
                 height: 62,
                 child: widget.item.posterUrl.isNotEmpty
-                    ? Image.network(widget.item.posterUrl, fit: BoxFit.cover)
+                    ? Image.network(widget.item.posterUrl, fit: BoxFit.cover, cacheWidth: 150)
                     : Container(color: _cCard),
               ),
             ),
