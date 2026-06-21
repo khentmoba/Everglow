@@ -150,6 +150,7 @@ service cloud.firestore {
     match /memories/{docId} { allow read, write: if isAuthenticated(); }
     match /milestones/{docId} { allow read, write: if isAuthenticated(); }
     match /moods/{docId} { allow read, write: if isAuthenticated(); }
+    match /music_status/{docId} { allow read, write: if isAuthenticated(); }
     match /notes/{docId} { allow read, write: if isAuthenticated(); }
     match /presence/{docId} { allow read, write: if isAuthenticated(); }
     match /progress/{docId} { allow read, write: if isAuthenticated(); }

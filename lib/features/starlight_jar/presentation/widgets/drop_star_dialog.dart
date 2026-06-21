@@ -36,6 +36,10 @@ class _DropStarDialogState extends State<DropStarDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: EdgeInsets.zero,
+      clipBehavior: Clip.none,
+      shape: const RoundedRectangleBorder(side: BorderSide.none),
       child: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(

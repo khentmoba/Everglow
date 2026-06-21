@@ -268,7 +268,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   'Opening the pages…',
                   style: TextStyle(
                     color: AppTheme.roseQuartz,
-                    fontFamily: 'CormorantGaramond',
+                    fontFamily: 'Cormorant Garamond',
                     fontSize: 16,
                   ),
                 ),

@@ -87,6 +87,7 @@ flutter:
     - assets/data/
     - assets/env.txt
     - assets/google_fonts/
+    - assets/audio/
 
   fonts:
     - family: Cormorant Garamond
@@ -107,6 +108,10 @@ flutter:
           weight: 600
         - asset: assets/google_fonts/Outfit-Bold.ttf
           weight: 700
+        - asset: assets/google_fonts/Outfit-ExtraBold.ttf
+          weight: 800
+        - asset: assets/google_fonts/Outfit-Black.ttf
+          weight: 900
     - family: Dancing Script
       fonts:
         - asset: assets/google_fonts/DancingScript-Regular.ttf

@@ -12,6 +12,10 @@ class NoteDisplayDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: EdgeInsets.zero,
+      clipBehavior: Clip.none,
+      shape: const RoundedRectangleBorder(side: BorderSide.none),
       child: Container(
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
