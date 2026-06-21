@@ -601,6 +601,43 @@ class TMDBService {
     return null;
   }
 
+  /// Fetch poster URL for a media item by tmdbId and mediaType.
+  /// Returns the full poster URL or empty string if not found.
+  Future<String> fetchPosterUrl(int tmdbId, String mediaType) async {
+    final details = await fetchMediaDetails(tmdbId, mediaType);
+    if (details == null) return '';
+    final posterPath = details['poster_path'];
+    if (posterPath == null || posterPath.toString().isEmpty) return '';
+    return '$_imageBaseUrl$posterPath';
+  }
+
+  /// Backfill missing posterPath for items in a list.
+  /// Returns the updated list with posters fetched where possible.
+  Future<List<MediaItem>> backfillMissingPosters(List<MediaItem> items) async {
+    final needsPoster = items.where((i) => i.posterPath.isEmpty && i.tmdbId > 0).toList();
+    if (needsPoster.isEmpty) return items;
+
+    final updated = List<MediaItem>.from(items);
+    for (final item in needsPoster) {
+      try {
+        final posterUrl = await fetchPosterUrl(item.tmdbId, item.mediaType);
+        if (posterUrl.isNotEmpty) {
+          final idx = updated.indexWhere((u) => u.id == item.id);
+          if (idx != -1) {
+            updated[idx] = updated[idx].copyWith(posterPath: posterUrl);
+          }
+          // Also update Firestore so future loads have the poster
+          await _firestore.collection('watch_list').doc(item.id).update({
+            'posterPath': posterUrl,
+          });
+        }
+      } catch (e) {
+        print('TMDB Backfill Poster Error for ${item.title}: $e');
+      }
+    }
+    return updated;
+  }
+
   /// Search TMDB for a TV show by title and year. Used as fallback when
   /// ani.zip doesn't have a TMDB mapping for the MAL id. Returns the
   /// first result's ID, or null on no match / API error.
