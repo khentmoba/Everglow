@@ -155,8 +155,6 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
                 ),
               ],
             ),
-              ),
-            ),
           ),
         ),
       ),
