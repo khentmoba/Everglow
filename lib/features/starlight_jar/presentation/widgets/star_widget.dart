@@ -7,6 +7,7 @@ class StarWidget extends StatelessWidget {
   final double rotation;
   final Animation<double>? animation;
   final Offset position;
+  final double opacity;
 
   const StarWidget({
     super.key,
@@ -15,6 +16,7 @@ class StarWidget extends StatelessWidget {
     this.rotation = 0,
     this.animation,
     required this.position,
+    this.opacity = 1.0,
   });
 
   @override
@@ -22,18 +24,21 @@ class StarWidget extends StatelessWidget {
     return Positioned(
       left: position.dx,
       top: position.dy,
-      child: Transform.rotate(
-        angle: rotation,
-        child: Icon(
-          Icons.star_rounded,
-          color: color,
-          size: size,
-          shadows: [
-            Shadow(
-              color: color.withOpacity(0.8),
-              blurRadius: 10,
-            ),
-          ],
+      child: Opacity(
+        opacity: opacity,
+        child: Transform.rotate(
+          angle: rotation,
+          child: Icon(
+            Icons.star_rounded,
+            color: color,
+            size: size,
+            shadows: [
+              Shadow(
+                color: color.withOpacity(0.8),
+                blurRadius: 10,
+              ),
+            ],
+          ),
         ),
       ),
     );
