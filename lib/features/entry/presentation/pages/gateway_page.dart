@@ -27,7 +27,6 @@ class _GatewayPageState extends State<GatewayPage> {
   void initState() {
     super.initState();
     _notifier.addListener(_onStateChange);
-    _seedDataOnce();
   }
 
   Future<void> _seedDataOnce() async {
@@ -164,6 +163,9 @@ class _GatewayPageState extends State<GatewayPage> {
         // Runs for every passcode so cinema-only profiles' fresh start
         // and any future re-login also covers it.
         await TMDBService().migrateWatchListOwnership();
+
+        // Seed milestone memories after authentication succeeds
+        _seedDataOnce();
       } catch (e) {
         print("Error during passcode login: $e");
         try {
