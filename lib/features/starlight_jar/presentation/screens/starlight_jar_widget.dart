@@ -325,35 +325,43 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
           // The Animating "Drop" Star
           if (_droppingStar != null && _dropAnimation != null)
             IgnorePointer(
-              child: AnimatedBuilder(
-                animation: _dropAnimation!,
-                builder: (context, child) {
-                  return StarWidget(
-                    color: AppTheme.blushGold,
-                    position: _dropAnimation!.value,
-                    rotation: _dropController!.value * pi * 2,
-                  );
-                },
+              child: Stack(
+                children: [
+                  AnimatedBuilder(
+                    animation: _dropAnimation!,
+                    builder: (context, child) {
+                      return StarWidget(
+                        color: AppTheme.blushGold,
+                        position: _dropAnimation!.value,
+                        rotation: _dropController!.value * pi * 2,
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
 
           // The Animating "Float Out" Star
           if (_floatingStar != null && _floatAnimation != null)
             IgnorePointer(
-              child: AnimatedBuilder(
-                animation: _floatAnimation!,
-                builder: (context, child) {
-                  final Offset end = const Offset(200, 80);
-                  final Offset start = const Offset(200, 350);
-                  final currentPos = Offset.lerp(start, end, _floatAnimation!.value)!;
+              child: Stack(
+                children: [
+                  AnimatedBuilder(
+                    animation: _floatAnimation!,
+                    builder: (context, child) {
+                      final Offset end = const Offset(200, 80);
+                      final Offset start = const Offset(200, 350);
+                      final currentPos = Offset.lerp(start, end, _floatAnimation!.value)!;
 
-                  return StarWidget(
-                    color: AppTheme.deepRose,
-                    position: currentPos,
-                    size: 24 + (16 * _floatAnimation!.value),
-                    rotation: _floatController!.value * pi,
-                  );
-                },
+                      return StarWidget(
+                        color: AppTheme.deepRose,
+                        position: currentPos,
+                        size: 24 + (16 * _floatAnimation!.value),
+                        rotation: _floatController!.value * pi,
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
 
@@ -402,8 +410,8 @@ class _StarMotion {
 
   _StarMotion.fromSeed(int seed) {
     final r = Random(seed);
-    baseX = 100 + r.nextDouble() * 176;
-    baseY = 110 + r.nextDouble() * 246;
+    baseX = 100 + r.nextDouble() * 160;
+    baseY = 100 + r.nextDouble() * 200;
     ampX = 8 + r.nextDouble() * 12;
     ampY = 6 + r.nextDouble() * 10;
     speedX = 0.55 + r.nextDouble() * 0.45;
