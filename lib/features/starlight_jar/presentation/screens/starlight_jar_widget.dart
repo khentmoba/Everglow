@@ -63,18 +63,10 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
   }
 
   Future<void> _showDropDialog() async {
-    final String? content = await showGeneralDialog<String>(
+    final String? content = await showDialog<String>(
       context: context,
-      barrierLabel: 'DropStar',
-      barrierDismissible: true,
       barrierColor: Colors.transparent,
-      transitionDuration: const Duration(milliseconds: 250),
-      pageBuilder: (context, animation, secondaryAnimation) {
-        return const SizedBox.shrink();
-      },
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        return DropStarDialog();
-      },
+      builder: (context) => const DropStarDialog(),
     );
 
     if (content != null && content.isNotEmpty) {
@@ -179,18 +171,11 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
   }
 
   Future<void> _showNoteDialog(StarNote note) async {
-    await showGeneralDialog(
+    await showDialog(
       context: context,
-      barrierLabel: 'Note',
-      barrierDismissible: false,
       barrierColor: Colors.transparent,
-      transitionDuration: const Duration(milliseconds: 250),
-      pageBuilder: (context, animation, secondaryAnimation) {
-        return const SizedBox.shrink();
-      },
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        return NoteDisplayDialog(note: note);
-      },
+      barrierDismissible: false,
+      builder: (context) => NoteDisplayDialog(note: note),
     );
 
     if (!mounted) return;
@@ -288,7 +273,6 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
               size: Size(280, 350),
             ),
             child: IgnorePointer(
-            child: RepaintBoundary(
             child: AnimatedBuilder(
             animation: _idleController,
             builder: (context, _) {
@@ -334,7 +318,6 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
                 },
               );
             },
-          ),
           ),
           ),
           ),
