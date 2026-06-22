@@ -59,13 +59,40 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
       ..allow = 'autoplay; encrypted-media; picture-in-picture'
       ..setAttribute('frameborder', '0')
       ..setAttribute('scrolling', 'no');
-      
+
+    // Shift the iframe up so the YouTube title bar sits above the visible
+    // area. The extra height compensates so no video content is lost at the
+    // bottom — only the title bar at the top is clipped by overflow:hidden.
     _iframe.style
       ..border = '0'
       ..width = '100%'
-      ..height = '100%'
+      ..height = 'calc(100% + 38px)'
+      ..marginTop = '-38px'
       ..backgroundColor = '#000'
-      ..pointerEvents = 'none'; // prevents clicking YouTube interface inside iframe during hover
+      ..pointerEvents = 'none'; // defense-in-depth: overlay already blocks events, but guard here too
+
+    // Wrapper clips the iframe overflow (hides the title bar shifted above)
+    final wrapper = web.document.createElement('div') as web.HTMLDivElement;
+    wrapper.style
+      ..position = 'relative'
+      ..width = '100%'
+      ..height = '100%'
+      ..overflow = 'hidden';
+
+    wrapper.appendChild(_iframe);
+
+    // Transparent overlay sits on top of the iframe to absorb hover/click
+    // events so the YouTube player never shows its pause/skip controls.
+    final overlay = web.document.createElement('div') as web.HTMLDivElement;
+    overlay.style
+      ..position = 'absolute'
+      ..top = '0'
+      ..left = '0'
+      ..width = '100%'
+      ..height = '100%'
+      ..zIndex = '10';
+
+    wrapper.appendChild(overlay);
 
     _onLoadListener = ((web.Event _) {
       if (mounted) {
@@ -75,7 +102,7 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
     }).toJS;
     _iframe.addEventListener('load', _onLoadListener);
 
-    ui_web.platformViewRegistry.registerViewFactory(_viewType, (int viewId) => _iframe);
+    ui_web.platformViewRegistry.registerViewFactory(_viewType, (int viewId) => wrapper);
   }
 
   @override
