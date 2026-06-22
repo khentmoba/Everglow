@@ -63,10 +63,18 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
   }
 
   Future<void> _showDropDialog() async {
-    final String? content = await showDialog<String>(
+    final String? content = await showGeneralDialog<String>(
       context: context,
+      barrierLabel: 'DropStar',
+      barrierDismissible: true,
       barrierColor: Colors.transparent,
-      builder: (context) => const DropStarDialog(),
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return const SizedBox.shrink();
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return DropStarDialog();
+      },
     );
 
     if (content != null && content.isNotEmpty) {
@@ -171,11 +179,18 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
   }
 
   Future<void> _showNoteDialog(StarNote note) async {
-    await showDialog(
+    await showGeneralDialog(
       context: context,
-      barrierColor: Colors.transparent,
+      barrierLabel: 'Note',
       barrierDismissible: false,
-      builder: (context) => NoteDisplayDialog(note: note),
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return const SizedBox.shrink();
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return NoteDisplayDialog(note: note);
+      },
     );
 
     if (!mounted) return;
@@ -269,7 +284,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
           // Floating Stars (from Stream) with organic drift animation
           ClipPath(
             clipper: const JarClipperAtOffset(
-              offset: Offset(60, 75),
+              offset: Offset(60, 36),
               size: Size(280, 350),
             ),
             child: IgnorePointer(
@@ -297,9 +312,9 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
                         + cos(tY * 2 * pi + m.phaseY) * m.ampY
                         + cos(tY * 2 * pi * 0.43 + m.phaseY * 1.3) * m.ampY * 0.25;
                       const jarLeft = 60.0;
-                      const jarTop = 75.0;
+                      const jarTop = 36.0;
                       const jarRight = 340.0;
-                      const jarBottom = 425.0;
+                      const jarBottom = 386.0;
                       const maxSize = 24.0;
                       final dx = rawDx.clamp(jarLeft, jarRight - maxSize);
                       final dy = rawDy.clamp(jarTop, jarBottom - maxSize);
