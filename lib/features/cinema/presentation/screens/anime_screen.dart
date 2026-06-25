@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show Picture, PictureRecorder;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -1692,42 +1693,76 @@ class _AnimeSparklesState extends State<_AnimeSparkles>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   static const _count = 18;
-  late final List<_Sparkle> _sparkles;
+  late final List<_SparkleData> _sparkles;
+  late final Picture _starPicture;
 
   @override
   void initState() {
     super.initState();
     final rng = math.Random(42);
-    _sparkles = List.generate(_count, (_) => _Sparkle(rng));
+    _sparkles = List.generate(_count, (_) => _SparkleData(rng));
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 12),
     )..repeat();
+
+    // Pre-render the star/diamond shape into a Picture so every frame
+    // just replays it with translate+rotate+scale instead of allocating
+    // a new 8-vertex Path per sparkle.
+    _starPicture = _createStarPicture();
+  }
+
+  /// Pre-renders the canonical star shape at size=1.0 so the painter
+  /// can scale it to each sparkle's size via canvas.scale().
+  static Picture _createStarPicture() {
+    final recorder = PictureRecorder();
+    final canvas = Canvas(recorder);
+    const r = 1.0;
+    final path = Path()
+      ..moveTo(0, -r)
+      ..lineTo(r * 0.4, -r * 0.3)
+      ..lineTo(r, 0)
+      ..lineTo(r * 0.4, r * 0.3)
+      ..lineTo(0, r)
+      ..lineTo(-r * 0.4, r * 0.3)
+      ..lineTo(-r, 0)
+      ..lineTo(-r * 0.4, -r * 0.3)
+      ..close();
+    // Use a neutral paint — the caller overrides color/blend per sparkle.
+    canvas.drawPath(path, Paint()..style = PaintingStyle.fill);
+    return recorder.endRecording();
   }
 
   @override
   void dispose() {
     _ctrl.dispose();
+    _starPicture.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     if (AppTheme.shouldReduceMotion) return const SizedBox.shrink();
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, __) => CustomPaint(
-        size: Size.infinite,
-        painter: _SparklePainter(_sparkles, _ctrl.value),
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (_, __) => CustomPaint(
+          size: Size.infinite,
+          painter: _SparklePainter(
+            sparkles: _sparkles,
+            progress: _ctrl.value,
+            starPicture: _starPicture,
+          ),
+        ),
       ),
     );
   }
 }
 
-class _Sparkle {
+class _SparkleData {
   final double x, y, size, speed, delay;
   final double hue; // 0..1 — maps to pink/cyan/purple
-  _Sparkle(math.Random rng)
+  _SparkleData(math.Random rng)
       : x = rng.nextDouble(),
         y = rng.nextDouble(),
         size = 1.5 + rng.nextDouble() * 2.5,
@@ -1737,19 +1772,31 @@ class _Sparkle {
 }
 
 class _SparklePainter extends CustomPainter {
-  final List<_Sparkle> sparkles;
+  final List<_SparkleData> sparkles;
   final double progress;
+  final Picture starPicture;
 
-  _SparklePainter(this.sparkles, this.progress);
+  _SparklePainter({
+    required this.sparkles,
+    required this.progress,
+    required this.starPicture,
+  });
+
+  // Palette shared across all sparkles — created once and tinted
+  // per sparkle by adjusting alpha via Paint.colorFilter or a
+  // shared Paint with varying color.
+  static const _colors = [
+    Color(0x80FF2D55), // magenta
+    Color(0x8000BCD4), // cyan
+    Color(0x807C3AED), // purple
+    Color(0x80FF4081), // vibrant pink
+  ];
 
   @override
   void paint(Canvas canvas, Size size) {
-    final colors = [
-      const Color(0x80FF2D55), // magenta
-      const Color(0x8000BCD4), // cyan
-      const Color(0x807C3AED), // purple
-      const Color(0x80FF4081), // vibrant pink
-    ];
+    // Reusable Paint — color is overwritten per sparkle
+    final paint = Paint()..style = PaintingStyle.fill;
+
     for (final s in sparkles) {
       final t = (progress + s.delay) % 1.0;
       final alpha = (math.sin(t * math.pi) * 0.6 + 0.1).clamp(0.0, 1.0);
@@ -1757,26 +1804,15 @@ class _SparklePainter extends CustomPainter {
       final px = (s.x * size.width + drift) % size.width;
       final py = (s.y * size.height - t * size.height * s.speed * 0.15) %
           size.height;
-      final paint = Paint()
-        ..color = colors[s.hue.floor() % colors.length]
-            .withValues(alpha: alpha * 0.9)
-        ..style = PaintingStyle.fill;
+
+      paint.color = _colors[s.hue.floor() % _colors.length]
+          .withValues(alpha: alpha * 0.9);
+
       canvas.save();
       canvas.translate(px, py);
       canvas.rotate(t * 6.28);
-      final r = s.size;
-      // Draw a diamond/star shape
-      final path = Path()
-        ..moveTo(0, -r)
-        ..lineTo(r * 0.4, -r * 0.3)
-        ..lineTo(r, 0)
-        ..lineTo(r * 0.4, r * 0.3)
-        ..lineTo(0, r)
-        ..lineTo(-r * 0.4, r * 0.3)
-        ..lineTo(-r, 0)
-        ..lineTo(-r * 0.4, -r * 0.3)
-        ..close();
-      canvas.drawPath(path, paint);
+      canvas.scale(s.size); // canonical star is size=1
+      canvas.drawPicture(starPicture);
       canvas.restore();
     }
   }
