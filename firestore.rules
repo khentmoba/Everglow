@@ -145,6 +145,7 @@ service cloud.firestore {
     match /date_ideas/{docId} { allow read, write: if isAuthenticated(); }
     match /garden_stats/{docId} { allow read, write: if isAuthenticated(); }
     match /guardian_messages/{docId} { allow read, write: if isAuthenticated(); }
+    match /canvas_strokes/{docId} { allow read, write: if isAuthenticated(); }
     match /live_canvas/{docId} { allow read, write: if isAuthenticated(); }
     match /manga_library/{docId} { allow read, write: if isAuthenticated(); }
     match /memories/{docId} { allow read, write: if isAuthenticated(); }

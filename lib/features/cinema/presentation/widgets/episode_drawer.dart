@@ -1157,7 +1157,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
               if (_isLoadingEpisodes)
                 const SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.all(32),
+                    padding: const EdgeInsets.all(32),
                     child: Center(
                       child: CircularProgressIndicator(
                           color: _cDeepRose, strokeWidth: 2),
@@ -2425,7 +2425,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
 
   Widget _buildLoader() {
     return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 28),
+      padding: const EdgeInsets.symmetric(vertical: 28),
       child: Center(
         child: SizedBox(
           width: 22,

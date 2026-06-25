@@ -4,7 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
+import 'package:everglow/features/manga/data/services/comick_service.dart';
+import 'package:everglow/features/manga/data/services/mangadex_service.dart';
 import 'package:everglow/features/manga/data/services/mangakakalot_service.dart';
+import 'package:everglow/features/manga/data/services/scanlation_service.dart';
 import 'package:everglow/features/manga/presentation/screens/manga_reader_screen.dart';
 import 'package:everglow/services/auth_service.dart';
 
@@ -22,8 +25,15 @@ class MangaDetailsDrawer extends StatefulWidget {
 }
 
 class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
-  final MangaKakalotService _service = MangaKakalotService();
+  final ComickService _comickService = ComickService();
+  final MangaDexService _mangaDexService = MangaDexService();
+  final MangaKakalotService _kakalotService = MangaKakalotService();
+  final ScanlationService _scanlationService = ScanlationService();
   final ScrollController _chapterScrollController = ScrollController();
+
+  /// Populated when chapters come from scanlation sites; passed to
+  /// the reader so it can resolve page images from the same sites.
+  Map<String, String>? _scanlationSlugs;
 
   late MangaItem _item;
   List<MangaChapter> _chapters = const [];
@@ -48,24 +58,76 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
       _isLoadingChapters = true;
       _chapterError = null;
     });
+
+    List<MangaChapter>? list;
+
+    // 1) Comick API — richest chapter metadata (scanlation groups, dates)
+    if (_item.comickId > 0) {
+      try {
+        list = await _comickService.getChapterFeed(_item.comickId);
+        if (list.isNotEmpty) {
+          if (!mounted) return;
+          setState(() { _chapters = list!; _isLoadingChapters = false; });
+          return;
+        }
+      } catch (_) { /* fall through */ }
+    }
+
+    // 2) MangaDex API — the mangaKakalotId field actually stores the
+    //    MangaDex UUID (set from Comick's md_id).
+    final mangaDexId = _item.mangaKakalotId;
+    if (mangaDexId.isNotEmpty) {
+      try {
+        list = await _mangaDexService.getChapterFeed(mangaDexId);
+        if (list.isNotEmpty) {
+          if (!mounted) return;
+          setState(() { _chapters = list!; _isLoadingChapters = false; });
+          return;
+        }
+      } catch (_) { /* fall through */ }
+    }
+
+    // 3) MangaKakalot scraping — for legacy titles
     try {
       String slug = _item.mangaKakalotId.isNotEmpty
           ? _item.mangaKakalotId
           : _item.mangaId;
       if (slug.isEmpty || slug.length < 5) {
-        final resolved = await _service.searchByTitle(_item.title);
+        final resolved = await _kakalotService.searchByTitle(_item.title);
         if (resolved.isNotEmpty) slug = resolved;
       }
-      final list = await _service.getChapterFeed(slug);
-      if (!mounted) return;
+      list = await _kakalotService.getChapterFeed(slug);
+    } catch (_) { /* fall through */ }
+
+    // 4) Scanlation sites — search ArcaneScans, AsuraScans, ReaperScans, etc.
+    if (list == null || list.isEmpty) {
+      try {
+        final slugs = await _scanlationService.searchAll(_item.title);
+        if (slugs.isNotEmpty) {
+          final scanChapters =
+              await _scanlationService.getChapterFeedFromAll(slugs);
+          if (scanChapters.isNotEmpty) {
+            _scanlationSlugs = slugs;
+            if (!mounted) return;
+            setState(() {
+              _chapters = scanChapters;
+              _isLoadingChapters = false;
+            });
+            return;
+          }
+        }
+      } catch (_) { /* fall through */ }
+    }
+
+    if (!mounted) return;
+    if (list != null && list.isNotEmpty) {
       setState(() {
-        _chapters = list;
+        _chapters = list!;
         _isLoadingChapters = false;
       });
-    } catch (e) {
-      if (!mounted) return;
+    } else {
       setState(() {
-        _chapterError = 'Could not load chapters.';
+        _chapterError = 'No English chapters available.';
         _isLoadingChapters = false;
       });
     }
@@ -78,6 +140,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
           manga: _item,
           chapter: chapter,
           allChapters: _chapters,
+          scanlationSlugs: _scanlationSlugs,
         ),
       ),
     );
@@ -86,7 +149,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
   Future<void> _updateLibraryStatus(String status) async {
     final user = context.read<AuthService>().currentUser ?? '';
     if (user.isEmpty) return;
-    await _service.saveToLibrary(_item, status, user);
+    await _kakalotService.saveToLibrary(_item, status, user);
     setState(() {
       _item = _item.copyWith(libraryStatus: status);
     });
@@ -471,7 +534,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
         const SizedBox(height: 8),
         if (_isLoadingChapters)
           const Padding(
-            padding: EdgeInsets.symmetric(vertical: 32),
+            padding: const EdgeInsets.symmetric(vertical: 32),
             child: Center(
               child: CircularProgressIndicator(color: AppTheme.deepRose),
             ),

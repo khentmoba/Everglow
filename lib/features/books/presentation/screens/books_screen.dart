@@ -838,7 +838,7 @@ class _BooksScreenState extends State<BooksScreen>
           ),
           const SizedBox(height: 16),
           SizedBox(
-            height: 480,
+            height: (_responsiveListHeight(context, fallback: 480)),
             child: _trendingRankings.isEmpty
                 ? const ShelfEmptyState(
                     icon: Icons.emoji_events_outlined,
@@ -862,6 +862,14 @@ class _BooksScreenState extends State<BooksScreen>
         ],
       ),
     );
+  }
+
+  /// Returns a responsive list height proportional to the viewport,
+  /// clamped so the list never collapses on mobile or blows out on
+  /// ultrawide displays.
+  static double _responsiveListHeight(BuildContext context, {required double fallback}) {
+    final viewH = MediaQuery.sizeOf(context).height;
+    return (viewH * 0.42).clamp(fallback * 0.6, fallback * 1.35);
   }
 
   // ── SUBJECT ROWS ───────────────────────────────────────────────────
@@ -1232,7 +1240,7 @@ class _BooksScreenState extends State<BooksScreen>
         ),
         const SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: ShimmerBox(height: 320, radius: 24),
           ),
         ),

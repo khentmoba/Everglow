@@ -1148,7 +1148,7 @@ class _CinemaScreenState extends State<CinemaScreen>
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
-                  height: 400,
+                  height: (_responsiveListHeight(context, fallback: 400)),
                   child: TabBarView(
                     physics: const NeverScrollableScrollPhysics(),
                     children: [
@@ -1163,6 +1163,14 @@ class _CinemaScreenState extends State<CinemaScreen>
         ],
       ),
     );
+  }
+
+  /// Returns a responsive list height proportional to the viewport,
+  /// clamped so the list never collapses on mobile or blows out on
+  /// ultrawide displays.
+  static double _responsiveListHeight(BuildContext context, {required double fallback}) {
+    final viewH = MediaQuery.sizeOf(context).height;
+    return (viewH * 0.42).clamp(fallback * 0.6, fallback * 1.35);
   }
 
   Widget _buildRankingList(List<MediaItem> items) {
@@ -1745,7 +1753,7 @@ class _CinemaScreenState extends State<CinemaScreen>
         ),
         const SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: ShimmerBox(height: 320, radius: 24),
           ),
         ),

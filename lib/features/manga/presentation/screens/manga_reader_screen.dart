@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
+import 'package:everglow/features/manga/data/services/mangadex_service.dart';
 import 'package:everglow/features/manga/data/services/mangakakalot_service.dart';
+import 'package:everglow/features/manga/data/services/scanlation_service.dart';
 import 'package:everglow/services/auth_service.dart';
 
 /// Page turn mode — one image per page, swipe / arrow keys to advance.
@@ -27,11 +29,17 @@ class MangaReaderScreen extends StatefulWidget {
   final MangaChapter chapter;
   final List<MangaChapter> allChapters;
 
+  /// When chapters came from scanlation sites, this maps site name →
+  /// series slug so the reader can fetch page images from the same
+  /// sites without re-searching.
+  final Map<String, String>? scanlationSlugs;
+
   const MangaReaderScreen({
     Key? key,
     required this.manga,
     required this.chapter,
     required this.allChapters,
+    this.scanlationSlugs,
   }) : super(key: key);
 
   @override
@@ -39,7 +47,9 @@ class MangaReaderScreen extends StatefulWidget {
 }
 
 class _MangaReaderScreenState extends State<MangaReaderScreen> {
-  final MangaKakalotService _service = MangaKakalotService();
+  final MangaDexService _mangaDexService = MangaDexService();
+  final MangaKakalotService _kakalotService = MangaKakalotService();
+  final ScanlationService _scanlationService = ScanlationService();
 
   MangaChapterPages? _pages;
   bool _isLoading = true;
@@ -62,35 +72,98 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
   }
 
   Future<void> _loadPages() async {
+    MangaChapterPages? pages;
+
+    // 1) MangaDex — best source for page images
+    //    Try chapter.id directly first (it may be a MangaDex UUID from
+    //    the drawer's MangaDex fallback), then try matching by chapter
+    //    number against the manga's MangaDex feed.
     try {
-      final pages = await _service.getChapterPages(widget.chapter.id);
-      if (!mounted) return;
-      if (pages == null || pages.filenames.isEmpty) {
-        setState(() {
-          _isLoading = false;
-          _loadError = 'This chapter has no readable pages.';
-        });
+      // Direct lookup: chapter.id IS a MangaDex UUID
+      pages = await _mangaDexService.getChapterPagesProxied(widget.chapter.id);
+      if (pages != null && pages.filenames.isNotEmpty) {
+        _applyPages(pages);
         return;
       }
-      setState(() {
-        _pages = pages;
-        _isLoading = false;
-      });
-      // Restore last read page if applicable
-      if (widget.manga.lastReadChapterId == widget.chapter.id &&
-          widget.manga.lastReadPage > 0 &&
-          widget.manga.lastReadPage <= pages.filenames.length) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_pageController.hasClients && mounted) {
-            _pageController.jumpToPage(widget.manga.lastReadPage - 1);
+
+      // Match by chapter number: fetch the manga's MangaDex feed,
+      // find the chapter with the same number, and get its pages.
+      final mangaDexId = widget.manga.mangaKakalotId;
+      if (mangaDexId.isNotEmpty && widget.chapter.chapter.isNotEmpty) {
+        final mdChapters =
+            await _mangaDexService.getChapterFeed(mangaDexId);
+        final targetChapter = mdChapters.cast<MangaChapter?>().firstWhere(
+              (c) => c?.chapter == widget.chapter.chapter,
+              orElse: () => null,
+            );
+        if (targetChapter != null) {
+          pages = await _mangaDexService
+              .getChapterPagesProxied(targetChapter.id);
+          if (pages != null && pages.filenames.isNotEmpty) {
+            _applyPages(pages);
+            return;
           }
-        });
+        }
       }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _loadError = 'Failed to load: $e';
+    } catch (_) { /* fall through */ }
+
+    // 2) MangaKakalot scraping — legacy fallback
+    try {
+      pages = await _kakalotService.getChapterPages(widget.chapter.id);
+      if (pages != null && pages.filenames.isNotEmpty) {
+        // Pre-proxy the image URLs so the build methods stay source-agnostic
+        final proxied = pages.filenames
+            .map((u) => _kakalotService.proxiedImageUrl(u))
+            .toList();
+        pages = MangaChapterPages(
+          chapterId: pages.chapterId,
+          baseUrl: '',
+          hash: '',
+          filenames: proxied,
+          expiresAt: pages.expiresAt,
+        );
+        _applyPages(pages);
+        return;
+      }
+    } catch (_) { /* fall through */ }
+
+    // 3) Scanlation sites — ArcaneScans, AsuraScans, ReaperScans, etc.
+    try {
+      final slugs = widget.scanlationSlugs;
+      if (slugs != null && slugs.isNotEmpty) {
+        pages = await _scanlationService.getChapterPagesFromAll(
+          slugs,
+          widget.chapter.chapter,
+        );
+        if (pages != null && pages.filenames.isNotEmpty) {
+          _applyPages(pages);
+          return;
+        }
+      }
+    } catch (_) { /* fall through */ }
+
+    // Nothing worked
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      _loadError = 'This chapter has no readable pages.';
+    });
+  }
+
+  void _applyPages(MangaChapterPages pages) {
+    if (!mounted) return;
+    setState(() {
+      _pages = pages;
+      _isLoading = false;
+    });
+    // Restore last read page if applicable
+    if (widget.manga.lastReadChapterId == widget.chapter.id &&
+        widget.manga.lastReadPage > 0 &&
+        widget.manga.lastReadPage <= pages.filenames.length) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_pageController.hasClients && mounted) {
+          _pageController.jumpToPage(widget.manga.lastReadPage - 1);
+        }
       });
     }
   }
@@ -98,7 +171,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
   Future<void> _saveProgress(int pageIndex) async {
     final user = context.read<AuthService>().currentUser ?? '';
     if (user.isEmpty) return;
-    await _service.saveReadingProgress(
+    await _kakalotService.saveReadingProgress(
       mangaId: widget.manga.mangaId,
       userName: user,
       chapterId: widget.chapter.id,
@@ -301,7 +374,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
             maxScale: 4.0,
             child: Center(
               child: Image.network(
-                _service.proxiedImageUrl(url),
+                url,
                 fit: BoxFit.contain,
                 cacheWidth: 1200,
                 loadingBuilder: (context, child, loadingProgress) {
@@ -345,38 +418,42 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
         itemBuilder: (context, index) {
           final url = _pages!.urlForPage(index);
           return Image.network(
-            _service.proxiedImageUrl(url),
+            url,
             fit: BoxFit.contain,
             cacheWidth: 1200,
             loadingBuilder: (context, child, loadingProgress) {
               if (loadingProgress == null) return child;
-              return Container(
-                height: 400,
-                alignment: Alignment.center,
-                child: CircularProgressIndicator(
-                  color: AppTheme.deepRose,
-                  value: loadingProgress.expectedTotalBytes != null
-                      ? loadingProgress.cumulativeBytesLoaded /
-                          loadingProgress.expectedTotalBytes!
-                      : null,
+              return LayoutBuilder(
+                builder: (context, constraints) => Container(
+                  height: constraints.maxWidth * 0.5,
+                  alignment: Alignment.center,
+                  child: CircularProgressIndicator(
+                    color: AppTheme.deepRose,
+                    value: loadingProgress.expectedTotalBytes != null
+                        ? loadingProgress.cumulativeBytesLoaded /
+                            loadingProgress.expectedTotalBytes!
+                        : null,
+                  ),
                 ),
               );
             },
-            errorBuilder: (context, error, stack) => Container(
-              height: 200,
-              alignment: Alignment.center,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.broken_image,
-                      color: AppTheme.roseQuartz),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Page ${index + 1} failed to load',
-                    style: GoogleFonts.outfit(
-                        color: AppTheme.roseQuartz, fontSize: 12),
-                  ),
-                ],
+            errorBuilder: (context, error, stack) => LayoutBuilder(
+              builder: (context, constraints) => Container(
+                height: constraints.maxWidth * 0.3,
+                alignment: Alignment.center,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.broken_image,
+                        color: AppTheme.roseQuartz),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Page ${index + 1} failed to load',
+                      style: GoogleFonts.outfit(
+                          color: AppTheme.roseQuartz, fontSize: 12),
+                    ),
+                  ],
+                ),
               ),
             ),
           );

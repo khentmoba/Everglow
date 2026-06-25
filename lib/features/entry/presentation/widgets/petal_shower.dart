@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' show Picture, PictureRecorder;
 import 'package:flutter/material.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 
@@ -13,8 +14,9 @@ class PetalShower extends StatefulWidget {
 
 class _PetalShowerState extends State<PetalShower> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  final List<Petal> _petals = [];
-  final int _petalCount = 30;
+  final List<_PetalData> _petals = [];
+  late final Picture _petalShapePicture;
+  static const int _petalCount = 30;
 
   @override
   void initState() {
@@ -24,14 +26,46 @@ class _PetalShowerState extends State<PetalShower> with SingleTickerProviderStat
       vsync: this,
     )..repeat();
 
+    // Pre-render a single petal shape into a Picture so every frame
+    // replays it with a simple translate+rotate instead of allocating
+    // new Path objects on the UI thread.
+    _petalShapePicture = _createPetalShapePicture(15.0);
+
+    final rng = math.Random();
     for (int i = 0; i < _petalCount; i++) {
-      _petals.add(Petal());
+      _petals.add(_PetalData(
+        x: rng.nextDouble(),
+        y: rng.nextDouble() * -1,
+        size: rng.nextDouble() * 15 + 10,
+        speed: rng.nextDouble() * 0.5 + 0.5,
+        angle: rng.nextDouble() * math.pi * 2,
+        drift: (rng.nextDouble() - 0.5) * 0.2,
+      ));
     }
+  }
+
+  /// Pre-renders one canonical petal shape into a [Picture] so it can be
+  /// replayed cheaply per petal per frame.
+  static Picture _createPetalShapePicture(double maxSize) {
+    final recorder = PictureRecorder();
+    final canvas = Canvas(recorder);
+    final paint = Paint()..color = AppTheme.roseQuartz.withOpacity(0.6);
+
+    // Petal shape: two quadratic curves forming an eye-like leaf.
+    // Scaled so the caller can adjust size via canvas.scale().
+    final path = Path()
+      ..moveTo(0, 0)
+      ..quadraticBezierTo(maxSize / 2, -maxSize, maxSize, 0)
+      ..quadraticBezierTo(maxSize / 2, maxSize, 0, 0);
+    canvas.drawPath(path, paint);
+
+    return recorder.endRecording();
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _petalShapePicture.dispose();
     super.dispose();
   }
 
@@ -39,59 +73,76 @@ class _PetalShowerState extends State<PetalShower> with SingleTickerProviderStat
   Widget build(BuildContext context) {
     if (!widget.isVisible) return const SizedBox.shrink();
 
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return CustomPaint(
-          size: Size.infinite,
-          painter: PetalPainter(_petals, _controller.value),
-        );
-      },
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return CustomPaint(
+            size: Size.infinite,
+            painter: PetalPainter(
+              petals: _petals,
+              progress: _controller.value,
+              shapePicture: _petalShapePicture,
+            ),
+          );
+        },
+      ),
     );
   }
 }
 
-class Petal {
-  double x = math.Random().nextDouble();
-  double y = math.Random().nextDouble() * -1;
-  double size = math.Random().nextDouble() * 15 + 10;
-  double speed = math.Random().nextDouble() * 0.5 + 0.5;
-  double angle = math.Random().nextDouble() * math.pi * 2;
-  double drift = (math.Random().nextDouble() - 0.5) * 0.2;
+class _PetalData {
+  final double x;
+  final double y;
+  final double size;
+  final double speed;
+  final double angle;
+  final double drift;
+
+  const _PetalData({
+    required this.x,
+    required this.y,
+    required this.size,
+    required this.speed,
+    required this.angle,
+    required this.drift,
+  });
 }
 
 class PetalPainter extends CustomPainter {
-  final List<Petal> petals;
+  final List<_PetalData> petals;
   final double progress;
+  final Picture shapePicture;
 
-  PetalPainter(this.petals, this.progress);
+  PetalPainter({
+    required this.petals,
+    required this.progress,
+    required this.shapePicture,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = AppTheme.roseQuartz.withOpacity(0.6);
+    for (final petal in petals) {
+      final currentY = (petal.y + (progress * petal.speed)) % 1.5 - 0.2;
+      final currentX = (petal.x + math.sin(progress * math.pi * 2 + petal.angle) * petal.drift) % 1.0;
 
-    for (var petal in petals) {
-      double currentY = (petal.y + (progress * petal.speed)) % 1.5 - 0.2;
-      double currentX = (petal.x + math.sin(progress * math.pi * 2 + petal.angle) * petal.drift) % 1.0;
-
-      double px = currentX * size.width;
-      double py = currentY * size.height;
+      final px = currentX * size.width;
+      final py = currentY * size.height;
 
       canvas.save();
       canvas.translate(px, py);
       canvas.rotate(progress * math.pi * 2 + petal.angle);
-      
-      // Draw a petal shape
-      final path = Path();
-      path.moveTo(0, 0);
-      path.quadraticBezierTo(petal.size / 2, -petal.size, petal.size, 0);
-      path.quadraticBezierTo(petal.size / 2, petal.size, 0, 0);
-      
-      canvas.drawPath(path, paint);
+      canvas.scale(petal.size / 15.0);
+      canvas.drawPicture(shapePicture);
       canvas.restore();
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant PetalPainter oldDelegate) {
+    // Only repaint when the animation frame actually advances.
+    // The old code returned true unconditionally, repainting 60×/s
+    // even when the widget was occluded or the controller paused.
+    return oldDelegate.progress != progress || oldDelegate.petals != petals;
+  }
 }
