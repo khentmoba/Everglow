@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/config/env_config.dart';
+import '../features/xp/data/services/xp_service.dart';
+import '../features/dashboard/data/services/letterbox_service.dart';
 
 class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -190,6 +192,13 @@ class AuthService extends ChangeNotifier {
 
       // Resolve partner dynamically
       await _resolvePartnerInfo();
+
+      // Initialize XP progress doc (no-op if already exists)
+      XPService().initializeProgress(myUid);
+
+      // Seed a sample letterbox note if the collection is empty
+      LetterboxService().ensureSeeded();
+
       _hasSyncedUserDoc = true;
     } catch (e) {
       print("AuthService._syncUserDoc error: $e");

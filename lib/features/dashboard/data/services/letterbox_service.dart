@@ -43,6 +43,20 @@ class LetterboxService {
     }
   }
 
+  // Ensure the notes collection has at least one sample note if empty.
+  // Unlike seedInitialNotes() this does NOT clear existing data.
+  Future<void> ensureSeeded() async {
+    final existing = await _db.collection('notes').limit(1).get();
+    if (existing.docs.isNotEmpty) return;
+    final data = {
+      'title': 'My Favorite Number',
+      'content': '1111',
+      'unlockDate': Timestamp.fromDate(DateTime.now()),
+      'isRead': false,
+    };
+    await _db.collection('notes').add(data);
+  }
+
   // Seed the collection with sample data
   Future<void> seedInitialNotes() async {
     // 1. Clear existing notes
