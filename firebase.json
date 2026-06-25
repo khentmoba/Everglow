@@ -1,17 +1,4 @@
 {
-  "flutter": {
-    "platforms": {
-      "dart": {
-        "lib/firebase_options.dart": {
-          "projectId": "everglow-1c6db",
-          "configurations": {
-            "web": "1:220334592353:web:6b31555509529613647520"
-          }
-        }
-      }
-    }
-  },
-  "firestore": {
     "rules": "firestore.rules"
   },
   "functions": {
