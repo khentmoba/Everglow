@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../../domain/models/ai_conversation.dart';
 import '../../../cinema/data/services/tmdb_service.dart';
 import '../../../cinema/data/models/media_item.dart';
+import 'sse_streamer.dart';
 
 /// Core service for all AI interactions in Everglow.
 ///
@@ -934,57 +935,16 @@ class AIService extends ChangeNotifier {
       'stream': true, // enables real SSE streaming from the backend
     });
 
-    final fullResponse = StringBuffer();
-
-    final request = http.Request('POST', Uri.parse(_cloudFunctionUrl))
-      ..headers.addAll({
+    return streamSseResponse(
+      url: _cloudFunctionUrl,
+      headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $idToken',
-      })
-      ..body = body;
-
-    final client = http.Client();
-    try {
-      final response =
-          await client.send(request).timeout(const Duration(seconds: 65));
-
-      if (response.statusCode == 200) {
-        // Parse SSE stream: lines prefixed with "data: "
-        await for (final line
-            in response.stream
-                .transform(utf8.decoder)
-                .transform(const LineSplitter())) {
-          if (line.startsWith('data: ')) {
-            final data = line.substring(6).trim();
-            if (data == '[DONE]') break;
-            try {
-              final parsed = jsonDecode(data) as Map<String, dynamic>;
-              final content = parsed['content'] as String? ?? '';
-              if (content.isNotEmpty) {
-                fullResponse.write(content);
-                onChunk(content);
-              }
-            } catch (_) {
-              // skip malformed JSON chunks
-            }
-          }
-        }
-        return fullResponse.toString();
-      }
-
-      // Handle error responses
-      String errorMsg;
-      try {
-        final errorBody = await response.stream.bytesToString();
-        final errorData = jsonDecode(errorBody);
-        errorMsg = errorData['error'] ?? 'Unknown error';
-      } catch (_) {
-        errorMsg = 'AI service returned ${response.statusCode}';
-      }
-      throw Exception(errorMsg);
-    } finally {
-      client.close();
-    }
+      },
+      body: body,
+      onChunk: onChunk,
+      timeout: const Duration(seconds: 65),
+    );
   }
 
   // ─── Firestore Persistence ─────────────────────────────────────
