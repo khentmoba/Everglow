@@ -918,7 +918,8 @@ class AIService extends ChangeNotifier {
     throw Exception(errorMsg);
   }
 
-  /// Stream a response from the AI, calling [onChunk] with each piece.
+  /// Stream a response from the AI via real SSE, calling [onChunk] with each
+  /// token as the model generates it.
   Future<String> _callProxyAIStream(
     List<Map<String, dynamic>> messages,
     String context,
@@ -926,49 +927,64 @@ class AIService extends ChangeNotifier {
     void Function(String chunk) onChunk,
   ) async {
     final idToken = await _auth.currentUser?.getIdToken() ?? '';
-    final url = _cloudFunctionUrl;
     final body = jsonEncode({
       'messages': messages,
       'context': context,
       'memories': memories,
-      'stream': true,
+      'stream': true, // enables real SSE streaming from the backend
     });
 
     final fullResponse = StringBuffer();
 
-    final http.Response response = await http
-        .post(
-          Uri.parse('$url?stream=true'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $idToken',
-          },
-          body: body,
-        )
-        .timeout(const Duration(seconds: 65));
+    final request = http.Request('POST', Uri.parse(_cloudFunctionUrl))
+      ..headers.addAll({
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
+      })
+      ..body = body;
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final reply = data['reply'] as String? ?? '';
-      if (reply.isNotEmpty) {
-        // Stream the reply character by character for visual effect
-        for (var i = 0; i < reply.length; i++) {
-          fullResponse.write(reply[i]);
-          onChunk(reply[i]);
-          await Future.delayed(const Duration(milliseconds: 15));
-        }
-      }
-      return fullResponse.toString();
-    }
-
-    String errorMsg;
+    final client = http.Client();
     try {
-      final errorData = jsonDecode(response.body);
-      errorMsg = errorData['error'] ?? 'Unknown error';
-    } catch (_) {
-      errorMsg = 'AI service returned ${response.statusCode}';
+      final response =
+          await client.send(request).timeout(const Duration(seconds: 65));
+
+      if (response.statusCode == 200) {
+        // Parse SSE stream: lines prefixed with "data: "
+        await for (final line
+            in response.stream
+                .transform(utf8.decoder)
+                .transform(const LineSplitter())) {
+          if (line.startsWith('data: ')) {
+            final data = line.substring(6).trim();
+            if (data == '[DONE]') break;
+            try {
+              final parsed = jsonDecode(data) as Map<String, dynamic>;
+              final content = parsed['content'] as String? ?? '';
+              if (content.isNotEmpty) {
+                fullResponse.write(content);
+                onChunk(content);
+              }
+            } catch (_) {
+              // skip malformed JSON chunks
+            }
+          }
+        }
+        return fullResponse.toString();
+      }
+
+      // Handle error responses
+      String errorMsg;
+      try {
+        final errorBody = await response.stream.bytesToString();
+        final errorData = jsonDecode(errorBody);
+        errorMsg = errorData['error'] ?? 'Unknown error';
+      } catch (_) {
+        errorMsg = 'AI service returned ${response.statusCode}';
+      }
+      throw Exception(errorMsg);
+    } finally {
+      client.close();
     }
-    throw Exception(errorMsg);
   }
 
   // ─── Firestore Persistence ─────────────────────────────────────
@@ -1082,6 +1098,20 @@ class AIService extends ChangeNotifier {
   List<String> _sessionSummaries = [];
   List<AIConversation> _recentSessions = [];
   bool _sessionHistoryLoaded = false;
+
+  // ─── Eager conversation load (for panel open) ──────────────────
+
+  /// Load the assistant conversation on panel open so the UI shows
+  /// the last session's messages instead of the welcome screen.
+  Future<void> loadAssistantConversation() async {
+    if (_assistantConversation != null) return; // already cached
+
+    final conv = await _getOrCreateConversation('assistant');
+    if (conv.messages.isEmpty) {
+      await _loadSessionIntoConversation(conv);
+    }
+    notifyListeners();
+  }
 
   // ─── Start Fresh Session (archives previous) ───────────────────
 
