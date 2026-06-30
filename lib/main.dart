@@ -24,6 +24,7 @@ import 'features/heartbeat/presentation/controllers/mood_controller.dart';
 import 'features/guardian/presentation/controllers/guardian_controller.dart';
 import 'features/watch_party/data/services/voice_chat_service.dart';
 import 'features/watch_party/presentation/widgets/incoming_watch_party_banner.dart';
+import 'features/ai/data/services/ai_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -83,8 +84,13 @@ class EverglowApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (context) => MoodController(context.read<MoodService>()),
         ),
+        ChangeNotifierProvider(create: (_) => AIService()),
         ChangeNotifierProvider(
-          create: (context) => GuardianController(context.read<GuardianService>()),
+          create: (context) => GuardianController(
+            context.read<GuardianService>(),
+            moodService: context.read<MoodService>(),
+            authService: context.read<AuthService>(),
+          )..setAIService(context.read<AIService>()),
         ),
         ChangeNotifierProvider(create: (_) => JukeboxProvider()),
       ],

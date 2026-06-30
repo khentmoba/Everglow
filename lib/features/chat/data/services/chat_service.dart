@@ -25,9 +25,6 @@ class ChatService {
           }
         }
         return messages;
-      }).handleError((error) {
-        print("CRITICAL: Chat stream error: $error");
-        return <ChatMessage>[];
       }),
       label: 'sanctuary-chat',
       duration: const Duration(seconds: 10),

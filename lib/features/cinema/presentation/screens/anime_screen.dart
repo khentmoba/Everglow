@@ -622,7 +622,7 @@ class _AnimeScreenState extends State<AnimeScreen>
       case 'hidden-gems':
         return 'Worth Discovering';
       case 'editors-picks':
-        return 'Curated For You';
+        return "Mochi's Picks 🐱";
       case 'trending':
       default:
         return 'Hot Right Now';

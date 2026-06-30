@@ -8,6 +8,7 @@ import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/features/cinema/presentation/screens/cinema_screen.dart';
 import 'package:everglow/features/cinema/presentation/widgets/episode_drawer.dart';
 import 'package:everglow/services/auth_service.dart';
+import 'package:everglow/features/ai/presentation/widgets/ai_recommendations.dart';
 import '_partner_label.dart';
 import 'partner_subrow.dart';
 import 'shelf_widgets.dart';
@@ -37,6 +38,7 @@ class CinemaPreview extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _CinemaHeader(stream: tmdbService.getWatchListStream(userName)),
+          const AIRecommendations(title: "Mochi's Picks"),
           if (isCouple && partner != null && partner.isNotEmpty) ...[
             _CinemaShelf(
               stream: tmdbService.getWatchListStream(userName),

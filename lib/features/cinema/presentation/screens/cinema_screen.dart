@@ -17,8 +17,13 @@ import 'package:everglow/shared/widgets/shelf/shelf_section_header.dart';
 import 'package:everglow/shared/widgets/shelf/shelf_empty_state.dart';
 import 'package:everglow/shared/widgets/shelf/shimmer_box.dart';
 import 'package:everglow/shared/widgets/shelf/shelf_pill_bottom_nav.dart';
+import 'package:everglow/shared/widgets/shelf/arrow_scroll_view.dart';
 import 'package:everglow/shared/widgets/shelf/staggered_entrance.dart';
+import 'package:everglow/shared/widgets/shelf/cinema_nav_bar.dart';
+import 'package:everglow/shared/widgets/shelf/cinema_sections.dart';
+import 'package:everglow/core/theme/app_breakpoints.dart';
 import 'package:go_router/go_router.dart';
+import 'package:everglow/features/ai/presentation/widgets/ai_recommendations.dart';
 import 'anime_screen.dart';
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -33,7 +38,6 @@ const _cGold = Color(0xFFE8C97A);
 const _cAmber = Color(0xFFF0A500);
 const _cWhite = Color(0xFFFFF5F5);
 const _cMuted = Color(0xFF8A7A92);
-
 
 class CinemaScreen extends StatefulWidget {
   const CinemaScreen({super.key});
@@ -68,14 +72,16 @@ class _CinemaScreenState extends State<CinemaScreen>
   final Map<int, String> _tvGenres = {};
 
   bool _isLoadingHome = true;
-  final PageController _carouselController =
-      PageController(viewportFraction: 0.88);
+  final PageController _carouselController = PageController(
+    viewportFraction: 0.88,
+  );
   int _carouselPage = 0;
   Timer? _carouselTimer;
 
   // Carousel trailer states
   String? _carouselTrailerKey;
   bool _isPlayingCarouselTrailer = false;
+  bool _carouselTrailerMuted = true;
   final Map<int, String?> _carouselTrailerKeysCache = {};
 
   static final List<Map<String, dynamic>> _featuredGenres = [
@@ -197,7 +203,9 @@ class _CinemaScreenState extends State<CinemaScreen>
   }
 
   void _subscribeToWatchList(String userName) {
-    _watchlistSubscription = _tmdbService.getWatchListStream(userName).listen((items) async {
+    _watchlistSubscription = _tmdbService.getWatchListStream(userName).listen((
+      items,
+    ) async {
       if (mounted) {
         final refreshed = await _tmdbService.refreshAnimePosters(items);
         setState(() {
@@ -313,9 +321,9 @@ class _CinemaScreenState extends State<CinemaScreen>
       return;
     }
 
-    _tmdbService
-        .fetchTrailerKey(item.tmdbId, item.mediaType)
-        .then((fetchedKey) {
+    _tmdbService.fetchTrailerKey(item.tmdbId, item.mediaType).then((
+      fetchedKey,
+    ) {
       _carouselTrailerKeysCache[item.tmdbId] = fetchedKey;
       if (_carouselPage == index && mounted && fetchedKey != null) {
         setState(() {
@@ -332,13 +340,14 @@ class _CinemaScreenState extends State<CinemaScreen>
     for (var i = 0; i < _trendingCarousel.length; i++) {
       final item = _trendingCarousel[i];
       if (_carouselTrailerKeysCache.containsKey(item.tmdbId)) continue;
-      _tmdbService
-          .fetchTrailerKey(item.tmdbId, item.mediaType)
-          .then((key) {
+      _tmdbService.fetchTrailerKey(item.tmdbId, item.mediaType).then((key) {
         _carouselTrailerKeysCache[item.tmdbId] = key;
         // If the first slide resolves after the carousel has mounted, light
         // it up without waiting for a swipe.
-        if (i == _carouselPage && mounted && key != null && !_isPlayingCarouselTrailer) {
+        if (i == _carouselPage &&
+            mounted &&
+            key != null &&
+            !_isPlayingCarouselTrailer) {
           setState(() {
             _carouselTrailerKey = key;
             _isPlayingCarouselTrailer = true;
@@ -409,29 +418,70 @@ class _CinemaScreenState extends State<CinemaScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = AppBreakpoint.isMobile(context);
+    final isCoupleUser = context.read<AuthService>().isCoupleUser;
+
+    final navBarItems = const [
+      CinemaNavItem(
+        icon: Icons.home_outlined,
+        activeIcon: Icons.home_rounded,
+        label: 'Home',
+      ),
+      CinemaNavItem(
+        icon: Icons.search_rounded,
+        activeIcon: Icons.search_rounded,
+        label: 'Search',
+      ),
+      CinemaNavItem(
+        icon: Icons.collections_bookmark_outlined,
+        activeIcon: Icons.collections_bookmark_rounded,
+        label: 'Library',
+      ),
+    ];
+
     return Scaffold(
       extendBody: true,
       backgroundColor: _cBlack,
       body: Stack(
         children: [
-          // Atmospheric backdrop sits behind everything in the
-          // scaffold so the page never reads as a flat black void.
           const ShelfAtmosphericBackdrop(),
-          SafeArea(
-            top: false,
-            bottom: false,
-            child: IndexedStack(
-              index: _currentIndex,
-              children: [
-                _buildHomeTab(),
-                _buildSearchTab(),
-                _buildLibraryTab(),
-              ],
-            ),
+          // Content
+          IndexedStack(
+            index: _currentIndex,
+            children: [_buildHomeTab(), _buildSearchTab(), _buildLibraryTab()],
           ),
+          // Floating top navbar (desktop/tablet only — overlays hero)
+          if (!isMobile)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: CinemaNavBar(
+                currentIndex: _currentIndex,
+                items: navBarItems,
+                onTap: _switchTab,
+                onSearchTap: () => _switchTab(1),
+                logoText: 'Everglow Cinema',
+                onBackToDashboard: isCoupleUser
+                    ? () => context.go('/dashboard')
+                    : null,
+              ),
+            ),
         ],
       ),
-      bottomNavigationBar: _buildBottomNavBar(),
+      // Bottom nav (mobile only)
+      bottomNavigationBar: isMobile
+          ? CinemaNavBar(
+              currentIndex: _currentIndex,
+              items: navBarItems,
+              onTap: _switchTab,
+              onSearchTap: () => _switchTab(1),
+              logoText: 'Everglow Cinema',
+              onBackToDashboard: isCoupleUser
+                  ? () => context.go('/dashboard')
+                  : null,
+            )
+          : null,
     );
   }
 
@@ -453,81 +503,134 @@ class _CinemaScreenState extends State<CinemaScreen>
           parent: BouncingScrollPhysics(),
         ),
         slivers: [
+          // Hero Carousel (always first, no header needed on desktop)
+          SliverToBoxAdapter(child: _buildHeroBanner()),
+
+          // Mochi's Picks — real AI recommendations based on your watchlist
           SliverToBoxAdapter(
-            child: StaggeredEntrance(
-              index: 0,
-              child: _buildTopHeader(),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: AIRecommendations(
+                title: "Mochi's Picks 🐱",
+                autoLoad: true,
+                onTapItem: (item) => _showMediaDetails(item),
+              ),
             ),
           ),
-          SliverToBoxAdapter(
-            child: StaggeredEntrance(
-              index: 1,
-              child: _buildHeroBanner(),
-            ),
-          ),
-          if (_watchedList.isNotEmpty) ...[
+
+          // Continue Watching
+          if (_watchedList.isNotEmpty)
             SliverToBoxAdapter(
-              child: StaggeredEntrance(
-                index: 2,
-                child: _buildContinueWatching(),
+              child: ContinueWatchingRow(
+                items: buildContinueItems(
+                  items: _watchedList.take(8).toList(),
+                  getId: (m) => '${m.tmdbId}',
+                  getTitle: (m) => m.title,
+                  getImageUrl: (m) =>
+                      m.backdropPath.isNotEmpty ? m.backdropPath : m.posterPath,
+                  getYear: (m) => m.year.isNotEmpty ? m.year : null,
+                  getProgressLabel: (_) => 'WATCHED',
+                  onTap: (m) => _showMediaDetails(m),
+                ),
               ),
             ),
-          ],
+
+          // Top 10 Today Rankings
           SliverToBoxAdapter(
-            child: StaggeredEntrance(
-              index: 3,
-              child: _buildTrendingRankings(),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: StaggeredEntrance(
-              index: 4,
-              child: _buildGenericSection(
-                eyebrow: 'In Cinemas',
-                title: 'Now Showing',
-                items: _nowShowing,
-                accentColor: _cDeepRose,
-                icon: Icons.movie_creation_outlined,
+            child: TopTenRankingSection(
+              items: buildRankingItems(
+                items: _trendingGlobal.take(10).toList(),
+                getTitle: (m) => m.title,
+                getImageUrl: (m) =>
+                    m.posterPath.isNotEmpty ? m.posterPath : m.posterUrl,
+                getSubtitle: (m) => m.year.isNotEmpty ? m.year : null,
+                getBadge: (m) => m.mediaType.toUpperCase(),
+                onTap: (m) => _showMediaDetails(m),
               ),
+              eyebrow: 'Trending Today',
+              title: 'TOP 10 Today',
+              accent: _cAmber,
             ),
           ),
+
+          // Now Showing
           SliverToBoxAdapter(
-            child: StaggeredEntrance(
-              index: 5,
-              child: _buildGenericSection(
-                eyebrow: 'Fresh Picks',
-                title: 'Newly Released',
-                items: _newlyReleased,
-                accentColor: _cGold,
-                icon: Icons.new_releases_rounded,
-              ),
+            child: _buildGenericSection(
+              eyebrow: 'In Cinemas',
+              title: 'Now Showing',
+              items: _nowShowing,
+              accentColor: _cDeepRose,
+              icon: Icons.movie_creation_outlined,
             ),
           ),
+
+          // Newly Released
+          SliverToBoxAdapter(
+            child: _buildGenericSection(
+              eyebrow: 'Fresh Picks',
+              title: 'Newly Released',
+              items: _newlyReleased,
+              accentColor: _cGold,
+              icon: Icons.new_releases_rounded,
+            ),
+          ),
+
+          // Genre rows
           ..._buildGenreRows(),
+
+          // Top Rated
           SliverToBoxAdapter(
-            child: StaggeredEntrance(
-              index: 8,
-              child: _buildGenericSection(
-                eyebrow: 'All Time Greats',
-                title: 'Top Rated',
-                items: _topRatedMovies,
-                accentColor: _cAmber,
-                icon: Icons.workspace_premium_rounded,
-              ),
+            child: _buildGenericSection(
+              eyebrow: 'All Time Greats',
+              title: 'Top Rated',
+              items: _topRatedMovies,
+              accentColor: _cAmber,
+              icon: Icons.workspace_premium_rounded,
             ),
           ),
+
+          // Popular Series
           SliverToBoxAdapter(
-            child: StaggeredEntrance(
-              index: 9,
-              child: _buildGenericSection(
-                eyebrow: 'TV Shows',
-                title: 'Popular Series',
-                items: _popularTVShows,
-                accentColor: _cRose,
-                icon: Icons.tv_rounded,
-              ),
+            child: _buildGenericSection(
+              eyebrow: 'TV Shows',
+              title: 'Popular Series',
+              items: _popularTVShows,
+              accentColor: _cRose,
+              icon: Icons.tv_rounded,
             ),
           ),
+
+          // Only On — streaming provider sections (like cineby's "Only on")
+          if (_trendingGlobal.length >= 8)
+            SliverToBoxAdapter(
+              child: OnlyOnSection(
+                providers: [
+                  buildProviderRow(
+                    name: 'Netflix',
+                    icon: Icons.play_circle_rounded,
+                    color: const Color(0xFFE50914),
+                    items: _trendingGlobal.take(6).toList(),
+                    getId: (m) => '${m.tmdbId}',
+                    getTitle: (m) => m.title,
+                    getImageUrl: (m) =>
+                        m.posterPath.isNotEmpty ? m.posterPath : m.posterUrl,
+                    onTap: (m) => _showMediaDetails(m),
+                  ),
+                  buildProviderRow(
+                    name: 'Amazon Prime',
+                    icon: Icons.shopping_bag_rounded,
+                    color: const Color(0xFF00A8E1),
+                    items: _popularTVShows.take(6).toList(),
+                    getId: (m) => '${m.tmdbId}',
+                    getTitle: (m) => m.title,
+                    getImageUrl: (m) =>
+                        m.posterPath.isNotEmpty ? m.posterPath : m.posterUrl,
+                    onTap: (m) => _showMediaDetails(m),
+                  ),
+                ],
+              ),
+            ),
+
           const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
         ],
       ),
@@ -626,7 +729,9 @@ class _CinemaScreenState extends State<CinemaScreen>
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: _cDeepRose,
                                       borderRadius: BorderRadius.circular(6),
@@ -675,12 +780,10 @@ class _CinemaScreenState extends State<CinemaScreen>
                                 height: 32,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: _cDeepRose
-                                      .withValues(alpha: 0.9),
+                                  color: _cDeepRose.withValues(alpha: 0.9),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: _cDeepRose
-                                          .withValues(alpha: 0.5),
+                                      color: _cDeepRose.withValues(alpha: 0.5),
                                       blurRadius: 8,
                                     ),
                                   ],
@@ -810,11 +913,15 @@ class _CinemaScreenState extends State<CinemaScreen>
 
   Widget _buildHeroBanner() {
     if (_trendingCarousel.isEmpty) return const SizedBox.shrink();
+    final isDesktop = AppBreakpoint.isDesktop(context);
+    final heroHeight = isDesktop
+        ? 520.0
+        : MediaQuery.of(context).size.height * 0.62;
 
     return Column(
       children: [
         SizedBox(
-          height: 320,
+          height: heroHeight,
           child: PageView.builder(
             controller: _carouselController,
             physics: const BouncingScrollPhysics(),
@@ -832,10 +939,7 @@ class _CinemaScreenState extends State<CinemaScreen>
                   } else {
                     scale = index == _carouselPage ? 1.0 : 0.94;
                   }
-                  return Transform.scale(
-                    scale: scale,
-                    child: child,
-                  );
+                  return Transform.scale(scale: scale, child: child);
                 },
                 child: _buildHeroCard(item, index),
               );
@@ -862,7 +966,7 @@ class _CinemaScreenState extends State<CinemaScreen>
                         BoxShadow(
                           color: _cDeepRose.withValues(alpha: 0.6),
                           blurRadius: 8,
-                        )
+                        ),
                       ]
                     : null,
               ),
@@ -874,196 +978,307 @@ class _CinemaScreenState extends State<CinemaScreen>
   }
 
   Widget _buildHeroCard(MediaItem item, int index) {
+    final isDesktop = AppBreakpoint.isDesktop(context);
     return GestureDetector(
       onTap: () => _showMediaDetails(item),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: _cDeepRose.withValues(alpha: 0.18),
-                blurRadius: 30,
-                offset: const Offset(0, 12),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.5),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // Backdrop / Live Trailer background
-                index == _carouselPage && _isPlayingCarouselTrailer && _carouselTrailerKey != null
-                    ? TrailerPlayer(
-                        videoKey: _carouselTrailerKey!,
-                        muted: true,
-                        autoplay: true,
-                        loop: true,
-                      )
-                    : (item.backdropPath.isNotEmpty
-                        ? Image.network(item.backdropPath, fit: BoxFit.cover, cacheWidth: 900, errorBuilder: (_, __, ___) => Container(color: _cVelvet))
+      child: Container(
+        decoration: BoxDecoration(
+          boxShadow: isDesktop
+              ? null
+              : [
+                  BoxShadow(
+                    color: _cBlack.withValues(alpha: 0.4),
+                    blurRadius: 20,
+                    offset: const Offset(0, -10),
+                  ),
+                ],
+        ),
+        child: ClipRect(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Backdrop / Live Trailer background
+              index == _carouselPage &&
+                      _isPlayingCarouselTrailer &&
+                      _carouselTrailerKey != null
+                  ? TrailerPlayer(
+                      videoKey: _carouselTrailerKey!,
+                      muted: _carouselTrailerMuted,
+                      autoplay: true,
+                      loop: true,
+                    )
+                  : (item.backdropPath.isNotEmpty
+                        ? Image.network(
+                            item.backdropPath,
+                            fit: BoxFit.cover,
+                            cacheWidth: 1200,
+                            errorBuilder: (_, __, ___) =>
+                                Container(color: _cVelvet),
+                          )
                         : (item.posterUrl.isNotEmpty
-                            ? Image.network(item.posterUrl, fit: BoxFit.cover, cacheWidth: 500, errorBuilder: (_, __, ___) => Container(color: _cVelvet))
-                            : Container(color: _cVelvet))),
+                              ? Image.network(
+                                  item.posterUrl,
+                                  fit: BoxFit.cover,
+                                  cacheWidth: 500,
+                                  errorBuilder: (_, __, ___) =>
+                                      Container(color: _cVelvet),
+                                )
+                              : Container(color: _cVelvet))),
 
-                // Cinematic gradient — strengthened so the title, year, and
-                // badges stay legible no matter what frame the trailer is on.
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        _cBlack.withValues(alpha: 0.15),
-                        _cBlack.withValues(alpha: 0.78),
-                        _cBlack.withValues(alpha: 0.98),
-                      ],
-                      stops: const [0.0, 0.28, 0.62, 1.0],
-                    ),
+              // Bottom gradient — cinematic fade
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      _cBlack.withValues(alpha: 0.1),
+                      _cBlack.withValues(alpha: 0.6),
+                      _cBlack.withValues(alpha: 0.95),
+                    ],
+                    stops: const [0.0, 0.35, 0.65, 1.0],
                   ),
                 ),
+              ),
 
-                // Left vignette
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: [
-                        _cBlack.withValues(alpha: 0.45),
-                        Colors.transparent,
-                        Colors.transparent,
-                      ],
-                    ),
+              // Right-side blue/dark gradient (Cineby signature)
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Colors.transparent,
+                      Colors.transparent,
+                      const Color(0xFF0A1628).withValues(alpha: 0.4),
+                      const Color(0xFF0A1628).withValues(alpha: 0.85),
+                    ],
+                    stops: const [0.0, 0.45, 0.75, 1.0],
                   ),
                 ),
+              ),
 
-                // Content
+              // Mute/unmute button
+              if (index == _carouselPage && _isPlayingCarouselTrailer)
                 Positioned(
-                  bottom: 20,
-                  left: 20,
-                  right: 20,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Trending badge
-                      Row(
-                        children: [
-                          Container(
+                  top: 16,
+                  right: 16,
+                  child: _CarouselMuteButton(
+                    isMuted: _carouselTrailerMuted,
+                    onToggle: () {
+                      setState(() {
+                        _carouselTrailerMuted = !_carouselTrailerMuted;
+                      });
+                    },
+                  ),
+                ),
+
+              // Movie info content (Cineby-style overlay)
+              Positioned(
+                bottom: 28,
+                left: isDesktop ? 48 : 20,
+                right: isDesktop ? 48 : 60,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Trending + Type badges
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _cDeepRose,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.local_fire_department_rounded,
+                                color: Colors.white,
+                                size: 11,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '#${index + 1} TRENDING',
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: Text(
+                            item.mediaType.toUpperCase(),
+                            style: GoogleFonts.outfit(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Title
+                    Text(
+                      item.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.cormorantGaramond(
+                        fontSize: isDesktop ? 36 : 26,
+                        fontWeight: FontWeight.w900,
+                        color: _cWhite,
+                        height: 1.05,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            blurRadius: 12,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Year · Media Type
+                    Row(
+                      children: [
+                        if (item.year.isNotEmpty) ...[
+                          Text(
+                            item.year,
+                            style: GoogleFonts.outfit(
+                              color: _cGold,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                        ],
+                        Text(
+                          item.mediaType.toUpperCase(),
+                          style: GoogleFonts.outfit(
+                            color: _cMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Description (desktop only)
+                    if (isDesktop && item.synopsis.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        item.synopsis,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.outfit(
+                          color: _cMuted.withValues(alpha: 0.8),
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    // Play + See More buttons
+                    Row(
+                      children: [
+                        // Play button
+                        GestureDetector(
+                          onTap: () => _showMediaDetails(item),
+                          child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
                             decoration: BoxDecoration(
-                              color: _cDeepRose,
-                              borderRadius: BorderRadius.circular(20),
+                              color: _cWhite,
+                              borderRadius: BorderRadius.circular(24),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 const Icon(
-                                  Icons.local_fire_department_rounded,
-                                  color: Colors.white,
-                                  size: 11,
+                                  Icons.play_arrow_rounded,
+                                  color: _cBlack,
+                                  size: 20,
                                 ),
-                                const SizedBox(width: 4),
+                                const SizedBox(width: 6),
                                 Text(
-                                  '#${index + 1} TRENDING',
+                                  'Play',
                                   style: GoogleFonts.outfit(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 1,
+                                    color: _cBlack,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Container(
+                        ),
+                        const SizedBox(width: 12),
+                        // See More button
+                        GestureDetector(
+                          onTap: () => _showMediaDetails(item),
+                          child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: BorderRadius.circular(24),
                               border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.2),
+                                color: Colors.white.withValues(alpha: 0.25),
                               ),
                             ),
-                            child: Text(
-                              item.mediaType.toUpperCase(),
-                              style: GoogleFonts.outfit(
-                                color: Colors.white.withValues(alpha: 0.9),
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1,
-                              ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.info_outline_rounded,
+                                  color: _cWhite.withValues(alpha: 0.85),
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'See More',
+                                  style: GoogleFonts.outfit(
+                                    color: _cWhite.withValues(alpha: 0.85),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      // Title
-                      Text(
-                        item.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.cormorantGaramond(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w900,
-                          color: _cWhite,
-                          height: 1.1,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withValues(alpha: 0.6),
-                              blurRadius: 12,
-                            ),
-                          ],
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          if (item.year.isNotEmpty) ...[
-                            Text(
-                              item.year,
-                              style: GoogleFonts.outfit(
-                                color: _cGold,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            Container(
-                              margin:
-                                  const EdgeInsets.symmetric(horizontal: 8),
-                              width: 3,
-                              height: 3,
-                              decoration: BoxDecoration(
-                                color: _cMuted,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ],
-                          Text(
-                            'Tap to explore',
-                            style: GoogleFonts.outfit(
-                              color: _cMuted,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1097,7 +1312,9 @@ class _CinemaScreenState extends State<CinemaScreen>
                     color: _cCard,
                     borderRadius: BorderRadius.circular(22),
                     border: Border.all(
-                        color: _cRose.withValues(alpha: 0.1), width: 1),
+                      color: _cRose.withValues(alpha: 0.1),
+                      width: 1,
+                    ),
                   ),
                   child: TabBar(
                     indicator: BoxDecoration(
@@ -1119,9 +1336,13 @@ class _CinemaScreenState extends State<CinemaScreen>
                     labelColor: _cWhite,
                     unselectedLabelColor: _cMuted,
                     labelStyle: GoogleFonts.outfit(
-                        fontWeight: FontWeight.w700, fontSize: 13),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
                     unselectedLabelStyle: GoogleFonts.outfit(
-                        fontWeight: FontWeight.w500, fontSize: 13),
+                      fontWeight: FontWeight.w500,
+                      fontSize: 13,
+                    ),
                     tabs: const [
                       Tab(
                         child: Row(
@@ -1168,7 +1389,10 @@ class _CinemaScreenState extends State<CinemaScreen>
   /// Returns a responsive list height proportional to the viewport,
   /// clamped so the list never collapses on mobile or blows out on
   /// ultrawide displays.
-  static double _responsiveListHeight(BuildContext context, {required double fallback}) {
+  static double _responsiveListHeight(
+    BuildContext context, {
+    required double fallback,
+  }) {
     final viewH = MediaQuery.sizeOf(context).height;
     return (viewH * 0.42).clamp(fallback * 0.6, fallback * 1.35);
   }
@@ -1211,11 +1435,17 @@ class _CinemaScreenState extends State<CinemaScreen>
   }) {
     if (items.isEmpty) return const SizedBox.shrink();
 
+    final isDesktop = AppBreakpoint.isDesktop(context);
+    final horizontalPad = isDesktop ? 48.0 : 20.0;
+    final posterWidth = (isDesktop ? 160 : 130).toDouble();
+    final sectionHeight = isDesktop ? 270.0 : 230.0;
+    final scrollController = ScrollController();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 32, 20, 14),
+          padding: EdgeInsets.fromLTRB(horizontalPad, 32, horizontalPad, 14),
           child: ShelfSectionHeader(
             eyebrow: eyebrow,
             title: title,
@@ -1225,30 +1455,29 @@ class _CinemaScreenState extends State<CinemaScreen>
             countLabel: items.length == 1 ? 'title' : 'titles',
           ),
         ),
-        ScrollEdgeFade(
-          fadeColor: _cBlack,
-          child: SizedBox(
-            height: 230,
+        SizedBox(
+          height: sectionHeight,
+          child: ArrowScrollView(
+            controller: scrollController,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
+              controller: scrollController,
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: horizontalPad),
               clipBehavior: Clip.none,
               itemCount: items.length,
               itemBuilder: (context, index) {
                 return Padding(
                   padding: const EdgeInsets.only(right: 12),
                   child: SizedBox(
-                    width: 130,
+                    width: posterWidth,
                     child: ShelfPosterCard(
                       imageUrl: items[index].posterPath,
                       title: items[index].title,
                       subtitle: items[index].year.isNotEmpty
                           ? items[index].year
                           : null,
-                      badge: items[index].mediaType == 'movie'
-                          ? 'MOVIE'
-                          : 'TV',
+                      badge: items[index].mediaType == 'movie' ? 'MOVIE' : 'TV',
                       badgeIcon: items[index].mediaType == 'movie'
                           ? Icons.movie_outlined
                           : Icons.tv_outlined,
@@ -1285,8 +1514,7 @@ class _CinemaScreenState extends State<CinemaScreen>
             index: i,
             child: _buildGenericSection(
               title: genreName,
-              eyebrow:
-                  genreMeta['type'] == 'tv' ? 'TV Series' : 'Movies',
+              eyebrow: genreMeta['type'] == 'tv' ? 'TV Series' : 'Movies',
               items: items,
               accentColor: color,
               icon: icon,
@@ -1304,87 +1532,109 @@ class _CinemaScreenState extends State<CinemaScreen>
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   Widget _buildSearchTab() {
+    final isDesktop = AppBreakpoint.isDesktop(context);
+    final horizontalPad = isDesktop ? 48.0 : 20.0;
+
     return Column(
       children: [
-        // Header
+        // Hero search header — like cineby's "Discover Your Next Favorite"
         Container(
+          width: double.infinity,
           padding: EdgeInsets.fromLTRB(
-              20, MediaQuery.of(context).padding.top + 14, 20, 0),
-          child: Row(
+            horizontalPad,
+            isDesktop ? 32 : (MediaQuery.of(context).padding.top + 14),
+            horizontalPad,
+            8,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ShelfIconButton(
-                icon: Icons.arrow_back_ios_new_rounded,
-                semanticLabel: 'Back to Home',
-                tooltip: 'Back to Home',
-                onTap: () => _switchTab(0),
+              if (!isDesktop)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: ShelfIconButton(
+                    icon: Icons.arrow_back_ios_new_rounded,
+                    semanticLabel: 'Back to Home',
+                    tooltip: 'Back to Home',
+                    onTap: () => _switchTab(0),
+                  ),
+                ),
+              Text(
+                'Discover Your Next Favorite',
+                style: GoogleFonts.cormorantGaramond(
+                  fontSize: isDesktop ? 32 : 26,
+                  fontWeight: FontWeight.w800,
+                  color: _cWhite,
+                  height: 1.1,
+                ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Search',
-                      style: GoogleFonts.cormorantGaramond(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        color: _cWhite,
-                      ),
-                    ),
-                    Text(
-                      'FIND YOUR NEXT OBSESSION',
-                      style: GoogleFonts.outfit(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: _cMuted,
-                        letterSpacing: 2.0,
-                      ),
+              const SizedBox(height: 4),
+              Text(
+                'Search through thousands of movies, TV shows, and anime',
+                style: GoogleFonts.outfit(
+                  fontSize: isDesktop ? 14 : 12,
+                  color: _cMuted,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Search Bar
+              Container(
+                decoration: BoxDecoration(
+                  color: _cCard,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: _cRose.withValues(alpha: 0.15)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _cDeepRose.withValues(alpha: 0.08),
+                      blurRadius: 20,
+                      offset: const Offset(0, 4),
                     ),
                   ],
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: _onSearchChanged,
+                  style: GoogleFonts.outfit(color: _cWhite, fontSize: 15),
+                  decoration: InputDecoration(
+                    hintText: 'Movies, TV shows...',
+                    hintStyle: GoogleFonts.outfit(color: _cMuted, fontSize: 15),
+                    prefixIcon: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Icon(
+                        Icons.search_rounded,
+                        color: _cDeepRose,
+                        size: 22,
+                      ),
+                    ),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(
+                              Icons.clear_rounded,
+                              color: _cMuted,
+                              size: 18,
+                            ),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() {
+                                _searchResults = [];
+                                _isSearching = false;
+                              });
+                            },
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 0,
+                      vertical: 16,
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
-
-        // Search Bar
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Container(
-            decoration: BoxDecoration(
-              color: _cCard,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: _cRose.withValues(alpha: 0.15)),
-              boxShadow: [
-                BoxShadow(
-                  color: _cDeepRose.withValues(alpha: 0.08),
-                  blurRadius: 20,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: TextField(
-              controller: _searchController,
-              onChanged: _onSearchChanged,
-              style: GoogleFonts.outfit(color: _cWhite, fontSize: 15),
-              decoration: InputDecoration(
-                hintText: 'Movies, TV shows...',
-                hintStyle: GoogleFonts.outfit(
-                    color: _cMuted, fontSize: 15),
-                prefixIcon: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Icon(Icons.search_rounded,
-                      color: _cDeepRose, size: 22),
-                ),
-                border: InputBorder.none,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
 
         // Results
         Expanded(
@@ -1396,36 +1646,35 @@ class _CinemaScreenState extends State<CinemaScreen>
                   ),
                 )
               : _searchResults.isEmpty
-                  ? _buildSearchEmptyState()
-                  : GridView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      physics: const BouncingScrollPhysics(),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        childAspectRatio: 0.65,
-                        crossAxisSpacing: 14,
-                        mainAxisSpacing: 14,
-                      ),
-                      itemCount: _searchResults.length,
-                      itemBuilder: (context, index) {
-                        final item = _searchResults[index];
-                        return ShelfPosterCard(
-                          imageUrl: item.posterPath,
-                          title: item.title,
-                          subtitle: item.year.isNotEmpty
-                              ? item.year
-                              : null,
-                          badge: item.mediaType == 'movie'
-                              ? 'MOVIE'
-                              : 'TV',
-                          badgeIcon: item.mediaType == 'movie'
-                              ? Icons.movie_outlined
-                              : Icons.tv_outlined,
-                          onTap: () => _showMediaDetails(item),
-                        );
-                      },
-                    ),
+              ? (_searchController.text.isEmpty
+                    ? _buildSearchLanding()
+                    : _buildSearchEmptyState())
+              : GridView.builder(
+                  padding: EdgeInsets.symmetric(horizontal: horizontalPad),
+                  physics: const BouncingScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: isDesktop
+                        ? 6
+                        : (AppBreakpoint.isTablet(context) ? 4 : 2),
+                    childAspectRatio: 0.65,
+                    crossAxisSpacing: 14,
+                    mainAxisSpacing: 14,
+                  ),
+                  itemCount: _searchResults.length,
+                  itemBuilder: (context, index) {
+                    final item = _searchResults[index];
+                    return ShelfPosterCard(
+                      imageUrl: item.posterPath,
+                      title: item.title,
+                      subtitle: item.year.isNotEmpty ? item.year : null,
+                      badge: item.mediaType == 'movie' ? 'MOVIE' : 'TV',
+                      badgeIcon: item.mediaType == 'movie'
+                          ? Icons.movie_outlined
+                          : Icons.tv_outlined,
+                      onTap: () => _showMediaDetails(item),
+                    );
+                  },
+                ),
         ),
       ],
     );
@@ -1446,13 +1695,66 @@ class _CinemaScreenState extends State<CinemaScreen>
     );
   }
 
+  /// Search landing page — shows trending today when no query is entered,
+  /// matching cineby's search page UX.
+  Widget _buildSearchLanding() {
+    final isDesktop = AppBreakpoint.isDesktop(context);
+    final horizontalPad = isDesktop ? 48.0 : 20.0;
+
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(horizontalPad, 24, horizontalPad, 16),
+            child: ShelfSectionHeader(
+              eyebrow: 'Trending Today',
+              title: 'Popular Now',
+              icon: Icons.local_fire_department_rounded,
+              accent: _cDeepRose,
+              count: _trendingGlobal.length,
+            ),
+          ),
+        ),
+        SliverPadding(
+          padding: EdgeInsets.symmetric(horizontal: horizontalPad),
+          sliver: SliverGrid(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: isDesktop
+                  ? 6
+                  : (AppBreakpoint.isTablet(context) ? 4 : 2),
+              childAspectRatio: 0.65,
+              crossAxisSpacing: 14,
+              mainAxisSpacing: 14,
+            ),
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final item = _trendingGlobal[index];
+              return ShelfPosterCard(
+                imageUrl: item.posterPath,
+                title: item.title,
+                subtitle: item.year.isNotEmpty ? item.year : null,
+                badge: item.mediaType == 'movie' ? 'MOVIE' : 'TV',
+                badgeIcon: item.mediaType == 'movie'
+                    ? Icons.movie_outlined
+                    : Icons.tv_outlined,
+                onTap: () => _showMediaDetails(item),
+              );
+            }, childCount: _trendingGlobal.length),
+          ),
+        ),
+        const SliverPadding(padding: EdgeInsets.only(bottom: 120)),
+      ],
+    );
+  }
+
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // 3. LIBRARY TAB
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   Widget _buildLibraryTab() {
-    final currentlyWatching =
-        _watchlist.where((i) => i.isCurrentlyWatching).toList();
+    final currentlyWatching = _watchlist
+        .where((i) => i.isCurrentlyWatching)
+        .toList();
     final wantToWatch = _watchlist.where((i) => i.isToWatch).toList();
     final watched = _watchlist.where((i) => i.isWatched).toList();
 
@@ -1483,8 +1785,11 @@ class _CinemaScreenState extends State<CinemaScreen>
                   ],
                 ),
                 alignment: Alignment.center,
-                child: const Icon(Icons.collections_bookmark_rounded,
-                    color: _cWhite, size: 44),
+                child: const Icon(
+                  Icons.collections_bookmark_rounded,
+                  color: _cWhite,
+                  size: 44,
+                ),
               ),
               const SizedBox(height: 24),
               Text(
@@ -1510,7 +1815,9 @@ class _CinemaScreenState extends State<CinemaScreen>
                 onTap: () => _switchTab(1),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 24, vertical: 14),
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
@@ -1527,8 +1834,11 @@ class _CinemaScreenState extends State<CinemaScreen>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.search_rounded,
-                          color: _cWhite, size: 18),
+                      const Icon(
+                        Icons.search_rounded,
+                        color: _cWhite,
+                        size: 18,
+                      ),
                       const SizedBox(width: 10),
                       Text(
                         'Search Movies & TV',
@@ -1554,7 +1864,11 @@ class _CinemaScreenState extends State<CinemaScreen>
         // Header
         Padding(
           padding: EdgeInsets.fromLTRB(
-              20, MediaQuery.of(context).padding.top + 14, 20, 0),
+            20,
+            MediaQuery.of(context).padding.top + 14,
+            20,
+            0,
+          ),
           child: Row(
             children: [
               ShelfIconButton(
@@ -1629,10 +1943,17 @@ class _CinemaScreenState extends State<CinemaScreen>
     );
   }
 
-  Widget _librarySectionHeader(String title, String subtitle, IconData icon,
-      Color accent, int count) {
+  Widget _librarySectionHeader(
+    String title,
+    String subtitle,
+    IconData icon,
+    Color accent,
+    int count,
+  ) {
+    final isDesktop = AppBreakpoint.isDesktop(context);
+    final horizontalPad = isDesktop ? 48.0 : 20.0;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+      padding: EdgeInsets.fromLTRB(horizontalPad, 16, horizontalPad, 14),
       child: Row(
         children: [
           Container(
@@ -1747,14 +2068,18 @@ class _CinemaScreenState extends State<CinemaScreen>
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.fromLTRB(
-                20, MediaQuery.of(context).padding.top + 14, 20, 20),
+              20,
+              MediaQuery.of(context).padding.top + 14,
+              20,
+              20,
+            ),
             child: const ShimmerBox(height: 40, width: 160, radius: 8),
           ),
         ),
         const SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: ShimmerBox(height: 320, radius: 24),
+            child: ShimmerBox(height: 400, radius: 24),
           ),
         ),
         const SliverToBoxAdapter(
@@ -1819,8 +2144,11 @@ class _RankingTile extends StatefulWidget {
   final int rank;
   final VoidCallback onTap;
 
-  const _RankingTile(
-      {required this.item, required this.rank, required this.onTap});
+  const _RankingTile({
+    required this.item,
+    required this.rank,
+    required this.onTap,
+  });
 
   @override
   State<_RankingTile> createState() => _RankingTileState();
@@ -1880,7 +2208,9 @@ class _RankingTileState extends State<_RankingTile> {
                         shape: BoxShape.circle,
                         color: _rankColor.withValues(alpha: 0.15),
                         border: Border.all(
-                            color: _rankColor.withValues(alpha: 0.5), width: 1.5),
+                          color: _rankColor.withValues(alpha: 0.5),
+                          width: 1.5,
+                        ),
                         boxShadow: [
                           BoxShadow(
                             color: _rankColor.withValues(alpha: 0.2),
@@ -1917,7 +2247,11 @@ class _RankingTileState extends State<_RankingTile> {
                 width: 44,
                 height: 62,
                 child: widget.item.posterUrl.isNotEmpty
-                    ? Image.network(widget.item.posterUrl, fit: BoxFit.cover, cacheWidth: 150)
+                    ? Image.network(
+                        widget.item.posterUrl,
+                        fit: BoxFit.cover,
+                        cacheWidth: 150,
+                      )
                     : Container(color: _cCard),
               ),
             ),
@@ -1941,9 +2275,7 @@ class _RankingTileState extends State<_RankingTile> {
                   Row(
                     children: [
                       Text(
-                        widget.item.year.isNotEmpty
-                            ? widget.item.year
-                            : 'â€”',
+                        widget.item.year.isNotEmpty ? widget.item.year : 'â€”',
                         style: GoogleFonts.outfit(
                           color: _cGold,
                           fontSize: 11,
@@ -1953,7 +2285,9 @@ class _RankingTileState extends State<_RankingTile> {
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 5, vertical: 1),
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
                           color: _cDeepRose.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(4),
@@ -1980,6 +2314,71 @@ class _RankingTileState extends State<_RankingTile> {
   }
 }
 
+// â”€â”€â”€ HERO MUTE/UNMUTE BUTTON â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+/// Floating mute/unmute toggle that appears over the hero carousel
+/// when a trailer is playing — matches cineby's UX.
+class _CarouselMuteButton extends StatefulWidget {
+  final bool isMuted;
+  final VoidCallback onToggle;
+
+  const _CarouselMuteButton({required this.isMuted, required this.onToggle});
+
+  @override
+  State<_CarouselMuteButton> createState() => _CarouselMuteButtonState();
+}
+
+class _CarouselMuteButtonState extends State<_CarouselMuteButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onToggle,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: _hovered
+                ? Colors.white.withValues(alpha: 0.15)
+                : Colors.black.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: _hovered
+                  ? Colors.white.withValues(alpha: 0.4)
+                  : Colors.white.withValues(alpha: 0.15),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                widget.isMuted
+                    ? Icons.volume_off_rounded
+                    : Icons.volume_up_rounded,
+                color: Colors.white,
+                size: 16,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                widget.isMuted ? 'Unmute' : 'Mute',
+                style: GoogleFonts.outfit(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Search result / watchlist tiles are now provided by
 /// `ShelfPosterCard` (see `lib/shared/widgets/shelf/`).
-

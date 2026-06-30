@@ -16,6 +16,9 @@ class MusicSyncService {
 
   bool isUserInvalid(String username) => _invalidUsers.contains(username);
 
+  /// Resets the invalid-user cache (e.g. if a user later creates an account).
+  static void resetInvalidUsers() => _invalidUsers.clear();
+
   Future<MusicStatus?> fetchRecentTrack(String username) async {
     if (_apiKey.isEmpty) {
       print('Jukebox Service: API Key is missing!');

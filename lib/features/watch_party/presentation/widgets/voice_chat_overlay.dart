@@ -20,18 +20,18 @@ class VoiceChatOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<VoiceChatState>(
-      valueListenable: service.state,
-      builder: (_, state, _) {
-        if (state == VoiceChatState.idle || state == VoiceChatState.ended) {
-          return const SizedBox.shrink();
-        }
-        return Positioned(
-          top: 52,
-          right: 12,
-          child: _buildPill(context, state),
-        );
-      },
+    return Positioned(
+      top: 52,
+      right: 12,
+      child: ValueListenableBuilder<VoiceChatState>(
+        valueListenable: service.state,
+        builder: (_, state, _) {
+          if (state == VoiceChatState.idle || state == VoiceChatState.ended) {
+            return const SizedBox.shrink();
+          }
+          return _buildPill(context, state);
+        },
+      ),
     );
   }
 
