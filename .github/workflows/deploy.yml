@@ -24,10 +24,10 @@ jobs:
       - name: Build web
         run: flutter build web --release
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB }}'
-
       - name: Deploy to Firebase Hosting
-        run: npx --yes firebase-tools@13.30.0 deploy --only hosting --project everglow-1c6db
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB }}
+          channelId: live
+          projectId: everglow-1c6db
