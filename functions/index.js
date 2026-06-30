@@ -733,14 +733,20 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Things Your Humans Told
     return;
   }
 
-  const model = 'nvidia/nemotron-3-ultra-550b-a55b:free';
+  const models = [
+    'nvidia/nemotron-3-ultra-550b-a55b:free',
+    'mistralai/mistral-7b-instruct:free',
+    'google/gemma-3-1b-it:free',
+  ];
+  const model = models[0];
 
   // Check if client wants streaming
   const useStream = req.query.stream === 'true' ||
     (req.body && req.body.stream === true);
 
-  try {
-    const response = await fetch(
+  // Helper: call OpenRouter with retry on 429 (rate limit)
+  async function callOpenRouter(modelToUse) {
+    const resp = await fetch(
       'https://openrouter.ai/api/v1/chat/completions',
       {
         method: 'POST',
@@ -751,7 +757,7 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Things Your Humans Told
           'X-Title': 'Everglow',
         },
         body: JSON.stringify({
-          model,
+          model: modelToUse,
           messages: openRouterMessages,
           max_tokens: 2048,
           temperature: 0.7,
@@ -760,71 +766,95 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Things Your Humans Told
         timeout: 60000,
       },
     );
+    return resp;
+  }
 
-    if (!response.ok) {
-      const errorBody = await response.text();
-      console.error('OpenRouter error:', response.status, errorBody);
-      res.status(response.status).json({
-        error: `OpenRouter returned ${response.status}`,
-        detail: errorBody,
-      });
-      return;
+  // Retry logic: try primary model with backoff, then fallback models
+  let response = null;
+  let lastError = null;
+
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const currentModel = attempt < 2 ? models[0] : models[Math.min(attempt - 1, models.length - 1)];
+    response = await callOpenRouter(currentModel);
+
+    if (response.ok) break;
+
+    const errorBody = await response.text();
+    console.error(`OpenRouter attempt ${attempt + 1} error:`, response.status, errorBody, 'model:', currentModel);
+    lastError = { status: response.status, body: errorBody, model: currentModel };
+
+    if (response.status === 429) {
+      // Rate limited — wait before retry, try fallback model on next attempt
+      const delay = attempt === 0 ? 2000 : attempt === 1 ? 4000 : 6000;
+      await new Promise(r => setTimeout(r, delay));
+      continue;
     }
 
-    if (useStream) {
-      // ── Streaming mode: forward chunks as SSE ──────────
-      res.set('Content-Type', 'text/event-stream');
-      res.set('Cache-Control', 'no-cache');
-      res.set('Connection', 'keep-alive');
-      res.flushHeaders();
+    // Non-429 errors: don't retry
+    break;
+  }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
+  if (!response || !response.ok) {
+    const errStatus = response ? response.status : 502;
+    const errBody = lastError ? lastError.body : 'No response from OpenRouter';
+    res.status(errStatus).json({
+      error: `OpenRouter returned ${errStatus}`,
+      detail: errBody,
+      model: lastError ? lastError.model : model,
+    });
+    return;
+  }
 
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            res.write('data: [DONE]\n\n');
-            break;
-          }
+  if (useStream) {
+    // ── Streaming mode: forward chunks as SSE ──────────
+    res.set('Content-Type', 'text/event-stream');
+    res.set('Cache-Control', 'no-cache');
+    res.set('Connection', 'keep-alive');
+    res.flushHeaders();
 
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n');
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6).trim();
-              if (data === '[DONE]') {
-                res.write('data: [DONE]\n\n');
-                break;
-              }
-              if (data) {
-                try {
-                  const parsed = JSON.parse(data);
-                  const content = parsed.choices?.[0]?.delta?.content || '';
-                  if (content) {
-                    res.write(`data: ${JSON.stringify({ content })}\n\n`);
-                  }
-                } catch (_) { /* skip malformed */ }
-              }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          res.write('data: [DONE]\n\n');
+          break;
+        }
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') {
+              res.write('data: [DONE]\n\n');
+              break;
+            }
+            if (data) {
+              try {
+                const parsed = JSON.parse(data);
+                const content = parsed.choices?.[0]?.delta?.content || '';
+                if (content) {
+                  res.write(`data: ${JSON.stringify({ content })}\n\n`);
+                }
+              } catch (_) { /* skip malformed */ }
             }
           }
         }
-      } finally {
-        reader.releaseLock();
       }
-      res.end();
-      return;
+    } finally {
+      reader.releaseLock();
     }
-
-    // ── Non-streaming mode ──────────────────────────────
-    const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content || '';
-    res.json({ reply, model: data.model || model });
-  } catch (e) {
-    console.error('proxyAI fetch error:', e.message);
-    res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
+    res.end();
+    return;
   }
+
+  // ── Non-streaming mode ──────────────────────────────
+  const data = await response.json();
+  const reply = data.choices?.[0]?.message?.content || '';
+  res.json({ reply, model: data.model || model });
 });
 
 async function initWasm() {
