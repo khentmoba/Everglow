@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:everglow/features/date_randomizer/data/services/date_idea_service.dart';
+import 'package:everglow/features/date_randomizer/data/models/date_idea.dart';
 import 'package:everglow/features/date_randomizer/presentation/widgets/celebration_dialog.dart';
+import 'package:everglow/features/date_randomizer/data/services/ai_date_idea_generator.dart';
+import 'package:everglow/features/ai/data/services/ai_service.dart';
 import 'package:everglow/shared/widgets/glass_container.dart';
 import 'package:everglow/shared/widgets/bouncy_button.dart';
 import 'package:everglow/shared/widgets/animated_emblem.dart';
@@ -20,6 +24,7 @@ class _RandomizerCardState extends State<RandomizerCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   bool _isSpinning = false;
+  bool _useAI = false;
 
   @override
   void initState() {
@@ -45,7 +50,18 @@ class _RandomizerCardState extends State<RandomizerCard>
     await Future.delayed(const Duration(milliseconds: 2000));
 
     _controller.stop();
-    final idea = widget.service.getRandomIdea();
+
+    DateIdea? idea;
+
+    if (_useAI) {
+      // Try AI-generated idea first
+      final aiService = context.read<AIService>();
+      final generator = AIDateIdeaGenerator(aiService);
+      idea = await generator.generatePersonalizedIdea();
+    }
+
+    // Fallback to regular random idea
+    idea ??= widget.service.getRandomIdea();
     
     if (!mounted) return;
 
@@ -57,7 +73,7 @@ class _RandomizerCardState extends State<RandomizerCard>
         barrierColor: AppTheme.deepRose.withValues(alpha: 0.3),
         transitionDuration: const Duration(milliseconds: 800),
         pageBuilder: (context, anim1, anim2) {
-          return CelebrationDialog(title: idea.title);
+          return CelebrationDialog(title: idea?.title ?? 'Date Night!');
         },
         transitionBuilder: (context, anim1, anim2, child) {
           return ScaleTransition(
@@ -97,6 +113,44 @@ class _RandomizerCardState extends State<RandomizerCard>
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.5,
+              ),
+            ),
+            const SizedBox(height: 12),
+            // AI Mode toggle
+            GestureDetector(
+              onTap: () => setState(() => _useAI = !_useAI),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _useAI
+                      ? AppTheme.blushGold.withValues(alpha: 0.2)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: _useAI
+                        ? AppTheme.blushGold
+                        : AppTheme.petalWhite.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _useAI ? Icons.auto_awesome_rounded : Icons.shuffle_rounded,
+                      size: 14,
+                      color: _useAI ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.5),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _useAI ? 'AI Powered ✨' : 'Random',
+                      style: GoogleFonts.outfit(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _useAI ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 40),

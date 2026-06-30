@@ -88,7 +88,7 @@ class WatchPartyChatBubble extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    isToday ? timeStr : timeStr,
+                    isToday ? timeStr : DateFormat('MMM d, h:mm a').format(timestamp),
                     style: GoogleFonts.outfit(
                       color: isMe
                           ? AppTheme.petalWhite.withValues(alpha: 0.7)

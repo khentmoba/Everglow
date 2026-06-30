@@ -89,11 +89,12 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   double _anchorTime = 0.0;
 
   /// One-shot guard so we don't re-process the initial snapshot we
-  /// already have on screen.  True from the start because the iframe
+  /// already have on screen.  False from the start because the iframe
   /// was already positioned via `widget.initialRoom` in `initState`;
   /// the first Firestore snapshot coming in should only nudge the
-  /// anchor, never trigger a redundant rebuild.
-  bool _hasAppliedInitialSnapshot = true;
+  /// anchor, never trigger a redundant iframe rebuild (which would
+  /// reload stale cached data over the fresh `initialRoom`).
+  bool _hasAppliedInitialSnapshot = false;
 
   /// True while we're rebuilding the iframe to land at a new offset.
   /// The partner sees a "Syncing..." pill during this window.
@@ -376,6 +377,9 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
       mediaTitle: _room.title,
       mediaPosterPath: _room.posterPath,
       mediaType: _room.mediaType,
+      tmdbId: _room.tmdbId != 0 ? _room.tmdbId : null,
+      malId: _room.malId,
+      isAnime: _room.isAnime,
       season: _room.season,
       episode: _room.episode,
     );
@@ -537,7 +541,17 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
 
     if (!_hasAppliedInitialSnapshot) {
       _hasAppliedInitialSnapshot = true;
-      _rebuildAt(incoming.currentTime, immediate: true);
+      // The iframe was already positioned at widget.initialRoom's
+      // media in initState.  Don't check mediaChanged here — the
+      // first snapshot may be stale cache data from an earlier
+      // session (e.g. a different movie).  Just nudge the anchor
+      // and adopt incoming metadata silently.  The next snapshot
+      // (from the server) will go through the normal flow.
+      _room = incoming;
+      _hostExplicitlyPaused = incoming.state == 'paused';
+      _anchorEpoch = DateTime.now();
+      _anchorTime = incoming.currentTime;
+      setState(() {});
       return;
     }
 

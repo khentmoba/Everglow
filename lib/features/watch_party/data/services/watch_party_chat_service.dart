@@ -57,7 +57,10 @@ class WatchPartyChatService {
           'watch_party_chats/{roomId}/messages.',
         );
       }
-      return <WatchPartyChatMessage>[];
+      // Re-throw so the StreamBuilder's hasError branch shows the
+      // "Chat is unavailable" message instead of silently showing
+      // an empty list.
+      throw error;
     });
   }
 

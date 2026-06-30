@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_breakpoints.dart';
 import 'motion.dart';
 
 /// Shared poster card used across the four inside screens.
 ///
-/// Honors the motion-craft + component-forge rules:
-///   * Lifts (`translateY(-3px)`) and gently scales on hover /
-///     press instead of a single `scale(1.5)` jump.
-///   * Focus ring is drawn explicitly for keyboard users — without
-///     it, focus order is invisible on touch-only devices.
-///   * Animations snap to their end state when
-///     `prefers-reduced-motion` is set.
-///   * Wrapped in a `Semantics` button with a real label so screen
-///     readers announce it correctly.
+/// On desktop hover:
+///   * Lifts 6px and scales 1.05 (stronger than default)
+///   * Shows a play icon overlay and brighter accent glow
+///   * Smooth 200ms ease-out transitions
+///
+/// On mobile / touch:
+///   * Gentle press scale (0.96)
+///   * No hover effects
 class ShelfPosterCard extends StatefulWidget {
   final String imageUrl;
   final String title;
@@ -50,6 +51,8 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
 
   static const _tmdbImageBase = 'https://image.tmdb.org/t/p/w342';
 
+  bool get _isDesktop => AppBreakpoint.isDesktop(context);
+
   String get _resolvedImageUrl {
     final url = widget.imageUrl;
     if (url.isEmpty) return '';
@@ -61,6 +64,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
   Widget build(BuildContext context) {
     final badgeColor = widget.badgeColor ?? AppTheme.deepRose;
     final disabled = widget.onTap == null;
+    final isDesktop = _isDesktop;
 
     // Compose the announcement: "Movie, title, year, badge"
     final announcement = [
@@ -70,19 +74,17 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
         widget.subtitle!,
     ].join(', ');
 
+    final liftY = _hovered && !_pressed && !disabled && isDesktop ? -6.0 : 0.0;
+    final scaleVal = _pressed
+        ? 0.96
+        : (_hovered && !disabled && isDesktop ? 1.05 : 1.0);
+
     final card = AnimatedContainer(
-      duration: ShelfMotion.orZero(ShelfMotion.medium),
+      duration: ShelfMotion.orZero(const Duration(milliseconds: 200)),
       curve: ShelfMotion.easeOutStrong,
       transform: Matrix4.identity()
-        ..translate(
-          0.0,
-          _hovered && !_pressed && !disabled ? -3.0 : 0.0,
-        )
-        ..scale(
-          _pressed
-              ? 0.96
-              : (_hovered && !disabled ? 1.04 : 1.0),
-        ),
+        ..translate(0.0, liftY, 0.0)
+        ..scale(scaleVal),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         boxShadow: _focused
@@ -93,17 +95,17 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                   spreadRadius: 2,
                 ),
               ]
-            : _hovered && !disabled
+            : _hovered && !disabled && isDesktop
                 ? [
                     BoxShadow(
-                      color: badgeColor.withValues(alpha: 0.4),
-                      blurRadius: 22,
-                      offset: const Offset(0, 10),
+                      color: badgeColor.withValues(alpha: 0.5),
+                      blurRadius: 28,
+                      offset: const Offset(0, 14),
                     ),
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.4),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
+                      color: Colors.black.withValues(alpha: 0.5),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
                     ),
                   ]
                 : [
@@ -132,8 +134,50 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
             else
               _Placeholder(title: widget.title, accent: badgeColor),
 
-            // Title gradient overlay — always present so users can
-            // read the card without tapping.
+            // Hover overlay — play button + accent border on desktop
+            if (isDesktop)
+              AnimatedOpacity(
+                duration: ShelfMotion.orZero(ShelfMotion.fast),
+                opacity: _hovered && !disabled ? 1.0 : 0.0,
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: badgeColor.withValues(alpha: _hovered ? 0.7 : 0.0),
+                      width: 2,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Center(
+                    child: AnimatedScale(
+                      scale: _hovered ? 1.0 : 0.6,
+                      duration: ShelfMotion.orZero(ShelfMotion.medium),
+                      curve: ShelfMotion.easeOutStrong,
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.95),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          Icons.play_arrow_rounded,
+                          color: badgeColor,
+                          size: 26,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Title gradient overlay
             Positioned(
               left: 0,
               right: 0,

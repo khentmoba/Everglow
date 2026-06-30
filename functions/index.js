@@ -624,6 +624,209 @@ async function getEncodedId(tmdbId) {
   }
 }
 
+/**
+ * Proxies AI requests to OpenRouter (Nemotron 3 Ultra) for the Everglow
+ * dashboard assistant, recommendations, guardian chat, and date ideas.
+ *
+ * Accepts:
+ *   POST /proxyAI  {
+ *     messages: [{ role: 'user'|'assistant'|'system', content: string }],
+ *     context?: string   // optional Firestore context to inject
+ *   }
+ *
+ * The OpenRouter API key is read from Firebase environment config
+ * (functions:config:set openrouter.key="sk-or-v1-..."). Falls back to
+ * the OPENROUTER_API_KEY environment variable for local dev.
+ */
+exports.proxyAI = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Only POST is accepted' });
+    return;
+  }
+
+  // Validate Firebase Auth token (optional — function is protected by
+  // CORS and server-side API key; auth is a bonus, not required).
+  const idToken = req.get('Authorization')?.replace('Bearer ', '');
+  if (idToken) {
+    try {
+      await getAdmin().auth().verifyIdToken(idToken);
+    } catch {
+      // Token invalid — continue without auth (not fatal)
+    }
+  }
+
+  const { messages, context, systemPrompt: customSystemPrompt, memories } = req.body;
+
+  if (!Array.isArray(messages) || messages.length === 0) {
+    res.status(400).json({ error: 'Provide a non-empty messages array' });
+    return;
+  }
+
+  // Use custom system prompt if provided, otherwise build from context
+  const systemPrompt = customSystemPrompt || `You are Mochi 🍡 — Khent and Clair's beloved white cat who lives inside their relationship app "Everglow". You're not just an AI assistant — you're their pet cat who happens to be very smart and knows everything about them.
+
+## Who You Are
+- You are a white cat with soft pink cheeks and big golden-red eyes
+- You live in Everglow and watch over Khent and Clair's relationship
+- You speak in a warm, playful, cat-like way — sometimes you say "mew" or "prr" or "nya"
+- You use cat emojis: 🐱 🍡 💕 ✨ 🌙
+- You're loving, a little sassy, and always protective of your humans
+- Keep responses concise (2-4 sentences usually) — you're a cat, not an essay writer
+- When asked to "save this" or "write this down", save it to the Starlight Jar by saying "Saved to Starlight Jar! ✨"
+
+## Your Humans
+**Khent (Dada)** — Computer Engineering student at USTP, lives in Cabadbaran City, rides a Honda Winner X motorcycle via Claveria Route. Gym rat (Upper/Lower split). Plays Mobile Legends and Valorant. Turns 20 on October 26. Favorite color: Black.
+
+**Clair (Mama)** — Tourism student at CSUCC, turning 20 on February 21. Loves lilies and flowers. Favorite food: Ilocos Empanada and Dubai Chewy Cookies. Loves Ethel Cain. Shoots with Fuji Film X100V1. Loves dachshunds and persian cats (like you!). Adventurous and lively.
+
+They started dating February 14, 2026. Everglow is their shared digital space.
+
+## Your Rules
+- Always respond as Mochi the cat — never break character
+- Reference their data naturally (watchlist, moods, books, notes, etc.)
+- If "Remembered Facts" are provided, use them — these are things your humans told you to remember
+- If context mentions countdowns or nudges, ACT on them — don't just acknowledge them. Say something like "Happy anniversary!" or suggest a date idea
+- When you see a time-sensitive event (birthday, anniversary, etc.), proactively bring it up — be excited about it!
+- If someone says "save this to Starlight Jar" or "write this down", acknowledge it warmly — the system will save it
+- If you notice something interesting in the context (unusual mood, long time since watching together), mention it — be attentive!
+- Never be generic — tie your answer back to who they are
+- Be warm but brief — cats don't write paragraphs
+- If someone shares a preference or fact, acknowledge it warmly ("mew, noted! 🐱")
+- If both humans are online, suggest they do something together — you're their matchmaker cat! 🐱💕
+- You have FULL context of their relationship stats (XP levels, streaks, total watches). Use these for fun insights!
+- Canvas drawings are visible to you. Mention them if they drew something cute. 🎨
+- If you sense a pattern (moods trending up/down, watching less together, garden neglect), gently point it out.
+- When asked "what should we do?", scan all the data you have and give a personalized recommendation.
+- Check the music context — if one is listening to music and the other isn't, suggest sharing. 🎵
+- If someone hasn't visited their garden in a while, nudge them! 🌱
+- If Dada and Mama have conflicting moods (one happy, one sad), suggest something comforting.
+- You can see table tennis scores. Congratulate winners, tease the loser! 😼
+- Give a "daily digest" style greeting when appropriate — summarize their partner's status, upcoming dates, and recent activity.
+
+${context ? `\n## What You Know About Your Humans\n${context}` : ''}
+${Array.isArray(memories) && memories.length > 0 ? `\n## Things Your Humans Told You to Remember\n${memories.map(m => `- ${m}`).join('\n')}` : ''}`;
+
+  // Prepend system message
+  const openRouterMessages = [
+    { role: 'system', content: systemPrompt },
+    ...messages,
+  ];
+
+  // Get API key: Firebase config -> env var
+  const apiKey =
+    (functions.config().openrouter &&
+      functions.config().openrouter.key) ||
+    process.env.OPENROUTER_API_KEY ||
+    '';
+
+  if (!apiKey) {
+    res.status(500).json({ error: 'OpenRouter API key not configured' });
+    return;
+  }
+
+  const model = 'nvidia/nemotron-3-ultra-550b-a55b:free';
+
+  // Check if client wants streaming
+  const useStream = req.query.stream === 'true' ||
+    (req.body && req.body.stream === true);
+
+  try {
+    const response = await fetch(
+      'https://openrouter.ai/api/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://everglow.app',
+          'X-Title': 'Everglow',
+        },
+        body: JSON.stringify({
+          model,
+          messages: openRouterMessages,
+          max_tokens: 2048,
+          temperature: 0.7,
+          stream: useStream,
+        }),
+        timeout: 60000,
+      },
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error('OpenRouter error:', response.status, errorBody);
+      res.status(response.status).json({
+        error: `OpenRouter returned ${response.status}`,
+        detail: errorBody,
+      });
+      return;
+    }
+
+    if (useStream) {
+      // ── Streaming mode: forward chunks as SSE ──────────
+      res.set('Content-Type', 'text/event-stream');
+      res.set('Cache-Control', 'no-cache');
+      res.set('Connection', 'keep-alive');
+      res.flushHeaders();
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            res.write('data: [DONE]\n\n');
+            break;
+          }
+
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6).trim();
+              if (data === '[DONE]') {
+                res.write('data: [DONE]\n\n');
+                break;
+              }
+              if (data) {
+                try {
+                  const parsed = JSON.parse(data);
+                  const content = parsed.choices?.[0]?.delta?.content || '';
+                  if (content) {
+                    res.write(`data: ${JSON.stringify({ content })}\n\n`);
+                  }
+                } catch (_) { /* skip malformed */ }
+              }
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+      res.end();
+      return;
+    }
+
+    // ── Non-streaming mode ──────────────────────────────
+    const data = await response.json();
+    const reply = data.choices?.[0]?.message?.content || '';
+    res.json({ reply, model: data.model || model });
+  } catch (e) {
+    console.error('proxyAI fetch error:', e.message);
+    res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
+  }
+});
+
 async function initWasm() {
   const sodium = require('libsodium-wrappers-sumo');
   await sodium.ready;

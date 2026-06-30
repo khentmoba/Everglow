@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -32,12 +34,19 @@ class IncomingWatchPartyBanner extends StatefulWidget {
 class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
   IncomingCall? _current;
   bool _navigating = false;
+  StreamSubscription<IncomingCall?>? _incomingSub;
 
   @override
   void initState() {
     super.initState();
     _current = VoiceChatService.latestIncoming;
-    VoiceChatService.incomingStream.listen(_onIncoming);
+    _incomingSub = VoiceChatService.incomingStream.listen(_onIncoming);
+  }
+
+  @override
+  void dispose() {
+    _incomingSub?.cancel();
+    super.dispose();
   }
 
   void _onIncoming(IncomingCall? incoming) {
@@ -263,8 +272,9 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
           partnerUid: myUid,
           partnerName: auth.currentUser ?? 'Partner',
           mediaType: incoming.mediaType,
-          tmdbId: 0,
-          isAnime: false,
+          tmdbId: incoming.tmdbId ?? 0,
+          malId: incoming.malId,
+          isAnime: incoming.isAnime,
           season: incoming.season,
           episode: incoming.episode,
           title: incoming.mediaTitle,

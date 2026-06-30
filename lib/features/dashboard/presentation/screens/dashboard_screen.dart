@@ -39,6 +39,8 @@ import '../../../academy/widgets/academy_portal_card.dart';
 import '../../../../features/play_zone/presentation/widgets/play_zone_portal_card.dart';
 import '../../../../features/jukebox/presentation/widgets/jukebox_widget.dart';
 import '../../../../features/watch_party/presentation/widgets/watch_party_card.dart';
+import '../../../../features/ai/data/services/ai_service.dart';
+import '../../../../features/ai/presentation/widgets/ai_assistant_sheet.dart';
 
 import 'package:everglow/shared/widgets/gamified_background.dart';
 import 'package:everglow/features/xp/data/services/xp_service.dart';
@@ -443,11 +445,52 @@ class _DashboardScreenState extends State<DashboardScreen>
                       ),
                     ),
                 
-                // Persistent Guardian Overlay
+                // AI Assistant & Guardian Overlay
                 Positioned(
                   bottom: 24,
                   right: 24,
-                  child: EverglowGuardian(),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      // Mochi cat button
+                      Consumer<AIService>(
+                        builder: (context, ai, _) {
+                          return GestureDetector(
+                            onTap: () => showAIAssistantSheet(context),
+                            child: Container(
+                              width: 48,
+                              height: 48,
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppTheme.blushGold.withValues(alpha: 0.4),
+                                  width: 2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.deepRose.withValues(alpha: 0.3),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: ClipOval(
+                                child: Image.asset(
+                                  'assets/images/mochi_avatar.png',
+                                  width: 48,
+                                  height: 48,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      EverglowGuardian(),
+                    ],
+                  ),
                 ),
 
 

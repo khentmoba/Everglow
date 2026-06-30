@@ -32,7 +32,8 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
   @override
   void initState() {
     super.initState();
-    _viewType = 'everglow-trailer-player-${widget.videoKey}-${DateTime.now().microsecondsSinceEpoch}';
+    _viewType =
+        'everglow-trailer-player-${widget.videoKey}-${DateTime.now().microsecondsSinceEpoch}';
 
     // Construct Youtube embed URL with optimized parameters
     // mute=1 ensures autoplay succeeds in modern browsers without user gesture interaction
@@ -49,10 +50,11 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
       'disablekb=1',
       'fs=0',
       'playsinline=1',
-      'enablejsapi=1'
+      'enablejsapi=1',
     ].join('&');
 
-    final embedUrl = 'https://www.youtube.com/embed/${widget.videoKey}?$queryParams';
+    final embedUrl =
+        'https://www.youtube.com/embed/${widget.videoKey}?$queryParams';
 
     _iframe = web.HTMLIFrameElement()
       ..src = embedUrl
@@ -60,16 +62,22 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
       ..setAttribute('frameborder', '0')
       ..setAttribute('scrolling', 'no');
 
-    // Shift the iframe up so the YouTube title bar sits above the visible
-    // area. The extra height compensates so no video content is lost at the
-    // bottom — only the title bar at the top is clipped by overflow:hidden.
+    // Make the iframe oversized with a 16:9 aspect ratio so the YouTube
+    // video fills the entire container (like object-fit: cover). The
+    // wrapper's overflow:hidden clips anything outside the visible area.
     _iframe.style
       ..border = '0'
-      ..width = '100%'
-      ..height = 'calc(100% + 38px)'
-      ..marginTop = '-38px'
+      ..position = 'absolute'
+      ..top = '50%'
+      ..left = '50%'
+      ..transform = 'translate(-50%, -50%)'
+      ..width = 'auto'
+      ..height = 'auto'
+      ..minWidth = '100%'
+      ..minHeight = '100%'
+      ..setProperty('aspect-ratio', '16 / 9')
       ..backgroundColor = '#000'
-      ..pointerEvents = 'none'; // defense-in-depth: overlay already blocks events, but guard here too
+      ..pointerEvents = 'none';
 
     // Wrapper clips the iframe overflow (hides the title bar shifted above)
     final wrapper = web.document.createElement('div') as web.HTMLDivElement;
@@ -90,7 +98,12 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
       ..left = '0'
       ..width = '100%'
       ..height = '100%'
-      ..zIndex = '10';
+      ..zIndex = '10'
+      ..cursor = 'default'
+      ..touchAction = 'none'
+      ..setProperty('-webkit-touch-callout', 'none')
+      ..setProperty('-webkit-user-select', 'none')
+      ..setProperty('user-select', 'none');
 
     wrapper.appendChild(overlay);
 
@@ -102,7 +115,10 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
     }).toJS;
     _iframe.addEventListener('load', _onLoadListener);
 
-    ui_web.platformViewRegistry.registerViewFactory(_viewType, (int viewId) => wrapper);
+    ui_web.platformViewRegistry.registerViewFactory(
+      _viewType,
+      (int viewId) => wrapper,
+    );
   }
 
   @override

@@ -1187,7 +1187,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
             SliverToBoxAdapter(child: _buildReviewsSection()),
 
             // Ã¢â€â‚¬Ã¢â€â‚¬ MORE LIKE THIS Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
-            SliverToBoxAdapter(child: _buildDrawerSection('More Like This')),
+            SliverToBoxAdapter(child: _buildDrawerSection("Mochi says… 🐱")),
             SliverToBoxAdapter(child: _buildSimilarSection()),
 
             const SliverToBoxAdapter(child: SizedBox(height: 60)),
