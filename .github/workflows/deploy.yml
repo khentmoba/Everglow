@@ -31,4 +31,15 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB }}
           channelId: live
           projectId: everglow-1c6db
-          firebaseToolsVersion: 15.22.0
+        continue-on-error: true
+
+      - name: Verify site is live
+        run: |
+          echo "Checking deployment..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://everglow-1c6db.web.app")
+          echo "HTTP $HTTP_CODE"
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Site is live!"
+          else
+            echo "⚠️ Unexpected status: $HTTP_CODE"
+          fi
