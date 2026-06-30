@@ -31,3 +31,4 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB }}
           channelId: live
           projectId: everglow-1c6db
+          firebaseToolsVersion: 15.22.2
