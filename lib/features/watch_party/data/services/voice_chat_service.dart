@@ -22,6 +22,9 @@ class IncomingCall {
   final String mediaTitle;
   final String mediaPosterPath;
   final String mediaType;
+  final int? tmdbId;
+  final int? malId;
+  final bool isAnime;
   final int? season;
   final int? episode;
   final DateTime seenAt;
@@ -33,6 +36,9 @@ class IncomingCall {
     required this.mediaTitle,
     required this.mediaPosterPath,
     required this.mediaType,
+    this.tmdbId,
+    this.malId,
+    this.isAnime = false,
     required this.season,
     required this.episode,
     required this.seenAt,
@@ -128,6 +134,9 @@ class VoiceChatService {
     String? mediaTitle,
     String? mediaPosterPath,
     String? mediaType,
+    int? tmdbId,
+    int? malId,
+    bool? isAnime,
     int? season,
     int? episode,
   }) async {
@@ -155,6 +164,9 @@ class VoiceChatService {
           mediaTitle: mediaTitle,
           mediaPosterPath: mediaPosterPath,
           mediaType: mediaType,
+          tmdbId: tmdbId,
+          malId: malId,
+          isAnime: isAnime ?? false,
           season: season,
           episode: episode,
         );
@@ -242,6 +254,7 @@ class VoiceChatService {
           'calleeUid': _remoteUid,
           'state': 'calling',
           'offer': offerJson,
+          'answer': '',  // clear old answer so callee processes the restart offer
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
         // Give the new ICE gathering a few seconds to complete.
@@ -258,9 +271,7 @@ class VoiceChatService {
   }
 
   void _attachRemoteAudio(MediaStream stream) {
-    _pc!.onAddStream = (stream) {
-      hasRemoteAudio.value = true;
-    };
+    hasRemoteAudio.value = true;
   }
 
   Future<void> _createOffer({
@@ -268,6 +279,9 @@ class VoiceChatService {
     String? mediaTitle,
     String? mediaPosterPath,
     String? mediaType,
+    int? tmdbId,
+    int? malId,
+    bool isAnime = false,
     int? season,
     int? episode,
   }) async {
@@ -286,6 +300,9 @@ class VoiceChatService {
         if (mediaTitle != null) 'mediaTitle': mediaTitle,
         if (mediaPosterPath != null) 'mediaPosterPath': mediaPosterPath,
         if (mediaType != null) 'mediaType': mediaType,
+        if (tmdbId != null) 'tmdbId': tmdbId,
+        if (malId != null) 'malId': malId,
+        'isAnime': isAnime,
         if (season != null) 'season': season,
         if (episode != null) 'episode': episode,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -297,6 +314,10 @@ class VoiceChatService {
 
   Future<void> _handleOffer(String offerJson) async {
     try {
+      // Reset flag so a new offer (ICE restart) can set the remote
+      // description again.
+      _remoteDescSet = false;
+
       final map = jsonDecode(offerJson) as Map<String, dynamic>;
       final desc = RTCSessionDescription(map['sdp'], map['type']);
       await _pc!.setRemoteDescription(desc);
@@ -534,6 +555,9 @@ class VoiceChatService {
         mediaTitle: (data['mediaTitle'] as String?) ?? '',
         mediaPosterPath: (data['mediaPosterPath'] as String?) ?? '',
         mediaType: (data['mediaType'] as String?) ?? 'movie',
+        tmdbId: (data['tmdbId'] is num) ? (data['tmdbId'] as num).toInt() : null,
+        malId: (data['malId'] is num) ? (data['malId'] as num).toInt() : null,
+        isAnime: data['isAnime'] == true,
         season: (data['season'] is num) ? (data['season'] as num).toInt() : null,
         episode: (data['episode'] is num) ? (data['episode'] as num).toInt() : null,
         seenAt: DateTime.now(),

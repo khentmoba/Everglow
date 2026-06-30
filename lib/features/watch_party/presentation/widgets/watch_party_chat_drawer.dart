@@ -318,8 +318,18 @@ class _WatchPartyChatDrawerState extends State<WatchPartyChatDrawer> {
           );
         }
 
-        // Auto-scroll to the newest message on each rebuild.
-        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+        // Auto-scroll to the newest message only if the user is
+        // already near the bottom (within 50px). This lets the user
+        // scroll up to read history without being yanked back down.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            final maxScroll = _scrollController.position.maxScrollExtent;
+            final currentScroll = _scrollController.position.pixels;
+            if ((maxScroll - currentScroll).abs() < 50.0) {
+              _scrollToBottom();
+            }
+          }
+        });
 
         final currentUid = _auth.uid;
         return ListView.builder(
@@ -330,6 +340,7 @@ class _WatchPartyChatDrawerState extends State<WatchPartyChatDrawer> {
             final m = messages[index];
             final isMe = m.senderUid.isNotEmpty && m.senderUid == currentUid;
             return WatchPartyChatBubble(
+              key: ValueKey(m.id),
               text: m.text,
               isMe: isMe,
               sender: m.sender.isEmpty ? 'Anon' : m.sender,
