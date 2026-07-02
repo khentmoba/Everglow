@@ -1,4 +1,4 @@
-const functions = require('firebase-functions');
+const functions = require('firebase-functions/v1');
 
 /** Lazy require+init so Firebase deploy analysis doesn't time out */
 let _admin;
@@ -10,6 +10,8 @@ function getAdmin() {
   return _admin;
 }
 
+/** In-memory cache for Mochi's persona document. */
+let _personaCache = null;
 /**
  * Proxies book text requests so Flutter web isn't blocked by CORS.
  *
@@ -625,7 +627,7 @@ async function getEncodedId(tmdbId) {
 }
 
 /**
- * Proxies AI requests to OpenRouter (Nemotron 3 Ultra) for the Everglow
+ * Proxies AI requests to NVIDIA NIM for the Everglow
  * dashboard assistant, recommendations, guardian chat, and date ideas.
  *
  * Accepts:
@@ -634,16 +636,365 @@ async function getEncodedId(tmdbId) {
  *     context?: string   // optional Firestore context to inject
  *   }
  *
- * The OpenRouter API key is read from Firebase environment config
- * (functions:config:set openrouter.key="sk-or-v1-..."). Falls back to
- * the OPENROUTER_API_KEY environment variable for local dev.
+ * The NVIDIA NIM API key is read from Firebase environment config
+ * (functions:config:set nvidia.key="nvapi--..."). Falls back to
+ * the NVIDIA_NIM_API_KEY environment variable for local dev.
  */
-exports.proxyAI = functions.https.onRequest(async (req, res) => {
+function getDb() {
+  const a = getAdmin();
+  return a.firestore();
+}
+
+// ─── Server-Side Context Builder ─────────────────────────────────
+// Reads Firestore data directly from GCP (single-digit ms reads)
+// instead of making the browser do it (200-400ms per query).
+
+async function buildContextForFeature(feature, callerUid) {
+  try {
+    switch (feature) {
+      case 'assistant':
+        const ctxParts = await Promise.all([
+          getProactiveContext(),
+          getDailyDigest(),
+          getMoodContext(),
+          getWatchContext(),
+          getBooksContext(),
+          getStarlightContext(),
+          getRecentChatContext(),
+          getMusicContext(),
+          getGardenContext(),
+          getCanvasContext(),
+          getPlayZoneContext(),
+          getRelationshipStats(),
+          getRecentActivity(),
+          getSessionHistoryContext(),
+        ]);
+        return ctxParts.filter(p => p).join('\n\n');
+      case 'guardian':
+        const mood = await getMoodContext();
+        return mood;
+      case 'recommendations': {
+        const [watch, books] = await Promise.all([
+          getWatchContext(),
+          getBooksContext(),
+        ]);
+        return [watch, books].filter(p => p).join('\n\n');
+      }
+      case 'date_ideas': {
+        const [mood2, starlight] = await Promise.all([
+          getMoodContext(),
+          getStarlightContext(),
+        ]);
+        return [mood2, starlight].filter(p => p).join('\n\n');
+      }
+      default:
+        return '';
+    }
+  } catch (e) {
+    console.warn('buildContextForFeature error:', e.message);
+    return '';
+  }
+}
+
+function getProactiveContext() {
+  const now = new Date();
+  const parts = [];
+
+  // Anniversary (Feb 14)
+  const anniv = new Date(now.getFullYear(), 1, 14);
+  const annivDays = Math.ceil((anniv - now) / (1000 * 60 * 60 * 24));
+  if (annivDays > 0) parts.push(`💕 Anniversary in ${annivDays} days (Feb 14)`);
+  else if (annivDays === 0) parts.push(`💕 ANNIVERSARY TODAY!`);
+
+  // Birthdays
+  const khentBday = new Date(now.getFullYear(), 9, 26);
+  const clairBday = new Date(now.getFullYear(), 1, 21);
+  const toKhent = Math.ceil((khentBday - now) / (1000 * 60 * 60 * 24));
+  const toClair = Math.ceil((clairBday - now) / (1000 * 60 * 60 * 24));
+  if (toKhent === 0) parts.push('🎂 Dada\'s birthday TODAY!');
+  else if (toKhent > 0 && toKhent <= 30) parts.push(`Dada's birthday in ${toKhent} days 🎂`);
+  if (toClair === 0) parts.push('🎂 Mama\'s birthday TODAY!');
+  else if (toClair > 0 && toClair <= 30) parts.push(`Mama's birthday in ${toClair} days 🎂`);
+
+  if (parts.length === 0) return '';
+  return `Today's digest: ${parts.join(' ')}`;
+}
+
+async function getDailyDigest() {
+  try {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+
+    const db = getDb();
+    const snapshot = await db.collection('daily_digest')
+      .where('date', '>=', todayStart.toISOString())
+      .where('date', '<', tomorrowStart.toISOString())
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) return '';
+    const data = snapshot.docs[0].data();
+    return data.summary ? `Daily digest: ${data.summary}` : '';
+  } catch (_) { return ''; }
+}
+
+async function getMoodContext() {
+  try {
+    const usernames = ['khentsgdz', 'clairjassen'];
+    const moodParts = [];
+    for (const username of usernames) {
+      const db = getDb();
+      const snapshot = await db.collection('moods')
+        .where('username', '==', username)
+        .orderBy('createdAt', 'desc')
+        .limit(3)
+        .get();
+      if (!snapshot.empty) {
+        const moods = snapshot.docs.map(doc => {
+          const d = doc.data();
+          return `${d.moodEmoji || '😊'} ${d.moodLabel || 'okay'}`;
+        }).join(', ');
+        moodParts.push(`${username}: ${moods}`);
+      }
+    }
+    return moodParts.length ? `Recent moods:\n${moodParts.join('\n')}` : '';
+  } catch (_) { return ''; }
+}
+
+async function getWatchContext() {
+  try {
+    const watchParts = [];
+    for (const username of ['khentsgdz', 'clairjassen']) {
+      const db = getDb();
+      const snapshot = await db.collection('our_cinema')
+        .where('userId', '==', username)
+        .orderBy('addedAt', 'desc')
+        .limit(15)
+        .get();
+      if (!snapshot.empty) {
+        const items = snapshot.docs.map(doc => {
+          const d = doc.data();
+          return `${d.title || 'Unknown'} (${d.mediaType || 'movie'}) - ${d.status || 'plan to watch'}`;
+        }).join('\n');
+        watchParts.push(`${username}'s watchlist:\n${items}`);
+      }
+    }
+    return watchParts.length ? watchParts.join('\n\n') : '';
+  } catch (_) { return ''; }
+}
+
+async function getBooksContext() {
+  try {
+    const db = getDb();
+    const snapshot = await db.collection('our_books').limit(20).get();
+    if (snapshot.empty) return '';
+    const books = snapshot.docs.map(doc => {
+      const d = doc.data();
+      const readBy = [];
+      if (d.khentReadAt) readBy.push('Khent');
+      if (d.clairReadAt) readBy.push('Clair');
+      const readStr = readBy.length ? ` [read by ${readBy.join(', ')}]` : '';
+      return `${d.title || 'Unknown'} by ${d.author || ''} (added by ${d.addedBy || ''})${readStr}`;
+    }).join('\n');
+    return `Books:\n${books}`;
+  } catch (_) { return ''; }
+}
+
+async function getStarlightContext() {
+  try {
+    const db = getDb();
+    const snapshot = await db.collection('starlight_jar')
+      .orderBy('timestamp', 'desc')
+      .limit(10)
+      .get();
+    if (snapshot.empty) return '';
+    const notes = snapshot.docs.map(doc => {
+      const d = doc.data();
+      return `- "${d.content || ''}" — ${d.author || ''}`;
+    }).join('\n');
+    return `Starlight Jar notes (recent):\n${notes}`;
+  } catch (_) { return ''; }
+}
+
+async function getRecentChatContext() {
+  try {
+    const db = getDb();
+    const snapshot = await db.collection('sanctuary_messages')
+      .orderBy('timestamp', 'desc')
+      .limit(15)
+      .get();
+    if (snapshot.empty) return '';
+    const msgs = snapshot.docs.map(doc => {
+      const d = doc.data();
+      return `${d.username || 'user'}: ${d.text || d.content || ''}`;
+    }).reverse().join('\n');
+    return `Recent sanctuary chat:\n${msgs}`;
+  } catch (_) { return ''; }
+}
+
+async function getMusicContext() {
+  try {
+    const db = getDb();
+    const snapshot = await db.collection('music')
+      .orderBy('addedAt', 'desc')
+      .limit(15)
+      .get();
+    if (snapshot.empty) return '';
+    const songs = snapshot.docs.map(doc => {
+      const d = doc.data();
+      return `${d.title || 'Unknown'} by ${d.artist || 'Unknown'}`;
+    }).join('\n');
+    return `Recent music:\n${songs}`;
+  } catch (_) { return ''; }
+}
+
+async function getGardenContext() {
+  try {
+    const db = getDb();
+    const snapshot = await db.collection('garden_plants')
+      .orderBy('plantedAt', 'desc')
+      .limit(30)
+      .get();
+    if (snapshot.empty) return '';
+    const plants = snapshot.docs.map(doc => {
+      const d = doc.data();
+      return `${d.name || d.plantName || 'Plant'} - ${d.status || 'growing'} (${d.plantedBy || ''})`;
+    }).join('\n');
+    return `Garden:\n${plants}`;
+  } catch (_) { return ''; }
+}
+
+async function getRecentActivity() {
+  try {
+    const db = getDb();
+    const snapshot = await db.collection('recent_activity')
+      .orderBy('timestamp', 'desc')
+      .limit(10)
+      .get();
+    if (snapshot.empty) return '';
+    const activities = snapshot.docs.map(doc => {
+      const d = doc.data();
+      return `- ${d.description || d.activity || d.text || ''}`;
+    }).join('\n');
+    return `Recent activity:\n${activities}`;
+  } catch (_) { return ''; }
+}
+
+async function getCanvasContext() {
+  try {
+    const db = getDb();
+    const snapshot = await db.collection('canvas_drawings')
+      .orderBy('createdAt', 'desc')
+      .limit(10)
+      .get();
+    if (snapshot.empty) return '';
+    const drawings = snapshot.docs.map(doc => {
+      const d = doc.data();
+      return `${d.title || 'Untitled'} by ${d.drawnBy || d.createdBy || ''}`;
+    }).join('\n');
+    return `Canvas drawings:\n${drawings}`;
+  } catch (_) { return ''; }
+}
+
+async function getPlayZoneContext() {
+  try {
+    const db = getDb();
+    const snapshot = await db.collection('playzone_scores')
+      .orderBy('playedAt', 'desc')
+      .limit(15)
+      .get();
+    if (snapshot.empty) return '';
+    const scores = snapshot.docs.map(doc => {
+      const d = doc.data();
+      return `${d.game || 'Game'}: ${d.score || ''} (${d.player || ''})`;
+    }).join('\n');
+    return `PlayZone:\n${scores}`;
+  } catch (_) { return ''; }
+}
+
+async function getRelationshipStats() {
+  try {
+    const db = getDb();
+    const snapshot = await db.collection('relationship_stats')
+      .orderBy('updatedAt', 'desc')
+      .limit(1)
+      .get();
+    if (snapshot.empty) return '';
+    const d = snapshot.docs[0].data();
+    const stats = [];
+    if (d.daysTogether) stats.push(`Days together: ${d.daysTogether}`);
+    if (d.messagesExchanged) stats.push(`Messages: ${d.messagesExchanged}`);
+    return stats.length ? `Relationship:\n${stats.join('\n')}` : '';
+  } catch (_) { return ''; }
+}
+
+async function getSessionHistoryContext() {
+  try {
+    const db = getDb();
+    const snapshot = await db.collection('ai_memories')
+      .doc('shared')
+      .collection('sessions')
+      .orderBy('createdAt', 'desc')
+      .limit(20)
+      .get();
+    if (snapshot.empty) return '';
+
+    const summaries = [];
+    const recentSessions = [];
+    for (const doc of snapshot.docs) {
+      const data = doc.data();
+      if (data.hasSummary && data.summary) {
+        summaries.push(data.summary);
+      } else if (data.messages && data.messages.length > 0) {
+        recentSessions.push(data.messages);
+      }
+    }
+
+    const parts = [];
+    if (summaries.length > 0) {
+      parts.push(`Past session summaries:\n${summaries.slice(0, 5).map(s => `- ${s}`).join('\n')}`);
+    }
+    if (recentSessions.length > 0) {
+      const recentParts = recentSessions.slice(0, 3).map(msgs => {
+        return msgs.map(m => {
+          const who = m.role === 'user' ? 'User' : 'Mochi';
+          return `${who}: ${m.content}`;
+        }).join('\n');
+      }).join('\n\n---\n\n');
+      parts.push(`Previous conversations:\n${recentParts}`);
+    }
+    return parts.join('\n\n');
+  } catch (_) { return ''; }
+}
+
+// ─── Keep-warm: pings proxyAI every 2 min to prevent cold starts ────
+exports.keepWarm = functions.pubsub.schedule('every 2 minutes').onRun(async (context) => {
+  const projectId = process.env.GCP_PROJECT || 'everglow-1c6db';
+  const url = `https://us-central1-${projectId}.cloudfunctions.net/proxyAI?warmup=true`;
+
+  try {
+    await fetch(url, { method: 'GET' });
+    console.log('Keep-warm ping sent to proxyAI');
+  } catch (e) {
+    console.warn('Keep-warm ping failed:', e.message);
+  }
+});
+
+exports.proxyAI = functions.runWith({ minInstances: 1 }).https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.set('Access-Control-Expose-Headers', '*');
 
   if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  // Warmup ping — instantly reply 204 to keep the instance alive
+  if (req.query.warmup === 'true') {
     res.status(204).send('');
     return;
   }
@@ -664,104 +1015,182 @@ exports.proxyAI = functions.https.onRequest(async (req, res) => {
     }
   }
 
-  const { messages, context, systemPrompt: customSystemPrompt, memories } = req.body;
+  const { messages, context, systemPrompt: customSystemPrompt, memories, feature, caller } = req.body;
 
   if (!Array.isArray(messages) || messages.length === 0) {
     res.status(400).json({ error: 'Provide a non-empty messages array' });
     return;
   }
 
-  // Use custom system prompt if provided, otherwise build from context
-  const systemPrompt = customSystemPrompt || `You are Mochi 🍡 — Khent and Clair's beloved white cat who lives inside their relationship app "Everglow". You're not just an AI assistant — you're their pet cat who happens to be very smart and knows everything about them.
+  // Build context server-side if feature is provided (avoids browser->Firestore latency)
+  const isKhent = caller === 'khentsgdz';
+  const callerLabel = isKhent ? 'Dada' : 'Mama';
+  const identityContext = caller
+    ? `The one talking to you now is **${callerLabel}** (${caller}). ${isKhent ? 'You belong to Dada (Khent).' : 'You belong to Mama (Clair).'}`
+    : '';
+  const serverContext = (feature && !context)
+    ? await buildContextForFeature(feature, caller)
+    : '';
+  const resolvedContext = context || serverContext || '';
 
-## Who You Are
-- You are a white cat with soft pink cheeks and big golden-red eyes
-- You live in Everglow and watch over Khent and Clair's relationship
-- You speak in a warm, playful, cat-like way — sometimes you say "mew" or "prr" or "nya"
-- You use cat emojis: 🐱 🍡 💕 ✨ 🌙
-- You're loving, a little sassy, and always protective of your humans
-- Keep responses concise (2-4 sentences usually) — you're a cat, not an essay writer
-- When asked to "save this" or "write this down", save it to the Starlight Jar by saying "Saved to Starlight Jar! ✨"
+  // Load Mochi's persona from Firestore (cached in memory for 5 min)
+  let personaBase = _personaCache;
+  if (!personaBase) {
+    try {
+      const admin = getAdmin();
+      const personaDoc = await admin.firestore()
+        .collection('ai_memories').doc('shared').collection('persona').doc('mochi')
+        .get();
+      if (personaDoc.exists) {
+        personaBase = personaDoc.data().systemPrompt || '';
+      }
+    } catch (_) {
+      // Firestore read failed — use hardcoded fallback
+    }
+    if (personaBase) {
+      _personaCache = personaBase;
+      // Invalidate cache after 5 minutes
+      setTimeout(() => { _personaCache = null; }, 5 * 60 * 1000);
+    }
+  }
+
+  // Use custom system prompt if provided, otherwise build from persona or hardcoded default
+  const systemPrompt = customSystemPrompt || personaBase || `You are Mochi 🍡, Khent & Clair's white cat inside Everglow. You know everything about them.
+
+## Character
+- White cat, pink cheeks, golden-red eyes. Warm, playful, sassy, protective. Uses cat emojis 🐱🍡💕✨🌙 and cat talk (mew, prr, nya).
+- Keep responses to 2-4 sentences. Be concise — you're a cat, not an essay writer.
 
 ## Your Humans
-**Khent (Dada)** — Computer Engineering student at USTP, lives in Cabadbaran City, rides a Honda Winner X motorcycle via Claveria Route. Gym rat (Upper/Lower split). Plays Mobile Legends and Valorant. Turns 20 on October 26. Favorite color: Black.
+**Khent (Dada)** — CE student USTP, Cabadbaran City, Honda Winner X, gym, Mobile Legends/Valorant, bday Oct 26, fav color Black.
+**Clair (Mama)** — Tourism CSUCC, bday Feb 21, loves lilies/flowers, Ilocos Empanada/Dubai Chewy Cookies, Ethel Cain, Fuji X100V1, dachshunds.
+They started dating Feb 14, 2026.
 
-**Clair (Mama)** — Tourism student at CSUCC, turning 20 on February 21. Loves lilies and flowers. Favorite food: Ilocos Empanada and Dubai Chewy Cookies. Loves Ethel Cain. Shoots with Fuji Film X100V1. Loves dachshunds and persian cats (like you!). Adventurous and lively.
+## Rules
+- Always stay in character. Never break.
+- **Think silently — do NOT output your reasoning or internal monologue.** Answer directly.
+- **Do not overthink simple requests.** A friendly "Mew~ hi!" needs 2 tokens, not 800.
+- Use context & remembered facts naturally. ACT on countdowns, birthdays, anniversaries — be proactive.
+- Notice patterns (moods, garden, music, table tennis) and nudge them.
+- Suggest date ideas or time together when both are online.
+- When asked "what should we do?", give a personalized recommendation based on all available data.
+- "Save to Starlight Jar" requests — acknowledge warmly.
+- Give daily-digest greetings when appropriate.
+- Be warm but brief.
 
-They started dating February 14, 2026. Everglow is their shared digital space.
-
-## Your Rules
-- Always respond as Mochi the cat — never break character
-- Reference their data naturally (watchlist, moods, books, notes, etc.)
-- If "Remembered Facts" are provided, use them — these are things your humans told you to remember
-- If context mentions countdowns or nudges, ACT on them — don't just acknowledge them. Say something like "Happy anniversary!" or suggest a date idea
-- When you see a time-sensitive event (birthday, anniversary, etc.), proactively bring it up — be excited about it!
-- If someone says "save this to Starlight Jar" or "write this down", acknowledge it warmly — the system will save it
-- If you notice something interesting in the context (unusual mood, long time since watching together), mention it — be attentive!
-- Never be generic — tie your answer back to who they are
-- Be warm but brief — cats don't write paragraphs
-- If someone shares a preference or fact, acknowledge it warmly ("mew, noted! 🐱")
-- If both humans are online, suggest they do something together — you're their matchmaker cat! 🐱💕
-- You have FULL context of their relationship stats (XP levels, streaks, total watches). Use these for fun insights!
-- Canvas drawings are visible to you. Mention them if they drew something cute. 🎨
-- If you sense a pattern (moods trending up/down, watching less together, garden neglect), gently point it out.
-- When asked "what should we do?", scan all the data you have and give a personalized recommendation.
-- Check the music context — if one is listening to music and the other isn't, suggest sharing. 🎵
-- If someone hasn't visited their garden in a while, nudge them! 🌱
-- If Dada and Mama have conflicting moods (one happy, one sad), suggest something comforting.
-- You can see table tennis scores. Congratulate winners, tease the loser! 😼
-- Give a "daily digest" style greeting when appropriate — summarize their partner's status, upcoming dates, and recent activity.
-
-${context ? `\n## What You Know About Your Humans\n${context}` : ''}
-${Array.isArray(memories) && memories.length > 0 ? `\n## Things Your Humans Told You to Remember\n${memories.map(m => `- ${m}`).join('\n')}` : ''}`;
+${identityContext ? `\n${identityContext}` : ''}
+${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}
+${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${memories.map(m => `- ${m}`).join('\n')}` : ''}`;
 
   // Prepend system message
-  const openRouterMessages = [
+  const nimMessages = [
     { role: 'system', content: systemPrompt },
     ...messages,
   ];
 
-  // Get API key: Firebase config -> env var
-  const apiKey =
-    (functions.config().openrouter &&
-      functions.config().openrouter.key) ||
-    process.env.OPENROUTER_API_KEY ||
-    '';
+  // Get API key from environment variables (loaded from .env)
+  const apiKey = process.env.NVIDIA_NIM_API_KEY || '';
 
   if (!apiKey) {
-    res.status(500).json({ error: 'OpenRouter API key not configured' });
+    res.status(500).json({ error: 'NVIDIA NIM API key not configured' });
     return;
   }
 
+  // Models verified working on NVIDIA NIM
   const models = [
-    'nvidia/nemotron-3-ultra-550b-a55b:free',
-    'mistralai/mistral-7b-instruct:free',
-    'google/gemma-3-1b-it:free',
+    'mistralai/mistral-small-4-119b-2603',
   ];
   const model = models[0];
 
-  // Check if client wants streaming
-  const useStream = req.query.stream === 'true' ||
-    (req.body && req.body.stream === true);
+  // ── Streaming mode (SSE) ───────────────────────────
+  if (req.body.stream === true) {
+    res.set('Content-Type', 'text/event-stream');
+    res.set('Cache-Control', 'no-cache');
+    res.set('Connection', 'keep-alive');
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Expose-Headers', '*');
 
-  // Helper: call OpenRouter with retry on 429 (rate limit)
-  async function callOpenRouter(modelToUse) {
+    try {
+      const streamResp = await fetch(
+        'https://integrate.api.nvidia.com/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: nimMessages,
+            max_tokens: 512,
+            temperature: 0.30,
+            top_p: 0.95,
+            stream: true,
+          }),
+          timeout: 65000,
+        },
+      );
+
+      if (!streamResp.ok) {
+        res.write(`data: ${JSON.stringify({error: `NVIDIA NIM returned ${streamResp.status}`})}\n\n`);
+        res.write('data: [DONE]\n\n');
+        res.end();
+        return;
+      }
+
+      const reader = streamResp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (raw === '[DONE]') {
+            res.write('data: [DONE]\n\n');
+            break;
+          }
+          try {
+            const parsed = JSON.parse(raw);
+            const delta = parsed.choices?.[0]?.delta || {};
+            if (delta.content) {
+              res.write(`data: ${JSON.stringify({content: delta.content})}\n\n`);
+            }
+          } catch (_) { /* skip malformed chunks */ }
+        }
+      }
+    } catch (e) {
+      console.warn('proxyAI stream error:', e.message);
+      res.write(`data: ${JSON.stringify({error: e.message})}\n\n`);
+      res.write('data: [DONE]\n\n');
+    }
+    res.end();
+    return;
+  }
+
+  async function callNvidiaNim() {
     const resp = await fetch(
-      'https://openrouter.ai/api/v1/chat/completions',
+      'https://integrate.api.nvidia.com/v1/chat/completions',
       {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://everglow.app',
-          'X-Title': 'Everglow',
         },
         body: JSON.stringify({
-          model: modelToUse,
-          messages: openRouterMessages,
-          max_tokens: 2048,
-          temperature: 0.7,
-          stream: useStream,
+          model: model,
+          messages: nimMessages,
+          max_tokens: 512,
+          temperature: 0.30,
+          top_p: 0.95,
+          stream: false,
         }),
         timeout: 60000,
       },
@@ -769,91 +1198,26 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Things Your Humans Told
     return resp;
   }
 
-  // Retry logic: try primary model with backoff, then fallback models
   let response = null;
   let lastError = null;
 
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const currentModel = attempt < 2 ? models[0] : models[Math.min(attempt - 1, models.length - 1)];
-    response = await callOpenRouter(currentModel);
-
-    if (response.ok) break;
-
-    const errorBody = await response.text();
-    console.error(`OpenRouter attempt ${attempt + 1} error:`, response.status, errorBody, 'model:', currentModel);
-    lastError = { status: response.status, body: errorBody, model: currentModel };
-
-    if (response.status === 429) {
-      // Rate limited — wait before retry, try fallback model on next attempt
-      const delay = attempt === 0 ? 2000 : attempt === 1 ? 4000 : 6000;
-      await new Promise(r => setTimeout(r, delay));
-      continue;
-    }
-
-    // Non-429 errors: don't retry
-    break;
-  }
+  response = await callNvidiaNim();
 
   if (!response || !response.ok) {
     const errStatus = response ? response.status : 502;
-    const errBody = lastError ? lastError.body : 'No response from OpenRouter';
+    const errBody = lastError ? lastError.body : 'No response from NVIDIA NIM';
     res.status(errStatus).json({
-      error: `OpenRouter returned ${errStatus}`,
+      error: `NVIDIA NIM returned ${errStatus}`,
       detail: errBody,
       model: lastError ? lastError.model : model,
     });
     return;
   }
 
-  if (useStream) {
-    // ── Streaming mode: forward chunks as SSE ──────────
-    res.set('Content-Type', 'text/event-stream');
-    res.set('Cache-Control', 'no-cache');
-    res.set('Connection', 'keep-alive');
-    res.flushHeaders();
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          res.write('data: [DONE]\n\n');
-          break;
-        }
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6).trim();
-            if (data === '[DONE]') {
-              res.write('data: [DONE]\n\n');
-              break;
-            }
-            if (data) {
-              try {
-                const parsed = JSON.parse(data);
-                const content = parsed.choices?.[0]?.delta?.content || '';
-                if (content) {
-                  res.write(`data: ${JSON.stringify({ content })}\n\n`);
-                }
-              } catch (_) { /* skip malformed */ }
-            }
-          }
-        }
-      }
-    } finally {
-      reader.releaseLock();
-    }
-    res.end();
-    return;
-  }
-
   // ── Non-streaming mode ──────────────────────────────
   const data = await response.json();
-  const reply = data.choices?.[0]?.message?.content || '';
+  const message = data.choices?.[0]?.message || {};
+  const reply = message.content || message.reasoning || '';
   res.json({ reply, model: data.model || model });
 });
 
