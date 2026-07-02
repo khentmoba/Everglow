@@ -11,6 +11,7 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_elevation.dart';
+import '../../../../shared/utils/text_utils.dart';
 
 /// Shows the AI assistant as a bottom sheet with Mochi the cat.
 void showAIAssistantSheet(BuildContext context) {
@@ -34,16 +35,30 @@ class _MochiPanelState extends State<_MochiPanel> {
   final ScrollController _scroll = ScrollController();
   final FocusNode _focusNode = FocusNode();
   bool _showScrollButton = false;
+  bool _isSending = false;
+  String? _lastSentMessage;
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _scroll.addListener(_onScroll);
+    // Eagerly load existing conversation so last session shows immediately
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final ai = context.read<AIService>();
+      await ai.loadAssistantConversation();
+      if (mounted && (ai.assistantConversation?.messages.isNotEmpty ?? false)) {
+        _scrollToBottom(animated: false);
+      }
+    });
   }
 
   @override
   void dispose() {
     _input.dispose();
+    _searchController.dispose();
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
     _focusNode.dispose();
@@ -75,8 +90,11 @@ class _MochiPanelState extends State<_MochiPanel> {
   }
 
   Future<void> _send() async {
+    if (_isSending) return;
     final text = _input.text.trim();
     if (text.isEmpty) return;
+    _isSending = true;
+    _lastSentMessage = text;
     _input.clear();
     _focusNode.requestFocus();
     _scrollToBottom();
@@ -88,8 +106,8 @@ class _MochiPanelState extends State<_MochiPanel> {
       await aiService.sendMessage(
         feature: 'assistant',
         message: text,
-        stream: true,
         callerName: authService.currentUser,
+        stream: true,
       );
       _scrollToBottom();
     } catch (e) {
@@ -106,6 +124,8 @@ class _MochiPanelState extends State<_MochiPanel> {
           margin: const EdgeInsets.all(AppSpacing.lg),
         ),
       );
+    } finally {
+      if (mounted) setState(() => _isSending = false);
     }
   }
 
@@ -168,22 +188,80 @@ class _MochiPanelState extends State<_MochiPanel> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Mochi',
-                        style: AppTypography.titleLarge().copyWith(
-                          fontSize: 22,
+                  child: _isSearching
+                      ? Focus(
+                          onKeyEvent: (node, event) {
+                            if (event is KeyDownEvent &&
+                                event.logicalKey == LogicalKeyboardKey.escape) {
+                              _toggleSearch();
+                              return KeyEventResult.handled;
+                            }
+                            return KeyEventResult.ignored;
+                          },
+                          child: TextField(
+                            controller: _searchController,
+                            autofocus: true,
+                            style: AppTypography.bodyMedium().copyWith(
+                              color: AppColors.textHigh,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Search messages…',
+                              hintStyle: AppTypography.bodyMedium().copyWith(
+                                color: AppColors.textDisabled,
+                              ),
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Mochi',
+                              style: AppTypography.titleLarge().copyWith(
+                                fontSize: 22,
+                              ),
+                            ),
+                            Text(
+                              'your cat · knows everything',
+                              style: AppTypography.bodySmall().copyWith(
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+                // Search button
+                Semantics(
+                  button: true,
+                  label: 'Search messages',
+                  child: Tooltip(
+                    message: 'Search messages',
+                    child: GestureDetector(
+                      onTap: _toggleSearch,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        margin: const EdgeInsets.only(right: 4),
+                        decoration: BoxDecoration(
+                          color: _isSearching
+                              ? AppColors.blushGold.withValues(alpha: 0.2)
+                              : AppColors.surfaceGlass,
+                          borderRadius: AppRadius.radiusLg,
+                        ),
+                        child: Icon(
+                          _isSearching
+                              ? Icons.close_rounded
+                              : Icons.search_rounded,
+                          color: _isSearching
+                              ? AppColors.blushGold
+                              : AppColors.textMuted,
+                          size: 20,
                         ),
                       ),
-                      Text(
-                        'your cat · knows everything',
-                        style: AppTypography.bodySmall().copyWith(
-                          color: AppColors.textMuted,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
                 // Clear chat button
@@ -224,31 +302,81 @@ class _MochiPanelState extends State<_MochiPanel> {
               children: [
                 Consumer<AIService>(
                   builder: (_, ai, __) {
-                    final msgs = ai.assistantConversation?.messages ?? [];
+                    final allMsgs = ai.assistantConversation?.messages ?? [];
                     final loading = ai.isLoading;
+                    final hasDraft = ai.draftResponse.isNotEmpty;
+                    final query = _isSearching ? _searchController.text.trim().toLowerCase() : '';
 
-                    if (msgs.isEmpty && !loading) {
+                    // Filter by search query
+                    final msgs = query.isNotEmpty
+                        ? allMsgs.where((m) =>
+                            m.content.toLowerCase().contains(query)).toList()
+                        : allMsgs;
+                    final searchHasResults = query.isNotEmpty && msgs.isNotEmpty;
+                    final searchNoResults = query.isNotEmpty && msgs.isEmpty;
+
+                    // Auto-scroll during streaming when user is near bottom
+                    if (hasDraft && _scroll.hasClients) {
+                      final maxScroll = _scroll.position.maxScrollExtent;
+                      final current = _scroll.position.pixels;
+                      if (maxScroll - current < 200) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          _scrollToBottom(animated: true);
+                        });
+                      }
+                    }
+
+                    if (msgs.isEmpty && !loading && !searchNoResults) {
                       return _EmptyState(onTap: _sendQuick);
                     }
+
+                    // Show streaming draft as an extra bubble
+                    const streamBubble = 1;
+                    final itemCount = msgs.length +
+                        (loading && !hasDraft ? 1 : 0) +
+                        (hasDraft ? streamBubble : 0) +
+                        (searchHasResults || searchNoResults ? 1 : 0);
 
                     return ListView.builder(
                       controller: _scroll,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 14),
-                      itemCount: msgs.length + (loading ? 1 : 0),
+                      itemCount: itemCount,
                       itemBuilder: (_, i) {
-                        if (i == msgs.length) {
-                          if (ai.draftResponse.isNotEmpty) {
-                            return _ChatBubble(
-                              key: ValueKey('draft_${ai.draftResponse.length}'),
-                              text: ai.draftResponse,
-                              isUser: false,
-                              isStreaming: true,
+                        int idx = 0;
+
+                        // Search result count header
+                        if (searchHasResults || searchNoResults) {
+                          if (i == idx) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Text(
+                                searchNoResults
+                                    ? 'No results for "$query"'
+                                    : '${msgs.length} result${msgs.length == 1 ? '' : 's'} for "$query"',
+                                style: AppTypography.bodySmall().copyWith(
+                                  color: AppColors.textMuted,
+                                  fontSize: 11,
+                                ),
+                              ),
                             );
                           }
-                          return const _TypingIndicator();
+                          idx++;
                         }
-                        final msg = msgs[i];
+
+                        // Streaming draft bubble
+                        if (hasDraft && i == msgs.length + idx) {
+                          return _ChatBubble(
+                            text: ai.draftResponse,
+                            isUser: false,
+                            isStreaming: true,
+                          );
+                        }
+                        // Thinking indicator (only when no draft yet)
+                        if (!hasDraft && i == msgs.length + idx) {
+                          return const _ThinkingIndicator();
+                        }
+                        final msg = msgs[i - idx];
                         return _ChatBubble(
                           key: ValueKey('msg_${msg.timestamp.millisecondsSinceEpoch}_$i'),
                           text: msg.content,
@@ -262,7 +390,7 @@ class _MochiPanelState extends State<_MochiPanel> {
                 // Scroll-to-bottom FAB
                 if (_showScrollButton)
                   Positioned(
-                    bottom: 8,
+                    bottom: 60,
                     right: 8,
                     child: FadeIn(
                       duration: const Duration(milliseconds: 200),
@@ -292,6 +420,66 @@ class _MochiPanelState extends State<_MochiPanel> {
             ),
           ),
 
+          // ── Error banner with retry ──────────────────
+          Consumer<AIService>(
+            builder: (_, ai, __) {
+              final error = ai.lastError;
+              if (error == null || _lastSentMessage == null) {
+                return const SizedBox.shrink();
+              }
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.deepRose.withValues(alpha: 0.15),
+                  borderRadius: AppRadius.radiusLg,
+                  border: Border.all(
+                    color: AppColors.deepRose.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline_rounded,
+                        color: AppColors.deepRose, size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Mochi got distracted. Try again?',
+                        style: AppTypography.bodySmall().copyWith(
+                          color: AppColors.textMedium,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        final msg = _lastSentMessage;
+                        if (msg != null) {
+                          _input.text = msg;
+                          _send();
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.deepRose.withValues(alpha: 0.2),
+                          borderRadius: AppRadius.radiusSm,
+                        ),
+                        child: Text(
+                          'Retry',
+                          style: AppTypography.bodySmall().copyWith(
+                            color: AppColors.petalWhite,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+
           // ── Input ─────────────────────────────────────
           _InputBar(
             controller: _input,
@@ -301,6 +489,15 @@ class _MochiPanelState extends State<_MochiPanel> {
         ],
       ),
     );
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _isSearching = !_isSearching;
+      if (!_isSearching) {
+        _searchController.clear();
+      }
+    });
   }
 
   void _sendQuick(String text) {
@@ -515,7 +712,7 @@ class _ChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayText = isUser ? text : _stripMarkdown(text);
+    final displayText = isUser ? text : stripMarkdown(text);
     final showTimestamp = timestamp != null;
     final timeStr = timestamp != null
         ? DateFormat('h:mm a').format(timestamp!)
@@ -677,7 +874,7 @@ class _ChatBubble extends StatelessWidget {
                                   const SizedBox(width: 4),
                                 Text(
                                   isStreaming
-                                      ? 'thinking...'
+                                      ? 'replying...'
                                       : isToday
                                           ? timeStr
                                           : fullDateStr,
@@ -711,35 +908,24 @@ class _ChatBubble extends StatelessWidget {
   }
 }
 
-String _stripMarkdown(String text) {
-  return text
-      .replaceAll('**', '')
-      .replaceAll('__', '')
-      .replaceAll('*', '')
-      .replaceAll('_', '')
-      .replaceAll('`', '')
-      .replaceAll('~~', '')
-      .replaceAll('### ', '')
-      .replaceAll('## ', '')
-      .replaceAll('# ', '');
-}
 
-// ─── Typing indicator ──────────────────────────────────────────
 
-class _TypingIndicator extends StatefulWidget {
-  const _TypingIndicator();
+// ─── Thinking indicator ──────────────────────────────────────
+
+class _ThinkingIndicator extends StatefulWidget {
+  const _ThinkingIndicator();
   @override
-  State<_TypingIndicator> createState() => _TypingIndicatorState();
+  State<_ThinkingIndicator> createState() => _ThinkingIndicatorState();
 }
 
-class _TypingIndicatorState extends State<_TypingIndicator>
+class _ThinkingIndicatorState extends State<_ThinkingIndicator>
     with SingleTickerProviderStateMixin {
   late AnimationController _c;
   @override
   void initState() {
     super.initState();
     _c = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1200))
+        vsync: this, duration: const Duration(milliseconds: 1500))
       ..repeat();
   }
 
@@ -752,11 +938,13 @@ class _TypingIndicatorState extends State<_TypingIndicator>
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: FadeInUp(
         duration: const Duration(milliseconds: 300),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Mochi avatar
             ClipRRect(
               borderRadius: AppRadius.radiusSm,
               child: Image.asset(
@@ -766,54 +954,56 @@ class _TypingIndicatorState extends State<_TypingIndicator>
                 fit: BoxFit.cover,
               ),
             ),
-            const SizedBox(width: 8),
-            AnimatedBuilder(
-              animation: _c,
-              builder: (_, __) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceGlass,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(4),
-                      topRight: Radius.circular(16),
-                      bottomLeft: Radius.circular(16),
-                      bottomRight: Radius.circular(16),
+            const SizedBox(width: 10),
+            // Thinking bubble
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceGlass,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(4),
+                  topRight: Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
+                ),
+                border: Border.all(
+                    color: AppColors.border, width: 0.5),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Mochi is thinking...',
+                    style: AppTypography.bodyMedium().copyWith(
+                      color: AppColors.textMuted,
+                      height: 1.0,
                     ),
-                    border: Border.all(
-                        color: AppColors.border, width: 0.5),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: List.generate(3, (i) {
-                      final delay = i * 0.25;
-                      final t = (_c.value - delay).clamp(0.0, 1.0);
-                      final opacity =
-                          (t < 0.5 ? t * 2 : (1 - t) * 2).clamp(0.2, 1.0);
-                      final scale = 0.6 + (opacity * 0.4);
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2.5),
-                        child: Opacity(
-                          opacity: opacity,
-                          child: Transform.scale(
-                            scale: scale,
-                            child: Container(
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: AppColors.roseQuartz
-                                    .withValues(alpha: 0.6),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
+                  const SizedBox(width: 8),
+                  ...List.generate(3, (i) {
+                    final delay = i * 0.2;
+                    final t = (_c.value - delay).clamp(0.0, 1.0);
+                    final opacity =
+                        (t < 0.5 ? t * 2 : (1 - t) * 2).clamp(0.3, 1.0);
+                    return Padding(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 1.5),
+                      child: Opacity(
+                        opacity: opacity,
+                        child: Container(
+                          width: 5,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: AppColors.roseQuartz,
+                            shape: BoxShape.circle,
                           ),
                         ),
-                      );
-                    }),
-                  ),
-                );
-              },
+                      ),
+                    );
+                  }),
+                ],
+              ),
             ),
           ],
         ),
@@ -865,24 +1055,36 @@ class _InputBar extends StatelessWidget {
                       width: 0.5,
                     ),
                   ),
-                  child: TextField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    style: AppTypography.bodyMedium(),
-                    decoration: InputDecoration(
-                      hintText: 'Talk to Mochi…',
-                      hintStyle: AppTypography.bodyMedium().copyWith(
-                        color: AppColors.textDisabled,
+                  child: Focus(
+                    onKeyEvent: (node, event) {
+                      if (event is KeyDownEvent &&
+                          event.logicalKey == LogicalKeyboardKey.enter) {
+                        if (!HardwareKeyboard.instance.isShiftPressed) {
+                          onSend();
+                          return KeyEventResult.handled;
+                        }
+                      }
+                      return KeyEventResult.ignored;
+                    },
+                    child: TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      style: AppTypography.bodyMedium(),
+                      decoration: InputDecoration(
+                        hintText: 'Talk to Mochi…',
+                        hintStyle: AppTypography.bodyMedium().copyWith(
+                          color: AppColors.textDisabled,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 14,
+                        ),
                       ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 14,
-                      ),
+                      minLines: 1,
+                      maxLines: 4,
+                      textInputAction: TextInputAction.send,
                     ),
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => onSend(),
-                    maxLines: 1,
                   ),
                 ),
               ),
