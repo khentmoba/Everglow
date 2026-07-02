@@ -10,6 +10,7 @@ import '../../../cinema/data/models/media_item.dart';
 import '../../../cinema/data/services/tmdb_service.dart';
 import '../../../../shared/widgets/shelf/scroll_edge_fade.dart';
 import '../../../../shared/widgets/shelf/shelf_poster_card.dart';
+import '../../../../shared/utils/text_utils.dart';
 
 /// Mochi's Picks — AI recommendations shown as real movie poster cards.
 class AIRecommendations extends StatefulWidget {
@@ -82,11 +83,11 @@ class _AIRecommendationsState extends State<AIRecommendations> {
         context: contextStr.isNotEmpty ? contextStr : null,
       );
 
-      final titles = _extractTitles(result);
+      final titles = extractTitles(result);
 
       if (titles.isEmpty) {
         setState(() {
-          _aiText = _stripMarkdown(result);
+          _aiText = stripMarkdown(result);
           _isLoading = false;
         });
         return;
@@ -105,7 +106,7 @@ class _AIRecommendationsState extends State<AIRecommendations> {
       }
 
       setState(() {
-        _aiText = _stripMarkdown(result);
+        _aiText = stripMarkdown(result);
         _foundItems = found;
       });
     } catch (e) {
@@ -117,51 +118,6 @@ class _AIRecommendationsState extends State<AIRecommendations> {
     } finally {
       setState(() => _isLoading = false);
     }
-  }
-
-  List<String> _extractTitles(String text) {
-    final titles = <String>[];
-    // Match lines that have movie/series titles
-    final lines = text.split('\n');
-    for (final line in lines) {
-      final trimmed = line.trim();
-      // Skip empty lines and lines without content
-      if (trimmed.isEmpty) continue;
-
-      // Remove leading numbers/bullets like "1.", "**1.**", "- ", "* "
-      var cleaned = trimmed.replaceFirst(RegExp(r'^[\d]+[\.\)]\s*'), '');
-      cleaned = cleaned.replaceFirst(RegExp(r'^[-*]\s+'), '');
-      cleaned = cleaned.replaceFirst(RegExp(r'^\*\*[\d]+\.?\*\*\s*'), '');
-      cleaned = cleaned.replaceFirst(RegExp(r'^["""]'), '');
-      cleaned = cleaned.replaceFirst(RegExp(r'["""]$'), '');
-      cleaned = _stripMarkdown(cleaned).trim();
-
-      // Must look like a title: starts with uppercase, at least 2 words
-      if (cleaned.length > 5 &&
-          cleaned.contains(' ') &&
-          cleaned[0] == cleaned[0].toUpperCase() &&
-          !cleaned.contains('http') &&
-          !cleaned.contains('watch') &&
-          !cleaned.contains('recommend')) {
-        // Remove parenthetical explanations
-        final parenIdx = cleaned.indexOf(' (');
-        if (parenIdx > 0) cleaned = cleaned.substring(0, parenIdx);
-        titles.add(cleaned);
-      }
-    }
-    return titles;
-  }
-
-  String _stripMarkdown(String text) {
-    return text
-        .replaceAll('**', '')
-        .replaceAll('__', '')
-        .replaceAll('*', '')
-        .replaceAll('_', '')
-        .replaceAll('`', '')
-        .replaceAll('### ', '')
-        .replaceAll('## ', '')
-        .replaceAll('# ', '');
   }
 
   void _openDetail(MediaItem item) {
