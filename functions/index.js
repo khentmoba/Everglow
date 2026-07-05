@@ -1107,7 +1107,16 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Expose-Headers', '*');
     res.set('X-Content-Type-Options', 'nosniff');
+    // Disable Nagle buffering on the underlying socket so every
+    // res.write() is sent immediately rather than accumulated.
+    if (res.socket) {
+      res.socket.setNoDelay(true);
+    }
     res.flushHeaders();
+
+    const heartbeat = setInterval(() => {
+      res.write(':heartbeat\n\n');
+    }, 15000);
 
     try {
       const streamResp = await fetch(
@@ -1131,6 +1140,7 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
       );
 
       if (!streamResp.ok) {
+        clearInterval(heartbeat);
         res.write(`data: ${JSON.stringify({error: `NVIDIA NIM returned ${streamResp.status}`})}\n\n`);
         res.write('data: [DONE]\n\n');
         res.end();
@@ -1153,6 +1163,7 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
           if (!line.startsWith('data: ')) continue;
           const raw = line.slice(6).trim();
           if (raw === '[DONE]') {
+            clearInterval(heartbeat);
             res.write('data: [DONE]\n\n');
             break;
           }
@@ -1168,15 +1179,17 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
             }
           } catch (_) { /* skip malformed chunks */ }
         }
-        // Yield to event loop so res.write() chunks are flushed before the
-        // next reader.read() pulls more data from NVIDIA.
+        // Yield to event loop so res.write() chunks get flushed
+        // before the next reader.read() pulls more data from NVIDIA.
         await new Promise(r => setImmediate(r));
       }
     } catch (e) {
+      clearInterval(heartbeat);
       console.warn('proxyAI stream error:', e.message);
       res.write(`data: ${JSON.stringify({error: e.message})}\n\n`);
       res.write('data: [DONE]\n\n');
     }
+    clearInterval(heartbeat);
     res.end();
     return;
   }
