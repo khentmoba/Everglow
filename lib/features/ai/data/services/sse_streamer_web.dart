@@ -15,6 +15,7 @@ Future<String> streamSseResponse({
   required Map<String, String> headers,
   required String body,
   required void Function(String chunk) onChunk,
+  void Function(String chunk)? onReasoning,
   Duration timeout = const Duration(seconds: 65),
 }) async {
   final fullResponse = StringBuffer();
@@ -37,7 +38,7 @@ Future<String> streamSseResponse({
       final currentText = request.responseText ?? '';
       if (currentText.length > previousText.length) {
         final newData = currentText.substring(previousText.length);
-        _processSseChunk(newData, fullResponse, onChunk);
+        _processSseChunk(newData, fullResponse, onChunk, onReasoning: onReasoning);
         previousText = currentText;
       }
     });
@@ -47,7 +48,7 @@ Future<String> streamSseResponse({
       final finalText = request.responseText ?? '';
       if (finalText.length > previousText.length) {
         final newData = finalText.substring(previousText.length);
-        _processSseChunk(newData, fullResponse, onChunk);
+        _processSseChunk(newData, fullResponse, onChunk, onReasoning: onReasoning);
       }
 
       if (request.status == 200) {
@@ -83,8 +84,9 @@ Future<String> streamSseResponse({
 void _processSseChunk(
   String chunk,
   StringBuffer fullResponse,
-  void Function(String chunk) onChunk,
-) {
+  void Function(String chunk) onChunk, {
+  void Function(String chunk)? onReasoning,
+}) {
   final lines = chunk.split('\n');
   for (final line in lines) {
     final trimmed = line.trimRight();
@@ -94,6 +96,10 @@ void _processSseChunk(
     if (data == '[DONE]') return;
     try {
       final parsed = jsonDecode(data) as Map<String, dynamic>;
+      final reasoning = parsed['reasoning'] as String? ?? '';
+      if (reasoning.isNotEmpty && onReasoning != null) {
+        onReasoning(reasoning);
+      }
       final content = parsed['content'] as String? ?? '';
       if (content.isNotEmpty) {
         fullResponse.write(content);

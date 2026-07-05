@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:everglow/core/theme/app_colors.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/data/models/anilist_detail.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
@@ -17,14 +18,6 @@ import 'trailer_player.dart';
 // Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬
 // Cinema token aliases (mirror cinema_screen.dart)
 // Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬Ã¢â€ â‚¬
-const _cVelvet = Color(0xFF12091A);
-const _cCard = Color(0xFF1C1228);
-const _cRose = Color(0xFFF4C2C2);
-const _cDeepRose = Color(0xFFC2185B);
-const _cGold = Color(0xFFE8C97A);
-const _cAmber = Color(0xFFF0A500);
-const _cWhite = Color(0xFFFFF5F5);
-const _cMuted = Color(0xFF8A7A92);
 
 /// Proxy URL for CORS-blocked anime thumbnail CDNs (Crunchyroll, etc.).
 /// Fetches the image server-side and returns it with permissive CORS headers.
@@ -961,8 +954,8 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg, style: GoogleFonts.outfit(color: _cWhite)),
-        backgroundColor: _cDeepRose,
+        content: Text(msg, style: GoogleFonts.outfit(color: AppColors.petalWhite)),
+        backgroundColor: AppColors.deepRose,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         duration: const Duration(seconds: 2),
@@ -1035,8 +1028,8 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       name.isNotEmpty ? name[0].toUpperCase() : '?';
 
   Color _avatarColor(String name) {
-    final palette = [_cDeepRose, _cAmber, AppTheme.softLavender, _cGold, _cRose];
-    if (name.isEmpty) return _cDeepRose;
+    final palette = [AppColors.deepRose, AppColors.warmAmber, AppTheme.softLavender, AppColors.blushGold, AppColors.roseQuartz];
+    if (name.isEmpty) return AppColors.deepRose;
     return palette[name.codeUnitAt(0) % palette.length];
   }
 
@@ -1098,7 +1091,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       alignment: Alignment.bottomCenter,
       child: Container(
         decoration: const BoxDecoration(
-          color: _cVelvet,
+          color: AppColors.deepBlack,
           borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
         ),
         child: ClipRRect(
@@ -1160,7 +1153,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                     padding: const EdgeInsets.all(32),
                     child: Center(
                       child: CircularProgressIndicator(
-                          color: _cDeepRose, strokeWidth: 2),
+                          color: AppColors.deepRose, strokeWidth: 2),
                     ),
                   ),
                 )
@@ -1278,11 +1271,11 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                             decoration: BoxDecoration(
-                              color: _cDeepRose.withOpacity(0.85),
+                              color: AppColors.deepRose.withOpacity(0.85),
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: _cDeepRose.withOpacity(0.5),
+                                  color: AppColors.deepRose.withOpacity(0.5),
                                   blurRadius: 15,
                                   offset: const Offset(0, 5),
                                 ),
@@ -1323,8 +1316,8 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                   colors: [
                     Colors.transparent,
                     Colors.transparent,
-                    _cVelvet.withValues(alpha: 0.6),
-                    _cVelvet,
+                    AppColors.deepBlack.withValues(alpha: 0.6),
+                    AppColors.deepBlack,
                   ],
                   stops: const [0.0, 0.45, 0.75, 1.0],
                 ),
@@ -1340,7 +1333,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                   colors: [
-                    _cVelvet.withValues(alpha: 0.3),
+                    AppColors.deepBlack.withValues(alpha: 0.3),
                     Colors.transparent,
                   ],
                 ),
@@ -1419,7 +1412,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                     Text(
                       year,
                       style: GoogleFonts.outfit(
-                        color: _cGold,
+                        color: AppColors.blushGold,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1431,7 +1424,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                     final filled = i < (ratingFraction * 5).round();
                     return Icon(
                       filled ? Icons.star_rounded : Icons.star_outline_rounded,
-                      color: _cAmber,
+                      color: AppColors.warmAmber,
                       size: 14,
                     );
                   }),
@@ -1439,7 +1432,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                   Text(
                     rating,
                     style: GoogleFonts.outfit(
-                      color: _cAmber,
+                      color: AppColors.warmAmber,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
@@ -1469,13 +1462,13 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
           width: 3,
           height: 3,
           decoration: BoxDecoration(
-            color: _cMuted,
+            color: AppColors.mutedPurple,
             shape: BoxShape.circle,
           ),
         ),
       );
 
-  // Replaces the flat `Container(color: _cCard)` that used to fill the hero
+  // Replaces the flat `Container(color: AppColors.shimmerBase)` that used to fill the hero
   // when a backdrop image was missing or failed to load. The old behaviour
   // was indistinguishable from a render glitch, especially on the Trending
   // PH tab where many discover results have no `backdrop_path`. This shows
@@ -1487,7 +1480,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [_cCard, _cVelvet],
+          colors: [AppColors.shimmerBase, AppColors.deepBlack],
         ),
       ),
       alignment: Alignment.center,
@@ -1496,7 +1489,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
               width: 28,
               height: 28,
               child: CircularProgressIndicator(
-                color: _cDeepRose,
+                color: AppColors.deepRose,
                 strokeWidth: 2,
               ),
             )
@@ -1505,14 +1498,14 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
               children: [
                 Icon(
                   Icons.movie_creation_outlined,
-                  color: _cMuted.withValues(alpha: 0.6),
+                  color: AppColors.mutedPurple.withValues(alpha: 0.6),
                   size: 42,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'No preview available',
                   style: GoogleFonts.outfit(
-                    color: _cMuted,
+                    color: AppColors.mutedPurple,
                     fontSize: 11,
                     letterSpacing: 1.2,
                     fontWeight: FontWeight.w600,
@@ -1570,7 +1563,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                 width: 3,
                 height: 16,
                 decoration: BoxDecoration(
-                  color: _cDeepRose,
+                  color: AppColors.deepRose,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1578,7 +1571,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
               Text(
                 'WATCHLIST STATUS',
                 style: GoogleFonts.outfit(
-                  color: _cMuted,
+                  color: AppColors.mutedPurple,
                   fontWeight: FontWeight.w700,
                   fontSize: 10,
                   letterSpacing: 2,
@@ -1652,7 +1645,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
             Text(
               _details!['overview'],
               style: GoogleFonts.outfit(
-                color: _cWhite.withValues(alpha: 0.75),
+                color: AppColors.petalWhite.withValues(alpha: 0.75),
                 fontSize: 13.5,
                 height: 1.55,
               ),
@@ -1675,14 +1668,14 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         height: 54,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [_cDeepRose, Color(0xFF8E1444)],
+            colors: [AppColors.deepRose, Color(0xFF8E1444)],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           ),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: _cDeepRose.withValues(alpha: 0.45),
+              color: AppColors.deepRose.withValues(alpha: 0.45),
               blurRadius: 20,
               offset: const Offset(0, 6),
             ),
@@ -1733,14 +1726,14 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
               style: GoogleFonts.cormorantGaramond(
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
-                color: _cWhite,
+                color: AppColors.petalWhite,
               ),
             ),
             Text(
               'SELECT AN EPISODE TO PLAY',
               style: GoogleFonts.outfit(
                 fontSize: 9,
-                color: _cMuted,
+                color: AppColors.mutedPurple,
                 letterSpacing: 2,
                 fontWeight: FontWeight.w700,
               ),
@@ -1751,19 +1744,19 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
-            color: _cCard,
+            color: AppColors.shimmerBase,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _cRose.withValues(alpha: 0.2)),
+            border: Border.all(color: AppColors.roseQuartz.withValues(alpha: 0.2)),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<int>(
               value: _selectedSeasonNumber,
-              dropdownColor: _cCard,
+              dropdownColor: AppColors.shimmerBase,
               isDense: true,
               icon: const Icon(Icons.expand_more_rounded,
-                  color: _cDeepRose, size: 18),
+                  color: AppColors.deepRose, size: 18),
               style: GoogleFonts.outfit(
-                  color: _cWhite, fontWeight: FontWeight.w600, fontSize: 13),
+                  color: AppColors.petalWhite, fontWeight: FontWeight.w600, fontSize: 13),
               onChanged: (int? value) {
                 if (value != null) {
                   setState(() => _selectedSeasonNumber = value);
@@ -1809,7 +1802,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                 width: 3,
                 height: 14,
                 decoration: BoxDecoration(
-                  color: _cDeepRose,
+                  color: AppColors.deepRose,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1817,7 +1810,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
               Text(
                 'SEASONS',
                 style: GoogleFonts.outfit(
-                  color: _cMuted,
+                  color: AppColors.mutedPurple,
                   fontWeight: FontWeight.w700,
                   fontSize: 10,
                   letterSpacing: 2,
@@ -1843,13 +1836,13 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: isCurrent
-                          ? _cDeepRose.withOpacity(0.2)
-                          : _cCard,
+                          ? AppColors.deepRose.withOpacity(0.2)
+                          : AppColors.shimmerBase,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: isCurrent
-                            ? _cDeepRose
-                            : _cRose.withOpacity(0.15),
+                            ? AppColors.deepRose
+                            : AppColors.roseQuartz.withOpacity(0.15),
                         width: isCurrent ? 1.5 : 1,
                       ),
                     ),
@@ -1876,7 +1869,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                           Padding(
                             padding: const EdgeInsets.only(right: 6),
                             child: Icon(Icons.play_arrow_rounded,
-                                color: _cDeepRose, size: 14),
+                                color: AppColors.deepRose, size: 14),
                           ),
                         Flexible(
                           child: Text(
@@ -1887,7 +1880,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.outfit(
-                              color: isCurrent ? _cDeepRose : _cWhite.withOpacity(0.8),
+                              color: isCurrent ? AppColors.deepRose : AppColors.petalWhite.withOpacity(0.8),
                               fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
                               fontSize: 12,
                             ),
@@ -1898,7 +1891,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                             padding: const EdgeInsets.only(left: 4),
                             child: Icon(
                               Icons.chevron_right_rounded,
-                              color: _cMuted,
+                              color: AppColors.mutedPurple,
                               size: 14,
                             ),
                           ),
@@ -2004,9 +1997,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                   height: 72,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: _cCard,
+                    color: AppColors.shimmerBase,
                     border: Border.all(
-                        color: _cRose.withValues(alpha: 0.2), width: 1.5),
+                        color: AppColors.roseQuartz.withValues(alpha: 0.2), width: 1.5),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.3),
@@ -2030,7 +2023,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.outfit(
-                    color: _cWhite,
+                    color: AppColors.petalWhite,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -2042,7 +2035,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
                     style: GoogleFonts.outfit(
-                      color: _cMuted,
+                      color: AppColors.mutedPurple,
                       fontSize: 9,
                       fontStyle: FontStyle.italic,
                     ),
@@ -2096,9 +2089,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _cCard,
+              color: AppColors.shimmerBase,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _cRose.withValues(alpha: 0.1)),
+              border: Border.all(color: AppColors.roseQuartz.withValues(alpha: 0.1)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2139,7 +2132,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.outfit(
-                              color: _cWhite,
+                              color: AppColors.petalWhite,
                               fontWeight: FontWeight.w700,
                               fontSize: 13,
                             ),
@@ -2148,12 +2141,12 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                             Row(
                               children: [
                                 const Icon(Icons.star_rounded,
-                                    color: _cAmber, size: 12),
+                                    color: AppColors.warmAmber, size: 12),
                                 const SizedBox(width: 3),
                                 Text(
                                   rating.toString(),
                                   style: GoogleFonts.outfit(
-                                    color: _cAmber,
+                                    color: AppColors.warmAmber,
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -2169,7 +2162,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                 Text(
                   preview,
                   style: GoogleFonts.outfit(
-                    color: _cWhite.withValues(alpha: 0.75),
+                    color: AppColors.petalWhite.withValues(alpha: 0.75),
                     fontSize: 13,
                     height: 1.5,
                   ),
@@ -2227,11 +2220,11 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                             ? Image.network(item.posterUrl,
                                 fit: BoxFit.cover)
                             : Container(
-                                color: _cCard,
+                                color: AppColors.shimmerBase,
                                 child: const Center(
                                   child: Icon(
                                       Icons.movie_creation_outlined,
-                                      color: _cMuted,
+                                      color: AppColors.mutedPurple,
                                       size: 28),
                                 ),
                               ),
@@ -2244,7 +2237,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.outfit(
-                      color: _cWhite,
+                      color: AppColors.petalWhite,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
@@ -2253,7 +2246,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                     item.year.isNotEmpty
                         ? item.year
                         : (item.mediaType == 'movie' ? 'Movie' : 'Series'),
-                    style: GoogleFonts.outfit(color: _cMuted, fontSize: 10),
+                    style: GoogleFonts.outfit(color: AppColors.mutedPurple, fontSize: 10),
                   ),
                 ],
               ),
@@ -2280,7 +2273,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
               gradient: const LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [_cDeepRose, Color(0x44C2185B)],
+                colors: [AppColors.deepRose, Color(0x44C2185B)],
               ),
               borderRadius: BorderRadius.circular(2),
             ),
@@ -2294,7 +2287,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                 style: GoogleFonts.cormorantGaramond(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
-                  color: _cWhite,
+                  color: AppColors.petalWhite,
                 ),
               ),
             ],
@@ -2307,15 +2300,15 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   Widget _buildGenreChip(String name) {
     // Assign a color per genre for distinction
     final colors = [
-      _cDeepRose,
-      _cAmber,
+      AppColors.deepRose,
+      AppColors.warmAmber,
       AppTheme.softLavender,
       const Color(0xFF00BCD4),
       const Color(0xFF4CAF50),
       const Color(0xFF9C27B0),
     ];
     final color = name.isEmpty
-        ? _cDeepRose
+        ? AppColors.deepRose
         : colors[name.codeUnitAt(0) % colors.length];
 
     return Container(
@@ -2343,19 +2336,19 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: _cCard,
+        color: AppColors.shimmerBase,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _cGold.withValues(alpha: 0.35), width: 1),
+        border: Border.all(color: AppColors.blushGold.withValues(alpha: 0.35), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: _cGold, size: 11),
+          Icon(icon, color: AppColors.blushGold, size: 11),
           const SizedBox(width: 5),
           Text(
             label,
             style: GoogleFonts.outfit(
-              color: _cGold,
+              color: AppColors.blushGold,
               fontSize: 10,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.4,
@@ -2370,7 +2363,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     String label,
     String status, {
     IconData icon = Icons.check_circle_rounded,
-    Color activeColor = _cDeepRose,
+    Color activeColor = AppColors.deepRose,
   }) {
     final isSelected = _currentStatus == status;
     return GestureDetector(
@@ -2380,12 +2373,12 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         curve: Curves.easeInOut,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
-          color: isSelected ? activeColor.withValues(alpha: 0.2) : _cCard,
+          color: isSelected ? activeColor.withValues(alpha: 0.2) : AppColors.shimmerBase,
           borderRadius: BorderRadius.circular(22),
           border: Border.all(
             color: isSelected
                 ? activeColor.withValues(alpha: 0.7)
-                : _cRose.withValues(alpha: 0.15),
+                : AppColors.roseQuartz.withValues(alpha: 0.15),
             width: 1.2,
           ),
           boxShadow: isSelected
@@ -2405,13 +2398,13 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
               icon,
               size: 14,
               color:
-                  isSelected ? activeColor : _cMuted,
+                  isSelected ? activeColor : AppColors.mutedPurple,
             ),
             const SizedBox(width: 6),
             Text(
               label,
               style: GoogleFonts.outfit(
-                color: isSelected ? activeColor : _cMuted,
+                color: isSelected ? activeColor : AppColors.mutedPurple,
                 fontSize: 12,
                 fontWeight:
                     isSelected ? FontWeight.w700 : FontWeight.w500,
@@ -2431,7 +2424,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
           width: 22,
           height: 22,
           child: CircularProgressIndicator(
-              color: _cDeepRose, strokeWidth: 2),
+              color: AppColors.deepRose, strokeWidth: 2),
         ),
       ),
     );
@@ -2442,7 +2435,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Text(
         msg,
-        style: GoogleFonts.outfit(color: _cMuted, fontSize: 13),
+        style: GoogleFonts.outfit(color: AppColors.mutedPurple, fontSize: 13),
       ),
     );
   }
@@ -2504,9 +2497,9 @@ class _EpisodeTileState extends State<_EpisodeTile> {
         height: _tileHeight,
         margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
         decoration: BoxDecoration(
-          color: _pressed ? _cCard.withValues(alpha: 0.8) : _cCard.withValues(alpha: 0.5),
+          color: _pressed ? AppColors.shimmerBase.withValues(alpha: 0.8) : AppColors.shimmerBase.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _cRose.withValues(alpha: 0.08)),
+          border: Border.all(color: AppColors.roseQuartz.withValues(alpha: 0.08)),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(15),
@@ -2531,7 +2524,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.outfit(
-                          color: _cWhite,
+                          color: AppColors.petalWhite,
                           fontWeight: FontWeight.w700,
                           fontSize: 13,
                           height: 1.25,
@@ -2544,7 +2537,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.outfit(
-                            color: _cMuted,
+                            color: AppColors.mutedPurple,
                             fontSize: 11,
                             height: 1.4,
                           ),
@@ -2569,14 +2562,14 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: _cDeepRose.withValues(alpha: 0.15),
+                        color: AppColors.deepRose.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                         border: Border.all(
-                            color: _cDeepRose.withValues(alpha: 0.5),
+                            color: AppColors.deepRose.withValues(alpha: 0.5),
                             width: 1.2),
                       ),
                       child: const Icon(Icons.play_arrow_rounded,
-                          color: _cDeepRose, size: 18),
+                          color: AppColors.deepRose, size: 18),
                     ),
                     if (widget.watchTogether != null) ...[
                       const SizedBox(height: 6),
@@ -2599,7 +2592,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
     return Container(
       width: 64,
       decoration: BoxDecoration(
-        color: _cDeepRose.withValues(alpha: _pressed ? 0.2 : 0.12),
+        color: AppColors.deepRose.withValues(alpha: _pressed ? 0.2 : 0.12),
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(15),
           bottomLeft: Radius.circular(15),
@@ -2611,7 +2604,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
         style: GoogleFonts.cormorantGaramond(
           fontSize: 28,
           fontWeight: FontWeight.w900,
-          color: _cDeepRose,
+          color: AppColors.deepRose,
           height: 1,
         ),
       ),
@@ -2669,7 +2662,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
                 style: GoogleFonts.cormorantGaramond(
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
-                  color: _cWhite,
+                  color: AppColors.petalWhite,
                   height: 1,
                   shadows: [
                     Shadow(
@@ -2692,7 +2685,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [_cCard, _cVelvet],
+          colors: [AppColors.shimmerBase, AppColors.deepBlack],
         ),
       ),
       alignment: Alignment.center,
@@ -2700,7 +2693,7 @@ class _EpisodeTileState extends State<_EpisodeTile> {
         width: 16,
         height: 16,
         child: CircularProgressIndicator(
-          color: _cDeepRose,
+          color: AppColors.deepRose,
           strokeWidth: 1.5,
         ),
       ),

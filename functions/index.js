@@ -1096,11 +1096,8 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
     return;
   }
 
-  // Models verified working on NVIDIA NIM
-  const models = [
-    'mistralai/mistral-small-4-119b-2603',
-  ];
-  const model = models[0];
+  // Model: Nemotron 3 Ultra with thinking mode
+  const model = 'nvidia/nemotron-3-ultra-550b-a55b';
 
   // ── Streaming mode (SSE) ───────────────────────────
   if (req.body.stream === true) {
@@ -1122,10 +1119,12 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
           body: JSON.stringify({
             model: model,
             messages: nimMessages,
-            max_tokens: 512,
-            temperature: 0.30,
+            max_tokens: 16384,
+            temperature: 1,
             top_p: 0.95,
             stream: true,
+            chat_template_kwargs: { enable_thinking: true },
+            reasoning_budget: 16384,
           }),
           timeout: 65000,
         },
@@ -1160,6 +1159,10 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
           try {
             const parsed = JSON.parse(raw);
             const delta = parsed.choices?.[0]?.delta || {};
+            const reasoning = delta.reasoning_content || delta.reasoning || '';
+            if (reasoning) {
+              res.write(`data: ${JSON.stringify({reasoning})}\n\n`);
+            }
             if (delta.content) {
               res.write(`data: ${JSON.stringify({content: delta.content})}\n\n`);
             }
@@ -1187,10 +1190,12 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
         body: JSON.stringify({
           model: model,
           messages: nimMessages,
-          max_tokens: 512,
-          temperature: 0.30,
+          max_tokens: 16384,
+          temperature: 1,
           top_p: 0.95,
           stream: false,
+          chat_template_kwargs: { enable_thinking: true },
+          reasoning_budget: 16384,
         }),
         timeout: 60000,
       },
@@ -1218,7 +1223,8 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
   const data = await response.json();
   const message = data.choices?.[0]?.message || {};
   const reply = message.content || message.reasoning || '';
-  res.json({ reply, model: data.model || model });
+  const reasoning = message.reasoning_content || message.reasoning || '';
+  res.json({ reply, reasoning, model: data.model || model });
 });
 
 async function initWasm() {
