@@ -336,9 +336,8 @@ class AIService extends ChangeNotifier {
 
   String get _cloudFunctionUrl {
     if (kIsWeb) {
-      // Use direct Cloud Function URL rather than Hosting rewrite
-      // because Firebase Hosting buffers SSE responses, breaking streaming.
-      return 'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAI';
+      // V2 function (Cloud Run) — supports true SSE streaming
+      return 'https://proxyaiv2-6pr4gqobxa-uc.a.run.app';
     }
     if (kDebugMode) {
       return 'http://127.0.0.1:5001/everglow-1c6db/us-central1/proxyAI';
