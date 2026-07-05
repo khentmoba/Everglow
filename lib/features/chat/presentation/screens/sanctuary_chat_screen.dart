@@ -277,8 +277,10 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
                             .addPostFrameCallback(
                                 (_) => _scrollToBottom());
 
-                        return ListView.builder(
-                          controller: _scrollController,
+                        return Semantics(
+                          liveRegion: true,
+                          child: ListView.builder(
+                            controller: _scrollController,
                           padding: const EdgeInsets.fromLTRB(
                               16, 20, 16, 100),
                           itemCount: messages.length,
@@ -306,6 +308,7 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
                               ),
                             );
                           },
+                          ),
                         );
                       },
                     ),
@@ -379,6 +382,8 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
                 child: TextField(
                   controller: _messageController,
                   style: AppTypography.bodyMedium(),
+                  maxLength: 1000,
+                  buildCounter: (_, {required int currentLength, required bool isFocused, int? maxLength}) => null,
                   decoration: InputDecoration(
                     hintText: 'Type a message...',
                     hintStyle: AppTypography.bodyMedium().copyWith(

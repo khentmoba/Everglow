@@ -35,10 +35,12 @@ class AIService extends ChangeNotifier {
   bool _isLoading = false;
   String? _lastError;
   String _draftResponse = '';
+  String _draftReasoning = '';
 
   bool get isLoading => _isLoading;
   String? get lastError => _lastError;
   String get draftResponse => _draftResponse;
+  String get draftReasoning => _draftReasoning;
 
   // ─── Core: Send a message to the AI ────────────────────────────
 
@@ -52,6 +54,7 @@ class AIService extends ChangeNotifier {
     _isLoading = true;
     _lastError = null;
     _draftResponse = '';
+    _draftReasoning = '';
 
 
     // Determine who's chatting
@@ -110,8 +113,12 @@ class AIService extends ChangeNotifier {
         ) {
           _draftResponse += chunk;
           notifyListeners();
+        }, onReasoning: (reasoning) {
+          _draftReasoning += reasoning;
+          notifyListeners();
         });
         _draftResponse = '';
+        _draftReasoning = '';
       } else {
         // ── Non-streaming mode ─────────────────────────
         reply = await _callProxyAI(recentMessages, context, _memoryRepo.all, feature, caller);
@@ -147,6 +154,7 @@ class AIService extends ChangeNotifier {
     } catch (e) {
       _isLoading = false;
       _draftResponse = '';
+      _draftReasoning = '';
       _lastError = e.toString();
       notifyListeners();
       rethrow;
@@ -415,13 +423,14 @@ class AIService extends ChangeNotifier {
     List<String> memories,
     String feature,
     String caller,
-    void Function(String chunk) onChunk,
-  ) async {
+    void Function(String chunk) onChunk, {
+    void Function(String chunk)? onReasoning,
+  }) async {
     const maxRetries = 2;
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         return await _callProxyAIStreamOnce(
-            messages, context, memories, feature, caller, onChunk);
+            messages, context, memories, feature, caller, onChunk, onReasoning);
       } catch (e) {
         final isTransient = e is SocketException ||
             e is TimeoutException ||
@@ -445,6 +454,7 @@ class AIService extends ChangeNotifier {
     String feature,
     String caller,
     void Function(String chunk) onChunk,
+    void Function(String chunk)? onReasoning,
   ) async {
     final idToken = await _auth.currentUser?.getIdToken() ?? '';
     final body = jsonEncode({
@@ -464,6 +474,7 @@ class AIService extends ChangeNotifier {
       },
       body: body,
       onChunk: onChunk,
+      onReasoning: onReasoning,
       timeout: const Duration(seconds: 65),
     );
   }

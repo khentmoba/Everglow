@@ -23,6 +23,10 @@ class AppColors {
   static const Color moonlight     = Color(0xFFF0E6FF); // glass tint, borders, dividers
   static const Color warmAmber     = Color(0xFFF0A500); // warning / doodle accent
 
+  // ── Episode drawer / card extras ───────────────────────────
+  static const Color deepBlack     = Color(0xFF12091A); // episode drawer bg
+  static const Color mutedPurple   = Color(0xFF8A7A92); // muted secondary text
+
   // ── Semantic colors ────────────────────────────────────────
   static const Color success       = Color(0xFF4ADE80); // online presence
   static const Color error         = Color(0xFFE5739B); // on-palette rose-red

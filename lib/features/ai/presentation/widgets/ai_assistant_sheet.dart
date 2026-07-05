@@ -305,6 +305,7 @@ class _MochiPanelState extends State<_MochiPanel> {
                     final allMsgs = ai.assistantConversation?.messages ?? [];
                     final loading = ai.isLoading;
                     final hasDraft = ai.draftResponse.isNotEmpty;
+                    final draftReasoning = ai.draftReasoning;
                     final query = _isSearching ? _searchController.text.trim().toLowerCase() : '';
 
                     // Filter by search query
@@ -366,10 +367,12 @@ class _MochiPanelState extends State<_MochiPanel> {
 
                         // Streaming draft bubble
                         if (hasDraft && i == msgs.length + idx) {
+                          final dr = ai.draftReasoning;
                           return _ChatBubble(
                             text: ai.draftResponse,
                             isUser: false,
                             isStreaming: true,
+                            reasoning: dr.isNotEmpty ? dr : null,
                           );
                         }
                         // Thinking indicator (only when no draft yet)
@@ -696,11 +699,12 @@ class _QuickPill extends StatelessWidget {
 
 // ─── Chat bubble ──────────────────────────────────────────────
 
-class _ChatBubble extends StatelessWidget {
+class _ChatBubble extends StatefulWidget {
   final String text;
   final bool isUser;
   final DateTime? timestamp;
   final bool isStreaming;
+  final String? reasoning;
 
   const _ChatBubble({
     super.key,
@@ -708,36 +712,45 @@ class _ChatBubble extends StatelessWidget {
     required this.isUser,
     this.timestamp,
     this.isStreaming = false,
+    this.reasoning,
   });
 
   @override
+  State<_ChatBubble> createState() => _ChatBubbleState();
+}
+
+class _ChatBubbleState extends State<_ChatBubble> {
+  bool _showReasoning = true;
+
+  @override
   Widget build(BuildContext context) {
-    final displayText = isUser ? text : stripMarkdown(text);
-    final showTimestamp = timestamp != null;
-    final timeStr = timestamp != null
-        ? DateFormat('h:mm a').format(timestamp!)
+    final displayText = widget.isUser ? widget.text : stripMarkdown(widget.text);
+    final showTimestamp = widget.timestamp != null;
+    final timeStr = widget.timestamp != null
+        ? DateFormat('h:mm a').format(widget.timestamp!)
         : '';
-    final isToday = timestamp != null &&
-        DateTime.now().day == timestamp!.day &&
-        DateTime.now().month == timestamp!.month &&
-        DateTime.now().year == timestamp!.year;
-    final fullDateStr = timestamp != null
-        ? DateFormat('MMM d, h:mm a').format(timestamp!)
+    final isToday = widget.timestamp != null &&
+        DateTime.now().day == widget.timestamp!.day &&
+        DateTime.now().month == widget.timestamp!.month &&
+        DateTime.now().year == widget.timestamp!.year;
+    final fullDateStr = widget.timestamp != null
+        ? DateFormat('MMM d, h:mm a').format(widget.timestamp!)
         : '';
+
+    final hasReasoning = widget.reasoning != null && widget.reasoning!.isNotEmpty;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
         crossAxisAlignment:
-            isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            widget.isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment:
-                isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+                widget.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Mochi avatar for assistant messages
-              if (!isUser)
+              if (!widget.isUser)
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
                   child: ClipRRect(
@@ -750,9 +763,8 @@ class _ChatBubble extends StatelessWidget {
                     ),
                   ),
                 ),
-              if (!isUser) const SizedBox(width: 8),
+              if (!widget.isUser) const SizedBox(width: 8),
 
-              // The bubble itself
               Flexible(
                 child: GestureDetector(
                   onLongPress: () {
@@ -782,7 +794,7 @@ class _ChatBubble extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      gradient: isUser
+                      gradient: widget.isUser
                           ? LinearGradient(
                               colors: [
                                 AppColors.deepRose
@@ -794,24 +806,24 @@ class _ChatBubble extends StatelessWidget {
                               end: Alignment.bottomRight,
                             )
                           : null,
-                      color: isUser ? null : AppColors.surfaceGlass,
+                      color: widget.isUser ? null : AppColors.surfaceGlass,
                       borderRadius: BorderRadius.only(
-                        topLeft: isUser
+                        topLeft: widget.isUser
                             ? Radius.circular(AppRadius.lg)
                             : const Radius.circular(4),
-                        topRight: isUser
+                        topRight: widget.isUser
                             ? const Radius.circular(4)
                             : Radius.circular(AppRadius.lg),
                         bottomLeft: Radius.circular(AppRadius.lg),
                         bottomRight: Radius.circular(AppRadius.lg),
                       ),
-                      border: isUser
+                      border: widget.isUser
                           ? null
                           : Border.all(
                               color: AppColors.border, width: 0.5),
                       boxShadow: [
                         BoxShadow(
-                          color: (isUser
+                          color: (widget.isUser
                                   ? AppColors.deepRose
                                   : AppColors.roseQuartz)
                               .withValues(alpha: 0.06),
@@ -821,14 +833,81 @@ class _ChatBubble extends StatelessWidget {
                       ],
                     ),
                     child: Column(
-                      crossAxisAlignment: isUser
+                      crossAxisAlignment: widget.isUser
                           ? CrossAxisAlignment.end
                           : CrossAxisAlignment.start,
                       children: [
-                        // Message text with basic markdown for Mochi
-                        if (isUser)
+                        // Reasoning / thinking section (collapsible)
+                        if (hasReasoning)
+                          GestureDetector(
+                            onTap: () =>
+                                setState(() => _showReasoning = !_showReasoning),
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: AppColors.velvet.withValues(alpha: 0.6),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: AppColors.blushGold
+                                      .withValues(alpha: 0.15),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.psychology_rounded,
+                                        size: 14,
+                                        color: AppColors.blushGold
+                                            .withValues(alpha: 0.7),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Thinking${widget.isStreaming ? '...' : ''}',
+                                        style: AppTypography.bodySmall()
+                                            .copyWith(
+                                          fontSize: 10,
+                                          color: AppColors.textMuted
+                                              .withValues(alpha: 0.8),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Icon(
+                                        _showReasoning
+                                            ? Icons.keyboard_arrow_up_rounded
+                                            : Icons.keyboard_arrow_down_rounded,
+                                        size: 14,
+                                        color: AppColors.textDisabled,
+                                      ),
+                                    ],
+                                  ),
+                                  if (_showReasoning) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      widget.reasoning!,
+                                      style: AppTypography.bodySmall().copyWith(
+                                        fontSize: 10,
+                                        color: AppColors.textMuted
+                                            .withValues(alpha: 0.6),
+                                        height: 1.4,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        // Message text
+                        if (widget.isUser)
                           Text(
-                            text,
+                            widget.text,
                             style: AppTypography.bodyMedium().copyWith(
                               color: AppColors.petalWhite,
                               height: 1.45,
@@ -836,21 +915,20 @@ class _ChatBubble extends StatelessWidget {
                           )
                         else
                           _MarkdownText(
-                            text: text,
+                            text: widget.text,
                             baseStyle: AppTypography.bodyMedium()
                                 .copyWith(
                               color: AppColors.textHigh,
                               height: 1.45,
                             ),
                           ),
-                        // Timestamp
-                        if (showTimestamp || isStreaming)
+                        if (showTimestamp || widget.isStreaming)
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                if (isStreaming)
+                                if (widget.isStreaming)
                                   Container(
                                     width: 6,
                                     height: 6,
@@ -870,10 +948,10 @@ class _ChatBubble extends StatelessWidget {
                                       ),
                                     ),
                                   ),
-                                if (isStreaming)
+                                if (widget.isStreaming)
                                   const SizedBox(width: 4),
                                 Text(
-                                  isStreaming
+                                  widget.isStreaming
                                       ? 'replying...'
                                       : isToday
                                           ? timeStr
@@ -881,7 +959,7 @@ class _ChatBubble extends StatelessWidget {
                                   style: AppTypography.bodySmall()
                                       .copyWith(
                                     fontSize: 9,
-                                    color: isUser
+                                    color: widget.isUser
                                         ? AppColors.petalWhite
                                             .withValues(alpha: 0.55)
                                         : AppColors.textMuted
@@ -897,8 +975,7 @@ class _ChatBubble extends StatelessWidget {
                 ),
               ),
 
-              // User avatar placeholder (initials)
-              if (isUser)
+              if (widget.isUser)
                 const SizedBox(width: 8),
             ],
           ),

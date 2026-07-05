@@ -12,6 +12,7 @@ Future<String> streamSseResponse({
   required Map<String, String> headers,
   required String body,
   required void Function(String chunk) onChunk,
+  void Function(String chunk)? onReasoning,
   Duration timeout = const Duration(seconds: 65),
 }) async {
   final fullResponse = StringBuffer();
@@ -35,6 +36,10 @@ Future<String> streamSseResponse({
           if (data == '[DONE]') break;
           try {
             final parsed = jsonDecode(data) as Map<String, dynamic>;
+            final reasoning = parsed['reasoning'] as String? ?? '';
+            if (reasoning.isNotEmpty && onReasoning != null) {
+              onReasoning(reasoning);
+            }
             final content = parsed['content'] as String? ?? '';
             if (content.isNotEmpty) {
               fullResponse.write(content);
