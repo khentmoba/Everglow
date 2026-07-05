@@ -365,18 +365,18 @@ class _MochiPanelState extends State<_MochiPanel> {
                           idx++;
                         }
 
-                        // Streaming draft bubble
-                        if (hasDraft && i == msgs.length + idx) {
-                          final dr = ai.draftReasoning;
+                        // Streaming draft bubble — show when reasoning or content is arriving
+                        final hasStreamingContent = hasDraft || draftReasoning.isNotEmpty;
+                        if (hasStreamingContent && i == msgs.length + idx) {
                           return _ChatBubble(
                             text: ai.draftResponse,
                             isUser: false,
                             isStreaming: true,
-                            reasoning: dr.isNotEmpty ? dr : null,
+                            reasoning: draftReasoning.isNotEmpty ? draftReasoning : null,
                           );
                         }
-                        // Thinking indicator (only when no draft yet)
-                        if (!hasDraft && i == msgs.length + idx) {
+                        // Thinking indicator (only when nothing streaming at all)
+                        if (!hasStreamingContent && i == msgs.length + idx) {
                           return const _ThinkingIndicator();
                         }
                         final msg = msgs[i - idx];
