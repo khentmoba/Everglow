@@ -1,4 +1,5 @@
 const functions = require('firebase-functions/v1');
+const { onRequest } = require('firebase-functions/v2/https');
 
 /** Lazy require+init so Firebase deploy analysis doesn't time out */
 let _admin;
@@ -982,7 +983,15 @@ exports.keepWarm = functions.pubsub.schedule('every 2 minutes').onRun(async (con
   }
 });
 
-exports.proxyAI = functions.runWith({ minInstances: 1 }).https.onRequest(async (req, res) => {
+exports.proxyAI = functions.runWith({ minInstances: 1 }).https.onRequest(handleProxyAI);
+// V2 function on Cloud Run — natively supports SSE streaming.
+exports.proxyAIv2 = onRequest({ invoker: 'public' }, handleProxyAI);
+
+async function handleProxyAI(req, res) {
+  // V1 fallback — kept for non-streaming compatibility.
+  // V2 equivalent (proxyAIv2) below supports true SSE streaming.
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -1239,7 +1248,7 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
   const reply = message.content || message.reasoning || '';
   const reasoning = message.reasoning_content || message.reasoning || '';
   res.json({ reply, reasoning, model: data.model || model });
-});
+}
 
 async function initWasm() {
   const sodium = require('libsodium-wrappers-sumo');
