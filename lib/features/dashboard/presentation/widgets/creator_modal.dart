@@ -7,7 +7,6 @@ import 'package:intl/intl.dart';
 import '../../data/services/creator_service.dart';
 import '../../../../services/auth_service.dart';
 import 'package:everglow/features/cinema/presentation/widgets/tmdb_search_modal.dart';
-import '../../data/services/cleanup_service.dart';
 
 class CreatorModal extends StatefulWidget {
   const CreatorModal({super.key});
@@ -19,8 +18,6 @@ class CreatorModal extends StatefulWidget {
 class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _creatorService = CreatorService();
-  final _cleanupService = CleanupService();
-  bool _isCleaningUp = false;
 
   // Add Memory Form State
   final _memoryFormKey = GlobalKey<FormState>();
@@ -171,7 +168,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
                 _buildAddMemoryForm(),
                 _buildDropLetterForm(),
                 _buildCinemaForm(),
-                _buildSystemForm(),
+
               ],
             ),
           ),
@@ -517,128 +514,4 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildSystemForm() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 20),
-          Icon(Icons.settings_suggest_rounded, size: 60, color: Colors.pink.shade100),
-          const SizedBox(height: 16),
-          Text(
-            'System Maintenance',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.outfit(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.pink.shade700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Dangerous operations for clearing test data and resetting user states.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.outfit(
-              fontSize: 14,
-              color: Colors.pink.shade300,
-            ),
-          ),
-          const SizedBox(height: 40),
-          _buildSubmitButton(
-            onPressed: _isCleaningUp ? null : () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Reset Clair\'s Data?'),
-                  content: const Text('This will delete all stars, chat messages, and mood history for Clair Jassen. This cannot be undone.'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, true), 
-                      child: const Text('Reset Everything', style: TextStyle(color: Colors.red)),
-                    ),
-                  ],
-                ),
-              );
-
-              if (confirm == true) {
-                setState(() => _isCleaningUp = true);
-                try {
-                  await _cleanupService.resetClairTestData();
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Clair\'s test data has been purged. ✨')),
-                    );
-                    Navigator.pop(context);
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Cleanup failed: $e')),
-                    );
-                  }
-                } finally {
-                  if (mounted) setState(() => _isCleaningUp = false);
-                }
-              }
-            },
-            isLoading: _isCleaningUp,
-            label: 'Reset Clair\'s Test Data 🫧',
-          ),
-          const SizedBox(height: 12),
-          _buildSubmitButton(
-            onPressed: _isCleaningUp ? null : () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Purge Diagnostics?'),
-                  content: const Text('This will delete all "DIAGNOSTIC_CHECK" messages from the chat. Are you sure?'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, true), 
-                      child: const Text('Purge', style: TextStyle(color: Colors.orange)),
-                    ),
-                  ],
-                ),
-              );
-
-              if (confirm == true) {
-                setState(() => _isCleaningUp = true);
-                try {
-                  await _cleanupService.purgeDiagnosticMessages();
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Diagnostic messages have been purged. 🧹')),
-                    );
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Purge failed: $e')),
-                    );
-                  }
-                } finally {
-                  if (mounted) setState(() => _isCleaningUp = false);
-                }
-              }
-            },
-            isLoading: _isCleaningUp,
-            label: 'Purge Diagnostic Checks 🧹',
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Note: This ensures her "first time" experience is genuine.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.outfit(
-              fontSize: 12,
-              fontStyle: FontStyle.italic,
-              color: Colors.pink.shade200,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }

@@ -4,6 +4,8 @@ import 'dart:js_interop';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:everglow/core/utils/logger.dart';
+import 'package:everglow/core/utils/firestore_stream_utils.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:web/web.dart' as web;
 
@@ -172,7 +174,7 @@ class VoiceChatService {
         );
       }
     } catch (e) {
-      debugPrint('VoiceChatService.init failed: $e');
+      Logger.e('VoiceChatService.init failed', error: e);
       state.value = VoiceChatState.ended;
     }
   }
@@ -184,7 +186,7 @@ class VoiceChatService {
         'video': false,
       });
     } catch (e) {
-      debugPrint('VoiceChatService.getUserMedia failed: $e');
+      Logger.e('VoiceChatService.getUserMedia failed', error: e);
       rethrow;
     }
   }
@@ -200,18 +202,18 @@ class VoiceChatService {
     };
 
     _pc!.onIceConnectionState = (s) {
-      debugPrint('VoiceChatService: ICE $s');
+      Logger.d('VoiceChatService: ICE $s');
     };
 
     _pc!.onTrack = (event) {
-      debugPrint('VoiceChatService: remote track received');
+      Logger.d('VoiceChatService: remote track received');
       if (event.track.kind == 'audio') {
         _attachRemoteAudio(event.streams[0]);
       }
     };
 
     _pc!.onConnectionState = (s) async {
-      debugPrint('VoiceChatService: connection $s');
+      Logger.d('VoiceChatService: connection $s');
       if (s == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
         state.value = VoiceChatState.connected;
         _iceRestarted = false;
@@ -241,7 +243,7 @@ class VoiceChatService {
     }
     if (!_iceRestarted) {
       _iceRestarted = true;
-      debugPrint('VoiceChatService: ICE failed — attempting restart');
+      Logger.w('VoiceChatService: ICE failed — attempting restart');
       try {
         final offer = await _pc!.createOffer({
           'iceRestart': true,
@@ -263,7 +265,7 @@ class VoiceChatService {
         // manually or the watch party will end.
         return;
       } catch (e) {
-        debugPrint('VoiceChatService: ICE restart failed: $e');
+        Logger.e('VoiceChatService: ICE restart failed', error: e);
       }
     }
     state.value = VoiceChatState.ended;
@@ -308,7 +310,7 @@ class VoiceChatService {
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {
-      debugPrint('VoiceChatService._createOffer failed: $e');
+      Logger.e('VoiceChatService._createOffer failed', error: e);
     }
   }
 
@@ -333,7 +335,7 @@ class VoiceChatService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      debugPrint('VoiceChatService._handleOffer failed: $e');
+      Logger.e('VoiceChatService._handleOffer failed', error: e);
     }
   }
 
@@ -345,7 +347,7 @@ class VoiceChatService {
       await _pc!.setRemoteDescription(desc);
       _remoteDescSet = true;
     } catch (e) {
-      debugPrint('VoiceChatService._handleAnswer failed: $e');
+      Logger.e('VoiceChatService._handleAnswer failed', error: e);
     }
   }
 
@@ -364,14 +366,16 @@ class VoiceChatService {
         'createdAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      debugPrint('VoiceChatService._sendCandidate failed: $e');
+      Logger.e('VoiceChatService._sendCandidate failed', error: e);
     }
   }
 
   void _listenSignal() {
     if (_roomId == null) return;
-    _signalSub =
-        _db.collection(_collection).doc(_roomId).snapshots().listen((snap) {
+    _signalSub = withFirestoreTimeout(
+        _db.collection(_collection).doc(_roomId).snapshots(),
+        label: 'voice_chat_room_state',
+      ).listen((snap) {
       if (!snap.exists) return;
       final data = snap.data()!;
 
@@ -402,12 +406,14 @@ class VoiceChatService {
 
   void _listenCandidates() {
     if (_roomId == null) return;
-    _candidateSub = _db
-        .collection(_collection)
-        .doc(_roomId)
-        .collection('candidates')
-        .snapshots()
-        .listen((snap) {
+    _candidateSub = withFirestoreTimeout(
+        _db
+            .collection(_collection)
+            .doc(_roomId)
+            .collection('candidates')
+            .snapshots(),
+        label: 'voice_chat_candidates',
+      ).listen((snap) {
       for (final change in snap.docChanges) {
         if (change.type == DocumentChangeType.added) {
           final data = change.doc.data()!;
@@ -449,7 +455,7 @@ class VoiceChatService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      debugPrint('VoiceChatService._markEnded failed: $e');
+      Logger.e('VoiceChatService._markEnded failed', error: e);
     }
   }
 
@@ -516,11 +522,13 @@ class VoiceChatService {
 
     // Cancel any previous watcher before installing a new one.
     _incomingWatcherSub?.cancel();
-    _incomingWatcherSub = _incomingDb
-        .collection(_collection)
-        .doc(roomId)
-        .snapshots()
-        .listen((snap) {
+    _incomingWatcherSub = withFirestoreTimeout(
+        _incomingDb
+            .collection(_collection)
+            .doc(roomId)
+            .snapshots(),
+        label: 'voice_chat_incoming',
+      ).listen((snap) {
       if (!snap.exists) {
         _clearIncoming();
         return;
@@ -601,7 +609,7 @@ class VoiceChatService {
           'state': 'ended',
           'updatedAt': FieldValue.serverTimestamp(),
         }).catchError((Object e) {
-          debugPrint('VoiceChatService beforeunload update failed: $e');
+          Logger.e('VoiceChatService beforeunload update failed', error: e);
         });
       }
       // Also stop local tracks so the browser releases the mic.
