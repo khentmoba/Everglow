@@ -1106,6 +1106,8 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
     res.set('Connection', 'keep-alive');
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Expose-Headers', '*');
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.flushHeaders();
 
     try {
       const streamResp = await fetch(
@@ -1166,6 +1168,9 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
             }
           } catch (_) { /* skip malformed chunks */ }
         }
+        // Yield to event loop so res.write() chunks are flushed before the
+        // next reader.read() pulls more data from NVIDIA.
+        await new Promise(r => setImmediate(r));
       }
     } catch (e) {
       console.warn('proxyAI stream error:', e.message);
