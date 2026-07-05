@@ -1,14 +1,14 @@
-// Web-platform implementation: uses dart:html HttpRequest with onProgress
-// to receive SSE chunks incrementally as the server sends them.
+// Web-platform implementation: uses dart:html HttpRequest
+// with a polling timer on responseText to receive SSE chunks
+// incrementally. XHR onProgress may not fire per-byte in Flutter web.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:html' as html;
 
 /// Parses SSE lines from a streaming HTTP response.
 ///
-/// Uses [html.HttpRequest] with [onProgress] to receive data as it arrives.
-/// Maintains a line buffer so that partial SSE lines arriving mid-event are
-/// stitched together before parsing.
+/// Uses [html.HttpRequest] with a 30ms polling timer on responseText
+/// to detect new data as it arrives, independent of onProgress timing.
 Future<String> streamSseResponse({
   required String url,
   required Map<String, String> headers,
@@ -26,14 +26,14 @@ Future<String> streamSseResponse({
     request.open('POST', url);
     request.timeout = timeout.inMilliseconds;
 
-    // Set request headers
     headers.forEach((key, value) {
       request.setRequestHeader(key, value);
     });
 
     String previousText = '';
+    Timer? pollTimer;
 
-    request.onProgress.listen((_) {
+    pollTimer = Timer.periodic(const Duration(milliseconds: 30), (timer) {
       final currentText = request.responseText ?? '';
       if (currentText.length > previousText.length) {
         final newData = currentText.substring(previousText.length);
@@ -47,45 +47,47 @@ Future<String> streamSseResponse({
           _processSseLine(line, fullResponse, onChunk, onReasoning: onReasoning);
         }
       }
-    });
-
-    request.onLoad.listen((_) {
-      // Process any remaining data from the last chunk
-      final finalText = request.responseText ?? '';
-      if (finalText.length > previousText.length) {
-        lineBuffer += finalText.substring(previousText.length);
-      }
-      if (lineBuffer.isNotEmpty) {
-        final remaining = lineBuffer.split('\n');
-        for (final line in remaining) {
-          _processSseLine(line, fullResponse, onChunk, onReasoning: onReasoning);
+      if (request.readyState == 4) {
+        timer.cancel();
+        // Flush any remaining incomplete line
+        if (lineBuffer.isNotEmpty) {
+          final remaining = lineBuffer.split('\n');
+          for (final line in remaining) {
+            _processSseLine(line, fullResponse, onChunk, onReasoning: onReasoning);
+          }
         }
-      }
 
-      if (request.status == 200) {
-        completer.complete(fullResponse.toString());
-      } else {
-        String errorMsg;
-        try {
-          final errorData = jsonDecode(finalText) as Map<String, dynamic>;
-          errorMsg = errorData['error'] ?? 'Unknown error';
-        } catch (_) {
-          errorMsg = 'AI service returned ${request.status}';
+        if (request.status == 200) {
+          completer.complete(fullResponse.toString());
+        } else {
+          String errorMsg;
+          try {
+            final errorData =
+                jsonDecode(request.responseText ?? '{}') as Map<String, dynamic>;
+            errorMsg = errorData['error'] ?? 'Unknown error';
+          } catch (_) {
+            errorMsg = 'AI service returned ${request.status}';
+          }
+          completer.completeError(Exception(errorMsg));
         }
-        completer.completeError(Exception(errorMsg));
       }
     });
 
     request.onError.listen((_) {
-      completer.completeError(
-          Exception('Network error: ${request.statusText}'));
+      pollTimer?.cancel();
+      if (!completer.isCompleted) {
+        completer.completeError(
+            Exception('Network error: ${request.statusText}'));
+      }
     });
 
     request.send(body);
 
     return completer.future;
   } catch (e) {
-    completer.completeError(e);
+    if (!completer.isCompleted) {
+      completer.completeError(e);
+    }
   }
 
   return completer.future;
