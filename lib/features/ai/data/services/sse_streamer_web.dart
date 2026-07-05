@@ -7,9 +7,8 @@ import 'dart:html' as html;
 /// Parses SSE lines from a streaming HTTP response.
 ///
 /// Uses [html.HttpRequest] with [onProgress] to receive data as it arrives.
-/// This is more reliable than the JS fetch() + ReadableStream approach
-/// because dart:html is natively supported by Flutter web and doesn't
-/// require manual JS interop.
+/// Maintains a line buffer so that partial SSE lines arriving mid-event are
+/// stitched together before parsing.
 Future<String> streamSseResponse({
   required String url,
   required Map<String, String> headers,
@@ -20,6 +19,7 @@ Future<String> streamSseResponse({
 }) async {
   final fullResponse = StringBuffer();
   final completer = Completer<String>();
+  String lineBuffer = '';
 
   try {
     final request = html.HttpRequest();
@@ -34,21 +34,32 @@ Future<String> streamSseResponse({
     String previousText = '';
 
     request.onProgress.listen((_) {
-      // responseText contains whatever text has been received so far.
       final currentText = request.responseText ?? '';
       if (currentText.length > previousText.length) {
         final newData = currentText.substring(previousText.length);
-        _processSseChunk(newData, fullResponse, onChunk, onReasoning: onReasoning);
+        lineBuffer += newData;
         previousText = currentText;
+
+        // Process complete lines; keep incomplete tail in buffer
+        final lines = lineBuffer.split('\n');
+        lineBuffer = lines.removeLast();
+        for (final line in lines) {
+          _processSseLine(line, fullResponse, onChunk, onReasoning: onReasoning);
+        }
       }
     });
 
     request.onLoad.listen((_) {
-      // Final check: process any remaining data from last chunk
+      // Process any remaining data from the last chunk
       final finalText = request.responseText ?? '';
       if (finalText.length > previousText.length) {
-        final newData = finalText.substring(previousText.length);
-        _processSseChunk(newData, fullResponse, onChunk, onReasoning: onReasoning);
+        lineBuffer += finalText.substring(previousText.length);
+      }
+      if (lineBuffer.isNotEmpty) {
+        final remaining = lineBuffer.split('\n');
+        for (final line in remaining) {
+          _processSseLine(line, fullResponse, onChunk, onReasoning: onReasoning);
+        }
       }
 
       if (request.status == 200) {
@@ -80,33 +91,31 @@ Future<String> streamSseResponse({
   return completer.future;
 }
 
-/// Process a chunk of raw SSE data (may contain partial lines).
-void _processSseChunk(
-  String chunk,
+/// Process a single complete SSE line (already split on \n, without the
+/// trailing newline character).
+void _processSseLine(
+  String line,
   StringBuffer fullResponse,
   void Function(String chunk) onChunk, {
   void Function(String chunk)? onReasoning,
 }) {
-  final lines = chunk.split('\n');
-  for (final line in lines) {
-    final trimmed = line.trimRight();
-    if (trimmed.isEmpty) continue;
-    if (!trimmed.startsWith('data: ')) continue;
-    final data = trimmed.substring(6).trim();
-    if (data == '[DONE]') return;
-    try {
-      final parsed = jsonDecode(data) as Map<String, dynamic>;
-      final reasoning = parsed['reasoning'] as String? ?? '';
-      if (reasoning.isNotEmpty && onReasoning != null) {
-        onReasoning(reasoning);
-      }
-      final content = parsed['content'] as String? ?? '';
-      if (content.isNotEmpty) {
-        fullResponse.write(content);
-        onChunk(content);
-      }
-    } catch (_) {
-      // Skip malformed JSON chunks
+  final trimmed = line.trimRight();
+  if (trimmed.isEmpty) return;
+  if (!trimmed.startsWith('data: ')) return;
+  final data = trimmed.substring(6).trim();
+  if (data == '[DONE]') return;
+  try {
+    final parsed = jsonDecode(data) as Map<String, dynamic>;
+    final reasoning = parsed['reasoning'] as String? ?? '';
+    if (reasoning.isNotEmpty && onReasoning != null) {
+      onReasoning(reasoning);
     }
+    final content = parsed['content'] as String? ?? '';
+    if (content.isNotEmpty) {
+      fullResponse.write(content);
+      onChunk(content);
+    }
+  } catch (_) {
+    // Skip malformed JSON chunks
   }
 }
