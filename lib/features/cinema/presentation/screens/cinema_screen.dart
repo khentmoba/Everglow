@@ -2015,13 +2015,15 @@ class _CinemaScreenState extends State<CinemaScreen>
 
   Widget _libraryGrid(List<MediaItem> items, {Color? badgeColor}) {
     if (items.isEmpty) return const SizedBox.shrink();
+    final isDesktop = AppBreakpoint.isDesktop(context);
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 20),
       itemCount: items.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount:
+            isDesktop ? 6 : (AppBreakpoint.isTablet(context) ? 4 : 2),
         childAspectRatio: 0.65,
         crossAxisSpacing: 14,
         mainAxisSpacing: 14,

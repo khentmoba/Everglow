@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
+import 'package:everglow/features/manga/data/services/bato_service.dart';
+import 'package:everglow/features/manga/data/services/mangasee123_service.dart';
 import 'package:everglow/features/manga/data/services/mangadex_service.dart';
 import 'package:everglow/features/manga/data/services/mangakakalot_service.dart';
 import 'package:everglow/features/manga/data/services/scanlation_service.dart';
@@ -50,6 +52,8 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
   final MangaDexService _mangaDexService = MangaDexService();
   final MangaKakalotService _kakalotService = MangaKakalotService();
   final ScanlationService _scanlationService = ScanlationService();
+  final BatoService _batoService = BatoService();
+  final MangaSee123Service _mangaSeeService = MangaSee123Service();
 
   MangaChapterPages? _pages;
   bool _isLoading = true;
@@ -127,7 +131,38 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
       }
     } catch (_) { /* fall through */ }
 
-    // 3) Scanlation sites — ArcaneScans, AsuraScans, ReaperScans, etc.
+    // 3) Bato.to — additional fallback for ComicK-sourced chapters
+    if (pages == null || pages.filenames.isEmpty) {
+      try {
+        final batoPath = widget.chapter.id.startsWith('/title/')
+            ? widget.chapter.id
+            : '/title/${widget.manga.mangaId}/chapter-${widget.chapter.chapter}';
+        pages = await _batoService.getChapterPages(batoPath);
+        if (pages != null && pages.filenames.isNotEmpty) {
+          _applyPages(pages);
+          return;
+        }
+      } catch (_) { /* fall through */ }
+    }
+
+    // 4) MangaSee123 — another ComicK-sourced fallback
+    if (pages == null || pages.filenames.isEmpty) {
+      try {
+        final slug = widget.manga.mangaId;
+        if (slug.isNotEmpty && widget.chapter.chapter.isNotEmpty) {
+          pages = await _mangaSeeService.getChapterPages(
+            slug,
+            widget.chapter.chapter,
+          );
+          if (pages != null && pages.filenames.isNotEmpty) {
+            _applyPages(pages);
+            return;
+          }
+        }
+      } catch (_) { /* fall through */ }
+    }
+
+    // 5) Scanlation sites — ArcaneScans, AsuraScans, ReaperScans, etc.
     try {
       final slugs = widget.scanlationSlugs;
       if (slugs != null && slugs.isNotEmpty) {

@@ -4,16 +4,10 @@ class AIMessage {
   final String content;
   final DateTime timestamp;
 
-  /// Ephemeral image data URIs (e.g. "data:image/jpeg;base64,...").
-  /// NOT persisted to Firestore — only sent in the current API call.
-  /// Qwen 3.6 supports up to 5 images per request, each up to 4MB (base64).
-  final List<String>? imageDataUris;
-
   AIMessage({
     required this.role,
     required this.content,
     DateTime? timestamp,
-    this.imageDataUris,
   }) : timestamp = timestamp ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
@@ -31,21 +25,8 @@ class AIMessage {
       );
 
   /// Returns the payload for the Groq API.
-  /// Text-only messages use the simple string format (backward-compatible).
-  /// Messages with images use the OpenAI multimodal content array format.
   Map<String, dynamic> toApiPayload() {
-    if (imageDataUris == null || imageDataUris!.isEmpty) {
-      return {'role': role, 'content': content};
-    }
-    // OpenAI multimodal format
-    final parts = <Map<String, dynamic>>[];
-    if (content.isNotEmpty) {
-      parts.add({'type': 'text', 'text': content});
-    }
-    for (final uri in imageDataUris!) {
-      parts.add({'type': 'image_url', 'image_url': {'url': uri}});
-    }
-    return {'role': role, 'content': parts};
+    return {'role': role, 'content': content};
   }
 }
 

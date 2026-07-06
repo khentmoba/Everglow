@@ -447,6 +447,12 @@ exports.proxyScanlation = functions.https.onRequest(async (req, res) => {
     '.void-scans.com',
     '.rizzcomic.com',
     '.comick.io',
+    // Bato.to image CDN
+    '.bato.to',
+    '.img.bato.to',
+    // MangaSee123 image CDN
+    '.mangasee123.com',
+    '.scans-hot.xyz',
     // Common image CDNs used by scanlation sites
     '.blogspot.com',
     '.bp.blogspot.com',
@@ -1129,12 +1135,55 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
     return;
   }
 
-  // Model: Qwen 3.6 27B via Groq
-  const model = 'qwen/qwen3.6-27b';
+  // Model: GPT-OSS 120B via Groq — supports built-in tools, reasoning, structured outputs
+  const model = 'openai/gpt-oss-120b';
 
-  // reasoning_effort: NONE by default for fast responses;
-  // pass enableThinking: true from the client for DEFAULT reasoning.
-  const reasoningEffort = enableThinkingFlag ? 'default' : 'none';
+  // Tools: browser_search + code_interpreter — model decides when to use them
+  const tools = [
+    { type: 'browser_search' },
+    { type: 'code_interpreter' },
+  ];
+
+  // Reasoning effort: low by default (light, fast reasoning);
+  // pass enableThinking: true from the client for medium effort.
+  const reasoningEffort = enableThinkingFlag ? 'medium' : 'low';
+
+  // ── Payload size guard ──────────────────────────────
+  // Groq's request body limit is 20MB. Check and trim before sending.
+  const groqBody = JSON.stringify({
+    model,
+    messages: nimMessages,
+    tools,
+    max_completion_tokens: 16384,
+    temperature: 0.6,
+    top_p: 0.95,
+    stream: req.body.stream === true,
+    reasoning_effort: reasoningEffort,
+  });
+  let groqBodyBytes = Buffer.byteLength(groqBody, 'utf8');
+  if (groqBodyBytes > 18 * 1024 * 1024) {
+    // Try trimming older messages to fit
+    while (groqBodyBytes > 18 * 1024 * 1024 && nimMessages.length > 4) {
+      // Remove the oldest user+assistant pair (keep system + recent)
+      nimMessages.splice(1, 2); // skip index 0 (system), remove 2 messages
+      const trimmedBody = JSON.stringify({
+        model,
+        messages: nimMessages,
+        tools,
+        max_completion_tokens: 16384,
+        temperature: 0.6,
+        top_p: 0.95,
+        stream: req.body.stream === true,
+        reasoning_effort: reasoningEffort,
+      });
+      groqBodyBytes = Buffer.byteLength(trimmedBody, 'utf8');
+    }
+    if (groqBodyBytes > 19 * 1024 * 1024) {
+      return res.status(413).json({
+        error: 'Request too large for Groq. Try starting a fresh conversation.',
+      });
+    }
+  }
 
   // ── Streaming mode (SSE) ───────────────────────────
   if (req.body.stream === true) {
@@ -1150,7 +1199,8 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
           body: JSON.stringify({
             model: model,
             messages: nimMessages,
-            max_completion_tokens: 8192,
+            tools,
+            max_completion_tokens: 16384,
             temperature: 0.6,
             top_p: 0.95,
             stream: true,
@@ -1164,12 +1214,21 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
         // Don't write SSE — return a proper HTTP error so the Flutter
         // client's retry logic kicks in instead of getting a blank response.
         const errText = await streamResp.text().catch(() => '');
+        let errDetail;
         try {
           const errJson = JSON.parse(errText);
-          return res.status(502).json({ error: `Groq returned ${streamResp.status}`, detail: errJson.error?.message || errText });
+          errDetail = errJson.error?.message || errText;
         } catch {
-          return res.status(502).json({ error: `Groq returned ${streamResp.status}`, detail: errText });
+          errDetail = errText;
         }
+        // Special-case 413 (Payload Too Large) with a helpful message
+        if (streamResp.status === 413) {
+          return res.status(413).json({
+            error: 'Request too large for Groq. Try starting a fresh conversation.',
+            detail: errDetail,
+          });
+        }
+        return res.status(502).json({ error: `Groq returned ${streamResp.status}`, detail: errDetail });
       }
 
       // Groq responded OK — now set up SSE and stream back to the client
@@ -1187,8 +1246,6 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
       const reader = streamResp.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      let thinkBuffer = '';
-      let inThink = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -1202,62 +1259,20 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
           if (!line.startsWith('data: ')) continue;
           const raw = line.slice(6).trim();
           if (raw === '[DONE]') {
-            // Flush any remaining thinking content
-            if (inThink && thinkBuffer.trim()) {
-              res.write(`data: ${JSON.stringify({reasoning: thinkBuffer.trimEnd()})}\n\n`);
-              thinkBuffer = '';
-              inThink = false;
-            }
             res.write('data: [DONE]\n\n');
             break;
           }
           try {
             const parsed = JSON.parse(raw);
             const delta = parsed.choices?.[0]?.delta || {};
-            // Groq may return reasoning_content, but Qwen 3.6 typically
-            // embeds <think>...</think> blocks in the content field instead.
-            const reasoning = delta.reasoning_content || delta.reasoning || '';
+            // GPT-OSS puts reasoning in the `reasoning` field of each delta
+            const reasoning = delta.reasoning || '';
             if (reasoning) {
               res.write(`data: ${JSON.stringify({reasoning})}\n\n`);
             }
-            let content = delta.content || '';
+            const content = delta.content || '';
             if (content) {
-              // Handle <think>...</think> blocks that may span chunks
-              let output = '';
-              for (let i = 0; i < content.length; i++) {
-                const ch = content[i];
-                if (inThink) {
-                  thinkBuffer += ch;
-                  // Check if this completes </think>
-                  if (thinkBuffer.endsWith('</think>')) {
-                    const thinkContent = thinkBuffer.slice(0, -8).trimEnd();
-                    if (thinkContent) {
-                      res.write(`data: ${JSON.stringify({reasoning: thinkContent})}\n\n`);
-                    }
-                    thinkBuffer = '';
-                    inThink = false;
-                  }
-                } else {
-                  output += ch;
-                  // Check if this starts <think>
-                  const afterThink = output.indexOf('<think>');
-                  if (afterThink !== -1) {
-                    // Anything before <think> is regular content
-                    const beforeThink = output.slice(0, afterThink);
-                    if (beforeThink) {
-                      res.write(`data: ${JSON.stringify({content: beforeThink})}\n\n`);
-                    }
-                    // Start capturing thinking (without the <think> tag itself)
-                    const afterOpenTag = output.slice(afterThink + 7);
-                    thinkBuffer = afterOpenTag;
-                    output = '';
-                    inThink = true;
-                  }
-                }
-              }
-              if (output) {
-                res.write(`data: ${JSON.stringify({content: output})}\n\n`);
-              }
+              res.write(`data: ${JSON.stringify({content})}\n\n`);
             }
           } catch (_) { /* skip malformed chunks */ }
         }
@@ -1284,7 +1299,8 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
         body: JSON.stringify({
           model: model,
           messages: nimMessages,
-          max_completion_tokens: 8192,
+          tools,
+          max_completion_tokens: 16384,
           temperature: 0.6,
           top_p: 0.95,
           stream: false,
@@ -1304,6 +1320,14 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
   if (!response || !response.ok) {
     const errStatus = response ? response.status : 502;
     const errBody = lastError ? lastError.body : 'No response from Groq';
+    // Special-case 413 (Payload Too Large) — helpful message
+    if (errStatus === 413) {
+      return res.status(413).json({
+        error: 'Request too large for Groq. Try starting a fresh conversation.',
+        detail: errBody,
+        model: model,
+      });
+    }
     res.status(errStatus).json({
       error: `Groq returned ${errStatus}`,
       detail: errBody,
@@ -1315,9 +1339,8 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
   // ── Non-streaming mode ──────────────────────────────
   const data = await response.json();
   const message = data.choices?.[0]?.message || {};
-  const reply = (message.content || message.reasoning || '')
-    .replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-  const reasoning = message.reasoning_content || message.reasoning || '';
+  const reply = (message.content || '').trim();
+  const reasoning = message.reasoning || '';
   res.json({ reply, reasoning, model: data.model || model });
 }
 
