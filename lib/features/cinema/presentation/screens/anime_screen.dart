@@ -6,13 +6,14 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import 'package:everglow/core/theme/app_breakpoints.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/data/anime_categories.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
+import 'package:everglow/features/cinema/data/services/anilist_service.dart';
 import 'package:everglow/features/cinema/data/services/jikan_service.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/features/cinema/presentation/widgets/episode_drawer.dart';
-import 'package:everglow/features/cinema/presentation/widgets/jikan_search_modal.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'package:everglow/shared/widgets/shelf/atmospheric_backdrop.dart';
 import 'package:everglow/shared/widgets/shelf/scroll_edge_fade.dart';
@@ -51,8 +52,9 @@ const _cVibrantPink = Color(0xFFFF4081);
 ///                inline below the chip row.
 ///   * Library  — Couple's combined anime catalog split into
 ///                "Want to Watch" + "Watched" with partner attribution.
-///   * Search   — Opens [TMDBSearchModal]; the auto-detect in the
-///                episode drawer picks up anime from the results.
+///   * Search   — Full inline search backed by AniList + Jikan (with
+///                TMDB fallback). Results show anime poster cards with
+///                an "Add to Everglow?" dialog on tap.
 class AnimeScreen extends StatefulWidget {
   const AnimeScreen({Key? key}) : super(key: key);
 
@@ -81,6 +83,13 @@ class _AnimeScreenState extends State<AnimeScreen>
   // Browse tab
   String? _selectedCategoryId;
   final Map<String, _AnimeRow> _browseResults = {};
+
+  // Search tab
+  final TextEditingController _searchController = TextEditingController();
+  List<MediaItem> _searchResults = [];
+  bool _isSearching = false;
+  Timer? _searchDebounce;
+  String? _searchErrorMessage;
 
   @override
   void initState() {
@@ -368,16 +377,64 @@ class _AnimeScreenState extends State<AnimeScreen>
   @override
   void dispose() {
     _watchlistSub?.cancel();
+    _searchController.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
+  void _onSearchChanged(String query) {
+    if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 600), () {
+      if (query.trim().isNotEmpty) {
+        _performSearch(query.trim());
+      } else {
+        setState(() {
+          _searchResults = [];
+          _isSearching = false;
+          _searchErrorMessage = null;
+        });
+      }
+    });
+  }
+
+  Future<void> _performSearch(String query) async {
+    setState(() {
+      _isSearching = true;
+      _searchErrorMessage = null;
+    });
+
+    final aniListFuture = AniListService().searchAnime(query);
+    final jikanFuture = _jikanService.searchAnimeDirect(query);
+    final results = await Future.wait([aniListFuture, jikanFuture]);
+
+    var combined = results[0].isNotEmpty
+        ? results[0]
+        : results[1].isNotEmpty
+            ? results[1]
+            : <MediaItem>[];
+
+    if (combined.isEmpty) {
+      combined = await _tmdbService.searchMedia(query);
+    }
+
+    if (mounted) {
+      setState(() {
+        _searchResults = combined;
+        _isSearching = false;
+        if (combined.isEmpty) {
+          final backends = <String>[];
+          if (results[0].isEmpty) backends.add('AniList');
+          if (results[1].isEmpty) backends.add('Jikan');
+          if (combined.isEmpty) backends.add('TMDB');
+          _searchErrorMessage =
+              'No results from ${backends.join(", ")} — check your connection or try a different title';
+        }
+      });
+    }
+  }
+
   void _openSearch() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const JikanSearchModal(),
-    );
+    setState(() => _currentIndex = 3);
   }
 
   void _openDetails(MediaItem item) {
@@ -454,12 +511,7 @@ class _AnimeScreenState extends State<AnimeScreen>
       glowColor: _cCyan,
       onTap: (i) {
         HapticFeedback.selectionClick();
-        if (i == 3) {
-          setState(() => _currentIndex = i);
-          _openSearch();
-        } else {
-          setState(() => _currentIndex = i);
-        }
+        setState(() => _currentIndex = i);
       },
       items: const [
         ShelfNavItem(
@@ -1001,6 +1053,7 @@ class _AnimeScreenState extends State<AnimeScreen>
   }
 
   Widget _buildBrowseResults() {
+    final isDesktop = AppBreakpoint.isDesktop(context);
     final row = _browseResults[_selectedCategoryId];
     final option = animeCategoryOptions.firstWhere(
       (o) => o.id == _selectedCategoryId,
@@ -1023,8 +1076,9 @@ class _AnimeScreenState extends State<AnimeScreen>
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: 6,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount:
+                    isDesktop ? 6 : (AppBreakpoint.isTablet(context) ? 4 : 2),
                 childAspectRatio: 0.65,
                 crossAxisSpacing: 14,
                 mainAxisSpacing: 14,
@@ -1098,8 +1152,9 @@ class _AnimeScreenState extends State<AnimeScreen>
             physics: const NeverScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 20),
             itemCount: row.items.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount:
+                  isDesktop ? 6 : (AppBreakpoint.isTablet(context) ? 4 : 2),
               childAspectRatio: 0.65,
               crossAxisSpacing: 14,
               mainAxisSpacing: 14,
@@ -1320,6 +1375,7 @@ class _AnimeScreenState extends State<AnimeScreen>
     Color accent,
   ) {
     if (items.isEmpty) return const SizedBox.shrink();
+    final isDesktop = AppBreakpoint.isDesktop(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1339,8 +1395,9 @@ class _AnimeScreenState extends State<AnimeScreen>
           physics: const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 20),
           itemCount: items.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount:
+                isDesktop ? 6 : (AppBreakpoint.isTablet(context) ? 4 : 2),
             childAspectRatio: 0.65,
             crossAxisSpacing: 14,
             mainAxisSpacing: 14,
@@ -1371,62 +1428,346 @@ class _AnimeScreenState extends State<AnimeScreen>
   // ── SEARCH TAB ─────────────────────────────────────────────────────
 
   Widget _buildSearchTab() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [_cCyan, _cElectricPurple],
+    final isDesktop = AppBreakpoint.isDesktop(context);
+    final horizontalPad = isDesktop ? 48.0 : 20.0;
+
+    return Column(
+      children: [
+        // Header with title + subtitle + search bar
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.fromLTRB(
+            horizontalPad,
+            isDesktop ? 32 : (MediaQuery.of(context).padding.top + 14),
+            horizontalPad,
+            8,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (!isDesktop)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: ShelfIconButton(
+                    icon: Icons.arrow_back_ios_new_rounded,
+                    semanticLabel: 'Back to Home',
+                    tooltip: 'Back to Home',
+                    onTap: () => setState(() => _currentIndex = 0),
+                  ),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: _cCyan.withValues(alpha: 0.3),
-                    blurRadius: 30,
-                    spreadRadius: -8,
+              Text(
+                'Find Your Next Anime \U0001f338',
+                style: GoogleFonts.cormorantGaramond(
+                  fontSize: isDesktop ? 32 : 26,
+                  fontWeight: FontWeight.w800,
+                  color: _cWhite,
+                  height: 1.1,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Search MyAnimeList or AniList by title. We auto-detect anime and add it to your library.',
+                style: GoogleFonts.outfit(
+                  fontSize: isDesktop ? 14 : 12,
+                  color: _cMuted,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Search Bar
+              Container(
+                decoration: BoxDecoration(
+                  color: _cCard,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                      color: _cCyan.withValues(alpha: 0.15)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _cMagenta.withValues(alpha: 0.08),
+                      blurRadius: 20,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: _onSearchChanged,
+                  style: GoogleFonts.outfit(color: _cWhite, fontSize: 15),
+                  decoration: InputDecoration(
+                    hintText: 'Search anime titles, studios, anything\u2026',
+                    hintStyle:
+                        GoogleFonts.outfit(color: _cMuted, fontSize: 15),
+                    prefixIcon: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Icon(
+                        Icons.search_rounded,
+                        color: _cCyan,
+                        size: 22,
+                      ),
+                    ),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(
+                              Icons.clear_rounded,
+                              color: _cMuted,
+                              size: 18,
+                            ),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() {
+                                _searchResults = [];
+                                _isSearching = false;
+                                _searchErrorMessage = null;
+                              });
+                            },
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 0,
+                      vertical: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Results
+        Expanded(
+          child: _isSearching
+              ? Center(
+                  child: CircularProgressIndicator(
+                    color: _cCyan,
+                    strokeWidth: 2.5,
+                  ),
+                )
+              : _searchResults.isEmpty
+                  ? (_searchController.text.isEmpty
+                      ? _buildSearchLandingState()
+                      : _buildSearchEmptyState())
+                  : GridView.builder(
+                      padding:
+                          EdgeInsets.symmetric(horizontal: horizontalPad),
+                      physics: const BouncingScrollPhysics(),
+                      gridDelegate:
+                          SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: isDesktop
+                            ? 6
+                            : (AppBreakpoint.isTablet(context) ? 4 : 2),
+                        childAspectRatio: 0.65,
+                        crossAxisSpacing: 14,
+                        mainAxisSpacing: 14,
+                      ),
+                      itemCount: _searchResults.length,
+                      itemBuilder: (context, index) {
+                        final item = _searchResults[index];
+                        return ShelfPosterCard(
+                          imageUrl: item.posterPath,
+                          title: item.title,
+                          subtitle: item.year.isNotEmpty ? item.year : null,
+                          badge: 'ANIME',
+                          badgeIcon: Icons.auto_awesome_rounded,
+                          onTap: () => _showAddDialog(item),
+                        );
+                      },
+                    ),
+        ),
+      ],
+    );
+  }
+
+  void _showAddDialog(MediaItem item) {
+    String status = 'to-watch';
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24)),
+          backgroundColor: AppTheme.velvet,
+          title: Text(
+            'Add to Everglow?',
+            style: GoogleFonts.cormorantGaramond(
+              color: AppTheme.roseQuartz,
+              fontWeight: FontWeight.bold,
+              fontSize: 22,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: item.posterUrl.isNotEmpty
+                    ? Image.network(item.posterUrl,
+                        height: 150, fit: BoxFit.cover)
+                    : Container(
+                        height: 150, color: AppTheme.twilight),
+              ),
+              const SizedBox(height: 12),
+              if (item.studio.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.deepRose.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    item.studio,
+                    style: GoogleFonts.outfit(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.deepRose,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              Text(
+                item.title,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                    color: AppTheme.petalWhite,
+                    fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ChoiceChip(
+                    label: Text('To Watch',
+                        style: GoogleFonts.outfit()),
+                    selected: status == 'to-watch',
+                    onSelected: (selected) {
+                      if (selected) {
+                        setDialogState(() => status = 'to-watch');
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: Text('Watched',
+                        style: GoogleFonts.outfit()),
+                    selected: status == 'watched',
+                    onSelected: (selected) {
+                      if (selected) {
+                        setDialogState(() => status = 'watched');
+                      }
+                    },
                   ),
                 ],
               ),
-              alignment: Alignment.center,
-              child: const Icon(Icons.search_rounded,
-                  color: _cWhite, size: 44),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel',
+                  style: GoogleFonts.outfit(
+                      color: AppTheme.roseQuartz)),
             ),
-            const SizedBox(height: 24),
-            Text(
-              'Find Your Next Anime',
-              style: GoogleFonts.cormorantGaramond(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: _cWhite,
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                final u = context.read<AuthService>().currentUser ?? '';
+                if (u.isEmpty) return;
+                await _tmdbService.saveToWatchList(item, status, u);
+                final successMessage =
+                    '\U0001f338 ${item.title} added to Everglow!';
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        successMessage,
+                        style: GoogleFonts.outfit(
+                            color: AppTheme.petalWhite),
+                      ),
+                      backgroundColor: AppTheme.deepRose,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.deepRose,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24)),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Search MyAnimeList or AniList by title. We auto-detect anime and add it to your library.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                color: _cMuted,
-                fontSize: 13,
-                height: 1.5,
+              child: Text(
+                'Add',
+                style: GoogleFonts.outfit(
+                    color: AppTheme.petalWhite,
+                    fontWeight: FontWeight.bold),
               ),
-            ),
-            const SizedBox(height: 28),
-            _AnimeCtaButton(
-              label: 'Open Search',
-              icon: Icons.search_rounded,
-              onTap: _openSearch,
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSearchEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.animation_rounded,
+              size: 60,
+              color: _cCyan.withValues(alpha: 0.2)),
+          const SizedBox(height: 16),
+          Text(
+            'No anime found \u2728',
+            style: GoogleFonts.outfit(
+                color: _cMuted, fontSize: 16),
+          ),
+          if (_searchErrorMessage != null) ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                _searchErrorMessage!,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  color: _cMagenta.withValues(alpha: 0.9),
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchLandingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.auto_awesome_rounded,
+              size: 60,
+              color: _cElectricPurple.withValues(alpha: 0.2)),
+          const SizedBox(height: 16),
+          Text(
+            'Start typing to find magic\u2026',
+            style: GoogleFonts.outfit(
+                color: _cMuted, fontSize: 16),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Search thousands of anime from MyAnimeList and AniList',
+            style: GoogleFonts.outfit(
+              color: _cMuted.withValues(alpha: 0.6),
+              fontSize: 12,
+            ),
+          ),
+        ],
       ),
     );
   }

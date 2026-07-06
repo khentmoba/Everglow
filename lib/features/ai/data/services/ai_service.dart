@@ -50,7 +50,6 @@ class AIService extends ChangeNotifier {
     String? contextOverride,
     bool stream = false,
     String? callerName, // 'khentsgdz' or 'clairjassen'
-    List<String>? imageDataUris, // ephemeral images for vision
   }) async {
     _isLoading = true;
     _lastError = null;
@@ -73,7 +72,6 @@ class AIService extends ChangeNotifier {
       conversation.messages.add(AIMessage(
         role: 'user',
         content: message,
-        imageDataUris: imageDataUris,
       ));
       _setConversation(feature, conversation);
       notifyListeners();

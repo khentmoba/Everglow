@@ -62,9 +62,9 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
     List<MangaChapter>? list;
 
     // 1) Comick API — richest chapter metadata (scanlation groups, dates)
-    if (_item.comickId > 0) {
+    if (_item.mangaId.isNotEmpty) {
       try {
-        list = await _comickService.getChapterFeed(_item.comickId);
+        list = await _comickService.getChapterFeed(_item.mangaId);
         if (list.isNotEmpty) {
           if (!mounted) return;
           setState(() { _chapters = list!; _isLoadingChapters = false; });

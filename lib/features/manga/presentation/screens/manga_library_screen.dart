@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import 'package:everglow/core/theme/app_breakpoints.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
 import 'package:everglow/features/manga/data/services/comick_service.dart';
@@ -750,8 +751,10 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
             physics: const NeverScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 20),
             itemCount: showing.items.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: AppBreakpoint.isDesktop(context)
+                  ? 6
+                  : (AppBreakpoint.isTablet(context) ? 4 : 2),
               childAspectRatio: 0.65,
               crossAxisSpacing: 14,
               mainAxisSpacing: 14,

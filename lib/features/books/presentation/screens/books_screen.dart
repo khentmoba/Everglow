@@ -18,6 +18,7 @@ import 'package:everglow/shared/widgets/shelf/shelf_empty_state.dart';
 import 'package:everglow/shared/widgets/shelf/shimmer_box.dart';
 import 'package:everglow/shared/widgets/shelf/shelf_pill_bottom_nav.dart';
 import 'package:everglow/shared/widgets/shelf/staggered_entrance.dart';
+import 'package:everglow/core/theme/app_breakpoints.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 
 const _cBlack = Color(0xFF080810);
@@ -1055,8 +1056,10 @@ class _BooksScreenState extends State<BooksScreen>
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       physics: const BouncingScrollPhysics(),
                       gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
+                          SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: AppBreakpoint.isDesktop(context)
+                            ? 6
+                            : (AppBreakpoint.isTablet(context) ? 4 : 2),
                         childAspectRatio: 0.62,
                         crossAxisSpacing: 14,
                         mainAxisSpacing: 14,
@@ -1192,8 +1195,10 @@ class _BooksScreenState extends State<BooksScreen>
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
                   physics: const BouncingScrollPhysics(),
                   gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
+                      SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: AppBreakpoint.isDesktop(context)
+                        ? 6
+                        : (AppBreakpoint.isTablet(context) ? 4 : 2),
                     childAspectRatio: 0.62,
                     crossAxisSpacing: 14,
                     mainAxisSpacing: 14,

@@ -32,6 +32,7 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
   Timer? _debounce;
   List<MediaItem> _results = [];
   bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -58,25 +59,42 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
   Future<void> _performSearch(String query) async {
     setState(() {
       _isLoading = true;
+      _errorMessage = null;
     });
 
-    var results = await _jikanService.searchAnime(query);
+    // Fire AniList (primary) and Jikan (queue-bypassing) concurrently.
+    // AniList has the most reliable anime search; Jikan runs in parallel
+    // via the direct (non-queued) path so it's not blocked by carousel
+    // preloads. Both use Future.wait so we wait for both to complete
+    // and pick whichever returned results.
+    final aniListFuture = _aniListService.searchAnime(query);
+    final jikanFuture = _jikanService.searchAnimeDirect(query);
+    final results = await Future.wait([aniListFuture, jikanFuture]);
 
-    // Jikan often returns 504 (MAL gateway timeout). Fallback to AniList.
-    if (results.isEmpty) {
-      results = await _aniListService.searchAnime(query);
-    }
+    // Pick the first non-empty result set (AniList first, then Jikan)
+    var combined = results[0].isNotEmpty
+        ? results[0]
+        : results[1].isNotEmpty
+            ? results[1]
+            : <MediaItem>[];
 
-    // If both Jikan and AniList fail, fall back to TMDB anime discover
-    // with a text search filter.
-    if (results.isEmpty) {
-      results = await _tmdbService.searchMedia(query);
+    if (combined.isEmpty) {
+      // Both primary backends failed — try TMDB as last resort.
+      combined = await _tmdbService.searchMedia(query);
     }
 
     if (mounted) {
       setState(() {
-        _results = results;
+        _results = combined;
         _isLoading = false;
+        if (combined.isEmpty) {
+          final backends = <String>[];
+          if (results[0].isEmpty) backends.add('AniList');
+          if (results[1].isEmpty) backends.add('Jikan');
+          if (combined.isEmpty) backends.add('TMDB');
+          _errorMessage =
+              'No results from ${backends.join(", ")} — check your connection or try a different title';
+        }
       });
     }
   }
@@ -310,11 +328,26 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
           Text(
             _searchController.text.isEmpty
                 ? 'Start typing to find magic…'
-                : 'No anime found! 🌸',
+                : (_errorMessage != null
+                    ? 'No anime found'
+                    : 'No anime found! 🌸'),
             style: GoogleFonts.outfit(
                 color: AppTheme.roseQuartz.withValues(alpha: 0.6),
                 fontSize: 16),
           ),
+          if (_errorMessage != null) ...[            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                _errorMessage!,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  color: AppTheme.deepRose.withValues(alpha: 0.9),
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

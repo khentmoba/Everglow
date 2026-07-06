@@ -315,14 +315,15 @@ class ComickService {
     return null;
   }
 
-  /// Fetch chapter feed for a comic by its Comick numeric [id].
+  /// Fetch chapter feed for a comic by its Comick hid.
   /// Returns chapters mapped to [MangaChapter]. Chapter page resolution
-  /// still goes through MangaKakalot.
-  Future<List<MangaChapter>> getChapterFeed(int comickId, {
+  /// still goes through MangaDex / Bato.to / MangaSee123 / MangaKakalot.
+  Future<List<MangaChapter>> getChapterFeed(String hid, {
     String language = 'en',
     int limit = 500,
   }) async {
-    final uri = Uri.parse('$_baseUrl/comic/$comickId/chapters').replace(
+    if (hid.isEmpty) return [];
+    final uri = Uri.parse('$_baseUrl/comic/$hid/chapters').replace(
       queryParameters: {
         'limit': ['$limit'],
         'lang': [language],
