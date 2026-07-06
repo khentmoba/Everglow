@@ -9,7 +9,7 @@ class PresenceService {
 
   final FirebaseFirestore _db;
   static const String _collection = 'presence';
-  static const Duration heartbeatInterval = Duration(seconds: 15);
+  static const Duration heartbeatInterval = Duration(seconds: 60);
   static const Duration doodleTouchThreshold = Duration(seconds: 15);
 
   Timer? _heartbeatTimer;

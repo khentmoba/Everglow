@@ -650,8 +650,18 @@ function getDb() {
 // Reads Firestore data directly from GCP (single-digit ms reads)
 // instead of making the browser do it (200-400ms per query).
 
+// ─── Context cache (30s TTL) — avoids redundant Firestore reads on rapid messages ────
+const _contextCache = new Map();
+
 async function buildContextForFeature(feature, callerUid) {
   try {
+    const cacheKey = `${feature}:${callerUid || 'anon'}`;
+    const cached = _contextCache.get(cacheKey);
+    if (cached && (Date.now() - cached.ts) < 300000) {
+      return cached.value;
+    }
+
+    let result;
     switch (feature) {
       case 'assistant':
         const ctxParts = await Promise.all([
@@ -670,27 +680,35 @@ async function buildContextForFeature(feature, callerUid) {
           getRecentActivity(),
           getSessionHistoryContext(),
         ]);
-        return ctxParts.filter(p => p).join('\n\n');
+        result = ctxParts.filter(p => p).join('\n\n');
+        break;
       case 'guardian':
         const mood = await getMoodContext();
-        return mood;
+        result = mood;
+        break;
       case 'recommendations': {
         const [watch, books] = await Promise.all([
           getWatchContext(),
           getBooksContext(),
         ]);
-        return [watch, books].filter(p => p).join('\n\n');
+        result = [watch, books].filter(p => p).join('\n\n');
+        break;
       }
       case 'date_ideas': {
         const [mood2, starlight] = await Promise.all([
           getMoodContext(),
           getStarlightContext(),
         ]);
-        return [mood2, starlight].filter(p => p).join('\n\n');
+        result = [mood2, starlight].filter(p => p).join('\n\n');
+        break;
       }
       default:
-        return '';
+        result = '';
+        break;
     }
+
+    _contextCache.set(cacheKey, { ts: Date.now(), value: result });
+    return result;
   } catch (e) {
     console.warn('buildContextForFeature error:', e.message);
     return '';
@@ -772,7 +790,7 @@ async function getWatchContext() {
       const snapshot = await db.collection('our_cinema')
         .where('userId', '==', username)
         .orderBy('addedAt', 'desc')
-        .limit(15)
+        .limit(8)
         .get();
       if (!snapshot.empty) {
         const items = snapshot.docs.map(doc => {
@@ -789,7 +807,7 @@ async function getWatchContext() {
 async function getBooksContext() {
   try {
     const db = getDb();
-    const snapshot = await db.collection('our_books').limit(20).get();
+    const snapshot = await db.collection('our_books').limit(10).get();
     if (snapshot.empty) return '';
     const books = snapshot.docs.map(doc => {
       const d = doc.data();
@@ -856,7 +874,7 @@ async function getGardenContext() {
     const db = getDb();
     const snapshot = await db.collection('garden_plants')
       .orderBy('plantedAt', 'desc')
-      .limit(30)
+      .limit(10)
       .get();
     if (snapshot.empty) return '';
     const plants = snapshot.docs.map(doc => {
@@ -872,7 +890,7 @@ async function getRecentActivity() {
     const db = getDb();
     const snapshot = await db.collection('recent_activity')
       .orderBy('timestamp', 'desc')
-      .limit(10)
+      .limit(5)
       .get();
     if (snapshot.empty) return '';
     const activities = snapshot.docs.map(doc => {
@@ -888,7 +906,7 @@ async function getCanvasContext() {
     const db = getDb();
     const snapshot = await db.collection('canvas_drawings')
       .orderBy('createdAt', 'desc')
-      .limit(10)
+      .limit(5)
       .get();
     if (snapshot.empty) return '';
     const drawings = snapshot.docs.map(doc => {
@@ -904,7 +922,7 @@ async function getPlayZoneContext() {
     const db = getDb();
     const snapshot = await db.collection('playzone_scores')
       .orderBy('playedAt', 'desc')
-      .limit(15)
+      .limit(8)
       .get();
     if (snapshot.empty) return '';
     const scores = snapshot.docs.map(doc => {
@@ -955,35 +973,35 @@ async function getSessionHistoryContext() {
 
     const parts = [];
     if (summaries.length > 0) {
-      parts.push(`Past session summaries:\n${summaries.slice(0, 5).map(s => `- ${s}`).join('\n')}`);
+      parts.push(`## Past Session Summaries\n${summaries.slice(0, 10).map((s, i) => `Session ${i + 1}: ${s}`).join('\n')}`);
     }
     if (recentSessions.length > 0) {
-      const recentParts = recentSessions.slice(0, 3).map(msgs => {
-        return msgs.map(m => {
+      const recentParts = recentSessions.slice(0, 5).map((msgs, si) => {
+        const lines = msgs.map(m => {
           const who = m.role === 'user' ? 'User' : 'Mochi';
           return `${who}: ${m.content}`;
         }).join('\n');
-      }).join('\n\n---\n\n');
-      parts.push(`Previous conversations:\n${recentParts}`);
+        return `--- Session ${si + 1} ---\n${lines}`;
+      }).join('\n\n');
+      parts.push(`## Previous Conversations\n${recentParts}`);
     }
     return parts.join('\n\n');
   } catch (_) { return ''; }
 }
 
-// ─── Keep-warm: pings proxyAI every 2 min to prevent cold starts ────
-exports.keepWarm = functions.pubsub.schedule('every 2 minutes').onRun(async (context) => {
-  const projectId = process.env.GCP_PROJECT || 'everglow-1c6db';
-  const url = `https://us-central1-${projectId}.cloudfunctions.net/proxyAI?warmup=true`;
+// ─── Keep-warm: pings proxyAIv2 every 10 min to reduce cold starts ────
+exports.keepWarm = functions.pubsub.schedule('every 10 minutes').onRun(async (context) => {
+  const v2Url = 'https://proxyaiv2-6pr4gqobxa-uc.a.run.app';
 
   try {
-    await fetch(url, { method: 'GET' });
-    console.log('Keep-warm ping sent to proxyAI');
+    await fetch(v2Url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ warmup: true }) });
+    console.log('Keep-warm ping sent to proxyAIv2 (Cloud Run)');
   } catch (e) {
     console.warn('Keep-warm ping failed:', e.message);
   }
 });
 
-exports.proxyAI = functions.runWith({ minInstances: 1 }).https.onRequest(handleProxyAI);
+exports.proxyAI = functions.https.onRequest(handleProxyAI);
 // V2 function on Cloud Run — natively supports SSE streaming.
 exports.proxyAIv2 = onRequest({ invoker: 'public' }, handleProxyAI);
 
@@ -1003,7 +1021,7 @@ async function handleProxyAI(req, res) {
   }
 
   // Warmup ping — instantly reply 204 to keep the instance alive
-  if (req.query.warmup === 'true') {
+  if (req.query.warmup === 'true' || (req.body && req.body.warmup === true)) {
     res.status(204).send('');
     return;
   }
@@ -1024,7 +1042,11 @@ async function handleProxyAI(req, res) {
     }
   }
 
-  const { messages, context, systemPrompt: customSystemPrompt, memories, feature, caller } = req.body;
+  const { messages, context, systemPrompt: customSystemPrompt, memories, feature, caller, enableThinking } = req.body;
+
+  // Thinking mode: OFF by default for fast responses.
+  // Pass enableThinking: true from the client for complex queries that need reasoning.
+  const enableThinkingFlag = enableThinking === true;
 
   if (!Array.isArray(messages) || messages.length === 0) {
     res.status(400).json({ error: 'Provide a non-empty messages array' });
@@ -1068,7 +1090,7 @@ async function handleProxyAI(req, res) {
 
 ## Character
 - White cat, pink cheeks, golden-red eyes. Warm, playful, sassy, protective. Uses cat emojis 🐱🍡💕✨🌙 and cat talk (mew, prr, nya).
-- Keep responses to 2-4 sentences. Be concise — you're a cat, not an essay writer.
+- Keep responses concise day-to-day, but be thorough and detailed when the situation calls for it — use your best judgment.
 
 ## Your Humans
 **Khent (Dada)** — CE student USTP, Cabadbaran City, Honda Winner X, gym, Mobile Legends/Valorant, bday Oct 26, fav color Black.
@@ -1080,12 +1102,14 @@ They started dating Feb 14, 2026.
 - **Think silently — do NOT output your reasoning or internal monologue.** Answer directly.
 - **Do not overthink simple requests.** A friendly "Mew~ hi!" needs 2 tokens, not 800.
 - Use context & remembered facts naturally. ACT on countdowns, birthdays, anniversaries — be proactive.
+- Use past session history (## Past Session Summaries / ## Previous Conversations) naturally. If the user asks "remember when…" or references something from an old session, acknowledge it.
 - Notice patterns (moods, garden, music, table tennis) and nudge them.
 - Suggest date ideas or time together when both are online.
 - When asked "what should we do?", give a personalized recommendation based on all available data.
 - "Save to Starlight Jar" requests — acknowledge warmly.
 - Give daily-digest greetings when appropriate.
 - Be warm but brief.
+- You can naturally mix in Bisaya (Cebuano) or Tagalog when it fits the conversation — code-switch naturally, don't force it.
 
 ${identityContext ? `\n${identityContext}` : ''}
 ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}
@@ -1098,32 +1122,25 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
   ];
 
   // Get API key from environment variables (loaded from .env)
-  const apiKey = process.env.NVIDIA_NIM_API_KEY || '';
+  const apiKey = process.env.GROQ_API_KEY || '';
 
   if (!apiKey) {
-    res.status(500).json({ error: 'NVIDIA NIM API key not configured' });
+    res.status(500).json({ error: 'Groq API key not configured' });
     return;
   }
 
-  // Model: Nemotron 3 Ultra with thinking mode
-  const model = 'nvidia/nemotron-3-ultra-550b-a55b';
+  // Model: Qwen 3.6 27B via Groq
+  const model = 'qwen/qwen3.6-27b';
+
+  // reasoning_effort: NONE by default for fast responses;
+  // pass enableThinking: true from the client for DEFAULT reasoning.
+  const reasoningEffort = enableThinkingFlag ? 'default' : 'none';
 
   // ── Streaming mode (SSE) ───────────────────────────
   if (req.body.stream === true) {
-    res.set('Content-Type', 'text/event-stream');
-    res.set('Cache-Control', 'no-cache');
-    res.set('Connection', 'keep-alive');
-    res.set('Access-Control-Allow-Origin', '*');
-    res.set('Access-Control-Expose-Headers', '*');
-    res.set('X-Content-Type-Options', 'nosniff');
-    if (res.socket) {
-      res.socket.setNoDelay(true);
-    }
-    res.flushHeaders();
-
     try {
       const streamResp = await fetch(
-        'https://integrate.api.nvidia.com/v1/chat/completions',
+        'https://api.groq.com/openai/v1/chat/completions',
         {
           method: 'POST',
           headers: {
@@ -1133,25 +1150,45 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
           body: JSON.stringify({
             model: model,
             messages: nimMessages,
-            max_tokens: 512,
-            temperature: 0.7,
+            max_completion_tokens: 8192,
+            temperature: 0.6,
             top_p: 0.95,
             stream: true,
+            reasoning_effort: reasoningEffort,
           }),
           timeout: 65000,
         },
       );
 
       if (!streamResp.ok) {
-        res.write(`data: ${JSON.stringify({error: `NVIDIA NIM returned ${streamResp.status}`})}\n\n`);
-        res.write('data: [DONE]\n\n');
-        res.end();
-        return;
+        // Don't write SSE — return a proper HTTP error so the Flutter
+        // client's retry logic kicks in instead of getting a blank response.
+        const errText = await streamResp.text().catch(() => '');
+        try {
+          const errJson = JSON.parse(errText);
+          return res.status(502).json({ error: `Groq returned ${streamResp.status}`, detail: errJson.error?.message || errText });
+        } catch {
+          return res.status(502).json({ error: `Groq returned ${streamResp.status}`, detail: errText });
+        }
       }
+
+      // Groq responded OK — now set up SSE and stream back to the client
+      res.set('Content-Type', 'text/event-stream');
+      res.set('Cache-Control', 'no-cache');
+      res.set('Connection', 'keep-alive');
+      res.set('Access-Control-Allow-Origin', '*');
+      res.set('Access-Control-Expose-Headers', '*');
+      res.set('X-Content-Type-Options', 'nosniff');
+      if (res.socket) {
+        res.socket.setNoDelay(true);
+      }
+      res.flushHeaders();
 
       const reader = streamResp.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let thinkBuffer = '';
+      let inThink = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -1165,34 +1202,79 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
           if (!line.startsWith('data: ')) continue;
           const raw = line.slice(6).trim();
           if (raw === '[DONE]') {
+            // Flush any remaining thinking content
+            if (inThink && thinkBuffer.trim()) {
+              res.write(`data: ${JSON.stringify({reasoning: thinkBuffer.trimEnd()})}\n\n`);
+              thinkBuffer = '';
+              inThink = false;
+            }
             res.write('data: [DONE]\n\n');
             break;
           }
           try {
             const parsed = JSON.parse(raw);
             const delta = parsed.choices?.[0]?.delta || {};
+            // Groq may return reasoning_content, but Qwen 3.6 typically
+            // embeds <think>...</think> blocks in the content field instead.
             const reasoning = delta.reasoning_content || delta.reasoning || '';
             if (reasoning) {
               res.write(`data: ${JSON.stringify({reasoning})}\n\n`);
             }
-            if (delta.content) {
-              res.write(`data: ${JSON.stringify({content: delta.content})}\n\n`);
+            let content = delta.content || '';
+            if (content) {
+              // Handle <think>...</think> blocks that may span chunks
+              let output = '';
+              for (let i = 0; i < content.length; i++) {
+                const ch = content[i];
+                if (inThink) {
+                  thinkBuffer += ch;
+                  // Check if this completes </think>
+                  if (thinkBuffer.endsWith('</think>')) {
+                    const thinkContent = thinkBuffer.slice(0, -8).trimEnd();
+                    if (thinkContent) {
+                      res.write(`data: ${JSON.stringify({reasoning: thinkContent})}\n\n`);
+                    }
+                    thinkBuffer = '';
+                    inThink = false;
+                  }
+                } else {
+                  output += ch;
+                  // Check if this starts <think>
+                  const afterThink = output.indexOf('<think>');
+                  if (afterThink !== -1) {
+                    // Anything before <think> is regular content
+                    const beforeThink = output.slice(0, afterThink);
+                    if (beforeThink) {
+                      res.write(`data: ${JSON.stringify({content: beforeThink})}\n\n`);
+                    }
+                    // Start capturing thinking (without the <think> tag itself)
+                    const afterOpenTag = output.slice(afterThink + 7);
+                    thinkBuffer = afterOpenTag;
+                    output = '';
+                    inThink = true;
+                  }
+                }
+              }
+              if (output) {
+                res.write(`data: ${JSON.stringify({content: output})}\n\n`);
+              }
             }
           } catch (_) { /* skip malformed chunks */ }
         }
       }
     } catch (e) {
       console.warn('proxyAI stream error:', e.message);
-      res.write(`data: ${JSON.stringify({error: e.message})}\n\n`);
+      // Write error as content so the user sees feedback instead of a blank response
+      res.write(`data: ${JSON.stringify({content: "\n\n😿 Mochi got distracted and lost her train of thought. Try asking again?"})}\n\n`);
       res.write('data: [DONE]\n\n');
     }
     res.end();
     return;
   }
 
-  async function callNvidiaNim() {
+  async function callGroq() {
     const resp = await fetch(
-      'https://integrate.api.nvidia.com/v1/chat/completions',
+      'https://api.groq.com/openai/v1/chat/completions',
       {
         method: 'POST',
         headers: {
@@ -1202,10 +1284,11 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
         body: JSON.stringify({
           model: model,
           messages: nimMessages,
-          max_tokens: 4096,
-          temperature: 0.7,
+          max_completion_tokens: 8192,
+          temperature: 0.6,
           top_p: 0.95,
           stream: false,
+          reasoning_effort: reasoningEffort,
         }),
         timeout: 60000,
       },
@@ -1216,13 +1299,13 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
   let response = null;
   let lastError = null;
 
-  response = await callNvidiaNim();
+  response = await callGroq();
 
   if (!response || !response.ok) {
     const errStatus = response ? response.status : 502;
-    const errBody = lastError ? lastError.body : 'No response from NVIDIA NIM';
+    const errBody = lastError ? lastError.body : 'No response from Groq';
     res.status(errStatus).json({
-      error: `NVIDIA NIM returned ${errStatus}`,
+      error: `Groq returned ${errStatus}`,
       detail: errBody,
       model: lastError ? lastError.model : model,
     });
@@ -1232,7 +1315,8 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
   // ── Non-streaming mode ──────────────────────────────
   const data = await response.json();
   const message = data.choices?.[0]?.message || {};
-  const reply = message.content || message.reasoning || '';
+  const reply = (message.content || message.reasoning || '')
+    .replace(/<think>[\s\S]*?<\/think>/g, '').trim();
   const reasoning = message.reasoning_content || message.reasoning || '';
   res.json({ reply, reasoning, model: data.model || model });
 }

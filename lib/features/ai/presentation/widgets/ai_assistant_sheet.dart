@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:convert';
 import 'package:provider/provider.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../data/services/ai_service.dart';
 import '../../../../services/auth_service.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -30,6 +32,13 @@ class _MochiPanel extends StatefulWidget {
   State<_MochiPanel> createState() => _MochiPanelState();
 }
 
+/// An image picked by the user, pending send.
+class _PendingImage {
+  final String dataUri; // data:image/jpeg;base64,...
+  final Uint8List bytes;
+  _PendingImage({required this.dataUri, required this.bytes});
+}
+
 class _MochiPanelState extends State<_MochiPanel> {
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
@@ -39,6 +48,30 @@ class _MochiPanelState extends State<_MochiPanel> {
   String? _lastSentMessage;
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
+  final List<_PendingImage> _pendingImages = [];
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1920,
+      maxHeight: 1920,
+    );
+    if (image == null || _pendingImages.length >= 5) return;
+    final bytes = await image.readAsBytes();
+    final base64Str = base64Encode(bytes);
+    final ext = image.name.contains('.png') ? 'png' : 'jpeg';
+    setState(() {
+      _pendingImages.add(_PendingImage(
+        dataUri: 'data:image/$ext;base64,$base64Str',
+        bytes: bytes,
+      ));
+    });
+  }
+
+  void _removeImage(int index) {
+    setState(() => _pendingImages.removeAt(index));
+  }
 
   @override
   void initState() {
@@ -92,10 +125,13 @@ class _MochiPanelState extends State<_MochiPanel> {
   Future<void> _send() async {
     if (_isSending) return;
     final text = _input.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty && _pendingImages.isEmpty) return;
     _isSending = true;
+    final imageUris = _pendingImages.map((img) => img.dataUri).toList();
     _lastSentMessage = text;
     _input.clear();
+    _pendingImages.clear();
+    if (mounted) setState(() {});
     _focusNode.requestFocus();
     _scrollToBottom();
 
@@ -108,6 +144,7 @@ class _MochiPanelState extends State<_MochiPanel> {
         message: text,
         callerName: authService.currentUser,
         stream: true,
+        imageDataUris: imageUris.isNotEmpty ? imageUris : null,
       );
       _scrollToBottom();
     } catch (e) {
@@ -488,6 +525,9 @@ class _MochiPanelState extends State<_MochiPanel> {
             controller: _input,
             focusNode: _focusNode,
             onSend: _send,
+            onPickImage: _pickImage,
+            onRemoveImage: _removeImage,
+            pendingImages: _pendingImages,
           ),
         ],
       ),
@@ -1095,11 +1135,17 @@ class _InputBar extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final VoidCallback onSend;
+  final VoidCallback onPickImage;
+  final ValueChanged<int> onRemoveImage;
+  final List<_PendingImage> pendingImages;
 
   const _InputBar({
     required this.controller,
     required this.focusNode,
     required this.onSend,
+    required this.onPickImage,
+    required this.onRemoveImage,
+    required this.pendingImages,
   });
 
   @override
@@ -1120,104 +1166,193 @@ class _InputBar extends StatelessWidget {
               ),
             ),
           ),
-          child: Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceGlass,
-                    borderRadius: AppRadius.radiusLg,
-                    border: Border.all(
-                      color: AppColors.border,
-                      width: 0.5,
+              // ── Image preview strip ─────────────────────
+              if (pendingImages.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: SizedBox(
+                    height: 64,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: pendingImages.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (_, i) {
+                        final img = pendingImages[i];
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.memory(
+                                img.bytes,
+                                width: 64,
+                                height: 64,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            Positioned(
+                              right: -4,
+                              top: -4,
+                              child: GestureDetector(
+                                onTap: () => onRemoveImage(i),
+                                child: Container(
+                                  width: 20,
+                                  height: 20,
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.deepRose,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.close_rounded,
+                                    size: 14,
+                                    color: AppColors.petalWhite,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
-                  child: Focus(
-                    onKeyEvent: (node, event) {
-                      if (event is KeyDownEvent &&
-                          event.logicalKey == LogicalKeyboardKey.enter) {
-                        if (!HardwareKeyboard.instance.isShiftPressed) {
-                          onSend();
-                          return KeyEventResult.handled;
-                        }
-                      }
-                      return KeyEventResult.ignored;
-                    },
-                    child: TextField(
-                      controller: controller,
-                      focusNode: focusNode,
-                      style: AppTypography.bodyMedium(),
-                      decoration: InputDecoration(
-                        hintText: 'Talk to Mochi…',
-                        hintStyle: AppTypography.bodyMedium().copyWith(
-                          color: AppColors.textDisabled,
+                ),
+              // ── Input row ──────────────────────────────
+              Row(
+                children: [
+                  // Image picker button
+                  Semantics(
+                    button: true,
+                    label: 'Attach image',
+                    child: GestureDetector(
+                      onTap: ai.isLoading ? null : onPickImage,
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          color: pendingImages.isNotEmpty
+                              ? AppColors.blushGold.withValues(alpha: 0.2)
+                              : AppColors.surfaceGlass,
+                          borderRadius: AppRadius.radiusLg,
+                          border: Border.all(
+                            color: pendingImages.isNotEmpty
+                                ? AppColors.blushGold.withValues(alpha: 0.3)
+                                : AppColors.border,
+                            width: 0.5,
+                          ),
                         ),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 14,
+                        child: Icon(
+                          Icons.camera_alt_rounded,
+                          color: pendingImages.isNotEmpty
+                              ? AppColors.blushGold
+                              : AppColors.textMuted,
+                          size: 18,
                         ),
                       ),
-                      minLines: 1,
-                      maxLines: 4,
-                      textInputAction: TextInputAction.send,
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              // Send button
-              Semantics(
-                button: true,
-                label: 'Send message',
-                child: GestureDetector(
-                  onTap: ai.isLoading ? null : onSend,
-                  child: AnimatedContainer(
-                    duration: AppMotion.fast,
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      gradient: ai.isLoading
-                          ? null
-                          : const LinearGradient(
-                              colors: [
-                                AppColors.blushGold,
-                                AppColors.deepRose
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+                  // Text field
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceGlass,
+                        borderRadius: AppRadius.radiusLg,
+                        border: Border.all(
+                          color: AppColors.border,
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Focus(
+                        onKeyEvent: (node, event) {
+                          if (event is KeyDownEvent &&
+                              event.logicalKey == LogicalKeyboardKey.enter) {
+                            if (!HardwareKeyboard.instance.isShiftPressed) {
+                              onSend();
+                              return KeyEventResult.handled;
+                            }
+                          }
+                          return KeyEventResult.ignored;
+                        },
+                        child: TextField(
+                          controller: controller,
+                          focusNode: focusNode,
+                          style: AppTypography.bodyMedium(),
+                          decoration: InputDecoration(
+                            hintText: 'Talk to Mochi…',
+                            hintStyle: AppTypography.bodyMedium().copyWith(
+                              color: AppColors.textDisabled,
                             ),
-                      color: ai.isLoading
-                          ? AppColors.surfaceGlass
-                          : null,
-                      borderRadius: AppRadius.radiusLg,
-                      boxShadow: ai.isLoading
-                          ? null
-                          : [
-                              BoxShadow(
-                                color: AppColors.glowRose,
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                    ),
-                    child: Center(
-                      child: ai.isLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppColors.blushGold,
-                              ),
-                            )
-                          : const Icon(
-                              Icons.arrow_upward_rounded,
-                              color: AppColors.petalWhite,
-                              size: 22),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 14,
+                            ),
+                          ),
+                          minLines: 1,
+                          maxLines: 4,
+                          textInputAction: TextInputAction.send,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  // Send button
+                  Semantics(
+                    button: true,
+                    label: 'Send message',
+                    child: GestureDetector(
+                      onTap: ai.isLoading ? null : onSend,
+                      child: AnimatedContainer(
+                        duration: AppMotion.fast,
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          gradient: ai.isLoading
+                              ? null
+                              : const LinearGradient(
+                                  colors: [
+                                    AppColors.blushGold,
+                                    AppColors.deepRose
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                          color: ai.isLoading
+                              ? AppColors.surfaceGlass
+                              : null,
+                          borderRadius: AppRadius.radiusLg,
+                          boxShadow: ai.isLoading
+                              ? null
+                              : [
+                                  BoxShadow(
+                                    color: AppColors.glowRose,
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                        ),
+                        child: Center(
+                          child: ai.isLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.blushGold,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.arrow_upward_rounded,
+                                  color: AppColors.petalWhite,
+                                  size: 22),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

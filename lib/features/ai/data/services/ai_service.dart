@@ -50,6 +50,7 @@ class AIService extends ChangeNotifier {
     String? contextOverride,
     bool stream = false,
     String? callerName, // 'khentsgdz' or 'clairjassen'
+    List<String>? imageDataUris, // ephemeral images for vision
   }) async {
     _isLoading = true;
     _lastError = null;
@@ -69,7 +70,11 @@ class AIService extends ChangeNotifier {
       }
 
       // Add user message BEFORE notifying so the UI shows it immediately
-      conversation.messages.add(AIMessage(role: 'user', content: message));
+      conversation.messages.add(AIMessage(
+        role: 'user',
+        content: message,
+        imageDataUris: imageDataUris,
+      ));
       _setConversation(feature, conversation);
       notifyListeners();
 
@@ -98,7 +103,7 @@ class AIService extends ChangeNotifier {
       // Load permanent memories
       await _ensureMemoriesLoaded();
 
-      // Build the API messages payload (last 20 messages)
+      // Build the API messages payload (all conversation messages)
       final recentMessages = conversation.messages
           .map((m) => m.toApiPayload())
           .toList();
@@ -127,13 +132,13 @@ class AIService extends ChangeNotifier {
       // Add assistant reply
       conversation.messages.add(AIMessage(role: 'assistant', content: reply));
 
-      // Persist to Firestore (keep last 50 messages max)
-      if (conversation.messages.length > 50) {
-        conversation.messages.removeRange(0, conversation.messages.length - 50);
+      // Persist to Firestore (keep last 80 messages max)
+      if (conversation.messages.length > 80) {
+        conversation.messages.removeRange(0, conversation.messages.length - 80);
       }
       await _saveConversation(conversation);
 
-      // Auto-archive a session snapshot every 10 exchanges
+      // Auto-archive a session snapshot roughly every 20 messages
       if (conversation.messages.length >= 4 &&
           conversation.messages.length % 20 <= 1) {
         // Archive without clearing — preserves history in sessions collection
