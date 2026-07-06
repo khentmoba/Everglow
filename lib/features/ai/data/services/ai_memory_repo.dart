@@ -28,7 +28,7 @@ class AIMemoryRepository implements IAIMemoryRepository {
           .doc('shared')
           .collection('facts')
           .orderBy('createdAt', descending: true)
-          .limit(200)
+          .limit(50)
           .get();
 
       _memories = snapshot.docs
