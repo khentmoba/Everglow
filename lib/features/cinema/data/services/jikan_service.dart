@@ -45,13 +45,21 @@ class JikanService {
   static const Duration _serverBackoff = Duration(seconds: 5);
   static const Duration _serverBackoffMax = Duration(seconds: 20);
 
+  /// Maximum time a single task can hold the queue. If a request hangs
+  /// (e.g. network black hole, infinite retry loop) the queue moves on
+  /// so subsequent calls — especially user-facing search — aren't stuck.
+  static const Duration _queueTaskTimeout = Duration(seconds: 25);
+
   DateTime _lastCall = DateTime.fromMillisecondsSinceEpoch(0);
 
   Future<T> _enqueue<T>(Future<T> Function() task) async {
     final completer = Completer<T>();
     _queue.add(_JikanTask(task: () async {
       try {
-        final result = await task();
+        // Wrap the task in a timeout so a stuck HTTP call can't block
+        // the queue indefinitely. When the timeout fires the queue
+        // continues to the next task and the caller gets a null result.
+        final result = await task().timeout(_queueTaskTimeout);
         completer.complete(result);
       } catch (e, st) {
         completer.completeError(e, st);
@@ -147,6 +155,46 @@ class JikanService {
       return delta;
     }
     return null;
+  }
+
+  /// Same as [_getJson] but bypasses the rate-limit queue entirely.
+  ///
+  /// Use this for user-facing operations (search in particular) that
+  /// must not be blocked by a backed-up queue from carousel preloads.
+  /// The caller is responsible for not flooding Jikan — this should only
+  /// be called for one-shot user interactions, not bulk fan-out.
+  Future<Map<String, dynamic>?> _getJsonDirect(String path,
+      {Map<String, String>? params, int maxRetries = 1}) async {
+    final uri = Uri.parse('$_baseUrl$path').replace(queryParameters: params);
+    const headers = <String, String>{
+      'User-Agent': 'Everglow/5.3 (anime; +https://everglow.app)',
+      'Accept': 'application/json',
+    };
+    var attempt = 0;
+    while (true) {
+      try {
+        final response = await http.get(uri, headers: headers).timeout(
+              const Duration(seconds: 10),
+            );
+        if (response.statusCode == 200) {
+          return json.decode(response.body) as Map<String, dynamic>;
+        }
+        if (response.statusCode == 429 && attempt < maxRetries) {
+          attempt++;
+          final retryAfter = _parseRetryAfter(response.headers['retry-after']);
+          final base = retryAfter ?? const Duration(seconds: 2);
+          final clamped = base > _serverBackoffMax ? _serverBackoffMax : base;
+          await Future.delayed(clamped);
+          continue;
+        }
+        print('[Jikan][Direct] $path failed (${response.statusCode}): '
+            '${response.body.length > 200 ? '${response.body.substring(0, 200)}...' : response.body}');
+        return null;
+      } catch (e) {
+        print('[Jikan][Direct] $path error: $e');
+        return null;
+      }
+    }
   }
 
   /// Maps a single Jikan anime data block to a [MediaItem]. We set
@@ -383,6 +431,31 @@ class JikanService {
       {int page = 1, int limit = 25}) async {
     if (query.trim().isEmpty) return [];
     final json = await _getJson('/anime', params: {
+      'q': query,
+      'page': '$page',
+      'limit': '$limit',
+      'order_by': 'popularity',
+      'sort': 'desc',
+    });
+    if (json == null) return [];
+    final data = (json['data'] as List?) ?? const [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(mapJikanToMediaItem)
+        .toList();
+  }
+
+  /// Same as [searchAnime] but bypasses the shared rate-limit queue.
+  ///
+  /// Use this for user-facing search where responsiveness matters —
+  /// the main queue may be backed up by carousel preloads (Trending Now,
+  /// Currently Airing, etc.) and we don't want the search modal to feel
+  /// stuck. The caller should still handle null/empty gracefully since
+  /// Jikan's /anime search endpoint is less reliable than AniList.
+  Future<List<MediaItem>> searchAnimeDirect(String query,
+      {int page = 1, int limit = 25}) async {
+    if (query.trim().isEmpty) return [];
+    final json = await _getJsonDirect('/anime', params: {
       'q': query,
       'page': '$page',
       'limit': '$limit',

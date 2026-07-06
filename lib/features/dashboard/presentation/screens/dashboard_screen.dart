@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:web/web.dart' as web;
+import 'package:everglow/core/theme/app_breakpoints.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:go_router/go_router.dart';
@@ -683,8 +684,8 @@ class _AnniversaryMetricsState extends State<_AnniversaryMetrics> {
         return SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           sliver: SliverGrid(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: AppBreakpoint.isDesktop(context) ? 3 : 2,
               mainAxisSpacing: 24,
               crossAxisSpacing: 24,
               childAspectRatio: 1.3,
