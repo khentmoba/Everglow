@@ -119,7 +119,7 @@ class AIConversationRepository implements IAIConversationRepository {
     }
   }
 
-  /// Keep max 3 full sessions; summarize older ones.
+  /// Keep max 5 full sessions; summarize older ones.
   Future<void> _trimFullSessions() async {
     try {
       final snapshot = await _db
@@ -130,9 +130,9 @@ class AIConversationRepository implements IAIConversationRepository {
           .orderBy('createdAt', descending: true)
           .get();
 
-      if (snapshot.docs.length <= 3) return;
+      if (snapshot.docs.length <= 5) return;
 
-      final toSummarize = snapshot.docs.toList().skip(3).toList();
+      final toSummarize = snapshot.docs.toList().skip(5).toList();
       for (final doc in toSummarize) {
         final data = doc.data();
         final messages = data['messages'] as List? ?? [];
@@ -148,23 +148,43 @@ class AIConversationRepository implements IAIConversationRepository {
     }
   }
 
-  /// Build a simple text summary from session messages.
+  /// Build a concise topic-based summary from session messages.
+  /// Extracts what the user asked/talked about, deduplicates, and
+  /// produces a readable summary Mochi can actually use later.
   String _buildLocalSummary(List messages) {
     if (messages.isEmpty) return 'Empty session';
+    final seen = <String>{};
     final topics = <String>[];
+    int exchangeCount = 0;
+
     for (final msg in messages) {
       final m = msg as Map<String, dynamic>;
+      final role = m['role'] as String? ?? '';
       final content = (m['content'] as String? ?? '').trim();
-      if (content.length > 10 && !topics.contains(content.substring(0, 30))) {
-        topics.add(
-          content.length > 60 ? '${content.substring(0, 60)}…' : content,
-        );
+      if (content.isEmpty) continue;
+
+      if (role == 'user') {
+        exchangeCount++;
+        // Take the first meaningful sentence as the topic gist
+        final firstSentence = content.split(RegExp(r'[.?!\n]')).first.trim();
+        if (firstSentence.length >= 8) {
+          final gist = firstSentence.length > 80
+              ? '${firstSentence.substring(0, 80)}…'
+              : firstSentence;
+          // Deduplicate against near-matches
+          final key = gist.substring(0, gist.length > 20 ? 20 : gist.length).toLowerCase();
+          if (seen.add(key) && topics.length < 8) {
+            topics.add(gist);
+          }
+        }
       }
     }
-    return topics.take(5).join(' | ');
+
+    if (topics.isEmpty) return '$exchangeCount exchanges (no clear topics)';
+    return '$exchangeCount topics — ${topics.join(' • ')}';
   }
 
-  /// Load the last full session's messages into a conversation.
+  /// Load the last 3 full sessions' messages into a conversation.
   Future<void> loadSessionIntoConversation(AIConversation conversation) async {
     try {
       final snapshot = await _db
@@ -172,23 +192,26 @@ class AIConversationRepository implements IAIConversationRepository {
           .doc('shared')
           .collection('sessions')
           .orderBy('createdAt', descending: true)
-          .limit(1)
+          .limit(3)
           .get();
 
       if (snapshot.docs.isEmpty) return;
 
-      final data = snapshot.docs.first.data();
-      final hasSummary = data['hasSummary'] as bool? ?? true;
-      if (hasSummary) return;
+      // Merge messages from all loaded sessions (oldest first)
+      final allPastMessages = <AIMessage>[];
+      for (final doc in snapshot.docs.reversed) {
+        final data = doc.data();
+        final hasSummary = data['hasSummary'] as bool? ?? true;
+        if (hasSummary) continue;
+        final msgsJson = data['messages'] as List? ?? [];
+        if (msgsJson.isEmpty) continue;
+        allPastMessages.addAll(
+          msgsJson.map((m) => AIMessage.fromJson(m as Map<String, dynamic>)),
+        );
+      }
 
-      final msgsJson = data['messages'] as List? ?? [];
-      if (msgsJson.isEmpty) return;
-
-      final pastMessages = msgsJson
-          .map((m) => AIMessage.fromJson(m as Map<String, dynamic>))
-          .toList();
-
-      conversation.messages.insertAll(0, pastMessages);
+      if (allPastMessages.isEmpty) return;
+      conversation.messages.insertAll(0, allPastMessages);
     } catch (e) {
       if (kDebugMode) debugPrint('Failed to load last session: $e');
     }
