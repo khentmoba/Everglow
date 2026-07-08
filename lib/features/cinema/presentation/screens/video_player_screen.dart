@@ -11,7 +11,10 @@ import 'package:web/web.dart' as web;
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/data/services/ani_zip_service.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
+import 'package:everglow/features/cinema/data/services/video_source_service.dart';
+import 'package:everglow/features/cinema/data/models/video_source_config.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
+import 'package:everglow/features/cinema/presentation/widgets/episode_navigator.dart';
 import 'package:everglow/services/auth_service.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
@@ -64,6 +67,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// playback session so we don't spam Firestore on every rebuild.
   bool _hasSavedWatchProgress = false;
 
+  /// Current season/episode state — updated by [EpisodeNavigator] for TV
+  /// content so the iframe URL rebuilds when the user switches episodes.
+  late int _currentSeason;
+  late int _currentEpisode;
+
   /// Cached username to avoid [context.read] from JS interop callbacks
   /// where the widget tree traversal can silently fail.
   String _currentUserName = '';
@@ -79,101 +87,32 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// provider likely showed "content not available", so we fall back.
   static const Duration _contentCheckTimeout = Duration(seconds: 8);
 
-  /// The currently selected embed source. Starts at the first entry
-  /// in [_providers]; auto-fallback cycles through the list when one
-  /// embed fails to load within [_loadTimeout].
-  late VideoProvider _selectedProvider;
+  /// The currently selected embed source. Starts at the user's saved
+  /// default (or the first entry from VideoSourceService); auto-fallback
+  /// cycles through the list when an embed fails.
+  late VideoSourceConfig _selectedProvider;
 
   /// Tracks which providers have already been tried and failed during
   /// this session so auto-fallback doesn't re-try a dead source.
   final Set<String> _failedProviderIds = {};
 
-  /// Free embed providers that accept a TMDB id. The player tries
-  /// each one in order, auto-falling back when an embed 404s or
-  /// doesn't respond within [_loadTimeout].
-  static const List<VideoProvider> _providers = [
-    VideoProvider(
-      id: 'vidfast',
-      name: 'VidFast',
-      shortName: 'VidFast',
-      note: 'Fast, multiple CDN domains',
-      movieUrl: 'https://vidfast.pro/movie/',
-      tvUrl: 'https://vidfast.pro/tv/',
-    ),
-    VideoProvider(
-      id: 'vidlink',
-      name: 'VidLink',
-      shortName: 'VidLink',
-      note: 'Solid, actively maintained',
-      movieUrl: 'https://vidlink.pro/movie/',
-      tvUrl: 'https://vidlink.pro/tv/',
-    ),
-    VideoProvider(
-      id: 'multiembed',
-      name: 'MultiEmbed',
-      shortName: 'MultiEmbed',
-      note: 'Multi-source fallback',
-      movieUrl: 'https://multiembed.mov/?video_id=',
-      tvUrl: 'https://multiembed.mov/?video_id=',
-    ),
-    VideoProvider(
-      id: '2embed.cc',
-      name: '2Embed',
-      shortName: '2Embed',
-      note: 'Direct TMDB-based source',
-      movieUrl: 'https://www.2embed.cc/embed/',
-      tvUrl: 'https://www.2embed.cc/embedtv/',
-    ),
-    VideoProvider(
-      id: 'videasy',
-      name: 'Videasy',
-      shortName: 'Videasy',
-      note: 'Clean, modern player',
-      movieUrl: 'https://player.videasy.net/movie/',
-      tvUrl: 'https://player.videasy.net/tv/',
-    ),
-    VideoProvider(
-      id: 'vsembed',
-      name: 'VsEmbed',
-      shortName: 'VsEmbed',
-      note: 'VidSrc network mirror',
-      movieUrl: 'https://vsembed.ru/embed/movie/',
-      tvUrl: 'https://vsembed.ru/embed/',
-    ),
-    VideoProvider(
-      id: 'vidrock',
-      name: 'VidRock',
-      shortName: 'VidRock',
-      note: 'Reliable VidSrc mirror',
-      movieUrl: 'https://vidrock.ru/movie/',
-      tvUrl: 'https://vidrock.ru/tv/',
-    ),
-    VideoProvider(
-      id: '111movies',
-      name: '111Movies',
-      shortName: '111Movies',
-      note: 'Alternative embed source',
-      movieUrl: 'https://111movies.com/movie/',
-      tvUrl: 'https://111movies.com/tv/',
-    ),
-    VideoProvider(
-      id: 'vidsrc',
-      name: 'VidSrc',
-      shortName: 'VidSrc',
-      note: 'Last resort, ad-heavy',
-      movieUrl: 'https://vidsrc.to/embed/movie/',
-      tvUrl: 'https://vidsrc.to/embed/tv/',
-    ),
-  ];
+  /// Shared embed-provider service. Sources are loaded from Firestore
+  /// with a hardcoded fallback.
+  final VideoSourceService _sourceService = VideoSourceService();
 
-  VideoProvider get _activeProvider => _selectedProvider;
+  VideoSourceConfig get _activeProvider => _selectedProvider;
 
-  List<VideoProvider> get _selectableProviders => _providers;
+  List<VideoSourceConfig> get _selectableProviders =>
+      _sourceService.providers;
 
   @override
   void initState() {
     super.initState();
-    _selectedProvider = _providers.first;
+    // Load the user's saved default source, or fall back to the
+    // first recommended source from the service.
+    final srcList = _sourceService.providers;
+    _selectedProvider = srcList.isNotEmpty ? srcList.first : _sourceService.defaultSource;
+    _loadSavedDefaultSource();
     _currentUserName = context.read<AuthService>().currentUser ?? '';
 
     _viewType =
@@ -211,6 +150,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _messageListener = _buildMessageListener();
     web.window.addEventListener('message', _messageListener);
 
+_currentSeason = widget.season ?? 1;
+    _currentEpisode = widget.episode ?? 1;
+
     // For anime we don't have a TMDB id on the MediaItem — the slot
     // holds the MAL id. Resolve MAL→TMDB via ani.zip, then set the
     // iframe's src once. If the lookup fails (no cross-reference
@@ -218,7 +160,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (widget.isAnime) {
       _bootstrapAnime();
     } else {
-      _iframe.src = _buildPlayerUrl(_activeProvider);
+      _iframe.src = _buildPlayerUrl(_selectedProvider);
     }
 
     ui_web.platformViewRegistry
@@ -260,6 +202,44 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _tryNextProvider();
   }
 
+  /// Called when the user picks a different episode from [EpisodeNavigator].
+  /// Rebuilds the iframe URL for the new episode and resets loading state.
+  void _onEpisodeChanged(int episode) {
+    if (episode == _currentEpisode) return;
+    setState(() {
+      _currentEpisode = episode;
+      _isLoading = true;
+      _iframeFailed = false;
+    });
+    _failedProviderIds.clear();
+    _loadTimer?.cancel();
+    _contentCheckTimer?.cancel();
+    _loadTimer = Timer(_loadTimeout, () {
+      if (!mounted) return;
+      if (_isLoading) _onIframeLoadError();
+    });
+    _iframe.src = _buildPlayerUrl(_selectedProvider);
+  }
+
+  /// Called when the user picks a different season from [EpisodeNavigator].
+  void _onSeasonChanged(int season) {
+    if (season == _currentSeason) return;
+    setState(() {
+      _currentSeason = season;
+      _currentEpisode = 1;
+      _isLoading = true;
+      _iframeFailed = false;
+    });
+    _failedProviderIds.clear();
+    _loadTimer?.cancel();
+    _contentCheckTimer?.cancel();
+    _loadTimer = Timer(_loadTimeout, () {
+      if (!mounted) return;
+      if (_isLoading) _onIframeLoadError();
+    });
+    _iframe.src = _buildPlayerUrl(_selectedProvider);
+  }
+
   /// Saves or updates the watch progress in Firestore so the
   /// "Currently Watching" shelves across the app reflect what the
   /// user is watching right now. Runs once per playback session.
@@ -294,8 +274,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         source: widget.isAnime ? 'jikan' : 'tmdb',
       ),
       userName,
-      season: widget.season,
-      episode: widget.episode,
+      season: _currentSeason,
+      episode: _currentEpisode,
       timestamp: 0,
       status: status,
     );
@@ -353,36 +333,34 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }).toJS;
   }
 
-  /// Returns the expected postMessage origin for a given provider id.
+  /// Returns the expected postMessage origin for a given provider.
+  /// Derives the origin from the provider's movie URL (the host portion).
   String _originForProvider(String providerId) {
-    switch (providerId) {
-      case 'vidlink':
-        return 'https://vidlink.pro';
-      case 'multiembed':
-        return 'https://multiembed.mov';
-      case '2embed.cc':
-        return 'https://www.2embed.cc';
-      case 'videasy':
-        return 'https://player.videasy.net';
-      case 'vidfast':
-        return 'https://vidfast.pro';
-      case 'vsembed':
-        return 'https://vsembed.ru';
-      case 'vidrock':
-        return 'https://vidrock.ru';
-      case '111movies':
-        return 'https://111movies.com';
-      case 'vidsrc':
-        return 'https://vidsrc.to';
-      default:
-        return '';
+    final cfg = _sourceService.byId(providerId);
+    if (cfg == null) return '';
+    try {
+      final uri = Uri.parse(cfg.movieUrl);
+      return '${uri.scheme}://${uri.host}';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// Load the user's saved default source from SharedPreferences.
+  Future<void> _loadSavedDefaultSource() async {
+    final savedId = await _sourceService.loadDefaultSourceId();
+    if (savedId != null && mounted) {
+      final match = _sourceService.byId(savedId);
+      if (match != null) {
+        setState(() => _selectedProvider = match);
+      }
     }
   }
 
   /// Find the next untried provider and switch to it. If every
   /// provider has been tried, show the error card.
   void _tryNextProvider() {
-    final next = _providers.cast<VideoProvider?>().firstWhere(
+    final next = _selectableProviders.cast<VideoSourceConfig?>().firstWhere(
       (p) => !_failedProviderIds.contains(p!.id),
       orElse: () => null,
     );
@@ -405,7 +383,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// Called when the user picks a different provider from the dropdown
   /// or error card. Clears the failed set so the chosen provider gets
   /// a fresh attempt.
-  void _selectProvider(VideoProvider provider) {
+  void _selectProvider(VideoSourceConfig provider) {
     if (provider.id == _selectedProvider.id) return;
     _failedProviderIds.clear();
     setState(() {
@@ -466,7 +444,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// when the lookup failed (the error card takes over in that case).
   int? get _activeTmdbId => widget.isAnime ? _externalTmdbId : widget.tmdbId;
 
-  String _buildPlayerUrl(VideoProvider provider) {
+  String _buildPlayerUrl(VideoSourceConfig provider) {
     // Default to the query-string form (the v2 shape) which is what
     // Videasy emits and what their docs recommend. The path-segment
     // form is preserved as a future fallback for any non-Videasy
@@ -475,7 +453,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     return _buildPlayerUrlWithForm(provider, form);
   }
 
-  String _buildPlayerUrlWithForm(VideoProvider provider, _UrlForm form) {
+  String _buildPlayerUrlWithForm(VideoSourceConfig provider, _UrlForm form) {
     final movieBase = provider.movieUrl;
     final tvBase = provider.tvUrl;
     final isVideasy =
@@ -484,8 +462,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     final id = isAnime ? (_activeTmdbId ?? _externalId) : _externalId;
 
     if (widget.mediaType == 'tv') {
-      final seasonNum = widget.season ?? 1;
-      final epNum = widget.episode ?? 1;
+      final seasonNum = _currentSeason;
+      final epNum = _currentEpisode;
 
       if (tvBase.contains('vidsrc.to')) {
         return '$tvBase$id&season=$seasonNum&episode=$epNum';
@@ -633,6 +611,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 ],
               ),
             ),
+            // Episode Navigator for TV content
+            if (widget.mediaType == 'tv' && !widget.isAnime)
+              EpisodeNavigator(
+                tmdbId: widget.tmdbId,
+                initialSeason: _currentSeason,
+                initialEpisode: _currentEpisode,
+                onSeasonChanged: _onSeasonChanged,
+                onEpisodeChanged: _onEpisodeChanged,
+              ),
           ],
         ),
       ),
@@ -692,7 +679,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   void _showProviderSheet() {
     _iframe.style.setProperty('pointer-events', 'none');
-    showModalBottomSheet<VideoProvider>(
+    showModalBottomSheet<VideoSourceConfig>(
       context: context,
       backgroundColor: const Color(0xFF1C1228),
       shape: const RoundedRectangleBorder(
@@ -748,15 +735,42 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   ),
                 ),
                 subtitle: Text(
-                  p.note,
+                  p.desc,
                   style: GoogleFonts.outfit(
                     color: Colors.white54,
                     fontSize: 11,
                   ),
                 ),
-                trailing: isSelected
-                    ? const Icon(Icons.check_circle, color: AppTheme.deepRose, size: 20)
-                    : null,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isSelected)
+                      const Icon(Icons.check_circle, color: AppTheme.deepRose, size: 20)
+                    else ...[
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () {
+                          _sourceService.saveDefaultSourceId(p.id);
+                          if (ctx.mounted) {
+                            ScaffoldMessenger.of(ctx).showSnackBar(
+                              SnackBar(
+                                content: Text('${p.name} set as default'),
+                                duration: const Duration(seconds: 2),
+                                behavior: SnackBarBehavior.floating,
+                                backgroundColor: AppTheme.deepRose,
+                              ),
+                            );
+                          }
+                        },
+                        child: Icon(
+                          Icons.star_border_rounded,
+                          color: Colors.white38,
+                          size: 20,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
                 onTap: () {
                   Navigator.pop(ctx, p);
                 },
@@ -913,35 +927,3 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 /// path-segment (`/{id}/{ep}`) is a one-line change.
 // ignore: unused_field
 enum _UrlForm { queryString, pathSegment }
-
-/// One embed source the player can render. `movieUrl` and `tvUrl` are
-/// the base URL up to and including the trailing slash — the id and
-/// any episode/season segment are appended by [_buildPlayerUrl].
-class VideoProvider {
-  /// Stable id, useful for analytics / persistence in the future.
-  final String id;
-
-  /// Long name shown in the dropdown row.
-  final String name;
-
-  /// Short label rendered in the header badge (space is tight).
-  final String shortName;
-
-  /// One-line description shown under the name in the dropdown.
-  final String note;
-
-  /// Base URL for movie embeds. Trailing slash required.
-  final String movieUrl;
-
-  /// Base URL for TV / episode embeds. Trailing slash required.
-  final String tvUrl;
-
-  const VideoProvider({
-    required this.id,
-    required this.name,
-    required this.shortName,
-    required this.note,
-    required this.movieUrl,
-    required this.tvUrl,
-  });
-}

@@ -399,6 +399,86 @@ class TMDBService {
     return [];
   }
 
+  /// Fetch Popular Movies
+  Future<List<MediaItem>> fetchPopularMovies() async {
+    final url = Uri.parse(
+        '$_baseUrl/movie/popular?api_key=${ApiKeys.tmdbApiKey}');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List results = data['results'] ?? [];
+
+        return results
+            .map((item) => _mapResultToMediaItem(item, forcedMediaType: 'movie'))
+            .toList();
+      }
+    } catch (e) {
+      print('TMDB Popular Movies Error: $e');
+    }
+    return [];
+  }
+
+  /// Fetch Top Rated TV Shows
+  Future<List<MediaItem>> fetchTopRatedTV() async {
+    final url = Uri.parse(
+        '$_baseUrl/tv/top_rated?api_key=${ApiKeys.tmdbApiKey}');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List results = data['results'] ?? [];
+
+        return results
+            .map((item) => _mapResultToMediaItem(item, forcedMediaType: 'tv'))
+            .toList();
+      }
+    } catch (e) {
+      print('TMDB Top Rated TV Error: $e');
+    }
+    return [];
+  }
+
+  /// Fetch TV shows airing today
+  Future<List<MediaItem>> fetchAiringToday() async {
+    final url = Uri.parse(
+        '$_baseUrl/tv/airing_today?api_key=${ApiKeys.tmdbApiKey}');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List results = data['results'] ?? [];
+
+        return results
+            .map((item) => _mapResultToMediaItem(item, forcedMediaType: 'tv'))
+            .toList();
+      }
+    } catch (e) {
+      print('TMDB Airing Today Error: $e');
+    }
+    return [];
+  }
+
+  /// Fetch TV shows currently on the air
+  Future<List<MediaItem>> fetchOnTheAir() async {
+    final url = Uri.parse(
+        '$_baseUrl/tv/on_the_air?api_key=${ApiKeys.tmdbApiKey}');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List results = data['results'] ?? [];
+
+        return results
+            .map((item) => _mapResultToMediaItem(item, forcedMediaType: 'tv'))
+            .toList();
+      }
+    } catch (e) {
+      print('TMDB On The Air Error: $e');
+    }
+    return [];
+  }
+
   /// Fetch Now Playing in Cinemas (movies currently in theaters)
   Future<List<MediaItem>> fetchNowPlaying({String region = 'PH'}) async {
     final url = Uri.parse(
@@ -478,6 +558,72 @@ class TMDBService {
       }
     } catch (e) {
       print('TMDB Discover By Genre Error: $e');
+    }
+    return [];
+  }
+
+  /// General-purpose content discovery. Unlike [discoverAnime] it does
+  /// NOT force the Japanese language / Animation genre constraint.
+  ///
+  /// Pass any combination of optional TMDB discover parameters to
+  /// build a custom feed — language rows, decade rows, or combined
+  /// filters. The default sort is popularity descending.
+  Future<List<MediaItem>> discoverMedia({
+    required String mediaType, // 'movie' or 'tv'
+    String? sortBy,
+    List<int>? withGenres,
+    int? yearGte,
+    int? yearLte,
+    double? voteAverageGte,
+    int? voteCountGte,
+    String? withOriginalLanguage,
+    int page = 1,
+  }) async {
+    final params = <String, String>{
+      'api_key': ApiKeys.tmdbApiKey,
+      'include_adult': 'false',
+      'page': '$page',
+    };
+    if (sortBy != null) params['sort_by'] = sortBy;
+    if (withGenres != null && withGenres.isNotEmpty) {
+      params['with_genres'] = withGenres.join(',');
+    }
+    if (voteAverageGte != null) {
+      params['vote_average.gte'] = voteAverageGte.toString();
+    }
+    if (voteCountGte != null) params['vote_count.gte'] = '$voteCountGte';
+    if (withOriginalLanguage != null) {
+      params['with_original_language'] = withOriginalLanguage;
+    }
+
+    if (yearGte != null) {
+      final key = mediaType == 'tv'
+          ? 'first_air_date.gte'
+          : 'primary_release_date.gte';
+      params[key] = '$yearGte-01-01';
+    }
+    if (yearLte != null) {
+      final key = mediaType == 'tv'
+          ? 'first_air_date.lte'
+          : 'primary_release_date.lte';
+      params[key] = '$yearLte-12-31';
+    }
+
+    final url = Uri.parse(
+        '$_baseUrl/discover/$mediaType?${params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&')}');
+
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List results = data['results'] ?? [];
+        return results
+            .map((item) =>
+                _mapResultToMediaItem(item, forcedMediaType: mediaType))
+            .toList();
+      }
+    } catch (e) {
+      print('TMDB Discover Media Error: $e');
     }
     return [];
   }

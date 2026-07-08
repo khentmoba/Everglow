@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show Picture, PictureRecorder;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide FilterChip;
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -13,6 +13,7 @@ import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/anilist_service.dart';
 import 'package:everglow/features/cinema/data/services/jikan_service.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
+import 'package:everglow/shared/widgets/shelf/filter_chip.dart';
 import 'package:everglow/features/cinema/presentation/widgets/episode_drawer.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'package:everglow/shared/widgets/shelf/atmospheric_backdrop.dart';
@@ -1039,8 +1040,10 @@ class _AnimeScreenState extends State<AnimeScreen>
               itemBuilder: (context, i) {
                 final option = options[i];
                 final selected = _selectedCategoryId == option.id;
-                return _AnimeFilterChip(
-                  option: option,
+                return FilterChip(
+                  icon: option.icon,
+                  label: option.label,
+                  color: option.color,
                   selected: selected,
                   onTap: () => _selectCategory(option),
                 );
@@ -1814,92 +1817,6 @@ class _BrowseGroupMeta {
 }
 
 // ── EXTRACTED WIDGETS ─────────────────────────────────────────────
-
-class _AnimeFilterChip extends StatefulWidget {
-  final AnimeCategoryOption option;
-  final bool selected;
-  final VoidCallback onTap;
-  const _AnimeFilterChip({
-    required this.option,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  State<_AnimeFilterChip> createState() => _AnimeFilterChipState();
-}
-
-class _AnimeFilterChipState extends State<_AnimeFilterChip> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final tint = widget.option.color;
-    final selected = widget.selected;
-    return FocusableActionDetector(
-      mouseCursor: SystemMouseCursors.click,
-      onShowFocusHighlight: (show) => setState(() => _hovered = show),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: widget.onTap,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          onEnter: (_) => setState(() => _hovered = true),
-          onExit: (_) => setState(() => _hovered = false),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeInOut,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: selected
-                  ? tint.withValues(alpha: 0.2)
-                  : _hovered
-                      ? _cCard.withValues(alpha: 0.8)
-                      : _cCard,
-              border: Border.all(
-                color: selected
-                    ? tint.withValues(alpha: 0.6)
-                    : _hovered
-                        ? tint.withValues(alpha: 0.25)
-                        : _cRose.withValues(alpha: 0.12),
-                width: selected ? 1.2 : 1,
-              ),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: selected
-                  ? [
-                      BoxShadow(
-                        color: tint.withValues(alpha: 0.25),
-                        blurRadius: 12,
-                        offset: const Offset(0, 3),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(widget.option.icon,
-                    color: selected ? tint : _cMuted, size: 14),
-                const SizedBox(width: 6),
-                Text(
-                  widget.option.label,
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    color: selected
-                        ? tint
-                        : _cRose.withValues(alpha: 0.85),
-                    fontWeight:
-                        selected ? FontWeight.w600 : FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 /// Compact poster tile used in the home + library carousels is now
 /// `ShelfPosterCard` (see `lib/shared/widgets/shelf/`).

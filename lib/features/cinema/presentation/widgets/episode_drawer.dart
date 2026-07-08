@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -110,6 +111,12 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   bool _isPlayingTrailer = false;
   bool _isMobile = false;
 
+  /// Controller for the horizontal status chip scroll area. On web,
+  /// vertical mouse wheel deltas are converted to horizontal scroll
+  /// so all status options are reachable without a horizontal scroll
+  /// gesture or Shift+wheel.
+  final _statusScrollCtrl = ScrollController();
+
   // For header parallax/fade
   late AnimationController _fadeCtrl;
   late Animation<double> _fadeAnim;
@@ -140,6 +147,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
 
   @override
   void dispose() {
+    _statusScrollCtrl.dispose();
     _fadeCtrl.dispose();
     super.dispose();
   }
@@ -1586,54 +1594,68 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
           Builder(builder: (context) {
             final isCinemaOnly =
                 context.watch<AuthService>().isCinemaOnlyUser;
-            if (isCinemaOnly) {
-              return SingleChildScrollView(
+            final chips = isCinemaOnly
+                ? Row(
+                    children: [
+                      _buildStatusChip('Want to Watch', 'to-watch',
+                          icon: Icons.bookmark_rounded),
+                      const SizedBox(width: 8),
+                      _buildStatusChip('Currently Watching', 'watching-self',
+                          icon: Icons.play_circle_filled_rounded,
+                          activeColor: const Color(0xFFFF6D00)),
+                      const SizedBox(width: 8),
+                      _buildStatusChip('Watched', 'watched-self',
+                          icon: Icons.check_circle_rounded,
+                          activeColor: const Color(0xFF2E7D32)),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      _buildStatusChip('Want to Watch', 'to-watch',
+                          icon: Icons.bookmark_rounded),
+                      const SizedBox(width: 8),
+                      _buildStatusChip('Khent Watching', 'watching-khent',
+                          icon: Icons.play_circle_filled_rounded,
+                          activeColor: const Color(0xFFFF6D00)),
+                      const SizedBox(width: 8),
+                      _buildStatusChip('Clair Watching', 'watching-clair',
+                          icon: Icons.play_circle_filled_rounded,
+                          activeColor: const Color(0xFFE91E8C)),
+                      const SizedBox(width: 8),
+                      _buildStatusChip('Khent Watched', 'watched-khent',
+                          icon: Icons.person_rounded,
+                          activeColor: const Color(0xFF1976D2)),
+                      const SizedBox(width: 8),
+                      _buildStatusChip('Clair Watched', 'watched-clair',
+                          icon: Icons.favorite_rounded,
+                          activeColor: const Color(0xFFE91E8C)),
+                      const SizedBox(width: 8),
+                      _buildStatusChip('Both Watched', 'watched-both',
+                          icon: Icons.people_rounded,
+                          activeColor: const Color(0xFF2E7D32)),
+                    ],
+                  );
+            return Scrollbar(
+              thumbVisibility: true,
+              controller: _statusScrollCtrl,
+              scrollbarOrientation: ScrollbarOrientation.bottom,
+              child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
-                child: Row(
-                  children: [
-                    _buildStatusChip('Want to Watch', 'to-watch',
-                        icon: Icons.bookmark_rounded),
-                    const SizedBox(width: 8),
-                    _buildStatusChip('Currently Watching', 'watching-self',
-                        icon: Icons.play_circle_filled_rounded,
-                        activeColor: const Color(0xFFFF6D00)),
-                    const SizedBox(width: 8),
-                    _buildStatusChip('Watched', 'watched-self',
-                        icon: Icons.check_circle_rounded,
-                        activeColor: const Color(0xFF2E7D32)),
-                  ],
+                controller: _statusScrollCtrl,
+                child: Listener(
+                  onPointerSignal: (event) {
+                    if (event is PointerScrollEvent &&
+                        event.scrollDelta.dy != 0) {
+                      final ctrl = _statusScrollCtrl;
+                      final clamped = (ctrl.offset + event.scrollDelta.dy)
+                          .clamp(ctrl.position.minScrollExtent,
+                              ctrl.position.maxScrollExtent);
+                      ctrl.jumpTo(clamped);
+                    }
+                  },
+                  child: chips,
                 ),
-              );
-            }
-            return SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              child: Row(
-                children: [
-                  _buildStatusChip('Want to Watch', 'to-watch',
-                      icon: Icons.bookmark_rounded),
-                  const SizedBox(width: 8),
-                  _buildStatusChip('Khent Watching', 'watching-khent',
-                      icon: Icons.play_circle_filled_rounded,
-                      activeColor: const Color(0xFFFF6D00)),
-                  const SizedBox(width: 8),
-                  _buildStatusChip('Clair Watching', 'watching-clair',
-                      icon: Icons.play_circle_filled_rounded,
-                      activeColor: const Color(0xFFE91E8C)),
-                  const SizedBox(width: 8),
-                  _buildStatusChip('Khent Watched', 'watched-khent',
-                      icon: Icons.person_rounded,
-                      activeColor: const Color(0xFF1976D2)),
-                  const SizedBox(width: 8),
-                  _buildStatusChip('Clair Watched', 'watched-clair',
-                      icon: Icons.favorite_rounded,
-                      activeColor: const Color(0xFFE91E8C)),
-                  const SizedBox(width: 8),
-                  _buildStatusChip('Both Watched', 'watched-both',
-                      icon: Icons.people_rounded,
-                      activeColor: const Color(0xFF2E7D32)),
-                ],
               ),
             );
           }),

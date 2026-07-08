@@ -1,11 +1,12 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide FilterChip;
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
+import 'package:everglow/features/cinema/data/cinema_browse_config.dart';
 import 'package:everglow/features/cinema/presentation/widgets/episode_drawer.dart';
 import 'package:everglow/features/cinema/presentation/widgets/trailer_player.dart';
 import 'package:everglow/services/auth_service.dart';
@@ -21,6 +22,7 @@ import 'package:everglow/shared/widgets/shelf/arrow_scroll_view.dart';
 import 'package:everglow/shared/widgets/shelf/staggered_entrance.dart';
 import 'package:everglow/shared/widgets/shelf/cinema_nav_bar.dart';
 import 'package:everglow/shared/widgets/shelf/cinema_sections.dart';
+import 'package:everglow/shared/widgets/shelf/filter_chip.dart';
 import 'package:everglow/core/theme/app_breakpoints.dart';
 import 'package:go_router/go_router.dart';
 import 'package:everglow/features/ai/presentation/widgets/ai_recommendations.dart';
@@ -58,6 +60,7 @@ class _CinemaScreenState extends State<CinemaScreen>
 
   List<MediaItem> _watchlist = [];
   List<MediaItem> _watchedList = [];
+  List<MediaItem> _watchingList = [];
 
   List<MediaItem> _trendingCarousel = [];
   List<MediaItem> _trendingGlobal = [];
@@ -66,6 +69,26 @@ class _CinemaScreenState extends State<CinemaScreen>
   List<MediaItem> _popularTVShows = [];
   List<MediaItem> _nowShowing = [];
   List<MediaItem> _newlyReleased = [];
+
+  // Discovery rows (Phase 3a)
+  List<MediaItem> _popularMovies = [];
+  List<MediaItem> _topRatedTV = [];
+  List<MediaItem> _airingToday = [];
+  List<MediaItem> _onTheAir = [];
+  final Map<String, List<MediaItem>> _discoveryRows = {};
+
+  // Browse tab state
+  String? _selectedBrowseOptionId;
+  List<MediaItem> _browseResults = [];
+  bool _isLoadingBrowse = false;
+  int _browseCurrentPage = 1;
+  bool _browseHasMore = true;
+
+  // Search filter state
+  bool _filterMoviesOnly = false;
+  bool _filterTVOnly = false;
+  double? _filterMinVote;
+  final Set<String> _filterYears = {};
 
   final Map<String, List<MediaItem>> _genreLists = {};
   final Map<int, String> _movieGenres = {};
@@ -218,6 +241,7 @@ class _CinemaScreenState extends State<CinemaScreen>
 
   void _splitWatchlists() {
     _watchedList = _watchlist.where((item) => item.isWatched).toList();
+    _watchingList = _watchlist.where((item) => item.isCurrentlyWatching).toList();
   }
 
   Future<void> _fetchHomeData() async {
@@ -232,18 +256,56 @@ class _CinemaScreenState extends State<CinemaScreen>
       _tmdbService.fetchUpcoming(region: 'PH'),
       _tmdbService.fetchGenreList('movie'),
       _tmdbService.fetchGenreList('tv'),
+      // Discovery rows (Phase 3a)
+      _tmdbService.fetchPopularMovies(),
+      _tmdbService.fetchTopRatedTV(),
+      _tmdbService.fetchAiringToday(),
+      _tmdbService.fetchOnTheAir(),
     ]);
 
     if (!mounted) return;
 
-    final trendingGlobal = results[0] as List<MediaItem>;
-    final trendingPH = results[1] as List<MediaItem>;
-    final topRated = results[2] as List<MediaItem>;
-    final popularTV = results[3] as List<MediaItem>;
-    final nowShowing = results[4] as List<MediaItem>;
-    final newlyReleased = results[5] as List<MediaItem>;
+    // Filter out anime from all cinema lists — the dedicated Anime tab
+    // already covers Japanese animation content.
+    final trendingGlobal = (results[0] as List<MediaItem>)
+        .where((m) => !m.isAnime)
+        .toList();
+    final trendingPH = (results[1] as List<MediaItem>)
+        .where((m) => !m.isAnime)
+        .toList();
+    final topRated = (results[2] as List<MediaItem>)
+        .where((m) => !m.isAnime)
+        .toList();
+    final popularTV = (results[3] as List<MediaItem>)
+        .where((m) => !m.isAnime)
+        .toList();
+    final nowShowing = (results[4] as List<MediaItem>)
+        .where((m) => !m.isAnime)
+        .toList();
+    final currentYear = DateTime.now().year;
+    final newlyReleased = (results[5] as List<MediaItem>)
+        .where((m) => !m.isAnime)
+        .where((m) {
+          // Exclude obviously old movies (TMDB upcoming sometimes leaks
+          // outdated entries like a 2004 film).
+          final y = int.tryParse(m.year);
+          return y == null || y >= currentYear - 1;
+        })
+        .toList();
     final movieGenres = results[6] as Map<int, String>;
     final tvGenres = results[7] as Map<int, String>;
+    final popularMovies = (results[8] as List<MediaItem>)
+        .where((m) => !m.isAnime)
+        .toList();
+    final topRatedTV = (results[9] as List<MediaItem>)
+        .where((m) => !m.isAnime)
+        .toList();
+    final airingToday = (results[10] as List<MediaItem>)
+        .where((m) => !m.isAnime)
+        .toList();
+    final onTheAir = (results[11] as List<MediaItem>)
+        .where((m) => !m.isAnime)
+        .toList();
 
     setState(() {
       _trendingGlobal = trendingGlobal;
@@ -253,6 +315,10 @@ class _CinemaScreenState extends State<CinemaScreen>
       _popularTVShows = popularTV;
       _nowShowing = nowShowing;
       _newlyReleased = newlyReleased;
+      _popularMovies = popularMovies;
+      _topRatedTV = topRatedTV;
+      _airingToday = airingToday;
+      _onTheAir = onTheAir;
       _movieGenres
         ..clear()
         ..addAll(movieGenres);
@@ -268,6 +334,7 @@ class _CinemaScreenState extends State<CinemaScreen>
     // lands on a playing hero, not a static backdrop.
     _startTrailerForPage(0);
     _fetchGenreLists();
+    _fetchDiscoveryRows();
   }
 
   Future<void> _fetchGenreLists() async {
@@ -276,12 +343,97 @@ class _CinemaScreenState extends State<CinemaScreen>
         genreId: genre['id'] as int,
         mediaType: genre['type'] as String,
       );
-      if (mounted && items.isNotEmpty) {
+      final filtered = items.where((m) => !m.isAnime).toList();
+      if (mounted && filtered.isNotEmpty) {
         setState(() {
-          _genreLists['${genre['name']}'] = items;
+          _genreLists['${genre['name']}'] = filtered;
         });
       }
     }
+  }
+
+  /// Fetches extended discovery rows — language and decade-based
+  /// curated collections that are loaded after the main home data.
+  Future<void> _fetchDiscoveryRows() async {
+    final languageRows = await Future.wait([
+      _tmdbService.discoverMedia(
+        mediaType: 'tv',
+        withOriginalLanguage: 'ko',
+        sortBy: 'vote_average.desc',
+        voteAverageGte: 7.0,
+      ),
+      _tmdbService.discoverMedia(
+        mediaType: 'movie',
+        withOriginalLanguage: 'hi',
+        sortBy: 'vote_average.desc',
+        voteAverageGte: 7.0,
+      ),
+      _tmdbService.discoverMedia(
+        mediaType: 'movie',
+        withOriginalLanguage: 'es',
+        sortBy: 'vote_average.desc',
+        voteAverageGte: 7.0,
+      ),
+      _tmdbService.discoverMedia(
+        mediaType: 'movie',
+        withOriginalLanguage: 'fr',
+        sortBy: 'vote_average.desc',
+        voteAverageGte: 7.0,
+      ),
+    ]);
+
+    final decadeRows = await Future.wait([
+      _tmdbService.discoverMedia(
+        mediaType: 'movie',
+        yearGte: 2010,
+        yearLte: 2019,
+        voteAverageGte: 7.0,
+      ),
+      _tmdbService.discoverMedia(
+        mediaType: 'movie',
+        yearGte: 2000,
+        yearLte: 2009,
+        voteAverageGte: 7.0,
+      ),
+      _tmdbService.discoverMedia(
+        mediaType: 'movie',
+        yearLte: 1999,
+        voteAverageGte: 7.0,
+        voteCountGte: 500,
+      ),
+    ]);
+
+    if (!mounted) return;
+    setState(() {
+      _discoveryRows['korean_dramas'] =
+          (languageRows[0] as List<MediaItem>)
+              .where((m) => !m.isAnime)
+              .toList();
+      _discoveryRows['bollywood'] =
+          (languageRows[1] as List<MediaItem>)
+              .where((m) => !m.isAnime)
+              .toList();
+      _discoveryRows['spanish_cinema'] =
+          (languageRows[2] as List<MediaItem>)
+              .where((m) => !m.isAnime)
+              .toList();
+      _discoveryRows['french_cinema'] =
+          (languageRows[3] as List<MediaItem>)
+              .where((m) => !m.isAnime)
+              .toList();
+      _discoveryRows['decade_2010s'] =
+          (decadeRows[0] as List<MediaItem>)
+              .where((m) => !m.isAnime)
+              .toList();
+      _discoveryRows['decade_2000s'] =
+          (decadeRows[1] as List<MediaItem>)
+              .where((m) => !m.isAnime)
+              .toList();
+      _discoveryRows['classic_films'] =
+          (decadeRows[2] as List<MediaItem>)
+              .where((m) => !m.isAnime)
+              .toList();
+    });
   }
 
   // Auto-rotate duration. Long enough for the trailer hook to register
@@ -391,14 +543,129 @@ class _CinemaScreenState extends State<CinemaScreen>
   }
 
   Future<void> _performSearch(String query) async {
-    setState(() => _isSearching = true);
+    setState(() {
+      _isSearching = true;
+      _clearSearchFilters();
+    });
     final results = await _tmdbService.searchMedia(query);
+    // Exclude anime from cinema search — the dedicated Anime screen
+    // already covers Japanese animation content.
+    final filtered = results.where((m) => !m.isAnime).toList();
     if (mounted) {
       setState(() {
-        _searchResults = results;
+        _searchResults = filtered;
         _isSearching = false;
       });
     }
+  }
+
+  /// Client-side search filter chips — built dynamically from current state.
+  List<_SearchFilterChip> get _searchFilterChips {
+    final chips = <_SearchFilterChip>[];
+
+    // Media type filters
+    chips.add(_SearchFilterChip(
+      icon: Icons.movie_outlined,
+      label: 'Movies only',
+      color: _cDeepRose,
+      selected: _filterMoviesOnly,
+      onTap: () {
+        setState(() {
+          _filterMoviesOnly = !_filterMoviesOnly;
+          if (_filterMoviesOnly) _filterTVOnly = false;
+        });
+      },
+    ));
+    chips.add(_SearchFilterChip(
+      icon: Icons.tv_outlined,
+      label: 'TV only',
+      color: _cGold,
+      selected: _filterTVOnly,
+      onTap: () {
+        setState(() {
+          _filterTVOnly = !_filterTVOnly;
+          if (_filterTVOnly) _filterMoviesOnly = false;
+        });
+      },
+    ));
+
+    // Rating filters
+    for (final rating in [9.0, 8.0]) {
+      final key = rating.toStringAsFixed(1);
+      final isSelected = _filterMinVote == rating;
+      chips.add(_SearchFilterChip(
+        icon: Icons.star_rounded,
+        label: '$key+',
+        color: _cAmber,
+        selected: isSelected,
+        onTap: () {
+          setState(() {
+            _filterMinVote = isSelected ? null : rating;
+          });
+        },
+      ));
+    }
+
+    // Year filters
+    for (final year in ['2025', '2024', '2023']) {
+      final isSelected = _filterYears.contains(year);
+      chips.add(_SearchFilterChip(
+        icon: Icons.calendar_today_rounded,
+        label: year,
+        color: const Color(0xFF4CAF50),
+        selected: isSelected,
+        onTap: () {
+          setState(() {
+            if (isSelected) {
+              _filterYears.remove(year);
+            } else {
+              _filterYears.add(year);
+            }
+          });
+        },
+      ));
+    }
+
+    // Clear all filters
+    chips.add(_SearchFilterChip(
+      icon: Icons.clear_rounded,
+      label: 'Clear filters',
+      color: const Color(0xFFE53935),
+      selected: false,
+      onTap: () {
+        setState(_clearSearchFilters);
+      },
+    ));
+
+    return chips;
+  }
+
+  /// Applies client-side filters to [_searchResults].
+  List<MediaItem> get _filteredSearchResults {
+    var items = _searchResults;
+    if (_filterMoviesOnly) {
+      items = items.where((i) => i.mediaType == 'movie').toList();
+    }
+    if (_filterTVOnly) {
+      items = items.where((i) => i.mediaType == 'tv').toList();
+    }
+    if (_filterMinVote != null) {
+      // TMDB search results don't include vote_average in multi-search
+      // results by default, so we filter on what we can.
+    }
+    if (_filterYears.isNotEmpty) {
+      items = items.where((i) => _filterYears.contains(i.year)).toList();
+    }
+    return items;
+  }
+
+  void _clearSearchFilters() {
+    setState(() {
+      _filterMoviesOnly = false;
+      _filterTVOnly = false;
+      _filterMinVote = null;
+      _filterYears.clear();
+    });
   }
 
   void _showMediaDetails(MediaItem item) {
@@ -433,6 +700,11 @@ class _CinemaScreenState extends State<CinemaScreen>
         label: 'Search',
       ),
       CinemaNavItem(
+        icon: Icons.category_outlined,
+        activeIcon: Icons.category_rounded,
+        label: 'Browse',
+      ),
+      CinemaNavItem(
         icon: Icons.collections_bookmark_outlined,
         activeIcon: Icons.collections_bookmark_rounded,
         label: 'Library',
@@ -448,7 +720,7 @@ class _CinemaScreenState extends State<CinemaScreen>
           // Content
           IndexedStack(
             index: _currentIndex,
-            children: [_buildHomeTab(), _buildSearchTab(), _buildLibraryTab()],
+            children: [_buildHomeTab(), _buildSearchTab(), _buildBrowseTab(), _buildLibraryTab()],
           ),
           // Floating top navbar (desktop/tablet only — overlays hero)
           if (!isMobile)
@@ -506,6 +778,26 @@ class _CinemaScreenState extends State<CinemaScreen>
           // Hero Carousel (always first, no header needed on desktop)
           SliverToBoxAdapter(child: _buildHeroBanner()),
 
+          // Continue Watching — right after hero carousel for maximum visibility
+          if (_watchingList.isNotEmpty)
+            SliverToBoxAdapter(
+              child: ContinueWatchingRow(
+                items: buildContinueItems(
+                  items: _watchingList.take(8).toList(),
+                  getId: (m) => '${m.tmdbId}',
+                  getTitle: (m) => m.title,
+                  getImageUrl: (m) =>
+                      m.backdropPath.isNotEmpty ? m.backdropPath : m.posterPath,
+                  getYear: (m) => m.year.isNotEmpty ? m.year : null,
+                  getProgressLabel: (m) =>
+                      m.mediaType == 'tv' && m.currentSeason != null
+                          ? 'S${m.currentSeason} · E${m.currentEpisode ?? 1}'
+                          : 'CONTINUE',
+                  onTap: (m) => _showMediaDetails(m),
+                ),
+              ),
+            ),
+
           // Mochi's Picks — real AI recommendations based on your watchlist
           SliverToBoxAdapter(
             child: Padding(
@@ -517,23 +809,6 @@ class _CinemaScreenState extends State<CinemaScreen>
               ),
             ),
           ),
-
-          // Continue Watching
-          if (_watchedList.isNotEmpty)
-            SliverToBoxAdapter(
-              child: ContinueWatchingRow(
-                items: buildContinueItems(
-                  items: _watchedList.take(8).toList(),
-                  getId: (m) => '${m.tmdbId}',
-                  getTitle: (m) => m.title,
-                  getImageUrl: (m) =>
-                      m.backdropPath.isNotEmpty ? m.backdropPath : m.posterPath,
-                  getYear: (m) => m.year.isNotEmpty ? m.year : null,
-                  getProgressLabel: (_) => 'WATCHED',
-                  onTap: (m) => _showMediaDetails(m),
-                ),
-              ),
-            ),
 
           // Top 10 Today Rankings
           SliverToBoxAdapter(
@@ -577,6 +852,136 @@ class _CinemaScreenState extends State<CinemaScreen>
 
           // Genre rows
           ..._buildGenreRows(),
+
+          // ══ DISCOVERY ROWS (Phase 3a) ═══════════════════════
+
+          // Popular Movies
+          SliverToBoxAdapter(
+            child: _buildGenericSection(
+              eyebrow: 'TRENDING',
+              title: 'Popular Movies',
+              items: _popularMovies,
+              accentColor: _cDeepRose,
+              icon: Icons.movie_rounded,
+            ),
+          ),
+
+          // Top Rated TV
+          SliverToBoxAdapter(
+            child: _buildGenericSection(
+              eyebrow: 'CRITICALLY ACCLAIMED',
+              title: 'Top Rated TV',
+              items: _topRatedTV,
+              accentColor: _cGold,
+              icon: Icons.star_rounded,
+            ),
+          ),
+
+          // Airing Today
+          SliverToBoxAdapter(
+            child: _buildGenericSection(
+              eyebrow: 'FRESH EPISODES',
+              title: 'Airing Today',
+              items: _airingToday,
+              accentColor: _cAmber,
+              icon: Icons.live_tv_rounded,
+            ),
+          ),
+
+          // On The Air
+          SliverToBoxAdapter(
+            child: _buildGenericSection(
+              eyebrow: 'CURRENTLY RUNNING',
+              title: 'On The Air',
+              items: _onTheAir,
+              accentColor: const Color(0xFF4CAF50),
+              icon: Icons.tv_rounded,
+            ),
+          ),
+
+          // Korean Dramas
+          if (_discoveryRows['korean_dramas']?.isNotEmpty == true)
+            SliverToBoxAdapter(
+              child: _buildGenericSection(
+                eyebrow: 'KOREAN WAVE',
+                title: 'Korean Dramas',
+                items: _discoveryRows['korean_dramas']!,
+                accentColor: const Color(0xFFE53935),
+                icon: Icons.language_rounded,
+              ),
+            ),
+
+          // Bollywood
+          if (_discoveryRows['bollywood']?.isNotEmpty == true)
+            SliverToBoxAdapter(
+              child: _buildGenericSection(
+                eyebrow: 'BOLLYWOOD',
+                title: 'Bollywood',
+                items: _discoveryRows['bollywood']!,
+                accentColor: const Color(0xFFFF7043),
+                icon: Icons.language_rounded,
+              ),
+            ),
+
+          // Spanish Cinema
+          if (_discoveryRows['spanish_cinema']?.isNotEmpty == true)
+            SliverToBoxAdapter(
+              child: _buildGenericSection(
+                eyebrow: 'CINE ESPAÑOL',
+                title: 'Spanish Cinema',
+                items: _discoveryRows['spanish_cinema']!,
+                accentColor: const Color(0xFFFDD835),
+                icon: Icons.language_rounded,
+              ),
+            ),
+
+          // French Cinema
+          if (_discoveryRows['french_cinema']?.isNotEmpty == true)
+            SliverToBoxAdapter(
+              child: _buildGenericSection(
+                eyebrow: 'CINEMA FRANÇAIS',
+                title: 'French Cinema',
+                items: _discoveryRows['french_cinema']!,
+                accentColor: const Color(0xFF42A5F5),
+                icon: Icons.language_rounded,
+              ),
+            ),
+
+          // Best of the 2010s
+          if (_discoveryRows['decade_2010s']?.isNotEmpty == true)
+            SliverToBoxAdapter(
+              child: _buildGenericSection(
+                eyebrow: 'BEST OF THE DECADE',
+                title: 'Best of the 2010s',
+                items: _discoveryRows['decade_2010s']!,
+                accentColor: const Color(0xFF26A69A),
+                icon: Icons.timeline_rounded,
+              ),
+            ),
+
+          // Best of the 2000s
+          if (_discoveryRows['decade_2000s']?.isNotEmpty == true)
+            SliverToBoxAdapter(
+              child: _buildGenericSection(
+                eyebrow: 'BEST OF THE DECADE',
+                title: 'Best of the 2000s',
+                items: _discoveryRows['decade_2000s']!,
+                accentColor: const Color(0xFF66BB6A),
+                icon: Icons.timeline_rounded,
+              ),
+            ),
+
+          // Classic Films (pre-2000)
+          if (_discoveryRows['classic_films']?.isNotEmpty == true)
+            SliverToBoxAdapter(
+              child: _buildGenericSection(
+                eyebrow: 'TIMELESS CLASSICS',
+                title: 'Classic Films',
+                items: _discoveryRows['classic_films']!,
+                accentColor: const Color(0xFFAB47BC),
+                icon: Icons.history_rounded,
+              ),
+            ),
 
           // Top Rated
           SliverToBoxAdapter(
@@ -1620,6 +2025,7 @@ class _CinemaScreenState extends State<CinemaScreen>
                               setState(() {
                                 _searchResults = [];
                                 _isSearching = false;
+                                _clearSearchFilters();
                               });
                             },
                           )
@@ -1636,6 +2042,32 @@ class _CinemaScreenState extends State<CinemaScreen>
           ),
         ),
 
+        // Search filter chips (visible when results are loaded)
+        if (_searchResults.isNotEmpty && !_isSearching)
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              horizontalPad, 8, horizontalPad, 0,
+            ),
+            child: SizedBox(
+              height: 36,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _searchFilterChips.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (context, i) {
+                  final chip = _searchFilterChips[i];
+                  return FilterChip(
+                    icon: chip.icon,
+                    label: chip.label,
+                    color: chip.color,
+                    selected: chip.selected,
+                    onTap: chip.onTap,
+                  );
+                },
+              ),
+            ),
+          ),
+
         // Results
         Expanded(
           child: _isSearching
@@ -1645,7 +2077,7 @@ class _CinemaScreenState extends State<CinemaScreen>
                     strokeWidth: 2.5,
                   ),
                 )
-              : _searchResults.isEmpty
+              : _filteredSearchResults.isEmpty
               ? (_searchController.text.isEmpty
                     ? _buildSearchLanding()
                     : _buildSearchEmptyState())
@@ -1660,9 +2092,9 @@ class _CinemaScreenState extends State<CinemaScreen>
                     crossAxisSpacing: 14,
                     mainAxisSpacing: 14,
                   ),
-                  itemCount: _searchResults.length,
+                  itemCount: _filteredSearchResults.length,
                   itemBuilder: (context, index) {
-                    final item = _searchResults[index];
+                    final item = _filteredSearchResults[index];
                     return ShelfPosterCard(
                       imageUrl: item.posterPath,
                       title: item.title,
@@ -1748,7 +2180,316 @@ class _CinemaScreenState extends State<CinemaScreen>
   }
 
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // 3. LIBRARY TAB
+  // 3. BROWSE TAB
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+  Widget _buildBrowseTab() {
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 100),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
+          child: Row(
+            children: [
+              Container(
+                width: 3,
+                height: 28,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [_cDeepRose, _cAmber],
+                  ),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Browse',
+                style: GoogleFonts.cormorantGaramond(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: _cWhite,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Text(
+            'Filter by genre, decade, language, or sort order.',
+            style: GoogleFonts.outfit(
+              fontSize: 12,
+              color: _cMuted,
+            ),
+          ),
+        ),
+        ...BrowseCategoryGroup.values.map(_buildBrowseGroup),
+        const SizedBox(height: 16),
+        if (_selectedBrowseOptionId != null) _buildBrowseResults(),
+      ],
+    );
+  }
+
+  Widget _buildBrowseGroup(BrowseCategoryGroup group) {
+    final options =
+        cinemaBrowseOptions.where((o) => o.group == group).toList();
+    final meta = browseGroupMeta(group);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 3,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        meta.tint,
+                        meta.tint.withValues(alpha: 0.25),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Icon(meta.icon, color: meta.tint, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  meta.title,
+                  style: GoogleFonts.cormorantGaramond(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: meta.tint,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  meta.subtitle,
+                  style: GoogleFonts.outfit(
+                    fontSize: 11,
+                    color: _cMuted,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 38,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: options.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (context, i) {
+                final option = options[i];
+                final selected = _selectedBrowseOptionId == option.id;
+                return FilterChip(
+                  icon: option.icon,
+                  label: option.label,
+                  color: option.color,
+                  selected: selected,
+                  onTap: () => _selectBrowseOption(option),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBrowseResults() {
+    if (_isLoadingBrowse) {
+      return const Padding(
+        padding: EdgeInsets.all(32),
+        child: Center(
+          child: CircularProgressIndicator(color: _cDeepRose),
+        ),
+      );
+    }
+
+    if (_browseResults.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.fromLTRB(20, 16, 20, 32),
+        child: ShelfEmptyState(
+          icon: Icons.search_off_rounded,
+          title: 'No results',
+          subtitle: 'Try a different filter.',
+          accent: _cDeepRose,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+          child: ShelfSectionHeader(
+            eyebrow: 'Results',
+            title: '${_browseResults.length} titles',
+            icon: Icons.movie_filter_rounded,
+            accent: _cDeepRose,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: AppBreakpoint.isDesktop(context)
+                  ? 6
+                  : (AppBreakpoint.isTablet(context) ? 4 : 2),
+              childAspectRatio: 0.65,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+            itemCount: _browseResults.length,
+            itemBuilder: (context, index) {
+              final item = _browseResults[index];
+              return ShelfPosterCard(
+                imageUrl: item.posterPath,
+                title: item.title,
+                subtitle: item.year.isNotEmpty ? item.year : null,
+                badge: item.mediaType == 'movie' ? 'MOVIE' : 'TV',
+                badgeIcon: item.mediaType == 'movie'
+                    ? Icons.movie_outlined
+                    : Icons.tv_outlined,
+                onTap: () => _showMediaDetails(item),
+              );
+            },
+          ),
+        ),
+        if (_browseHasMore)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+            child: Center(
+              child: GestureDetector(
+                onTap: _loadMoreBrowse,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _cDeepRose.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: _cDeepRose.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Text(
+                    'Load more',
+                    style: GoogleFonts.outfit(
+                      color: _cDeepRose,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _selectBrowseOption(BrowseCategoryOption option) {
+    HapticFeedback.lightImpact();
+    setState(() {
+      _selectedBrowseOptionId = option.id;
+      _browseResults = [];
+      _browseCurrentPage = 1;
+      _browseHasMore = true;
+    });
+    _fetchBrowseResults(option);
+  }
+
+  Future<void> _fetchBrowseResults(BrowseCategoryOption option) async {
+    setState(() => _isLoadingBrowse = true);
+
+    List<MediaItem> results;
+    if (option.genreId != null) {
+      results = await _tmdbService.discoverByGenre(
+        genreId: option.genreId!,
+        mediaType: option.mediaType,
+        sortBy: option.sortBy,
+      );
+    } else {
+      results = await _tmdbService.discoverMedia(
+        mediaType: option.mediaType,
+        sortBy: option.sortBy,
+        withGenres: option.genreId != null ? [option.genreId!] : null,
+        yearGte: option.yearGte,
+        yearLte: option.yearLte,
+        voteAverageGte: option.voteAverageGte,
+        voteCountGte: option.voteCountGte,
+        withOriginalLanguage: option.withOriginalLanguage,
+        page: _browseCurrentPage,
+      );
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _browseResults = results;
+      _browseHasMore = results.length >= 20;
+      _isLoadingBrowse = false;
+    });
+  }
+
+  Future<void> _loadMoreBrowse() async {
+    if (_isLoadingBrowse || !_browseHasMore) return;
+    _browseCurrentPage++;
+
+    final option = cinemaBrowseOptions.firstWhere(
+      (o) => o.id == _selectedBrowseOptionId,
+      orElse: () => cinemaBrowseOptions.first,
+    );
+
+    setState(() => _isLoadingBrowse = true);
+
+    List<MediaItem> results;
+    if (option.genreId != null) {
+      results = await _tmdbService.discoverByGenre(
+        genreId: option.genreId!,
+        mediaType: option.mediaType,
+        sortBy: option.sortBy,
+      );
+    } else {
+      results = await _tmdbService.discoverMedia(
+        mediaType: option.mediaType,
+        sortBy: option.sortBy,
+        withGenres: option.genreId != null ? [option.genreId!] : null,
+        yearGte: option.yearGte,
+        yearLte: option.yearLte,
+        voteAverageGte: option.voteAverageGte,
+        voteCountGte: option.voteCountGte,
+        withOriginalLanguage: option.withOriginalLanguage,
+        page: _browseCurrentPage,
+      );
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _browseResults.addAll(results);
+      _browseHasMore = results.length >= 20;
+      _isLoadingBrowse = false;
+    });
+  }
+
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // 4. LIBRARY TAB
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   Widget _buildLibraryTab() {
@@ -2123,6 +2864,11 @@ class _CinemaScreenState extends State<CinemaScreen>
           label: 'Search',
         ),
         ShelfNavItem(
+          icon: Icons.category_outlined,
+          activeIcon: Icons.category_rounded,
+          label: 'Browse',
+        ),
+        ShelfNavItem(
           icon: Icons.collections_bookmark_outlined,
           activeIcon: Icons.collections_bookmark_rounded,
           label: 'Library',
@@ -2384,3 +3130,20 @@ class _CarouselMuteButtonState extends State<_CarouselMuteButton> {
 
 /// Search result / watchlist tiles are now provided by
 /// `ShelfPosterCard` (see `lib/shared/widgets/shelf/`).
+
+/// Helper model for search filter chips used in the Search tab (Phase 3e).
+class _SearchFilterChip {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _SearchFilterChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+}
