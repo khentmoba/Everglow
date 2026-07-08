@@ -11,6 +11,8 @@ import 'package:web/web.dart' as web;
 
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/data/services/ani_zip_service.dart';
+import 'package:everglow/features/cinema/data/services/video_source_service.dart';
+import 'package:everglow/features/cinema/data/models/video_source_config.dart';
 import 'package:everglow/services/auth_service.dart';
 import '../../data/models/watch_party_room.dart';
 import '../../data/services/voice_chat_service.dart';
@@ -141,8 +143,12 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   /// on init; null when the lookup failed or the item isn't anime.
   int? _resolvedTmdbId;
 
-  late VideoProvider _selectedProvider;
+  late VideoSourceConfig _selectedProvider;
   final Set<String> _failedProviderIds = {};
+
+  /// Shared embed-provider service. Sources are loaded from Firestore
+  /// with a hardcoded fallback.
+  final VideoSourceService _sourceService = VideoSourceService();
 
   // ─── Voice chat ───────────────────────────────────────────────────
   final VoiceChatService _voiceChat = VoiceChatService();
@@ -179,80 +185,11 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   /// ~5s of the host without thrashing Firestore.
   static const Duration _heartbeatInterval = Duration(seconds: 5);
 
-  /// Free embed providers. Same order as the regular VideoPlayerScreen
-  /// so we fall back consistently. We duplicate the table here to
-  /// keep this screen self-contained — the regular player and the
-  /// watch-party player have slightly different needs (offset hint in
-  /// the URL, no provider switcher UI) and trying to share logic
-  /// across two iframes is messier than re-declaring the URLs.
-  /// VidLink leads the list because it has a known postMessage API
-  /// (MEDIA_DATA / PLAYER_EVENT outbound) and may accept inbound
-  /// play / pause / seek commands over the same channel.
-  static const List<VideoProvider> _providers = [
-    VideoProvider(
-      id: 'vidfast',
-      name: 'VidFast',
-      shortName: 'VidFast',
-      movieUrl: 'https://vidfast.pro/movie/',
-      tvUrl: 'https://vidfast.pro/tv/',
-    ),
-    VideoProvider(
-      id: 'vidlink',
-      name: 'VidLink',
-      shortName: 'VidLink',
-      movieUrl: 'https://vidlink.pro/movie/',
-      tvUrl: 'https://vidlink.pro/tv/',
-    ),
-    VideoProvider(
-      id: 'videasy',
-      name: 'Videasy',
-      shortName: 'Videasy',
-      movieUrl: 'https://player.videasy.net/movie/',
-      tvUrl: 'https://player.videasy.net/tv/',
-    ),
-    VideoProvider(
-      id: 'multiembed',
-      name: 'MultiEmbed',
-      shortName: 'MultiEmbed',
-      movieUrl: 'https://multiembed.mov/?video_id=',
-      tvUrl: 'https://multiembed.mov/?video_id=',
-    ),
-    VideoProvider(
-      id: '2embed.cc',
-      name: '2Embed',
-      shortName: '2Embed',
-      movieUrl: 'https://www.2embed.cc/embed/',
-      tvUrl: 'https://www.2embed.cc/embedtv/',
-    ),
-    VideoProvider(
-      id: 'vsembed',
-      name: 'VsEmbed',
-      shortName: 'VsEmbed',
-      movieUrl: 'https://vsembed.ru/embed/movie/',
-      tvUrl: 'https://vsembed.ru/embed/',
-    ),
-    VideoProvider(
-      id: 'vidrock',
-      name: 'VidRock',
-      shortName: 'VidRock',
-      movieUrl: 'https://vidrock.ru/movie/',
-      tvUrl: 'https://vidrock.ru/tv/',
-    ),
-    VideoProvider(
-      id: '111movies',
-      name: '111Movies',
-      shortName: '111Movies',
-      movieUrl: 'https://111movies.com/movie/',
-      tvUrl: 'https://111movies.com/tv/',
-    ),
-    VideoProvider(
-      id: 'vidsrc',
-      name: 'VidSrc',
-      shortName: 'VidSrc',
-      movieUrl: 'https://vidsrc.to/embed/movie/',
-      tvUrl: 'https://vidsrc.to/embed/tv/',
-    ),
-  ];
+  /// Free embed providers. Shared via [VideoSourceService] which loads
+  /// from Firestore with a hardcoded fallback. The watch-party player
+  /// doesn't expose a provider switcher — we just cycle through the
+  /// list internally on iframe error.
+  List<VideoSourceConfig> get _providers => _sourceService.providers;
 
   @override
   void initState() {
@@ -605,7 +542,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     _loadTimer?.cancel();
     _contentCheckTimer?.cancel();
     _failedProviderIds.add(_selectedProvider.id);
-    final next = _providers.cast<VideoProvider?>().firstWhere(
+    final next = _providers.cast<VideoSourceConfig?>().firstWhere(
       (p) => !_failedProviderIds.contains(p!.id),
       orElse: () => null,
     );
@@ -639,29 +576,16 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     });
   }
 
-  /// Returns the expected postMessage origin for a given provider id.
+  /// Returns the expected postMessage origin for a given provider.
+  /// Derives the origin from the provider's movie URL (the host portion).
   String _originForProvider(String providerId) {
-    switch (providerId) {
-      case 'vidlink':
-        return 'https://vidlink.pro';
-      case 'multiembed':
-        return 'https://multiembed.mov';
-      case '2embed.cc':
-        return 'https://www.2embed.cc';
-      case 'videasy':
-        return 'https://player.videasy.net';
-      case 'vidfast':
-        return 'https://vidfast.pro';
-      case 'vsembed':
-        return 'https://vsembed.ru';
-      case 'vidrock':
-        return 'https://vidrock.ru';
-      case '111movies':
-        return 'https://111movies.com';
-      case 'vidsrc':
-        return 'https://vidsrc.to';
-      default:
-        return '';
+    final cfg = _sourceService.byId(providerId);
+    if (cfg == null) return '';
+    try {
+      final uri = Uri.parse(cfg.movieUrl);
+      return '${uri.scheme}://${uri.host}';
+    } catch (_) {
+      return '';
     }
   }
 
@@ -695,11 +619,10 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   // they always start at 0 — which is the documented limitation of
   // the sync.
 
-  String _buildPlayerUrl(VideoProvider provider, {required double startSeconds}) {
+  String _buildPlayerUrl(VideoSourceConfig provider, {required double startSeconds}) {
     final movieBase = provider.movieUrl;
     final tvBase = provider.tvUrl;
     final id = _room.isAnime ? (_resolvedTmdbId ?? _room.malId ?? _room.tmdbId) : _room.tmdbId;
-    final start = startSeconds.round();
     debugPrint('WatchPartyScreen _buildPlayerUrl: provider=${provider.id}, id=$id, mediaType=${_room.mediaType}, season=${_room.season}, episode=${_room.episode}');
 
     String base;
@@ -1301,7 +1224,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     );
   }
 
-  void _selectProvider(VideoProvider provider) {
+  void _selectProvider(VideoSourceConfig provider) {
     if (provider.id == _selectedProvider.id) return;
     _loadTimer?.cancel();
     _contentCheckTimer?.cancel();
@@ -1328,23 +1251,4 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     }
     return '$m:${s.toString().padLeft(2, '0')}';
   }
-}
-
-/// Minimal provider descriptor. The watch-party player doesn't expose
-/// a provider switcher — we just cycle through the list internally on
-/// iframe error.
-class VideoProvider {
-  final String id;
-  final String name;
-  final String shortName;
-  final String movieUrl;
-  final String tvUrl;
-
-  const VideoProvider({
-    required this.id,
-    required this.name,
-    required this.shortName,
-    required this.movieUrl,
-    required this.tvUrl,
-  });
 }
