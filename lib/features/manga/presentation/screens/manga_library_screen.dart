@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_breakpoints.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
-import 'package:everglow/features/manga/data/services/comick_service.dart';
+import 'package:everglow/features/manga/data/services/mangadex_service.dart';
 import 'package:everglow/features/manga/data/services/mangakakalot_service.dart';
 import 'package:everglow/features/manga/presentation/widgets/manga_details_drawer.dart';
 import 'package:everglow/features/manga/presentation/widgets/manga_search_modal.dart';
@@ -47,7 +47,7 @@ class MangaLibraryScreen extends StatefulWidget {
 class _MangaLibraryScreenState extends State<MangaLibraryScreen>
     with TickerProviderStateMixin {
   final MangaKakalotService _service = MangaKakalotService();
-  final ComickService _comick = ComickService();
+  final MangaDexService _mangaDex = MangaDexService();
   int _currentIndex = 0;
 
   StreamSubscription<List<MangaItem>>? _librarySub;
@@ -98,11 +98,11 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
     });
     try {
       final results = await Future.wait([
-        _comick.fetchPopular(),
-        _comick.fetchLatest(),
-        _comick.fetchPopular(country: 'jp'),
-        _comick.fetchPopular(country: 'ko'),
-        _comick.fetchPopular(country: 'cn'),
+        _mangaDex.fetchPopular(),
+        _mangaDex.fetchLatest(),
+        _mangaDex.fetchPopular(originalLanguage: 'ja'),
+        _mangaDex.fetchPopular(originalLanguage: 'ko'),
+        _mangaDex.fetchPopular(originalLanguage: 'zh'),
       ]);
       if (!mounted) return;
       setState(() {
@@ -243,6 +243,44 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
             child: _buildLanguageFilter(),
           ),
           const SizedBox(height: 16),
+          if (_homeError != null && !_isLoadingHome && _popular.isEmpty && _latest.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: _cDeepRose.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: _cDeepRose.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.cloud_off, color: _cMuted, size: 32),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Unable to load catalogue right now.',
+                      style: GoogleFonts.outfit(
+                        color: _cRose,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Pull down to retry or use Search to find titles.',
+                      style: GoogleFonts.outfit(
+                        color: _cMuted,
+                        fontSize: 12,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           if (_popular.isNotEmpty)
             StaggeredEntrance(
               index: 2,

@@ -130,9 +130,9 @@ class AIService extends ChangeNotifier {
       // Add assistant reply
       conversation.messages.add(AIMessage(role: 'assistant', content: reply));
 
-      // Persist to Firestore (keep last 80 messages max)
-      if (conversation.messages.length > 80) {
-        conversation.messages.removeRange(0, conversation.messages.length - 80);
+      // Persist to Firestore (keep last 30 messages max)
+      if (conversation.messages.length > 30) {
+        conversation.messages.removeRange(0, conversation.messages.length - 30);
       }
       await _saveConversation(conversation);
 

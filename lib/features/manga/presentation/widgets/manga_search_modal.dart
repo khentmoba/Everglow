@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
-import 'package:everglow/features/manga/data/services/comick_service.dart';
+import 'package:everglow/features/manga/data/services/mangadex_service.dart';
 import 'package:everglow/features/manga/data/services/mangakakalot_service.dart';
 import 'package:everglow/features/manga/presentation/widgets/manga_cover_card.dart';
 import 'package:everglow/services/auth_service.dart';
@@ -26,7 +26,7 @@ class MangaSearchModal extends StatefulWidget {
 }
 
 class _MangaSearchModalState extends State<MangaSearchModal> {
-  final ComickService _comick = ComickService();
+  final MangaDexService _mangaDex = MangaDexService();
   final MangaKakalotService _md = MangaKakalotService();
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
@@ -61,9 +61,9 @@ class _MangaSearchModalState extends State<MangaSearchModal> {
   Future<void> _performSearch(String query) async {
     setState(() => _isLoading = true);
     final country = _selectedLanguage.isEmpty ? null : _selectedLanguage;
-    final results = await _comick.search(
+    final results = await _mangaDex.search(
       query: query,
-      country: country,
+      originalLanguage: country,
     );
     if (mounted) {
       setState(() {

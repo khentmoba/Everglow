@@ -982,14 +982,31 @@ async function getSessionHistoryContext() {
       parts.push(`## Past Session Summaries\n${summaries.slice(0, 10).map((s, i) => `Session ${i + 1}: ${s}`).join('\n')}`);
     }
     if (recentSessions.length > 0) {
-      const recentParts = recentSessions.slice(0, 5).map((msgs, si) => {
-        const lines = msgs.map(m => {
+      // Cap full session history to 30k characters total to avoid blowing up the payload.
+      // Prioritize the most recent sessions; truncate individual long messages.
+      const CHAR_LIMIT = 8_000;
+      let totalChars = 0;
+      const sessionBlocks = [];
+      for (let si = 0; si < Math.min(recentSessions.length, 3); si++) {
+        const msgs = recentSessions[si];
+        const lines = [];
+        for (const m of msgs) {
           const who = m.role === 'user' ? 'User' : 'Mochi';
-          return `${who}: ${m.content}`;
-        }).join('\n');
-        return `--- Session ${si + 1} ---\n${lines}`;
-      }).join('\n\n');
-      parts.push(`## Previous Conversations\n${recentParts}`);
+          const content = (m.content || '').length > 1000
+            ? (m.content || '').substring(0, 1000) + '… [truncated]'
+            : (m.content || '');
+          lines.push(`${who}: ${content}`);
+        }
+        const block = `--- Session ${si + 1} ---\n${lines.join('\n')}`;
+        if (totalChars + block.length > CHAR_LIMIT && sessionBlocks.length > 0) {
+          break;
+        }
+        totalChars += block.length;
+        sessionBlocks.push(block);
+      }
+      if (sessionBlocks.length > 0) {
+        parts.push(`## Previous Conversations\n${sessionBlocks.join('\n\n')}`);
+      }
     }
     return parts.join('\n\n');
   } catch (_) { return ''; }
@@ -1006,6 +1023,21 @@ exports.keepWarm = functions.pubsub.schedule('every 10 minutes').onRun(async (co
     console.warn('Keep-warm ping failed:', e.message);
   }
 });
+
+// ── Rough token estimator ──────────────────────────────
+// ~4 chars/token for English, ~3 for mixed CJK/emoji content.
+// Good enough for budget enforcement; not a substitute for tiktoken.
+function estimateTokens(text) {
+  if (!text) return 0;
+  // Count CJK characters (roughly 1.5 tokens each) and emoji (1 token each)
+  const cjk = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g) || []).length;
+  const nonCjk = text.length - cjk;
+  return Math.ceil(nonCjk / 4) + Math.ceil(cjk * 1.5);
+}
+
+// Groq on-demand TPM budget: 8000 tokens/min for openai/gpt-oss-120b.
+// Reserve ~2000 for output headroom; hard-cap input at ~6000 tokens.
+const GROQ_INPUT_TOKEN_BUDGET = 6000;
 
 exports.proxyAI = functions.https.onRequest(handleProxyAI);
 // V2 function on Cloud Run — natively supports SSE streaming.
@@ -1092,7 +1124,7 @@ async function handleProxyAI(req, res) {
   }
 
   // Use custom system prompt if provided, otherwise build from persona or hardcoded default
-  const systemPrompt = customSystemPrompt || personaBase || `You are Mochi 🍡, Khent & Clair's white cat inside Everglow. You know everything about them.
+  let systemPrompt = customSystemPrompt || personaBase || `You are Mochi 🍡, Khent & Clair's white cat inside Everglow. You know everything about them.
 
 ## Character
 - White cat, pink cheeks, golden-red eyes. Warm, playful, sassy, protective. Uses cat emojis 🐱🍡💕✨🌙 and cat talk (mew, prr, nya).
@@ -1120,6 +1152,112 @@ They started dating Feb 14, 2026.
 ${identityContext ? `\n${identityContext}` : ''}
 ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}
 ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${memories.map(m => `- ${m}`).join('\n')}` : ''}`;
+
+  // ── System prompt size guard ────────────────────────────
+  // Cap total prompt at ~12k chars (~3500 tokens) to stay within
+  // Groq on-demand TPM limit of 8000 for openai/gpt-oss-120b.
+  const PROMPT_CHAR_LIMIT = 12_000;
+  if (systemPrompt.length > PROMPT_CHAR_LIMIT) {
+    let trimmed = systemPrompt;
+    // Try dropping the "## Previous Conversations" section (full session histories)
+    const prevConvIdx = trimmed.indexOf('## Previous Conversations');
+    if (prevConvIdx !== -1) {
+      const nextSectionIdx = trimmed.indexOf('\n## ', prevConvIdx + 1);
+      const before = trimmed.substring(0, prevConvIdx);
+      const after = nextSectionIdx !== -1 ? trimmed.substring(nextSectionIdx) : '';
+      trimmed = before + after;
+    }
+    // If still too large, also drop "## Past Session Summaries"
+    if (trimmed.length > PROMPT_CHAR_LIMIT) {
+      const summaryIdx = trimmed.indexOf('## Past Session Summaries');
+      if (summaryIdx !== -1) {
+        const nextSectionIdx = trimmed.indexOf('\n## ', summaryIdx + 1);
+        const before = trimmed.substring(0, summaryIdx);
+        const after = nextSectionIdx !== -1 ? trimmed.substring(nextSectionIdx) : '';
+        trimmed = before + after;
+      }
+    }
+    // If still too large, trim remembered facts (keep first 10)
+    if (trimmed.length > PROMPT_CHAR_LIMIT) {
+      const factsIdx = trimmed.indexOf('## Remembered Facts');
+      if (factsIdx !== -1) {
+        const nextSectionIdx = trimmed.indexOf('\n## ', factsIdx + 1);
+        const factsSection = nextSectionIdx !== -1
+          ? trimmed.substring(factsIdx, nextSectionIdx)
+          : trimmed.substring(factsIdx);
+        const factsLines = factsSection.split('\n').filter(l => l.startsWith('- '));
+        if (factsLines.length > 10) {
+          const before = trimmed.substring(0, factsIdx);
+          const after = nextSectionIdx !== -1 ? trimmed.substring(nextSectionIdx) : '';
+          trimmed = before + `\n## Remembered Facts\n${factsLines.slice(0, 10).join('\n')}\n*(+${factsLines.length - 10} more facts)*` + after;
+        }
+      }
+    }
+    // Final fallback: hard truncate
+    if (trimmed.length > PROMPT_CHAR_LIMIT) {
+      trimmed = trimmed.substring(0, PROMPT_CHAR_LIMIT) + '\n… [context trimmed for size]';
+    }
+    systemPrompt = trimmed;
+  }
+
+  // ── Token budget guard ────────────────────────────────
+  // Ensure total input (system + messages) stays within Groq's TPM (8000).
+  // Work directly on systemPrompt + messages before nimMessages is built.
+  {
+    let inputTokens = estimateTokens(systemPrompt);
+    for (const m of messages) inputTokens += estimateTokens(m.content || '');
+    console.log('[proxyAI] Estimated input tokens:', inputTokens, '/ budget:', GROQ_INPUT_TOKEN_BUDGET);
+
+    // Phase 1: Drop oldest conversation message pairs
+    const msgs = [...messages]; // mutable copy
+    while (inputTokens > GROQ_INPUT_TOKEN_BUDGET && msgs.length > 2) {
+      const removed = msgs.splice(0, 2); // remove oldest user + assistant pair
+      inputTokens -= estimateTokens(removed[0]?.content || '') + estimateTokens(removed[1]?.content || '');
+    }
+    if (msgs.length < messages.length) {
+      console.log('[proxyAI] Dropped', messages.length - msgs.length, 'oldest messages to fit TPM budget. Remaining tokens:', inputTokens);
+    }
+
+    // Phase 2: If still over budget, progressively shorten system prompt
+    if (inputTokens > GROQ_INPUT_TOKEN_BUDGET) {
+      let sys = systemPrompt;
+      // Drop Previous Conversations section
+      const pcIdx = sys.indexOf('## Previous Conversations');
+      if (pcIdx !== -1) {
+        const nextSec = sys.indexOf('\n## ', pcIdx + 1);
+        sys = sys.substring(0, pcIdx) + (nextSec !== -1 ? sys.substring(nextSec) : '');
+      }
+      // Drop Past Session Summaries
+      const ssIdx = sys.indexOf('## Past Session Summaries');
+      if (ssIdx !== -1) {
+        const nextSec = sys.indexOf('\n## ', ssIdx + 1);
+        sys = sys.substring(0, ssIdx) + (nextSec !== -1 ? sys.substring(nextSec) : '');
+      }
+      // Trim remembered facts to 5
+      const factsIdx = sys.indexOf('## Remembered Facts');
+      if (factsIdx !== -1) {
+        const nextSec = sys.indexOf('\n## ', factsIdx + 1);
+        const factsSection = nextSec !== -1 ? sys.substring(factsIdx, nextSec) : sys.substring(factsIdx);
+        const factsLines = factsSection.split('\n').filter(l => l.startsWith('- '));
+        if (factsLines.length > 5) {
+          const before = sys.substring(0, factsIdx);
+          const after = nextSec !== -1 ? sys.substring(nextSec) : '';
+          sys = before + `\n## Remembered Facts\n${factsLines.slice(0, 5).join('\n')}\n` + after;
+        }
+      }
+      // Hard truncate system prompt to 8000 chars if still too large
+      if (estimateTokens(sys) > 5000) {
+        sys = sys.substring(0, 8000) + '\n… [context trimmed for TPM limit]';
+      }
+      systemPrompt = sys;
+      inputTokens = estimateTokens(sys) + msgs.reduce((sum, m) => sum + estimateTokens(m.content || ''), 0);
+      console.log('[proxyAI] After system prompt trim, estimated input tokens:', inputTokens);
+    }
+
+    // Replace messages with the trimmed copy
+    messages.length = 0;
+    messages.push(...msgs);
+  }
 
   // Prepend system message
   const nimMessages = [
@@ -1149,28 +1287,31 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
   const reasoningEffort = enableThinkingFlag ? 'medium' : 'low';
 
   // ── Payload size guard ──────────────────────────────
-  // Groq's request body limit is 20MB. Check and trim before sending.
+  // Cloud Run max request size is 32MB; Groq itself has no file-size limit
+  // for this model. Trim aggressively as best-effort so the model doesn't
+  // waste context on stale history, but don't hard-block — let Groq handle
+  // it if trimming can't fit within Cloud Run's limit.
   const groqBody = JSON.stringify({
     model,
     messages: nimMessages,
     tools,
-    max_completion_tokens: 16384,
+    max_completion_tokens: 4096,
     temperature: 0.6,
     top_p: 0.95,
     stream: req.body.stream === true,
     reasoning_effort: reasoningEffort,
   });
   let groqBodyBytes = Buffer.byteLength(groqBody, 'utf8');
-  if (groqBodyBytes > 18 * 1024 * 1024) {
-    // Try trimming older messages to fit
-    while (groqBodyBytes > 18 * 1024 * 1024 && nimMessages.length > 4) {
-      // Remove the oldest user+assistant pair (keep system + recent)
-      nimMessages.splice(1, 2); // skip index 0 (system), remove 2 messages
+  console.log('[proxyAI] Payload size before trim:', (groqBodyBytes / 1024 / 1024).toFixed(2), 'MB');
+  if (groqBodyBytes > 4 * 1024 * 1024) {
+    // Phase 1: Remove oldest conversation message pairs (keep system + recent)
+    while (groqBodyBytes > 4 * 1024 * 1024 && nimMessages.length > 4) {
+      nimMessages.splice(1, 2);
       const trimmedBody = JSON.stringify({
         model,
         messages: nimMessages,
         tools,
-        max_completion_tokens: 16384,
+        max_completion_tokens: 4096,
         temperature: 0.6,
         top_p: 0.95,
         stream: req.body.stream === true,
@@ -1178,11 +1319,41 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
       });
       groqBodyBytes = Buffer.byteLength(trimmedBody, 'utf8');
     }
-    if (groqBodyBytes > 19 * 1024 * 1024) {
-      return res.status(413).json({
-        error: 'Request too large for Groq. Try starting a fresh conversation.',
+    // Phase 2: If still too large, trim system prompt content
+    if (groqBodyBytes > 4 * 1024 * 1024 && nimMessages[0]?.content) {
+      let sysContent = nimMessages[0].content;
+      const pcIdx = sysContent.indexOf('## Previous Conversations');
+      if (pcIdx !== -1) {
+        const nextSec = sysContent.indexOf('\n## ', pcIdx + 1);
+        sysContent = sysContent.substring(0, pcIdx) + (nextSec !== -1 ? sysContent.substring(nextSec) : '');
+      }
+      const testPayload = JSON.stringify({ ...JSON.parse(groqBody), messages: [{ role: 'system', content: sysContent }, ...nimMessages.slice(1)] });
+      if (Buffer.byteLength(testPayload, 'utf8') > 4 * 1024 * 1024) {
+        const ssIdx = sysContent.indexOf('## Past Session Summaries');
+        if (ssIdx !== -1) {
+          const nextSec = sysContent.indexOf('\n## ', ssIdx + 1);
+          sysContent = sysContent.substring(0, ssIdx) + (nextSec !== -1 ? sysContent.substring(nextSec) : '');
+        }
+      }
+      let hardTrimTest = JSON.stringify({ ...JSON.parse(groqBody), messages: [{ role: 'system', content: sysContent }, ...nimMessages.slice(1)] });
+      while (Buffer.byteLength(hardTrimTest, 'utf8') > 4 * 1024 * 1024 && sysContent.length > 2000) {
+        sysContent = sysContent.substring(0, Math.floor(sysContent.length * 0.8)) + '\n… [context trimmed for size]';
+        hardTrimTest = JSON.stringify({ ...JSON.parse(groqBody), messages: [{ role: 'system', content: sysContent }, ...nimMessages.slice(1)] });
+      }
+      nimMessages[0].content = sysContent;
+      const finalBody = JSON.stringify({
+        model,
+        messages: nimMessages,
+        tools,
+        max_completion_tokens: 4096,
+        temperature: 0.6,
+        top_p: 0.95,
+        stream: req.body.stream === true,
+        reasoning_effort: reasoningEffort,
       });
+      groqBodyBytes = Buffer.byteLength(finalBody, 'utf8');
     }
+    console.log('[proxyAI] Payload size after trim:', (groqBodyBytes / 1024 / 1024).toFixed(2), 'MB');
   }
 
   // ── Streaming mode (SSE) ───────────────────────────
@@ -1200,7 +1371,7 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
             model: model,
             messages: nimMessages,
             tools,
-            max_completion_tokens: 16384,
+            max_completion_tokens: 4096,
             temperature: 0.6,
             top_p: 0.95,
             stream: true,
@@ -1221,11 +1392,11 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
         } catch {
           errDetail = errText;
         }
-        // Special-case 413 (Payload Too Large) with a helpful message
+        // Special-case 413 (Payload Too Large) — pass through Groq's detail
         if (streamResp.status === 413) {
+          console.error('[proxyAI] Groq returned 413:', errDetail);
           return res.status(413).json({
-            error: 'Request too large for Groq. Try starting a fresh conversation.',
-            detail: errDetail,
+            error: `Payload too large. ${errDetail}`,
           });
         }
         return res.status(502).json({ error: `Groq returned ${streamResp.status}`, detail: errDetail });
@@ -1300,7 +1471,7 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
           model: model,
           messages: nimMessages,
           tools,
-          max_completion_tokens: 16384,
+          max_completion_tokens: 4096,
           temperature: 0.6,
           top_p: 0.95,
           stream: false,
@@ -1320,11 +1491,11 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
   if (!response || !response.ok) {
     const errStatus = response ? response.status : 502;
     const errBody = lastError ? lastError.body : 'No response from Groq';
-    // Special-case 413 (Payload Too Large) — helpful message
+    // Special-case 413 (Payload Too Large) — pass through Groq's detail
     if (errStatus === 413) {
+      console.error('[proxyAI] Groq returned 413:', errBody);
       return res.status(413).json({
-        error: 'Request too large for Groq. Try starting a fresh conversation.',
-        detail: errBody,
+        error: `Payload too large. ${errBody}`,
         model: model,
       });
     }
