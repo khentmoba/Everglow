@@ -11,6 +11,7 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../shared/utils/text_utils.dart';
+import 'mochi_sidebar.dart';
 
 /// Full-screen Mochi AI assistant, inspired by Vercel's chatbot interface.
 class MochiScreen extends StatefulWidget {
@@ -28,6 +29,7 @@ class _MochiScreenState extends State<MochiScreen> {
   bool _showScrollButton = false;
   bool _isSending = false;
   String? _lastSentMessage;
+  bool _isSidebarOpen = false;
 
   @override
   void initState() {
