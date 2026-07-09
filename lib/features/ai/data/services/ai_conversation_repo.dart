@@ -132,9 +132,9 @@ class AIConversationRepository implements IAIConversationRepository {
           .orderBy('createdAt', descending: true)
           .get();
 
-      if (snapshot.docs.length <= 5) return;
+      if (snapshot.docs.length <= 8) return;
 
-      final toSummarize = snapshot.docs.toList().skip(5).toList();
+      final toSummarize = snapshot.docs.toList().skip(8).toList();
       for (final doc in toSummarize) {
         final data = doc.data();
         final messages = data['messages'] as List? ?? [];
@@ -153,7 +153,7 @@ class AIConversationRepository implements IAIConversationRepository {
     }
   }
 
-  /// LLM-powered session summary via Groq.
+  /// LLM-powered session summary via Agnes.
   Future<String> _buildLLMSummary(List messages) async {
     if (messages.isEmpty) return 'Empty session';
 
@@ -192,7 +192,7 @@ class AIConversationRepository implements IAIConversationRepository {
     return _buildLocalSummary(messages);
   }
 
-  /// Merge oldest summaries when count exceeds 10.
+  /// Merge oldest summaries when count exceeds 20.
   Future<void> _compressOldSessions() async {
     try {
       final snapshot = await _db
@@ -201,12 +201,12 @@ class AIConversationRepository implements IAIConversationRepository {
           .collection('sessions')
           .where('hasSummary', isEqualTo: true)
           .orderBy('createdAt')
-          .limit(20)
+          .limit(40)
           .get();
 
-      if (snapshot.docs.length <= 10) return;
+      if (snapshot.docs.length <= 20) return;
 
-      final toMerge = snapshot.docs.take(snapshot.docs.length - 5).toList();
+      final toMerge = snapshot.docs.take(snapshot.docs.length - 8).toList();
       final summaries = toMerge
           .map((d) => d.data()['summary'] as String? ?? '')
           .where((s) => s.isNotEmpty)
@@ -294,7 +294,7 @@ class AIConversationRepository implements IAIConversationRepository {
     return '$exchangeCount topics — ${topics.join(' • ')}';
   }
 
-  /// Load the last 3 full sessions' messages into a conversation.
+  /// Load the last 5 full sessions' messages into a conversation.
   Future<void> loadSessionIntoConversation(AIConversation conversation) async {
     try {
       final snapshot = await _db
@@ -302,7 +302,7 @@ class AIConversationRepository implements IAIConversationRepository {
           .doc('shared')
           .collection('sessions')
           .orderBy('createdAt', descending: true)
-          .limit(3)
+          .limit(5)
           .get();
 
       if (snapshot.docs.isEmpty) return;

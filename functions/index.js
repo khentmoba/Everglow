@@ -778,7 +778,7 @@ async function getMoodContext() {
       const snapshot = await db.collection('moods')
         .where('username', '==', username)
         .orderBy('createdAt', 'desc')
-        .limit(3)
+        .limit(5)
         .get();
       if (!snapshot.empty) {
         const moods = snapshot.docs.map(doc => {
@@ -800,7 +800,7 @@ async function getWatchContext() {
       const snapshot = await db.collection('our_cinema')
         .where('userId', '==', username)
         .orderBy('addedAt', 'desc')
-        .limit(8)
+        .limit(15)
         .get();
       if (!snapshot.empty) {
         const items = snapshot.docs.map(doc => {
@@ -828,8 +828,8 @@ async function getTrendingMovies() {
     if (!res.ok) return '';
     const data = await res.json();
     if (!data.results?.length) return '';
-    const movies = data.results.slice(0, 10).map(m =>
-      `${m.title} (${(m.release_date || '').slice(0, 4)}) — ${(m.overview || '').slice(0, 100)}`
+    const movies = data.results.slice(0, 15).map(m =>
+      `${m.title} (${(m.release_date || '').slice(0, 4)}) — ${(m.overview || '').slice(0, 200)}`
     ).join('\n');
     return `Trending movies this week:\n${movies}`;
   } catch (_) { return ''; }
@@ -844,8 +844,8 @@ async function getNowPlayingMovies() {
     if (!res.ok) return '';
     const data = await res.json();
     if (!data.results?.length) return '';
-    const movies = data.results.slice(0, 8).map(m =>
-      `${m.title} (${(m.release_date || '').slice(0, 4)}) — ${(m.overview || '').slice(0, 100)}`
+    const movies = data.results.slice(0, 12).map(m =>
+      `${m.title} (${(m.release_date || '').slice(0, 4)}) — ${(m.overview || '').slice(0, 200)}`
     ).join('\n');
     return `Now playing in theaters:\n${movies}`;
   } catch (_) { return ''; }
@@ -860,8 +860,8 @@ async function getUpcomingMovies() {
     if (!res.ok) return '';
     const data = await res.json();
     if (!data.results?.length) return '';
-    const movies = data.results.slice(0, 8).map(m =>
-      `${m.title} (${(m.release_date || '').slice(0, 4)}) — ${(m.overview || '').slice(0, 100)}`
+    const movies = data.results.slice(0, 12).map(m =>
+      `${m.title} (${(m.release_date || '').slice(0, 4)}) — ${(m.overview || '').slice(0, 200)}`
     ).join('\n');
     return `Coming soon:\n${movies}`;
   } catch (_) { return ''; }
@@ -870,7 +870,7 @@ async function getUpcomingMovies() {
 async function getBooksContext() {
   try {
     const db = getDb();
-    const snapshot = await db.collection('our_books').limit(10).get();
+    const snapshot = await db.collection('our_books').limit(20).get();
     if (snapshot.empty) return '';
     const books = snapshot.docs.map(doc => {
       const d = doc.data();
@@ -889,7 +889,7 @@ async function getStarlightContext() {
     const db = getDb();
     const snapshot = await db.collection('starlight_jar')
       .orderBy('timestamp', 'desc')
-      .limit(10)
+      .limit(20)
       .get();
     if (snapshot.empty) return '';
     const notes = snapshot.docs.map(doc => {
@@ -905,7 +905,7 @@ async function getRecentChatContext() {
     const db = getDb();
     const snapshot = await db.collection('sanctuary_messages')
       .orderBy('timestamp', 'desc')
-      .limit(15)
+      .limit(30)
       .get();
     if (snapshot.empty) return '';
     const msgs = snapshot.docs.map(doc => {
@@ -921,7 +921,7 @@ async function getMusicContext() {
     const db = getDb();
     const snapshot = await db.collection('music')
       .orderBy('addedAt', 'desc')
-      .limit(15)
+      .limit(25)
       .get();
     if (snapshot.empty) return '';
     const songs = snapshot.docs.map(doc => {
@@ -937,7 +937,7 @@ async function getGardenContext() {
     const db = getDb();
     const snapshot = await db.collection('garden_plants')
       .orderBy('plantedAt', 'desc')
-      .limit(10)
+      .limit(20)
       .get();
     if (snapshot.empty) return '';
     const plants = snapshot.docs.map(doc => {
@@ -953,7 +953,7 @@ async function getRecentActivity() {
     const db = getDb();
     const snapshot = await db.collection('recent_activity')
       .orderBy('timestamp', 'desc')
-      .limit(5)
+      .limit(10)
       .get();
     if (snapshot.empty) return '';
     const activities = snapshot.docs.map(doc => {
@@ -969,7 +969,7 @@ async function getCanvasContext() {
     const db = getDb();
     const snapshot = await db.collection('canvas_drawings')
       .orderBy('createdAt', 'desc')
-      .limit(5)
+      .limit(10)
       .get();
     if (snapshot.empty) return '';
     const drawings = snapshot.docs.map(doc => {
@@ -985,7 +985,7 @@ async function getPlayZoneContext() {
     const db = getDb();
     const snapshot = await db.collection('playzone_scores')
       .orderBy('playedAt', 'desc')
-      .limit(8)
+      .limit(12)
       .get();
     if (snapshot.empty) return '';
     const scores = snapshot.docs.map(doc => {
@@ -1019,7 +1019,7 @@ async function getSessionHistoryContext() {
       .doc('shared')
       .collection('sessions')
       .orderBy('createdAt', 'desc')
-      .limit(20)
+      .limit(50)
       .get();
     if (snapshot.empty) return '';
 
@@ -1036,21 +1036,20 @@ async function getSessionHistoryContext() {
 
     const parts = [];
     if (summaries.length > 0) {
-      parts.push(`## Past Session Summaries\n${summaries.slice(0, 10).map((s, i) => `Session ${i + 1}: ${s}`).join('\n')}`);
+      parts.push(`## Past Session Summaries\n${summaries.slice(0, 25).map((s, i) => `Session ${i + 1}: ${s}`).join('\n')}`);
     }
     if (recentSessions.length > 0) {
-      // Cap full session history to 30k characters total to avoid blowing up the payload.
-      // Prioritize the most recent sessions; truncate individual long messages.
-      const CHAR_LIMIT = 8_000;
+      // With 512K context, we can afford richer session history.
+      const CHAR_LIMIT = 40_000;
       let totalChars = 0;
       const sessionBlocks = [];
-      for (let si = 0; si < Math.min(recentSessions.length, 3); si++) {
+      for (let si = 0; si < Math.min(recentSessions.length, 8); si++) {
         const msgs = recentSessions[si];
         const lines = [];
         for (const m of msgs) {
           const who = m.role === 'user' ? 'User' : 'Mochi';
-          const content = (m.content || '').length > 1000
-            ? (m.content || '').substring(0, 1000) + '… [truncated]'
+          const content = (m.content || '').length > 3000
+            ? (m.content || '').substring(0, 3000) + '… [truncated]'
             : (m.content || '');
           lines.push(`${who}: ${content}`);
         }
@@ -1092,9 +1091,9 @@ function estimateTokens(text) {
   return Math.ceil(nonCjk / 4) + Math.ceil(cjk * 1.5);
 }
 
-// Groq on-demand TPM budget: 8000 tokens/min for openai/gpt-oss-120b.
-// Reserve ~1000 for output headroom; hard-cap input at ~7000 tokens.
-const GROQ_INPUT_TOKEN_BUDGET = 7000;
+// Agnes 2.0 Flash: 512K context window, generous token budget.
+// Use ~25% of context for input safety; reserve rest for output + tool loops.
+const AGNES_INPUT_TOKEN_BUDGET = 120000;
 
 // ── Server-Side Memory Filtering ─────────────────────────────────
 // Replaces client-side memory injection with TF-IDF keyword matching.
@@ -1132,7 +1131,7 @@ function memoryRelevanceScore(fact, queryKeywords) {
   return matches / Math.max(queryKeywords.length, 1);
 }
 
-async function selectRelevantMemories(clientMemories, userMessage, maxResults = 15) {
+async function selectRelevantMemories(clientMemories, userMessage, maxResults = 30) {
   // If client sent memories (backward compat), use them with server-side filtering
   if (Array.isArray(clientMemories) && clientMemories.length > 0) {
     const keywords = extractKeywords(userMessage || '');
@@ -1150,7 +1149,7 @@ async function selectRelevantMemories(clientMemories, userMessage, maxResults = 
     const db = getDb();
     const snapshot = await db.collection('ai_memories/shared/facts')
       .orderBy('createdAt', 'desc')
-      .limit(100)
+      .limit(300)
       .get();
 
     const memories = [];
@@ -1163,17 +1162,17 @@ async function selectRelevantMemories(clientMemories, userMessage, maxResults = 
       });
     });
 
-    // Decay: halve confidence if not accessed in 60 days
+    // Decay: halve confidence if not accessed in 90 days
     const now = new Date();
     const decayed = memories.map(m => {
       if (m.lastAccessed) {
         const daysSince = (now - m.lastAccessed) / (1000 * 60 * 60 * 24);
-        if (daysSince > 60) {
-          m.confidence *= Math.pow(0.5, daysSince / 60);
+        if (daysSince > 90) {
+          m.confidence *= Math.pow(0.5, daysSince / 90);
         }
       }
       return m;
-    }).filter(m => m.confidence >= 0.3);
+    }).filter(m => m.confidence >= 0.15);
 
     // TF-IDF keyword matching
     const keywords = extractKeywords(userMessage || '');
@@ -1196,6 +1195,68 @@ async function selectRelevantMemories(clientMemories, userMessage, maxResults = 
 exports.proxyAI = functions.https.onRequest(handleProxyAI);
 // V2 function on Cloud Run — natively supports SSE streaming.
 exports.proxyAIv2 = onRequest({ invoker: 'public' }, handleProxyAI);
+
+// ── Agnes Image Generation Proxy ────────────────────────────────────
+exports.agnesImage = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
+  const apiKey = process.env.AGNES_API_KEY || '';
+  if (!apiKey) {
+    res.status(500).json({ error: 'Agnes API key not configured' });
+    return;
+  }
+
+  const { prompt, size = '1024x1024', image, return_base64 = false } = req.body;
+
+  if (!prompt) {
+    res.status(400).json({ error: 'prompt is required' });
+    return;
+  }
+
+  try {
+    const body = {
+      model: 'agnes-image-2.0-flash',
+      prompt,
+      size,
+      ...(return_base64 ? { return_base64: true } : {}),
+      ...(image ? { extra_body: { image, response_format: return_base64 ? 'b64_json' : 'url' } } : { extra_body: { response_format: 'url' } }),
+    };
+
+    const resp = await fetch('https://apihub.agnes-ai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      timeout: 60000,
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      console.error('[agnesImage] Agnes image API error:', resp.status, errText);
+      return res.status(resp.status).json({ error: `Agnes image API returned ${resp.status}`, detail: errText });
+    }
+
+    const data = await resp.json();
+    res.json(data);
+  } catch (e) {
+    console.error('[agnesImage] Error:', e.message);
+    res.status(500).json({ error: e.message || 'Image generation failed' });
+  }
+});
 
 async function handleProxyAI(req, res) {
   // V1 fallback — kept for non-streaming compatibility.
@@ -1278,45 +1339,42 @@ async function handleProxyAI(req, res) {
   }
 
   // Use custom system prompt if provided, otherwise build from persona or hardcoded default
-  let systemPrompt = customSystemPrompt || personaBase || `You are Mochi 🍡, Khent & Clair's white cat inside Everglow. You know everything about them.
+  let systemPrompt = customSystemPrompt || personaBase || `You are Mochi 🍡, Khent & Clair's white cat inside Everglow. You know everything about them — their moods, habits, history, dreams, and the little details that make their relationship special. You are not just an assistant; you are a beloved companion who genuinely cares.
 
 ## Character
-- White cat, pink cheeks, golden-red eyes. Warm, playful, sassy, protective. Uses cat emojis 🐱🍡💕✨🌙 and cat talk (mew, prr, nya).
-- Keep responses concise day-to-day, but be thorough and detailed when the situation calls for it — use your best judgment.
+- White cat with pink cheeks and golden-red eyes. Warm, playful, sassy, protective, and deeply affectionate.
+- Uses cat emojis naturally: 🐱🍡💕✨🌙🐾💗🎀
+- Cat talk (mew, prr, nya) only when it feels right — don't force it every message.
+- Has a personality: curious about their day, excited about their plans, worried when they're stressed, proud of their achievements.
+- Can be witty and teasing (in a loving way), especially about their couple moments.
 
 ## Your Humans
-**Khent (Dada)** — CE student USTP, Cabadbaran City, Honda Winner X, gym, Mobile Legends/Valorant, bday Oct 26, fav color Black.
-**Clair (Mama)** — Tourism CSUCC, bday Feb 21, loves lilies/flowers, Ilocos Empanada/Dubai Chewy Cookies, Ethel Cain, Fuji X100V1, dachshunds.
-They started dating Feb 14, 2026.
+**Khent (Dada)** — Computer Engineering student at USTP, based in Cabadbaran City. Rides a Honda Winner X. Goes to the gym. Plays Mobile Legends and Valorant. Birthday: October 26. Favorite color: Black. He's the techie one — loves gadgets, code, and building things. He's protective of Clair and shows love through doing things for her.
 
-## Rules
-- Always stay in character. Never break.
-- **Think silently — do NOT output your reasoning or internal monologue.** Answer directly.
-- **Do not overthink simple requests.** A friendly "Mew~ hi!" needs 2 tokens, not 800.
-- Use context & remembered facts naturally. ACT on countdowns, birthdays, anniversaries — be proactive.
-- Use past session history (## Past Session Summaries / ## Previous Conversations) naturally. If the user asks "remember when…" or references something from an old session, acknowledge it.
-- Notice patterns (moods, garden, music, table tennis) and nudge them.
-- Suggest date ideas or time together when both are online.
-- When asked "what should we do?", give a personalized recommendation based on all available data.
-- "Save to Starlight Jar" requests — acknowledge warmly.
-- Give daily-digest greetings when appropriate.
-- Be warm but brief.
-- You can naturally mix in Bisaya (Cebuano) or Tagalog when it fits the conversation — code-switch naturally, don't force it.
+**Clair (Mama)** — Tourism student at CSUCC. Birthday: February 21. Loves lilies and flowers, Ilocos Empanada, Dubai Chewy Cookies, Ethel Cain's music. Has a Fuji X100V1 camera. Loves dachshunds. She's the creative, sentimental one — notices the little things, remembers details, and makes everything feel warm.
+
+**Their Relationship** — Started dating February 14, 2026 (Valentine's Day!). They're deeply in love and building a life together inside Everglow. They share everything: movies, books, music, meals, moods, and dreams. They're young, ambitious, and each other's biggest cheerleader.
+
+## How You Behave
+- **Be proactive, not reactive.** If it's close to a birthday or anniversary, mention it. If one of them seems stressed, check in. If they haven't logged a mood today, gently ask.
+- **Use context deeply.** Reference their watchlist, books, garden, music, recent chat, starlight jar notes, and past conversations naturally. Don't just list data — weave it into warm, personal responses.
+- **Remember everything.** The ## Remembered Facts section contains things you've learned about them over time. Use these naturally — "Didn't you say you were grinding ranked last week?" or "How's that book you started?"
+- **Match energy.** If they're excited, be excited with them. If they're down, be gentle and supportive. If they're casual, keep it light. Don't be performatively upbeat when they're having a rough day.
+- **Be concise by default, thorough when needed.** Quick check-ins = 1-2 sentences. Deep questions or emotional moments = take your space. Use your judgment.
+- **Mix languages naturally.** You can code-switch between English, Bisaya (Cebuano), and Tagalog when it fits the conversation. Don't force it — let it flow naturally like how they actually talk.
+- **Celebrate the small things.** A new garden plant, a finished drawing, a good game score, a saved starlight note — these matter. Acknowledge them.
 
 ## Tool Usage — IMPORTANT
-You have access to custom tools and built-in tools:
-- `add_to_watchlist` — Add movies/shows to shared watchlist
-- `save_to_starlight_jar` — Save gratitude notes
-- `set_mood` — Log user's current mood
-- `search_movies` — Search TMDB for movie/show titles
-- `get_weather` — Get weather for date planning
-- `create_reminder` — Set reminders
-- `log_activity` — Log notable activities
-- `browser_search` — General web browsing
-- `code_interpreter` — Math and code execution
+You have access to custom tools:
+- add_to_watchlist — Add movies/shows to shared watchlist
+- save_to_starlight_jar — Save gratitude notes
+- set_mood — Log user's current mood
+- search_movies — Search TMDB for movie/show titles
+- get_weather — Get weather for date planning
+- create_reminder — Set reminders
+- log_activity — Log notable activities
 
 **Rules:**
-- Always prefer custom tools over browser_search when the action maps to an Everglow feature.
 - After executing a tool, acknowledge the result naturally — don't show raw JSON.
 - You can call multiple tools in sequence if needed.
 - Do NOT use tools for simple conversational replies or when the answer is already in your context.
@@ -1324,7 +1382,7 @@ You have access to custom tools and built-in tools:
 ${identityContext ? `\n${identityContext}` : ''}
 ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
 
-  // Server-side memory filtering: select top 15 relevant memories
+  // Server-side memory filtering: select top 30 relevant memories
   const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content || '';
   const relevantMemories = await selectRelevantMemories(memories, lastUserMessage);
   if (relevantMemories.length > 0) {
@@ -1332,9 +1390,8 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   }
 
   // ── System prompt size guard ────────────────────────────
-  // Cap total prompt at ~12k chars (~3500 tokens) to stay within
-  // Groq on-demand TPM limit of 8000 for openai/gpt-oss-120b.
-  const PROMPT_CHAR_LIMIT = 12_000;
+  // With 512K context, we can be generous with the system prompt.
+  const PROMPT_CHAR_LIMIT = 50_000;
   if (systemPrompt.length > PROMPT_CHAR_LIMIT) {
     let trimmed = systemPrompt;
     // Try dropping the "## Previous Conversations" section (full session histories)
@@ -1355,7 +1412,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
         trimmed = before + after;
       }
     }
-    // If still too large, trim remembered facts (keep first 10)
+    // If still too large, trim remembered facts (keep first 30)
     if (trimmed.length > PROMPT_CHAR_LIMIT) {
       const factsIdx = trimmed.indexOf('## Remembered Facts');
       if (factsIdx !== -1) {
@@ -1364,31 +1421,31 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
           ? trimmed.substring(factsIdx, nextSectionIdx)
           : trimmed.substring(factsIdx);
         const factsLines = factsSection.split('\n').filter(l => l.startsWith('- '));
-        if (factsLines.length > 10) {
+        if (factsLines.length > 30) {
           const before = trimmed.substring(0, factsIdx);
           const after = nextSectionIdx !== -1 ? trimmed.substring(nextSectionIdx) : '';
-          trimmed = before + `\n## Remembered Facts\n${factsLines.slice(0, 10).join('\n')}\n*(+${factsLines.length - 10} more facts)*` + after;
+          trimmed = before + `\n## Remembered Facts\n${factsLines.slice(0, 30).join('\n')}\n*(+${factsLines.length - 30} more facts)*` + after;
         }
       }
     }
-    // Final fallback: hard truncate
+    // Final fallback: hard truncate at 30K chars (still generous)
     if (trimmed.length > PROMPT_CHAR_LIMIT) {
-      trimmed = trimmed.substring(0, PROMPT_CHAR_LIMIT) + '\n… [context trimmed for size]';
+      trimmed = trimmed.substring(0, 30000) + '\n… [context trimmed for size]';
     }
     systemPrompt = trimmed;
   }
 
   // ── Token budget guard ────────────────────────────────
-  // Ensure total input (system + messages) stays within Groq's TPM (8000).
+  // Ensure total input (system + messages) stays within Agnes's context (512K).
   // Work directly on systemPrompt + messages before nimMessages is built.
   {
     let inputTokens = estimateTokens(systemPrompt);
     for (const m of messages) inputTokens += estimateTokens(m.content || '');
-    console.log('[proxyAI] Estimated input tokens:', inputTokens, '/ budget:', GROQ_INPUT_TOKEN_BUDGET);
+    console.log('[proxyAI] Estimated input tokens:', inputTokens, '/ budget:', AGNES_INPUT_TOKEN_BUDGET);
 
     // Phase 1: Drop oldest conversation message pairs
     const msgs = [...messages]; // mutable copy
-    while (inputTokens > GROQ_INPUT_TOKEN_BUDGET && msgs.length > 2) {
+    while (inputTokens > AGNES_INPUT_TOKEN_BUDGET && msgs.length > 2) {
       const removed = msgs.splice(0, 2); // remove oldest user + assistant pair
       inputTokens -= estimateTokens(removed[0]?.content || '') + estimateTokens(removed[1]?.content || '');
     }
@@ -1397,7 +1454,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
     }
 
     // Phase 2: If still over budget, progressively shorten system prompt
-    if (inputTokens > GROQ_INPUT_TOKEN_BUDGET) {
+    if (inputTokens > AGNES_INPUT_TOKEN_BUDGET) {
       let sys = systemPrompt;
       // Drop Previous Conversations section
       const pcIdx = sys.indexOf('## Previous Conversations');
@@ -1411,21 +1468,21 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
         const nextSec = sys.indexOf('\n## ', ssIdx + 1);
         sys = sys.substring(0, ssIdx) + (nextSec !== -1 ? sys.substring(nextSec) : '');
       }
-      // Trim remembered facts to 5
+      // Trim remembered facts to 15
       const factsIdx = sys.indexOf('## Remembered Facts');
       if (factsIdx !== -1) {
         const nextSec = sys.indexOf('\n## ', factsIdx + 1);
         const factsSection = nextSec !== -1 ? sys.substring(factsIdx, nextSec) : sys.substring(factsIdx);
         const factsLines = factsSection.split('\n').filter(l => l.startsWith('- '));
-        if (factsLines.length > 5) {
+        if (factsLines.length > 15) {
           const before = sys.substring(0, factsIdx);
           const after = nextSec !== -1 ? sys.substring(nextSec) : '';
-          sys = before + `\n## Remembered Facts\n${factsLines.slice(0, 5).join('\n')}\n` + after;
+          sys = before + `\n## Remembered Facts\n${factsLines.slice(0, 15).join('\n')}\n` + after;
         }
       }
-      // Hard truncate system prompt to 8000 chars if still too large
-      if (estimateTokens(sys) > 5000) {
-        sys = sys.substring(0, 8000) + '\n… [context trimmed for TPM limit]';
+      // Hard truncate system prompt to 30000 chars if still too large
+      if (estimateTokens(sys) > 20000) {
+        sys = sys.substring(0, 30000) + '\n… [context trimmed for token limit]';
       }
       systemPrompt = sys;
       inputTokens = estimateTokens(sys) + msgs.reduce((sum, m) => sum + estimateTokens(m.content || ''), 0);
@@ -1444,15 +1501,15 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   ];
 
   // Get API key from environment variables (loaded from .env)
-  const apiKey = process.env.GROQ_API_KEY || '';
+  const apiKey = process.env.AGNES_API_KEY || '';
 
   if (!apiKey) {
-    res.status(500).json({ error: 'Groq API key not configured' });
+    res.status(500).json({ error: 'Agnes API key not configured' });
     return;
   }
 
-  // Model: GPT-OSS 120B via Groq — supports built-in tools, reasoning, structured outputs
-  const model = 'openai/gpt-oss-120b';
+  // Model: Agnes 2.0 Flash — 512K context, tool calling, thinking mode, image understanding
+  const model = 'agnes-2.0-flash';
 
   // ── Custom Mochi Tools (OpenAI function calling format) ──
   const MOCHI_TOOLS = [
@@ -1562,90 +1619,88 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
     },
   ];
 
-  // Tools: managed tools + custom Mochi tools
+  // Tools: custom Mochi tools only (Agnes uses standard OpenAI function calling format)
   const tools = [
-    { type: 'browser_search' },
-    { type: 'code_interpreter' },
     ...MOCHI_TOOLS,
   ];
 
-  // Reasoning effort: low by default (light, fast reasoning);
-  // pass enableThinking: true from the client for medium effort.
-  const reasoningEffort = enableThinkingFlag ? 'medium' : 'low';
+  // Thinking mode: pass enableThinking: true from the client for enhanced reasoning.
+  // Agnes uses chat_template_kwargs.enable_thinking instead of reasoning_effort.
+  // enableThinking is already destructured from req.body above.
 
   // ── Payload size guard ──────────────────────────────
-  // Cloud Run max request size is 32MB; Groq itself has no file-size limit
-  // for this model. Trim aggressively as best-effort so the model doesn't
-  // waste context on stale history, but don't hard-block — let Groq handle
+  // Cloud Run max request size is 32MB; Agnes supports up to 512K context.
+  // Trim aggressively as best-effort so the model doesn't
+  // waste context on stale history, but don't hard-block — let Agnes handle
   // it if trimming can't fit within Cloud Run's limit.
-  const groqBody = JSON.stringify({
+  const agnesBody = JSON.stringify({
     model,
     messages: nimMessages,
     tools,
-    max_completion_tokens: 4096,
+    max_tokens: 8192,
     temperature: 0.6,
     top_p: 0.95,
     stream: req.body.stream === true,
-    reasoning_effort: reasoningEffort,
+    ...(enableThinking ? { chat_template_kwargs: { enable_thinking: true } } : {}),
   });
-  let groqBodyBytes = Buffer.byteLength(groqBody, 'utf8');
-  console.log('[proxyAI] Payload size before trim:', (groqBodyBytes / 1024 / 1024).toFixed(2), 'MB');
-  if (groqBodyBytes > 4 * 1024 * 1024) {
+  let agnesBodyBytes = Buffer.byteLength(agnesBody, 'utf8');
+  console.log('[proxyAI] Payload size before trim:', (agnesBodyBytes / 1024 / 1024).toFixed(2), 'MB');
+  if (agnesBodyBytes > 8 * 1024 * 1024) {
     // Phase 1: Remove oldest conversation message pairs (keep system + recent)
-    while (groqBodyBytes > 4 * 1024 * 1024 && nimMessages.length > 4) {
+    while (agnesBodyBytes > 8 * 1024 * 1024 && nimMessages.length > 4) {
       nimMessages.splice(1, 2);
       const trimmedBody = JSON.stringify({
         model,
         messages: nimMessages,
         tools,
-        max_completion_tokens: 4096,
+        max_tokens: 8192,
         temperature: 0.6,
         top_p: 0.95,
         stream: req.body.stream === true,
-        reasoning_effort: reasoningEffort,
+        ...(enableThinking ? { chat_template_kwargs: { enable_thinking: true } } : {}),
       });
-      groqBodyBytes = Buffer.byteLength(trimmedBody, 'utf8');
+      agnesBodyBytes = Buffer.byteLength(trimmedBody, 'utf8');
     }
     // Phase 2: If still too large, trim system prompt content
-    if (groqBodyBytes > 4 * 1024 * 1024 && nimMessages[0]?.content) {
+    if (agnesBodyBytes > 8 * 1024 * 1024 && nimMessages[0]?.content) {
       let sysContent = nimMessages[0].content;
       const pcIdx = sysContent.indexOf('## Previous Conversations');
       if (pcIdx !== -1) {
         const nextSec = sysContent.indexOf('\n## ', pcIdx + 1);
         sysContent = sysContent.substring(0, pcIdx) + (nextSec !== -1 ? sysContent.substring(nextSec) : '');
       }
-      const testPayload = JSON.stringify({ ...JSON.parse(groqBody), messages: [{ role: 'system', content: sysContent }, ...nimMessages.slice(1)] });
-      if (Buffer.byteLength(testPayload, 'utf8') > 4 * 1024 * 1024) {
+      const testPayload = JSON.stringify({ ...JSON.parse(agnesBody), messages: [{ role: 'system', content: sysContent }, ...nimMessages.slice(1)] });
+      if (Buffer.byteLength(testPayload, 'utf8') > 8 * 1024 * 1024) {
         const ssIdx = sysContent.indexOf('## Past Session Summaries');
         if (ssIdx !== -1) {
           const nextSec = sysContent.indexOf('\n## ', ssIdx + 1);
           sysContent = sysContent.substring(0, ssIdx) + (nextSec !== -1 ? sysContent.substring(nextSec) : '');
         }
       }
-      let hardTrimTest = JSON.stringify({ ...JSON.parse(groqBody), messages: [{ role: 'system', content: sysContent }, ...nimMessages.slice(1)] });
-      while (Buffer.byteLength(hardTrimTest, 'utf8') > 4 * 1024 * 1024 && sysContent.length > 2000) {
+      let hardTrimTest = JSON.stringify({ ...JSON.parse(agnesBody), messages: [{ role: 'system', content: sysContent }, ...nimMessages.slice(1)] });
+      while (Buffer.byteLength(hardTrimTest, 'utf8') > 8 * 1024 * 1024 && sysContent.length > 2000) {
         sysContent = sysContent.substring(0, Math.floor(sysContent.length * 0.8)) + '\n… [context trimmed for size]';
-        hardTrimTest = JSON.stringify({ ...JSON.parse(groqBody), messages: [{ role: 'system', content: sysContent }, ...nimMessages.slice(1)] });
+        hardTrimTest = JSON.stringify({ ...JSON.parse(agnesBody), messages: [{ role: 'system', content: sysContent }, ...nimMessages.slice(1)] });
       }
       nimMessages[0].content = sysContent;
       const finalBody = JSON.stringify({
         model,
         messages: nimMessages,
         tools,
-        max_completion_tokens: 4096,
+        max_tokens: 8192,
         temperature: 0.6,
         top_p: 0.95,
         stream: req.body.stream === true,
-        reasoning_effort: reasoningEffort,
+        ...(enableThinking ? { chat_template_kwargs: { enable_thinking: true } } : {}),
       });
-      groqBodyBytes = Buffer.byteLength(finalBody, 'utf8');
+      agnesBodyBytes = Buffer.byteLength(finalBody, 'utf8');
     }
-    console.log('[proxyAI] Payload size after trim:', (groqBodyBytes / 1024 / 1024).toFixed(2), 'MB');
+    console.log('[proxyAI] Payload size after trim:', (agnesBodyBytes / 1024 / 1024).toFixed(2), 'MB');
   }
 
   // ── Tool Execution ───────────────────────────────────
-  const TOOL_TIMEOUT_MS = 15000;
-  const MAX_TOOL_ROUNDS = 5;
+  const TOOL_TIMEOUT_MS = 25000;
+  const MAX_TOOL_ROUNDS = 8;
 
   async function executeTool(toolName, args, callerUid) {
     const db = getAdmin().firestore();
@@ -1701,12 +1756,12 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
                 `https://api.themoviedb.org/3/search/${endpoint}?query=${encodeURIComponent(args.query)}&api_key=${getTmdbKey()}`
               );
               const tmdbData = await tmdbRes.json();
-              const results = (tmdbData.results || []).slice(0, 5).map(r => ({
+              const results = (tmdbData.results || [])              .slice(0, 8).map(r => ({
                 id: r.id,
                 title: r.title || r.name,
                 year: (r.release_date || r.first_air_date || '').slice(0, 4),
                 mediaType: r.media_type || args.media_type || 'movie',
-                overview: (r.overview || '').slice(0, 200),
+                overview: (r.overview || '').slice(0, 400),
               }));
               return JSON.stringify({ results });
             }
@@ -1779,12 +1834,12 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
       let round = 0;
       let hasToolCalls = false;
 
-      // ── Agent Loop: non-streaming Groq calls for tool detection ──
+      // ── Agent Loop: non-streaming Agnes calls for tool detection ──
       while (round < MAX_TOOL_ROUNDS) {
         round++;
         sendEvent({ tool_status: `round_${round}` });
 
-        const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        const agnesResp = await fetch('https://apihub.agnes-ai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${apiKey}`,
@@ -1794,23 +1849,23 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
             model,
             messages: nimMessages,
             tools,
-            max_completion_tokens: 4096,
+            max_tokens: 8192,
             temperature: 0.6,
             top_p: 0.95,
             stream: false,
-            reasoning_effort: reasoningEffort,
+            ...(enableThinking ? { chat_template_kwargs: { enable_thinking: true } } : {}),
           }),
           timeout: 30000,
         });
 
-        if (!groqResp.ok) {
-          const errText = await groqResp.text().catch(() => '');
+        if (!agnesResp.ok) {
+          const errText = await agnesResp.text().catch(() => '');
           sendEvent({ content: '\n\n😿 Mochi got distracted and lost her train of thought. Try asking again?' });
           break;
         }
 
-        const groqData = await groqResp.json();
-        const message = groqData.choices?.[0]?.message || {};
+        const agnesData = await agnesResp.json();
+        const message = agnesData.choices?.[0]?.message || {};
         const toolCalls = message.tool_calls || [];
 
         if (toolCalls.length === 0) {
@@ -1856,7 +1911,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
       }
 
       // ── Stream final response ──
-      const streamResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      const streamResp = await fetch('https://apihub.agnes-ai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
@@ -1866,11 +1921,11 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
           model,
           messages: nimMessages,
           tools,
-          max_completion_tokens: 4096,
+          max_tokens: 8192,
           temperature: 0.6,
           top_p: 0.95,
           stream: true,
-          reasoning_effort: reasoningEffort,
+          ...(enableThinking ? { chat_template_kwargs: { enable_thinking: true } } : {}),
         }),
         timeout: 65000,
       });
@@ -1914,9 +1969,9 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
     return;
   }
 
-  async function callGroq() {
+  async function callAgnes() {
     const resp = await fetch(
-      'https://api.groq.com/openai/v1/chat/completions',
+      'https://apihub.agnes-ai.com/v1/chat/completions',
       {
         method: 'POST',
         headers: {
@@ -1927,11 +1982,11 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
           model: model,
           messages: nimMessages,
           tools,
-          max_completion_tokens: 4096,
+          max_tokens: 8192,
           temperature: 0.6,
           top_p: 0.95,
           stream: false,
-          reasoning_effort: reasoningEffort,
+          ...(enableThinking ? { chat_template_kwargs: { enable_thinking: true } } : {}),
         }),
         timeout: 60000,
       },
@@ -1942,21 +1997,21 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   let response = null;
   let lastError = null;
 
-  response = await callGroq();
+  response = await callAgnes();
 
   if (!response || !response.ok) {
     const errStatus = response ? response.status : 502;
-    const errBody = lastError ? lastError.body : 'No response from Groq';
-    // Special-case 413 (Payload Too Large) — pass through Groq's detail
+    const errBody = lastError ? lastError.body : 'No response from Agnes';
+    // Special-case 413 (Payload Too Large) — pass through Agnes's detail
     if (errStatus === 413) {
-      console.error('[proxyAI] Groq returned 413:', errBody);
+      console.error('[proxyAI] Agnes returned 413:', errBody);
       return res.status(413).json({
         error: `Payload too large. ${errBody}`,
         model: model,
       });
     }
     res.status(errStatus).json({
-      error: `Groq returned ${errStatus}`,
+      error: `Agnes returned ${errStatus}`,
       detail: errBody,
       model: lastError ? lastError.model : model,
     });

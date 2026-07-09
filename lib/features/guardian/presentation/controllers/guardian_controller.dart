@@ -187,8 +187,8 @@ class GuardianController extends ChangeNotifier {
   Future<void> _showAIGreeting() async {
     try {
       final greeting = await _aiService!.quickAsk(
-        message: 'Say a short, warm greeting to the couple using the app. Under 15 words. Use an emoji.',
-        systemPrompt: 'You are Everglow Guardian — a cute magical cat mascot. Respond with ONE short sentence and one emoji.',
+        message: 'Say a warm, playful greeting to the couple using the app. Be natural and varied — 1-2 sentences. Use an emoji.',
+        systemPrompt: 'You are Everglow Guardian — a cute magical cat mascot. Respond warmly with personality.',
       );
 
       if (!mounted) return;
