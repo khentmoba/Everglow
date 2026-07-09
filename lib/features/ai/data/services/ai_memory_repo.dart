@@ -55,6 +55,9 @@ class AIMemoryRepository implements IAIMemoryRepository {
             'category': category,
             'addedBy': _user?.uid ?? 'unknown',
             'createdAt': FieldValue.serverTimestamp(),
+            'confidence': 1.0,
+            'accessCount': 0,
+            'lastAccessed': null,
           });
       _memories.insert(0, fact.trim());
     } catch (e) {

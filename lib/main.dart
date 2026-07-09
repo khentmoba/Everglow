@@ -25,6 +25,7 @@ import 'features/guardian/presentation/controllers/guardian_controller.dart';
 import 'features/watch_party/data/services/voice_chat_service.dart';
 import 'features/watch_party/presentation/widgets/incoming_watch_party_banner.dart';
 import 'features/ai/data/services/ai_service.dart';
+import 'core/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,6 +52,10 @@ void main() async {
 
   // Self-hosted Google Fonts only — never fetch from the network at runtime.
   GoogleFonts.config.allowRuntimeFetching = false;
+
+  // Initialize push notifications (FCM)
+  final notificationService = NotificationService();
+  await notificationService.initialize();
 
   runZonedGuarded(
     () => runApp(const EverglowApp()),
