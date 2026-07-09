@@ -29,6 +29,7 @@ import '../../features/canvas/presentation/screens/canvas_screen.dart';
 import '../../features/chat/presentation/screens/sanctuary_chat_screen.dart';
 import '../../features/starlight_jar/presentation/screens/starlight_jar_widget.dart';
 import '../../features/watch_party/presentation/screens/watch_party_screen.dart';
+import '../../features/ai/presentation/widgets/mochi_screen.dart';
 
 /// App-wide router configuration.
 ///
@@ -181,6 +182,12 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/sanctuary',
       builder: (_, __) => const SanctuaryChatScreen(),
+    ),
+
+    // ── Mochi AI assistant ────────────────────────────────
+    GoRoute(
+      path: '/mochi',
+      builder: (_, __) => const MochiScreen(),
     ),
 
     // ── Starlight Jar ─────────────────────────────────────
