@@ -41,7 +41,6 @@ import '../../../../features/play_zone/presentation/widgets/play_zone_portal_car
 import '../../../../features/jukebox/presentation/widgets/jukebox_widget.dart';
 import '../../../../features/watch_party/presentation/widgets/watch_party_card.dart';
 import '../../../../features/ai/data/services/ai_service.dart';
-import '../../../../features/ai/presentation/widgets/ai_assistant_sheet.dart';
 
 import 'package:everglow/shared/widgets/gamified_background.dart';
 import 'package:everglow/features/xp/data/services/xp_service.dart';
@@ -458,7 +457,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       Consumer<AIService>(
                         builder: (context, ai, _) {
                           return GestureDetector(
-                            onTap: () => showAIAssistantSheet(context),
+                            onTap: () => context.push('/mochi'),
                             child: Container(
                               width: 48,
                               height: 48,
