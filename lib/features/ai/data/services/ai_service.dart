@@ -114,9 +114,9 @@ class AIService extends ChangeNotifier {
       // Add assistant reply
       conversation.messages.add(AIMessage(role: 'assistant', content: reply));
 
-      // Persist to Firestore (keep last 30 messages max)
-      if (conversation.messages.length > 30) {
-        conversation.messages.removeRange(0, conversation.messages.length - 30);
+      // Persist to Firestore (keep last 50 messages max)
+      if (conversation.messages.length > 50) {
+        conversation.messages.removeRange(0, conversation.messages.length - 50);
       }
       await _saveConversation(conversation);
 
@@ -231,7 +231,7 @@ class AIService extends ChangeNotifier {
       feature: 'guardian',
       message: message,
       contextOverride:
-          'You are Mochi 🍡 — the magical white cat who lives inside Everglow and watches over Khent and Clair. Your Guardian form appears as a cute floating cat on the dashboard. Speak in short, warm, playful messages. Keep responses under 3 sentences. Use emojis sometimes.',
+          'You are Mochi 🍡 — the magical white cat who lives inside Everglow and watches over Khent and Clair. Your Guardian form appears as a cute floating cat on the dashboard. Speak in warm, playful, expressive messages. You can be 1-4 sentences depending on what feels right. Use emojis sometimes. Be genuinely helpful — answer questions, give suggestions, check in on how they\'re doing.',
     );
   }
 
@@ -254,7 +254,7 @@ class AIService extends ChangeNotifier {
             'User: $userMessage\nAssistant: $aiReply',
       );
       fact = extracted.trim();
-      if (fact.isEmpty || fact == 'NONE' || fact.length > 100) return;
+      if (fact.isEmpty || fact == 'NONE' || fact.length > 200) return;
 
       // Parse category|fact format
       if (fact.contains('|')) {
