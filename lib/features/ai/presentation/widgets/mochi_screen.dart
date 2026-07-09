@@ -126,118 +126,137 @@ class _MochiScreenState extends State<MochiScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.twilight,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _MochiHeader(
-              onBack: () => context.pop(),
-              onClear: () =>
-                  context.read<AIService>().clearConversation('assistant'),
-            ),
-            Divider(height: 1, color: AppColors.blushGold.withValues(alpha: 0.06)),
-            Expanded(
-              child: Stack(
-                children: [
-                  Consumer<AIService>(
-                    builder: (_, ai, __) {
-                      final allMsgs =
-                          ai.assistantConversation?.messages ?? [];
-                      final loading = ai.isLoading;
-                      final hasDraft = ai.draftResponse.isNotEmpty;
-                      final draftReasoning = ai.draftReasoning;
-                      final toolStatus = ai.toolStatus;
+      body: Stack(
+        children: [
+          // Main content
+          SafeArea(
+            child: Column(
+              children: [
+                _MochiHeader(
+                  onBack: () => context.pop(),
+                  onSidebarToggle: () => setState(() => _isSidebarOpen = !_isSidebarOpen),
+                  onNewChat: _newChat,
+                ),
+                Divider(height: 1, color: AppColors.blushGold.withValues(alpha: 0.06)),
+                Expanded(
+                  child: Stack(
+                    children: [
+                      Consumer<AIService>(
+                        builder: (_, ai, __) {
+                          final allMsgs =
+                              ai.assistantConversation?.messages ?? [];
+                          final loading = ai.isLoading;
+                          final hasDraft = ai.draftResponse.isNotEmpty;
+                          final draftReasoning = ai.draftReasoning;
+                          final toolStatus = ai.toolStatus;
 
-                      if (allMsgs.isEmpty && !loading) {
-                        return _GreetingEmptyState(onTap: _sendQuick);
-                      }
-
-                      final streamBubble = 1;
-                      final itemCount = allMsgs.length +
-                          (loading && !hasDraft ? 1 : 0) +
-                          (hasDraft ? streamBubble : 0);
-
-                      return ListView.builder(
-                        controller: _scroll,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 14),
-                        itemCount: itemCount,
-                        itemBuilder: (_, i) {
-                          int idx = 0;
-
-                          final hasStream =
-                              hasDraft || draftReasoning.isNotEmpty;
-                          if (hasStream && i == allMsgs.length + idx) {
-                            return _MessageBubble(
-                              text: ai.draftResponse,
-                              isUser: false,
-                              isStreaming: true,
-                              reasoning: draftReasoning.isNotEmpty
-                                  ? draftReasoning
-                                  : null,
-                              toolStatus: toolStatus,
-                            );
+                          if (allMsgs.isEmpty && !loading) {
+                            return _GreetingEmptyState(onTap: _sendQuick);
                           }
-                          if (!hasStream && i == allMsgs.length + idx) {
-                            return _ThinkingIndicator(
-                              toolStatus: toolStatus,
-                            );
-                          }
-                          final msg = allMsgs[i - idx];
-                          return _MessageBubble(
-                            key: ValueKey(
-                                'msg_${msg.timestamp.millisecondsSinceEpoch}_$i'),
-                            text: msg.content,
-                            isUser: msg.role == 'user',
-                            timestamp: msg.timestamp,
+
+                          final streamBubble = 1;
+                          final itemCount = allMsgs.length +
+                              (loading && !hasDraft ? 1 : 0) +
+                              (hasDraft ? streamBubble : 0);
+
+                          return ListView.builder(
+                            controller: _scroll,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 14),
+                            itemCount: itemCount,
+                            itemBuilder: (_, i) {
+                              int idx = 0;
+
+                              final hasStream =
+                                  hasDraft || draftReasoning.isNotEmpty;
+                              if (hasStream && i == allMsgs.length + idx) {
+                                return _MessageBubble(
+                                  text: ai.draftResponse,
+                                  isUser: false,
+                                  isStreaming: true,
+                                  reasoning: draftReasoning.isNotEmpty
+                                      ? draftReasoning
+                                      : null,
+                                  toolStatus: toolStatus,
+                                );
+                              }
+                              if (!hasStream && i == allMsgs.length + idx) {
+                                return _ThinkingIndicator(
+                                  toolStatus: toolStatus,
+                                );
+                              }
+                              final msg = allMsgs[i - idx];
+                              return _MessageBubble(
+                                key: ValueKey(
+                                    'msg_${msg.timestamp.millisecondsSinceEpoch}_$i'),
+                                text: msg.content,
+                                isUser: msg.role == 'user',
+                                timestamp: msg.timestamp,
+                              );
+                            },
                           );
                         },
-                      );
-                    },
-                  ),
-                  if (_showScrollButton)
-                    Positioned(
-                      bottom: 16,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: AnimatedOpacity(
-                          opacity: _showScrollButton ? 1.0 : 0.0,
-                          duration: const Duration(milliseconds: 200),
-                          child: GestureDetector(
-                            onTap: () => _scrollToBottom(),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 7),
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceGlass,
-                                borderRadius: AppRadius.radiusFull,
-                                border:
-                                    Border.all(color: AppColors.border),
-                              ),
-                              child: Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                color: AppColors.textMuted,
-                                size: 18,
+                      ),
+                      if (_showScrollButton)
+                        Positioned(
+                          bottom: 16,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: AnimatedOpacity(
+                              opacity: _showScrollButton ? 1.0 : 0.0,
+                              duration: const Duration(milliseconds: 200),
+                              child: GestureDetector(
+                                onTap: () => _scrollToBottom(),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 7),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surfaceGlass,
+                                    borderRadius: AppRadius.radiusFull,
+                                    border:
+                                        Border.all(color: AppColors.border),
+                                  ),
+                                  child: Icon(
+                                    Icons.keyboard_arrow_down_rounded,
+                                    color: AppColors.textMuted,
+                                    size: 18,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                ],
-              ),
+                    ],
+                  ),
+                ),
+                _ErrorBanner(lastSentMessage: _lastSentMessage, onRetry: _send),
+                _ComposerInput(
+                  inputKey: _inputKey,
+                  controller: _input,
+                  focusNode: _focusNode,
+                  onSend: _send,
+                ),
+              ],
             ),
-            _ErrorBanner(lastSentMessage: _lastSentMessage, onRetry: _send),
-            _ComposerInput(
-              inputKey: _inputKey,
-              controller: _input,
-              focusNode: _focusNode,
-              onSend: _send,
-            ),
-          ],
-        ),
+          ),
+
+          // Sidebar overlay
+          MochiSidebar(
+            isOpen: _isSidebarOpen,
+            onClose: () => setState(() => _isSidebarOpen = false),
+            onNewChat: _newChat,
+          ),
+        ],
       ),
     );
+  }
+
+  void _newChat() {
+    final ai = context.read<AIService>();
+    ai.clearConversation('assistant');
+    setState(() => _isSidebarOpen = false);
+    _scrollToBottom(animated: false);
   }
 }
 
@@ -245,14 +264,19 @@ class _MochiScreenState extends State<MochiScreen> {
 
 class _MochiHeader extends StatelessWidget {
   final VoidCallback onBack;
-  final VoidCallback onClear;
+  final VoidCallback onSidebarToggle;
+  final VoidCallback onNewChat;
 
-  const _MochiHeader({required this.onBack, required this.onClear});
+  const _MochiHeader({
+    required this.onBack,
+    required this.onSidebarToggle,
+    required this.onNewChat,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: Row(
         children: [
           IconButton(
@@ -277,11 +301,17 @@ class _MochiHeader extends StatelessWidget {
             style: AppTypography.titleLarge().copyWith(fontSize: 18),
           ),
           const Spacer(),
+          // New chat button
           IconButton(
-            onPressed: onClear,
-            icon: Icon(Icons.delete_sweep_rounded,
-                color: AppColors.textMuted, size: 20),
-            tooltip: 'Clear chat',
+            onPressed: onNewChat,
+            icon: Icon(Icons.add_rounded, color: AppColors.textMuted, size: 20),
+            tooltip: 'New chat',
+          ),
+          // Sidebar toggle
+          IconButton(
+            onPressed: onSidebarToggle,
+            icon: Icon(Icons.menu_rounded, color: AppColors.textMuted, size: 20),
+            tooltip: 'History',
           ),
         ],
       ),
