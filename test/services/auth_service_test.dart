@@ -19,8 +19,9 @@ void main() {
     });
 
     test('isReady is false when user is null', () {
-      bool userIsNull = true;
-      bool currentUserIsNull = false;
+      const userIsNull = true;
+      const currentUserIsNull = false;
+      // ignore: dead_code
       final isReady = !userIsNull && !currentUserIsNull;
       expect(isReady, isFalse);
     });

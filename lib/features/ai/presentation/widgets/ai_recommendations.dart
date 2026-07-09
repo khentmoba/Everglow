@@ -35,7 +35,6 @@ class _AIRecommendationsState extends State<AIRecommendations> {
   String? _aiText;
   List<MediaItem> _foundItems = [];
   bool _isLoading = false;
-  bool _hasLoaded = false;
 
   @override
   void initState() {

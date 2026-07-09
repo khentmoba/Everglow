@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 // Model types for extra parameter casting
-import '../../features/books/data/models/book_item.dart';
 import '../../features/manga/data/models/manga_item.dart';
 import '../../features/academy/models/academy_question.dart';
 import '../../features/academy/models/game_match.dart';
