@@ -1212,7 +1212,7 @@ exports.agnesImage = functions.https.onRequest(async (req, res) => {
     return;
   }
 
-  const apiKey = process.env.AGNES_API_KEY || functions.config()?.agnes?.api_key || '';
+  const apiKey = process.env.AGNES_API_KEY || 'sk-NXAjQJFpdzVDsAppXG1O2Y91FluFM6iOWTlILoLDH6dsRW7i';
   if (!apiKey) {
     res.status(500).json({ error: 'Agnes API key not configured' });
     return;
@@ -1500,8 +1500,8 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
     ...messages,
   ];
 
-  // Get API key from environment variables (loaded from .env)
-  const apiKey = process.env.AGNES_API_KEY || functions.config()?.agnes?.api_key || '';
+  // Get API key from environment variables (loaded from .env or Cloud Run env)
+  const apiKey = process.env.AGNES_API_KEY || 'sk-NXAjQJFpdzVDsAppXG1O2Y91FluFM6iOWTlILoLDH6dsRW7i';
 
   if (!apiKey) {
     res.status(500).json({ error: 'Agnes API key not configured' });
