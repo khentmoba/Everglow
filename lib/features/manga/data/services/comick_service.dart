@@ -347,7 +347,7 @@ class ComickService {
             title: d['title'] as String? ?? '',
             chapter: (d['chap'] as dynamic)?.toString() ?? '',
             volume: (d['vol'] as dynamic)?.toString() ?? '',
-            pages: 0,
+            pages: (d['page'] as num?)?.toInt() ?? 0,
             translatedLanguage: d['lang'] as String? ?? language,
             scanlationGroup: groupName,
             publishAt: DateTime.tryParse(

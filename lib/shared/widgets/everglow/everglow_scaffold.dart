@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_breakpoints.dart';
-import '../../../core/theme/app_motion.dart';
 import 'everglow_background.dart';
 import 'everglow_app_bar.dart';
 import 'everglow_pill_nav.dart';

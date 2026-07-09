@@ -504,7 +504,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     }
   }
 
-  void _rebuildAt(double startSeconds, {bool immediate = false}) {
+  void _rebuildAt(double startSeconds) {
     if (!mounted) return;
     setState(() {
       _isResyncing = true;
@@ -711,27 +711,6 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
       currentTime: _estimatedLocalTime(),
       updatedBy: _myUid,
     );
-  }
-
-  /// Send a command to the iframe via postMessage.  Kept for providers
-  /// that may add support later; not relied on for core functionality.
-  void _postCommand(String command, [double? seekTime]) {
-    try {
-      final win = _iframe.contentWindow;
-      if (win == null) return;
-      final payload = (seekTime != null
-          ? {'type': command, 'time': seekTime.round()}
-          : {'type': command}).jsify()!;
-      win.postMessage(payload);
-    } catch (_) {}
-  }
-
-  Future<void> _manualResync() async {
-    if (!mounted) return;
-    debugPrint('WatchPartyScreen _manualResync: rebuilding at ${_room.currentTime}');
-    setState(() => _isResyncing = true);
-    _rebuildAt(_room.currentTime, immediate: true);
-    _postCommand('seek', _room.currentTime);
   }
 
   Future<void> _endParty() async {
