@@ -13,7 +13,8 @@ Future<String> streamSseResponse({
   required String body,
   required void Function(String chunk) onChunk,
   void Function(String chunk)? onReasoning,
-  Duration timeout = const Duration(seconds: 65),
+  void Function(String toolStatus)? onToolStatus,
+  Duration timeout = const Duration(seconds: 120),
 }) async {
   final fullResponse = StringBuffer();
 
@@ -44,6 +45,10 @@ Future<String> streamSseResponse({
             if (content.isNotEmpty) {
               fullResponse.write(content);
               onChunk(content);
+            }
+            final toolStatus = parsed['tool_status'] as String? ?? '';
+            if (toolStatus.isNotEmpty && onToolStatus != null) {
+              onToolStatus(toolStatus);
             }
           } catch (_) {
             // skip malformed JSON chunks

@@ -1,5 +1,6 @@
 const functions = require('firebase-functions/v1');
 const { onRequest } = require('firebase-functions/v2/https');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 
 /** Lazy require+init so Firebase deploy analysis doesn't time out */
 let _admin;
@@ -693,11 +694,14 @@ async function buildContextForFeature(feature, callerUid) {
         result = mood;
         break;
       case 'recommendations': {
-        const [watch, books] = await Promise.all([
+        const [watch, books, trending, nowPlaying, upcoming] = await Promise.all([
           getWatchContext(),
           getBooksContext(),
+          getTrendingMovies(),
+          getNowPlayingMovies(),
+          getUpcomingMovies(),
         ]);
-        result = [watch, books].filter(p => p).join('\n\n');
+        result = [watch, books, trending, nowPlaying, upcoming].filter(p => p).join('\n\n');
         break;
       }
       case 'date_ideas': {
@@ -807,6 +811,59 @@ async function getWatchContext() {
       }
     }
     return watchParts.length ? watchParts.join('\n\n') : '';
+  } catch (_) { return ''; }
+}
+
+// TMDB API key — uses Firebase env config, falls back to client-side key for dev
+function getTmdbKey() {
+  return process.env.TMDB_API_KEY || 'b41bd33efc365bbdbbad2e31dae8f573';
+}
+
+async function getTrendingMovies() {
+  try {
+    const key = getTmdbKey();
+    const res = await fetch(
+      `https://api.themoviedb.org/3/trending/movie/week?api_key=${key}`
+    );
+    if (!res.ok) return '';
+    const data = await res.json();
+    if (!data.results?.length) return '';
+    const movies = data.results.slice(0, 10).map(m =>
+      `${m.title} (${(m.release_date || '').slice(0, 4)}) — ${(m.overview || '').slice(0, 100)}`
+    ).join('\n');
+    return `Trending movies this week:\n${movies}`;
+  } catch (_) { return ''; }
+}
+
+async function getNowPlayingMovies() {
+  try {
+    const key = getTmdbKey();
+    const res = await fetch(
+      `https://api.themoviedb.org/3/movie/now_playing?api_key=${key}&region=PH`
+    );
+    if (!res.ok) return '';
+    const data = await res.json();
+    if (!data.results?.length) return '';
+    const movies = data.results.slice(0, 8).map(m =>
+      `${m.title} (${(m.release_date || '').slice(0, 4)}) — ${(m.overview || '').slice(0, 100)}`
+    ).join('\n');
+    return `Now playing in theaters:\n${movies}`;
+  } catch (_) { return ''; }
+}
+
+async function getUpcomingMovies() {
+  try {
+    const key = getTmdbKey();
+    const res = await fetch(
+      `https://api.themoviedb.org/3/movie/upcoming?api_key=${key}&region=PH`
+    );
+    if (!res.ok) return '';
+    const data = await res.json();
+    if (!data.results?.length) return '';
+    const movies = data.results.slice(0, 8).map(m =>
+      `${m.title} (${(m.release_date || '').slice(0, 4)}) — ${(m.overview || '').slice(0, 100)}`
+    ).join('\n');
+    return `Coming soon:\n${movies}`;
   } catch (_) { return ''; }
 }
 
@@ -1036,8 +1093,105 @@ function estimateTokens(text) {
 }
 
 // Groq on-demand TPM budget: 8000 tokens/min for openai/gpt-oss-120b.
-// Reserve ~2000 for output headroom; hard-cap input at ~6000 tokens.
-const GROQ_INPUT_TOKEN_BUDGET = 6000;
+// Reserve ~1000 for output headroom; hard-cap input at ~7000 tokens.
+const GROQ_INPUT_TOKEN_BUDGET = 7000;
+
+// ── Server-Side Memory Filtering ─────────────────────────────────
+// Replaces client-side memory injection with TF-IDF keyword matching.
+// Fetches all memories from Firestore, filters by relevance, decays stale ones.
+
+const MEMORY_STOP_WORDS = new Set([
+  'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+  'should', 'may', 'might', 'shall', 'can', 'to', 'of', 'in', 'for',
+  'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during',
+  'before', 'after', 'above', 'below', 'between', 'out', 'off', 'over',
+  'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when',
+  'where', 'why', 'how', 'all', 'each', 'every', 'both', 'few', 'more',
+  'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own',
+  'same', 'so', 'than', 'too', 'very', 'just', 'because', 'but', 'and',
+  'or', 'if', 'while', 'about', 'up', 'it', 'its', 'i', 'me', 'my',
+  'you', 'your', 'he', 'him', 'his', 'she', 'her', 'we', 'us', 'our',
+  'they', 'them', 'their', 'this', 'that', 'these', 'those', 'what',
+  'which', 'who', 'whom', 'mochi', 'mew', 'prr', 'nya',
+]);
+
+function extractKeywords(text) {
+  return text.toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !MEMORY_STOP_WORDS.has(w));
+}
+
+function memoryRelevanceScore(fact, queryKeywords) {
+  const factWords = fact.toLowerCase().split(/\s+/);
+  let matches = 0;
+  for (const kw of queryKeywords) {
+    if (factWords.some(fw => fw.includes(kw) || kw.includes(fw))) matches++;
+  }
+  return matches / Math.max(queryKeywords.length, 1);
+}
+
+async function selectRelevantMemories(clientMemories, userMessage, maxResults = 15) {
+  // If client sent memories (backward compat), use them with server-side filtering
+  if (Array.isArray(clientMemories) && clientMemories.length > 0) {
+    const keywords = extractKeywords(userMessage || '');
+    if (keywords.length === 0) return clientMemories.slice(0, maxResults);
+    const scored = clientMemories.map(fact => ({
+      fact,
+      score: memoryRelevanceScore(fact, keywords),
+    }));
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, maxResults).map(m => m.fact);
+  }
+
+  // Otherwise fetch from Firestore with confidence decay
+  try {
+    const db = getDb();
+    const snapshot = await db.collection('ai_memories/shared/facts')
+      .orderBy('createdAt', 'desc')
+      .limit(100)
+      .get();
+
+    const memories = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      memories.push({
+        fact: data.fact || '',
+        confidence: data.confidence ?? 1.0,
+        lastAccessed: data.lastAccessed?.toDate?.() || null,
+      });
+    });
+
+    // Decay: halve confidence if not accessed in 60 days
+    const now = new Date();
+    const decayed = memories.map(m => {
+      if (m.lastAccessed) {
+        const daysSince = (now - m.lastAccessed) / (1000 * 60 * 60 * 24);
+        if (daysSince > 60) {
+          m.confidence *= Math.pow(0.5, daysSince / 60);
+        }
+      }
+      return m;
+    }).filter(m => m.confidence >= 0.3);
+
+    // TF-IDF keyword matching
+    const keywords = extractKeywords(userMessage || '');
+    if (keywords.length === 0) {
+      return decayed.slice(0, maxResults).map(m => m.fact);
+    }
+
+    const scored = decayed.map(m => ({
+      fact: m.fact,
+      score: memoryRelevanceScore(m.fact, keywords) * m.confidence,
+    }));
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, maxResults).map(m => m.fact);
+  } catch (e) {
+    console.warn('selectRelevantMemories error:', e.message);
+    return Array.isArray(clientMemories) ? clientMemories.slice(0, maxResults) : [];
+  }
+}
 
 exports.proxyAI = functions.https.onRequest(handleProxyAI);
 // V2 function on Cloud Run — natively supports SSE streaming.
@@ -1149,9 +1303,33 @@ They started dating Feb 14, 2026.
 - Be warm but brief.
 - You can naturally mix in Bisaya (Cebuano) or Tagalog when it fits the conversation — code-switch naturally, don't force it.
 
+## Tool Usage — IMPORTANT
+You have access to custom tools and built-in tools:
+- `add_to_watchlist` — Add movies/shows to shared watchlist
+- `save_to_starlight_jar` — Save gratitude notes
+- `set_mood` — Log user's current mood
+- `search_movies` — Search TMDB for movie/show titles
+- `get_weather` — Get weather for date planning
+- `create_reminder` — Set reminders
+- `log_activity` — Log notable activities
+- `browser_search` — General web browsing
+- `code_interpreter` — Math and code execution
+
+**Rules:**
+- Always prefer custom tools over browser_search when the action maps to an Everglow feature.
+- After executing a tool, acknowledge the result naturally — don't show raw JSON.
+- You can call multiple tools in sequence if needed.
+- Do NOT use tools for simple conversational replies or when the answer is already in your context.
+
 ${identityContext ? `\n${identityContext}` : ''}
-${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}
-${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${memories.map(m => `- ${m}`).join('\n')}` : ''}`;
+${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
+
+  // Server-side memory filtering: select top 15 relevant memories
+  const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content || '';
+  const relevantMemories = await selectRelevantMemories(memories, lastUserMessage);
+  if (relevantMemories.length > 0) {
+    systemPrompt += `\n## Remembered Facts\n${relevantMemories.map(m => `- ${m}`).join('\n')}`;
+  }
 
   // ── System prompt size guard ────────────────────────────
   // Cap total prompt at ~12k chars (~3500 tokens) to stay within
@@ -1276,10 +1454,119 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
   // Model: GPT-OSS 120B via Groq — supports built-in tools, reasoning, structured outputs
   const model = 'openai/gpt-oss-120b';
 
-  // Tools: browser_search + code_interpreter — model decides when to use them
+  // ── Custom Mochi Tools (OpenAI function calling format) ──
+  const MOCHI_TOOLS = [
+    {
+      type: 'function',
+      function: {
+        name: 'add_to_watchlist',
+        description: 'Add a movie or TV show to Khent & Clair\'s shared cinema watchlist. Use when they want to watch something or ask to add a movie/show.',
+        parameters: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'The movie or TV show title to search for' },
+            media_type: { type: 'string', enum: ['movie', 'tv'], description: 'Whether it is a movie or TV show' },
+          },
+          required: ['title'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'save_to_starlight_jar',
+        description: 'Save a gratitude note, memory, or heartfelt message to the Starlight Jar. Use when the user asks to save something meaningful.',
+        parameters: {
+          type: 'object',
+          properties: {
+            note: { type: 'string', description: 'The gratitude note or message content' },
+          },
+          required: ['note'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'set_mood',
+        description: 'Log the user\'s current mood/feeling. Use when they express how they feel.',
+        parameters: {
+          type: 'object',
+          properties: {
+            mood: { type: 'string', description: 'The mood keyword (e.g., happy, sad, tired, excited, stressed)' },
+            note: { type: 'string', description: 'Optional short note about why they feel this way' },
+          },
+          required: ['mood'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'search_movies',
+        description: 'Search TMDB for movies or TV shows. Use for recommendations, finding specific titles, or when asked about what to watch.',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Search query (title, genre, or description)' },
+            media_type: { type: 'string', enum: ['movie', 'tv', 'multi'], description: 'Filter by type (default: multi)' },
+          },
+          required: ['query'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_weather',
+        description: 'Get current weather for a location. Use for date planning or when asked about weather.',
+        parameters: {
+          type: 'object',
+          properties: {
+            location: { type: 'string', description: 'City name (e.g., "Cabadbaran", "Manila")' },
+          },
+          required: ['location'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'create_reminder',
+        description: 'Create a reminder for Khent or Clair. Use when they ask to be reminded about something.',
+        parameters: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'Short reminder title' },
+            remind_at: { type: 'string', description: 'ISO 8601 datetime or relative description (e.g., "tomorrow at 3pm")' },
+            note: { type: 'string', description: 'Additional details for the reminder' },
+          },
+          required: ['title', 'remind_at'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'log_activity',
+        description: 'Log a notable activity or event to recent activity feed. Use to track what Khent & Clair have been doing.',
+        parameters: {
+          type: 'object',
+          properties: {
+            activity: { type: 'string', description: 'Description of the activity' },
+            category: { type: 'string', enum: ['date', 'gaming', 'movie', 'music', 'food', 'travel', 'other'], description: 'Activity category' },
+          },
+          required: ['activity'],
+        },
+      },
+    },
+  ];
+
+  // Tools: managed tools + custom Mochi tools
   const tools = [
     { type: 'browser_search' },
     { type: 'code_interpreter' },
+    ...MOCHI_TOOLS,
   ];
 
   // Reasoning effort: low by default (light, fast reasoning);
@@ -1356,105 +1643,274 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
     console.log('[proxyAI] Payload size after trim:', (groqBodyBytes / 1024 / 1024).toFixed(2), 'MB');
   }
 
-  // ── Streaming mode (SSE) ───────────────────────────
-  if (req.body.stream === true) {
+  // ── Tool Execution ───────────────────────────────────
+  const TOOL_TIMEOUT_MS = 15000;
+  const MAX_TOOL_ROUNDS = 5;
+
+  async function executeTool(toolName, args, callerUid) {
+    const db = getAdmin().firestore();
+    const timeout = (ms) => new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Tool timeout')), ms));
+
     try {
-      const streamResp = await fetch(
-        'https://api.groq.com/openai/v1/chat/completions',
-        {
+      return await Promise.race([
+        (async () => {
+          switch (toolName) {
+            case 'add_to_watchlist': {
+              const tmdbRes = await fetch(
+                `https://api.themoviedb.org/3/search/${args.media_type || 'multi'}?query=${encodeURIComponent(args.title)}&api_key=${getTmdbKey()}`
+              );
+              const tmdbData = await tmdbRes.json();
+              const result = tmdbData.results?.[0];
+              if (!result) return JSON.stringify({ error: `No results found for "${args.title}"` });
+              await db.collection('our_cinema').add({
+                tmdbId: result.id,
+                title: result.title || result.name,
+                mediaType: args.media_type || (result.media_type === 'tv' ? 'tv' : 'movie'),
+                posterPath: result.poster_path ? `https://image.tmdb.org/t/p/w500${result.poster_path}` : null,
+                addedBy: callerUid,
+                addedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+                status: 'plan_to_watch',
+              });
+              return JSON.stringify({ success: true, title: result.title || result.name });
+            }
+            case 'save_to_starlight_jar': {
+              await db.collection('starlight_jar').add({
+                content: args.note,
+                author: callerUid,
+                timestamp: getAdmin().firestore.FieldValue.serverTimestamp(),
+                writtenBy: 'Mochi 🍡',
+              });
+              return JSON.stringify({ success: true });
+            }
+            case 'set_mood': {
+              const today = new Date().toISOString().slice(0, 10);
+              await db.collection('moods').doc(`${callerUid}_${today}`).set({
+                mood: args.mood,
+                note: args.note || null,
+                uid: callerUid,
+                date: today,
+                timestamp: getAdmin().firestore.FieldValue.serverTimestamp(),
+              }, { merge: true });
+              return JSON.stringify({ success: true, mood: args.mood });
+            }
+            case 'search_movies': {
+              const mediaType = args.media_type || 'multi';
+              const endpoint = mediaType === 'multi' ? 'multi' : args.media_type;
+              const tmdbRes = await fetch(
+                `https://api.themoviedb.org/3/search/${endpoint}?query=${encodeURIComponent(args.query)}&api_key=${getTmdbKey()}`
+              );
+              const tmdbData = await tmdbRes.json();
+              const results = (tmdbData.results || []).slice(0, 5).map(r => ({
+                id: r.id,
+                title: r.title || r.name,
+                year: (r.release_date || r.first_air_date || '').slice(0, 4),
+                mediaType: r.media_type || args.media_type || 'movie',
+                overview: (r.overview || '').slice(0, 200),
+              }));
+              return JSON.stringify({ results });
+            }
+            case 'get_weather': {
+              const weatherRes = await fetch(
+                `https://wttr.in/${encodeURIComponent(args.location)}?format=%C+%t+%h+%w`
+              );
+              const weatherText = await weatherRes.text();
+              return JSON.stringify({ location: args.location, weather: weatherText.trim() });
+            }
+            case 'create_reminder': {
+              await db.collection('reminders').add({
+                title: args.title,
+                note: args.note || null,
+                remindAt: args.remind_at,
+                createdBy: callerUid,
+                createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+                read: false,
+              });
+              return JSON.stringify({ success: true, title: args.title });
+            }
+            case 'log_activity': {
+              await db.collection('recent_activity').add({
+                activity: args.activity,
+                category: args.category || 'other',
+                loggedBy: callerUid,
+                timestamp: getAdmin().firestore.FieldValue.serverTimestamp(),
+              });
+              return JSON.stringify({ success: true });
+            }
+            default:
+              return JSON.stringify({ error: `Unknown tool: ${toolName}` });
+          }
+        })(),
+        timeout(TOOL_TIMEOUT_MS),
+      ]);
+    } catch (e) {
+      return JSON.stringify({ error: e.message || 'Tool execution failed' });
+    }
+  }
+
+  // ── Streaming mode (SSE) with Agent Loop ──────────────
+  if (req.body.stream === true) {
+    // Set up SSE connection
+    res.set('Content-Type', 'text/event-stream');
+    res.set('Cache-Control', 'no-cache');
+    res.set('Connection', 'keep-alive');
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Expose-Headers', '*');
+    res.set('X-Content-Type-Options', 'nosniff');
+    if (res.socket) res.socket.setNoDelay(true);
+    res.flushHeaders();
+
+    const sendEvent = (data) => {
+      try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch (_) {}
+    };
+
+    // Keepalive ping every 15s during tool execution
+    let keepaliveInterval = null;
+    const startKeepalive = () => {
+      keepaliveInterval = setInterval(() => {
+        try { res.write(': keepalive\n\n'); } catch (_) {}
+      }, 15000);
+    };
+    const stopKeepalive = () => {
+      if (keepaliveInterval) { clearInterval(keepaliveInterval); keepaliveInterval = null; }
+    };
+
+    try {
+      let round = 0;
+      let hasToolCalls = false;
+
+      // ── Agent Loop: non-streaming Groq calls for tool detection ──
+      while (round < MAX_TOOL_ROUNDS) {
+        round++;
+        sendEvent({ tool_status: `round_${round}` });
+
+        const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: model,
+            model,
             messages: nimMessages,
             tools,
             max_completion_tokens: 4096,
             temperature: 0.6,
             top_p: 0.95,
-            stream: true,
+            stream: false,
             reasoning_effort: reasoningEffort,
           }),
-          timeout: 65000,
-        },
-      );
+          timeout: 30000,
+        });
 
-      if (!streamResp.ok) {
-        // Don't write SSE — return a proper HTTP error so the Flutter
-        // client's retry logic kicks in instead of getting a blank response.
-        const errText = await streamResp.text().catch(() => '');
-        let errDetail;
-        try {
-          const errJson = JSON.parse(errText);
-          errDetail = errJson.error?.message || errText;
-        } catch {
-          errDetail = errText;
+        if (!groqResp.ok) {
+          const errText = await groqResp.text().catch(() => '');
+          sendEvent({ content: '\n\n😿 Mochi got distracted and lost her train of thought. Try asking again?' });
+          break;
         }
-        // Special-case 413 (Payload Too Large) — pass through Groq's detail
-        if (streamResp.status === 413) {
-          console.error('[proxyAI] Groq returned 413:', errDetail);
-          return res.status(413).json({
-            error: `Payload too large. ${errDetail}`,
+
+        const groqData = await groqResp.json();
+        const message = groqData.choices?.[0]?.message || {};
+        const toolCalls = message.tool_calls || [];
+
+        if (toolCalls.length === 0) {
+          hasToolCalls = false;
+          break;
+        }
+
+        // Tool calls detected — execute them
+        hasToolCalls = true;
+        startKeepalive();
+        sendEvent({ tool_status: 'executing' });
+
+        // Append assistant message with tool_calls
+        nimMessages.push({
+          role: 'assistant',
+          content: message.content || null,
+          tool_calls: toolCalls.map(tc => ({
+            id: tc.id,
+            type: 'function',
+            function: { name: tc.function.name, arguments: tc.function.arguments },
+          })),
+        });
+
+        // Execute each tool
+        for (const tc of toolCalls) {
+          const fnName = tc.function.name;
+          let fnArgs;
+          try { fnArgs = JSON.parse(tc.function.arguments); } catch { fnArgs = {}; }
+
+          sendEvent({ tool_status: fnName });
+
+          const result = await executeTool(fnName, fnArgs, callerUid);
+
+          nimMessages.push({
+            role: 'tool',
+            tool_call_id: tc.id,
+            name: fnName,
+            content: result,
           });
         }
-        return res.status(502).json({ error: `Groq returned ${streamResp.status}`, detail: errDetail });
+
+        stopKeepalive();
       }
 
-      // Groq responded OK — now set up SSE and stream back to the client
-      res.set('Content-Type', 'text/event-stream');
-      res.set('Cache-Control', 'no-cache');
-      res.set('Connection', 'keep-alive');
-      res.set('Access-Control-Allow-Origin', '*');
-      res.set('Access-Control-Expose-Headers', '*');
-      res.set('X-Content-Type-Options', 'nosniff');
-      if (res.socket) {
-        res.socket.setNoDelay(true);
-      }
-      res.flushHeaders();
+      // ── Stream final response ──
+      const streamResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: nimMessages,
+          tools,
+          max_completion_tokens: 4096,
+          temperature: 0.6,
+          top_p: 0.95,
+          stream: true,
+          reasoning_effort: reasoningEffort,
+        }),
+        timeout: 65000,
+      });
 
-      const reader = streamResp.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const raw = line.slice(6).trim();
-          if (raw === '[DONE]') {
-            res.write('data: [DONE]\n\n');
-            break;
+      if (!streamResp.ok) {
+        sendEvent({ content: '\n\n😿 Mochi got distracted and lost her train of thought. Try asking again?' });
+      } else {
+        const reader = streamResp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const raw = line.slice(6).trim();
+            if (raw === '[DONE]') break;
+            try {
+              const parsed = JSON.parse(raw);
+              const delta = parsed.choices?.[0]?.delta || {};
+              if (delta.reasoning) sendEvent({ reasoning: delta.reasoning });
+              if (delta.content) sendEvent({ content: delta.content });
+            } catch (_) {}
           }
-          try {
-            const parsed = JSON.parse(raw);
-            const delta = parsed.choices?.[0]?.delta || {};
-            // GPT-OSS puts reasoning in the `reasoning` field of each delta
-            const reasoning = delta.reasoning || '';
-            if (reasoning) {
-              res.write(`data: ${JSON.stringify({reasoning})}\n\n`);
-            }
-            const content = delta.content || '';
-            if (content) {
-              res.write(`data: ${JSON.stringify({content})}\n\n`);
-            }
-          } catch (_) { /* skip malformed chunks */ }
         }
       }
+
+      sendEvent({ tool_status: 'done' });
+      sendEvent('[DONE]');
     } catch (e) {
-      console.warn('proxyAI stream error:', e.message);
-      // Write error as content so the user sees feedback instead of a blank response
-      res.write(`data: ${JSON.stringify({content: "\n\n😿 Mochi got distracted and lost her train of thought. Try asking again?"})}\n\n`);
-      res.write('data: [DONE]\n\n');
+      console.warn('proxyAI agent loop error:', e.message);
+      sendEvent({ content: '\n\n😿 Mochi got distracted and lost her train of thought. Try asking again?' });
+      sendEvent('[DONE]');
+    } finally {
+      stopKeepalive();
+      res.end();
     }
-    res.end();
     return;
   }
 
@@ -1514,6 +1970,127 @@ ${Array.isArray(memories) && memories.length > 0 ? `\n## Remembered Facts\n${mem
   const reasoning = message.reasoning || '';
   res.json({ reply, reasoning, model: data.model || model });
 }
+
+// ── FCM Helper ───────────────────────────────────────────────────
+async function sendFCMToUser(uid, payload) {
+  try {
+    const db = getDb();
+    const tokenDoc = await db.collection('fcm_tokens').doc(uid).get();
+    if (!tokenDoc.exists) return;
+    const token = tokenDoc.data()?.token;
+    if (!token) return;
+    await getAdmin().messaging().send({
+      token,
+      notification: { title: payload.title, body: payload.body },
+      data: payload.data || {},
+    });
+  } catch (e) {
+    console.warn(`FCM send to ${uid} failed:`, e.message);
+  }
+}
+
+async function sendFCMToBoth(payload) {
+  await Promise.all([
+    sendFCMToUser('khentsgdz', payload),
+    sendFCMToUser('clairjassen', payload),
+  ]);
+}
+
+// ── Scheduled: Daily Digest (8:00 AM PHT = 00:00 UTC) ───────────
+exports.mochiDailyDigest = onSchedule({
+  schedule: '0 0 * * *',
+  timeZone: 'Asia/Manila',
+  region: 'us-central1',
+}, async () => {
+  const db = getDb();
+  const today = new Date().toISOString().slice(0, 10);
+
+  const [moodsSnap, activitySnap] = await Promise.all([
+    db.collection('moods').where('date', '==', today).get(),
+    db.collection('recent_activity').orderBy('timestamp', 'desc').limit(5).get(),
+  ]);
+
+  const moodCount = moodsSnap.size;
+  const activities = activitySnap.docs.map(d => d.data().activity || d.data().description || '').filter(Boolean);
+
+  let digest = `Good morning! 🌅 It's ${today}. `;
+  if (moodCount > 0) {
+    digest += `${moodCount} mood(s) logged today. `;
+  }
+  if (activities.length > 0) {
+    digest += `Recent: ${activities.slice(0, 3).join(', ')}. `;
+  }
+  digest += 'Have a wonderful day together! 💕';
+
+  await sendFCMToBoth({
+    title: '🍡 Mochi\'s Morning Digest',
+    body: digest,
+    data: { type: 'daily_digest' },
+  });
+});
+
+// ── Scheduled: Mood Check-In (8:00 PM PHT = 12:00 UTC) ──────────
+exports.mochiMoodCheckIn = onSchedule({
+  schedule: '0 12 * * *',
+  timeZone: 'Asia/Manila',
+  region: 'us-central1',
+}, async () => {
+  const db = getDb();
+  const today = new Date().toISOString().slice(0, 10);
+
+  const moods = await db.collection('moods').where('date', '==', today).get();
+  const loggedUids = new Set(moods.docs.map(d => d.data().uid));
+
+  for (const uid of ['khentsgdz', 'clairjassen']) {
+    if (!loggedUids.has(uid)) {
+      await sendFCMToUser(uid, {
+        title: '🍡 Mochi wants to know...',
+        body: 'How are you feeling today? Tell me your mood! 💭',
+        data: { type: 'mood_checkin' },
+      });
+    }
+  }
+});
+
+// ── Scheduled: Special Day Nudge (9:00 AM PHT = 01:00 UTC) ───────
+exports.mochiSpecialDayNudge = onSchedule({
+  schedule: '0 1 * * *',
+  timeZone: 'Asia/Manila',
+  region: 'us-central1',
+}, async () => {
+  const now = new Date();
+  const mmdd = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+  const specialDays = {
+    '02-14': 'Valentine\'s Day (Anniversary!)',
+    '10-26': 'Khent\'s Birthday',
+    '02-21': 'Clair\'s Birthday',
+  };
+
+  if (specialDays[mmdd]) {
+    await sendFCMToBoth({
+      title: `💕 ${specialDays[mmdd]}`,
+      body: `Today is ${specialDays[mmdd]}! Mochi has something special planned~`,
+      data: { type: 'special_day', event: specialDays[mmdd] },
+    });
+  }
+
+  // Check upcoming special days within 7 days
+  for (const [date, event] of Object.entries(specialDays)) {
+    if (date === mmdd) continue;
+    const [m, d] = date.split('-').map(Number);
+    const thisYear = new Date(now.getFullYear(), m - 1, d);
+    if (thisYear < now) thisYear.setFullYear(thisYear.getFullYear() + 1);
+    const daysUntil = Math.ceil((thisYear - now) / (1000 * 60 * 60 * 24));
+    if (daysUntil > 0 && daysUntil <= 7) {
+      await sendFCMToBoth({
+        title: `💕 Coming Up: ${event}`,
+        body: `${event} is in ${daysUntil} days! Maybe plan something special?`,
+        data: { type: 'special_day_upcoming', event, days_until: daysUntil.toString() },
+      });
+    }
+  }
+});
 
 async function initWasm() {
   const sodium = require('libsodium-wrappers-sumo');

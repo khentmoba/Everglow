@@ -50,6 +50,7 @@ class AIService extends ChangeNotifier {
     String? contextOverride,
     bool stream = false,
     String? callerName, // 'khentsgdz' or 'clairjassen'
+    void Function(String toolStatus)? onToolStatus,
   }) async {
     _isLoading = true;
     _lastError = null;
@@ -75,23 +76,6 @@ class AIService extends ChangeNotifier {
       ));
       _setConversation(feature, conversation);
       notifyListeners();
-
-      // Auto-save to Starlight Jar if user asks Mochi to save something
-      if (feature == 'assistant') {
-        final lowerMsg = message.toLowerCase();
-        final saveTriggers = ['save this', 'write this down', 'save to starlight', 'starlight jar'];
-        final shouldSave = saveTriggers.any((t) => lowerMsg.contains(t));
-        if (shouldSave && message.length > 10) {
-          // Extract the content to save (everything after the trigger)
-          String noteContent = message;
-          for (final trigger in saveTriggers) {
-            noteContent = noteContent.replaceFirst(RegExp(RegExp.escape(trigger), caseSensitive: false), '').trim();
-          }
-          if (noteContent.length > 5) {
-            await writeStarlightNote(noteContent);
-          }
-        }
-      }
 
       // Gather context: if contextOverride is set, use it directly.
       // Otherwise, pass feature + caller to the server so it builds context
@@ -119,7 +103,7 @@ class AIService extends ChangeNotifier {
         }, onReasoning: (reasoning) {
           _draftReasoning += reasoning;
           notifyListeners();
-        });
+        }, onToolStatus: onToolStatus);
         _draftResponse = '';
         _draftReasoning = '';
       } else {
@@ -258,44 +242,28 @@ class AIService extends ChangeNotifier {
   Future<void> _extractAndSaveMemories(String userMessage, String aiReply) async {
     if (_auth.currentUser?.uid == null) return;
 
-    final memoryTriggers = [
-      'remember', 'i prefer', 'i like', 'i love', 'i hate',
-      'my favorite', 'my fav', 'i want', 'i need',
-      'don\'t forget', 'always', 'never', 'important',
-      'note that', 'fyi', 'i usually', 'i always', 'i never',
-      'we should', 'i don\'t like', 'i\'m afraid of', 'i\'m scared',
-    ];
-
-    final lowerMsg = userMessage.toLowerCase();
-    if (!memoryTriggers.any((t) => lowerMsg.contains(t))) return;
-
     String? fact;
+    String category = 'fact';
     try {
       final extracted = await quickAsk(
         message:
-            'Extract ONE personal fact about Khent or Clair from this message. '
-            'Reply with just the fact in under 15 words. '
+            'Extract ONE personal fact about Khent or Clair from this exchange. '
+            'Reply in format: CATEGORY|FACT (e.g., "preference|Khent prefers black coffee"). '
+            'Categories: fact, preference, dislike, goal, date, habit. '
             'If nothing worth remembering, reply with exactly: NONE\n\n'
-            'Message: $userMessage',
+            'User: $userMessage\nAssistant: $aiReply',
       );
       fact = extracted.trim();
       if (fact.isEmpty || fact == 'NONE' || fact.length > 100) return;
-    } catch (_) {
-      fact = userMessage.trim();
-      if (fact.length < 5) return;
-    }
 
-    String category = 'fact';
-    if (lowerMsg.contains('like') || lowerMsg.contains('love') ||
-        lowerMsg.contains('prefer') || lowerMsg.contains('favorite') ||
-        lowerMsg.contains('fav') || lowerMsg.contains('enjoy')) {
-      category = 'preference';
-    } else if (lowerMsg.contains('hate') || lowerMsg.contains('scared') ||
-        lowerMsg.contains('afraid') || lowerMsg.contains('don\'t like')) {
-      category = 'dislike';
-    } else if (lowerMsg.contains('want') || lowerMsg.contains('need') ||
-        lowerMsg.contains('we should') || lowerMsg.contains('goal')) {
-      category = 'goal';
+      // Parse category|fact format
+      if (fact.contains('|')) {
+        final parts = fact.split('|');
+        category = parts[0].trim();
+        fact = parts.sublist(1).join('|').trim();
+      }
+    } catch (_) {
+      return;
     }
 
     if (_memoryRepo.isDuplicate(fact)) return;
@@ -427,12 +395,13 @@ class AIService extends ChangeNotifier {
     String caller,
     void Function(String chunk) onChunk, {
     void Function(String chunk)? onReasoning,
+    void Function(String toolStatus)? onToolStatus,
   }) async {
     const maxRetries = 2;
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         return await _callProxyAIStreamOnce(
-            messages, context, memories, feature, caller, onChunk, onReasoning);
+            messages, context, memories, feature, caller, onChunk, onReasoning, onToolStatus);
       } catch (e) {
         final isTransient = e is SocketException ||
             e is TimeoutException ||
@@ -457,6 +426,7 @@ class AIService extends ChangeNotifier {
     String caller,
     void Function(String chunk) onChunk,
     void Function(String chunk)? onReasoning,
+    void Function(String toolStatus)? onToolStatus,
   ) async {
     final idToken = await _auth.currentUser?.getIdToken() ?? '';
     final body = jsonEncode({
@@ -477,7 +447,8 @@ class AIService extends ChangeNotifier {
       body: body,
       onChunk: onChunk,
       onReasoning: onReasoning,
-      timeout: const Duration(seconds: 65),
+      onToolStatus: onToolStatus,
+      timeout: const Duration(seconds: 120),
     );
   }
 
