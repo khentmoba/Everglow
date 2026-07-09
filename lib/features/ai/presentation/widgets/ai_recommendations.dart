@@ -58,6 +58,7 @@ class _AIRecommendationsState extends State<AIRecommendations> {
 
     try {
       final ai = context.read<AIService>();
+      final tmdb = TMDBService();
 
       // Build context from Firestore directly
       final contextParts = <String>[];
@@ -74,8 +75,36 @@ class _AIRecommendationsState extends State<AIRecommendations> {
         contextParts.add('Our watchlist:\n$items');
       }
 
+      // Pre-fetch real TMDB data so Mochi recommends actual movies
+      try {
+        final trending = await tmdb.fetchTrending(timeWindow: 'week');
+        if (trending.isNotEmpty) {
+          final list = trending.take(10).map((m) =>
+            '${m.title} (${m.year})').join(', ');
+          contextParts.add('Trending movies this week: $list');
+        }
+      } catch (_) {}
+
+      try {
+        final nowPlaying = await tmdb.fetchNowPlaying();
+        if (nowPlaying.isNotEmpty) {
+          final list = nowPlaying.take(8).map((m) =>
+            '${m.title} (${m.year})').join(', ');
+          contextParts.add('Now playing in theaters: $list');
+        }
+      } catch (_) {}
+
+      try {
+        final upcoming = await tmdb.fetchUpcoming();
+        if (upcoming.isNotEmpty) {
+          final list = upcoming.take(8).map((m) =>
+            '${m.title} (${m.year})').join(', ');
+          contextParts.add('Coming soon: $list');
+        }
+      } catch (_) {}
+
       final contextStr = contextParts.join('\n\n');
-      final prompt = 'Based on what we have been watching, recommend 3 movies or series we should watch next. Reply with ONLY a numbered list of titles with year, nothing else. Example: 1. Movie Name (2024)';
+      final prompt = '''Based on what we have been watching and what's currently available, recommend 3 movies or series we should watch next. Pick from the trending/now playing/coming soon lists when possible — only recommend real movies that exist. Reply with ONLY a numbered list of titles with year, nothing else. Example: 1. Movie Name (2024)''';
 
       final result = await ai.quickAsk(
         message: prompt,
@@ -92,7 +121,6 @@ class _AIRecommendationsState extends State<AIRecommendations> {
         return;
       }
 
-      final tmdb = TMDBService();
       final found = <MediaItem>[];
       for (final title in titles.take(5)) {
         try {

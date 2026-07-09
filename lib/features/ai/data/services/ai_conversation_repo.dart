@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import '../../domain/models/ai_conversation.dart';
 import '../../domain/repositories/ai_conversation_repo_interface.dart';
 
@@ -119,7 +121,7 @@ class AIConversationRepository implements IAIConversationRepository {
     }
   }
 
-  /// Keep max 5 full sessions; summarize older ones.
+  /// Keep max 5 full sessions; summarize older ones using LLM.
   Future<void> _trimFullSessions() async {
     try {
       final snapshot = await _db
@@ -136,15 +138,123 @@ class AIConversationRepository implements IAIConversationRepository {
       for (final doc in toSummarize) {
         final data = doc.data();
         final messages = data['messages'] as List? ?? [];
-        final summary = _buildLocalSummary(messages);
+        final summary = await _buildLLMSummary(messages);
         await doc.reference.update({
           'hasSummary': true,
           'summary': summary,
           'messages': [],
         });
       }
+
+      // Compress old summaries if too many
+      await _compressOldSessions();
     } catch (e) {
       if (kDebugMode) debugPrint('Failed to trim sessions: $e');
+    }
+  }
+
+  /// LLM-powered session summary via Groq.
+  Future<String> _buildLLMSummary(List messages) async {
+    if (messages.isEmpty) return 'Empty session';
+
+    final userMessages = messages
+        .where((m) => (m as Map<String, dynamic>)['role'] == 'user')
+        .map((m) => (m as Map<String, dynamic>)['content'] as String? ?? '')
+        .where((c) => c.isNotEmpty)
+        .join('\n');
+
+    if (userMessages.trim().length < 20) {
+      return _buildLocalSummary(messages);
+    }
+
+    try {
+      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken() ?? '';
+      final response = await http.post(
+        Uri.parse('https://proxyaiv2-6pr4gqobxa-uc.a.run.app'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+        body: jsonEncode({
+          'systemPrompt': 'Summarize this conversation in 2-3 sentences. Focus on key topics, decisions, and notable moments. Be concise.',
+          'messages': [{'role': 'user', 'content': userMessages}],
+        }),
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final summary = (data['reply'] as String? ?? '').trim();
+        if (summary.isNotEmpty) return summary;
+      }
+    } catch (_) {}
+
+    // Fallback to local summarization
+    return _buildLocalSummary(messages);
+  }
+
+  /// Merge oldest summaries when count exceeds 10.
+  Future<void> _compressOldSessions() async {
+    try {
+      final snapshot = await _db
+          .collection('ai_memories')
+          .doc('shared')
+          .collection('sessions')
+          .where('hasSummary', isEqualTo: true)
+          .orderBy('createdAt')
+          .limit(20)
+          .get();
+
+      if (snapshot.docs.length <= 10) return;
+
+      final toMerge = snapshot.docs.take(snapshot.docs.length - 5).toList();
+      final summaries = toMerge
+          .map((d) => d.data()['summary'] as String? ?? '')
+          .where((s) => s.isNotEmpty)
+          .join('\n');
+
+      if (summaries.isEmpty) return;
+
+      // Try LLM merge, fallback to simple concatenation
+      String mergedSummary;
+      try {
+        final idToken = await FirebaseAuth.instance.currentUser?.getIdToken() ?? '';
+        final response = await http.post(
+          Uri.parse('https://proxyaiv2-6pr4gqobxa-uc.a.run.app'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $idToken',
+          },
+          body: jsonEncode({
+            'systemPrompt': 'Merge these session summaries into one concise paragraph preserving key information.',
+            'messages': [{'role': 'user', 'content': summaries}],
+          }),
+        ).timeout(const Duration(seconds: 30));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          mergedSummary = (data['reply'] as String? ?? '').trim();
+          if (mergedSummary.isEmpty) mergedSummary = summaries;
+        } else {
+          mergedSummary = summaries;
+        }
+      } catch (_) {
+        mergedSummary = summaries;
+      }
+
+      // Write merged summary, delete old ones
+      await _db.collection('ai_memories').doc('shared').collection('sessions').add({
+        'summary': mergedSummary,
+        'hasSummary': true,
+        'messages': [],
+        'feature': 'assistant',
+        'messageCount': 0,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      for (final doc in toMerge) {
+        await doc.reference.delete();
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('Failed to compress sessions: $e');
     }
   }
 
