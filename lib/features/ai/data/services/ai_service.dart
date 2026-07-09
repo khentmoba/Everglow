@@ -36,11 +36,13 @@ class AIService extends ChangeNotifier {
   String? _lastError;
   String _draftResponse = '';
   String _draftReasoning = '';
+  String _toolStatus = '';
 
   bool get isLoading => _isLoading;
   String? get lastError => _lastError;
   String get draftResponse => _draftResponse;
   String get draftReasoning => _draftReasoning;
+  String get toolStatus => _toolStatus;
 
   // ─── Core: Send a message to the AI ────────────────────────────
 
@@ -103,9 +105,13 @@ class AIService extends ChangeNotifier {
         }, onReasoning: (reasoning) {
           _draftReasoning += reasoning;
           notifyListeners();
-        }, onToolStatus: onToolStatus);
+        }, onToolStatus: (status) {
+          _toolStatus = status;
+          notifyListeners();
+        });
         _draftResponse = '';
         _draftReasoning = '';
+        _toolStatus = '';
       } else {
         // ── Non-streaming mode ─────────────────────────
         reply = await _callProxyAI(recentMessages, context, _memoryRepo.all, feature, caller);
@@ -484,4 +490,33 @@ class AIService extends ChangeNotifier {
 
   Future<void> _loadSessionIntoConversation(AIConversation conversation) =>
       _conversationRepo.loadSessionIntoConversation(conversation);
+
+  // ─── Session Management ─────────────────────────────────────────
+
+  /// List all archived sessions, newest first.
+  Future<List<AISession>> listSessions({int limit = 50}) =>
+      _conversationRepo.listSessions(limit: limit);
+
+  /// Switch to a specific archived session, loading its messages.
+  Future<void> switchSession(String sessionId) async {
+    await _conversationRepo.loadSession(sessionId);
+    // Also save it as the current assistant conversation
+    final conv = _conversationRepo.assistant;
+    if (conv != null) {
+      await _conversationRepo.save(conv);
+    }
+    notifyListeners();
+  }
+
+  /// Delete a specific archived session.
+  Future<void> deleteSession(String sessionId) =>
+      _conversationRepo.deleteSession(sessionId);
+
+  /// Archive the current conversation as a new session.
+  Future<void> archiveCurrentSession() async {
+    final conv = _conversationRepo.assistant;
+    if (conv != null && conv.messages.length >= 2) {
+      await _conversationRepo.archiveSession(conv);
+    }
+  }
 }

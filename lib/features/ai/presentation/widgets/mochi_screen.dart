@@ -143,6 +143,7 @@ class _MochiScreenState extends State<MochiScreen> {
                       final loading = ai.isLoading;
                       final hasDraft = ai.draftResponse.isNotEmpty;
                       final draftReasoning = ai.draftReasoning;
+                      final toolStatus = ai.toolStatus;
 
                       if (allMsgs.isEmpty && !loading) {
                         return _GreetingEmptyState(onTap: _sendQuick);
@@ -171,10 +172,13 @@ class _MochiScreenState extends State<MochiScreen> {
                               reasoning: draftReasoning.isNotEmpty
                                   ? draftReasoning
                                   : null,
+                              toolStatus: toolStatus,
                             );
                           }
                           if (!hasStream && i == allMsgs.length + idx) {
-                            return const _ThinkingIndicator();
+                            return _ThinkingIndicator(
+                              toolStatus: toolStatus,
+                            );
                           }
                           final msg = allMsgs[i - idx];
                           return _MessageBubble(
@@ -451,6 +455,7 @@ class _MessageBubble extends StatefulWidget {
   final DateTime? timestamp;
   final bool isStreaming;
   final String? reasoning;
+  final String? toolStatus;
 
   const _MessageBubble({
     super.key,
@@ -459,6 +464,7 @@ class _MessageBubble extends StatefulWidget {
     this.timestamp,
     this.isStreaming = false,
     this.reasoning,
+    this.toolStatus,
   });
 
   @override
@@ -636,13 +642,22 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         ),
                       )
                     else
-                      _MarkdownText(
-                        text: widget.text,
-                        baseStyle: AppTypography.bodyMedium().copyWith(
-                          color: AppColors.textHigh,
-                          height: 1.45,
-                        ),
-                      ),
+                      widget.text.isEmpty && widget.isStreaming && widget.toolStatus != null && widget.toolStatus!.isNotEmpty
+                          ? Text(
+                              _formatToolStatus(widget.toolStatus!),
+                              style: AppTypography.bodyMedium().copyWith(
+                                color: AppColors.textMuted,
+                                fontStyle: FontStyle.italic,
+                                height: 1.45,
+                              ),
+                            )
+                          : _MarkdownText(
+                              text: widget.text,
+                              baseStyle: AppTypography.bodyMedium().copyWith(
+                                color: AppColors.textHigh,
+                                height: 1.45,
+                              ),
+                            ),
                     if (widget.timestamp != null || widget.isStreaming)
                       Padding(
                         padding: const EdgeInsets.only(top: 5),
@@ -789,10 +804,29 @@ class _MarkdownText extends StatelessWidget {
   }
 }
 
+String _formatToolStatus(String status) {
+  if (status == 'generating') return 'Mochi is thinking';
+  if (status == 'executing') return 'Mochi is working on it';
+  if (status == 'done') return 'Mochi is done';
+  if (status.startsWith('round_')) return 'Mochi is thinking';
+  // Tool names
+  const toolNames = {
+    'add_to_watchlist': 'Adding to watchlist',
+    'save_to_starlight_jar': 'Saving to Starlight Jar',
+    'set_mood': 'Logging mood',
+    'search_movies': 'Searching movies',
+    'get_weather': 'Checking weather',
+    'create_reminder': 'Creating reminder',
+    'log_activity': 'Logging activity',
+  };
+  return toolNames[status] ?? 'Mochi is thinking';
+}
+
 // ─── Thinking indicator ─────────────────────────────────────────
 
 class _ThinkingIndicator extends StatefulWidget {
-  const _ThinkingIndicator();
+  final String toolStatus;
+  const _ThinkingIndicator({this.toolStatus = ''});
   @override
   State<_ThinkingIndicator> createState() => _ThinkingIndicatorState();
 }
@@ -849,7 +883,9 @@ class _ThinkingIndicatorState extends State<_ThinkingIndicator>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Mochi is thinking',
+                  widget.toolStatus.isNotEmpty
+                      ? _formatToolStatus(widget.toolStatus)
+                      : 'Mochi is thinking',
                   style: AppTypography.bodyMedium().copyWith(
                     color: AppColors.textMuted,
                     height: 1.0,
