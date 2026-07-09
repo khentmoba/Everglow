@@ -1803,7 +1803,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
     }
   }
 
-  // ── Streaming mode (SSE) with Agent Loop ──────────────
+  // ── Streaming mode (SSE) — immediate stream, tools handled post-stream ──
   if (req.body.stream === true) {
     // Set up SSE connection
     res.set('Content-Type', 'text/event-stream');
@@ -1831,15 +1831,17 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
     };
 
     try {
-      let round = 0;
-      let hasToolCalls = false;
+      // ── Stream directly — no blocking tool-detection round ──
+      sendEvent({ tool_status: 'generating' });
+      startKeepalive();
 
-      // ── Agent Loop: non-streaming Agnes calls for tool detection ──
-      while (round < MAX_TOOL_ROUNDS) {
-        round++;
-        sendEvent({ tool_status: `round_${round}` });
+      let currentMessages = [...nimMessages];
+      let toolRound = 0;
 
-        const agnesResp = await fetch('https://apihub.agnes-ai.com/v1/chat/completions', {
+      while (toolRound < MAX_TOOL_ROUNDS) {
+        toolRound++;
+
+        const streamResp = await fetch('https://apihub.agnes-ai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${apiKey}`,
@@ -1847,92 +1849,27 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
           },
           body: JSON.stringify({
             model,
-            messages: nimMessages,
+            messages: currentMessages,
             tools,
             max_tokens: 8192,
             temperature: 0.6,
             top_p: 0.95,
-            stream: false,
+            stream: true,
             ...(enableThinking ? { chat_template_kwargs: { enable_thinking: true } } : {}),
           }),
-          timeout: 30000,
+          timeout: 65000,
         });
 
-        if (!agnesResp.ok) {
-          const errText = await agnesResp.text().catch(() => '');
+        if (!streamResp.ok) {
           sendEvent({ content: '\n\n😿 Mochi got distracted and lost her train of thought. Try asking again?' });
           break;
         }
 
-        const agnesData = await agnesResp.json();
-        const message = agnesData.choices?.[0]?.message || {};
-        const toolCalls = message.tool_calls || [];
+        // Collect the full response while streaming to client
+        let fullContent = '';
+        let collectedToolCalls = [];
+        let currentToolCall = null;
 
-        if (toolCalls.length === 0) {
-          hasToolCalls = false;
-          break;
-        }
-
-        // Tool calls detected — execute them
-        hasToolCalls = true;
-        startKeepalive();
-        sendEvent({ tool_status: 'executing' });
-
-        // Append assistant message with tool_calls
-        nimMessages.push({
-          role: 'assistant',
-          content: message.content || null,
-          tool_calls: toolCalls.map(tc => ({
-            id: tc.id,
-            type: 'function',
-            function: { name: tc.function.name, arguments: tc.function.arguments },
-          })),
-        });
-
-        // Execute each tool
-        for (const tc of toolCalls) {
-          const fnName = tc.function.name;
-          let fnArgs;
-          try { fnArgs = JSON.parse(tc.function.arguments); } catch { fnArgs = {}; }
-
-          sendEvent({ tool_status: fnName });
-
-          const result = await executeTool(fnName, fnArgs, callerUid);
-
-          nimMessages.push({
-            role: 'tool',
-            tool_call_id: tc.id,
-            name: fnName,
-            content: result,
-          });
-        }
-
-        stopKeepalive();
-      }
-
-      // ── Stream final response ──
-      const streamResp = await fetch('https://apihub.agnes-ai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model,
-          messages: nimMessages,
-          tools,
-          max_tokens: 8192,
-          temperature: 0.6,
-          top_p: 0.95,
-          stream: true,
-          ...(enableThinking ? { chat_template_kwargs: { enable_thinking: true } } : {}),
-        }),
-        timeout: 65000,
-      });
-
-      if (!streamResp.ok) {
-        sendEvent({ content: '\n\n😿 Mochi got distracted and lost her train of thought. Try asking again?' });
-      } else {
         const reader = streamResp.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
@@ -1949,17 +1886,84 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
             try {
               const parsed = JSON.parse(raw);
               const delta = parsed.choices?.[0]?.delta || {};
+              const finishReason = parsed.choices?.[0]?.finish_reason;
+
+              // Stream content tokens to client immediately
               if (delta.reasoning) sendEvent({ reasoning: delta.reasoning });
-              if (delta.content) sendEvent({ content: delta.content });
+              if (delta.content) {
+                fullContent += delta.content;
+                sendEvent({ content: delta.content });
+              }
+
+              // Collect tool calls from stream deltas
+              if (delta.tool_calls) {
+                for (const tc of delta.tool_calls) {
+                  if (tc.index !== undefined) {
+                    if (!collectedToolCalls[tc.index]) {
+                      collectedToolCalls[tc.index] = { id: tc.id || '', type: 'function', function: { name: '', arguments: '' } };
+                    }
+                    const existing = collectedToolCalls[tc.index];
+                    if (tc.id) existing.id = tc.id;
+                    if (tc.function?.name) existing.function.name += tc.function.name;
+                    if (tc.function?.arguments) existing.function.arguments += tc.function.arguments;
+                  }
+                }
+              }
+
+              // Detect tool calls from finish_reason
+              if (finishReason === 'tool_calls') {
+                collectedToolCalls = collectedToolCalls.filter(Boolean);
+              }
             } catch (_) {}
           }
         }
+
+        // If no tool calls, we're done — stream completed naturally
+        if (collectedToolCalls.length === 0) {
+          break;
+        }
+
+        // ── Execute tool calls found in the stream ──
+        sendEvent({ tool_status: 'executing' });
+
+        // Build assistant message with tool_calls
+        currentMessages.push({
+          role: 'assistant',
+          content: fullContent || null,
+          tool_calls: collectedToolCalls.map(tc => ({
+            id: tc.id,
+            type: 'function',
+            function: { name: tc.function.name, arguments: tc.function.arguments },
+          })),
+        });
+
+        // Execute each tool
+        for (const tc of collectedToolCalls) {
+          const fnName = tc.function.name;
+          let fnArgs;
+          try { fnArgs = JSON.parse(tc.function.arguments); } catch { fnArgs = {}; }
+
+          sendEvent({ tool_status: fnName });
+          const result = await executeTool(fnName, fnArgs, callerUid);
+
+          currentMessages.push({
+            role: 'tool',
+            tool_call_id: tc.id,
+            name: fnName,
+            content: result,
+          });
+        }
+
+        sendEvent({ tool_status: `round_${toolRound}_done` });
+        collectedToolCalls = [];
+        fullContent = '';
       }
 
+      stopKeepalive();
       sendEvent({ tool_status: 'done' });
       sendEvent('[DONE]');
     } catch (e) {
-      console.warn('proxyAI agent loop error:', e.message);
+      console.warn('proxyAI streaming error:', e.message);
       sendEvent({ content: '\n\n😿 Mochi got distracted and lost her train of thought. Try asking again?' });
       sendEvent('[DONE]');
     } finally {
