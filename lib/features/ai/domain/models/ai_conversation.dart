@@ -24,7 +24,7 @@ class AIMessage {
             : DateTime.now(),
       );
 
-  /// Returns the payload for the Groq API.
+  /// Returns the payload for the Agnes API.
   Map<String, dynamic> toApiPayload() {
     return {'role': role, 'content': content};
   }
