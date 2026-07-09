@@ -365,4 +365,100 @@ class AIConversationRepository implements IAIConversationRepository {
     _recommendationConversation = null;
     _dateIdeaConversation = null;
   }
+
+  // ─── Session Management ─────────────────────────────────────────
+
+  /// List all archived sessions, newest first.
+  @override
+  Future<List<AISession>> listSessions({int limit = 50}) async {
+    try {
+      final snapshot = await _db
+          .collection('ai_memories')
+          .doc('shared')
+          .collection('sessions')
+          .where('feature', isEqualTo: 'assistant')
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .get();
+
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        final messages = data['messages'] as List? ?? [];
+        final hasSummary = data['hasSummary'] as bool? ?? true;
+        final summary = data['summary'] as String?;
+        final createdAt = (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+
+        // Generate title from first user message or summary
+        String title = 'New conversation';
+        if (hasSummary && summary != null && summary.isNotEmpty) {
+          title = summary.length > 60 ? '${summary.substring(0, 60)}…' : summary;
+        } else if (messages.isNotEmpty) {
+          final firstUserMsg = messages.firstWhere(
+            (m) => (m as Map<String, dynamic>)['role'] == 'user',
+            orElse: () => null,
+          );
+          if (firstUserMsg != null) {
+            final content = (firstUserMsg as Map<String, dynamic>)['content'] as String? ?? '';
+            title = content.length > 60 ? '${content.substring(0, 60)}…' : content;
+          }
+        }
+
+        return AISession(
+          id: doc.id,
+          feature: data['feature'] ?? 'assistant',
+          messageCount: data['messageCount'] ?? messages.length,
+          hasSummary: hasSummary,
+          summary: summary,
+          createdAt: createdAt,
+          title: title,
+        );
+      }).toList();
+    } catch (e) {
+      if (kDebugMode) debugPrint('Failed to list sessions: $e');
+      return [];
+    }
+  }
+
+  /// Load a specific session's messages into the assistant conversation.
+  @override
+  Future<void> loadSession(String sessionId) async {
+    try {
+      final doc = await _db
+          .collection('ai_memories')
+          .doc('shared')
+          .collection('sessions')
+          .doc(sessionId)
+          .get();
+
+      if (!doc.exists || doc.data() == null) return;
+
+      final data = doc.data()!;
+      final messages = data['messages'] as List? ?? [];
+      final conv = _assistantConversation ?? await getOrCreate('assistant');
+
+      conv.messages.clear();
+      for (final msg in messages) {
+        conv.messages.add(AIMessage.fromJson(msg as Map<String, dynamic>));
+      }
+
+      _assistantConversation = conv;
+    } catch (e) {
+      if (kDebugMode) debugPrint('Failed to load session: $e');
+    }
+  }
+
+  /// Delete a specific archived session.
+  @override
+  Future<void> deleteSession(String sessionId) async {
+    try {
+      await _db
+          .collection('ai_memories')
+          .doc('shared')
+          .collection('sessions')
+          .doc(sessionId)
+          .delete();
+    } catch (e) {
+      if (kDebugMode) debugPrint('Failed to delete session: $e');
+    }
+  }
 }
