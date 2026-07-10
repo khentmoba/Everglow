@@ -279,25 +279,48 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                 top: 6,
                 left: 6,
                 child: Container(
-                  width: 22,
-                  height: 22,
+                  width: 28,
+                  height: 28,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color:
-                        AppTheme.velvet.withValues(alpha: 0.85),
+                    gradient: widget.rankNumber! <= 3
+                        ? LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              AppTheme.blushGold,
+                              AppTheme.blushGold.withValues(alpha: 0.7),
+                            ],
+                          )
+                        : null,
+                    color: widget.rankNumber! > 3
+                        ? AppTheme.velvet.withValues(alpha: 0.85)
+                        : null,
                     border: Border.all(
-                      color: AppTheme.blushGold
-                          .withValues(alpha: 0.6),
-                      width: 1,
+                      color: widget.rankNumber! <= 3
+                          ? AppTheme.blushGold
+                          : AppTheme.blushGold.withValues(alpha: 0.6),
+                      width: widget.rankNumber! <= 3 ? 1.5 : 1,
                     ),
+                    boxShadow: widget.rankNumber! <= 3
+                        ? [
+                            BoxShadow(
+                              color: AppTheme.blushGold.withValues(alpha: 0.5),
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                            ),
+                          ]
+                        : null,
                   ),
                   alignment: Alignment.center,
                   child: Text(
                     '${widget.rankNumber}',
                     style: GoogleFonts.cormorantGaramond(
-                      fontSize: 12,
+                      fontSize: widget.rankNumber! <= 3 ? 15 : 12,
                       fontWeight: FontWeight.w900,
-                      color: AppTheme.blushGold,
+                      color: widget.rankNumber! <= 3
+                          ? AppTheme.velvet
+                          : AppTheme.blushGold,
                     ),
                   ),
                 ),
