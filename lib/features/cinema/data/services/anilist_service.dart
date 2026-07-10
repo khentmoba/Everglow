@@ -267,6 +267,8 @@ class AniListService {
           episodeCount: (m['episodes'] is num)
               ? (m['episodes'] as num).toInt()
               : null),
+      nextAiringAt: _parseNextAiringAt(m['nextAiringEpisode']),
+      nextAiringEpisode: _parseNextAiringEpisode(m['nextAiringEpisode']),
     );
   }
 
@@ -429,6 +431,22 @@ class AniListService {
     if (anilistId != null) _detailCache.remove(anilistId);
     if (malId != null) _detailCache.remove(-malId);
     return fetchDetails(anilistId: anilistId, malId: malId);
+  }
+
+  /// Parses the `nextAiringEpisode` block from AniList's GraphQL response.
+  /// Returns the `airingAt` unix timestamp (seconds) or null.
+  static int? _parseNextAiringAt(dynamic nextAiring) {
+    if (nextAiring is! Map<String, dynamic>) return null;
+    final airingAt = nextAiring['airingAt'];
+    return airingAt is num ? airingAt.toInt() : null;
+  }
+
+  /// Parses the `nextAiringEpisode` block from AniList's GraphQL response.
+  /// Returns the episode number or null.
+  static int? _parseNextAiringEpisode(dynamic nextAiring) {
+    if (nextAiring is! Map<String, dynamic>) return null;
+    final episode = nextAiring['episode'];
+    return episode is num ? episode.toInt() : null;
   }
 
   /// Search anime by free-text query via AniList's GraphQL API.
@@ -634,6 +652,11 @@ query ($id: Int, $idMal: Int, $type: MediaType) {
       url
       site
       thumbnail
+    }
+
+    nextAiringEpisode {
+      airingAt
+      episode
     }
   }
 }
