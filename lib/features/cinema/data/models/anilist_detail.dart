@@ -30,6 +30,14 @@ class AniListDetail {
   final List<AniListRecommended> recommendations;
   final List<AniListEpisode> episodes;
 
+  /// Unix timestamp (seconds) of the next episode's air time. Only populated
+  /// for currently-airing anime where AniList provides `nextAiringEpisode`.
+  final int? nextAiringAt;
+
+  /// Episode number of the next airing episode (from AniList's
+  /// `nextAiringEpisode.episode`).
+  final int? nextAiringEpisode;
+
   const AniListDetail({
     required this.id,
     this.malId,
@@ -54,6 +62,8 @@ class AniListDetail {
     this.relations = const [],
     this.recommendations = const [],
     this.episodes = const [],
+    this.nextAiringAt,
+    this.nextAiringEpisode,
   });
 }
 

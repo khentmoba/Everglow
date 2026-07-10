@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
@@ -1180,7 +1181,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
             ],
 
             // Ã¢â€â‚¬Ã¢â€â‚¬ CAST Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
-            SliverToBoxAdapter(child: _buildDrawerSection('Cast')),
+            SliverToBoxAdapter(child: _buildDrawerSection(_isAnimeSourced ? 'Voice Cast' : 'Cast')),
             SliverToBoxAdapter(child: _buildCastSection()),
 
             // Ã¢â€â‚¬Ã¢â€â‚¬ REVIEWS Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
@@ -1545,7 +1546,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
             const SizedBox(height: 12),
           ],
 
-          // Anime-specific meta row: studio + format + airing status.
+          // Anime-specific meta row: studio + format + airing status + next episode countdown.
           // This is hidden for non-anime items because those fields
           // don't have meaningful TMDB equivalents.
           if (_isAnimeSourced &&
@@ -1559,6 +1560,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                 if (_studio.isNotEmpty) _buildAnimeFactChip(_studio, Icons.movie_creation_outlined),
                 if (_format.isNotEmpty) _buildAnimeFactChip(_format, Icons.tv_rounded),
                 if (_airingStatus.isNotEmpty) _buildAnimeFactChip(_airingStatus, Icons.fiber_manual_record_rounded),
+                if (_aniListDetail?.nextAiringAt != null) _buildAiringCountdownChip(_aniListDetail!.nextAiringAt!, _aniListDetail!.nextAiringEpisode),
               ],
             ),
             const SizedBox(height: 18),
@@ -1998,75 +2000,110 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     if (_isLoadingCast) return _buildLoader();
     if (_cast.isEmpty) return _buildEmptySection('No cast info available');
 
-    return SizedBox(
-      height: 160,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _cast.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 14),
-        itemBuilder: (context, i) {
-          final m = _cast[i];
-          final hasPhoto =
-              (m['profilePath'] ?? '').toString().isNotEmpty;
-          return SizedBox(
-            width: 80,
-            child: Column(
-              children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.shimmerBase,
-                    border: Border.all(
-                        color: AppColors.roseQuartz.withValues(alpha: 0.2), width: 1.5),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        blurRadius: 8,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 160,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: _cast.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 14),
+            itemBuilder: (context, i) {
+              final m = _cast[i];
+              final hasPhoto =
+                  (m['profilePath'] ?? '').toString().isNotEmpty;
+              final character = (m['character'] ?? '').toString();
+              final name = (m['name'] ?? '').toString();
+              return SizedBox(
+                width: 80,
+                child: Column(
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.shimmerBase,
+                        border: Border.all(
+                            color: AppColors.roseQuartz.withValues(alpha: 0.2), width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: hasPhoto
-                        ? Image.network(m['profilePath'],
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) =>
-                                _castInitial(m['name'] ?? ''))
-                        : _castInitial(m['name'] ?? ''),
-                  ),
-                ),
-                const SizedBox(height: 7),
-                Text(
-                  m['name'] ?? '',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.outfit(
-                    color: AppColors.petalWhite,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if ((m['character'] ?? '').toString().isNotEmpty)
-                  Text(
-                    m['character'],
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.outfit(
-                      color: AppColors.mutedPurple,
-                      fontSize: 9,
-                      fontStyle: FontStyle.italic,
+                      child: ClipOval(
+                        child: hasPhoto
+                            ? Image.network(m['profilePath'],
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) =>
+                                    _castInitial(name))
+                            : _castInitial(name),
+                      ),
                     ),
-                  ),
-              ],
-            ),
-          );
-        },
-      ),
+                    const SizedBox(height: 7),
+                    // For anime: character name is primary (bold), VA is secondary.
+                    // For cinema: VA name is primary, character/role is secondary.
+                    if (_isAnimeSourced && character.isNotEmpty) ...[
+                      Text(
+                        character,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.outfit(
+                          color: AppColors.petalWhite,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (name.isNotEmpty)
+                        Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.outfit(
+                            color: AppColors.mutedPurple,
+                            fontSize: 9,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                    ] else ...[
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.outfit(
+                          color: AppColors.petalWhite,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (character.isNotEmpty)
+                        Text(
+                          character,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.outfit(
+                            color: AppColors.mutedPurple,
+                            fontSize: 9,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -2378,6 +2415,17 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
           ),
         ],
       ),
+    );
+  }
+
+  /// Live countdown chip showing time until the next episode airs. Uses a
+  /// one-minute timer to keep the countdown accurate without excessive
+  /// rebuilds. The chip is pulsing-animated to draw attention and only
+  /// rendered when AniList provides a `nextAiringAt` timestamp.
+  Widget _buildAiringCountdownChip(int nextAiringAtSeconds, int? nextEpisode) {
+    return _AiringCountdownChip(
+      nextAiringAt: nextAiringAtSeconds,
+      nextEpisode: nextEpisode,
     );
   }
 
@@ -2742,6 +2790,84 @@ class _SeasonNavItem {
     required this.isCurrent,
     required this.relationType,
   });
+}
+
+/// Live countdown chip that ticks every minute showing time until the next
+/// episode airs. Self-contained StatefulWidget so it can manage its own
+/// timer lifecycle without cluttering the drawer state.
+class _AiringCountdownChip extends StatefulWidget {
+  final int nextAiringAt;
+  final int? nextEpisode;
+  const _AiringCountdownChip({required this.nextAiringAt, this.nextEpisode});
+
+  @override
+  State<_AiringCountdownChip> createState() => _AiringCountdownChipState();
+}
+
+class _AiringCountdownChipState extends State<_AiringCountdownChip> {
+  late final Timer _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  String _formatCountdown() {
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final diff = widget.nextAiringAt - now;
+    if (diff <= 0) return 'Airing now';
+    final d = diff ~/ 86400;
+    final h = (diff % 86400) ~/ 3600;
+    final m = (diff % 3600) ~/ 60;
+    if (d > 0) return '${d}d ${h}h';
+    if (h > 0) return '${h}h ${m}m';
+    return '${m}m';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final label = widget.nextEpisode != null
+        ? 'Ep ${widget.nextEpisode} in ${_formatCountdown()}'
+        : 'Next in ${_formatCountdown()}';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.deepRose.withValues(alpha: 0.25),
+            AppColors.deepRose.withValues(alpha: 0.12),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.deepRose.withValues(alpha: 0.5), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.timer_outlined, color: AppColors.deepRose, size: 11),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: GoogleFonts.outfit(
+              color: AppColors.deepRose,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 

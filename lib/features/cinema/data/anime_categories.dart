@@ -4,7 +4,7 @@ import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/jikan_service.dart';
 
 /// Group of related anime filter chips shown on the Browse tab.
-enum AnimeCategoryGroup { format, genre, status, discovery }
+enum AnimeCategoryGroup { format, genre, status, discovery, season }
 
 /// A single filterable option inside a [AnimeCategoryGroup].
 ///
@@ -279,5 +279,39 @@ final List<AnimeCategoryOption> animeCategoryOptions = [
     color: const Color(0xFFEC407A),
     group: AnimeCategoryGroup.discovery,
     fetch: _fetchEditorPicks,
+  ),
+
+  // ── BY SEASON ──────────────────────────────────────────────
+  AnimeCategoryOption(
+    id: 'season-summer-2026',
+    label: 'Summer 2026',
+    icon: Icons.wb_sunny_rounded,
+    color: const Color(0xFFFFB74D),
+    group: AnimeCategoryGroup.season,
+    fetch: (jikan) => jikan.fetchSeason(year: 2026, season: 'summer'),
+  ),
+  AnimeCategoryOption(
+    id: 'season-spring-2026',
+    label: 'Spring 2026',
+    icon: Icons.local_florist_rounded,
+    color: const Color(0xFF81C784),
+    group: AnimeCategoryGroup.season,
+    fetch: (jikan) => jikan.fetchSeason(year: 2026, season: 'spring'),
+  ),
+  AnimeCategoryOption(
+    id: 'season-winter-2026',
+    label: 'Winter 2026',
+    icon: Icons.ac_unit_rounded,
+    color: const Color(0xFF90CAF9),
+    group: AnimeCategoryGroup.season,
+    fetch: (jikan) => jikan.fetchSeason(year: 2026, season: 'winter'),
+  ),
+  AnimeCategoryOption(
+    id: 'season-fall-2025',
+    label: 'Fall 2025',
+    icon: Icons.park_rounded,
+    color: const Color(0xFFA1887F),
+    group: AnimeCategoryGroup.season,
+    fetch: (jikan) => jikan.fetchSeason(year: 2025, season: 'fall'),
   ),
 ];

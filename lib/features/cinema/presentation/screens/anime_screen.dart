@@ -27,6 +27,8 @@ import 'package:everglow/shared/widgets/shelf/shimmer_box.dart';
 import 'package:everglow/shared/widgets/shelf/shelf_pill_bottom_nav.dart';
 import 'package:everglow/shared/widgets/shelf/staggered_entrance.dart';
 import 'package:everglow/shared/widgets/shelf/motion.dart';
+import 'package:everglow/shared/widgets/shelf/cinema_sections.dart';
+import 'package:everglow/features/ai/presentation/widgets/ai_recommendations.dart';
 
 // Anime-specific palette — more vibrant and energetic than the cinema
 // palette, drawing from iconic anime colour schemes (magenta, cyan,
@@ -84,6 +86,14 @@ class _AnimeScreenState extends State<AnimeScreen>
   // Browse tab
   String? _selectedCategoryId;
   final Map<String, _AnimeRow> _browseResults = {};
+
+  // Genre rows for home tab
+  final Map<String, List<MediaItem>> _genreRows = {};
+  bool _isLoadingGenres = false;
+
+  // Top 10 for home tab
+  List<MediaItem> _topTenItems = [];
+  bool _isLoadingTopTen = false;
 
   // Search tab
   final TextEditingController _searchController = TextEditingController();
@@ -226,6 +236,28 @@ class _AnimeScreenState extends State<AnimeScreen>
             );
           },
         ),
+        _HomeSection(
+          id: 'you-might-like',
+          title: 'You Might Like',
+          icon: Icons.recommend_rounded,
+          tint: const Color(0xFF00E5FF),
+          builder: () async {
+            // Fetch top airing and pick a random subset for variety
+            try {
+              final items = await _jikanService.fetchTopAiring();
+              if (items.length > 5) {
+                items.shuffle();
+                return items.take(15).toList();
+              }
+              if (items.isNotEmpty) return items;
+            } catch (_) {}
+            return _tmdbService.discoverAnime(
+              sortBy: 'popularity.desc',
+              voteAverageGte: 7.0,
+              voteCountGte: 50,
+            );
+          },
+        ),
       ];
 
   Future<void> _bootstrap() async {
@@ -233,7 +265,11 @@ class _AnimeScreenState extends State<AnimeScreen>
       if (!mounted) return;
       _subscribeToLibrary();
     });
-    await _loadHome();
+    await Future.wait([
+      _loadHome(),
+      _loadGenreRows(),
+      _loadTopTen(),
+    ]);
   }
 
   void _subscribeToLibrary() {
@@ -280,7 +316,48 @@ class _AnimeScreenState extends State<AnimeScreen>
       _homeRows[section.id] = _AnimeRow(isLoading: true);
     }
     if (mounted) setState(() {});
-    await _loadHome();
+    await Future.wait([
+      _loadHome(),
+      _loadGenreRows(),
+      _loadTopTen(),
+    ]);
+  }
+
+  /// Loads genre-specific rows for the home tab. Each genre fetches its
+  /// top titles via Jikan's genre filter so the home screen has dedicated
+  /// discovery rails for Action, Romance, Isekai, etc.
+  Future<void> _loadGenreRows() async {
+    if (mounted) setState(() => _isLoadingGenres = true);
+
+    final genreDefs = [
+      ('Action & Adventure', [1, 2], const Color(0xFFE57373), Icons.bolt_rounded),
+      ('Romance', [22], const Color(0xFFF06292), Icons.favorite_rounded),
+      ('Fantasy & Isekai', [10], const Color(0xFFBA68C8), Icons.auto_awesome_rounded),
+      ('Comedy', [4], const Color(0xFFFFD54F), Icons.theater_comedy_rounded),
+      ('Slice of Life', [36], const Color(0xFFAED581), Icons.local_cafe_rounded),
+    ];
+
+    final futures = genreDefs.map((g) async {
+      try {
+        final items = await _jikanService.fetchByGenres(g.$2, limit: 15);
+        if (items.isNotEmpty && mounted) {
+          setState(() => _genreRows[g.$1] = items);
+        }
+      } catch (_) {}
+    });
+
+    await Future.wait(futures);
+    if (mounted) setState(() => _isLoadingGenres = false);
+  }
+
+  /// Loads the top 10 trending anime for the dedicated ranking section.
+  Future<void> _loadTopTen() async {
+    if (mounted) setState(() => _isLoadingTopTen = true);
+    try {
+      final items = await _jikanService.fetchTopAiring(limit: 10);
+      if (mounted) setState(() => _topTenItems = items);
+    } catch (_) {}
+    if (mounted) setState(() => _isLoadingTopTen = false);
   }
 
   Future<void> _selectCategory(AnimeCategoryOption option) async {
@@ -561,9 +638,56 @@ class _AnimeScreenState extends State<AnimeScreen>
             ),
             const SizedBox(height: 24),
           ],
+
+          // ── AI RECOMMENDATIONS ─────────────────────────────────
+          StaggeredEntrance(
+            index: _homeSections.length + 1,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: AIRecommendations(
+                title: "Mochi's Picks 🐱",
+                autoLoad: true,
+                onTapItem: (item) => _openDetails(item),
+              ),
+            ),
+          ),
+
+          // ── TOP 10 RANKING ─────────────────────────────────────
+          if (_topTenItems.isNotEmpty)
+            StaggeredEntrance(
+              index: _homeSections.length + 2,
+              child: TopTenRankingSection(
+                items: buildRankingItems(
+                  items: _topTenItems,
+                  getTitle: (m) => m.title,
+                  getImageUrl: (m) =>
+                      m.posterPath.isNotEmpty ? m.posterPath : '',
+                  getSubtitle: (m) => m.year.isNotEmpty ? m.year : null,
+                  getBadge: (m) => 'ANIME',
+                  onTap: (m) => _openDetails(m),
+                ),
+                eyebrow: 'Trending Today',
+                title: 'TOP 10 Anime',
+                accent: _cMagenta,
+              ),
+            ),
+
+          // ── GENRE ROWS ─────────────────────────────────────────
+          for (var gi = 0; gi < _genreRows.length; gi++) ...[
+            StaggeredEntrance(
+              index: _homeSections.length + 3 + gi,
+              child: _buildGenreRow(
+                _genreRows.keys.elementAt(gi),
+                _genreRows.values.elementAt(gi),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+
+          // ── LIBRARY SECTIONS ───────────────────────────────────
           if (_library.where((i) => i.isCurrentlyWatching).isNotEmpty) ...[
             StaggeredEntrance(
-              index: _homeSections.length + 1,
+              index: _homeSections.length + 3 + _genreRows.length,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
                 child: ShelfSectionHeader(
@@ -576,14 +700,14 @@ class _AnimeScreenState extends State<AnimeScreen>
                 ),
               ),
             ),
-            _buildPosterRow(
+            _buildContinueWatchingRow(
               _library.where((i) => i.isCurrentlyWatching).toList(),
             ),
             const SizedBox(height: 24),
           ],
           if (_library.where((i) => i.isToWatch).isNotEmpty) ...[
             StaggeredEntrance(
-              index: _homeSections.length + 2,
+              index: _homeSections.length + 4 + _genreRows.length,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
                 child: ShelfSectionHeader(
@@ -603,7 +727,7 @@ class _AnimeScreenState extends State<AnimeScreen>
           ],
           if (_library.where((i) => i.isWatched).isNotEmpty) ...[
             StaggeredEntrance(
-              index: _homeSections.length + 3,
+              index: _homeSections.length + 5 + _genreRows.length,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
                 child: ShelfSectionHeader(
@@ -662,6 +786,40 @@ class _AnimeScreenState extends State<AnimeScreen>
     );
   }
 
+  /// Builds a genre-specific horizontal rail for the home tab. Each genre
+  /// has its own color and icon, matching the browse tab's genre chips.
+  Widget _buildGenreRow(String genreName, List<MediaItem> items) {
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    // Match genre colors/icons from anime_categories.dart
+    final genreMeta = {
+      'Action & Adventure': (color: const Color(0xFFE57373), icon: Icons.bolt_rounded),
+      'Romance': (color: const Color(0xFFF06292), icon: Icons.favorite_rounded),
+      'Fantasy & Isekai': (color: const Color(0xFFBA68C8), icon: Icons.auto_awesome_rounded),
+      'Comedy': (color: const Color(0xFFFFD54F), icon: Icons.theater_comedy_rounded),
+      'Slice of Life': (color: const Color(0xFFAED581), icon: Icons.local_cafe_rounded),
+    };
+    final meta = genreMeta[genreName] ?? (color: _cCyan, icon: Icons.category_rounded);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+          child: ShelfSectionHeader(
+            eyebrow: 'GENRE',
+            title: genreName,
+            icon: meta.icon,
+            accent: meta.color,
+            count: items.length,
+            countLabel: 'titles',
+          ),
+        ),
+        _buildPosterRow(items, accent: meta.color),
+      ],
+    );
+  }
+
   String _eyebrowForSection(String id) {
     switch (id) {
       case 'airing':
@@ -676,6 +834,8 @@ class _AnimeScreenState extends State<AnimeScreen>
         return 'Worth Discovering';
       case 'editors-picks':
         return "Mochi's Picks 🐱";
+      case 'you-might-like':
+        return 'Curated For You';
       case 'trending':
       default:
         return 'Hot Right Now';
@@ -924,6 +1084,176 @@ class _AnimeScreenState extends State<AnimeScreen>
             );
           },
         ),
+      ),
+    );
+  }
+
+  /// Enhanced "Currently Watching" row with episode progress labels and
+  /// backdrop images instead of plain poster cards. Shows "S1 E3" style
+  /// progress for each item so users can see exactly where they left off.
+  Widget _buildContinueWatchingRow(List<MediaItem> items) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    final isDesktop = AppBreakpoint.isDesktop(context);
+
+    return SizedBox(
+      height: 120,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: items.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
+        itemBuilder: (context, i) {
+          final item = items[i];
+          final season = item.currentSeason;
+          final episode = item.currentEpisode;
+          String? progressLabel;
+          if (season != null && episode != null) {
+            progressLabel = 'S$season E$episode';
+          } else if (episode != null) {
+            progressLabel = 'Ep $episode';
+          }
+
+          return GestureDetector(
+            onTap: () => _openDetails(item),
+            child: Container(
+              width: isDesktop ? 280 : 220,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.45),
+                    Colors.black.withValues(alpha: 0.05),
+                  ],
+                ),
+                border: Border.all(
+                  color: _cCyan.withValues(alpha: 0.25),
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(13),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (item.backdropPath.isNotEmpty)
+                      Image.network(
+                        item.backdropPath,
+                        fit: BoxFit.cover,
+                        cacheWidth: 900,
+                        errorBuilder: (_, _, _) => Image.network(
+                          item.posterPath,
+                          fit: BoxFit.cover,
+                          cacheWidth: 400,
+                          errorBuilder: (_, _, _) =>
+                              Container(color: _cCard),
+                        ),
+                      )
+                    else if (item.posterPath.isNotEmpty)
+                      Image.network(
+                        item.posterPath,
+                        fit: BoxFit.cover,
+                        cacheWidth: 400,
+                        errorBuilder: (_, _, _) =>
+                            Container(color: _cCard),
+                      )
+                    else
+                      Container(color: _cCard),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.85),
+                            Colors.black.withValues(alpha: 0.2),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 12,
+                      right: 12,
+                      top: 0,
+                      bottom: 0,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (progressLabel != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: _cCyan,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                progressLabel,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ),
+                          const SizedBox(height: 8),
+                          Text(
+                            item.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.cormorantGaramond(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.petalWhite,
+                              height: 1.15,
+                            ),
+                          ),
+                          if (item.year.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              item.year,
+                              style: GoogleFonts.outfit(
+                                color: AppTheme.warmAmber,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _cCyan.withValues(alpha: 0.9),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _cCyan.withValues(alpha: 0.5),
+                              blurRadius: 8,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -1208,6 +1538,13 @@ class _AnimeScreenState extends State<AnimeScreen>
           subtitle: 'CURATED PICKS',
           icon: Icons.workspace_premium_rounded,
           tint: _cElectricPurple,
+        );
+      case AnimeCategoryGroup.season:
+        return const _BrowseGroupMeta(
+          title: 'By Season',
+          subtitle: 'SPRING · SUMMER · FALL · WINTER',
+          icon: Icons.calendar_view_month_rounded,
+          tint: Color(0xFFFFB74D),
         );
     }
   }
