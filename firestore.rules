@@ -113,7 +113,7 @@ service cloud.firestore {
     // re-login and their new UID will be written to the users
     // collection automatically.
     match /sanctuary_messages/{messageId} {
-      allow read, write: if isAuthenticated() && isCoupleUser(request.auth.uid);
+      allow read, write: if isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
     // ─── General app collections (authenticated access only) ──────
@@ -215,6 +215,7 @@ function isValidVoiceRoomShape(data) {
 // Returns true if a document exists at /users/{uid}. This replaces
 // the previous hard-coded UID check and is resilient to account
 // recreations — the app writes the user doc on every login.
-function isCoupleUser(uid) {
-  return exists(/databases/$(database)/documents/users/$(uid));
-}
+//
+// NOTE: $(database) template variables only resolve inside match/rule
+// scope, NOT inside helper functions. The exists() call must be
+// inlined at the call site.
