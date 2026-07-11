@@ -92,36 +92,34 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
     final badgeColor = widget.badgeColor ?? AppTheme.deepRose;
 
     _hoverOverlay = OverlayEntry(
-      builder: (context) => Positioned(
-        width: 300,
-        child: CompositedTransformFollower(
-          link: _layerLink,
-          showWhenUnlinked: false,
-          offset: const Offset(0, -8),
-          child: MouseRegion(
-            onEnter: (_) {
-              _isHoveringOverlay = true;
-              _dismissDelayTimer?.cancel();
-              _dismissDelayTimer = null;
-            },
-            onExit: (_) {
-              _isHoveringOverlay = false;
+      builder: (context) => CompositedTransformFollower(
+        link: _layerLink,
+        showWhenUnlinked: false,
+        offset: const Offset(-10, -10),
+        child: MouseRegion(
+          onEnter: (_) {
+            _isHoveringOverlay = true;
+            _dismissDelayTimer?.cancel();
+            _dismissDelayTimer = null;
+          },
+          onExit: (_) {
+            _isHoveringOverlay = false;
+            _dismissHoverPreview();
+          },
+          child: ShelfHoverPreview(
+            title: widget.title,
+            bannerUrl: widget.bannerUrl,
+            synopsis: widget.synopsis,
+            episodeCount: widget.episodeCount,
+            format: widget.format,
+            airingStatus: widget.airingStatus,
+            year: widget.subtitle,
+            accent: badgeColor,
+            onWatch: () {
               _dismissHoverPreview();
+              widget.onTap?.call();
             },
-            child: ShelfHoverPreview(
-              title: widget.title,
-              bannerUrl: widget.bannerUrl,
-              synopsis: widget.synopsis,
-              episodeCount: widget.episodeCount,
-              format: widget.format,
-              airingStatus: widget.airingStatus,
-              accent: badgeColor,
-              onWatch: () {
-                _dismissHoverPreview();
-                widget.onTap?.call();
-              },
-              onQueue: () => _dismissHoverPreview(),
-            ),
+            onQueue: () => _dismissHoverPreview(),
           ),
         ),
       ),
