@@ -107,10 +107,47 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
           onTimeout: () => null));
     }
 
-    // 3) MangaKakalot — HTML scraping fallback
+    // 3) MangaKakalot — try chapter.id directly, then title search with alt titles
     futures.add(_kakalotService
         .getChapterPages(widget.chapter.id)
         .timeout(timeout, onTimeout: () => null));
+
+    // Also try MangaKakalot by title search (for when chapter.id is not a MangaKakalot path)
+    final kakalotTitles = <String>[widget.manga.title];
+    for (final alt in widget.manga.altTitles) {
+      if (alt.isNotEmpty && !kakalotTitles.contains(alt)) {
+        kakalotTitles.add(alt);
+      }
+    }
+    for (final title in kakalotTitles) {
+      futures.add(_kakalotService
+          .searchByTitle(title)
+          .timeout(timeout, onTimeout: () => '')
+          .then((slug) async {
+        if (slug.isEmpty) return null;
+        final chapters = await _kakalotService.getChapterFeed(slug);
+        MangaChapter? match;
+        for (final c in chapters) {
+          if (c.chapter == widget.chapter.chapter) {
+            match = c;
+            break;
+          }
+        }
+        if (match == null) return null;
+        final pages = await _kakalotService.getChapterPages(match.id);
+        if (pages == null || pages.filenames.isEmpty) return null;
+        final proxied = pages.filenames
+            .map((u) => _kakalotService.proxiedImageUrl(u))
+            .toList();
+        return MangaChapterPages(
+          chapterId: pages.chapterId,
+          baseUrl: '',
+          hash: '',
+          filenames: proxied,
+          expiresAt: pages.expiresAt,
+        );
+      }).timeout(timeout, onTimeout: () => null));
+    }
 
     // 4) MangaKatana — sister site, broader coverage
     futures.add(_resolveMangakatanaPages().timeout(
@@ -173,31 +210,42 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
   }
 
   /// Resolve page images from MangaKatana by searching by title.
+  /// Tries main title and all alt titles for better matching.
   Future<MangaChapterPages?> _resolveMangakatanaPages() async {
-    final slug = await _mangakatanaService.searchByTitle(widget.manga.title);
-    if (slug.isEmpty) return null;
-    final chapters = await _mangakatanaService.getChapterFeed(slug);
-    MangaChapter? match;
-    for (final c in chapters) {
-      if (c.chapter == widget.chapter.chapter) {
-        match = c;
-        break;
+    // Build list of titles to try
+    final titlesToTry = <String>[widget.manga.title];
+    for (final alt in widget.manga.altTitles) {
+      if (alt.isNotEmpty && !titlesToTry.contains(alt)) {
+        titlesToTry.add(alt);
       }
     }
-    if (match == null) return null;
-    final pages = await _mangakatanaService.getChapterPages(match.id);
-    if (pages == null || pages.filenames.isEmpty) return null;
-    // Pre-proxy image URLs
-    final proxied = pages.filenames
-        .map((u) => _mangakatanaService.proxiedImageUrl(u))
-        .toList();
-    return MangaChapterPages(
-      chapterId: pages.chapterId,
-      baseUrl: '',
-      hash: '',
-      filenames: proxied,
-      expiresAt: pages.expiresAt,
-    );
+    for (final title in titlesToTry) {
+      final slug = await _mangakatanaService.searchByTitle(title);
+      if (slug.isEmpty) continue;
+      final chapters = await _mangakatanaService.getChapterFeed(slug);
+      MangaChapter? match;
+      for (final c in chapters) {
+        if (c.chapter == widget.chapter.chapter) {
+          match = c;
+          break;
+        }
+      }
+      if (match == null) continue;
+      final pages = await _mangakatanaService.getChapterPages(match.id);
+      if (pages == null || pages.filenames.isEmpty) continue;
+      // Pre-proxy image URLs
+      final proxied = pages.filenames
+          .map((u) => _mangakatanaService.proxiedImageUrl(u))
+          .toList();
+      return MangaChapterPages(
+        chapterId: pages.chapterId,
+        baseUrl: '',
+        hash: '',
+        filenames: proxied,
+        expiresAt: pages.expiresAt,
+      );
+    }
+    return null;
   }
 
   /// Races multiple futures, returning the first non-null, non-empty result.

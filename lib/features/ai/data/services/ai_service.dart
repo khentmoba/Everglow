@@ -110,6 +110,9 @@ class AIService extends ChangeNotifier {
         }, onToolStatus: (status) {
           _toolStatus = status;
           notifyListeners();
+        }, onError: (error) {
+          _lastError = error;
+          notifyListeners();
         });
         _draftResponse = '';
         _draftReasoning = '';
@@ -405,12 +408,13 @@ class AIService extends ChangeNotifier {
     void Function(String chunk) onChunk, {
     void Function(String chunk)? onReasoning,
     void Function(String toolStatus)? onToolStatus,
+    void Function(String error)? onError,
   }) async {
     const maxRetries = 2;
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         return await _callProxyAIStreamOnce(
-            messages, context, memories, feature, caller, onChunk, onReasoning, onToolStatus);
+            messages, context, memories, feature, caller, onChunk, onReasoning, onToolStatus, onError);
       } catch (e) {
         final isTransient = e is SocketException ||
             e is TimeoutException ||
@@ -436,6 +440,7 @@ class AIService extends ChangeNotifier {
     void Function(String chunk) onChunk,
     void Function(String chunk)? onReasoning,
     void Function(String toolStatus)? onToolStatus,
+    void Function(String error)? onError,
   ) async {
     final idToken = await _auth.currentUser?.getIdToken() ?? '';
     final body = jsonEncode({
@@ -458,6 +463,7 @@ class AIService extends ChangeNotifier {
       onChunk: onChunk,
       onReasoning: onReasoning,
       onToolStatus: onToolStatus,
+      onError: onError,
       timeout: const Duration(seconds: 120),
     );
   }

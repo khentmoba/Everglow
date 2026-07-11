@@ -54,6 +54,11 @@ class MangaItem {
   /// Comick user follow count (popularity metric).
   final int followCount;
 
+  /// Alternative titles from MangaDex (English, Japanese, etc.).
+  /// Used for fallback title matching when searching MangaKakalot,
+  /// MangaKatana, and Comick by title.
+  final List<String> altTitles;
+
   const MangaItem({
     required this.id,
     required this.mangaId,
@@ -77,6 +82,7 @@ class MangaItem {
     this.mangaKakalotId = '',
     this.rating = 0.0,
     this.followCount = 0,
+    this.altTitles = const [],
   });
 
   /// Convenience label for the content type. Used in poster cards and
@@ -144,6 +150,7 @@ class MangaItem {
       mangaKakalotId: data['mangaKakalotId'] ?? data['mangaDexId'] ?? '',
       rating: (data['rating'] as num?)?.toDouble() ?? 0.0,
       followCount: (data['followCount'] as num?)?.toInt() ?? 0,
+      altTitles: (data['altTitles'] as List?)?.map((e) => e.toString()).toList() ?? const [],
     );
   }
 
@@ -183,6 +190,7 @@ class MangaItem {
       'mangaKakalotId': mangaKakalotId,
       'rating': rating,
       'followCount': followCount,
+      'altTitles': altTitles,
     };
   }
 
@@ -209,6 +217,7 @@ class MangaItem {
     String? mangaKakalotId,
     double? rating,
     int? followCount,
+    List<String>? altTitles,
   }) {
     return MangaItem(
       id: id ?? this.id,
@@ -233,6 +242,7 @@ class MangaItem {
       mangaKakalotId: mangaKakalotId ?? this.mangaKakalotId,
       rating: rating ?? this.rating,
       followCount: followCount ?? this.followCount,
+      altTitles: altTitles ?? this.altTitles,
     );
   }
 }

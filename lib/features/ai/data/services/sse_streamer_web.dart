@@ -16,6 +16,7 @@ Future<String> streamSseResponse({
   required void Function(String chunk) onChunk,
   void Function(String chunk)? onReasoning,
   void Function(String toolStatus)? onToolStatus,
+  void Function(String error)? onError,
   Duration timeout = const Duration(seconds: 120),
 }) async {
   final fullResponse = StringBuffer();
@@ -45,8 +46,8 @@ Future<String> streamSseResponse({
         final lines = lineBuffer.split('\n');
         lineBuffer = lines.removeLast();
         for (final line in lines) {
-          _processSseLine(line, fullResponse, onChunk, onReasoning: onReasoning, onToolStatus: onToolStatus);
-        }
+            _processSseLine(line, fullResponse, onChunk, onReasoning: onReasoning, onToolStatus: onToolStatus, onError: onError);
+          }
       }
       if (request.readyState == 4) {
         timer.cancel();
@@ -54,7 +55,7 @@ Future<String> streamSseResponse({
         if (lineBuffer.isNotEmpty) {
           final remaining = lineBuffer.split('\n');
           for (final line in remaining) {
-            _processSseLine(line, fullResponse, onChunk, onReasoning: onReasoning, onToolStatus: onToolStatus);
+            _processSseLine(line, fullResponse, onChunk, onReasoning: onReasoning, onToolStatus: onToolStatus, onError: onError);
           }
         }
 
@@ -102,6 +103,7 @@ void _processSseLine(
   void Function(String chunk) onChunk, {
   void Function(String chunk)? onReasoning,
   void Function(String toolStatus)? onToolStatus,
+  void Function(String error)? onError,
 }) {
   final trimmed = line.trimRight();
   if (trimmed.isEmpty) return;
@@ -122,6 +124,10 @@ void _processSseLine(
     final toolStatus = parsed['tool_status'] as String? ?? '';
     if (toolStatus.isNotEmpty && onToolStatus != null) {
       onToolStatus(toolStatus);
+    }
+    final error = parsed['error'] as String? ?? '';
+    if (error.isNotEmpty && onError != null) {
+      onError(error);
     }
   } catch (_) {
     // Skip malformed JSON chunks

@@ -2082,28 +2082,44 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
       while (toolRound < MAX_TOOL_ROUNDS) {
         toolRound++;
 
-        const streamResp = await fetch('https://apihub.agnes-ai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model,
-            messages: currentMessages,
-            tools,
-            tool_choice: 'auto',
-            max_tokens: 8192,
-            temperature: 0.6,
-            top_p: 0.95,
-            stream: true,
-            ...(enableThinking ? { chat_template_kwargs: { enable_thinking: true } } : {}),
-          }),
-          timeout: 65000,
-        });
+        // Retry transient Agnes API errors (429, 502, 503) up to 2 times
+        let streamResp = null;
+        let lastFetchError = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          try {
+            streamResp = await fetch('https://apihub.agnes-ai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                model,
+                messages: currentMessages,
+                tools,
+                tool_choice: 'auto',
+                max_tokens: 8192,
+                temperature: 0.6,
+                top_p: 0.95,
+                stream: true,
+                ...(enableThinking ? { chat_template_kwargs: { enable_thinking: true } } : {}),
+              }),
+              timeout: 120000,
+            });
 
-        if (!streamResp.ok) {
-          sendEvent({ content: '\n\n😿 Mochi got distracted and lost her train of thought. Try asking again?' });
+            if (streamResp.ok) break; // success
+            if (![429, 502, 503].includes(streamResp.status)) break; // non-retryable
+            lastFetchError = `Agnes HTTP ${streamResp.status}`;
+          } catch (fetchErr) {
+            lastFetchError = fetchErr.message;
+          }
+          // Exponential backoff before retry
+          if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        }
+
+        if (!streamResp || !streamResp.ok) {
+          console.warn(`proxyAI Agnes fetch failed after retries: ${lastFetchError || streamResp?.status}`);
+          sendEvent({ error: 'Mochi got distracted and lost her train of thought. Try asking again?' });
           break;
         }
 
@@ -2186,7 +2202,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
           try { fnArgs = JSON.parse(tc.function.arguments); } catch { fnArgs = {}; }
 
           sendEvent({ tool_status: fnName });
-          const result = await executeTool(fnName, fnArgs, callerUid);
+          const result = await executeTool(fnName, fnArgs, caller);
 
           currentMessages.push({
             role: 'tool',
@@ -2206,7 +2222,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
       sendEvent('[DONE]');
     } catch (e) {
       console.warn('proxyAI streaming error:', e.message);
-      sendEvent({ content: '\n\n😿 Mochi got distracted and lost her train of thought. Try asking again?' });
+      sendEvent({ error: 'Mochi got distracted and lost her train of thought. Try asking again?' });
       sendEvent('[DONE]');
     } finally {
       stopKeepalive();
