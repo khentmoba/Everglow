@@ -14,6 +14,17 @@ class ShelfHeroItem {
   final Color accent;
   final VoidCallback? onTap;
 
+  /// Cover poster URL for the [AnimeHeroBanner]'s right-side floating poster.
+  final String posterUrl;
+
+  /// Rich metadata for the anime hero banner (optional — only used by
+  /// [AnimeHeroBanner], ignored by [ShelfHeroCarousel]).
+  final String? synopsis;
+  final int? episodeCount;
+  final String? format;
+  final String? airingStatus;
+  final String year;
+
   const ShelfHeroItem({
     required this.id,
     required this.title,
@@ -22,6 +33,12 @@ class ShelfHeroItem {
     this.eyebrow,
     this.accent = AppTheme.deepRose,
     this.onTap,
+    this.posterUrl = '',
+    this.synopsis,
+    this.episodeCount,
+    this.format,
+    this.airingStatus,
+    this.year = '',
   });
 }
 

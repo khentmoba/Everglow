@@ -17,6 +17,7 @@ import 'motion.dart';
 class ShelfSectionHeader extends StatelessWidget {
   final String eyebrow;
   final String title;
+  final String? subtitle;
   final IconData? icon;
   final Color accent;
   final int? count;
@@ -27,6 +28,7 @@ class ShelfSectionHeader extends StatelessWidget {
     super.key,
     required this.eyebrow,
     required this.title,
+    this.subtitle,
     this.icon,
     this.accent = AppTheme.roseQuartz,
     this.count,
@@ -85,6 +87,18 @@ class ShelfSectionHeader extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (subtitle != null && subtitle!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle!,
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      color: AppTheme.roseQuartz.withValues(alpha: 0.55),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ],
             ),
           ),
