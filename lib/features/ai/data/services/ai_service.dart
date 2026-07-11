@@ -53,6 +53,7 @@ class AIService extends ChangeNotifier {
     bool stream = false,
     String? callerName, // 'khentsgdz' or 'clairjassen'
     void Function(String toolStatus)? onToolStatus,
+    List<String> imageUrls = const [],
   }) async {
     _isLoading = true;
     _lastError = null;
@@ -75,6 +76,7 @@ class AIService extends ChangeNotifier {
       conversation.messages.add(AIMessage(
         role: 'user',
         content: message,
+        imageUrls: imageUrls,
       ));
       _setConversation(feature, conversation);
       notifyListeners();
@@ -372,6 +374,7 @@ class AIService extends ChangeNotifier {
             'memories': memories,
             if (feature.isNotEmpty) 'feature': feature,
             if (caller.isNotEmpty) 'caller': caller,
+            'enableThinking': true,
           }),
         )
         .timeout(const Duration(seconds: 60));
@@ -442,6 +445,7 @@ class AIService extends ChangeNotifier {
       'feature': feature,
       'caller': caller,
       'stream': true, // enables real SSE streaming from the backend
+      'enableThinking': true, // enable Agnes thinking mode for better reasoning
     });
 
     return streamSseResponse(

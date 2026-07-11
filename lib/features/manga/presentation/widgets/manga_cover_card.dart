@@ -3,6 +3,7 @@ import 'package:animate_do/animate_do.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
+import 'package:everglow/features/manga/data/services/mangadex_service.dart';
 
 /// Grid card for a manga / manhwa / manhua cover. Mirrors
 /// `MediaPosterCard` from the cinema feature — same shape, same
@@ -27,6 +28,18 @@ class MangaCoverCard extends StatelessWidget {
       default:
         return AppTheme.deepRose;
     }
+  }
+
+  /// Proxy MangaDex cover URLs to avoid hotlink protection.
+  String get _coverUrl {
+    final url = item.coverUrl;
+    if (url.isEmpty) return url;
+    if (url.startsWith('http') &&
+        (url.contains('mangadex.org') || url.contains('mangadex.network')) &&
+        !url.contains('proxyMangaImage')) {
+      return MangaDexService().proxiedImageUrl(url);
+    }
+    return url;
   }
 
   @override
@@ -55,9 +68,9 @@ class MangaCoverCard extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                if (item.coverUrl.isNotEmpty)
+                if (_coverUrl.isNotEmpty)
                   Image.network(
-                    item.coverUrl,
+                    _coverUrl,
                     fit: BoxFit.cover,
                     cacheWidth: 300,
                     errorBuilder: (context, error, stackTrace) =>

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
@@ -42,7 +43,9 @@ class MangaSee123Service {
       '$_baseUrl/_search.php?q=${Uri.encodeComponent(query)}',
     );
     try {
-      final response = await http.get(uri, headers: _headers);
+      final response = await http.get(uri, headers: _headers).timeout(
+            const Duration(seconds: 8),
+          );
       if (response.statusCode == 200) {
         final body = response.body.trim();
         if (body.isNotEmpty && body != '[]') {
@@ -84,7 +87,9 @@ class MangaSee123Service {
       final response = await http.get(
         Uri.parse(chapterUrl),
         headers: _headers,
-      );
+      ).timeout(
+            const Duration(seconds: 10),
+          );
       if (response.statusCode == 200) {
         final urls = <String>[];
 
