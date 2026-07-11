@@ -25,12 +25,14 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
   final ScrollController _scrollController = ScrollController();
   late Stream<List<ChatMessage>> _messagesStream;
   bool _showScrollButton = false;
+  bool _authChecked = false;
+  String? _authError;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _connectStream();
+    _checkAuthAndConnect();
   }
 
   void _onScroll() {
@@ -41,6 +43,40 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
     if (show != _showScrollButton) {
       setState(() => _showScrollButton = show);
     }
+  }
+
+  void _checkAuthAndConnect() {
+    final authService = context.read<AuthService>();
+
+    if (!authService.isAuthenticated) {
+      setState(() {
+        _authChecked = true;
+        _authError = 'not_authenticated';
+      });
+      return;
+    }
+
+    if (authService.isCinemaOnlyUser) {
+      setState(() {
+        _authChecked = true;
+        _authError = 'cinema_only';
+      });
+      return;
+    }
+
+    if (!authService.isCoupleUser) {
+      setState(() {
+        _authChecked = true;
+        _authError = 'not_couple_user';
+      });
+      return;
+    }
+
+    setState(() {
+      _authChecked = true;
+      _authError = null;
+    });
+    _connectStream();
   }
 
   void _connectStream() {
@@ -134,6 +170,25 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
               Expanded(
                 child: Stack(
                   children: [
+                    if (!_authChecked)
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const PulsingHeartLoader(),
+                            const SizedBox(height: 20),
+                            Text(
+                              'Verifying access...',
+                              style: AppTypography.bodyLarge().copyWith(
+                                color: AppColors.roseQuartz,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else if (_authError != null)
+                      _buildAuthError()
+                    else
                     StreamBuilder<List<ChatMessage>>(
                       stream: _messagesStream,
                       builder: (context, snapshot) {
@@ -499,10 +554,60 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
     }
   }
 
-  void _resetAndRetry(BuildContext context) {
+  Widget _buildAuthError() {
+    String title;
+    String detail;
+    IconData icon;
+
+    switch (_authError) {
+      case 'not_authenticated':
+        icon = Icons.lock_outline_rounded;
+        title = 'You need to sign in';
+        detail = 'Please go back and sign in with your passcode.';
+        break;
+      case 'cinema_only':
+        icon = Icons.movie_filter_rounded;
+        title = 'Cinema-only access';
+        detail =
+            'Your account doesn\'t have access to Sanctuary Chat. This feature is for Khent and Clair only.';
+        break;
+      case 'not_couple_user':
+        icon = Icons.heart_broken_rounded;
+        title = 'Access restricted';
+        detail = 'Sanctuary Chat is only available to linked partners.';
+        break;
+      default:
+        icon = Icons.cloud_off_rounded;
+        title = 'Access requires a linked account';
+        detail = 'Please log out and log back in to refresh your session.';
+    }
+
+    return _ErrorState(
+      icon: icon,
+      title: title,
+      subtitle: detail,
+      onRetry: () => _resetAndRetry(context),
+    );
+  }
+
+  void _resetAndRetry(BuildContext context) async {
+    final authService = context.read<AuthService>();
+
     setState(() {
-      _connectStream();
+      _authChecked = false;
+      _authError = null;
     });
+
+    try {
+      final user = authService.user;
+      if (user != null) {
+        await user.getIdToken(true);
+      }
+    } catch (e) {
+      print("Token refresh failed: $e");
+    }
+
+    _checkAuthAndConnect();
   }
 }
 

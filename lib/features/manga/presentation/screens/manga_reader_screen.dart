@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -8,6 +9,7 @@ import 'package:everglow/features/manga/data/services/bato_service.dart';
 import 'package:everglow/features/manga/data/services/mangasee123_service.dart';
 import 'package:everglow/features/manga/data/services/mangadex_service.dart';
 import 'package:everglow/features/manga/data/services/mangakakalot_service.dart';
+import 'package:everglow/features/manga/data/services/mangakatana_service.dart';
 import 'package:everglow/features/manga/data/services/scanlation_service.dart';
 import 'package:everglow/services/auth_service.dart';
 
@@ -51,6 +53,7 @@ class MangaReaderScreen extends StatefulWidget {
 class _MangaReaderScreenState extends State<MangaReaderScreen> {
   final MangaDexService _mangaDexService = MangaDexService();
   final MangaKakalotService _kakalotService = MangaKakalotService();
+  final MangakatanaService _mangakatanaService = MangakatanaService();
   final ScanlationService _scanlationService = ScanlationService();
   final BatoService _batoService = BatoService();
   final MangaSee123Service _mangaSeeService = MangaSee123Service();
@@ -76,113 +79,154 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
   }
 
   Future<void> _loadPages() async {
-    MangaChapterPages? pages;
+    final timeout = const Duration(seconds: 10);
 
-    // 1) MangaDex — best source for page images
-    //    Try chapter.id directly first (it may be a MangaDex UUID from
-    //    the drawer's MangaDex fallback), then try matching by chapter
-    //    number against the manga's MangaDex feed.
-    try {
-      // Direct lookup: chapter.id IS a MangaDex UUID
-      pages = await _mangaDexService.getChapterPagesProxied(widget.chapter.id);
-      if (pages != null && pages.filenames.isNotEmpty) {
-        _applyPages(pages);
-        return;
-      }
+    // Build list of source futures to race in parallel.
+    // First non-empty result wins — no more sequential timeouts.
+    final futures = <Future<MangaChapterPages?>>[];
 
-      // Match by chapter number: fetch the manga's MangaDex feed,
-      // find the chapter with the same number, and get its pages.
-      final mangaDexId = widget.manga.mangaKakalotId;
-      if (mangaDexId.isNotEmpty && widget.chapter.chapter.isNotEmpty) {
-        final mdChapters =
-            await _mangaDexService.getChapterFeed(mangaDexId);
-        final targetChapter = mdChapters.cast<MangaChapter?>().firstWhere(
-              (c) => c?.chapter == widget.chapter.chapter,
-              orElse: () => null,
-            );
-        if (targetChapter != null) {
-          pages = await _mangaDexService
-              .getChapterPagesProxied(targetChapter.id);
-          if (pages != null && pages.filenames.isNotEmpty) {
-            _applyPages(pages);
-            return;
-          }
-        }
-      }
-    } catch (_) { /* fall through */ }
+    // 1) MangaDex — best source for page images (try chapter.id directly)
+    futures.add(_mangaDexService
+        .getChapterPagesProxied(widget.chapter.id)
+        .timeout(timeout, onTimeout: () => null));
 
-    // 2) MangaKakalot scraping — legacy fallback
-    try {
-      pages = await _kakalotService.getChapterPages(widget.chapter.id);
-      if (pages != null && pages.filenames.isNotEmpty) {
-        // Pre-proxy the image URLs so the build methods stay source-agnostic
-        final proxied = pages.filenames
-            .map((u) => _kakalotService.proxiedImageUrl(u))
-            .toList();
-        pages = MangaChapterPages(
-          chapterId: pages.chapterId,
-          baseUrl: '',
-          hash: '',
-          filenames: proxied,
-          expiresAt: pages.expiresAt,
-        );
-        _applyPages(pages);
-        return;
-      }
-    } catch (_) { /* fall through */ }
-
-    // 3) Bato.to — additional fallback for ComicK-sourced chapters
-    if (pages == null || pages.filenames.isEmpty) {
-      try {
-        final batoPath = widget.chapter.id.startsWith('/title/')
-            ? widget.chapter.id
-            : '/title/${widget.manga.mangaId}/chapter-${widget.chapter.chapter}';
-        pages = await _batoService.getChapterPages(batoPath);
-        if (pages != null && pages.filenames.isNotEmpty) {
-          _applyPages(pages);
-          return;
-        }
-      } catch (_) { /* fall through */ }
+    // 2) MangaDex — match by chapter number against the manga's feed
+    final mangaDexId = widget.manga.mangaKakalotId;
+    if (mangaDexId.isNotEmpty && widget.chapter.chapter.isNotEmpty) {
+      futures.add(_resolveMangaDexByChapterNumber(mangaDexId).timeout(
+          timeout,
+          onTimeout: () => null));
+    }
+    // Also try mangaId if different (MangaDex-sourced items)
+    if (widget.manga.mangaId.isNotEmpty &&
+        widget.manga.mangaId != mangaDexId &&
+        widget.manga.comickId == 0 &&
+        widget.chapter.chapter.isNotEmpty) {
+      futures.add(_resolveMangaDexByChapterNumber(widget.manga.mangaId).timeout(
+          timeout,
+          onTimeout: () => null));
     }
 
-    // 4) MangaSee123 — another ComicK-sourced fallback
-    if (pages == null || pages.filenames.isEmpty) {
-      try {
-        final slug = widget.manga.mangaId;
-        if (slug.isNotEmpty && widget.chapter.chapter.isNotEmpty) {
-          pages = await _mangaSeeService.getChapterPages(
-            slug,
-            widget.chapter.chapter,
-          );
-          if (pages != null && pages.filenames.isNotEmpty) {
-            _applyPages(pages);
-            return;
-          }
-        }
-      } catch (_) { /* fall through */ }
+    // 3) MangaKakalot — HTML scraping fallback
+    futures.add(_kakalotService
+        .getChapterPages(widget.chapter.id)
+        .timeout(timeout, onTimeout: () => null));
+
+    // 4) MangaKatana — sister site, broader coverage
+    futures.add(_resolveMangakatanaPages().timeout(
+        timeout,
+        onTimeout: () => null));
+
+    // 5) Bato.to — additional fallback
+    if (widget.chapter.id.startsWith('/title/') ||
+        widget.manga.mangaId.isNotEmpty) {
+      final batoPath = widget.chapter.id.startsWith('/title/')
+          ? widget.chapter.id
+          : '/title/${widget.manga.mangaId}/chapter-${widget.chapter.chapter}';
+      futures.add(_batoService
+          .getChapterPages(batoPath)
+          .timeout(timeout, onTimeout: () => null));
     }
 
-    // 5) Scanlation sites — ArcaneScans, AsuraScans, ReaperScans, etc.
-    try {
-      final slugs = widget.scanlationSlugs;
-      if (slugs != null && slugs.isNotEmpty) {
-        pages = await _scanlationService.getChapterPagesFromAll(
-          slugs,
-          widget.chapter.chapter,
-        );
-        if (pages != null && pages.filenames.isNotEmpty) {
-          _applyPages(pages);
-          return;
-        }
-      }
-    } catch (_) { /* fall through */ }
+    // 6) MangaSee123 — another fallback
+    if (widget.manga.mangaId.isNotEmpty &&
+        widget.chapter.chapter.isNotEmpty) {
+      futures.add(_mangaSeeService
+          .getChapterPages(widget.manga.mangaId, widget.chapter.chapter)
+          .timeout(timeout, onTimeout: () => null));
+    }
 
-    // Nothing worked
+    // 7) Scanlation sites — last resort
+    final slugs = widget.scanlationSlugs;
+    if (slugs != null && slugs.isNotEmpty) {
+      futures.add(_scanlationService
+          .getChapterPagesFromAll(slugs, widget.chapter.chapter)
+          .timeout(timeout, onTimeout: () => null));
+    }
+
+    // Race all sources — first non-empty result wins
+    final pages = await _raceForFirstPages(futures);
+
     if (!mounted) return;
-    setState(() {
-      _isLoading = false;
-      _loadError = 'This chapter has no readable pages.';
-    });
+    if (pages != null && pages.filenames.isNotEmpty) {
+      _applyPages(pages);
+    } else {
+      setState(() {
+        _isLoading = false;
+        _loadError = 'This chapter has no readable pages.';
+      });
+    }
+  }
+
+  /// Resolve page images from MangaDex by matching chapter number.
+  Future<MangaChapterPages?> _resolveMangaDexByChapterNumber(
+      String mangaDexId) async {
+    final mdChapters = await _mangaDexService.getChapterFeed(mangaDexId);
+    final targetChapter = mdChapters.cast<MangaChapter?>().firstWhere(
+          (c) => c?.chapter == widget.chapter.chapter,
+          orElse: () => null,
+        );
+    if (targetChapter != null) {
+      return _mangaDexService.getChapterPagesProxied(targetChapter.id);
+    }
+    return null;
+  }
+
+  /// Resolve page images from MangaKatana by searching by title.
+  Future<MangaChapterPages?> _resolveMangakatanaPages() async {
+    final slug = await _mangakatanaService.searchByTitle(widget.manga.title);
+    if (slug.isEmpty) return null;
+    final chapters = await _mangakatanaService.getChapterFeed(slug);
+    MangaChapter? match;
+    for (final c in chapters) {
+      if (c.chapter == widget.chapter.chapter) {
+        match = c;
+        break;
+      }
+    }
+    if (match == null) return null;
+    final pages = await _mangakatanaService.getChapterPages(match.id);
+    if (pages == null || pages.filenames.isEmpty) return null;
+    // Pre-proxy image URLs
+    final proxied = pages.filenames
+        .map((u) => _mangakatanaService.proxiedImageUrl(u))
+        .toList();
+    return MangaChapterPages(
+      chapterId: pages.chapterId,
+      baseUrl: '',
+      hash: '',
+      filenames: proxied,
+      expiresAt: pages.expiresAt,
+    );
+  }
+
+  /// Races multiple futures, returning the first non-null, non-empty result.
+  Future<MangaChapterPages?> _raceForFirstPages(
+    List<Future<MangaChapterPages?>> futures,
+  ) async {
+    final completer = Completer<MangaChapterPages?>();
+    var remaining = futures.length;
+
+    for (final future in futures) {
+      future.then((result) {
+        if (!completer.isCompleted &&
+            result != null &&
+            result.filenames.isNotEmpty) {
+          completer.complete(result);
+        }
+        remaining--;
+        if (remaining == 0 && !completer.isCompleted) {
+          completer.complete(null);
+        }
+      }).catchError((_) {
+        remaining--;
+        if (remaining == 0 && !completer.isCompleted) {
+          completer.complete(null);
+        }
+      });
+    }
+
+    return completer.future;
   }
 
   void _applyPages(MangaChapterPages pages) {

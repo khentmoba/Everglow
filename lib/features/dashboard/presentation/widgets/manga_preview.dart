@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
+import 'package:everglow/features/manga/data/services/mangadex_service.dart';
 import 'package:everglow/features/manga/data/services/mangakakalot_service.dart';
 import 'package:everglow/features/manga/presentation/screens/manga_library_screen.dart';
 import 'package:everglow/features/manga/presentation/widgets/manga_details_drawer.dart';
@@ -160,13 +161,14 @@ class _MangaShelfState extends State<_MangaShelf> {
   }
 
   List<Widget> _buildCards() {
+    final dex = MangaDexService();
     return _items
         .map(
           (item) => Padding(
             padding: const EdgeInsets.only(right: 12),
             child: ShelfCard(
               accent: ShelfAccent.manga,
-              imageUrl: item.coverUrl,
+              imageUrl: dex.proxiedImageUrl(item.coverUrl),
               title: item.title,
               subtitle: _subtitleFor(item),
               topBadge: item.contentType.toUpperCase(),

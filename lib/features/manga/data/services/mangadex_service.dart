@@ -38,8 +38,10 @@ class MangaDexService {
   }
 
   /// Return a proxied image URL suitable for `Image.network`.
+  /// If [originalUrl] is already proxied, it is returned as-is.
   String proxiedImageUrl(String originalUrl) {
     if (originalUrl.isEmpty) return '';
+    if (originalUrl.contains('proxyMangaImage')) return originalUrl;
     return '$_proxyImageUrl?url=${Uri.encodeComponent(originalUrl)}';
   }
 
@@ -66,7 +68,9 @@ class MangaDexService {
         '&contentRating[]=suggestive'
         '&contentRating[]=erotica';
     try {
-      final response = await http.get(_proxied(path), headers: _headers);
+      final response = await http.get(_proxied(path), headers: _headers).timeout(
+            const Duration(seconds: 10),
+          );
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         if (body['result'] != 'ok') return [];
@@ -139,8 +143,9 @@ class MangaDexService {
     return 'Untitled';
   }
 
-  /// Build the cover art URL from relationships.
-  static String _coverUrl(String mangaId, List<dynamic>? relationships) {
+  /// Build the cover art URL from relationships, proxied through
+  /// `proxyMangaImage` to avoid hotlink protection from MangaDex CDN.
+  String _coverUrl(String mangaId, List<dynamic>? relationships) {
     if (mangaId.isEmpty) return '';
     if (relationships == null) return '';
     for (final rel in relationships) {
@@ -148,7 +153,9 @@ class MangaDexService {
         final relAttrs = rel['attributes'] as Map<String, dynamic>?;
         final fileName = relAttrs?['fileName'] as String?;
         if (fileName != null && fileName.isNotEmpty) {
-          return 'https://uploads.mangadex.org/covers/$mangaId/$fileName.256.jpg';
+          final raw =
+              'https://uploads.mangadex.org/covers/$mangaId/$fileName.256.jpg';
+          return proxiedImageUrl(raw);
         }
       }
     }
@@ -219,7 +226,7 @@ class MangaDexService {
   }
 
   /// Map a single MangaDex API manga data object to [MangaItem].
-  static MangaItem _mapMangaItem(Map<String, dynamic> data) {
+  MangaItem _mapMangaItem(Map<String, dynamic> data) {
     final mangaId = data['id'] as String? ?? '';
     final attrs = data['attributes'] as Map<String, dynamic>? ?? {};
     final relationships = data['relationships'] as List?;
@@ -266,7 +273,9 @@ class MangaDexService {
       buf.write('&originalLanguage[]=$lang');
     }
     try {
-      final response = await http.get(_proxied(buf.toString()), headers: _headers);
+      final response = await http.get(_proxied(buf.toString()), headers: _headers).timeout(
+            const Duration(seconds: 10),
+          );
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         if (body['result'] != 'ok') return [];
@@ -300,7 +309,9 @@ class MangaDexService {
       buf.write('&originalLanguage[]=$lang');
     }
     try {
-      final response = await http.get(_proxied(buf.toString()), headers: _headers);
+      final response = await http.get(_proxied(buf.toString()), headers: _headers).timeout(
+            const Duration(seconds: 10),
+          );
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         if (body['result'] != 'ok') return [];
@@ -334,7 +345,9 @@ class MangaDexService {
       buf.write('&originalLanguage[]=$lang');
     }
     try {
-      final response = await http.get(_proxied(buf.toString()), headers: _headers);
+      final response = await http.get(_proxied(buf.toString()), headers: _headers).timeout(
+            const Duration(seconds: 10),
+          );
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         if (body['result'] != 'ok') return [];
@@ -359,7 +372,9 @@ class MangaDexService {
     if (chapterId.isEmpty) return null;
     final path = 'at-home/server/$chapterId?forcePort443=false';
     try {
-      final response = await http.get(_proxied(path), headers: _headers);
+      final response = await http.get(_proxied(path), headers: _headers).timeout(
+            const Duration(seconds: 10),
+          );
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         if (body['result'] != 'ok') return null;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:everglow/features/manga/data/models/manga_item.dart';
 
@@ -221,7 +222,9 @@ class ScanlationService {
     for (final searchUrl in searchUrls) {
       try {
         final response =
-            await http.get(Uri.parse(searchUrl), headers: _headers);
+            await http.get(Uri.parse(searchUrl), headers: _headers).timeout(
+                  const Duration(seconds: 8),
+                );
         if (response.statusCode != 200) continue;
 
         // Look for series links in search results
@@ -260,7 +263,9 @@ class ScanlationService {
   Future<List<MangaChapter>> _getChapters(
       _ScanSite site, String slug) async {
     final url = '${site.baseUrl}${site.seriesPath}$slug/';
-    final response = await http.get(Uri.parse(url), headers: _headers);
+    final response = await http.get(Uri.parse(url), headers: _headers).timeout(
+          const Duration(seconds: 8),
+        );
     if (response.statusCode != 200) return [];
 
     final chapters = <MangaChapter>[];
@@ -305,7 +310,9 @@ class ScanlationService {
     final uri = chapterUrl.startsWith('http')
         ? Uri.parse(chapterUrl)
         : Uri.parse('${site.baseUrl}/$chapterUrl');
-    final response = await http.get(uri, headers: _headers);
+    final response = await http.get(uri, headers: _headers).timeout(
+          const Duration(seconds: 8),
+        );
     if (response.statusCode != 200) return [];
 
     final imgRe = RegExp(site.imgSrcRe, caseSensitive: false);

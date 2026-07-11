@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,6 +8,7 @@ import 'package:everglow/features/manga/data/models/manga_item.dart';
 import 'package:everglow/features/manga/data/services/comick_service.dart';
 import 'package:everglow/features/manga/data/services/mangadex_service.dart';
 import 'package:everglow/features/manga/data/services/mangakakalot_service.dart';
+import 'package:everglow/features/manga/data/services/mangakatana_service.dart';
 import 'package:everglow/features/manga/data/services/scanlation_service.dart';
 import 'package:everglow/features/manga/presentation/screens/manga_reader_screen.dart';
 import 'package:everglow/services/auth_service.dart';
@@ -28,6 +30,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
   final ComickService _comickService = ComickService();
   final MangaDexService _mangaDexService = MangaDexService();
   final MangaKakalotService _kakalotService = MangaKakalotService();
+  final MangakatanaService _mangakatanaService = MangakatanaService();
   final ScanlationService _scanlationService = ScanlationService();
   final ScrollController _chapterScrollController = ScrollController();
 
@@ -59,70 +62,72 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
       _chapterError = null;
     });
 
-    List<MangaChapter>? list;
+    // Build list of source futures to race in parallel.
+    // First non-empty result wins — no more 5-minute sequential waits.
+    final futures = <Future<List<MangaChapter>>>[];
+    final timeout = const Duration(seconds: 10);
 
-    // 1) Comick API — richest chapter metadata (scanlation groups, dates)
-    if (_item.mangaId.isNotEmpty) {
-      try {
-        list = await _comickService.getChapterFeed(_item.mangaId);
-        if (list.isNotEmpty) {
-          if (!mounted) return;
-          setState(() { _chapters = list!; _isLoadingChapters = false; });
-          return;
-        }
-      } catch (_) { /* fall through */ }
+    // 1) Comick API — only if we actually have a Comick hid (not a MangaDex UUID)
+    if (_item.comickSlug.isNotEmpty) {
+      futures.add(_comickService
+          .getChapterFeed(_item.comickSlug)
+          .timeout(timeout, onTimeout: () => <MangaChapter>[]));
+    } else if (_item.comickId > 0 && _item.mangaId.isNotEmpty) {
+      futures.add(_comickService
+          .getChapterFeed(_item.mangaId)
+          .timeout(timeout, onTimeout: () => <MangaChapter>[]));
     }
 
-    // 2) MangaDex API — the mangaKakalotId field actually stores the
-    //    MangaDex UUID (set from Comick's md_id).
+    // 2) MangaDex API — works for MangaDex UUIDs
     final mangaDexId = _item.mangaKakalotId;
     if (mangaDexId.isNotEmpty) {
-      try {
-        list = await _mangaDexService.getChapterFeed(mangaDexId);
-        if (list.isNotEmpty) {
-          if (!mounted) return;
-          setState(() { _chapters = list!; _isLoadingChapters = false; });
-          return;
-        }
-      } catch (_) { /* fall through */ }
+      futures.add(_mangaDexService
+          .getChapterFeed(mangaDexId)
+          .timeout(timeout, onTimeout: () => <MangaChapter>[]));
+    }
+    // Also try mangaId if it looks like a UUID (MangaDex-sourced items)
+    if (_item.mangaId.isNotEmpty &&
+        _item.mangaId != mangaDexId &&
+        _item.comickId == 0) {
+      futures.add(_mangaDexService
+          .getChapterFeed(_item.mangaId)
+          .timeout(timeout, onTimeout: () => <MangaChapter>[]));
     }
 
-    // 3) MangaKakalot scraping — for legacy titles
-    try {
-      String slug = _item.mangaKakalotId.isNotEmpty
-          ? _item.mangaKakalotId
-          : _item.mangaId;
-      if (slug.isEmpty || slug.length < 5) {
-        final resolved = await _kakalotService.searchByTitle(_item.title);
-        if (resolved.isNotEmpty) slug = resolved;
-      }
-      list = await _kakalotService.getChapterFeed(slug);
-    } catch (_) { /* fall through */ }
+    // 3) MangaKakalot — search by title (broader coverage)
+    futures.add(_kakalotService
+        .searchByTitle(_item.title)
+        .timeout(timeout, onTimeout: () => '')
+        .then((slug) async {
+      if (slug.isEmpty) return <MangaChapter>[];
+      return _kakalotService.getChapterFeed(slug);
+    }).timeout(timeout, onTimeout: () => <MangaChapter>[]));
 
-    // 4) Scanlation sites — search ArcaneScans, AsuraScans, ReaperScans, etc.
-    if (list == null || list.isEmpty) {
-      try {
-        final slugs = await _scanlationService.searchAll(_item.title);
-        if (slugs.isNotEmpty) {
-          final scanChapters =
-              await _scanlationService.getChapterFeedFromAll(slugs);
-          if (scanChapters.isNotEmpty) {
-            _scanlationSlugs = slugs;
-            if (!mounted) return;
-            setState(() {
-              _chapters = scanChapters;
-              _isLoadingChapters = false;
-            });
-            return;
-          }
-        }
-      } catch (_) { /* fall through */ }
-    }
+    // 4) MangaKatana — search by title (sister site, different library)
+    futures.add(_mangakatanaService
+        .searchByTitle(_item.title)
+        .timeout(timeout, onTimeout: () => '')
+        .then((slug) async {
+      if (slug.isEmpty) return <MangaChapter>[];
+      return _mangakatanaService.getChapterFeed(slug);
+    }).timeout(timeout, onTimeout: () => <MangaChapter>[]));
+
+    // 5) Scanlation sites — last resort (slower, searches multiple sites)
+    futures.add(_scanlationService
+        .searchAll(_item.title)
+        .timeout(timeout, onTimeout: () => <String, String>{})
+        .then((slugs) async {
+      if (slugs.isEmpty) return <MangaChapter>[];
+      return _scanlationService.getChapterFeedFromAll(slugs);
+    }).timeout(timeout, onTimeout: () => <MangaChapter>[]));
+
+    // Race all sources — first non-empty result wins
+    final list = await _raceForFirstNonEmpty(futures);
 
     if (!mounted) return;
-    if (list != null && list.isNotEmpty) {
+    if (list.isNotEmpty) {
       setState(() {
-        _chapters = list!;
+        _chapters = list;
         _isLoadingChapters = false;
       });
     } else {
@@ -131,6 +136,34 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
         _isLoadingChapters = false;
       });
     }
+  }
+
+  /// Races multiple futures, returning the first non-empty result.
+  /// Individual failures are silently caught and the next source is tried.
+  Future<List<MangaChapter>> _raceForFirstNonEmpty(
+    List<Future<List<MangaChapter>>> futures,
+  ) async {
+    final completer = Completer<List<MangaChapter>>();
+    var remaining = futures.length;
+
+    for (final future in futures) {
+      future.then((result) {
+        if (!completer.isCompleted && result.isNotEmpty) {
+          completer.complete(result);
+        }
+        remaining--;
+        if (remaining == 0 && !completer.isCompleted) {
+          completer.complete(const []);
+        }
+      }).catchError((_) {
+        remaining--;
+        if (remaining == 0 && !completer.isCompleted) {
+          completer.complete(const []);
+        }
+      });
+    }
+
+    return completer.future;
   }
 
   void _openReader(MangaChapter chapter) {
@@ -239,7 +272,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
         children: [
           if (_item.coverUrl.isNotEmpty)
             Image.network(
-              _item.coverUrl,
+              _mangaDexService.proxiedImageUrl(_item.coverUrl),
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) =>
                   Container(color: AppTheme.velvet),

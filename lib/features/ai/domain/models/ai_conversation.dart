@@ -3,17 +3,20 @@ class AIMessage {
   final String role; // 'user' or 'assistant'
   final String content;
   final DateTime timestamp;
+  final List<String> imageUrls; // optional image URLs for vision tasks
 
   AIMessage({
     required this.role,
     required this.content,
     DateTime? timestamp,
+    this.imageUrls = const [],
   }) : timestamp = timestamp ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
         'role': role,
         'content': content,
         'timestamp': timestamp.toIso8601String(),
+        if (imageUrls.isNotEmpty) 'imageUrls': imageUrls,
       };
 
   factory AIMessage.fromJson(Map<String, dynamic> json) => AIMessage(
@@ -22,11 +25,27 @@ class AIMessage {
         timestamp: json['timestamp'] != null
             ? DateTime.parse(json['timestamp'])
             : DateTime.now(),
+        imageUrls: (json['imageUrls'] as List?)?.cast<String>() ?? [],
       );
 
   /// Returns the payload for the Agnes API.
+  /// If images are present, uses the multimodal content array format.
   Map<String, dynamic> toApiPayload() {
-    return {'role': role, 'content': content};
+    if (imageUrls.isEmpty) {
+      return {'role': role, 'content': content};
+    }
+    // Multimodal format: array of text and image_url blocks
+    final List<Map<String, dynamic>> contentBlocks = [];
+    if (content.isNotEmpty) {
+      contentBlocks.add({'type': 'text', 'text': content});
+    }
+    for (final url in imageUrls) {
+      contentBlocks.add({
+        'type': 'image_url',
+        'image_url': {'url': url},
+      });
+    }
+    return {'role': role, 'content': contentBlocks};
   }
 }
 

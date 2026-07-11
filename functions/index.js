@@ -243,6 +243,78 @@ exports.proxyMangaKakalotImage = functions.https.onRequest(async (req, res) => {
 });
 
 /**
+ * Proxies MangaKatana chapter page images so Flutter web isn't blocked
+ * by CORS or hotlink protection.
+ *
+ * Accepts:
+ *   GET /proxyMangaKatana?url=<encoded image url>
+ */
+exports.proxyMangaKatana = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  if (req.method !== 'GET') {
+    res.status(405).json({ error: 'Only GET is accepted' });
+    return;
+  }
+
+  const targetUrl = req.query.url;
+  if (typeof targetUrl !== 'string' || targetUrl.length === 0) {
+    res.status(400).json({ error: 'Missing ?url=<image url> query param' });
+    return;
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(targetUrl);
+  } catch (_) {
+    res.status(400).json({ error: 'Invalid url' });
+    return;
+  }
+
+  const allowedSuffixes = [
+    '.mangakatana.com',
+    '.mangakakalot.com',
+    '.mkklcdnv6temp.com',
+    '.catmanga.org',
+  ];
+  const hostAllowed = allowedSuffixes.some((s) => parsed.hostname.endsWith(s));
+  if (parsed.protocol !== 'https:' || !hostAllowed) {
+    res.status(400).json({ error: 'Host not allowed' });
+    return;
+  }
+
+  try {
+    const upstream = await fetch(targetUrl, {
+      method: 'GET',
+      headers: { 'Accept': 'image/*,*/*;q=0.8', 'Referer': 'https://mangakatana.com/' },
+      timeout: 20000,
+    });
+    if (!upstream.ok) {
+      res
+        .status(upstream.status)
+        .json({ error: `Upstream returned ${upstream.status}` });
+      return;
+    }
+    const contentType =
+      upstream.headers.get('content-type') || 'image/jpeg';
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', 'public, max-age=600');
+    const buffer = Buffer.from(await upstream.arrayBuffer());
+    res.status(200).send(buffer);
+  } catch (e) {
+    console.warn(`proxyMangaKatana failed (${targetUrl}):`, e.message);
+    res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
+  }
+});
+
+/**
  * Proxies MangaDex catalog API requests so Flutter web isn't blocked
  * by CORS. The MangaDex API at api.mangadex.org doesn't send an
  * `Access-Control-Allow-Origin` header on its responses, so the
@@ -454,6 +526,9 @@ exports.proxyScanlation = functions.https.onRequest(async (req, res) => {
     // MangaSee123 image CDN
     '.mangasee123.com',
     '.scans-hot.xyz',
+    // MangaKatana image CDN
+    '.mangakatana.com',
+    '.mangakatana.net',
     // Common image CDNs used by scanlation sites
     '.blogspot.com',
     '.bp.blogspot.com',
@@ -1373,6 +1448,19 @@ You have access to custom tools:
 - get_weather — Get weather for date planning
 - create_reminder — Set reminders
 - log_activity — Log notable activities
+- search_books — Search Open Library for books
+- get_date_ideas — Get date ideas from a curated list
+- read_chat_messages — Read recent Sanctuary chat messages
+- get_xp_stats — Get XP and leveling information
+- search_anime — Search for anime titles
+
+## Image Understanding
+You can analyze images sent by the user. When you receive images:
+- Describe what you see in detail
+- Answer questions about the image content
+- If it's a screenshot of a movie/show, help identify it and offer to add it to the watchlist
+- If it's a photo, respond warmly and personally
+- Analyze UI/UX if they share app screenshots
 
 **Rules:**
 - After executing a tool, acknowledge the result naturally — don't show raw JSON.
@@ -1617,6 +1705,74 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
         },
       },
     },
+    {
+      type: 'function',
+      function: {
+        name: 'search_books',
+        description: 'Search Open Library for books by title, author, or ISBN. Use when they ask about books, want recommendations, or mention a book title.',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Search query (title, author name, or ISBN)' },
+          },
+          required: ['query'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_date_ideas',
+        description: 'Get random date ideas from a curated list of 1000+ ideas. Use when they ask for date suggestions or what to do together.',
+        parameters: {
+          type: 'object',
+          properties: {
+            count: { type: 'number', description: 'Number of date ideas to return (default 3, max 10)' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'read_chat_messages',
+        description: 'Read recent Sanctuary (private couple chat) messages. Use when they ask about what they or their partner said recently, or to reference recent conversations.',
+        parameters: {
+          type: 'object',
+          properties: {
+            limit: { type: 'number', description: 'Number of recent messages to read (default 20, max 50)' },
+            sender: { type: 'string', enum: ['khentsgdz', 'clairjassen', 'both'], description: 'Filter by sender (default: both)' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_xp_stats',
+        description: 'Get XP and leveling information for a user. Use when they ask about their level, progress, or XP.',
+        parameters: {
+          type: 'object',
+          properties: {
+            user: { type: 'string', enum: ['khentsgdz', 'clairjassen', 'both'], description: 'Which user to get stats for (default: both)' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'search_anime',
+        description: 'Search for anime titles using the Jikan (MyAnimeList) API. Use when they ask about anime, want recommendations, or mention an anime title.',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Anime search query (title, genre, or description)' },
+          },
+          required: ['query'],
+        },
+      },
+    },
   ];
 
   // Tools: custom Mochi tools only (Agnes uses standard OpenAI function calling format)
@@ -1792,6 +1948,91 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
               });
               return JSON.stringify({ success: true });
             }
+            case 'search_books': {
+              const searchRes = await fetch(
+                `https://openlibrary.org/search.json?q=${encodeURIComponent(args.query)}&limit=5&fields=key,title,author_name,first_publish_year,isbn,cover_i`
+              );
+              const searchData = await searchRes.json();
+              const books = (searchData.docs || []).slice(0, 5).map(b => ({
+                title: b.title,
+                authors: (b.author_name || []).slice(0, 2).join(', '),
+                year: b.first_publish_year || null,
+                coverId: b.cover_i || null,
+                openLibraryKey: b.key || null,
+              }));
+              return JSON.stringify({ results: books });
+            }
+            case 'get_date_ideas': {
+              const count = Math.min(args.count || 3, 10);
+              const snapshot = await db.collection('date_ideas')
+                .orderBy(getAdmin().firestore.FieldValue.serverTimestamp())
+                .limit(100)
+                .get();
+              const allIdeas = snapshot.docs.map(d => d.data().title || d.data().name || '').filter(Boolean);
+              // Random selection
+              const shuffled = allIdeas.sort(() => Math.random() - 0.5);
+              return JSON.stringify({ ideas: shuffled.slice(0, count) });
+            }
+            case 'read_chat_messages': {
+              const limit = Math.min(args.limit || 20, 50);
+              let query = db.collection('sanctuary_messages')
+                .orderBy('timestamp', 'desc')
+                .limit(limit);
+              const chatSnap = await query.get();
+              let messages = chatSnap.docs.map(d => {
+                const data = d.data();
+                return {
+                  sender: data.sender || data.senderUid || 'unknown',
+                  text: (data.text || data.content || '').slice(0, 500),
+                  timestamp: data.timestamp?.toDate?.()?.toISOString() || null,
+                };
+              });
+              // Filter by sender if specified
+              if (args.sender && args.sender !== 'both') {
+                messages = messages.filter(m => m.sender === args.sender);
+              }
+              // Reverse to chronological order
+              messages.reverse();
+              return JSON.stringify({ messages, count: messages.length });
+            }
+            case 'get_xp_stats': {
+              const users = ['khentsgdz', 'clairjassen'];
+              const targetUsers = args.user && args.user !== 'both'
+                ? [args.user]
+                : users;
+              const stats = {};
+              for (const uid of targetUsers) {
+                const doc = await db.collection('users').doc(uid).collection('progress').doc('main').get();
+                if (doc.exists) {
+                  const d = doc.data();
+                  stats[uid] = {
+                    level: d.level || 1,
+                    xpTotal: d.xpTotal || 0,
+                    streak: d.streak || 0,
+                  };
+                } else {
+                  stats[uid] = { level: 1, xpTotal: 0, streak: 0 };
+                }
+              }
+              return JSON.stringify({ stats });
+            }
+            case 'search_anime': {
+              const animeRes = await fetch(
+                `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(args.query)}&limit=5&sfw=true`
+              );
+              const animeData = await animeRes.json();
+              const anime = (animeData.data || []).slice(0, 5).map(a => ({
+                title: a.title,
+                titleEnglish: a.title_english || null,
+                episodes: a.episodes || null,
+                score: a.score || null,
+                status: a.status || null,
+                synopsis: (a.synopsis || '').slice(0, 300),
+                genres: (a.genres || []).map(g => g.name),
+                malId: a.mal_id || null,
+              }));
+              return JSON.stringify({ results: anime });
+            }
             default:
               return JSON.stringify({ error: `Unknown tool: ${toolName}` });
           }
@@ -1851,6 +2092,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
             model,
             messages: currentMessages,
             tools,
+            tool_choice: 'auto',
             max_tokens: 8192,
             temperature: 0.6,
             top_p: 0.95,
@@ -1986,6 +2228,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
           model: model,
           messages: nimMessages,
           tools,
+          tool_choice: 'auto',
           max_tokens: 8192,
           temperature: 0.6,
           top_p: 0.95,

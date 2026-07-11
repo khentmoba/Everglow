@@ -37,7 +37,9 @@ class MangaKakalotService {
     if (title.trim().isEmpty) return '';
     final uri = Uri.parse('$_baseUrl/search/story/${Uri.encodeComponent(title)}');
     try {
-      final response = await http.get(uri, headers: _headers);
+      final response = await http.get(uri, headers: _headers).timeout(
+            const Duration(seconds: 8),
+          );
       if (response.statusCode == 200) {
         final body = response.body;
         final hrefReg = RegExp(r'<a[^>]*href="([^"]*)"[^>]*>');
@@ -66,7 +68,9 @@ class MangaKakalotService {
     if (slug.isEmpty) return [];
     final uri = Uri.parse('$_baseUrl/manga/$slug');
     try {
-      final response = await http.get(uri, headers: _headers);
+      final response = await http.get(uri, headers: _headers).timeout(
+            const Duration(seconds: 10),
+          );
       if (response.statusCode == 200) {
         return _parseChapterList(response.body, slug);
       }
@@ -114,7 +118,9 @@ class MangaKakalotService {
     }
     final uri = Uri.parse('$_baseUrl/$chapterId');
     try {
-      final response = await http.get(uri, headers: _headers);
+      final response = await http.get(uri, headers: _headers).timeout(
+            const Duration(seconds: 10),
+          );
       if (response.statusCode == 200) {
         final imgReg = RegExp(r'<img[^>]*src="([^"]+)"[^>]*>');
         final matches = imgReg.allMatches(response.body);
