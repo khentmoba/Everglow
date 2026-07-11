@@ -1,16 +1,18 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_breakpoints.dart';
 import 'motion.dart';
+import 'shelf_hover_preview.dart';
 
 /// Shared poster card used across the four inside screens.
 ///
 /// On desktop hover:
 ///   * Lifts 6px and scales 1.05 (stronger than default)
 ///   * Shows a play icon overlay and brighter accent glow
+///   * After 400ms, shows a rich [ShelfHoverPreview] overlay card
 ///   * Smooth 200ms ease-out transitions
 ///
 /// On mobile / touch:
@@ -27,6 +29,13 @@ class ShelfPosterCard extends StatefulWidget {
   final VoidCallback? onTap;
   final String? semanticLabel;
 
+  /// Rich metadata for the hover preview card (desktop only).
+  final String? bannerUrl;
+  final String? synopsis;
+  final String? episodeCount;
+  final String? format;
+  final String? airingStatus;
+
   const ShelfPosterCard({
     super.key,
     required this.imageUrl,
@@ -38,6 +47,11 @@ class ShelfPosterCard extends StatefulWidget {
     this.rankNumber,
     this.onTap,
     this.semanticLabel,
+    this.bannerUrl,
+    this.synopsis,
+    this.episodeCount,
+    this.format,
+    this.airingStatus,
   });
 
   @override
@@ -49,15 +63,75 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
   bool _hovered = false;
   bool _focused = false;
 
+  // Hover preview overlay
+  Timer? _hoverDelayTimer;
+  OverlayEntry? _hoverOverlay;
+  final LayerLink _layerLink = LayerLink();
+
   static const _tmdbImageBase = 'https://image.tmdb.org/t/p/w342';
 
   bool get _isDesktop => AppBreakpoint.isDesktop(context);
+
+  bool get _hasHoverData =>
+      widget.synopsis != null ||
+      widget.episodeCount != null ||
+      widget.format != null ||
+      widget.bannerUrl != null;
 
   String get _resolvedImageUrl {
     final url = widget.imageUrl;
     if (url.isEmpty) return '';
     if (url.startsWith('http')) return url;
     return '$_tmdbImageBase$url';
+  }
+
+  void _showHoverPreview() {
+    if (_hoverOverlay != null || !_hasHoverData) return;
+    final badgeColor = widget.badgeColor ?? AppTheme.deepRose;
+
+    _hoverOverlay = OverlayEntry(
+      builder: (context) => Positioned(
+        width: 300,
+        child: CompositedTransformFollower(
+          link: _layerLink,
+          showWhenUnlinked: false,
+          offset: const Offset(0, -8),
+          child: MouseRegion(
+            onEnter: (_) {},
+            onExit: (_) => _dismissHoverPreview(),
+            child: ShelfHoverPreview(
+              title: widget.title,
+              bannerUrl: widget.bannerUrl,
+              synopsis: widget.synopsis,
+              episodeCount: widget.episodeCount,
+              format: widget.format,
+              airingStatus: widget.airingStatus,
+              accent: badgeColor,
+              onWatch: () {
+                _dismissHoverPreview();
+                widget.onTap?.call();
+              },
+              onQueue: () => _dismissHoverPreview(),
+            ),
+          ),
+        ),
+      ),
+    );
+    Overlay.of(context).insert(_hoverOverlay!);
+  }
+
+  void _dismissHoverPreview() {
+    _hoverDelayTimer?.cancel();
+    _hoverDelayTimer = null;
+    _hoverOverlay?.remove();
+    _hoverOverlay = null;
+  }
+
+  @override
+  void dispose() {
+    _hoverDelayTimer?.cancel();
+    _hoverOverlay?.remove();
+    super.dispose();
   }
 
   @override
@@ -207,7 +281,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.outfit(
                         color: Colors.white,
-                        fontSize: 10.5,
+                        fontSize: 12,
                         fontWeight: FontWeight.w700,
                         height: 1.15,
                         letterSpacing: 0.1,
@@ -223,7 +297,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                         style: GoogleFonts.outfit(
                           color: AppTheme.blushGold
                               .withValues(alpha: 0.9),
-                          fontSize: 9,
+                          fontSize: 10,
                           fontWeight: FontWeight.w600,
                           fontStyle: FontStyle.italic,
                         ),
@@ -334,33 +408,49 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
       button: !disabled,
       enabled: !disabled,
       label: widget.semanticLabel ?? announcement,
-      child: FocusableActionDetector(
-        enabled: !disabled,
-        onShowFocusHighlight: (show) =>
-            setState(() => _focused = show && !disabled),
-        mouseCursor: disabled
-            ? SystemMouseCursors.basic
-            : SystemMouseCursors.click,
-        child: GestureDetector(
-          onTapDown: disabled
-              ? null
-              : (_) => setState(() => _pressed = true),
-          onTapUp: disabled
-              ? null
-              : (_) {
-                  setState(() => _pressed = false);
-                  widget.onTap!();
-                },
-          onTapCancel: () => setState(() => _pressed = false),
-          child: MouseRegion(
-            cursor: disabled
-                ? SystemMouseCursors.basic
-                : SystemMouseCursors.click,
-            onEnter: disabled
+      child: CompositedTransformTarget(
+        link: _layerLink,
+        child: FocusableActionDetector(
+          enabled: !disabled,
+          onShowFocusHighlight: (show) =>
+              setState(() => _focused = show && !disabled),
+          mouseCursor: disabled
+              ? SystemMouseCursors.basic
+              : SystemMouseCursors.click,
+          child: GestureDetector(
+            onTapDown: disabled
                 ? null
-                : (_) => setState(() => _hovered = true),
-            onExit: (_) => setState(() => _hovered = false),
-            child: card,
+                : (_) => setState(() => _pressed = true),
+            onTapUp: disabled
+                ? null
+                : (_) {
+                    setState(() => _pressed = false);
+                    widget.onTap!();
+                  },
+            onTapCancel: () => setState(() => _pressed = false),
+            child: MouseRegion(
+              cursor: disabled
+                  ? SystemMouseCursors.basic
+                  : SystemMouseCursors.click,
+              onEnter: disabled || !isDesktop
+                  ? null
+                  : (_) {
+                      setState(() => _hovered = true);
+                      // Show hover preview after 400ms delay
+                      _hoverDelayTimer?.cancel();
+                      _hoverDelayTimer = Timer(
+                          const Duration(milliseconds: 400), () {
+                        if (mounted && _hovered) {
+                          _showHoverPreview();
+                        }
+                      });
+                    },
+              onExit: (_) {
+                setState(() => _hovered = false);
+                _dismissHoverPreview();
+              },
+              child: card,
+            ),
           ),
         ),
       ),
