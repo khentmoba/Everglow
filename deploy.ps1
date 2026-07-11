@@ -25,7 +25,7 @@ flutter build web
 if ($LASTEXITCODE -ne 0) { Write-Host "Build failed"; exit 1 }
 
 Write-Host "Deploying to Firebase..."
-firebase deploy --only functions,hosting
+firebase deploy --only functions,hosting,firestore:rules
 if ($LASTEXITCODE -ne 0) { Write-Host "Deploy failed"; exit 1 }
 
 Write-Host "Done. BUILD=$buildConst - users will get fresh cache."
