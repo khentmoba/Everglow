@@ -19,6 +19,7 @@ import 'package:everglow/services/auth_service.dart';
 import 'package:everglow/shared/widgets/shelf/atmospheric_backdrop.dart';
 import 'package:everglow/shared/widgets/shelf/scroll_edge_fade.dart';
 import 'package:everglow/shared/widgets/shelf/shelf_hero_carousel.dart';
+import 'package:everglow/shared/widgets/shelf/anime_hero_banner.dart';
 import 'package:everglow/shared/widgets/shelf/shelf_icon_button.dart';
 import 'package:everglow/shared/widgets/shelf/shelf_poster_card.dart';
 import 'package:everglow/shared/widgets/shelf/shelf_section_header.dart';
@@ -693,6 +694,7 @@ class _AnimeScreenState extends State<AnimeScreen>
                 child: ShelfSectionHeader(
                   eyebrow: 'Resume Playing',
                   title: 'Currently Watching',
+                  subtitle: 'Pick up where you left off',
                   icon: Icons.play_circle_filled_rounded,
                   accent: const Color(0xFFFF6D00),
                   count: _library.where((i) => i.isCurrentlyWatching).length,
@@ -713,6 +715,7 @@ class _AnimeScreenState extends State<AnimeScreen>
                 child: ShelfSectionHeader(
                   eyebrow: 'Up Next',
                   title: 'In Your Queue',
+                  subtitle: 'Anime you plan to watch',
                   icon: Icons.bookmark_rounded,
                   accent: _cGold,
                   count: _library.where((i) => i.isToWatch).length,
@@ -733,6 +736,7 @@ class _AnimeScreenState extends State<AnimeScreen>
                 child: ShelfSectionHeader(
                   eyebrow: 'Already Finished',
                   title: 'Watched',
+                  subtitle: 'Anime you\'ve completed',
                   icon: Icons.remove_red_eye_rounded,
                   accent: _cGold,
                   count: _library.where((i) => i.isWatched).length,
@@ -753,10 +757,10 @@ class _AnimeScreenState extends State<AnimeScreen>
   Widget _buildHomeSection(_HomeSection section) {
     final row = _homeRows[section.id];
     if (row == null) {
-      return _buildShimmerRow(height: section.isHero ? 280 : 220);
+      return _buildShimmerRow(height: section.isHero ? 540 : 290);
     }
     if (row.isLoading) {
-      return _buildShimmerRow(height: section.isHero ? 280 : 220);
+      return _buildShimmerRow(height: section.isHero ? 540 : 290);
     }
     if (row.items.isEmpty) {
       if (row.hasError) {
@@ -775,6 +779,7 @@ class _AnimeScreenState extends State<AnimeScreen>
           child: ShelfSectionHeader(
             eyebrow: _eyebrowForSection(section.id),
             title: section.title,
+            subtitle: _subtitleForSection(section.id),
             icon: section.icon,
             accent: section.tint,
             count: row.items.length,
@@ -799,6 +804,13 @@ class _AnimeScreenState extends State<AnimeScreen>
       'Comedy': (color: const Color(0xFFFFD54F), icon: Icons.theater_comedy_rounded),
       'Slice of Life': (color: const Color(0xFFAED581), icon: Icons.local_cafe_rounded),
     };
+    final genreSubtitles = {
+      'Action & Adventure': 'High-octane thrills and epic battles',
+      'Romance': 'Love stories that warm the heart',
+      'Fantasy & Isekai': 'Otherworldly adventures and magic',
+      'Comedy': 'Laughs and good vibes',
+      'Slice of Life': 'Quiet moments and everyday beauty',
+    };
     final meta = genreMeta[genreName] ?? (color: _cCyan, icon: Icons.category_rounded);
 
     return Column(
@@ -809,6 +821,7 @@ class _AnimeScreenState extends State<AnimeScreen>
           child: ShelfSectionHeader(
             eyebrow: 'GENRE',
             title: genreName,
+            subtitle: genreSubtitles[genreName],
             icon: meta.icon,
             accent: meta.color,
             count: items.length,
@@ -842,6 +855,28 @@ class _AnimeScreenState extends State<AnimeScreen>
     }
   }
 
+  String? _subtitleForSection(String id) {
+    switch (id) {
+      case 'airing':
+        return 'New episodes dropping this season';
+      case 'top-rated':
+        return 'Highest scores from the community';
+      case 'new-releases':
+        return 'Freshly added this season';
+      case 'popular-all':
+        return 'Enduring fan favourites';
+      case 'hidden-gems':
+        return 'Underrated picks worth discovering';
+      case 'editors-picks':
+        return 'Mochi\'s personal recommendations';
+      case 'you-might-like':
+        return 'Curated based on your taste';
+      case 'trending':
+      default:
+        return 'What everyone\'s watching right now';
+    }
+  }
+
   Widget _buildHeroCarousel(List<MediaItem> items, _HomeSection section) {
     final heroItems = items.take(5).map((m) {
       final rank = items.indexOf(m) + 1;
@@ -853,32 +888,21 @@ class _AnimeScreenState extends State<AnimeScreen>
         imageUrl: m.backdropPath.isNotEmpty
             ? m.backdropPath
             : m.posterPath,
+        posterUrl: m.posterPath,
+        synopsis: m.synopsis,
+        episodeCount: m.episodeCount,
+        format: m.format,
+        airingStatus: m.airingStatus,
+        year: m.year,
         accent: _cMagenta,
         onTap: () => _openDetails(m),
       );
     }).toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-          child: ShelfSectionHeader(
-            eyebrow: _eyebrowForSection(section.id),
-            title: section.title,
-            icon: section.icon,
-            accent: _cMagenta,
-            count: items.length,
-            countLabel: 'titles',
-          ),
-        ),
-        ShelfHeroCarousel(
-          items: heroItems,
-          holdDuration: const Duration(seconds: 8),
-          height: 340,
-          viewportFraction: 0.85,
-        ),
-      ],
+    return AnimeHeroBanner(
+      items: heroItems,
+      holdDuration: const Duration(seconds: 18),
+      height: AppBreakpoint.isDesktop(context) ? 520 : 420,
     );
   }
 
@@ -928,11 +952,36 @@ class _AnimeScreenState extends State<AnimeScreen>
               ],
             ),
           ),
-          ShelfIconButton(
-            icon: Icons.search_rounded,
-            semanticLabel: 'Search Anime',
-            tooltip: 'Search anime',
+          // WatchPeak-style search bar trigger
+          GestureDetector(
             onTap: _openSearch,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: _cCard.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: _cRose.withValues(alpha: 0.15),
+                  width: 0.8,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.search_rounded,
+                      color: _cMuted, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Search anime...',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      color: _cMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -955,11 +1004,15 @@ class _AnimeScreenState extends State<AnimeScreen>
   }
 
   Widget _buildShimmerRow({required double height}) {
+    final isDesktop = AppBreakpoint.isDesktop(context);
+    final isTablet = AppBreakpoint.isTablet(context);
+    final shimmerWidth = isDesktop ? 170.0 : (isTablet ? 150.0 : 130.0);
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
       child: ShimmerPosterRow(
         height: height - 14,
-        width: 130,
+        width: shimmerWidth,
         count: 5,
         padding: EdgeInsets.zero,
         base: const Color(0xFF1C1228),
@@ -1058,10 +1111,16 @@ class _AnimeScreenState extends State<AnimeScreen>
         ),
       );
     }
+
+    final isDesktop = AppBreakpoint.isDesktop(context);
+    final isTablet = AppBreakpoint.isTablet(context);
+    final cardWidth = isDesktop ? 170.0 : (isTablet ? 150.0 : 130.0);
+    final cardHeight = isDesktop ? 290.0 : (isTablet ? 260.0 : 230.0);
+
     return ScrollEdgeFade(
       fadeColor: _cBlack,
       child: SizedBox(
-        height: 230,
+        height: cardHeight,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
@@ -1071,7 +1130,7 @@ class _AnimeScreenState extends State<AnimeScreen>
           itemBuilder: (context, index) {
             final item = items[index];
             return SizedBox(
-              width: 130,
+              width: cardWidth,
               child: ShelfPosterCard(
                 imageUrl: item.posterPath,
                 title: item.title,
@@ -1079,6 +1138,11 @@ class _AnimeScreenState extends State<AnimeScreen>
                 badge: 'ANIME',
                 badgeIcon: Icons.auto_awesome_rounded,
                 badgeColor: _cVibrantPink,
+                bannerUrl: item.backdropPath,
+                synopsis: item.synopsis,
+                episodeCount: item.episodeCount?.toString(),
+                format: item.format,
+                airingStatus: item.airingStatus,
                 onTap: () => _openDetails(item),
               ),
             );
