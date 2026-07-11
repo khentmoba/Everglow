@@ -65,7 +65,9 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
 
   // Hover preview overlay
   Timer? _hoverDelayTimer;
+  Timer? _dismissDelayTimer;
   OverlayEntry? _hoverOverlay;
+  bool _isHoveringOverlay = false;
   final LayerLink _layerLink = LayerLink();
 
   static const _tmdbImageBase = 'https://image.tmdb.org/t/p/w342';
@@ -97,8 +99,15 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
           showWhenUnlinked: false,
           offset: const Offset(0, -8),
           child: MouseRegion(
-            onEnter: (_) {},
-            onExit: (_) => _dismissHoverPreview(),
+            onEnter: (_) {
+              _isHoveringOverlay = true;
+              _dismissDelayTimer?.cancel();
+              _dismissDelayTimer = null;
+            },
+            onExit: (_) {
+              _isHoveringOverlay = false;
+              _dismissHoverPreview();
+            },
             child: ShelfHoverPreview(
               title: widget.title,
               bannerUrl: widget.bannerUrl,
@@ -123,6 +132,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
   void _dismissHoverPreview() {
     _hoverDelayTimer?.cancel();
     _hoverDelayTimer = null;
+    if (_isHoveringOverlay) return;
     _hoverOverlay?.remove();
     _hoverOverlay = null;
   }
@@ -130,6 +140,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
   @override
   void dispose() {
     _hoverDelayTimer?.cancel();
+    _dismissDelayTimer?.cancel();
     _hoverOverlay?.remove();
     super.dispose();
   }
@@ -435,6 +446,8 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
               onEnter: disabled || !isDesktop
                   ? null
                   : (_) {
+                      _dismissDelayTimer?.cancel();
+                      _dismissDelayTimer = null;
                       setState(() => _hovered = true);
                       // Show hover preview after 400ms delay
                       _hoverDelayTimer?.cancel();
@@ -447,7 +460,14 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                     },
               onExit: (_) {
                 setState(() => _hovered = false);
-                _dismissHoverPreview();
+                // Delay dismiss to allow mouse to travel to overlay
+                _dismissDelayTimer?.cancel();
+                _dismissDelayTimer = Timer(
+                    const Duration(milliseconds: 200), () {
+                  if (!_isHoveringOverlay) {
+                    _dismissHoverPreview();
+                  }
+                });
               },
               child: card,
             ),
