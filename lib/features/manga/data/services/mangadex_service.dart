@@ -232,6 +232,21 @@ class MangaDexService {
     final relationships = data['relationships'] as List?;
     final rating = attrs['rating'] as Map<String, dynamic>?;
 
+    // Extract alt titles for fallback matching on other sources
+    final altTitlesRaw = attrs['altTitles'] as List?;
+    final altTitles = <String>[];
+    if (altTitlesRaw != null) {
+      for (final alt in altTitlesRaw) {
+        if (alt is Map) {
+          for (final v in alt.values) {
+            if (v is String && v.isNotEmpty && !altTitles.contains(v)) {
+              altTitles.add(v);
+            }
+          }
+        }
+      }
+    }
+
     return MangaItem(
       id: '',
       mangaId: mangaId,
@@ -246,6 +261,7 @@ class MangaDexService {
       addedAt: DateTime.now(),
       rating: (rating?['bayesian'] as num?)?.toDouble() ?? 0,
       followCount: attrs['followedCount'] as int? ?? 0,
+      altTitles: altTitles,
     );
   }
 
