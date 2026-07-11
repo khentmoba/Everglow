@@ -381,6 +381,7 @@ class MangaKakalotService {
                 'libraryStatus': item.libraryStatus,
                 'lastReadChapterId': item.lastReadChapterId,
                 'lastReadPage': item.lastReadPage,
+                'altTitles': item.altTitles,
               })
           .toList();
       await prefs.setString(_cacheKey(userName), json.encode(listJson));
@@ -418,6 +419,7 @@ class MangaKakalotService {
             libraryStatus: data['libraryStatus'] ?? 'none',
             lastReadChapterId: data['lastReadChapterId'] ?? '',
             lastReadPage: (data['lastReadPage'] as num?)?.toInt() ?? 0,
+            altTitles: (data['altTitles'] as List?)?.map((e) => e.toString()).toList() ?? const [],
           );
         }).toList();
       }

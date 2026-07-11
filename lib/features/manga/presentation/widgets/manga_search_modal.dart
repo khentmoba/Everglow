@@ -80,16 +80,35 @@ class _MangaSearchModalState extends State<MangaSearchModal> {
 
     // Merge: start with MangaDex results, enrich with Comick hid/slug
     final merged = <String, MangaItem>{};
+    final comickByTitle = <String, MangaItem>{};
     for (final item in mangaDexResults) {
       merged[item.title.toLowerCase()] = item;
     }
-    // Match Comick results by title and fill in Comick fields
+    // Index Comick results by title for matching
     for (final comickItem in comickResults) {
-      final key = comickItem.title.toLowerCase();
-      final existing = merged[key];
+      comickByTitle[comickItem.title.toLowerCase()] = comickItem;
+    }
+    // Match Comick results: first by exact title, then by alt titles
+    for (final entry in comickByTitle.entries) {
+      final key = entry.key;
+      final comickItem = entry.value;
+      MangaItem? existing = merged[key];
+      // Try matching against alt titles if no exact title match
+      if (existing == null) {
+        for (final mdEntry in merged.entries) {
+          final mdItem = mdEntry.value;
+          if (mdItem.altTitles.any((alt) =>
+              alt.toLowerCase() == key ||
+              key.contains(alt.toLowerCase()) ||
+              alt.toLowerCase().contains(key))) {
+            existing = mdItem;
+            break;
+          }
+        }
+      }
       if (existing != null) {
         // Enrich existing MangaDex item with Comick identifiers
-        merged[key] = existing.copyWith(
+        merged[existing.title.toLowerCase()] = existing.copyWith(
           comickId: comickItem.comickId,
           comickSlug: comickItem.comickSlug,
         );

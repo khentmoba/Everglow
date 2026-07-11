@@ -67,7 +67,16 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
     final futures = <Future<List<MangaChapter>>>[];
     final timeout = const Duration(seconds: 10);
 
-    // 1) Comick API — only if we actually have a Comick hid (not a MangaDex UUID)
+    // Collect all title variants to try (main title + alt titles).
+    // This fixes "Na Honjaman Level-Up" not finding "Solo Leveling" etc.
+    final titlesToTry = <String>[_item.title];
+    for (final alt in _item.altTitles) {
+      if (alt.isNotEmpty && !titlesToTry.contains(alt)) {
+        titlesToTry.add(alt);
+      }
+    }
+
+    // 1) Comick API — by hid if we have it
     if (_item.comickSlug.isNotEmpty) {
       futures.add(_comickService
           .getChapterFeed(_item.comickSlug)
@@ -78,14 +87,30 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
           .timeout(timeout, onTimeout: () => <MangaChapter>[]));
     }
 
-    // 2) MangaDex API — works for MangaDex UUIDs
+    // 2) Comick API — search by title to find hid (for items without Comick id)
+    if (_item.comickSlug.isEmpty && _item.comickId == 0) {
+      for (final title in titlesToTry) {
+        futures.add(_comickService
+            .search(query: title, limit: 1)
+            .timeout(timeout, onTimeout: () => <MangaItem>[])
+            .then((results) async {
+          if (results.isEmpty) return <MangaChapter>[];
+          final hid = results.first.comickSlug.isNotEmpty
+              ? results.first.comickSlug
+              : results.first.mangaId;
+          if (hid.isEmpty) return <MangaChapter>[];
+          return _comickService.getChapterFeed(hid);
+        }).timeout(timeout, onTimeout: () => <MangaChapter>[]));
+      }
+    }
+
+    // 3) MangaDex API — works for MangaDex UUIDs
     final mangaDexId = _item.mangaKakalotId;
     if (mangaDexId.isNotEmpty) {
       futures.add(_mangaDexService
           .getChapterFeed(mangaDexId)
           .timeout(timeout, onTimeout: () => <MangaChapter>[]));
     }
-    // Also try mangaId if it looks like a UUID (MangaDex-sourced items)
     if (_item.mangaId.isNotEmpty &&
         _item.mangaId != mangaDexId &&
         _item.comickId == 0) {
@@ -94,25 +119,29 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
           .timeout(timeout, onTimeout: () => <MangaChapter>[]));
     }
 
-    // 3) MangaKakalot — search by title (broader coverage)
-    futures.add(_kakalotService
-        .searchByTitle(_item.title)
-        .timeout(timeout, onTimeout: () => '')
-        .then((slug) async {
-      if (slug.isEmpty) return <MangaChapter>[];
-      return _kakalotService.getChapterFeed(slug);
-    }).timeout(timeout, onTimeout: () => <MangaChapter>[]));
+    // 4) MangaKakalot — search by each title variant
+    for (final title in titlesToTry) {
+      futures.add(_kakalotService
+          .searchByTitle(title)
+          .timeout(timeout, onTimeout: () => '')
+          .then((slug) async {
+        if (slug.isEmpty) return <MangaChapter>[];
+        return _kakalotService.getChapterFeed(slug);
+      }).timeout(timeout, onTimeout: () => <MangaChapter>[]));
+    }
 
-    // 4) MangaKatana — search by title (sister site, different library)
-    futures.add(_mangakatanaService
-        .searchByTitle(_item.title)
-        .timeout(timeout, onTimeout: () => '')
-        .then((slug) async {
-      if (slug.isEmpty) return <MangaChapter>[];
-      return _mangakatanaService.getChapterFeed(slug);
-    }).timeout(timeout, onTimeout: () => <MangaChapter>[]));
+    // 5) MangaKatana — search by each title variant
+    for (final title in titlesToTry) {
+      futures.add(_mangakatanaService
+          .searchByTitle(title)
+          .timeout(timeout, onTimeout: () => '')
+          .then((slug) async {
+        if (slug.isEmpty) return <MangaChapter>[];
+        return _mangakatanaService.getChapterFeed(slug);
+      }).timeout(timeout, onTimeout: () => <MangaChapter>[]));
+    }
 
-    // 5) Scanlation sites — last resort (slower, searches multiple sites)
+    // 6) Scanlation sites — search with main title
     futures.add(_scanlationService
         .searchAll(_item.title)
         .timeout(timeout, onTimeout: () => <String, String>{})
