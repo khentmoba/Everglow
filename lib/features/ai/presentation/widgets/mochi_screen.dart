@@ -1,8 +1,12 @@
+import 'dart:convert';
+import 'dart:html' as html;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../data/services/ai_service.dart';
 import '../../../../services/auth_service.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -30,11 +34,16 @@ class _MochiScreenState extends State<MochiScreen> {
   bool _isSending = false;
   String? _lastSentMessage;
   bool _isSidebarOpen = false;
+  final List<String> _attachedImages = []; // base64 data URIs for preview
+  final List<String> _attachedImageUrls = []; // public URLs for API
+  final ImagePicker _picker = ImagePicker();
+  html.EventListener? _pasteListener;
 
   @override
   void initState() {
     super.initState();
     _scroll.addListener(_onScroll);
+    if (kIsWeb) _setupClipboardPaste();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final ai = context.read<AIService>();
@@ -51,7 +60,45 @@ class _MochiScreenState extends State<MochiScreen> {
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
     _focusNode.dispose();
+    if (_pasteListener != null) {
+      html.window.removeEventListener('paste', _pasteListener);
+    }
     super.dispose();
+  }
+
+  void _setupClipboardPaste() {
+    _pasteListener = (html.Event event) {
+      final e = event as html.ClipboardEvent;
+      final items = e.clipboardData?.items;
+      if (items == null) return;
+      final length = items.length ?? 0;
+      for (int i = 0; i < length; i++) {
+        final item = items[i];
+        if (item.type?.startsWith('image/') == true) {
+          final file = item.getAsFile();
+          if (file != null) {
+            final reader = html.FileReader();
+            reader.onLoadEnd.listen((_) {
+              final result = reader.result as String?;
+              if (result != null && result.contains(',')) {
+                final base64Data = result.split(',').last;
+                final ext = item.type?.split('/').last ?? 'png';
+                final dataUri = 'data:image/$ext;base64,$base64Data';
+                if (mounted) {
+                  setState(() {
+                    _attachedImages.add(dataUri);
+                    _attachedImageUrls.add(dataUri);
+                  });
+                }
+              }
+            });
+            reader.readAsDataUrl(file);
+          }
+          break;
+        }
+      }
+    };
+    html.window.addEventListener('paste', _pasteListener);
   }
 
   void _onScroll() {
@@ -81,7 +128,8 @@ class _MochiScreenState extends State<MochiScreen> {
   Future<void> _send() async {
     if (_isSending) return;
     final text = _input.text.trim();
-    if (text.isEmpty) return;
+    final hasImages = _attachedImageUrls.isNotEmpty;
+    if (text.isEmpty && !hasImages) return;
     _isSending = true;
     _lastSentMessage = text;
     _input.clear();
@@ -92,11 +140,17 @@ class _MochiScreenState extends State<MochiScreen> {
     try {
       final aiService = context.read<AIService>();
       final authService = context.read<AuthService>();
+      final imagesToSend = List<String>.from(_attachedImageUrls);
+      setState(() {
+        _attachedImages.clear();
+        _attachedImageUrls.clear();
+      });
       await aiService.sendMessage(
         feature: 'assistant',
         message: text,
         callerName: authService.currentUser,
         stream: true,
+        imageUrls: imagesToSend,
       );
       _scrollToBottom();
     } catch (e) {
@@ -120,6 +174,43 @@ class _MochiScreenState extends State<MochiScreen> {
   void _sendQuick(String text) {
     _input.text = text;
     _send();
+  }
+
+  Future<void> _pickImages() async {
+    try {
+      final images = await _picker.pickMultiImage(imageQuality: 85);
+      if (images.isNotEmpty) {
+        for (final image in images) {
+          final bytes = await image.readAsBytes();
+          final base64Data = 'data:image/${image.name.split('.').last};base64,${base64Encode(bytes)}';
+          if (!mounted) return;
+          setState(() {
+            _attachedImages.add(base64Data);
+            // For Agnes API, we need a publicly accessible URL.
+            // Since we can't upload to a public URL in Flutter web directly,
+            // we'll use base64 data URIs which Agnes supports via image_url.
+            _attachedImageUrls.add(base64Data);
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to attach images: $e',
+                style: AppTypography.bodySmall()),
+            backgroundColor: AppColors.deepRose.withValues(alpha: 0.9),
+          ),
+        );
+      }
+    }
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      _attachedImages.removeAt(index);
+      _attachedImageUrls.removeAt(index);
+    });
   }
 
   @override
@@ -236,6 +327,9 @@ class _MochiScreenState extends State<MochiScreen> {
                   controller: _input,
                   focusNode: _focusNode,
                   onSend: _send,
+                  onPickImages: _pickImages,
+                  attachedImages: _attachedImages,
+                  onRemoveImage: _removeImage,
                 ),
               ],
             ),
@@ -850,6 +944,11 @@ String _formatToolStatus(String status) {
     'get_weather': 'Checking weather',
     'create_reminder': 'Creating reminder',
     'log_activity': 'Logging activity',
+    'search_books': 'Searching books',
+    'get_date_ideas': 'Getting date ideas',
+    'read_chat_messages': 'Reading chat messages',
+    'get_xp_stats': 'Checking XP stats',
+    'search_anime': 'Searching anime',
   };
   return toolNames[status] ?? 'Mochi is thinking';
 }
@@ -1030,12 +1129,18 @@ class _ComposerInput extends StatefulWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final VoidCallback onSend;
+  final VoidCallback onPickImages;
+  final List<String> attachedImages;
+  final void Function(int) onRemoveImage;
 
   const _ComposerInput({
     required this.inputKey,
     required this.controller,
     required this.focusNode,
     required this.onSend,
+    required this.onPickImages,
+    this.attachedImages = const [],
+    required this.onRemoveImage,
   });
 
   @override
@@ -1077,94 +1182,165 @@ class _ComposerInputState extends State<_ComposerInput> {
               ),
             ),
           ),
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.surfaceGlass,
-              borderRadius: AppRadius.radiusX2,
-              border: Border.all(
-                color: AppColors.border,
-                width: 0.5,
-              ),
-            ),
-            child: Focus(
-              onKeyEvent: (node, event) {
-                if (event is KeyDownEvent &&
-                    event.logicalKey == LogicalKeyboardKey.enter) {
-                  if (!HardwareKeyboard.instance.isShiftPressed) {
-                    widget.onSend();
-                    return KeyEventResult.handled;
-                  }
-                }
-                return KeyEventResult.ignored;
-              },
-              child: TextField(
-                controller: widget.controller,
-                focusNode: widget.focusNode,
-                style: AppTypography.bodyMedium(),
-                minLines: 1,
-                maxLines: 6,
-                textInputAction: TextInputAction.newline,
-                decoration: InputDecoration(
-                  hintText: 'Talk to Mochi...',
-                  hintStyle: AppTypography.bodyMedium().copyWith(
-                    color: AppColors.textDisabled,
-                  ),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 14,
-                  ),
-                  suffixIcon: Padding(
-                    padding: const EdgeInsets.only(right: 8, bottom: 4),
-                    child: GestureDetector(
-                      onTap: (ai.isLoading || !_hasText) ? null : widget.onSend,
-                      child: AnimatedContainer(
-                        duration: AppMotion.fast,
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          gradient: (!ai.isLoading && _hasText)
-                              ? const LinearGradient(
-                                  colors: [
-                                    AppColors.blushGold,
-                                    AppColors.deepRose,
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                )
-                              : null,
-                          color: (!ai.isLoading && _hasText)
-                              ? null
-                              : AppColors.velvet.withValues(alpha: 0.4),
-                          borderRadius: AppRadius.radiusLg,
-                        ),
-                        child: Center(
-                          child: ai.isLoading
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppColors.blushGold,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Attached images preview
+              if (widget.attachedImages.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: SizedBox(
+                    height: 60,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: widget.attachedImages.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (_, i) {
+                        return Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: AppRadius.radiusSm,
+                              child: Image.memory(
+                                _decodeBase64(widget.attachedImages[i]),
+                                width: 60,
+                                height: 60,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            Positioned(
+                              top: 2,
+                              right: 2,
+                              child: GestureDetector(
+                                onTap: () => widget.onRemoveImage(i),
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.black54,
+                                    shape: BoxShape.circle,
                                   ),
-                                )
-                              : Icon(
-                                  Icons.arrow_upward_rounded,
-                                  color: _hasText
-                                      ? AppColors.petalWhite
-                                      : AppColors.textDisabled,
-                                  size: 20,
+                                  child: const Icon(Icons.close,
+                                      size: 12, color: Colors.white),
                                 ),
-                        ),
-                      ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ),
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceGlass,
+                  borderRadius: AppRadius.radiusX2,
+                  border: Border.all(
+                    color: AppColors.border,
+                    width: 0.5,
+                  ),
+                ),
+                child: Focus(
+                  onKeyEvent: (node, event) {
+                    if (event is KeyDownEvent &&
+                        event.logicalKey == LogicalKeyboardKey.enter) {
+                      if (!HardwareKeyboard.instance.isShiftPressed) {
+                        widget.onSend();
+                        return KeyEventResult.handled;
+                      }
+                    }
+                    return KeyEventResult.ignored;
+                  },
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: widget.onPickImages,
+                        icon: Icon(Icons.add_photo_alternate_rounded,
+                            color: widget.attachedImages.isNotEmpty
+                                ? AppColors.blushGold
+                                : AppColors.textMuted,
+                            size: 22),
+                        tooltip: 'Attach images',
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: widget.controller,
+                          focusNode: widget.focusNode,
+                          style: AppTypography.bodyMedium(),
+                          minLines: 1,
+                          maxLines: 6,
+                          textInputAction: TextInputAction.newline,
+                          decoration: InputDecoration(
+                            hintText: 'Talk to Mochi...',
+                            hintStyle: AppTypography.bodyMedium().copyWith(
+                              color: AppColors.textDisabled,
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8, bottom: 4),
+                        child: GestureDetector(
+                          onTap: (ai.isLoading || (!_hasText && widget.attachedImages.isEmpty))
+                              ? null
+                              : widget.onSend,
+                          child: AnimatedContainer(
+                            duration: AppMotion.fast,
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              gradient: (!ai.isLoading && (_hasText || widget.attachedImages.isNotEmpty))
+                                  ? const LinearGradient(
+                                      colors: [
+                                        AppColors.blushGold,
+                                        AppColors.deepRose,
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    )
+                                  : null,
+                              color: (!ai.isLoading && (_hasText || widget.attachedImages.isNotEmpty))
+                                  ? null
+                                  : AppColors.velvet.withValues(alpha: 0.4),
+                              borderRadius: AppRadius.radiusLg,
+                            ),
+                            child: Center(
+                              child: ai.isLoading
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: AppColors.blushGold,
+                                      ),
+                                    )
+                                  : Icon(
+                                      Icons.arrow_upward_rounded,
+                                      color: (_hasText || widget.attachedImages.isNotEmpty)
+                                          ? AppColors.petalWhite
+                                          : AppColors.textDisabled,
+                                      size: 20,
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         );
       },
     );
   }
+}
+
+Uint8List _decodeBase64(String dataUri) {
+  final base64Str = dataUri.split(',').last;
+  return Uint8List.fromList(base64Decode(base64Str));
 }

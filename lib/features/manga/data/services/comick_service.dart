@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:everglow/features/manga/data/models/manga_item.dart';
@@ -217,7 +218,9 @@ class ComickService {
       queryParameters: params,
     );
     try {
-      final response = await http.get(_proxied(uri), headers: _headers);
+      final response = await http.get(_proxied(uri), headers: _headers).timeout(
+            const Duration(seconds: 10),
+          );
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as List? ?? [];
         return body
@@ -251,7 +254,9 @@ class ComickService {
       queryParameters: params,
     );
     try {
-      final response = await http.get(_proxied(uri), headers: _headers);
+      final response = await http.get(_proxied(uri), headers: _headers).timeout(
+            const Duration(seconds: 10),
+          );
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as List? ?? [];
         return body
@@ -285,7 +290,9 @@ class ComickService {
       queryParameters: params,
     );
     try {
-      final response = await http.get(_proxied(uri), headers: _headers);
+      final response = await http.get(_proxied(uri), headers: _headers).timeout(
+            const Duration(seconds: 10),
+          );
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as List? ?? [];
         return body
@@ -304,7 +311,9 @@ class ComickService {
     if (hid.isEmpty) return null;
     final uri = Uri.parse('$_baseUrl/comic/$hid');
     try {
-      final response = await http.get(_proxied(uri), headers: _headers);
+      final response = await http.get(_proxied(uri), headers: _headers).timeout(
+            const Duration(seconds: 10),
+          );
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         return _mapDetail(body);
@@ -330,7 +339,9 @@ class ComickService {
       },
     );
     try {
-      final response = await http.get(_proxied(uri), headers: _headers);
+      final response = await http.get(_proxied(uri), headers: _headers).timeout(
+            const Duration(seconds: 10),
+          );
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         final chapters = body['chapters'] as List? ?? [];

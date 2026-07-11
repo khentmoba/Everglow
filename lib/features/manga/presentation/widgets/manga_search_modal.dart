@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
+import 'package:everglow/features/manga/data/services/comick_service.dart';
 import 'package:everglow/features/manga/data/services/mangadex_service.dart';
 import 'package:everglow/features/manga/data/services/mangakakalot_service.dart';
 import 'package:everglow/features/manga/presentation/widgets/manga_cover_card.dart';
@@ -27,6 +28,7 @@ class MangaSearchModal extends StatefulWidget {
 
 class _MangaSearchModalState extends State<MangaSearchModal> {
   final MangaDexService _mangaDex = MangaDexService();
+  final ComickService _comick = ComickService();
   final MangaKakalotService _md = MangaKakalotService();
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
@@ -61,13 +63,45 @@ class _MangaSearchModalState extends State<MangaSearchModal> {
   Future<void> _performSearch(String query) async {
     setState(() => _isLoading = true);
     final country = _selectedLanguage.isEmpty ? null : _selectedLanguage;
-    final results = await _mangaDex.search(
-      query: query,
-      originalLanguage: country,
-    );
+
+    // Search both MangaDex and Comick in parallel, then merge results.
+    // Comick provides the hid for chapter feeds; MangaDex provides
+    // cover images and the UUID for page resolution.
+    final results = await Future.wait([
+      _mangaDex.search(query: query, originalLanguage: country),
+      _comick.search(query: query, country: country),
+    ]).timeout(const Duration(seconds: 10), onTimeout: () => [
+          <MangaItem>[],
+          <MangaItem>[],
+        ]);
+
+    final mangaDexResults = results[0];
+    final comickResults = results[1];
+
+    // Merge: start with MangaDex results, enrich with Comick hid/slug
+    final merged = <String, MangaItem>{};
+    for (final item in mangaDexResults) {
+      merged[item.title.toLowerCase()] = item;
+    }
+    // Match Comick results by title and fill in Comick fields
+    for (final comickItem in comickResults) {
+      final key = comickItem.title.toLowerCase();
+      final existing = merged[key];
+      if (existing != null) {
+        // Enrich existing MangaDex item with Comick identifiers
+        merged[key] = existing.copyWith(
+          comickId: comickItem.comickId,
+          comickSlug: comickItem.comickSlug,
+        );
+      } else {
+        // Pure Comick result (not on MangaDex) — add as-is
+        merged[key] = comickItem;
+      }
+    }
+
     if (mounted) {
       setState(() {
-        _results = results;
+        _results = merged.values.toList();
         _isLoading = false;
       });
     }
@@ -108,7 +142,7 @@ class _MangaSearchModalState extends State<MangaSearchModal> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: item.coverUrl.isNotEmpty
-                      ? Image.network(item.coverUrl,
+                      ? Image.network(_mangaDex.proxiedImageUrl(item.coverUrl),
                           height: 180, fit: BoxFit.cover)
                       : Container(height: 180, color: AppTheme.twilight),
                 ),

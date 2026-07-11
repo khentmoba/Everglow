@@ -70,6 +70,20 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
       .where((i) => i.lastReadChapterId.isNotEmpty)
       .toList();
 
+  /// Proxy a MangaDex cover URL through the Cloud Function to avoid
+  /// hotlink protection. Non-MangaDex or already-proxied URLs pass through.
+  String _proxyCoverUrl(String url) {
+    if (url.isEmpty) return url;
+    if (url.startsWith('http')) {
+      // Already proxied URLs contain the proxy host — don't double-proxy
+      if (url.contains('proxyMangaImage')) return url;
+      if (url.contains('mangadex.org') || url.contains('mangadex.network')) {
+        return _mangaDex.proxiedImageUrl(url);
+      }
+    }
+    return url;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -367,7 +381,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
         title: m.title,
         subtitle: '${m.contentType.toUpperCase()} · ${m.year}',
         eyebrow: 'Trending #${items.indexOf(m) + 1}',
-        imageUrl: m.coverUrl,
+        imageUrl: _proxyCoverUrl(m.coverUrl),
         accent: _accentForLanguage(m.originalLanguage),
         onTap: () => _openDetails(m),
       );
@@ -625,7 +639,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
             return SizedBox(
               width: width,
               child: ShelfPosterCard(
-                imageUrl: item.coverUrl,
+                imageUrl: _proxyCoverUrl(item.coverUrl),
                 title: item.title,
                 subtitle: item.year.isNotEmpty
                     ? '${item.contentType} · ${item.year}'
@@ -800,7 +814,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
             itemBuilder: (context, index) {
               final item = showing.items[index];
               return ShelfPosterCard(
-                imageUrl: item.coverUrl,
+                imageUrl: _proxyCoverUrl(item.coverUrl),
                 title: item.title,
                 subtitle: item.year.isNotEmpty
                     ? '${item.contentType} · ${item.year}'

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:everglow/features/manga/data/models/manga_item.dart';
 
@@ -36,7 +37,9 @@ class BatoService {
     if (title.trim().isEmpty) return '';
     final uri = Uri.parse('$_baseUrl/search?q=${Uri.encodeComponent(title)}');
     try {
-      final response = await http.get(uri, headers: _headers);
+      final response = await http.get(uri, headers: _headers).timeout(
+            const Duration(seconds: 8),
+          );
       if (response.statusCode == 200) {
         // Look for series links matching /title/{slug}
         final linkRe = RegExp(
@@ -67,7 +70,9 @@ class BatoService {
         ? chapterPath
         : '$_baseUrl$chapterPath';
     try {
-      final response = await http.get(Uri.parse(url), headers: _headers);
+      final response = await http.get(Uri.parse(url), headers: _headers).timeout(
+            const Duration(seconds: 10),
+          );
       if (response.statusCode == 200) {
         final imgRe = RegExp(
           r'<img[^>]*src="(https?://[^"]+)"[^>]*>',
