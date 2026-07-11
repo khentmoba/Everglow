@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/services/auth_service.dart';
@@ -45,7 +46,7 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
     }
   }
 
-  void _checkAuthAndConnect() {
+  void _checkAuthAndConnect() async {
     final authService = context.read<AuthService>();
 
     if (!authService.isAuthenticated) {
@@ -70,6 +71,25 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
         _authError = 'not_couple_user';
       });
       return;
+    }
+
+    final uid = authService.uid;
+    if (uid == null) {
+      setState(() {
+        _authChecked = true;
+        _authError = 'not_authenticated';
+      });
+      return;
+    }
+
+    try {
+      final db = FirebaseFirestore.instance;
+      await db.collection('users').doc(uid).set({
+        'username': authService.currentUser,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      print("Sanctuary: failed to ensure user doc: $e");
     }
 
     setState(() {
