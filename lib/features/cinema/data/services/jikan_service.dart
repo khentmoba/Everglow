@@ -252,6 +252,13 @@ class JikanService {
         ? (j['episodes'] as num).toInt()
         : null;
 
+    final rawGenres = j['genres'] as List? ?? const [];
+    final genres = rawGenres
+        .whereType<Map<String, dynamic>>()
+        .map((g) => (g['name'] as String?) ?? '')
+        .where((n) => n.isNotEmpty)
+        .toList();
+
     return MediaItem(
       id: '',
       tmdbId: malId,
@@ -269,6 +276,7 @@ class JikanService {
       airingStatus: (j['status'] as String?) ?? '',
       format: typeStr,
       studio: studioName,
+      genres: genres,
     );
   }
 
