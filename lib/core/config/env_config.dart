@@ -106,6 +106,16 @@ class EnvConfig {
   static bool get hasBreyanCreds => breyanEmail.isNotEmpty && breyanPassword.isNotEmpty;
   static bool get hasOctagramCreds => octagramEmail.isNotEmpty && octagramPassword.isNotEmpty;
   static bool get hasTmdbKey => tmdbApiKey.isNotEmpty;
+  static String get fcmVapidKey {
+    const fromEnv = String.fromEnvironment('FCM_VAPID_KEY', defaultValue: '');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    if (dotenv.isInitialized) {
+      final val = dotenv.env['FCM_VAPID_KEY'];
+      if (val != null && val.isNotEmpty) return val;
+    }
+    return '';
+  }
+
   static bool get hasLastfmKey => lastfmApiKey.isNotEmpty;
 
   static List<String> missingRequired() {
