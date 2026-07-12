@@ -126,6 +126,21 @@ class ComickService {
 
     final mangaDexId = data['md_id'] as String? ?? '';
 
+    // Extract alt titles from md_titles for fallback matching on
+    // MangaKakalot, MangaKatana, and Bato.to
+    final altTitlesRaw = data['md_titles'] as List?;
+    final altTitles = <String>[];
+    if (altTitlesRaw != null) {
+      for (final t in altTitlesRaw) {
+        if (t is Map) {
+          final text = t['title'] as String?;
+          if (text != null && text.isNotEmpty && !altTitles.contains(text)) {
+            altTitles.add(text);
+          }
+        }
+      }
+    }
+
     return MangaItem(
       id: '',
       mangaId: hid,
@@ -142,6 +157,7 @@ class ComickService {
       comickSlug: (data['slug'] as String?) ?? '',
       rating: double.tryParse((data['bayesian_rating'] as String?) ?? '') ?? 0,
       followCount: data['user_follow_count'] as int? ?? 0,
+      altTitles: altTitles,
     );
   }
 

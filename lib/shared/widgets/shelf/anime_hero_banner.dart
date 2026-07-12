@@ -154,7 +154,9 @@ class _HeroBannerSlide extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: item.onTap,
-      child: Padding(
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Container(
           decoration: BoxDecoration(
@@ -177,18 +179,29 @@ class _HeroBannerSlide extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Banner background
+                // Blurred backdrop image
                 if (item.imageUrl.isNotEmpty)
-                  Image.network(
-                    item.imageUrl,
-                    fit: BoxFit.cover,
-                    cacheWidth: 1200,
-                    errorBuilder: (_, _, _) => Container(
-                      color: AppTheme.velvet,
+                  Transform.scale(
+                    scale: 1.1,
+                    child: ImageFiltered(
+                      imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: Image.network(
+                        item.imageUrl,
+                        fit: BoxFit.cover,
+                        cacheWidth: 1200,
+                        errorBuilder: (_, _, _) => Container(
+                          color: AppTheme.velvet,
+                        ),
+                      ),
                     ),
                   )
                 else
                   Container(color: AppTheme.velvet),
+
+                // Dark wash overlay for contrast
+                Container(
+                  color: Colors.black.withValues(alpha: 0.55),
+                ),
 
                 // Bottom gradient
                 Container(
@@ -347,6 +360,7 @@ class _HeroBannerSlide extends StatelessWidget {
               ],
             ),
           ),
+        ),
         ),
       ),
     );
@@ -520,7 +534,9 @@ class _ActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: AnimatedContainer(
         duration: ShelfMotion.orZero(const Duration(milliseconds: 200)),
         curve: ShelfMotion.easeOutStrong,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -559,6 +575,7 @@ class _ActionButton extends StatelessWidget {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

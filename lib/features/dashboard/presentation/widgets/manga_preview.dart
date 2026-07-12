@@ -160,15 +160,25 @@ class _MangaShelfState extends State<_MangaShelf> {
     return '$author • ${item.contentType}';
   }
 
+  String _proxyCoverUrl(String url) {
+    if (url.isEmpty) return url;
+    if (url.startsWith('http')) {
+      if (url.contains('proxyMangaImage')) return url;
+      if (url.contains('mangadex.org') || url.contains('mangadex.network')) {
+        return MangaDexService().proxiedImageUrl(url);
+      }
+    }
+    return url;
+  }
+
   List<Widget> _buildCards() {
-    final dex = MangaDexService();
     return _items
         .map(
           (item) => Padding(
             padding: const EdgeInsets.only(right: 12),
             child: ShelfCard(
               accent: ShelfAccent.manga,
-              imageUrl: dex.proxiedImageUrl(item.coverUrl),
+              imageUrl: _proxyCoverUrl(item.coverUrl),
               title: item.title,
               subtitle: _subtitleFor(item),
               topBadge: item.contentType.toUpperCase(),
