@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'package:everglow/core/theme/app_breakpoints.dart';
+import 'package:everglow/core/theme/app_colors.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/data/anime_categories.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
@@ -27,24 +28,62 @@ import 'package:everglow/shared/widgets/shelf/shelf_empty_state.dart';
 import 'package:everglow/shared/widgets/shelf/shimmer_box.dart';
 import 'package:everglow/shared/widgets/shelf/shelf_pill_bottom_nav.dart';
 import 'package:everglow/shared/widgets/shelf/staggered_entrance.dart';
-import 'package:everglow/shared/widgets/shelf/motion.dart';
 import 'package:everglow/shared/widgets/shelf/cinema_sections.dart';
+import 'package:everglow/shared/widgets/shelf/anime_cta_button.dart';
 import 'package:everglow/features/ai/presentation/widgets/ai_recommendations.dart';
 
-// Anime-specific palette — more vibrant and energetic than the cinema
-// palette, drawing from iconic anime colour schemes (magenta, cyan,
-// electric violet) while staying in the dusk-romantic universe.
-const _cBlack = Color(0xFF080810);
-const _cCard = Color(0xFF1C1228);
-const _cRose = Color(0xFFF4C2C2);
-const _cDeepRose = Color(0xFFC2185B);
-const _cGold = Color(0xFFE8C97A);
-const _cWhite = Color(0xFFFFF5F5);
-const _cMuted = Color(0xFF8A7A92);
-const _cCyan = Color(0xFF00BCD4);
-const _cMagenta = Color(0xFFFF2D55);
-const _cElectricPurple = Color(0xFF7C3AED);
-const _cVibrantPink = Color(0xFFFF4081);
+// Anime palette — now sourced from AppColors for design-system consistency.
+const _cBlack          = AppColors.animeBackground;
+const _cCard           = AppColors.animeCard;
+const _cRose           = AppColors.animeRose;
+const _cDeepRose       = AppColors.animeDeepRose;
+const _cGold           = AppColors.animeGold;
+const _cWhite          = AppColors.animeWhite;
+const _cMuted          = AppColors.animeMuted;
+const _cCyan           = AppColors.animeCyan;
+const _cMagenta        = AppColors.animeMagenta;
+const _cElectricPurple = AppColors.animeElectricPurple;
+const _cVibrantPink    = AppColors.animeVibrantPink;
+
+// Single source of truth for home-tab genre rail metadata.
+// Used by both [_loadGenreRows] and [_buildGenreRow].
+const _genreMeta = <String, ({
+  List<int> genreIds,
+  Color color,
+  IconData icon,
+  String subtitle,
+})>{
+  'Action & Adventure': (
+    genreIds: [1, 2],
+    color: Color(0xFFE57373),
+    icon: Icons.bolt_rounded,
+    subtitle: 'High-octane thrills and epic battles',
+  ),
+  'Romance': (
+    genreIds: [22],
+    color: Color(0xFFF06292),
+    icon: Icons.favorite_rounded,
+    subtitle: 'Love stories that warm the heart',
+  ),
+  'Fantasy & Isekai': (
+    genreIds: [10],
+    color: Color(0xFFBA68C8),
+    icon: Icons.auto_awesome_rounded,
+    subtitle: 'Otherworldly adventures and magic',
+  ),
+  'Comedy': (
+    genreIds: [4],
+    color: Color(0xFFFFD54F),
+    icon: Icons.theater_comedy_rounded,
+    subtitle: 'Laughs and good vibes',
+  ),
+  'Slice of Life': (
+    genreIds: [36],
+    color: Color(0xFFAED581),
+    icon: Icons.local_cafe_rounded,
+    subtitle: 'Quiet moments and everyday beauty',
+  ),
+};
 
 /// Dedicated entry for the anime rail. Four tabs:
 ///   * Home     — Leads with Trending Now + Currently Airing (the two
@@ -90,11 +129,9 @@ class _AnimeScreenState extends State<AnimeScreen>
 
   // Genre rows for home tab
   final Map<String, List<MediaItem>> _genreRows = {};
-  bool _isLoadingGenres = false;
 
   // Top 10 for home tab
   List<MediaItem> _topTenItems = [];
-  bool _isLoadingTopTen = false;
 
   // Search tab
   final TextEditingController _searchController = TextEditingController();
@@ -328,37 +365,24 @@ class _AnimeScreenState extends State<AnimeScreen>
   /// top titles via Jikan's genre filter so the home screen has dedicated
   /// discovery rails for Action, Romance, Isekai, etc.
   Future<void> _loadGenreRows() async {
-    if (mounted) setState(() => _isLoadingGenres = true);
-
-    final genreDefs = [
-      ('Action & Adventure', [1, 2], const Color(0xFFE57373), Icons.bolt_rounded),
-      ('Romance', [22], const Color(0xFFF06292), Icons.favorite_rounded),
-      ('Fantasy & Isekai', [10], const Color(0xFFBA68C8), Icons.auto_awesome_rounded),
-      ('Comedy', [4], const Color(0xFFFFD54F), Icons.theater_comedy_rounded),
-      ('Slice of Life', [36], const Color(0xFFAED581), Icons.local_cafe_rounded),
-    ];
-
-    final futures = genreDefs.map((g) async {
+    final futures = _genreMeta.entries.map((entry) async {
       try {
-        final items = await _jikanService.fetchByGenres(g.$2, limit: 15);
+        final items = await _jikanService.fetchByGenres(entry.value.genreIds, limit: 15);
         if (items.isNotEmpty && mounted) {
-          setState(() => _genreRows[g.$1] = items);
+          setState(() => _genreRows[entry.key] = items);
         }
       } catch (_) {}
     });
 
     await Future.wait(futures);
-    if (mounted) setState(() => _isLoadingGenres = false);
   }
 
   /// Loads the top 10 trending anime for the dedicated ranking section.
   Future<void> _loadTopTen() async {
-    if (mounted) setState(() => _isLoadingTopTen = true);
     try {
       final items = await _jikanService.fetchTopAiring(limit: 10);
       if (mounted) setState(() => _topTenItems = items);
     } catch (_) {}
-    if (mounted) setState(() => _isLoadingTopTen = false);
   }
 
   Future<void> _selectCategory(AnimeCategoryOption option) async {
@@ -646,7 +670,7 @@ class _AnimeScreenState extends State<AnimeScreen>
             child: Padding(
               padding: const EdgeInsets.only(top: 8),
               child: AIRecommendations(
-                title: "Mochi's Picks 🐱",
+                title: "Mochi's Picks",
                 autoLoad: true,
                 onTapItem: (item) => _openDetails(item),
               ),
@@ -796,22 +820,10 @@ class _AnimeScreenState extends State<AnimeScreen>
   Widget _buildGenreRow(String genreName, List<MediaItem> items) {
     if (items.isEmpty) return const SizedBox.shrink();
 
-    // Match genre colors/icons from anime_categories.dart
-    final genreMeta = {
-      'Action & Adventure': (color: const Color(0xFFE57373), icon: Icons.bolt_rounded),
-      'Romance': (color: const Color(0xFFF06292), icon: Icons.favorite_rounded),
-      'Fantasy & Isekai': (color: const Color(0xFFBA68C8), icon: Icons.auto_awesome_rounded),
-      'Comedy': (color: const Color(0xFFFFD54F), icon: Icons.theater_comedy_rounded),
-      'Slice of Life': (color: const Color(0xFFAED581), icon: Icons.local_cafe_rounded),
-    };
-    final genreSubtitles = {
-      'Action & Adventure': 'High-octane thrills and epic battles',
-      'Romance': 'Love stories that warm the heart',
-      'Fantasy & Isekai': 'Otherworldly adventures and magic',
-      'Comedy': 'Laughs and good vibes',
-      'Slice of Life': 'Quiet moments and everyday beauty',
-    };
-    final meta = genreMeta[genreName] ?? (color: _cCyan, icon: Icons.category_rounded);
+    final meta = _genreMeta[genreName];
+    final color = meta?.color ?? _cCyan;
+    final icon = meta?.icon ?? Icons.category_rounded;
+    final subtitle = meta?.subtitle;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -821,14 +833,14 @@ class _AnimeScreenState extends State<AnimeScreen>
           child: ShelfSectionHeader(
             eyebrow: 'GENRE',
             title: genreName,
-            subtitle: genreSubtitles[genreName],
-            icon: meta.icon,
-            accent: meta.color,
+            subtitle: subtitle,
+            icon: icon,
+            accent: color,
             count: items.length,
             countLabel: 'titles',
           ),
         ),
-        _buildPosterRow(items, accent: meta.color),
+        _buildPosterRow(items, accent: color),
       ],
     );
   }
@@ -846,7 +858,7 @@ class _AnimeScreenState extends State<AnimeScreen>
       case 'hidden-gems':
         return 'Worth Discovering';
       case 'editors-picks':
-        return "Mochi's Picks 🐱";
+        return "Mochi's Picks";
       case 'you-might-like':
         return 'Curated For You';
       case 'trending':
@@ -984,21 +996,6 @@ class _AnimeScreenState extends State<AnimeScreen>
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title,
-      {required IconData icon, Color tint = _cRose, int? count}) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-      child: ShelfSectionHeader(
-        eyebrow: 'Collection',
-        title: title,
-        icon: icon,
-        accent: tint,
-        count: count,
-        countLabel: count != null ? 'titles' : null,
       ),
     );
   }
@@ -1153,15 +1150,14 @@ class _AnimeScreenState extends State<AnimeScreen>
     );
   }
 
-  /// Enhanced "Currently Watching" row with episode progress labels and
-  /// backdrop images instead of plain poster cards. Shows "S1 E3" style
-  /// progress for each item so users can see exactly where they left off.
+  /// Enhanced "Currently Watching" row with episode progress labels,
+  /// backdrop images, progress bar, and resume play button.
   Widget _buildContinueWatchingRow(List<MediaItem> items) {
     if (items.isEmpty) return const SizedBox.shrink();
     final isDesktop = AppBreakpoint.isDesktop(context);
 
     return SizedBox(
-      height: 120,
+      height: 160,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
@@ -1181,139 +1177,174 @@ class _AnimeScreenState extends State<AnimeScreen>
 
           return GestureDetector(
             onTap: () => _openDetails(item),
-            child: Container(
-              width: isDesktop ? 280 : 220,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                gradient: LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.45),
-                    Colors.black.withValues(alpha: 0.05),
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Container(
+                width: isDesktop ? 320 : 260,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.5),
+                      Colors.black.withValues(alpha: 0.08),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: _cCyan.withValues(alpha: 0.2),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _cCyan.withValues(alpha: 0.06),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
                   ],
                 ),
-                border: Border.all(
-                  color: _cCyan.withValues(alpha: 0.25),
-                ),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(13),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (item.backdropPath.isNotEmpty)
-                      Image.network(
-                        item.backdropPath,
-                        fit: BoxFit.cover,
-                        cacheWidth: 900,
-                        errorBuilder: (_, _, _) => Image.network(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(15),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (item.backdropPath.isNotEmpty)
+                        Image.network(
+                          item.backdropPath,
+                          fit: BoxFit.cover,
+                          cacheWidth: 900,
+                          errorBuilder: (_, _, _) => Image.network(
+                            item.posterPath,
+                            fit: BoxFit.cover,
+                            cacheWidth: 400,
+                            errorBuilder: (_, _, _) =>
+                                Container(color: _cCard),
+                          ),
+                        )
+                      else if (item.posterPath.isNotEmpty)
+                        Image.network(
                           item.posterPath,
                           fit: BoxFit.cover,
                           cacheWidth: 400,
                           errorBuilder: (_, _, _) =>
                               Container(color: _cCard),
-                        ),
-                      )
-                    else if (item.posterPath.isNotEmpty)
-                      Image.network(
-                        item.posterPath,
-                        fit: BoxFit.cover,
-                        cacheWidth: 400,
-                        errorBuilder: (_, _, _) =>
-                            Container(color: _cCard),
-                      )
-                    else
-                      Container(color: _cCard),
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                          colors: [
-                            Colors.black.withValues(alpha: 0.85),
-                            Colors.black.withValues(alpha: 0.2),
-                          ],
+                        )
+                      else
+                        Container(color: _cCard),
+                      // Dark gradient overlay
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: [
+                              Colors.black.withValues(alpha: 0.88),
+                              Colors.black.withValues(alpha: 0.25),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    Positioned(
-                      left: 12,
-                      right: 12,
-                      top: 0,
-                      bottom: 0,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (progressLabel != null)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: _cCyan,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                progressLabel,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.8,
+                      // Content
+                      Positioned(
+                        left: 14,
+                        right: 14,
+                        top: 14,
+                        bottom: 14,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (progressLabel != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: _cCyan,
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: _cCyan.withValues(alpha: 0.4),
+                                      blurRadius: 8,
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  progressLabel,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.8,
+                                  ),
                                 ),
                               ),
-                            ),
-                          const SizedBox(height: 8),
-                          Text(
-                            item.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.cormorantGaramond(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: AppTheme.petalWhite,
-                              height: 1.15,
-                            ),
-                          ),
-                          if (item.year.isNotEmpty) ...[
-                            const SizedBox(height: 4),
+                            const Spacer(),
                             Text(
-                              item.year,
-                              style: GoogleFonts.outfit(
-                                color: AppTheme.warmAmber,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
+                              item.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.cormorantGaramond(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.petalWhite,
+                                height: 1.15,
+                              ),
+                            ),
+                            if (item.year.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                item.year,
+                                style: GoogleFonts.outfit(
+                                  color: AppTheme.warmAmber,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 8),
+                            // Progress bar
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(3),
+                              child: LinearProgressIndicator(
+                                value: (episode != null && item.episodeCount != null && item.episodeCount! > 0)
+                                    ? (episode / item.episodeCount!).clamp(0.0, 1.0)
+                                    : 0.0,
+                                backgroundColor: Colors.white.withValues(alpha: 0.15),
+                                valueColor: AlwaysStoppedAnimation<Color>(_cCyan),
+                                minHeight: 3,
                               ),
                             ),
                           ],
-                        ],
+                        ),
                       ),
-                    ),
-                    Positioned(
-                      right: 8,
-                      top: 8,
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _cCyan.withValues(alpha: 0.9),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _cCyan.withValues(alpha: 0.5),
-                              blurRadius: 8,
+                      // Resume play button
+                      Positioned(
+                        right: 12,
+                        top: 0,
+                        bottom: 0,
+                        child: Center(
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _cCyan.withValues(alpha: 0.9),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: _cCyan.withValues(alpha: 0.5),
+                                  blurRadius: 12,
+                                  spreadRadius: 2,
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.play_arrow_rounded,
-                          color: Colors.white,
-                          size: 18,
+                            child: const Icon(
+                              Icons.play_arrow_rounded,
+                              color: Colors.white,
+                              size: 22,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1354,6 +1385,43 @@ class _AnimeScreenState extends State<AnimeScreen>
                   color: _cRose,
                 ),
               ),
+              const Spacer(),
+              if (_selectedCategoryId != null)
+                GestureDetector(
+                  onTap: () => setState(() {
+                    _selectedCategoryId = null;
+                  }),
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _cMagenta.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: _cMagenta.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.close_rounded,
+                              color: _cMagenta, size: 14),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Clear Filter',
+                            style: GoogleFonts.outfit(
+                              color: _cMagenta,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -1426,7 +1494,7 @@ class _AnimeScreenState extends State<AnimeScreen>
             ),
           ),
           SizedBox(
-            height: 38,
+            height: 44,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -1461,11 +1529,45 @@ class _AnimeScreenState extends State<AnimeScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 16),
-        _buildSectionTitle(
-          option.label,
-          icon: option.icon,
-          tint: option.color,
-          count: row?.items.length,
+        // Active filter header with icon and count
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: option.color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(option.icon, color: option.color, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      option.label,
+                      style: GoogleFonts.cormorantGaramond(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: option.color,
+                      ),
+                    ),
+                    if (row != null && !row.isLoading && row.items.isNotEmpty)
+                      Text(
+                        '${row.items.length} titles found',
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          color: _cMuted,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
         if (row == null || row.isLoading)
           Padding(
@@ -1473,7 +1575,7 @@ class _AnimeScreenState extends State<AnimeScreen>
             child: GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: 6,
+              itemCount: 12,
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount:
                     isDesktop ? 6 : (AppBreakpoint.isTablet(context) ? 4 : 2),
@@ -1490,10 +1592,10 @@ class _AnimeScreenState extends State<AnimeScreen>
             child: row.hasError
                 ? Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
                       color: _cCard.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: option.color.withValues(alpha: 0.2),
                       ),
@@ -1674,7 +1776,7 @@ class _AnimeScreenState extends State<AnimeScreen>
                 ),
               ),
               const SizedBox(height: 28),
-              _AnimeCtaButton(
+              AnimeCtaButton(
                 label: 'Search Anime',
                 icon: Icons.search_rounded,
                 onTap: _openSearch,
@@ -1822,6 +1924,11 @@ class _AnimeScreenState extends State<AnimeScreen>
               subtitle: item.year.isNotEmpty ? item.year : null,
               badge: badge,
               badgeColor: accent,
+              synopsis: item.synopsis,
+              episodeCount: item.episodeCount?.toString(),
+              format: item.format,
+              airingStatus: item.airingStatus,
+              currentEpisode: item.currentEpisode,
               onTap: () => _openDetails(item),
             );
           },
@@ -1861,7 +1968,7 @@ class _AnimeScreenState extends State<AnimeScreen>
                   ),
                 ),
               Text(
-                'Find Your Next Anime \U0001f338',
+                'Find Your Next Anime',
                 style: GoogleFonts.cormorantGaramond(
                   fontSize: isDesktop ? 32 : 26,
                   fontWeight: FontWeight.w800,
@@ -1943,10 +2050,20 @@ class _AnimeScreenState extends State<AnimeScreen>
         // Results
         Expanded(
           child: _isSearching
-              ? Center(
-                  child: CircularProgressIndicator(
-                    color: _cCyan,
-                    strokeWidth: 2.5,
+              ? Padding(
+                  padding: EdgeInsets.symmetric(horizontal: horizontalPad),
+                  child: GridView.builder(
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: isDesktop
+                          ? 6
+                          : (AppBreakpoint.isTablet(context) ? 4 : 2),
+                      childAspectRatio: 0.65,
+                      crossAxisSpacing: 14,
+                      mainAxisSpacing: 14,
+                    ),
+                    itemCount: 12,
+                    itemBuilder: (_, _) => const ShimmerBox(height: 220, radius: 14),
                   ),
                 )
               : _searchResults.isEmpty
@@ -1987,128 +2104,270 @@ class _AnimeScreenState extends State<AnimeScreen>
   void _showAddDialog(MediaItem item) {
     String status = 'to-watch';
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24)),
-          backgroundColor: AppTheme.velvet,
-          title: Text(
-            'Add to Everglow?',
-            style: GoogleFonts.cormorantGaramond(
-              color: AppTheme.roseQuartz,
-              fontWeight: FontWeight.bold,
-              fontSize: 22,
+        builder: (context, setDialogState) => Container(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+          decoration: BoxDecoration(
+            color: AppTheme.velvet,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            border: Border.all(
+              color: AppTheme.roseQuartz.withValues(alpha: 0.1),
             ),
           ),
-          content: Column(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: item.posterUrl.isNotEmpty
-                    ? Image.network(item.posterUrl,
-                        height: 150, fit: BoxFit.cover)
-                    : Container(
-                        height: 150, color: AppTheme.twilight),
+              // Drag handle
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.roseQuartz.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-              const SizedBox(height: 12),
-              if (item.studio.isNotEmpty)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppTheme.deepRose.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
+              const SizedBox(height: 20),
+              // Poster + metadata
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: item.posterUrl.isNotEmpty
+                        ? Image.network(item.posterUrl,
+                            width: 90, height: 130, fit: BoxFit.cover)
+                        : Container(
+                            width: 90, height: 130,
+                            color: AppTheme.twilight,
+                            child: const Icon(Icons.movie_rounded,
+                                color: AppTheme.roseQuartz, size: 32),
+                          ),
                   ),
-                  child: Text(
-                    item.studio,
-                    style: GoogleFonts.outfit(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.deepRose,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Add to Everglow?',
+                          style: GoogleFonts.outfit(
+                            color: AppTheme.roseQuartz,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          item.title,
+                          style: GoogleFonts.cormorantGaramond(
+                            color: AppTheme.petalWhite,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                          ),
+                        ),
+                        if (item.studio.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppTheme.deepRose.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              item.studio,
+                              style: GoogleFonts.outfit(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.deepRose,
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (item.synopsis.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            item.synopsis,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.outfit(
+                              color: AppTheme.roseQuartz.withValues(alpha: 0.7),
+                              fontSize: 12,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                ),
-              const SizedBox(height: 12),
-              Text(
-                item.title,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(
-                    color: AppTheme.petalWhite,
-                    fontWeight: FontWeight.w600),
+                ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
+              // Status chips
               Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  ChoiceChip(
-                    label: Text('To Watch',
-                        style: GoogleFonts.outfit()),
-                    selected: status == 'to-watch',
-                    onSelected: (selected) {
-                      if (selected) {
-                        setDialogState(() => status = 'to-watch');
-                      }
-                    },
+                  Expanded(
+                    child: _buildStatusChip(
+                      label: 'To Watch',
+                      icon: Icons.bookmark_rounded,
+                      selected: status == 'to-watch',
+                      color: _cCyan,
+                      onTap: () => setDialogState(() => status = 'to-watch'),
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: Text('Watched',
-                        style: GoogleFonts.outfit()),
-                    selected: status == 'watched',
-                    onSelected: (selected) {
-                      if (selected) {
-                        setDialogState(() => status = 'watched');
-                      }
-                    },
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildStatusChip(
+                      label: 'Watched',
+                      icon: Icons.check_circle_rounded,
+                      selected: status == 'watched',
+                      color: const Color(0xFF8BC34A),
+                      onTap: () => setDialogState(() => status = 'watched'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              // Action buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: AppTheme.roseQuartz.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppTheme.roseQuartz.withValues(alpha: 0.15),
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          'Cancel',
+                          style: GoogleFonts.outfit(
+                            color: AppTheme.roseQuartz,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: GestureDetector(
+                      onTap: () async {
+                        Navigator.pop(context);
+                        final u = context.read<AuthService>().currentUser ?? '';
+                        if (u.isEmpty) return;
+                        await _tmdbService.saveToWatchList(item, status, u);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                '${item.title} added to Everglow!',
+                                style: GoogleFonts.outfit(
+                                    color: AppTheme.petalWhite),
+                              ),
+                              backgroundColor: AppTheme.deepRose,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                            ),
+                          );
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              _cMagenta.withValues(alpha: 0.8),
+                              _cElectricPurple.withValues(alpha: 0.8),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _cMagenta.withValues(alpha: 0.3),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.add_rounded,
+                                color: _cWhite, size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Add',
+                              style: GoogleFonts.outfit(
+                                color: _cWhite,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Cancel',
-                  style: GoogleFonts.outfit(
-                      color: AppTheme.roseQuartz)),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                final u = context.read<AuthService>().currentUser ?? '';
-                if (u.isEmpty) return;
-                await _tmdbService.saveToWatchList(item, status, u);
-                final successMessage =
-                    '\U0001f338 ${item.title} added to Everglow!';
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        successMessage,
-                        style: GoogleFonts.outfit(
-                            color: AppTheme.petalWhite),
-                      ),
-                      backgroundColor: AppTheme.deepRose,
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                    ),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.deepRose,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24)),
-              ),
-              child: Text(
-                'Add',
-                style: GoogleFonts.outfit(
-                    color: AppTheme.petalWhite,
-                    fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusChip({
+    required String label,
+    required IconData icon,
+    required bool selected,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? color.withValues(alpha: 0.15)
+              : AppTheme.roseQuartz.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected
+                ? color.withValues(alpha: 0.5)
+                : AppTheme.roseQuartz.withValues(alpha: 0.1),
+            width: selected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon,
+                color: selected ? color : AppTheme.roseQuartz.withValues(alpha: 0.4),
+                size: 18),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: GoogleFonts.outfit(
+                color: selected ? color : AppTheme.roseQuartz.withValues(alpha: 0.5),
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                fontSize: 13,
               ),
             ),
           ],
@@ -2122,12 +2381,12 @@ class _AnimeScreenState extends State<AnimeScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.animation_rounded,
+          Icon(Icons.search_off_rounded,
               size: 60,
               color: _cCyan.withValues(alpha: 0.2)),
           const SizedBox(height: 16),
           Text(
-            'No anime found \u2728',
+            'No anime found',
             style: GoogleFonts.outfit(
                 color: _cMuted, fontSize: 16),
           ),
@@ -2172,8 +2431,64 @@ class _AnimeScreenState extends State<AnimeScreen>
               fontSize: 12,
             ),
           ),
+          const SizedBox(height: 28),
+          _buildQuickSearchChips(),
         ],
       ),
+    );
+  }
+
+  /// Quick-access chips shown on the search landing state so users can
+  /// start exploring without typing.
+  Widget _buildQuickSearchChips() {
+    final suggestions = [
+      ('Top Airing', Icons.local_fire_department_rounded, _cMagenta),
+      ('This Season', Icons.calendar_today_rounded, _cCyan),
+      ('Popular Movies', Icons.movie_rounded, _cElectricPurple),
+      ('All Time Best', Icons.star_rounded, _cGold),
+    ];
+
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      alignment: WrapAlignment.center,
+      children: suggestions.map((s) {
+        return GestureDetector(
+          onTap: () {
+            _searchController.text = s.$1;
+            _performSearch(s.$1);
+          },
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: s.$3.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: s.$3.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(s.$2, color: s.$3, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    s.$1,
+                    style: GoogleFonts.outfit(
+                      color: s.$3,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 }
@@ -2227,6 +2542,7 @@ class _BrowseGroupMeta {
 /// (see `lib/shared/widgets/shelf/`).
 
 /// Small tinted stat chip used in the library header.
+/// Uses Expanded to prevent overflow on smaller screens.
 class _LibraryStat extends StatelessWidget {
   final String label;
   final int count;
@@ -2239,38 +2555,42 @@ class _LibraryStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: color.withValues(alpha: 0.3),
-          width: 0.8,
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: color.withValues(alpha: 0.25),
+            width: 0.8,
+          ),
         ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '$count',
-            style: GoogleFonts.cormorantGaramond(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-              color: color,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '$count',
+              style: GoogleFonts.cormorantGaramond(
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                color: color,
+              ),
             ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: GoogleFonts.outfit(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: color.withValues(alpha: 0.85),
-              letterSpacing: 0.6,
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: GoogleFonts.outfit(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: color.withValues(alpha: 0.8),
+                letterSpacing: 0.5,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -2479,82 +2799,4 @@ class _SparklePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_SparklePainter old) => old.progress != progress;
-}
-
-/// Anime-themed CTA button with gradient border and hover glow.
-class _AnimeCtaButton extends StatefulWidget {
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-  const _AnimeCtaButton({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  State<_AnimeCtaButton> createState() => _AnimeCtaButtonState();
-}
-
-class _AnimeCtaButtonState extends State<_AnimeCtaButton> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: widget.onTap,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: AnimatedContainer(
-          duration: ShelfMotion.orZero(ShelfMotion.medium),
-          curve: ShelfMotion.easeOutStrong,
-          transform: Matrix4.identity()
-            ..setTranslationRaw(0.0, _hovered ? -2.0 : 0.0, 0.0),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                _cMagenta.withValues(alpha: _hovered ? 0.35 : 0.25),
-                _cElectricPurple.withValues(alpha: _hovered ? 0.35 : 0.25),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: _hovered
-                  ? _cCyan.withValues(alpha: 0.7)
-                  : _cMagenta.withValues(alpha: 0.4),
-              width: 1.2,
-            ),
-            boxShadow: _hovered
-                ? [
-                    BoxShadow(
-                      color: _cMagenta.withValues(alpha: 0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 6),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(widget.icon, color: _cWhite, size: 18),
-              const SizedBox(width: 10),
-              Text(
-                widget.label,
-                style: GoogleFonts.outfit(
-                  color: _cWhite,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }

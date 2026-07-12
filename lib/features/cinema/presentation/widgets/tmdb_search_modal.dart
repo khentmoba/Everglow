@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:animate_do/animate_do.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_theme.dart';
@@ -249,18 +248,16 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
   }
 
   Widget _buildEmptyState() {
-    return FadeIn(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.movie_outlined, size: 60, color: AppTheme.roseQuartz.withOpacity(0.2)),
-          const SizedBox(height: 16),
-          Text(
-            _searchController.text.isEmpty ? 'Start typing to find magic...' : 'No movies found! 🌸',
-            style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withOpacity(0.6), fontSize: 16),
-          ),
-        ],
-      ),
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.movie_outlined, size: 60, color: AppTheme.roseQuartz.withValues(alpha: 0.2)),
+        const SizedBox(height: 16),
+        Text(
+          _searchController.text.isEmpty ? 'Start typing to find magic\u2026' : 'No movies found',
+          style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 16),
+        ),
+      ],
     );
   }
 }

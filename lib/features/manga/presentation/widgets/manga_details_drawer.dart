@@ -9,6 +9,7 @@ import 'package:everglow/features/manga/data/services/comick_service.dart';
 import 'package:everglow/features/manga/data/services/mangadex_service.dart';
 import 'package:everglow/features/manga/data/services/mangakakalot_service.dart';
 import 'package:everglow/features/manga/data/services/mangakatana_service.dart';
+import 'package:everglow/features/manga/data/services/bato_service.dart';
 import 'package:everglow/features/manga/data/services/scanlation_service.dart';
 import 'package:everglow/features/manga/presentation/screens/manga_reader_screen.dart';
 import 'package:everglow/services/auth_service.dart';
@@ -32,6 +33,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
   final MangaKakalotService _kakalotService = MangaKakalotService();
   final MangakatanaService _mangakatanaService = MangakatanaService();
   final ScanlationService _scanlationService = ScanlationService();
+  final BatoService _batoService = BatoService();
   final ScrollController _chapterScrollController = ScrollController();
 
   /// Populated when chapters come from scanlation sites; passed to
@@ -65,7 +67,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
     // Build list of source futures to race in parallel.
     // First non-empty result wins — no more 5-minute sequential waits.
     final futures = <Future<List<MangaChapter>>>[];
-    final timeout = const Duration(seconds: 10);
+    final timeout = const Duration(seconds: 20);
 
     // Collect all title variants to try (main title + alt titles).
     // This fixes "Na Honjaman Level-Up" not finding "Solo Leveling" etc.
@@ -150,6 +152,17 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
       return _scanlationService.getChapterFeedFromAll(slugs);
     }).timeout(timeout, onTimeout: () => <MangaChapter>[]));
 
+    // 7) Bato.to — search by each title variant (good for licensed manga)
+    for (final title in titlesToTry) {
+      futures.add(_batoService
+          .searchByTitle(title)
+          .timeout(timeout, onTimeout: () => '')
+          .then((slug) async {
+        if (slug.isEmpty) return <MangaChapter>[];
+        return _batoService.getChapterFeed(slug);
+      }).timeout(timeout, onTimeout: () => <MangaChapter>[]));
+    }
+
     // Race all sources — first non-empty result wins
     final list = await _raceForFirstNonEmpty(futures);
 
@@ -172,24 +185,29 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
   Future<List<MangaChapter>> _raceForFirstNonEmpty(
     List<Future<List<MangaChapter>>> futures,
   ) async {
+    if (futures.isEmpty) return const [];
     final completer = Completer<List<MangaChapter>>();
     var remaining = futures.length;
 
+    void onResult(List<MangaChapter> result) {
+      if (!completer.isCompleted && result.isNotEmpty) {
+        completer.complete(result);
+      }
+      remaining--;
+      if (remaining <= 0 && !completer.isCompleted) {
+        completer.complete(const []);
+      }
+    }
+
+    void onError(Object _) {
+      remaining--;
+      if (remaining <= 0 && !completer.isCompleted) {
+        completer.complete(const []);
+      }
+    }
+
     for (final future in futures) {
-      future.then((result) {
-        if (!completer.isCompleted && result.isNotEmpty) {
-          completer.complete(result);
-        }
-        remaining--;
-        if (remaining == 0 && !completer.isCompleted) {
-          completer.complete(const []);
-        }
-      }).catchError((_) {
-        remaining--;
-        if (remaining == 0 && !completer.isCompleted) {
-          completer.complete(const []);
-        }
-      });
+      future.then(onResult).catchError(onError);
     }
 
     return completer.future;

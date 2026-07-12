@@ -58,6 +58,70 @@ class BatoService {
     return '';
   }
 
+  /// Scrape the series page for its chapter list.
+  /// [slug] is the Bato.to series slug (e.g. "my-dress-up-darling.12345").
+  Future<List<MangaChapter>> getChapterFeed(String slug) async {
+    if (slug.isEmpty) return [];
+    final uri = Uri.parse('$_baseUrl/title/$slug');
+    try {
+      final response = await http.get(uri, headers: _headers).timeout(
+            const Duration(seconds: 10),
+          );
+      if (response.statusCode == 200) {
+        return _parseChapterList(response.body, slug);
+      }
+    } catch (e) {
+      print('Bato.to chapter feed error: $e');
+    }
+    return [];
+  }
+
+  List<MangaChapter> _parseChapterList(String html, String slug) {
+    final chapters = <MangaChapter>[];
+    // Bato.to chapter links follow patterns like:
+    //   /title/{slug}/chapter-{num} or /chapter/{id}
+    final linkRe = RegExp(
+      r'<a[^>]*href="(/(?:title/[^"]*?/chapter-[^"]+|chapter/\d+))"[^>]*>',
+      caseSensitive: false,
+    );
+    final textRe = RegExp(r'>([^<]+)<');
+    final numRe = RegExp(r'chapter[_\s-]?([\d.]+)', caseSensitive: false);
+    final seen = <String>{};
+
+    for (final m in linkRe.allMatches(html)) {
+      final href = m.group(1)?.trim() ?? '';
+      if (href.isEmpty || !seen.add(href)) continue;
+
+      // Try to extract chapter number from the link text
+      String chapterNum = '';
+      String title = '';
+      final fullMatch = m.group(0) ?? '';
+      final textMatch = textRe.firstMatch(fullMatch);
+      if (textMatch != null) {
+        title = textMatch.group(1)?.trim() ?? '';
+        final numMatch = numRe.firstMatch(title);
+        chapterNum = numMatch?.group(1) ?? '';
+      }
+      // Fallback: extract from URL
+      if (chapterNum.isEmpty) {
+        final numMatch = numRe.firstMatch(href);
+        chapterNum = numMatch?.group(1) ?? '';
+      }
+
+      chapters.add(MangaChapter(
+        id: href,
+        title: title,
+        chapter: chapterNum,
+        volume: '',
+        pages: 0,
+        translatedLanguage: 'en',
+        scanlationGroup: 'Bato.to',
+        publishAt: DateTime.now(),
+      ));
+    }
+    return chapters;
+  }
+
   /// Scrape a chapter page for image URLs.
   /// [chapterPath] is the URL path (e.g. "/title/{slug}/chapter-1").
   Future<MangaChapterPages?> getChapterPages(String chapterPath) async {

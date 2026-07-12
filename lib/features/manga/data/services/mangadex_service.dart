@@ -75,16 +75,24 @@ class MangaDexService {
         final body = json.decode(response.body) as Map<String, dynamic>;
         if (body['result'] != 'ok') return [];
         final data = body['data'] as List? ?? [];
-        return data.whereType<Map<String, dynamic>>().where((d) {
-          // Filter out chapters with 0 pages — these are external/official
-          // publisher links (e.g. Webnovel, Pocket Comics, TappyToon) that
-          // have no page data on MangaDex and can't be read through the
-          // at-home server. Trying to open them results in "This chapter
-          // has no readable pages."
+        // Filter out chapters with 0 pages — these are external/official
+        // publisher links (e.g. Webnovel, Pocket Comics, TappyToon) that
+        // have no page data on MangaDex and can't be read through the
+        // at-home server. Trying to open them results in "This chapter
+        // has no readable pages."
+        final allChapters = data.whereType<Map<String, dynamic>>().toList();
+        final filtered = allChapters.where((d) {
           final attrs = d['attributes'] as Map<String, dynamic>? ?? {};
           final pages = (attrs['pages'] as num?)?.toInt() ?? 0;
           return pages > 0;
-        }).map((d) {
+        }).toList();
+
+        // Fallback: if all chapters were filtered out (licensed manga with
+        // only official publisher links), return the full list so at least
+        // the chapter numbers are visible in the UI.
+        final chaptersToMap = filtered.isNotEmpty ? filtered : allChapters;
+
+        return chaptersToMap.map((d) {
           final attrs = d['attributes'] as Map<String, dynamic>? ?? {};
           final rels = d['relationships'] as List? ?? [];
           String group = '';

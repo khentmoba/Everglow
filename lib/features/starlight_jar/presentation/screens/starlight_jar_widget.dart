@@ -88,7 +88,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
     final start = Offset(MediaQuery.of(context).size.width / 2, -50);
     final end = Offset(
       120 + _random.nextDouble() * 160,
-      300 + _random.nextDouble() * 100,
+      300 + _random.nextDouble() * 60,
     );
 
     _dropAnimation = Tween<Offset>(
@@ -266,104 +266,101 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget> with TickerProv
             ),
           ),
 
-          // Floating Stars (from Stream) with organic drift animation
+          // All stars (idle + drop + float) — clipped to jar body
           ClipPath(
             clipper: const JarClipperAtOffset(
               offset: Offset(60, 36),
               size: Size(280, 350),
             ),
-            child: IgnorePointer(
-            child: AnimatedBuilder(
-            animation: _idleController,
-            builder: (context, _) {
-              return StreamBuilder<List<StarNote>>(
-                stream: _starNotesStream,
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) return const SizedBox.shrink();
+            child: Stack(
+              children: [
+                // Idle floating stars with organic drift animation
+                IgnorePointer(
+                  child: AnimatedBuilder(
+                    animation: _idleController,
+                    builder: (context, _) {
+                      return StreamBuilder<List<StarNote>>(
+                        stream: _starNotesStream,
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) return const SizedBox.shrink();
 
-                  final notes = snapshot.data!;
-                  final t = _idleController.value;
-                  return Stack(
-                    children: notes.map((note) {
-                      final m = _getMotion(note.id.hashCode);
-                      final tX = t * m.speedX;
-                      final tY = t * m.speedY;
+                          final notes = snapshot.data!;
+                          final t = _idleController.value;
+                          return Stack(
+                            children: notes.map((note) {
+                              final m = _getMotion(note.id.hashCode);
+                              final tX = t * m.speedX;
+                              final tY = t * m.speedY;
 
-                      final rawDx = m.baseX
-                        + sin(tX * 2 * pi + m.phaseX) * m.ampX
-                        + sin(tX * 2 * pi * 0.37 + m.phaseX * 1.7) * m.ampX * 0.3;
-                      final rawDy = m.baseY
-                        + cos(tY * 2 * pi + m.phaseY) * m.ampY
-                        + cos(tY * 2 * pi * 0.43 + m.phaseY * 1.3) * m.ampY * 0.25;
-                      const jarLeft = 60.0;
-                      const jarTop = 36.0;
-                      const jarRight = 340.0;
-                      const jarBottom = 386.0;
-                      const maxSize = 24.0;
-                      final dx = rawDx.clamp(jarLeft, jarRight - maxSize);
-                      final dy = rawDy.clamp(jarTop, jarBottom - maxSize);
-                      final rotation = m.baseRotation + sin(t * 2 * pi * m.rotSpeed) * 0.5;
-                      final opacity = 0.55 + sin(t * 2 * pi * 2.3 + m.twinklePhase) * 0.35;
-                      final scale = 0.85 + sin(t * 2 * pi * 1.2 + m.phaseX) * 0.15;
+                              final rawDx = m.baseX
+                                + sin(tX * 2 * pi + m.phaseX) * m.ampX
+                                + sin(tX * 2 * pi * 0.37 + m.phaseX * 1.7) * m.ampX * 0.3;
+                              final rawDy = m.baseY
+                                + cos(tY * 2 * pi + m.phaseY) * m.ampY
+                                + cos(tY * 2 * pi * 0.43 + m.phaseY * 1.3) * m.ampY * 0.25;
+                              const jarLeft = 60.0;
+                              const jarTop = 36.0;
+                              const jarRight = 340.0;
+                              const jarBottom = 386.0;
+                              const maxSize = 24.0;
+                              final dx = rawDx.clamp(jarLeft, jarRight - maxSize);
+                              final dy = rawDy.clamp(jarTop, jarBottom - maxSize);
+                              final rotation = m.baseRotation + sin(t * 2 * pi * m.rotSpeed) * 0.5;
+                              final opacity = 0.55 + sin(t * 2 * pi * 2.3 + m.twinklePhase) * 0.35;
+                              final scale = 0.85 + sin(t * 2 * pi * 1.2 + m.phaseX) * 0.15;
 
-                      return StarWidget(
-                        color: m.color,
-                        position: Offset(dx, dy),
-                        rotation: rotation,
-                        size: 24 * scale,
-                        opacity: opacity.clamp(0.0, 1.0),
-                      );
-                    }).toList(),
-                  );
-                },
-              );
-            },
-          ),
-          ),
-          ),
-
-          // The Animating "Drop" Star
-          if (_droppingStar != null && _dropAnimation != null)
-            IgnorePointer(
-              child: Stack(
-                children: [
-                  AnimatedBuilder(
-                    animation: _dropAnimation!,
-                    builder: (context, child) {
-                      return StarWidget(
-                        color: AppTheme.blushGold,
-                        position: _dropAnimation!.value,
-                        rotation: _dropController!.value * pi * 2,
+                              return StarWidget(
+                                color: m.color,
+                                position: Offset(dx, dy),
+                                rotation: rotation,
+                                size: 24 * scale,
+                                opacity: opacity.clamp(0.0, 1.0),
+                              );
+                            }).toList(),
+                          );
+                        },
                       );
                     },
                   ),
-                ],
-              ),
-            ),
+                ),
 
-          // The Animating "Float Out" Star
-          if (_floatingStar != null && _floatAnimation != null)
-            IgnorePointer(
-              child: Stack(
-                children: [
-                  AnimatedBuilder(
-                    animation: _floatAnimation!,
-                    builder: (context, child) {
-                      final Offset end = const Offset(200, 80);
-                      final Offset start = const Offset(200, 350);
-                      final currentPos = Offset.lerp(start, end, _floatAnimation!.value)!;
-
-                      return StarWidget(
-                        color: AppTheme.deepRose,
-                        position: currentPos,
-                        size: 24 + (16 * _floatAnimation!.value),
-                        rotation: _floatController!.value * pi,
-                      );
-                    },
+                // The Animating "Drop" Star
+                if (_droppingStar != null && _dropAnimation != null)
+                  IgnorePointer(
+                    child: AnimatedBuilder(
+                      animation: _dropAnimation!,
+                      builder: (context, child) {
+                        return StarWidget(
+                          color: AppTheme.blushGold,
+                          position: _dropAnimation!.value,
+                          rotation: _dropController!.value * pi * 2,
+                        );
+                      },
+                    ),
                   ),
-                ],
-              ),
+
+                // The Animating "Float Out" Star
+                if (_floatingStar != null && _floatAnimation != null)
+                  IgnorePointer(
+                    child: AnimatedBuilder(
+                      animation: _floatAnimation!,
+                      builder: (context, child) {
+                        final Offset end = const Offset(200, 80);
+                        final Offset start = const Offset(200, 350);
+                        final currentPos = Offset.lerp(start, end, _floatAnimation!.value)!;
+
+                        return StarWidget(
+                          color: AppTheme.deepRose,
+                          position: currentPos,
+                          size: 24 + (16 * _floatAnimation!.value),
+                          rotation: _floatController!.value * pi,
+                        );
+                      },
+                    ),
+                  ),
+              ],
             ),
+          ),
 
           // Drop Button
           Positioned(

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:animate_do/animate_do.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_theme.dart';
@@ -318,38 +317,35 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
   }
 
   Widget _buildEmptyState() {
-    return FadeIn(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.animation_rounded,
-              size: 60, color: AppTheme.roseQuartz.withValues(alpha: 0.2)),
-          const SizedBox(height: 16),
-          Text(
-            _searchController.text.isEmpty
-                ? 'Start typing to find magic…'
-                : (_errorMessage != null
-                    ? 'No anime found'
-                    : 'No anime found! 🌸'),
-            style: GoogleFonts.outfit(
-                color: AppTheme.roseQuartz.withValues(alpha: 0.6),
-                fontSize: 16),
-          ),
-          if (_errorMessage != null) ...[            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Text(
-                _errorMessage!,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(
-                  color: AppTheme.deepRose.withValues(alpha: 0.9),
-                  fontSize: 12,
-                ),
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.animation_rounded,
+            size: 60, color: AppTheme.roseQuartz.withValues(alpha: 0.2)),
+        const SizedBox(height: 16),
+        Text(
+          _searchController.text.isEmpty
+              ? 'Start typing to find magic\u2026'
+              : 'No anime found',
+          style: GoogleFonts.outfit(
+              color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+              fontSize: 16),
+        ),
+        if (_errorMessage != null) ...[
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                color: AppTheme.deepRose.withValues(alpha: 0.9),
+                fontSize: 12,
               ),
             ),
-          ],
+          ),
         ],
-      ),
+      ],
     );
   }
 }
