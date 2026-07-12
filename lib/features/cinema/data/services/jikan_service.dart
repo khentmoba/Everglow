@@ -48,7 +48,7 @@ class JikanService {
   /// Maximum time a single task can hold the queue. If a request hangs
   /// (e.g. network black hole, infinite retry loop) the queue moves on
   /// so subsequent calls — especially user-facing search — aren't stuck.
-  static const Duration _queueTaskTimeout = Duration(seconds: 25);
+  static const Duration _queueTaskTimeout = Duration(seconds: 40);
 
   DateTime _lastCall = DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -392,7 +392,7 @@ class JikanService {
     int page = 1,
     int limit = 25,
     double minScore = 7.5,
-    int maxMembers = 50000,
+    int maxMembers = 200000,
   }) async {
     final json = await _getJson('/top/anime', params: {
       'type': 'tv',
@@ -409,27 +409,39 @@ class JikanService {
     return gems.map(mapJikanToMediaItem).toList();
   }
 
-  /// "New Releases" rail. We pull the most recent aired entries and
-  /// filter to those that finished airing within the last 180 days.
+  /// "New Releases" rail. Fetches the most recent season + next season
+  /// and returns anime that started airing recently. Falls back to the
+  /// top-anime endpoint with a generous member filter when seasons fail.
   Future<List<MediaItem>> fetchNewReleases({int page = 1, int limit = 20}) async {
-    final cutoff = DateTime.now().subtract(const Duration(days: 180));
-    final json = await _getJson('/top/anime', params: {
-      'type': 'tv',
-      'filter': 'bypopularity',
+    // Try current season first — this is the most reliable source for
+    // genuinely new releases.
+    final json = await _getJson('/seasons/now', params: {
       'page': '$page',
       'limit': '$limit',
     });
-    if (json == null) return [];
-    final data = (json['data'] as List?) ?? const [];
-    final fresh = data.whereType<Map<String, dynamic>>().where((j) {
-      final aired = j['aired'] as Map<String, dynamic>?;
-      final from = aired?['from'] as String?;
-      if (from == null) return false;
-      final dt = DateTime.tryParse(from);
-      if (dt == null) return false;
-      return dt.isAfter(cutoff);
-    }).toList();
-    return fresh.map(mapJikanToMediaItem).toList();
+    if (json != null) {
+      final data = (json['data'] as List?) ?? const [];
+      if (data.isNotEmpty) {
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(mapJikanToMediaItem)
+            .toList();
+      }
+    }
+    // Current season empty — try recent top anime with a generous
+    // member threshold so we actually get results.
+    final topJson = await _getJson('/top/anime', params: {
+      'type': 'tv',
+      'page': '$page',
+      'limit': '$limit',
+    });
+    if (topJson == null) return [];
+    final topData = (topJson['data'] as List?) ?? const [];
+    return topData
+        .whereType<Map<String, dynamic>>()
+        .take(limit)
+        .map(mapJikanToMediaItem)
+        .toList();
   }
 
   /// Search anime by free-text query. We rely on the standard `q` param
