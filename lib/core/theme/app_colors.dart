@@ -73,6 +73,19 @@ class AppColors {
   static const Color shimmerBase      = Color(0xFF1C1228);
   static const Color shimmerHighlight = Color(0xFF2A1F3A);
 
+  // ── Anime palette (vibrant, energetic — used by AnimeScreen) ───
+  static const Color animeBackground     = Color(0xFF080810);
+  static const Color animeCard           = Color(0xFF1C1228);
+  static const Color animeRose           = Color(0xFFF4C2C2);
+  static const Color animeDeepRose       = Color(0xFFC2185B);
+  static const Color animeGold           = Color(0xFFE8C97A);
+  static const Color animeWhite          = Color(0xFFFFF5F5);
+  static const Color animeMuted          = Color(0xFF8A7A92);
+  static const Color animeCyan           = Color(0xFF00BCD4);
+  static const Color animeMagenta        = Color(0xFFFF2D55);
+  static const Color animeElectricPurple = Color(0xFF7C3AED);
+  static const Color animeVibrantPink    = Color(0xFFFF4081);
+
   // ── Legacy aliases (remove after full migration) ───────────
   @Deprecated('Use roseQuartz instead')
   static const Color primaryPink     = roseQuartz;
