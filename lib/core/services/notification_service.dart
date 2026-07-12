@@ -3,6 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import '../../core/config/env_config.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -21,27 +22,43 @@ class NotificationService {
   Stream<RemoteMessage> get onMessage => _messageController.stream;
 
   Future<void> initialize() async {
-    final settings = await _messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
-    if (settings.authorizationStatus != AuthorizationStatus.authorized) return;
+    try {
+      final settings = await _messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      if (settings.authorizationStatus != AuthorizationStatus.authorized) return;
+    } catch (e) {
+      debugPrint("Warning: FCM requestPermission failed: $e");
+      return;
+    }
 
-    final token = await _messaging.getToken();
-    if (token != null) await _saveToken(token);
+    try {
+      final vapidKey = EnvConfig.fcmVapidKey;
+      final token = kIsWeb && vapidKey.isNotEmpty
+          ? await _messaging.getToken(vapidKey: vapidKey)
+          : await _messaging.getToken();
+      if (token != null) await _saveToken(token);
 
-    _messaging.onTokenRefresh.listen(_saveToken);
+      _messaging.onTokenRefresh.listen(_saveToken);
+    } catch (e) {
+      debugPrint("Warning: FCM getToken failed: $e");
+    }
 
-    _foregroundSub = FirebaseMessaging.onMessage.listen((message) {
-      _messageController.add(message);
-    });
+    try {
+      _foregroundSub = FirebaseMessaging.onMessage.listen((message) {
+        _messageController.add(message);
+      });
 
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-    FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      _messageController.add(message);
-    });
+      FirebaseMessaging.onMessageOpenedApp.listen((message) {
+        _messageController.add(message);
+      });
+    } catch (e) {
+      debugPrint("Warning: FCM listener setup failed: $e");
+    }
   }
 
   Future<void> _saveToken(String token) async {

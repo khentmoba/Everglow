@@ -53,9 +53,13 @@ void main() async {
   // Self-hosted Google Fonts only — never fetch from the network at runtime.
   GoogleFonts.config.allowRuntimeFetching = false;
 
-  // Initialize push notifications (FCM)
-  final notificationService = NotificationService();
-  await notificationService.initialize();
+  // Initialize push notifications (FCM) — non-critical, never block runApp
+  try {
+    final notificationService = NotificationService();
+    await notificationService.initialize();
+  } catch (e) {
+    print("Warning: Push notification init failed: $e. Continuing without notifications.");
+  }
 
   runZonedGuarded(
     () => runApp(const EverglowApp()),
