@@ -156,7 +156,7 @@ class _AnimeScreenState extends State<AnimeScreen>
           builder: () async {
             try {
               final items = await _jikanService.fetchTopAiring();
-              if (items.isNotEmpty) return items;
+              if (items.length >= 5) return items;
             } catch (_) {}
             return _tmdbService.fetchTrendingAnime();
           },
@@ -170,7 +170,7 @@ class _AnimeScreenState extends State<AnimeScreen>
           builder: () async {
             try {
               final items = await _jikanService.fetchSeasonNow();
-              if (items.isNotEmpty) return items;
+              if (items.length >= 5) return items;
             } catch (_) {}
             final now = DateTime.now();
             final threeMonthsAgo = now.subtract(const Duration(days: 90));
@@ -192,7 +192,7 @@ class _AnimeScreenState extends State<AnimeScreen>
                 type: 'tv',
                 filter: 'favorite',
               );
-              if (items.isNotEmpty) return items;
+              if (items.length >= 5) return items;
             } catch (_) {}
             return _tmdbService.discoverAnime(
               sortBy: 'vote_average.desc',
@@ -208,7 +208,7 @@ class _AnimeScreenState extends State<AnimeScreen>
           builder: () async {
             try {
               final items = await _jikanService.fetchNewReleases();
-              if (items.isNotEmpty) return items;
+              if (items.length >= 5) return items;
             } catch (_) {}
             final now = DateTime.now();
             final sixMonthsAgo = now.subtract(const Duration(days: 180));
@@ -230,7 +230,7 @@ class _AnimeScreenState extends State<AnimeScreen>
                 type: 'tv',
                 filter: 'bypopularity',
               );
-              if (items.isNotEmpty) return items;
+              if (items.length >= 5) return items;
             } catch (_) {}
             return _tmdbService.discoverAnime(
               sortBy: 'popularity.desc',
@@ -246,7 +246,7 @@ class _AnimeScreenState extends State<AnimeScreen>
           builder: () async {
             try {
               final items = await _jikanService.fetchHiddenGems();
-              if (items.isNotEmpty) return items;
+              if (items.length >= 5) return items;
             } catch (_) {}
             return _tmdbService.discoverAnime(
               sortBy: 'vote_average.desc',
@@ -266,7 +266,7 @@ class _AnimeScreenState extends State<AnimeScreen>
               final items = await animeCategoryOptions
                   .firstWhere((o) => o.id == 'curated-editors-picks')
                   .fetch(_jikanService);
-              if (items.isNotEmpty) return items;
+              if (items.length >= 5) return items;
             } catch (_) {}
             return _tmdbService.discoverAnime(
               sortBy: 'vote_average.desc',
@@ -280,14 +280,12 @@ class _AnimeScreenState extends State<AnimeScreen>
           icon: Icons.recommend_rounded,
           tint: const Color(0xFF00E5FF),
           builder: () async {
-            // Fetch top airing and pick a random subset for variety
             try {
               final items = await _jikanService.fetchTopAiring();
-              if (items.length > 5) {
+              if (items.length >= 5) {
                 items.shuffle();
                 return items.take(15).toList();
               }
-              if (items.isNotEmpty) return items;
             } catch (_) {}
             return _tmdbService.discoverAnime(
               sortBy: 'popularity.desc',
