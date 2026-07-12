@@ -41,7 +41,7 @@ class ShelfHoverPreview extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: Container(
-        width: 280,
+        width: 220,
         decoration: BoxDecoration(
           color: const Color(0xFF141418),
           borderRadius: BorderRadius.circular(12),
@@ -63,7 +63,7 @@ class ShelfHoverPreview extends StatelessWidget {
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -84,7 +84,7 @@ class ShelfHoverPreview extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.outfit(
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
                     height: 1.2,
@@ -122,7 +122,7 @@ class ShelfHoverPreview extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   synopsis!,
-                  maxLines: 3,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.outfit(
                     fontSize: 11,
@@ -280,7 +280,7 @@ class _HoverButtonState extends State<_HoverButton> {
         child: AnimatedContainer(
           duration: ShelfMotion.orZero(const Duration(milliseconds: 160)),
           curve: ShelfMotion.easeOutStrong,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
             color: widget.primary
                 ? (_hovered
