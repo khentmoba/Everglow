@@ -35,6 +35,8 @@ class ShelfPosterCard extends StatefulWidget {
   final String? episodeCount;
   final String? format;
   final String? airingStatus;
+  final List<String> genres;
+  final int? currentEpisode;
 
   const ShelfPosterCard({
     super.key,
@@ -52,6 +54,8 @@ class ShelfPosterCard extends StatefulWidget {
     this.episodeCount,
     this.format,
     this.airingStatus,
+    this.genres = const [],
+    this.currentEpisode,
   });
 
   @override
@@ -108,12 +112,13 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
           },
           child: ShelfHoverPreview(
             title: widget.title,
-            bannerUrl: widget.bannerUrl,
             synopsis: widget.synopsis,
             episodeCount: widget.episodeCount,
             format: widget.format,
             airingStatus: widget.airingStatus,
             year: widget.subtitle,
+            genres: widget.genres,
+            currentEpisode: widget.currentEpisode,
             accent: badgeColor,
             onWatch: () {
               _dismissHoverPreview();

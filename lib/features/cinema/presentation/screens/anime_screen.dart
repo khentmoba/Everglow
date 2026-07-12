@@ -1138,11 +1138,12 @@ class _AnimeScreenState extends State<AnimeScreen>
                 badge: 'ANIME',
                 badgeIcon: Icons.auto_awesome_rounded,
                 badgeColor: _cVibrantPink,
-                bannerUrl: item.backdropPath,
                 synopsis: item.synopsis,
                 episodeCount: item.episodeCount?.toString(),
                 format: item.format,
                 airingStatus: item.airingStatus,
+                genres: item.genres,
+                currentEpisode: item.currentEpisode,
                 onTap: () => _openDetails(item),
               ),
             );

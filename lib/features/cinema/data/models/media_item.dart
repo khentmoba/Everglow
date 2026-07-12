@@ -51,6 +51,10 @@ class MediaItem {
   /// Studio / production company that made this anime. Anime-only.
   final String studio;
 
+  /// Genre names for this anime (e.g. `['Action', 'Fantasy']`).
+  /// Populated from Jikan/AniList; empty for TMDB-sourced items.
+  final List<String> genres;
+
   /// Season the user is currently on (TV series / anime only).
   final int? currentSeason;
 
@@ -82,6 +86,7 @@ class MediaItem {
     this.airingStatus = '',
     this.format = '',
     this.studio = '',
+    this.genres = const [],
     this.currentSeason,
     this.currentEpisode,
     this.currentTimestamp,
@@ -172,6 +177,9 @@ class MediaItem {
       airingStatus: data['airingStatus'] ?? '',
       format: data['format'] ?? '',
       studio: data['studio'] ?? '',
+      genres: data['genres'] is List
+          ? List<String>.from(data['genres'].whereType<String>())
+          : const [],
       currentSeason: data['currentSeason'] is int ? data['currentSeason'] as int : null,
       currentEpisode: data['currentEpisode'] is int ? data['currentEpisode'] as int : null,
       currentTimestamp: data['currentTimestamp'] is int ? data['currentTimestamp'] as int : null,
@@ -211,6 +219,7 @@ class MediaItem {
       'airingStatus': airingStatus,
       'format': format,
       'studio': studio,
+      if (genres.isNotEmpty) 'genres': genres,
       if (currentSeason != null) 'currentSeason': currentSeason,
       if (currentEpisode != null) 'currentEpisode': currentEpisode,
       if (currentTimestamp != null) 'currentTimestamp': currentTimestamp,
@@ -237,6 +246,7 @@ class MediaItem {
     String? airingStatus,
     String? format,
     String? studio,
+    List<String>? genres,
     int? currentSeason,
     int? currentEpisode,
     int? currentTimestamp,
@@ -261,6 +271,7 @@ class MediaItem {
       airingStatus: airingStatus ?? this.airingStatus,
       format: format ?? this.format,
       studio: studio ?? this.studio,
+      genres: genres ?? this.genres,
       currentSeason: currentSeason ?? this.currentSeason,
       currentEpisode: currentEpisode ?? this.currentEpisode,
       currentTimestamp: currentTimestamp ?? this.currentTimestamp,
