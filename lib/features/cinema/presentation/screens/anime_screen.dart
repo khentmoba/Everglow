@@ -1128,6 +1128,7 @@ class _AnimeScreenState extends State<AnimeScreen>
             final item = items[index];
             return SizedBox(
               width: cardWidth,
+              height: cardHeight,
               child: ShelfPosterCard(
                 imageUrl: item.posterPath,
                 title: item.title,
@@ -1181,6 +1182,7 @@ class _AnimeScreenState extends State<AnimeScreen>
               cursor: SystemMouseCursors.click,
               child: Container(
                 width: isDesktop ? 320 : 260,
+                height: 160,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
                   gradient: LinearGradient(
