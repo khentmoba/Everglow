@@ -38,144 +38,137 @@ class ShelfHoverPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        width: 220,
-        decoration: BoxDecoration(
-          color: const Color(0xFF141418),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: accent.withValues(alpha: 0.18),
-            width: 1,
+    return SizedBox(
+      width: 220,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF141418),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: accent.withValues(alpha: 0.18),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: accent.withValues(alpha: 0.1),
+                blurRadius: 40,
+                offset: const Offset(0, 20),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.7),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
-          boxShadow: [
-            BoxShadow(
-              color: accent.withValues(alpha: 0.1),
-              blurRadius: 40,
-              offset: const Offset(0, 20),
-            ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.7),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Title with accent left border
-              Container(
-                padding: const EdgeInsets.only(left: 10),
-                decoration: BoxDecoration(
-                  border: Border(
-                    left: BorderSide(
-                      color: accent,
-                      width: 3,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.only(left: 10),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      left: BorderSide(color: accent, width: 3),
+                    ),
+                  ),
+                  child: Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      height: 1.2,
                     ),
                   ),
                 ),
-                child: Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                    height: 1.2,
-                  ),
+
+                const SizedBox(height: 10),
+
+                _HoverMetaChips(
+                  episodeCount: episodeCount,
+                  format: format,
+                  airingStatus: airingStatus,
+                  year: year,
                 ),
-              ),
 
-              const SizedBox(height: 10),
-
-              // Metadata chips (no icons — clean bordered pills)
-              _HoverMetaChips(
-                episodeCount: episodeCount,
-                format: format,
-                airingStatus: airingStatus,
-                year: year,
-              ),
-
-              // Genres as plain text
-              if (genres.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  genres.join(', '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
-                    fontSize: 11,
-                    color: Colors.white.withValues(alpha: 0.45),
-                    height: 1.3,
+                if (genres.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    genres.join(', '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      color: Colors.white.withValues(alpha: 0.45),
+                      height: 1.3,
+                    ),
                   ),
-                ),
-              ],
+                ],
 
-              // Synopsis
-              if (synopsis != null && synopsis!.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  synopsis!,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
-                    fontSize: 11,
-                    color: Colors.white.withValues(alpha: 0.5),
-                    height: 1.4,
+                if (synopsis != null && synopsis!.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    synopsis!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      color: Colors.white.withValues(alpha: 0.5),
+                      height: 1.4,
+                    ),
                   ),
-                ),
-              ],
+                ],
 
-              // Next episode line
-              if (currentEpisode != null) ...[
-                const SizedBox(height: 8),
+                if (currentEpisode != null) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.calendar_today_rounded,
+                          size: 10,
+                          color: accent.withValues(alpha: 0.8)),
+                      const SizedBox(width: 5),
+                      Text(
+                        'Episode ${currentEpisode! + 1} next',
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: accent.withValues(alpha: 0.9),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+
+                const SizedBox(height: 12),
+
                 Row(
                   children: [
-                    Icon(Icons.calendar_today_rounded,
-                        size: 10,
-                        color: accent.withValues(alpha: 0.8)),
-                    const SizedBox(width: 5),
-                    Text(
-                      'Episode ${currentEpisode! + 1} next',
-                      style: GoogleFonts.outfit(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: accent.withValues(alpha: 0.9),
-                      ),
+                    _HoverButton(
+                      label: 'Watch',
+                      icon: Icons.play_arrow_rounded,
+                      primary: true,
+                      accent: accent,
+                      onTap: onWatch,
+                    ),
+                    const SizedBox(width: 8),
+                    _HoverButton(
+                      label: 'Queue',
+                      icon: Icons.add_rounded,
+                      primary: false,
+                      accent: accent,
+                      onTap: onQueue,
                     ),
                   ],
                 ),
               ],
-
-              const SizedBox(height: 12),
-
-              // Action buttons
-              Row(
-                children: [
-                  _HoverButton(
-                    label: 'Watch',
-                    icon: Icons.play_arrow_rounded,
-                    primary: true,
-                    accent: accent,
-                    onTap: onWatch,
-                  ),
-                  const SizedBox(width: 8),
-                  _HoverButton(
-                    label: 'Queue',
-                    icon: Icons.add_rounded,
-                    primary: false,
-                    accent: accent,
-                    onTap: onQueue,
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
         ),
       ),
