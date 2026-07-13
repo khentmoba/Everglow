@@ -237,9 +237,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: SafeArea(
+    return SafeArea(
         child: Stack(
           children: [
             // Confetti for surprise reveal
@@ -727,7 +725,6 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
             ),
           ],
         ),
-      ),
     );
   }
 
