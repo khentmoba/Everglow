@@ -39,7 +39,7 @@ class ShelfHoverPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 220,
+      width: 190,
       child: Material(
         color: Colors.transparent,
         child: Container(
@@ -64,13 +64,13 @@ class ShelfHoverPreview extends StatelessWidget {
             ],
           ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.only(left: 10),
+                  padding: const EdgeInsets.only(left: 8),
                   decoration: BoxDecoration(
                     border: Border(
                       left: BorderSide(color: accent, width: 3),
@@ -81,7 +81,7 @@ class ShelfHoverPreview extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.outfit(
-                      fontSize: 13,
+                      fontSize: 12,
                       fontWeight: FontWeight.w700,
                       color: Colors.white,
                       height: 1.2,
@@ -89,7 +89,7 @@ class ShelfHoverPreview extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 10),
+                const SizedBox(height: 6),
 
                 _HoverMetaChips(
                   episodeCount: episodeCount,
@@ -99,13 +99,13 @@ class ShelfHoverPreview extends StatelessWidget {
                 ),
 
                 if (genres.isNotEmpty) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 5),
                   Text(
                     genres.join(', '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.outfit(
-                      fontSize: 11,
+                      fontSize: 10,
                       color: Colors.white.withValues(alpha: 0.45),
                       height: 1.3,
                     ),
@@ -113,31 +113,31 @@ class ShelfHoverPreview extends StatelessWidget {
                 ],
 
                 if (synopsis != null && synopsis!.isNotEmpty) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 5),
                   Text(
                     synopsis!,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.outfit(
-                      fontSize: 11,
+                      fontSize: 10,
                       color: Colors.white.withValues(alpha: 0.5),
-                      height: 1.4,
+                      height: 1.3,
                     ),
                   ),
                 ],
 
                 if (currentEpisode != null) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 5),
                   Row(
                     children: [
                       Icon(Icons.calendar_today_rounded,
-                          size: 10,
+                          size: 9,
                           color: accent.withValues(alpha: 0.8)),
-                      const SizedBox(width: 5),
+                      const SizedBox(width: 4),
                       Text(
                         'Episode ${currentEpisode! + 1} next',
                         style: GoogleFonts.outfit(
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.w600,
                           color: accent.withValues(alpha: 0.9),
                         ),
@@ -146,7 +146,7 @@ class ShelfHoverPreview extends StatelessWidget {
                   ),
                 ],
 
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
 
                 Row(
                   children: [
@@ -157,7 +157,7 @@ class ShelfHoverPreview extends StatelessWidget {
                       accent: accent,
                       onTap: onWatch,
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     _HoverButton(
                       label: 'Queue',
                       icon: Icons.add_rounded,
@@ -212,7 +212,7 @@ class _HoverMetaChips extends StatelessWidget {
       children: chips
           .map((c) => Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(6),
@@ -224,7 +224,7 @@ class _HoverMetaChips extends StatelessWidget {
                 child: Text(
                   c.label,
                   style: GoogleFonts.outfit(
-                    fontSize: 10,
+                    fontSize: 9,
                     fontWeight: FontWeight.w600,
                     color: Colors.white.withValues(alpha: 0.6),
                   ),
@@ -273,7 +273,7 @@ class _HoverButtonState extends State<_HoverButton> {
         child: AnimatedContainer(
           duration: ShelfMotion.orZero(const Duration(milliseconds: 160)),
           curve: ShelfMotion.easeOutStrong,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
             color: widget.primary
                 ? (_hovered
@@ -302,12 +302,12 @@ class _HoverButtonState extends State<_HoverButton> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(widget.icon, size: 14, color: Colors.white),
-              const SizedBox(width: 5),
+              Icon(widget.icon, size: 12, color: Colors.white),
+              const SizedBox(width: 4),
               Text(
                 widget.label,
                 style: GoogleFonts.outfit(
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),
