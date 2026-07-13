@@ -31,6 +31,10 @@ class VideoSourceConfig {
   /// fast source without a client release.
   final bool isRecommended;
 
+  /// Whether this provider works inside a sandboxed iframe.
+  /// When true, the iframe gets a sandbox attribute to trap ads.
+  final bool sandboxSafe;
+
   const VideoSourceConfig({
     required this.id,
     required this.name,
@@ -39,6 +43,7 @@ class VideoSourceConfig {
     required this.movieUrl,
     required this.tvUrl,
     this.isRecommended = false,
+    this.sandboxSafe = false,
   });
 
   /// Deserialize from a Firestore document.
@@ -54,6 +59,7 @@ class VideoSourceConfig {
       movieUrl: data['movieUrl'] as String? ?? '',
       tvUrl: data['tvUrl'] as String? ?? '',
       isRecommended: data['isRecommended'] as bool? ?? false,
+      sandboxSafe: data['sandboxSafe'] as bool? ?? false,
     );
   }
 
@@ -67,6 +73,7 @@ class VideoSourceConfig {
       'movieUrl': movieUrl,
       'tvUrl': tvUrl,
       'isRecommended': isRecommended,
+      'sandboxSafe': sandboxSafe,
     };
   }
 
@@ -80,6 +87,7 @@ class VideoSourceConfig {
       movieUrl: json['movieUrl'] as String? ?? '',
       tvUrl: json['tvUrl'] as String? ?? '',
       isRecommended: json['isRecommended'] as bool? ?? false,
+      sandboxSafe: json['sandboxSafe'] as bool? ?? false,
     );
   }
 
