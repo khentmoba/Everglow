@@ -10,6 +10,9 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:web/web.dart' as web;
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/core/theme/app_colors.dart';
+import 'package:everglow/core/theme/app_spacing.dart';
+import 'package:everglow/core/theme/app_radius.dart';
 import 'package:everglow/features/cinema/data/services/ani_zip_service.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/features/cinema/data/services/video_source_service.dart';
@@ -577,6 +580,12 @@ _currentSeason = widget.season ?? 1;
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    // On mobile, cap the player height so the confirmation card and
+    // metadata are visible without excessive scrolling. On desktop,
+    // use the standard 16:9 ratio.
+    final playerHeight = screenWidth < 600 ? screenWidth * 9 / 16 : null;
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
@@ -588,22 +597,16 @@ _currentSeason = widget.season ?? 1;
                 physics: const BouncingScrollPhysics(),
                 slivers: [
                   SliverToBoxAdapter(
-                    child: AspectRatio(
-                      aspectRatio: 16 / 9,
-                      child: Stack(
-                        children: [
-                          if (_embedReady && !_iframeFailed)
-                            HtmlElementView(viewType: _viewType),
-                          if (_embedReady && _isLoading && !_iframeFailed)
-                            const Center(
-                              child: CircularProgressIndicator(
-                                  color: AppTheme.deepRose),
+                    child: ClipRect(
+                      child: playerHeight != null
+                          ? SizedBox(
+                              height: playerHeight,
+                              child: _buildPlayerStack(),
+                            )
+                          : AspectRatio(
+                              aspectRatio: 16 / 9,
+                              child: _buildPlayerStack(),
                             ),
-                          if (_embedReady && _iframeFailed)
-                            _buildErrorCard(context),
-                          if (!_embedReady) _buildConfirmationCard(),
-                        ],
-                      ),
                     ),
                   ),
                   SliverToBoxAdapter(child: _buildMetadataSection()),
@@ -629,18 +632,33 @@ _currentSeason = widget.season ?? 1;
     );
   }
 
+  Widget _buildPlayerStack() {
+    return Stack(
+      children: [
+        if (_embedReady && !_iframeFailed)
+          HtmlElementView(viewType: _viewType),
+        if (_embedReady && _isLoading && !_iframeFailed)
+          const Center(
+            child: CircularProgressIndicator(color: AppTheme.deepRose),
+          ),
+        if (_embedReady && _iframeFailed) _buildErrorCard(context),
+        if (!_embedReady) _buildConfirmationCard(),
+      ],
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // TOP BAR
   // ---------------------------------------------------------------------------
 
   Widget _buildTopBar() {
     return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.black,
+        color: AppColors.deepBlack,
         border: Border(
-          bottom: BorderSide(color: Colors.grey[900]!, width: 1),
+          bottom: BorderSide(color: AppColors.border, width: 1),
         ),
       ),
       child: Row(
@@ -648,49 +666,47 @@ _currentSeason = widget.season ?? 1;
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.grey[900],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[800]!, width: 1),
+                color: AppColors.velvet,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+                border: Border.all(color: AppColors.border, width: 1),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.arrow_back_ios_new_rounded,
-                      color: Colors.white, size: 14),
-                  SizedBox(width: 6),
+                  const Icon(Icons.arrow_back_ios_new_rounded,
+                      color: AppColors.petalWhite, size: 12),
+                  const SizedBox(width: 4),
                   Text('Back',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13)),
+                      style: GoogleFonts.outfit(
+                          color: AppColors.petalWhite,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12)),
                 ],
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(widget.title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.outfit(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold)),
+                    color: AppColors.petalWhite,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700)),
           ),
           if (_embedReady && !_isLoading && !_iframeFailed) ...[
             GestureDetector(
               onTap: _onIframeLoadError,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                 decoration: BoxDecoration(
-                  color: Colors.grey[900],
-                  borderRadius: BorderRadius.circular(20),
+                  color: AppColors.velvet,
+                  borderRadius: BorderRadius.circular(AppRadius.full),
                   border: Border.all(
-                      color: AppTheme.deepRose.withValues(alpha: 0.4),
+                      color: AppColors.deepRose.withValues(alpha: 0.4),
                       width: 1),
                 ),
                 child: Row(
@@ -744,15 +760,15 @@ _currentSeason = widget.season ?? 1;
             : null);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      padding: EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(widget.title,
-              style: GoogleFonts.outfit(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800)),
+              style: GoogleFonts.cormorantGaramond(
+                  color: AppColors.petalWhite,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
           // Meta badges row
           Wrap(
@@ -788,12 +804,12 @@ _currentSeason = widget.season ?? 1;
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(8),
+                          color: AppColors.surfaceGlass,
+                          borderRadius: BorderRadius.circular(AppRadius.xs),
                         ),
                         child: Text(g,
                             style: GoogleFonts.outfit(
-                                color: Colors.white54,
+                                color: AppColors.textMuted,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500)),
                       ))
@@ -805,7 +821,7 @@ _currentSeason = widget.season ?? 1;
             const SizedBox(height: 14),
             Text(overview,
                 style: GoogleFonts.outfit(
-                    color: Colors.white.withValues(alpha: 0.65),
+                    color: AppColors.textMedium,
                     fontSize: 13,
                     height: 1.5)),
           ],
@@ -820,23 +836,23 @@ _currentSeason = widget.season ?? 1;
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: accent
-            ? AppTheme.deepRose.withValues(alpha: 0.15)
-            : Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(6),
+            ? AppColors.deepRose.withValues(alpha: 0.15)
+            : AppColors.surfaceGlass,
+        borderRadius: BorderRadius.circular(AppRadius.xs),
         border: accent
             ? Border.all(
-                color: AppTheme.deepRose.withValues(alpha: 0.4), width: 1)
+                color: AppColors.deepRose.withValues(alpha: 0.4), width: 1)
             : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon,
-              color: accent ? AppTheme.deepRose : Colors.white60, size: 12),
+              color: accent ? AppColors.deepRose : AppColors.textMuted, size: 12),
           const SizedBox(width: 4),
           Text(label,
               style: GoogleFonts.outfit(
-                  color: accent ? AppTheme.deepRose : Colors.white60,
+                  color: accent ? AppColors.deepRose : AppColors.textMuted,
                   fontSize: 11,
                   fontWeight: accent ? FontWeight.w700 : FontWeight.w600)),
         ],
@@ -850,16 +866,15 @@ _currentSeason = widget.season ?? 1;
 
   Widget _buildServerSelectorSection() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      padding: EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, 0),
       child: GestureDetector(
         onTap: () => _showProviderSheet(),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.04),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: Colors.white.withValues(alpha: 0.1), width: 1),
+            color: AppColors.velvet.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+            border: Border.all(color: AppColors.border, width: 1),
           ),
           child: Row(
             children: [
@@ -867,11 +882,11 @@ _currentSeason = widget.season ?? 1;
                 width: 8,
                 height: 8,
                 decoration: BoxDecoration(
-                  color: AppTheme.deepRose,
+                  color: AppColors.deepRose,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                        color: AppTheme.deepRose.withValues(alpha: 0.5),
+                        color: AppColors.deepRose.withValues(alpha: 0.5),
                         blurRadius: 6),
                   ],
                 ),
@@ -883,12 +898,12 @@ _currentSeason = widget.season ?? 1;
                   children: [
                     Text('Server: ${_selectedProvider.name}',
                         style: GoogleFonts.outfit(
-                            color: Colors.white,
+                            color: AppColors.petalWhite,
                             fontSize: 13,
                             fontWeight: FontWeight.w700)),
                     Text(_selectedProvider.desc,
                         style: GoogleFonts.outfit(
-                            color: Colors.white38, fontSize: 11)),
+                            color: AppColors.textMuted, fontSize: 11)),
                   ],
                 ),
               ),
@@ -925,9 +940,9 @@ _currentSeason = widget.season ?? 1;
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Text('More Like This',
-                style: GoogleFonts.outfit(
-                    color: Colors.white,
-                    fontSize: 16,
+                style: GoogleFonts.cormorantGaramond(
+                    color: AppColors.petalWhite,
+                    fontSize: 18,
                     fontWeight: FontWeight.w700)),
           ),
           const SizedBox(height: 12),
@@ -981,7 +996,7 @@ _currentSeason = widget.season ?? 1;
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.outfit(
-                                color: Colors.white70,
+                                color: AppColors.textMuted,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600)),
                       ),
@@ -1166,7 +1181,7 @@ _currentSeason = widget.season ?? 1;
         .where((p) => p.id != active.id)
         .toList();
     return Container(
-      color: Colors.black,
+      color: AppColors.deepBlack,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1296,14 +1311,14 @@ _currentSeason = widget.season ?? 1;
 
   Widget _buildConfirmationCard() {
     return Container(
-      color: Colors.black,
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+      color: AppColors.deepBlack,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 64,
-            height: 64,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: LinearGradient(
@@ -1325,47 +1340,47 @@ _currentSeason = widget.season ?? 1;
             child: const Icon(
               Icons.play_arrow_rounded,
               color: Colors.white,
-              size: 36,
+              size: 28,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 14),
           Text(
             widget.title,
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.outfit(
-              color: Colors.white,
-              fontSize: 18,
+              color: AppColors.petalWhite,
+              fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: AppTheme.deepRose.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
+              color: AppColors.deepRose.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(AppRadius.xs),
               border: Border.all(
-                color: AppTheme.deepRose.withValues(alpha: 0.4),
+                color: AppColors.deepRose.withValues(alpha: 0.4),
                 width: 1,
               ),
             ),
             child: Text(
               _selectedProvider.name,
               style: GoogleFonts.outfit(
-                color: AppTheme.roseQuartz,
+                color: AppColors.roseQuartz,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 16),
           GestureDetector(
             onTap: _startPlayback,
             child: Container(
-              width: 220,
-              height: 50,
+              width: 200,
+              height: 44,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [AppTheme.deepRose, const Color(0xFF8E1444)],
@@ -1392,7 +1407,7 @@ _currentSeason = widget.season ?? 1;
                     style: GoogleFonts.outfit(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
-                      fontSize: 15,
+                      fontSize: 14,
                       letterSpacing: 0.5,
                     ),
                   ),
