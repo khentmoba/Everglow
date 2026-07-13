@@ -569,6 +569,179 @@ exports.proxyScanlation = functions.https.onRequest(async (req, res) => {
   }
 });
 
+/**
+ * Proxies video embed pages (Videasy, VidFast, VidLink, etc.) through
+ * our Cloud Function to strip ad scripts before the browser renders
+ * the embed. This is the server-side equivalent of FluxTV's approach
+ * — the iframe loads cleaned HTML from our domain instead of the
+ * provider's domain, so ad networks can't fire.
+ *
+ * Accepts:
+ *   GET /proxyEmbed?url=<encoded embed URL>
+ *
+ * The function:
+ *   1. Validates the URL against an allowlist of known embed hosts
+ *   2. Fetches the embed HTML server-side (with spoofed Referer)
+ *   3. Strips ad-related <script>, <iframe>, and <div> elements
+ *   4. Rewrites relative URLs to absolute (so CSS/JS/images load)
+ *   5. Injects a lightweight ad-block script (popup blocker + MutationObserver)
+ *   6. Returns the cleaned HTML with permissive CORS headers
+ */
+exports.proxyEmbed = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+  if (req.method !== 'GET') { res.status(405).json({ error: 'GET only' }); return; }
+
+  const targetUrl = req.query.url;
+  if (typeof targetUrl !== 'string' || targetUrl.length === 0) {
+    res.status(400).json({ error: 'Missing ?url=<embed url> query param' });
+    return;
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(targetUrl);
+  } catch (_) {
+    res.status(400).json({ error: 'Invalid url' });
+    return;
+  }
+
+  // Allowlist of embed provider hosts
+  const allowedHosts = new Set([
+    'player.videasy.net',
+    'vidfast.pro',
+    'vidlink.pro',
+    'multiembed.mov',
+    'www.2embed.cc',
+    'vsembed.ru',
+    'vidrock.ru',
+    '111movies.com',
+    'vidsrc.to',
+  ]);
+  if (parsed.protocol !== 'https:' || !allowedHosts.has(parsed.hostname)) {
+    res.status(400).json({ error: 'Host not allowed' });
+    return;
+  }
+
+  // Derive the base origin for rewriting relative URLs
+  const baseOrigin = `${parsed.protocol}//${parsed.host}`;
+
+  try {
+    const upstream = await fetch(targetUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Referer': `${baseOrigin}/`,
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      timeout: 15000,
+    });
+
+    if (!upstream.ok) {
+      res.status(upstream.status).json({ error: `Upstream returned ${upstream.status}` });
+      return;
+    }
+
+    let html = await upstream.text();
+
+    // ── Step 1: Strip ad-related <script> tags ──
+    // Remove scripts that load known ad networks or trackers
+    const adScriptPatterns = [
+      /<script[^>]*\ssrc=["'][^"']*(?:googletag|doubleclick|adsense|google-analytics|googlesyndication)[^"']*["'][^>]*>\s*<\/script>/gi,
+      /<script[^>]*\ssrc=["'][^"']*(?:adskeeper|juicyads|popads|popcash|exoclick|trafficjunky|hilltopads|propellerads|adsterra|clickadu|mgid|outbrain|taboola)[^"']*["'][^>]*>\s*<\/script>/gi,
+      /<script[^>]*\ssrc=["'][^"']*(?:pagead|adsbygoogle|adservice|adserver|adblock|antiadblock)[^"']*["'][^>]*>\s*<\/script>/gi,
+      // Inline scripts that set up ad-related globals or push ad frames
+      /<script[^>]*>\s*(?:var\s+_0x|window\['[^']*'\]\s*=|document\.write\(\s*['"]<iframe|adsbygoogle|googletag)/gi,
+    ];
+    for (const pattern of adScriptPatterns) {
+      html = html.replace(pattern, '<!-- ad script stripped -->');
+    }
+
+    // ── Step 2: Strip ad-related <iframe> tags ──
+    html = html.replace(
+      /<iframe[^>]*\ssrc=["'][^"']*(?:ad|sponsor|banner|promo|click|track|pixel|beacon)[^"']*["'][^>]*>[\s\S]*?<\/iframe>/gi,
+      '<!-- ad iframe stripped -->'
+    );
+
+    // ── Step 3: Strip ad-related <div> containers ──
+    html = html.replace(
+      /<div[^>]*\s(?:class|id)=["'][^"']*(?:ad-container|adsbox|banner-ad|sponsor|ad-wrapper|ad-overlay|popup-ad)[^"']*["'][^>]*>[\s\S]*?<\/div>/gi,
+      '<!-- ad div stripped -->'
+    );
+
+    // ── Step 4: Rewrite relative URLs to absolute ──
+    // src="/assets/foo.js" → src="https://player.videasy.net/assets/foo.js"
+    html = html.replace(
+      /(<(?:script|link|img|video|source|iframe)[^>]*\s(?:src|href)=["'])((?!https?:\/\/|\/\/|data:|blob:|#)([^"']+))(["'])/gi,
+      `$1${baseOrigin}/$2$4`
+    );
+    // Also fix CSS url() references
+    html = html.replace(
+      /(url\(['"]?)((?!https?:\/\/|\/\/|data:|blob:|#)([^'")\s]+))(['"]?\))/gi,
+      `$1${baseOrigin}/$2$4`
+    );
+
+    // ── Step 5: Inject ad-block script ──
+    // A lightweight script that:
+    //   - Overrides window.open to block popups
+    //   - Sets up a MutationObserver to auto-remove dynamically injected ad elements
+    const adBlockScript = `
+<script>
+(function() {
+  // Block window.open popups
+  var _origOpen = window.open;
+  window.open = function(url) {
+    if (url && /ad|sponsor|promo|click|track|popup/i.test(url)) return null;
+    return _origOpen.apply(this, arguments);
+  };
+  // MutationObserver to remove dynamically injected ad elements
+  var observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(m) {
+      m.addedNodes.forEach(function(node) {
+        if (node.nodeType !== 1) return;
+        var tag = node.tagName;
+        if (tag === 'IFRAME' || tag === 'SCRIPT') {
+          var src = node.src || node.getAttribute('src') || '';
+          if (/ad|sponsor|promo|click|track|pixel|beacon|popup/i.test(src)) {
+            node.remove();
+          }
+        }
+        if (tag === 'DIV') {
+          var cls = (node.className || '') + ' ' + (node.id || '');
+          if (/ad[-_]|sponsor|banner[-_]|overlay|popup[-_]|promo/i.test(cls)) {
+            node.remove();
+          }
+        }
+      });
+    });
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  // Prevent alert/confirm/prompt from ad scripts
+  window.alert = function(){};
+  window.confirm = function(){ return false; };
+  window.prompt = function(){ return null; };
+})();
+</script>`;
+
+    // Inject before </body>
+    html = html.replace(/<\/body>(?![\s\S]*<\/body>)/i, adBlockScript + '\n</body>');
+
+    // ── Step 6: Remove X-Frame-Options / CSP headers from upstream ──
+    // (We're serving from our domain, so these don't apply)
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.set('Cache-Control', 'public, max-age=300');
+    res.status(200).send(html);
+
+  } catch (e) {
+    console.warn(`proxyEmbed failed (${targetUrl}):`, e.message);
+    res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
+  }
+});
+
 exports.proxyMangaDex = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
