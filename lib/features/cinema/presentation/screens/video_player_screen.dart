@@ -3,6 +3,7 @@ import 'dart:js_interop';
 import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
@@ -73,6 +74,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Timer? _loadTimer;
   Timer? _contentCheckTimer;
   JSFunction? _messageListener;
+  final ScrollController _scrollController = ScrollController();
 
   /// Tracks whether we've saved the initial "watching" status for this
   /// playback session so we don't spam Firestore on every rebuild.
@@ -477,6 +479,7 @@ _currentSeason = widget.season ?? 1;
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _loadTimer?.cancel();
     _contentCheckTimer?.cancel();
     if (_onLoadListener != null) {
@@ -594,6 +597,7 @@ _currentSeason = widget.season ?? 1;
             _buildTopBar(),
             Expanded(
               child: CustomScrollView(
+                controller: _scrollController,
                 physics: const BouncingScrollPhysics(),
                 slivers: [
                   SliverToBoxAdapter(
@@ -644,6 +648,28 @@ _currentSeason = widget.season ?? 1;
           ),
         if (_embedReady && _iframeFailed) _buildErrorCard(context),
         if (!_embedReady) _buildConfirmationCard(),
+        // Transparent overlay that captures wheel events and forwards
+        // them to the parent CustomScrollView. Without this, the iframe
+        // steals all wheel events and the page can't scroll on desktop.
+        // Click/touch events pass through to the iframe underneath.
+        if (_embedReady && !_iframeFailed)
+          Positioned.fill(
+            child: Listener(
+              onPointerSignal: (event) {
+                if (event is PointerScrollEvent &&
+                    _scrollController.hasClients) {
+                  _scrollController.jumpTo(
+                    (_scrollController.offset + event.scrollDelta.dy).clamp(
+                      _scrollController.position.minScrollExtent,
+                      _scrollController.position.maxScrollExtent,
+                    ),
+                  );
+                }
+              },
+              behavior: HitTestBehavior.translucent,
+              child: const SizedBox.expand(),
+            ),
+          ),
       ],
     );
   }
