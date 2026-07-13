@@ -150,10 +150,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       ..width = '100%'
       ..height = '100%'
       ..backgroundColor = '#000';
-    // CSS containment isolates the iframe's rendering from the parent
-    // page — prevents ad scripts from measuring or manipulating the
-    // parent DOM layout.
-    _iframe.style.setProperty('contain', 'layout style');
+
 
     _onLoadListener = ((web.Event _) {
       _loadTimer?.cancel();
@@ -167,10 +164,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _iframe.addEventListener('load', _onLoadListener);
     _iframe.addEventListener('error', _onErrorListener);
 
-    _loadTimer = Timer(_loadTimeout, () {
-      if (!mounted) return;
-      if (_isLoading) _onIframeLoadError();
-    });
+    // NOTE: Load timer is NOT started here. It starts in
+    // _startPlayback() when the user actually clicks "Start Watching".
 
     _messageListener = _buildMessageListener();
     web.window.addEventListener('message', _messageListener);
