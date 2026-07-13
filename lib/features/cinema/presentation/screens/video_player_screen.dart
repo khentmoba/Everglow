@@ -137,9 +137,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           'autoplay; fullscreen; encrypted-media; picture-in-picture; accelerometer; gyroscope; clipboard-write'
       ..setAttribute('referrerpolicy', 'no-referrer')
       ..setAttribute('frameborder', '0')
-      ..setAttribute('scrolling', 'no')
-      ..setAttribute('sandbox',
-          'allow-scripts allow-same-origin allow-presentation allow-popups');
+      ..setAttribute('scrolling', 'no');
+    // NOTE: We intentionally do NOT add a sandbox attribute. Some embed
+    // providers (like Videasy) detect sandbox and refuse to load. FluxTV
+    // achieves ad containment through other means: referrerpolicy strips
+    // the Referer header, CSS containment isolates rendering, and the
+    // confirmation gate delays embed loading to break ad timing.
     _iframe.style
       ..border = '0'
       ..width = '100%'
