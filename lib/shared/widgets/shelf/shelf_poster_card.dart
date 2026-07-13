@@ -5,7 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_breakpoints.dart';
 import 'motion.dart';
-import 'shelf_hover_preview.dart';
 
 /// Shared poster card used across the four inside screens.
 ///
@@ -67,13 +66,6 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
   bool _hovered = false;
   bool _focused = false;
 
-  // Hover preview overlay
-  Timer? _hoverDelayTimer;
-  Timer? _dismissDelayTimer;
-  OverlayEntry? _hoverOverlay;
-  bool _isHoveringOverlay = false;
-  final LayerLink _layerLink = LayerLink();
-
   static const _tmdbImageBase = 'https://image.tmdb.org/t/p/w342';
 
   bool get _isDesktop => AppBreakpoint.isDesktop(context);
@@ -92,59 +84,17 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
   }
 
   void _showHoverPreview() {
-    if (_hoverOverlay != null || !_hasHoverData) return;
-    final badgeColor = widget.badgeColor ?? AppTheme.deepRose;
-
-    _hoverOverlay = OverlayEntry(
-      builder: (context) => CompositedTransformFollower(
-        link: _layerLink,
-        showWhenUnlinked: false,
-        offset: const Offset(-200, -60),
-        child: MouseRegion(
-          onEnter: (_) {
-            _isHoveringOverlay = true;
-            _dismissDelayTimer?.cancel();
-            _dismissDelayTimer = null;
-          },
-          onExit: (_) {
-            _isHoveringOverlay = false;
-            _dismissHoverPreview();
-          },
-          child: ShelfHoverPreview(
-            title: widget.title,
-            synopsis: widget.synopsis,
-            episodeCount: widget.episodeCount,
-            format: widget.format,
-            airingStatus: widget.airingStatus,
-            year: widget.subtitle,
-            genres: widget.genres,
-            currentEpisode: widget.currentEpisode,
-            accent: badgeColor,
-            onWatch: () {
-              _dismissHoverPreview();
-              widget.onTap?.call();
-            },
-            onQueue: () => _dismissHoverPreview(),
-          ),
-        ),
-      ),
-    );
-    Overlay.of(context).insert(_hoverOverlay!);
+    // Hover preview disabled — cards already show title, year, and a
+    // play-button overlay on hover.  The floating overlay was too
+    // prominent and overlapped other content.
   }
 
   void _dismissHoverPreview() {
-    _hoverDelayTimer?.cancel();
-    _hoverDelayTimer = null;
-    if (_isHoveringOverlay) return;
-    _hoverOverlay?.remove();
-    _hoverOverlay = null;
+    // Hover preview disabled.
   }
 
   @override
   void dispose() {
-    _hoverDelayTimer?.cancel();
-    _dismissDelayTimer?.cancel();
-    _hoverOverlay?.remove();
     super.dispose();
   }
 
@@ -422,9 +372,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
       button: !disabled,
       enabled: !disabled,
       label: widget.semanticLabel ?? announcement,
-      child: CompositedTransformTarget(
-        link: _layerLink,
-        child: FocusableActionDetector(
+      child: FocusableActionDetector(
           enabled: !disabled,
           onShowFocusHighlight: (show) =>
               setState(() => _focused = show && !disabled),
@@ -449,34 +397,15 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
               onEnter: disabled || !isDesktop
                   ? null
                   : (_) {
-                      _dismissDelayTimer?.cancel();
-                      _dismissDelayTimer = null;
                       setState(() => _hovered = true);
-                      // Show hover preview after 400ms delay
-                      _hoverDelayTimer?.cancel();
-                      _hoverDelayTimer = Timer(
-                          const Duration(milliseconds: 400), () {
-                        if (mounted && _hovered) {
-                          _showHoverPreview();
-                        }
-                      });
                     },
               onExit: (_) {
                 setState(() => _hovered = false);
-                // Delay dismiss to allow mouse to travel to overlay
-                _dismissDelayTimer?.cancel();
-                _dismissDelayTimer = Timer(
-                    const Duration(milliseconds: 200), () {
-                  if (!_isHoveringOverlay) {
-                    _dismissHoverPreview();
-                  }
-                });
               },
               child: card,
             ),
           ),
         ),
-      ),
     );
   }
 }
