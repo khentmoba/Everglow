@@ -68,7 +68,7 @@ class _AnimatedEmblemState extends State<AnimatedEmblem> with SingleTickerProvid
             color: effectiveColor,
             shadows: [
               Shadow(
-                color: AppTheme.blushGold.withValues(alpha: 0.5),
+                color: AppTheme.blushGold.withValues(alpha: 0.65),
                 blurRadius: _glowAnimation.value,
               ),
               const Shadow(

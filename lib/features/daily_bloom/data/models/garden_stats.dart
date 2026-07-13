@@ -5,12 +5,14 @@ class GardenStats {
   final DateTime lastVisit;
   final int streakCount;
   final int totalInteractions;
+  final String plantType;
 
   GardenStats({
     required this.currentStage,
     required this.lastVisit,
     required this.streakCount,
     required this.totalInteractions,
+    this.plantType = 'lily',
   });
 
   factory GardenStats.initial() {
@@ -19,6 +21,7 @@ class GardenStats {
       lastVisit: DateTime.now(),
       streakCount: 0,
       totalInteractions: 0,
+      plantType: 'lily',
     );
   }
 
@@ -29,6 +32,7 @@ class GardenStats {
       lastVisit: (data['lastVisit'] as Timestamp).toDate(),
       streakCount: data['streakCount'] ?? 0,
       totalInteractions: data['totalInteractions'] ?? 0,
+      plantType: data['plantType'] ?? 'lily',
     );
   }
 
@@ -38,6 +42,7 @@ class GardenStats {
       'lastVisit': Timestamp.fromDate(lastVisit),
       'streakCount': streakCount,
       'totalInteractions': totalInteractions,
+      'plantType': plantType,
     };
   }
 
@@ -46,12 +51,14 @@ class GardenStats {
     DateTime? lastVisit,
     int? streakCount,
     int? totalInteractions,
+    String? plantType,
   }) {
     return GardenStats(
       currentStage: currentStage ?? this.currentStage,
       lastVisit: lastVisit ?? this.lastVisit,
       streakCount: streakCount ?? this.streakCount,
       totalInteractions: totalInteractions ?? this.totalInteractions,
+      plantType: plantType ?? this.plantType,
     );
   }
 }

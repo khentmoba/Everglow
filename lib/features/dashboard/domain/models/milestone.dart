@@ -1,5 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Categories for milestones.
+enum MilestoneCategory {
+  firstDate('First Date', '💕'),
+  trip('Trip', '✈️'),
+  achievement('Achievement', '🏆'),
+  anniversary('Anniversary', '🎂'),
+  memory('Memory', '⭐');
+
+  final String displayName;
+  final String emoji;
+  const MilestoneCategory(this.displayName, this.emoji);
+}
+
 class Milestone {
   final String id;
   final String title;
@@ -7,6 +20,7 @@ class Milestone {
   final DateTime date;
   final List<String> imageUrls;
   final String? author;
+  final MilestoneCategory category;
 
   const Milestone({
     required this.id,
@@ -15,6 +29,7 @@ class Milestone {
     required this.date,
     this.imageUrls = const [],
     this.author,
+    this.category = MilestoneCategory.memory,
   });
 
   factory Milestone.fromFirestore(DocumentSnapshot doc) {
@@ -26,6 +41,10 @@ class Milestone {
       date:        _parseDateTime(data['date']),
       imageUrls:    (data['imageUrls'] as List<dynamic>?)?.map((e) => e as String).toList() ?? [],
       author:      data['author']      as String?,
+      category: MilestoneCategory.values.firstWhere(
+        (c) => c.name == data['category'],
+        orElse: () => MilestoneCategory.memory,
+      ),
     );
   }
 
@@ -48,6 +67,7 @@ class Milestone {
       'description': description,
       'date':        Timestamp.fromDate(date),
       'imageUrls':   imageUrls,
+      'category':    category.name,
       if (author != null) 'author': author,
     };
   }

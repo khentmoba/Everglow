@@ -187,7 +187,7 @@ class _AIRecommendationsState extends State<AIRecommendations> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                      color: AppTheme.blushGold.withValues(alpha: 0.4)),
+                      color: AppTheme.blushGold.withValues(alpha: 0.6)),
                 ),
                 child: ClipOval(
                   child: Image.asset('assets/images/mochi_avatar.png',
@@ -213,7 +213,7 @@ class _AIRecommendationsState extends State<AIRecommendations> {
                         const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                     decoration: BoxDecoration(
                       border: Border.all(
-                          color: AppTheme.blushGold.withValues(alpha: 0.4)),
+                          color: AppTheme.blushGold.withValues(alpha: 0.6)),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -269,7 +269,7 @@ class _AIRecommendationsState extends State<AIRecommendations> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                          color: AppTheme.blushGold.withValues(alpha: 0.3)),
+                          color: AppTheme.blushGold.withValues(alpha: 0.65)),
                     ),
                     child: ClipOval(
                       child: Image.asset('assets/images/mochi_avatar.png',

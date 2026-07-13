@@ -18,7 +18,10 @@ class DashboardActions extends StatelessWidget {
 
     final isVisible = guardianController.isMoodPromptVisible;
 
-    return GestureDetector(
+    return Semantics(
+      label: isVisible ? 'Dismiss mood picker' : 'Open mood picker',
+      button: true,
+      child: GestureDetector(
       onTap: () {
         if (isVisible) {
           context.read<GuardianController>().dismissMoodPrompt();
@@ -32,7 +35,7 @@ class DashboardActions extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
           shape: BoxShape.circle,
-          border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.3), width: 1.5),
+          border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.65), width: 1.5),
           boxShadow: [
             BoxShadow(
               color: AppTheme.deepRose.withValues(alpha: 0.15),
@@ -47,6 +50,7 @@ class DashboardActions extends StatelessWidget {
           size: 28,
         ),
       ),
+     ),
     );
   }
 }

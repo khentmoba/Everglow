@@ -36,7 +36,7 @@ class MetricCard extends StatelessWidget {
                   fontSize: 38,
                   shadows: [
                     BoxShadow(
-                      color: AppTheme.blushGold.withValues(alpha: 0.3),
+                      color: AppTheme.blushGold.withValues(alpha: 0.65),
                       blurRadius: 12,
                     ),
                   ],

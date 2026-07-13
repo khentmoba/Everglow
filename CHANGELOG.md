@@ -9,6 +9,38 @@ Conventions: 🚀 Features · 🐛 Bug Fixes · ⚡ Performance · 🔒 Security
 
 ---
 
+## [6.0.0] — 2026-07-14
+
+### 🚀 Features
+- **Bucket List**: New shared couple bucket list with categories (Travel ✈️, Experience 🎭, Food & Drink 🍽️, Adventure 🏔️, Milestone 🏆, Other 💫), status tracking (Wished 🌟, Planned 📋, Completed ✅), add dialog with optional image URLs, and Firestore-backed persistence (`bucket_list` collection). Dashboard preview card shows recent activity.
+- **Calendar**: New shared couple calendar with event types (Date Night 💑, Anniversary 💍, Reminder ⏰, Custom 📌), recurring events (none / monthly / yearly), color coding, full month grid view, day detail bottom sheet, and add event dialog. Dashboard preview card shows upcoming events. Firestore `calendar_events` collection.
+- **Gallery**: New shared photo gallery for couple memories with photo upload, captions, tags, full-screen photo viewer with pinch-to-zoom, and grid layout. Firestore `gallery_photos` collection + Firebase Storage for images. Dashboard preview card shows recent photos.
+- **Daily Bloom Overhaul**: 5 plant types (Lily 🌸, Rose 🌹, Sunflower 🌻, Tulip 🌷, Sakura 🌸) each with 6 growth stages, unique custom painters (lily, rose, sunflower, tulip, sakura), seasonal bonuses (Rose gets Valentine's Bloom in Feb, Sakura gets Hanami Season in Mar, etc.), plant picker sheet, shared garden view for seeing partner's garden, weather overlay with atmospheric effects, and garden stats model expansion.
+- **Push Notifications (FCM)**: New `NotificationService` with Firebase Cloud Messaging — foreground message stream, background handler, topic subscriptions (`chat_messages`, `mood_updates`, `milestones`), notification-to-route mapping for deep linking, and scaffold messenger integration for in-app toast alerts.
+- **AI/Mochi Function Calling**: Mochi AI assistant now has 11 callable tools: `add_to_watchlist`, `save_to_starlight_jar`, `set_mood`, `search_movies`, `get_weather`, `create_reminder`, `log_activity`, `search_books`, `get_date_ideas`, `read_chat_messages`, `get_xp_stats`, and `search_anime`. Mochi can proactively interact with Firestore, TMDB, Open Library, wttr.in, and Jikan APIs on the couple's behalf.
+- **Dashboard Overhaul**: New widgets — `CalendarPreview` (upcoming events), `GalleryPreview` (recent photos), `RelationshipTimeline` (visual timeline of milestones), `UpcomingCountdowns` (countdown to next special day), `CreatorModal` (app creator info), `LetterboxArchiveScreen` (archived letterbox view), and expanded `DashboardActions` grid.
+- **New Cloud Functions**: `proxyMangaKakalotImage` (MangaKakalot chapter page proxy), `proxyMangaKatana` (MangaKatana chapter page proxy), `proxyComick` (Comick API CORS proxy), `proxyAnimeImage` (anime episode thumbnail proxy for Crunchyroll/Funimation CDNs).
+- **Canvas Enhancements**: New `CanvasPointUtils` for optimized point interpolation, `DoodleStroke` model expansion with metadata support, improved canvas toolbar UX, and enhanced painting performance.
+- **Starlight Jar Redesign**: Complete UI overhaul with new star drop dialog, note display dialog, and glass jar widget with improved animations.
+- **Milestone Model Expansion**: New milestone types and subtypes with configurable display, recurring event support, and countdown integration.
+- **Countdown Widget**: New `EverglowCountdown` shared widget for displaying time-remaining countdowns with animated transitions.
+- **Test Coverage**: New unit tests for Calendar feature, Canvas feature, Dashboard domain models (AnniversaryCounter, HiddenNote), and XP system.
+
+### 🐛 Bug Fixes
+- **Notification Service FCM Init**: Guarded FCM initialization to prevent white screen on web — `NotificationService` only initializes when Firebase Messaging is available (web service worker context excluded).
+- **Starlight Service Refactor**: Rewrote starlight service with improved query performance, batch writes, and proper error handling.
+- **Academy Portal Card**: Updated visual polish and interaction patterns.
+- **Canvas Service**: Improved stroke interpolation and reduced Firestore write frequency.
+- **Daily Bloom Performance**: Optimized plant painters to reduce per-frame rebuilds.
+
+### 📝 Docs
+- Updated CHANGELOG, README, and version for v6.0.0.
+
+### ⚠️ Breaking Changes
+- None. v6.0.0 is fully backward-compatible with v5.3.0 data. All new Firestore writes are additive (`bucket_list`, `calendar_events`, `gallery_photos` collections are new).
+
+---
+
 ## [5.3.0] — 2026-06-14
 
 ### 🚀 Features

@@ -239,7 +239,7 @@ class _MochiSidebarState extends State<MochiSidebar> {
     return Center(
       child: CircularProgressIndicator(
         strokeWidth: 2,
-        color: AppColors.blushGold.withValues(alpha: 0.5),
+        color: AppColors.blushGold.withValues(alpha: 0.65),
       ),
     );
   }
@@ -327,7 +327,7 @@ class _SessionItem extends StatelessWidget {
               borderRadius: AppRadius.radiusLg,
               border: isActive
                   ? Border.all(
-                      color: AppColors.blushGold.withValues(alpha: 0.3),
+                      color: AppColors.blushGold.withValues(alpha: 0.65),
                       width: 1,
                     )
                   : null,

@@ -7,6 +7,8 @@ import '../../features/academy/models/academy_question.dart';
 import '../../features/academy/models/game_match.dart';
 
 import '../../features/watch_party/data/models/watch_party_room.dart';
+import '../../features/daily_bloom/presentation/widgets/shared_garden_view.dart';
+import '../../features/bucket_list/presentation/screens/bucket_list_screen.dart';
 
 import '../../features/entry/presentation/pages/gateway_page.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
@@ -26,10 +28,13 @@ import '../../features/play_zone/presentation/screens/play_zone_hub_screen.dart'
 import '../../features/play_zone/table_tennis/presentation/screens/table_tennis_game_screen.dart';
 import '../../features/play_zone/table_tennis/presentation/screens/tt_multiplayer_lobby_screen.dart';
 import '../../features/canvas/presentation/screens/canvas_screen.dart';
+import '../../features/dashboard/presentation/screens/letterbox_archive_screen.dart';
 import '../../features/chat/presentation/screens/sanctuary_chat_screen.dart';
 import '../../features/starlight_jar/presentation/screens/starlight_jar_widget.dart';
 import '../../features/watch_party/presentation/screens/watch_party_screen.dart';
 import '../../features/ai/presentation/widgets/mochi_screen.dart';
+import '../../features/gallery/presentation/screens/gallery_screen.dart';
+import '../../features/calendar/presentation/screens/calendar_screen.dart';
 
 /// App-wide router configuration.
 ///
@@ -178,6 +183,12 @@ final GoRouter appRouter = GoRouter(
       builder: (_, __) => const CanvasScreen(),
     ),
 
+    // ── Letterbox Archive ─────────────────────────────────
+    GoRoute(
+      path: '/letterbox',
+      builder: (_, __) => const LetterboxArchiveScreen(),
+    ),
+
     // ── Sanctuary (couple chat) ───────────────────────────
     GoRoute(
       path: '/sanctuary',
@@ -194,6 +205,30 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/starlight',
       builder: (_, __) => const StarlightJarWidget(),
+    ),
+
+    // ── Shared Garden ─────────────────────────────────────
+    GoRoute(
+      path: '/garden',
+      builder: (_, __) => const SharedGardenView(),
+    ),
+
+    // ── Bucket List ───────────────────────────────────────
+    GoRoute(
+      path: '/bucket-list',
+      builder: (_, __) => const BucketListScreen(),
+    ),
+
+    // ── Memory Gallery ─────────────────────────────────────
+    GoRoute(
+      path: '/gallery',
+      builder: (_, __) => const GalleryScreen(),
+    ),
+
+    // ── Shared Calendar ─────────────────────────────────────
+    GoRoute(
+      path: '/calendar',
+      builder: (_, __) => const CalendarScreen(),
     ),
 
     // ── Watch Party ───────────────────────────────────────

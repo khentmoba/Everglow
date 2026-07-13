@@ -402,7 +402,7 @@ class _WatchPartyChatDrawerState extends State<WatchPartyChatDrawer> {
                     decoration: InputDecoration(
                       hintText: 'Type a message…',
                       hintStyle: GoogleFonts.outfit(
-                        color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                        color: AppTheme.petalWhite.withValues(alpha: 0.65),
                         fontSize: 13,
                       ),
                       border: InputBorder.none,

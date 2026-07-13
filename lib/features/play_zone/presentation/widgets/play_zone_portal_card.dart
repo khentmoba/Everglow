@@ -57,29 +57,33 @@ class PlayZonePortalCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  BouncyButton(
-                    onTap: () => context.push('/play-zone'),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [AppTheme.deepRose, AppTheme.blushGold],
-                        ),
-                        borderRadius: BorderRadius.circular(24.0),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.deepRose.withValues(alpha: 0.3),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
+                  Semantics(
+                    label: 'Enter Play Zone',
+                    button: true,
+                    child: BouncyButton(
+                      onTap: () => context.push('/play-zone'),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [AppTheme.deepRose, AppTheme.blushGold],
                           ),
-                        ],
-                      ),
-                      child: Text(
-                        'ENTER PLAY ZONE',
-                        style: GoogleFonts.outfit(
-                          fontWeight: FontWeight.w900,
-                          color: AppTheme.petalWhite,
-                          letterSpacing: 2.0,
+                          borderRadius: BorderRadius.circular(24.0),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.deepRose.withValues(alpha: 0.3),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          'ENTER PLAY ZONE',
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.w900,
+                            color: AppTheme.petalWhite,
+                            letterSpacing: 2.0,
+                          ),
                         ),
                       ),
                     ),

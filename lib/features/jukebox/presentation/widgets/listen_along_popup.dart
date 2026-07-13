@@ -80,7 +80,7 @@ class ListenAlongPopup extends StatelessWidget {
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
                 fontSize: 13,
-                color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                color: AppTheme.petalWhite.withValues(alpha: 0.7),
               ),
             ),
             const SizedBox(height: 32),

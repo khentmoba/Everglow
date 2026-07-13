@@ -319,7 +319,7 @@ class _MangaSearchModalState extends State<MangaSearchModal> {
             decoration: InputDecoration(
               hintText: 'Search manga, manhwa, manhua...',
               hintStyle: GoogleFonts.outfit(
-                  color: AppTheme.petalWhite.withValues(alpha: 0.4)),
+                  color: AppTheme.petalWhite.withValues(alpha: 0.65)),
               prefixIcon:
                   const Icon(Icons.search, color: AppTheme.roseQuartz),
               filled: true,

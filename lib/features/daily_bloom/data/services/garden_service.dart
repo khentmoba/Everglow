@@ -90,4 +90,34 @@ class GardenService {
     if (interactions >= 1) return 1;
     return 0;
   }
+
+  /// Watch partner's garden stats for the shared garden view.
+  Stream<GardenStats> watchPartnerStats(String partnerUid) {
+    return watchStats(partnerUid);
+  }
+
+  /// Update the user's selected plant type.
+  Future<void> setPlantType(String userId, String plantType) async {
+    final docRef = _db
+        .collection('users')
+        .doc(userId)
+        .collection('garden_stats')
+        .doc('stats');
+
+    final snapshot = await docRef.get();
+    if (snapshot.exists) {
+      await docRef.update({'plantType': plantType});
+    } else {
+      // Create initial stats with the selected plant type
+      final stats = GardenStats(
+        currentStage: 0,
+        lastVisit: DateTime.now(),
+        streakCount: 0,
+        totalInteractions: 0,
+        plantType: plantType,
+      );
+      await docRef.set(stats.toFirestore());
+    }
+    print('Plant type set to $plantType for user $userId');
+  }
 }

@@ -410,7 +410,7 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
                     subtitle,
                     style: GoogleFonts.outfit(
                       fontSize: 13,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                      color: AppTheme.petalWhite.withValues(alpha: 0.75),
                     ),
                   ),
                 ],

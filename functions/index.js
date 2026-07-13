@@ -2314,6 +2314,103 @@ async function sendFCMToBoth(payload) {
   ]);
 }
 
+// ── Firestore Triggers: Partner Notifications ─────────────────────
+// UID ↔ display-name lookup. Keys are the Firebase Auth UIDs.
+const USER_DISPLAY = {
+  khentsgdz: 'Khent',
+  clairjassen: 'Clair',
+};
+// Partner UID map — each user's partner UID.
+const PARTNER_UID = {
+  khentsgdz: 'clairjassen',
+  clairjassen: 'khentsgdz',
+};
+
+/**
+ * Chat message → notify the partner who didn't send it.
+ * Runs on every new document in sanctuary_messages.
+ */
+exports.onNewChatMessage = functions.firestore
+  .document('sanctuary_messages/{messageId}')
+  .onCreate(async (snap) => {
+    const data = snap.data();
+    const senderUid = data.senderUid;
+    if (!senderUid || !PARTNER_UID[senderUid]) return;
+
+    const partnerUid = PARTNER_UID[senderUid];
+    const senderName = USER_DISPLAY[senderUid] || 'Someone';
+    const preview = (data.text || '').slice(0, 120);
+
+    await sendFCMToUser(partnerUid, {
+      title: `💌 New message from ${senderName}`,
+      body: preview || 'Sent you a message',
+      data: { type: 'chat_message', sender: senderUid },
+    });
+  });
+
+/**
+ * Mood submission → notify the partner.
+ * Runs on every new document in moods.
+ */
+exports.onNewMood = functions.firestore
+  .document('moods/{moodId}')
+  .onCreate(async (snap) => {
+    const data = snap.data();
+    const uid = data.uid || data.username;
+    if (!uid || !PARTNER_UID[uid]) return;
+
+    const partnerUid = PARTNER_UID[uid];
+    const userName = USER_DISPLAY[uid] || 'Someone';
+    const emoji = data.moodEmoji || data.mood || '💭';
+
+    await sendFCMToUser(partnerUid, {
+      title: `💕 ${userName} shared their mood`,
+      body: `Feeling ${emoji} today`,
+      data: { type: 'mood_update', sender: uid },
+    });
+  });
+
+/**
+ * Starlight jar drop → notify the partner.
+ * Runs on every new document in starlight_jar.
+ */
+exports.onNewStarDrop = functions.firestore
+  .document('starlight_jar/{starId}')
+  .onCreate(async (snap) => {
+    const data = snap.data();
+    // Skip stars written by Mochi — those don't need a partner notification
+    if (data.writtenBy) return;
+
+    const author = data.author;
+    if (!author || !PARTNER_UID[author]) return;
+
+    const partnerUid = PARTNER_UID[author];
+    const authorName = USER_DISPLAY[author] || 'Someone';
+
+    await sendFCMToUser(partnerUid, {
+      title: `✨ ${authorName} dropped a star`,
+      body: 'Check the Starlight Jar for a surprise!',
+      data: { type: 'starlight_drop', author },
+    });
+  });
+
+/**
+ * Milestone added → notify both partners.
+ * Runs on every new document in milestones.
+ */
+exports.onNewMilestone = functions.firestore
+  .document('milestones/{milestoneId}')
+  .onCreate(async (snap) => {
+    const data = snap.data();
+    const title = data.title || 'New milestone';
+
+    await sendFCMToBoth({
+      title: '🎉 New milestone added!',
+      body: title,
+      data: { type: 'milestone', title },
+    });
+  });
+
 // ── Scheduled: Daily Digest (8:00 AM PHT = 00:00 UTC) ───────────
 exports.mochiDailyDigest = onSchedule({
   schedule: '0 0 * * *',

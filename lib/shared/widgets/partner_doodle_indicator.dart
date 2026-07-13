@@ -156,7 +156,7 @@ class _DoodleBanner extends StatelessWidget {
                 Text(
                   'active doodle',
                   style: GoogleFonts.outfit(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                    color: AppTheme.petalWhite.withValues(alpha: 0.75),
                     fontSize: 9,
                     letterSpacing: 0.8,
                   ),
@@ -165,7 +165,7 @@ class _DoodleBanner extends StatelessWidget {
                 Text(
                   'not active doodling',
                   style: GoogleFonts.outfit(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                    color: AppTheme.petalWhite.withValues(alpha: 0.7),
                     fontSize: 9,
                     letterSpacing: 0.6,
                   ),

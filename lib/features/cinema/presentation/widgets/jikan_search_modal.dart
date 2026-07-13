@@ -273,7 +273,7 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
             decoration: InputDecoration(
               hintText: 'Search anime titles, studios, anything…',
               hintStyle:
-                  GoogleFonts.outfit(color: AppTheme.petalWhite.withValues(alpha: 0.4)),
+                  GoogleFonts.outfit(color: AppTheme.petalWhite.withValues(alpha: 0.65)),
               prefixIcon: const Icon(Icons.search, color: AppTheme.roseQuartz),
               filled: true,
               fillColor: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),

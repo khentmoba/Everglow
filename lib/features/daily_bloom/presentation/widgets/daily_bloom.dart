@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/garden_provider.dart';
-import 'lily_painter.dart';
+import '../../data/models/plant_type.dart';
+import 'garden_plant_view.dart';
+import 'garden_weather_overlay.dart';
+import 'plant_picker_sheet.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -12,59 +16,17 @@ class DailyBloom extends StatefulWidget {
   State<DailyBloom> createState() => _DailyBloomState();
 }
 
-class _DailyBloomState extends State<DailyBloom> with SingleTickerProviderStateMixin {
-  late AnimationController _breathingController;
+class _DailyBloomState extends State<DailyBloom> {
   bool _showTooltip = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _breathingController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _breathingController.dispose();
-    super.dispose();
-  }
+  double _scale = 1.0;
 
   void _toggleTooltip() {
-    setState(() {
-      _showTooltip = !_showTooltip;
-    });
+    setState(() => _showTooltip = !_showTooltip);
     if (_showTooltip) {
       Future.delayed(const Duration(seconds: 3), () {
         if (mounted) setState(() => _showTooltip = false);
       });
     }
-  }
-
-  String _getTooltipMessage(int stage) {
-    switch (stage) {
-      case 0:
-      case 1:
-        return "A tiny sprout! Keep visiting to help it grow. 🌱";
-      case 2:
-      case 3:
-        return "A bud is forming! Your love is working. 🌸";
-      case 4:
-        return "It's starting to bloom! Almost there. ✨";
-      case 5:
-        return "Magnificent! Your lily is in full bloom. 💖";
-      default:
-        return "Your lily is feeling loved! 🌸";
-    }
-  }
-
-  // For stage change pulse
-  double _scale = 1.0;
-
-  @override
-  void didUpdateWidget(DailyBloom oldWidget) {
-    super.didUpdateWidget(oldWidget);
   }
 
   void _triggerPulse() {
@@ -80,16 +42,27 @@ class _DailyBloomState extends State<DailyBloom> with SingleTickerProviderStateM
       builder: (context, provider, child) {
         final stats = provider.stats;
         final stage = stats?.currentStage ?? 0;
-        
+        final plantType = stats != null
+            ? PlantType.fromId(stats.plantType)
+            : PlantType.all.first;
+        final effectiveStage = plantType.effectiveStage(stage);
+
         return Column(
           children: [
             SizedBox(
-              height: 260,
+              height: 280,
               width: double.infinity,
               child: Stack(
                 alignment: Alignment.bottomCenter,
                 clipBehavior: Clip.none,
                 children: [
+                  // Seasonal weather overlay
+                  Positioned.fill(
+                    child: GardenWeatherOverlay(
+                      season: GardenWeatherOverlay.currentSeason(),
+                    ),
+                  ),
+
                   // Tooltip
                   if (_showTooltip)
                     Positioned(
@@ -103,7 +76,7 @@ class _DailyBloomState extends State<DailyBloom> with SingleTickerProviderStateM
                             child: Transform.translate(
                               offset: Offset(0, -10 * (1 - value)),
                               child: Container(
-                                constraints: const BoxConstraints(maxWidth: 220),
+                                constraints: const BoxConstraints(maxWidth: 240),
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                 decoration: BoxDecoration(
                                   color: AppTheme.velvet,
@@ -115,17 +88,33 @@ class _DailyBloomState extends State<DailyBloom> with SingleTickerProviderStateM
                                       offset: const Offset(0, 5),
                                     ),
                                   ],
-                                  border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.3), width: 1.5),
+                                  border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.65), width: 1.5),
                                 ),
-                                child: Text(
-                                  _getTooltipMessage(stage),
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.outfit(
-                                    color: AppTheme.roseQuartz,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                    height: 1.3,
-                                  ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      plantType.stageDescriptions[effectiveStage.clamp(0, 5)],
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.outfit(
+                                        color: AppTheme.blushGold,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        height: 1.3,
+                                      ),
+                                    ),
+                                    if (plantType.isInSeason) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${plantType.seasonalBonusName} bonus active ✨',
+                                        textAlign: TextAlign.center,
+                                        style: GoogleFonts.outfit(
+                                          color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
                             ),
@@ -134,43 +123,31 @@ class _DailyBloomState extends State<DailyBloom> with SingleTickerProviderStateM
                       ),
                     ),
 
-                  // Lily
+                  // Plant
                   Positioned(
                     bottom: 0,
-                    child: GestureDetector(
-                      onTap: () {
-                        _toggleTooltip();
-                        _triggerPulse();
-                      },
-                      child: AnimatedScale(
-                        scale: _scale,
-                        duration: const Duration(milliseconds: 200),
-                        curve: Curves.easeOutBack,
-                        child: AnimatedBuilder(
-                          animation: _breathingController,
-                          builder: (context, child) {
-                            return SizedBox(
-                              height: 180,
-                              width: 180,
-                              child: AnimatedSwitcher(
-                                duration: const Duration(seconds: 1),
-                                transitionBuilder: (Widget child, Animation<double> animation) {
-                                  return FadeTransition(
-                                    opacity: animation,
-                                    child: ScaleTransition(scale: animation, child: child),
-                                  );
-                                },
-                                child: CustomPaint(
-                                  key: ValueKey(stage),
-                                  size: const Size(180, 180),
-                                  painter: LilyPainter(
-                                    stage: stage,
-                                    animationValue: _breathingController.value,
-                                  ),
-                                ),
+                    child: Semantics(
+                      label: 'Your ${plantType.displayName.toLowerCase()}, stage $effectiveStage of 5. Tap for details.',
+                      button: true,
+                      child: GestureDetector(
+                        onTap: () {
+                          _toggleTooltip();
+                          _triggerPulse();
+                        },
+                        child: AnimatedScale(
+                          scale: _scale,
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOutBack,
+                          child: SizedBox(
+                            height: 180,
+                            width: 180,
+                            child: ExcludeSemantics(
+                              child: GardenPlantView(
+                                plantType: plantType,
+                                stage: effectiveStage,
                               ),
-                            );
-                          },
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -178,17 +155,42 @@ class _DailyBloomState extends State<DailyBloom> with SingleTickerProviderStateM
                 ],
               ),
             ),
-            
-            // Interaction Stats
+
+            // Interaction Stats + Actions
             if (stats != null)
               Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                padding: const EdgeInsets.only(top: 12),
+                child: Column(
                   children: [
-                    _buildStatChip(Icons.flash_on, '${stats.streakCount} day streak'),
-                    const SizedBox(width: 12),
-                    _buildStatChip(Icons.favorite, '${stats.totalInteractions} interactions'),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildStatChip(Icons.flash_on, '${stats.streakCount} day streak'),
+                        const SizedBox(width: 12),
+                        _buildStatChip(Icons.favorite, '${stats.totalInteractions} visits'),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildActionChip(
+                          icon: Icons.swap_horiz_rounded,
+                          label: 'Change Plant',
+                          onTap: () => PlantPickerSheet.show(
+                            context,
+                            currentPlantType: stats.plantType,
+                            onSelected: (type) => provider.setPlantType(type),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        _buildActionChip(
+                          icon: Icons.park_rounded,
+                          label: 'Our Garden',
+                          onTap: () => context.push('/garden'),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -220,6 +222,46 @@ class _DailyBloomState extends State<DailyBloom> with SingleTickerProviderStateM
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildActionChip({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppTheme.deepRose.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppTheme.blushGold.withValues(alpha: 0.2),
+              width: 1.0,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: AppTheme.roseQuartz),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  color: AppTheme.roseQuartz,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

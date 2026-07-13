@@ -139,7 +139,7 @@ class _EverglowPosterCardState extends State<EverglowPosterCard> {
                   shape: BoxShape.circle,
                   color: AppColors.twilight.withValues(alpha: 0.8),
                   border: Border.all(
-                    color: AppColors.blushGold.withValues(alpha: 0.5),
+                    color: AppColors.blushGold.withValues(alpha: 0.65),
                   ),
                 ),
                 child: Center(

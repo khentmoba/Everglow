@@ -301,7 +301,7 @@ class _AnimatedDoorState extends State<AnimatedDoor> with TickerProviderStateMix
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [AppTheme.blushGold.withValues(alpha: 0.5), AppTheme.blushGold],
+                colors: [AppTheme.blushGold.withValues(alpha: 0.65), AppTheme.blushGold],
               ),
               boxShadow: [
                 BoxShadow(

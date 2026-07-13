@@ -27,6 +27,9 @@ import 'features/watch_party/presentation/widgets/incoming_watch_party_banner.da
 import 'features/ai/data/services/ai_service.dart';
 import 'core/services/notification_service.dart';
 
+/// Global key for SnackBar notifications.
+final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   usePathUrlStrategy();
@@ -52,6 +55,10 @@ void main() async {
 
   // Self-hosted Google Fonts only — never fetch from the network at runtime.
   GoogleFonts.config.allowRuntimeFetching = false;
+
+  // Wire global keys into NotificationService so it can show
+  // foreground SnackBars and navigate on notification tap.
+  NotificationService.setScaffoldMessengerKey(_scaffoldMessengerKey);
 
   // Initialize push notifications (FCM) — non-critical, never block runApp
   try {
@@ -108,6 +115,7 @@ class EverglowApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: custom_theme.AppTheme.gamifiedTheme,
         routerConfig: appRouter,
+        scaffoldMessengerKey: _scaffoldMessengerKey,
         builder: (context, child) => _AppRoot(child: child!),
       ),
     );
@@ -158,6 +166,8 @@ class _AppRootState extends State<_AppRoot> {
         myUid: myUid,
         partnerUid: partnerUid,
       );
+      // Expose context to NotificationService for push → navigation
+      NotificationService.setNavContext(context);
     } else {
       VoiceChatService.clearIncomingWatcher();
     }
