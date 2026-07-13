@@ -39,7 +39,7 @@ class MusicCard extends StatelessWidget {
             color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: isLive ? AppTheme.blushGold.withValues(alpha: 0.3) : AppTheme.moonlight.withValues(alpha: 0.15),
+              color: isLive ? AppTheme.blushGold.withValues(alpha: 0.65) : AppTheme.moonlight.withValues(alpha: 0.15),
               width: 1.0,
             ),
             boxShadow: [
@@ -152,7 +152,7 @@ class MusicCard extends StatelessWidget {
                           status.artistName,
                           style: GoogleFonts.outfit(
                             fontSize: 13,
-                            color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                            color: AppTheme.petalWhite.withValues(alpha: 0.75),
                           ),
                         ),
                         if (!isLive) ...[
@@ -164,7 +164,7 @@ class MusicCard extends StatelessWidget {
                             style: GoogleFonts.outfit(
                               fontSize: 10,
                               fontStyle: FontStyle.italic,
-                              color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                              color: AppTheme.petalWhite.withValues(alpha: 0.65),
                             ),
                           ),
                         ],

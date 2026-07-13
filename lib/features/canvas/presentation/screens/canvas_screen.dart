@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/shared/widgets/everglow/everglow_error_state.dart';
 import '../../../../services/auth_service.dart';
 import '../../../../services/presence_service.dart';
 import '../../../../shared/widgets/partner_doodle_indicator.dart';
@@ -99,11 +100,10 @@ class _CanvasScreenState extends State<CanvasScreen> {
               stream: _canvasService.getStrokesStream(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return Center(
-                    child: Text(
-                      'Error: ${snapshot.error}',
-                      style: GoogleFonts.outfit(color: Colors.redAccent),
-                    ),
+                  return EverglowErrorState(
+                    message: 'Could not load canvas: ${snapshot.error}',
+                    onRetry: () => setState(() {}),
+                    icon: Icons.brush_outlined,
                   );
                 }
 
@@ -168,8 +168,10 @@ class _CanvasScreenState extends State<CanvasScreen> {
             child: CanvasToolbar(
               activeTool: _activeTool,
               activeColor: _currentColor,
+              strokeWidth: _currentWidth,
               onToolChanged: (tool) => setState(() => _activeTool = tool),
               onColorChanged: (color) => setState(() => _currentColor = color),
+              onStrokeWidthChanged: (w) => setState(() => _currentWidth = w),
               onClear: _showClearConfirmation,
               onUndo: _undo,
               onRedo: _redo,
@@ -239,6 +241,8 @@ class _CanvasScreenState extends State<CanvasScreen> {
   void _onPanStart(DragStartDetails details, String userId) {
     if (_activeTool == CanvasTool.eraser) {
       _handleEraserAction(details.globalPosition);
+    } else if (_activeTool == CanvasTool.text) {
+      _handleTextToolTap(details.globalPosition, userId);
     } else {
       final RenderBox? box = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
       if (box == null) {
@@ -328,6 +332,79 @@ class _CanvasScreenState extends State<CanvasScreen> {
     }
     _lastDoodlePresenceAt = now;
     presence.markDoodling(userId);
+  }
+
+  void _handleTextToolTap(Offset globalPosition, String userId) {
+    final RenderBox? box = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+
+    final localPosition = box.globalToLocal(globalPosition);
+    final normX = localPosition.dx / box.size.width;
+    final normY = localPosition.dy / box.size.height;
+
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.velvet,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(
+          'Add Text',
+          style: GoogleFonts.cormorantGaramond(
+            color: AppTheme.roseQuartz,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+          decoration: InputDecoration(
+            hintText: 'Type something...',
+            hintStyle: GoogleFonts.outfit(color: AppTheme.roseQuartz.withValues(alpha: 0.5)),
+            filled: true,
+            fillColor: AppTheme.twilight,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+          ),
+          onSubmitted: (_) {
+            _saveTextAnnotation(controller.text, normX, normY, userId);
+            Navigator.pop(context);
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: GoogleFonts.outfit(color: AppTheme.roseQuartz)),
+          ),
+          TextButton(
+            onPressed: () {
+              _saveTextAnnotation(controller.text, normX, normY, userId);
+              Navigator.pop(context);
+            },
+            child: Text('Add', style: GoogleFonts.outfit(color: AppTheme.blushGold, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _saveTextAnnotation(String text, double normX, double normY, String userId) {
+    if (text.trim().isEmpty) return;
+    final stroke = DoodleStroke(
+      id: '',
+      userId: userId,
+      color: _currentColor,
+      strokeWidth: _currentWidth,
+      points: [{'x': normX, 'y': normY}],
+      text: text.trim(),
+    );
+    _canvasService.saveStroke(stroke).then((_) {
+      _sessionStrokes.add(stroke);
+      _redoStack.clear();
+    });
   }
 
   void _handleEraserAction(Offset globalPosition) {

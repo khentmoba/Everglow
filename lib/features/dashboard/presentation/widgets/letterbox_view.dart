@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../domain/models/hidden_note.dart';
 import '../../data/services/letterbox_service.dart';
 import 'note_card.dart';
@@ -6,6 +7,9 @@ import 'note_dialog.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/features/daily_bloom/presentation/providers/garden_provider.dart';
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/shared/widgets/everglow/everglow_error_state.dart';
+import 'package:everglow/shared/widgets/everglow/everglow_empty_state.dart';
+import 'package:everglow/shared/widgets/everglow/everglow_skeleton.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class LetterboxView extends StatefulWidget {
@@ -150,10 +154,26 @@ class _LetterboxViewState extends State<LetterboxView> {
                   color: AppTheme.roseQuartz,
                 ),
               ),
-              IconButton(
-                onPressed: () => _seedSampleNotes(),
-                icon: const Icon(Icons.refresh, color: AppTheme.blushGold, size: 20),
-                tooltip: 'Reset Seeds',
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton(
+                    onPressed: () => context.push('/letterbox'),
+                    child: Text(
+                      'View All',
+                      style: GoogleFonts.outfit(
+                        fontSize: 12,
+                        color: AppTheme.blushGold,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => _seedSampleNotes(),
+                    icon: const Icon(Icons.refresh, color: AppTheme.blushGold, size: 20),
+                    tooltip: 'Reset Seeds',
+                  ),
+                ],
               ),
             ],
           ),
@@ -164,43 +184,19 @@ class _LetterboxViewState extends State<LetterboxView> {
             stream: _letterboxService.notes,
             builder: (context, snapshot) {
               if (snapshot.hasError) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.cloud_off_rounded, size: 32, color: AppTheme.roseQuartz.withValues(alpha: 0.4)),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Could not load letters',
-                        style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 13),
-                      ),
-                    ],
-                  ),
+                return EverglowErrorState(
+                  message: 'Could not load letters',
+                  onRetry: () => setState(() {}),
+                  icon: Icons.cloud_off_rounded,
                 );
               }
 
               if (!snapshot.hasData && snapshot.connectionState == ConnectionState.waiting) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppTheme.deepRose.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Loading letters...',
-                        style: GoogleFonts.outfit(
-                          color: AppTheme.roseQuartz.withValues(alpha: 0.5),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+                return const Center(
+                  child: EverglowSkeleton(
+                    width: 120,
+                    height: 160,
+                    radius: 16,
                   ),
                 );
               }
@@ -208,33 +204,12 @@ class _LetterboxViewState extends State<LetterboxView> {
               final notes = snapshot.data ?? [];
 
               if (notes.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'No letters yet... but keep checking back! 🌸',
-                        style: GoogleFonts.outfit(
-                          color: AppTheme.roseQuartz.withValues(alpha: 0.8),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton.icon(
-                        onPressed: () => _seedSampleNotes(),
-                        icon: const Icon(Icons.auto_awesome, size: 18, color: AppTheme.petalWhite),
-                        label: Text(
-                          'Seed Sample Notes',
-                          style: GoogleFonts.outfit(color: AppTheme.petalWhite, fontWeight: FontWeight.bold),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.deepRose,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        ),
-                      ),
-                    ],
-                  ),
+                return EverglowEmptyState(
+                  icon: Icons.mail_outline_rounded,
+                  title: 'No letters yet',
+                  subtitle: 'Keep checking back! 🌸',
+                  ctaLabel: 'Seed Sample Notes',
+                  onCta: () => _seedSampleNotes(),
                 );
               }
 

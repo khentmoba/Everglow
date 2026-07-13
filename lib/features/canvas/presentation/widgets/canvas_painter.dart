@@ -72,6 +72,12 @@ class CanvasPainter extends CustomPainter {
   }
 
   void _drawStroke(Canvas canvas, Size size, DoodleStroke stroke) {
+    // Handle text annotations
+    if (stroke.isTextAnnotation) {
+      _drawTextAnnotation(canvas, size, stroke);
+      return;
+    }
+
     if (stroke.points.length < 2) return;
 
     final color = _parseColor(stroke.color);
@@ -100,6 +106,33 @@ class CanvasPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round
       ..style = PaintingStyle.stroke;
     canvas.drawPoints(PointMode.polygon, offsets, paint);
+  }
+
+  void _drawTextAnnotation(Canvas canvas, Size size, DoodleStroke stroke) {
+    if (stroke.points.isEmpty) return;
+    final pos = Offset(
+      stroke.points.first['x']! * size.width,
+      stroke.points.first['y']! * size.height,
+    );
+    final color = _parseColor(stroke.color);
+    final fontSize = stroke.strokeWidth * 5.0;
+
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: stroke.text,
+        style: TextStyle(
+          color: color,
+          fontSize: fontSize.clamp(12.0, 48.0),
+          fontWeight: FontWeight.w600,
+          shadows: [
+            Shadow(color: color.withValues(alpha: 0.4), blurRadius: 4),
+          ],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+    textPainter.paint(canvas, pos);
   }
 
   Color _parseColor(String hex) {

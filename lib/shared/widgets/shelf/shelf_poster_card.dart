@@ -343,7 +343,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                     boxShadow: widget.rankNumber! <= 3
                         ? [
                             BoxShadow(
-                              color: AppTheme.blushGold.withValues(alpha: 0.5),
+                              color: AppTheme.blushGold.withValues(alpha: 0.65),
                               blurRadius: 8,
                               spreadRadius: 1,
                             ),

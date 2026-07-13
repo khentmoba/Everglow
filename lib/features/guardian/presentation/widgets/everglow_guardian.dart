@@ -106,7 +106,7 @@ class _EverglowGuardianState extends State<EverglowGuardian>
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppTheme.blushGold.withValues(alpha: 0.3),
+                color: AppTheme.blushGold.withValues(alpha: 0.65),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -135,7 +135,7 @@ class _EverglowGuardianState extends State<EverglowGuardian>
                         horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       border: Border.all(
-                          color: AppTheme.blushGold.withValues(alpha: 0.4)),
+                          color: AppTheme.blushGold.withValues(alpha: 0.6)),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -163,7 +163,7 @@ class _EverglowGuardianState extends State<EverglowGuardian>
                     decoration: InputDecoration(
                       hintText: 'Tell Guardian something...',
                       hintStyle: TextStyle(
-                        color: AppTheme.petalWhite.withValues(alpha: 0.3),
+                        color: AppTheme.petalWhite.withValues(alpha: 0.55),
                         fontSize: 14,
                       ),
                       filled: true,
