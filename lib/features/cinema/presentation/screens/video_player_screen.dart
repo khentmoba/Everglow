@@ -59,13 +59,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// within [_loadTimeout], or fails three URL-form retries. The error
   /// card takes over from the spinner in that case.
   bool _iframeFailed = false;
-
-  /// When false, the player shows a confirmation card instead of the
-  /// iframe. The user must tap "Start Watching" to actually load the
-  /// embed — mimicking FluxTV's "Before you continue" gate which
-  /// prevents auto-firing ad scripts from triggering on iframe load.
-  bool _embedReady = false;
-
   late final String _viewType;
   late final web.HTMLIFrameElement _iframe;
   JSFunction? _onLoadListener;
@@ -87,10 +80,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// where the widget tree traversal can silently fail.
   String _currentUserName = '';
 
-  // ── Metadata state ─────────────────────────────────────────────────
+  // Metadata state
   Map<String, dynamic>? _details;
   List<MediaItem> _similar = [];
-  bool _isLoadingDetails = true;
   bool _isLoadingSimilar = true;
 
   /// How long to wait for the iframe to fire `load` before we consider
@@ -141,16 +133,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       ..setAttribute('referrerpolicy', 'no-referrer')
       ..setAttribute('frameborder', '0')
       ..setAttribute('scrolling', 'no');
-    // Conditionally add sandbox for providers that support it.
-    // Providers like Movish and VidBolt work inside sandboxed iframes,
-    // which traps ads. Others (Videasy, VidSrc) detect sandbox and block.
-    _applySandbox();
     _iframe.style
       ..border = '0'
       ..width = '100%'
       ..height = '100%'
       ..backgroundColor = '#000';
-
 
     _onLoadListener = ((web.Event _) {
       _loadTimer?.cancel();
@@ -164,59 +151,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _iframe.addEventListener('load', _onLoadListener);
     _iframe.addEventListener('error', _onErrorListener);
 
-    // NOTE: Load timer is NOT started here. It starts in
-    // _startPlayback() when the user actually clicks "Start Watching".
+    _loadTimer = Timer(_loadTimeout, () {
+      if (!mounted) return;
+      if (_isLoading) _onIframeLoadError();
+    });
 
     _messageListener = _buildMessageListener();
     web.window.addEventListener('message', _messageListener);
 
 _currentSeason = widget.season ?? 1;
     _currentEpisode = widget.episode ?? 1;
-
-    // Fetch metadata in parallel (non-blocking for player)
-    _fetchDetails();
-    _fetchSimilar();
-
-    // NOTE: We intentionally do NOT set _iframe.src here.
-    // The embed only loads after the user taps "Start Watching" on the
-    // confirmation card (see _embedReady). This FluxTV-style gate
-    // prevents auto-firing ad scripts from triggering on iframe load.
-
-    ui_web.platformViewRegistry
-        .registerViewFactory(_viewType, (int viewId) => _iframe);
-
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  }
-
-  /// Applies or removes the sandbox attribute based on the current
-  /// provider's [VideoSourceConfig.sandboxSafe] flag.
-  void _applySandbox() {
-    if (_selectedProvider.sandboxSafe) {
-      _iframe.setAttribute('sandbox',
-          'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock');
-    } else {
-      _iframe.removeAttribute('sandbox');
-    }
-  }
-
-  /// Called when the user taps "Start Watching" on the confirmation card.
-  /// Actually loads the embed into the iframe and starts the load timer.
-  void _startPlayback() {
-    setState(() {
-      _embedReady = true;
-      _isLoading = true;
-    });
-
-    _loadTimer?.cancel();
-    _contentCheckTimer?.cancel();
-    _loadTimer = Timer(_loadTimeout, () {
-      if (!mounted) return;
-      if (_isLoading) _onIframeLoadError();
-    });
 
     // For anime we don't have a TMDB id on the MediaItem — the slot
     // holds the MAL id. Resolve MAL→TMDB via ani.zip, then set the
@@ -227,6 +171,15 @@ _currentSeason = widget.season ?? 1;
     } else {
       _iframe.src = _buildPlayerUrl(_selectedProvider);
     }
+
+    ui_web.platformViewRegistry
+        .registerViewFactory(_viewType, (int viewId) => _iframe);
+
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
   /// Anime bootstrap: look up the TMDB id for the MAL id via ani.zip,
@@ -247,28 +200,18 @@ _currentSeason = widget.season ?? 1;
     _iframe.src = _buildPlayerUrl(_selectedProvider);
   }
 
-  // ── Metadata fetching ─────────────────────────────────────────────
-
   Future<void> _fetchDetails() async {
     final tmdb = TMDBService();
-    final details = await tmdb.fetchMediaDetails(
-        widget.tmdbId, widget.mediaType);
+    final details = await tmdb.fetchMediaDetails(widget.tmdbId, widget.mediaType);
     if (!mounted) return;
-    setState(() {
-      _details = details;
-      _isLoadingDetails = false;
-    });
+    setState(() => _details = details);
   }
 
   Future<void> _fetchSimilar() async {
     final tmdb = TMDBService();
-    final results = await tmdb.fetchSimilar(
-        widget.tmdbId, widget.mediaType);
+    final results = await tmdb.fetchSimilar(widget.tmdbId, widget.mediaType);
     if (!mounted) return;
-    setState(() {
-      _similar = results;
-      _isLoadingSimilar = false;
-    });
+    setState(() { _similar = results; _isLoadingSimilar = false; });
   }
 
   /// Called when the iframe fires `error` or the [_loadTimeout] fires
@@ -477,7 +420,6 @@ _currentSeason = widget.season ?? 1;
       if (!mounted) return;
       if (_isLoading) _onIframeLoadError();
     });
-    _applySandbox();
     _iframe.src = _buildPlayerUrl(provider);
   }
 
@@ -559,13 +501,6 @@ _currentSeason = widget.season ?? 1;
       } else {
         final separator = tvBase.endsWith('/') ? '' : '/';
         final base = '$tvBase$separator$id/$seasonNum/$epNum';
-        // Append provider-specific query params
-        if (tvBase.contains('vidfast.me')) {
-          return '$base?autoPlay=false&nextButton=true&autoNext=true&theme=E50914';
-        }
-        if (tvBase.contains('vidbolt')) {
-          return '$base?theme=red';
-        }
         return isVideasy
             ? '$base?autoplay=true&nextButton=true&episodeSelector=true'
             : base;
@@ -580,12 +515,6 @@ _currentSeason = widget.season ?? 1;
           ? ''
           : '/';
       final base = '$movieBase$separator$id';
-      if (movieBase.contains('vidfast.me')) {
-        return '$base?autoPlay=false&theme=E50914';
-      }
-      if (movieBase.contains('vidbolt')) {
-        return '$base?theme=red';
-      }
       return isVideasy ? '$base?autoplay=true' : base;
     }
   }
@@ -599,276 +528,190 @@ _currentSeason = widget.season ?? 1;
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    // Cap player height so metadata/episodes are always visible
-    // without excessive scrolling. 16:9 but capped at 400px.
-    final playerHeight = (screenWidth * 9 / 16).clamp(180.0, 400.0);
-
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
         child: Column(
           children: [
-            _buildTopBar(),
-            Expanded(
-              child: CustomScrollView(
-                physics: const BouncingScrollPhysics(),
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: playerHeight,
-                      child: _buildPlayerStack(),
-                    ),
-                  ),
-                  SliverToBoxAdapter(child: _buildMetadataSection()),
-                  SliverToBoxAdapter(child: _buildServerSelectorSection()),
-                  if (widget.mediaType == 'tv' && !widget.isAnime)
-                    SliverToBoxAdapter(
-                      child: EpisodeNavigator(
-                        tmdbId: widget.tmdbId,
-                        initialSeason: _currentSeason,
-                        initialEpisode: _currentEpisode,
-                        onSeasonChanged: _onSeasonChanged,
-                        onEpisodeChanged: _onEpisodeChanged,
-                      ),
-                    ),
-                  SliverToBoxAdapter(child: _buildMoreLikeThisSection()),
-                  const SliverToBoxAdapter(child: SizedBox(height: 40)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPlayerStack() {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        if (_embedReady && !_iframeFailed)
-          Positioned.fill(child: HtmlElementView(viewType: _viewType)),
-        if (_embedReady && _isLoading && !_iframeFailed)
-          const Center(
-            child: CircularProgressIndicator(color: AppTheme.deepRose),
-          ),
-        if (_embedReady && _iframeFailed) _buildErrorCard(context),
-        if (!_embedReady) _buildConfirmationCard(),
-      ],
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // TOP BAR
-  // ---------------------------------------------------------------------------
-
-  Widget _buildTopBar() {
-    return Container(
-      height: 52,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.deepBlack,
-        border: Border(
-          bottom: BorderSide(color: AppColors.border, width: 1),
-        ),
-      ),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            // Top control & details bar
+            Container(
+              height: 56,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: AppColors.velvet,
-                borderRadius: BorderRadius.circular(AppRadius.sm),
-                border: Border.all(color: AppColors.border, width: 1),
+                color: Colors.black,
+                border: Border(
+                  bottom: BorderSide(
+                    color: Colors.grey[900]!,
+                    width: 1,
+                  ),
+                ),
               ),
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.arrow_back_ios_new_rounded,
-                      color: AppColors.petalWhite, size: 12),
-                  const SizedBox(width: 4),
-                  Text('Back',
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[900],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey[800]!, width: 1),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 14),
+                          SizedBox(width: 6),
+                          Text(
+                            'Back',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      widget.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.outfit(
-                          color: AppColors.petalWhite,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12)),
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  if (!_isLoading && !_iframeFailed) ...[
+                    GestureDetector(
+                      onTap: _onIframeLoadError,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[900],
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: AppTheme.deepRose.withValues(alpha: 0.4),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.swap_horiz_rounded,
+                                color: Colors.white70, size: 14),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Try Another Source',
+                              style: GoogleFonts.outfit(
+                                color: Colors.white70,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  _buildProviderBadge(),
                 ],
               ),
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(widget.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.outfit(
-                    color: AppColors.petalWhite,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700)),
-          ),
-          if (_embedReady && !_isLoading && !_iframeFailed) ...[
-            GestureDetector(
-              onTap: _onIframeLoadError,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                decoration: BoxDecoration(
-                  color: AppColors.velvet,
-                  borderRadius: BorderRadius.circular(AppRadius.full),
-                  border: Border.all(
-                      color: AppColors.deepRose.withValues(alpha: 0.4),
-                      width: 1),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.swap_horiz_rounded,
-                        color: Colors.white70, size: 14),
-                    const SizedBox(width: 4),
-                    Text('Try Another Source',
-                        style: GoogleFonts.outfit(
-                            color: Colors.white70,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700)),
-                  ],
-                ),
+            // Player iframe area
+            Expanded(
+              child: Stack(
+                children: [
+                  if (!_iframeFailed) HtmlElementView(viewType: _viewType),
+                  if (_isLoading && !_iframeFailed)
+                    const Center(
+                      child: CircularProgressIndicator(color: AppTheme.deepRose),
+                    ),
+                  if (_iframeFailed) _buildErrorCard(context),
+                ],
               ),
             ),
-            const SizedBox(width: 8),
+            // Episode Navigator for TV content
+            if (widget.mediaType == 'tv' && !widget.isAnime)
+              EpisodeNavigator(
+                tmdbId: widget.tmdbId,
+                initialSeason: _currentSeason,
+                initialEpisode: _currentEpisode,
+                onSeasonChanged: _onSeasonChanged,
+                onEpisodeChanged: _onEpisodeChanged,
+              ),
+            _buildMetadataSection(),
+            _buildServerSelectorSection(),
+            _buildMoreLikeThisSection(),
+            const SizedBox(height: 40),
           ],
-          _buildProviderBadge(),
-        ],
+        ),
       ),
     );
   }
+
 
   // ---------------------------------------------------------------------------
   // METADATA SECTION
   // ---------------------------------------------------------------------------
 
   Widget _buildMetadataSection() {
-    // Extract genres from fetched details
     final genres = _details?['genres'] as List?;
-    final genreNames = genres
-        ?.map((g) => g is Map ? (g['name']?.toString() ?? '') : g.toString())
-        .where((n) => n.isNotEmpty)
-        .toList();
-
-    // Overview / synopsis
+    final genreNames = genres?.map((g) => g is Map ? (g['name']?.toString() ?? '') : g.toString()).where((n) => n.isNotEmpty).toList();
     final overview = (_details?['overview'] ?? '') as String;
-
-    // Rating
     final ratingNum = _details?['vote_average'] as num?;
     final rating = ratingNum != null ? ratingNum.toDouble().toStringAsFixed(1) : null;
-
-    // Runtime
     final runtime = _details?['runtime'] as int?;
-    final episodeRunTimes = _details?['episode_run_time'] as List?;
-    final effectiveRuntime = runtime ??
-        (episodeRunTimes != null && episodeRunTimes.isNotEmpty
-            ? episodeRunTimes.first as int?
-            : null);
+    final epRun = _details?['episode_run_time'] as List?;
+    final effRuntime = runtime ?? (epRun != null && epRun.isNotEmpty ? epRun.first as int? : null);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(widget.title,
-              style: GoogleFonts.cormorantGaramond(
-                  color: AppColors.petalWhite,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700)),
+          Text(widget.title, style: GoogleFonts.cormorantGaramond(color: AppColors.petalWhite, fontSize: 24, fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
-          // Meta badges row
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: [
-              _buildMetaBadge(
-                  Icons.source_rounded, _selectedProvider.shortName,
-                  accent: true),
-              _buildMetaBadge(
-                  widget.mediaType == 'movie'
-                      ? Icons.movie_rounded
-                      : Icons.tv_rounded,
-                  widget.mediaType == 'movie' ? 'Movie' : 'TV Show'),
-              if (widget.mediaType == 'tv')
-                _buildMetaBadge(Icons.layers_rounded,
-                    'S${_currentSeason} E${_currentEpisode}'),
-              if (rating != null)
-                _buildMetaBadge(Icons.star_rounded, '$rating/10'),
-              if (effectiveRuntime != null && effectiveRuntime > 0)
-                _buildMetaBadge(Icons.schedule_rounded, '${effectiveRuntime}m'),
-            ],
-          ),
-          // Genre chips
+          Wrap(spacing: 8, runSpacing: 6, children: [
+            _metaBadge(Icons.source_rounded, _selectedProvider.shortName, accent: true),
+            _metaBadge(widget.mediaType == 'movie' ? Icons.movie_rounded : Icons.tv_rounded, widget.mediaType == 'movie' ? 'Movie' : 'TV Show'),
+            if (widget.mediaType == 'tv') _metaBadge(Icons.layers_rounded, 'S${_currentSeason} E${_currentEpisode}'),
+            if (rating != null) _metaBadge(Icons.star_rounded, '\$rating/10'),
+            if (effRuntime != null && effRuntime > 0) _metaBadge(Icons.schedule_rounded, '\${effRuntime}m'),
+          ]),
           if (genreNames != null && genreNames.isNotEmpty) ...[
             const SizedBox(height: 10),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: genreNames
-                  .take(5)
-                  .map((g) => Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceGlass,
-                          borderRadius: BorderRadius.circular(AppRadius.xs),
-                        ),
-                        child: Text(g,
-                            style: GoogleFonts.outfit(
-                                color: AppColors.textMuted,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500)),
-                      ))
-                  .toList(),
-            ),
+            Wrap(spacing: 6, runSpacing: 6, children: genreNames.take(5).map((g) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: AppColors.surfaceGlass, borderRadius: BorderRadius.circular(AppRadius.xs)),
+              child: Text(g, style: GoogleFonts.outfit(color: AppColors.textMuted, fontSize: 11)),
+            )).toList()),
           ],
-          // Synopsis
           if (overview.isNotEmpty) ...[
             const SizedBox(height: 14),
-            Text(overview,
-                style: GoogleFonts.outfit(
-                    color: AppColors.textMedium,
-                    fontSize: 13,
-                    height: 1.5)),
+            Text(overview, style: GoogleFonts.outfit(color: AppColors.textMedium, fontSize: 13, height: 1.5)),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildMetaBadge(IconData icon, String label,
-      {bool accent = false}) {
+  Widget _metaBadge(IconData icon, String label, {bool accent = false}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: accent
-            ? AppColors.deepRose.withValues(alpha: 0.15)
-            : AppColors.surfaceGlass,
+        color: accent ? AppColors.deepRose.withValues(alpha: 0.15) : AppColors.surfaceGlass,
         borderRadius: BorderRadius.circular(AppRadius.xs),
-        border: accent
-            ? Border.all(
-                color: AppColors.deepRose.withValues(alpha: 0.4), width: 1)
-            : null,
+        border: accent ? Border.all(color: AppColors.deepRose.withValues(alpha: 0.4), width: 1) : null,
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon,
-              color: accent ? AppColors.deepRose : AppColors.textMuted, size: 12),
-          const SizedBox(width: 4),
-          Text(label,
-              style: GoogleFonts.outfit(
-                  color: accent ? AppColors.deepRose : AppColors.textMuted,
-                  fontSize: 11,
-                  fontWeight: accent ? FontWeight.w700 : FontWeight.w600)),
-        ],
-      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, color: accent ? AppColors.deepRose : AppColors.textMuted, size: 12),
+        const SizedBox(width: 4),
+        Text(label, style: GoogleFonts.outfit(color: accent ? AppColors.deepRose : AppColors.textMuted, fontSize: 11, fontWeight: accent ? FontWeight.w700 : FontWeight.w600)),
+      ]),
     );
   }
 
@@ -883,46 +726,16 @@ _currentSeason = widget.season ?? 1;
         onTap: () => _showProviderSheet(),
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
-          decoration: BoxDecoration(
-            color: AppColors.velvet.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(AppRadius.sm),
-            border: Border.all(color: AppColors.border, width: 1),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: AppColors.deepRose,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                        color: AppColors.deepRose.withValues(alpha: 0.5),
-                        blurRadius: 6),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Server: ${_selectedProvider.name}',
-                        style: GoogleFonts.outfit(
-                            color: AppColors.petalWhite,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700)),
-                    Text(_selectedProvider.desc,
-                        style: GoogleFonts.outfit(
-                            color: AppColors.textMuted, fontSize: 11)),
-                  ],
-                ),
-              ),
-              const Icon(Icons.swap_horiz_rounded,
-                  color: Colors.white38, size: 18),
-            ],
-          ),
+          decoration: BoxDecoration(color: AppColors.velvet.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(AppRadius.sm), border: Border.all(color: AppColors.border, width: 1)),
+          child: Row(children: [
+            Container(width: 8, height: 8, decoration: BoxDecoration(color: AppColors.deepRose, shape: BoxShape.circle, boxShadow: [BoxShadow(color: AppColors.deepRose.withValues(alpha: 0.5), blurRadius: 6)])),
+            const SizedBox(width: 10),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Server: \${_selectedProvider.name}', style: GoogleFonts.outfit(color: AppColors.petalWhite, fontSize: 13, fontWeight: FontWeight.w700)),
+              Text(_selectedProvider.desc, style: GoogleFonts.outfit(color: AppColors.textMuted, fontSize: 11)),
+            ])),
+            Icon(Icons.swap_horiz_rounded, color: AppColors.textMuted, size: 18),
+          ]),
         ),
       ),
     );
@@ -933,93 +746,34 @@ _currentSeason = widget.season ?? 1;
   // ---------------------------------------------------------------------------
 
   Widget _buildMoreLikeThisSection() {
-    if (_isLoadingSimilar) {
-      return const Padding(
-        padding: EdgeInsets.all(20),
-        child: Center(
-          child: CircularProgressIndicator(
-              color: AppTheme.deepRose, strokeWidth: 2),
-        ),
-      );
-    }
+    if (_isLoadingSimilar) return const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator(color: AppTheme.deepRose, strokeWidth: 2)));
     if (_similar.isEmpty) return const SizedBox.shrink();
-
     return Padding(
       padding: const EdgeInsets.only(top: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Text('More Like This',
-                style: GoogleFonts.cormorantGaramond(
-                    color: AppColors.petalWhite,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700)),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 180,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: _similar.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 12),
-              itemBuilder: (context, index) {
-                final item = _similar[index];
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                    final id =
-                        item.isAnime ? (item.anilistId ?? item.tmdbId) : item.tmdbId;
-                    final malIdParam =
-                        item.isAnime ? '&malId=${item.tmdbId}' : '';
-                    context.push(
-                        '/cinema/video/$id?type=${item.mediaType}&title=${Uri.encodeComponent(item.title)}&anime=${item.isAnime}$malIdParam');
-                  },
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Container(
-                          width: 110,
-                          height: 140,
-                          color: Colors.white.withValues(alpha: 0.06),
-                          child: item.posterPath.isNotEmpty
-                              ? Image.network(
-                                  item.posterPath.startsWith('http')
-                                      ? item.posterPath
-                                      : 'https://image.tmdb.org/t/p/w342${item.posterPath}',
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => const Center(
-                                      child: Icon(Icons.movie_rounded,
-                                          color: Colors.white24, size: 32)),
-                                )
-                              : const Center(
-                                  child: Icon(Icons.movie_rounded,
-                                      color: Colors.white24, size: 32)),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      SizedBox(
-                        width: 110,
-                        child: Text(item.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.outfit(
-                                color: AppColors.textMuted,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600)),
-                      ),
-                    ],
-                  ),
-                );
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Text('More Like This', style: GoogleFonts.cormorantGaramond(color: AppColors.petalWhite, fontSize: 18, fontWeight: FontWeight.w700))),
+        const SizedBox(height: 12),
+        SizedBox(height: 180, child: ListView.separated(
+          scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 20),
+          itemCount: _similar.length, separatorBuilder: (_, _) => const SizedBox(width: 12),
+          itemBuilder: (context, index) {
+            final item = _similar[index];
+            return GestureDetector(
+              onTap: () {
+                Navigator.pop(context);
+                final id = item.isAnime ? (item.anilistId ?? item.tmdbId) : item.tmdbId;
+                final mp = item.isAnime ? '&malId=\${item.tmdbId}' : '';
+                context.push('/cinema/video/\$id?type=\${item.mediaType}&title=\${Uri.encodeComponent(item.title)}&anime=\${item.isAnime}\$mp');
               },
-            ),
-          ),
-        ],
-      ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                ClipRRect(borderRadius: BorderRadius.circular(10), child: Container(width: 110, height: 140, color: Colors.white.withValues(alpha: 0.06), child: item.posterPath.isNotEmpty ? Image.network(item.posterPath.startsWith('http') ? item.posterPath : 'https://image.tmdb.org/t/p/w342\${item.posterPath}', fit: BoxFit.cover, errorBuilder: (_, _, _) => const Center(child: Icon(Icons.movie_rounded, color: Colors.white24, size: 32))) : const Center(child: Icon(Icons.movie_rounded, color: Colors.white24, size: 32)))),
+                const SizedBox(height: 6),
+                SizedBox(width: 110, child: Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600))),
+              ]),
+            );
+          },
+        )),
+      ]),
     );
   }
 
@@ -1193,7 +947,7 @@ _currentSeason = widget.season ?? 1;
         .where((p) => p.id != active.id)
         .toList();
     return Container(
-      color: AppColors.deepBlack,
+      color: Colors.black,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1310,103 +1064,6 @@ _currentSeason = widget.season ?? 1;
                   ),
                 ],
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // CONFIRMATION CARD (FluxTV-style "Before you continue" gate)
-  // ---------------------------------------------------------------------------
-
-  Widget _buildConfirmationCard() {
-    return Container(
-      color: AppColors.deepBlack,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const SizedBox(height: 0),
-          Text(
-            widget.title,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.outfit(
-              color: AppColors.petalWhite,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: AppColors.deepRose.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(AppRadius.xs),
-              border: Border.all(
-                color: AppColors.deepRose.withValues(alpha: 0.4),
-                width: 1,
-              ),
-            ),
-            child: Text(
-              _selectedProvider.name,
-              style: GoogleFonts.outfit(
-                color: AppColors.roseQuartz,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          GestureDetector(
-            onTap: _startPlayback,
-            child: Container(
-              width: 200,
-              height: 44,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppTheme.deepRose, const Color(0xFF8E1444)],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.deepRose.withValues(alpha: 0.45),
-                    blurRadius: 20,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.play_arrow_rounded,
-                      color: Colors.white, size: 22),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Start Watching',
-                    style: GoogleFonts.outfit(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'This loads a third-party video source.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.outfit(
-              color: Colors.white38,
-              fontSize: 12,
             ),
           ),
         ],
