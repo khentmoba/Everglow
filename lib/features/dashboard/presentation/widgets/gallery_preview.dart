@@ -14,7 +14,46 @@ class GalleryPreview extends StatelessWidget {
       stream: GalleryService().getRecentPhotos(limit: 6),
       builder: (context, snapshot) {
         final photos = snapshot.data ?? [];
-        if (photos.isEmpty) return const SizedBox.shrink();
+        if (photos.isEmpty) {
+          return GestureDetector(
+            onTap: () => context.push('/gallery'),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: AppTheme.blushGold.withValues(alpha: 0.15),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.photo_library_rounded,
+                    color: AppTheme.blushGold,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Your gallery is empty — add your first photo!',
+                      style: GoogleFonts.outfit(
+                        fontSize: 12,
+                        color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.add_circle_outline,
+                    color: AppTheme.blushGold.withValues(alpha: 0.5),
+                    size: 18,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
 
         return GestureDetector(
           onTap: () => context.push('/gallery'),

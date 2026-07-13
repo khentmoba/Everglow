@@ -14,7 +14,46 @@ class CalendarPreview extends StatelessWidget {
       stream: CalendarService().getUpcomingEvents(days: 30),
       builder: (context, snapshot) {
         final events = snapshot.data ?? [];
-        if (events.isEmpty) return const SizedBox.shrink();
+        if (events.isEmpty) {
+          return GestureDetector(
+            onTap: () => context.push('/calendar'),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: AppTheme.blushGold.withValues(alpha: 0.15),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.calendar_today_rounded,
+                    color: AppTheme.blushGold,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'No upcoming dates — tap to add one!',
+                      style: GoogleFonts.outfit(
+                        fontSize: 12,
+                        color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.add_circle_outline,
+                    color: AppTheme.blushGold.withValues(alpha: 0.5),
+                    size: 18,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
 
         return GestureDetector(
           onTap: () => context.push('/calendar'),

@@ -17,7 +17,44 @@ class BucketListPreview extends StatelessWidget {
       stream: service.watchAll(),
       builder: (context, snapshot) {
         final all = snapshot.data ?? [];
-        if (all.isEmpty) return const SizedBox.shrink();
+        if (all.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: GestureDetector(
+              onTap: () => context.push('/bucket-list'),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AppTheme.blushGold.withValues(alpha: 0.15),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Text('🌟', style: TextStyle(fontSize: 18)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Your bucket list is empty — add your first dream!',
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.add_circle_outline,
+                      color: AppTheme.blushGold.withValues(alpha: 0.5),
+                      size: 18,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
 
         final completed = all.where((i) => i.status == BucketStatus.completed).length;
         final total = all.length;
