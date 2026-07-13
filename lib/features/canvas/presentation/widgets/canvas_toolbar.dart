@@ -3,13 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 
-enum CanvasTool { pen, eraser }
+enum CanvasTool { pen, eraser, text }
 
 class CanvasToolbar extends StatelessWidget {
   final CanvasTool activeTool;
   final String activeColor;
+  final double strokeWidth;
   final Function(CanvasTool) onToolChanged;
   final Function(String) onColorChanged;
+  final Function(double) onStrokeWidthChanged;
   final VoidCallback onClear;
   final VoidCallback onUndo;
   final VoidCallback onRedo;
@@ -20,8 +22,10 @@ class CanvasToolbar extends StatelessWidget {
     super.key,
     required this.activeTool,
     required this.activeColor,
+    this.strokeWidth = 3.0,
     required this.onToolChanged,
     required this.onColorChanged,
+    required this.onStrokeWidthChanged,
     required this.onClear,
     required this.onUndo,
     required this.onRedo,
@@ -75,6 +79,11 @@ class CanvasToolbar extends StatelessWidget {
                     isActive: activeTool == CanvasTool.eraser,
                     onTap: () => onToolChanged(CanvasTool.eraser),
                   ),
+                  _ToolButton(
+                    icon: Icons.text_fields_rounded,
+                    isActive: activeTool == CanvasTool.text,
+                    onTap: () => onToolChanged(CanvasTool.text),
+                  ),
                   
                   const _VerticalDivider(),
 
@@ -103,6 +112,29 @@ class CanvasToolbar extends StatelessWidget {
                       onColorChanged(hex);
                     },
                   )),
+
+                  const _VerticalDivider(),
+
+                  // Stroke Width Slider
+                  SizedBox(
+                    width: 80,
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        trackHeight: 3,
+                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                        activeTrackColor: AppTheme.roseQuartz,
+                        inactiveTrackColor: AppTheme.moonlight.withValues(alpha: 0.15),
+                        thumbColor: AppTheme.blushGold,
+                        overlayColor: AppTheme.blushGold.withValues(alpha: 0.1),
+                      ),
+                      child: Slider(
+                        value: strokeWidth,
+                        min: 1.0,
+                        max: 12.0,
+                        onChanged: onStrokeWidthChanged,
+                      ),
+                    ),
+                  ),
 
                   const _VerticalDivider(),
 

@@ -54,7 +54,7 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
                 'Play against your partner',
                 style: GoogleFonts.outfit(
                   fontSize: 14,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                  color: AppTheme.petalWhite.withValues(alpha: 0.75),
                 ),
               ),
               const SizedBox(height: 48),
@@ -70,7 +70,7 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
                   'Room: $_roomId',
                   style: GoogleFonts.outfit(
                     fontSize: 12,
-                    color: AppTheme.petalWhite.withValues(alpha: 0.3),
+                    color: AppTheme.petalWhite.withValues(alpha: 0.55),
                   ),
                 ),
             ],
@@ -159,7 +159,7 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
           child: Text(
             'Cancel',
             style: GoogleFonts.outfit(
-              color: AppTheme.petalWhite.withValues(alpha: 0.5),
+              color: AppTheme.petalWhite.withValues(alpha: 0.7),
             ),
           ),
         ),

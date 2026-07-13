@@ -70,7 +70,7 @@ class NoteCard extends StatelessWidget {
                     _getCountdownText(note.unlockDate),
                     style: GoogleFonts.outfit(
                       fontSize: 11,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                      color: AppTheme.petalWhite.withValues(alpha: 0.75),
                       fontWeight: FontWeight.w600,
                     ),
                   ),

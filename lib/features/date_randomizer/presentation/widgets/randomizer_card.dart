@@ -109,7 +109,7 @@ class _RandomizerCardState extends State<RandomizerCard>
             Text(
               'SPIN FOR A DATE DESTINY',
               style: GoogleFonts.outfit(
-                color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                color: AppTheme.petalWhite.withValues(alpha: 0.75),
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.5,
@@ -117,7 +117,11 @@ class _RandomizerCardState extends State<RandomizerCard>
             ),
             const SizedBox(height: 12),
             // AI Mode toggle
-            GestureDetector(
+            Semantics(
+              label: _useAI ? 'AI mode enabled. Tap to switch to random.' : 'Random mode. Tap to enable AI.',
+              button: true,
+              toggled: _useAI,
+              child: GestureDetector(
               onTap: () => setState(() => _useAI = !_useAI),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -138,7 +142,7 @@ class _RandomizerCardState extends State<RandomizerCard>
                     Icon(
                       _useAI ? Icons.auto_awesome_rounded : Icons.shuffle_rounded,
                       size: 14,
-                      color: _useAI ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.5),
+                      color: _useAI ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.7),
                     ),
                     const SizedBox(width: 6),
                     Text(
@@ -146,12 +150,13 @@ class _RandomizerCardState extends State<RandomizerCard>
                       style: GoogleFonts.outfit(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: _useAI ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.5),
+                        color: _useAI ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.7),
                       ),
                     ),
                   ],
                 ),
               ),
+             ),
             ),
             const SizedBox(height: 40),
             RotationTransition(
@@ -166,7 +171,7 @@ class _RandomizerCardState extends State<RandomizerCard>
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: AppTheme.blushGold.withValues(alpha: 0.3),
+                        color: AppTheme.blushGold.withValues(alpha: 0.65),
                         width: 8,
                       ),
                     ),

@@ -62,8 +62,11 @@ class _HeartEmojiState extends State<HeartEmoji> with SingleTickerProviderStateM
         color: Colors.transparent,
         shape: const CircleBorder(),
         clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: widget.onTap,
+        child: Semantics(
+          button: true,
+          label: 'Mood ${widget.emoji}${widget.isSelected ? ", selected" : ""}',
+          child: InkWell(
+            onTap: widget.onTap,
           splashColor: widget.glowColor.withOpacity(0.3),
           highlightColor: widget.glowColor.withOpacity(0.1),
           child: Container(
@@ -85,6 +88,7 @@ class _HeartEmojiState extends State<HeartEmoji> with SingleTickerProviderStateM
               style: const TextStyle(fontSize: 32),
             ),
           ),
+         ),
         ),
       ),
     );

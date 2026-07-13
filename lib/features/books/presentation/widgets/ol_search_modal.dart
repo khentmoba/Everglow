@@ -335,7 +335,7 @@ class _OLSearchModalState extends State<OLSearchModal> {
             decoration: InputDecoration(
               hintText: 'Search title, author, or subject...',
               hintStyle: GoogleFonts.outfit(
-                  color: AppTheme.petalWhite.withValues(alpha: 0.4)),
+                  color: AppTheme.petalWhite.withValues(alpha: 0.65)),
               prefixIcon:
                   const Icon(Icons.search, color: AppTheme.roseQuartz),
               filled: true,

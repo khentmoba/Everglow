@@ -177,7 +177,7 @@ class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
                       Text(
                         'Table Tennis runs in landscape.',
                         style: GoogleFonts.outfit(
-                          color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                          color: AppTheme.petalWhite.withValues(alpha: 0.75),
                         ),
                       ),
                       const SizedBox(height: 24),

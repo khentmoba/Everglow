@@ -7,6 +7,9 @@ class DoodleStroke {
   final double strokeWidth;
   final DateTime? createdAt;
   final String userId;
+  /// Optional text content. When non-null, this stroke is a text annotation
+  /// positioned at [points.first].
+  final String? text;
 
   DoodleStroke({
     required this.id,
@@ -15,7 +18,11 @@ class DoodleStroke {
     required this.strokeWidth,
     this.createdAt,
     required this.userId,
+    this.text,
   });
+
+  /// Whether this stroke is a text annotation rather than a freehand drawing.
+  bool get isTextAnnotation => text != null && text!.isNotEmpty;
 
   factory DoodleStroke.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -29,6 +36,7 @@ class DoodleStroke {
       strokeWidth: (data['strokeWidth'] as num?)?.toDouble() ?? 3.0,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       userId: data['userId'] ?? '',
+      text: data['text'] as String?,
     );
   }
 
@@ -39,6 +47,7 @@ class DoodleStroke {
       'strokeWidth': strokeWidth,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
       'userId': userId,
+      if (text != null) 'text': text,
     };
   }
 
@@ -49,6 +58,7 @@ class DoodleStroke {
     double? strokeWidth,
     DateTime? createdAt,
     String? userId,
+    String? text,
   }) {
     return DoodleStroke(
       id: id ?? this.id,
@@ -57,6 +67,7 @@ class DoodleStroke {
       strokeWidth: strokeWidth ?? this.strokeWidth,
       createdAt: createdAt ?? this.createdAt,
       userId: userId ?? this.userId,
+      text: text ?? this.text,
     );
   }
 }

@@ -1,16 +1,40 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Categories for star notes.
+const List<String> starCategories = [
+  'gratitude',
+  'memory',
+  'love',
+  'dream',
+  'milestone',
+  'surprise',
+];
+
+/// Emoji + label map for display.
+const Map<String, (String emoji, String label)> starCategoryInfo = {
+  'gratitude': ('🙏', 'Gratitude'),
+  'memory': ('📸', 'Memory'),
+  'love': ('💕', 'Love'),
+  'dream': ('🌙', 'Dream'),
+  'milestone': ('🎉', 'Milestone'),
+  'surprise': ('✨', 'Surprise'),
+};
+
 class StarNote {
   final String id;
   final String content;
   final String author;
   final DateTime timestamp;
+  final String category;
+  final List<String> tags;
 
   StarNote({
     required this.id,
     required this.content,
     required this.author,
     required this.timestamp,
+    this.category = 'gratitude',
+    this.tags = const [],
   });
 
   factory StarNote.fromFirestore(DocumentSnapshot doc) {
@@ -20,6 +44,11 @@ class StarNote {
       content: data['content'] ?? '',
       author: data['author'] ?? '',
       timestamp: _parseTimestamp(data['timestamp']),
+      category: data['category'] ?? 'gratitude',
+      tags: (data['tags'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
     );
   }
 
@@ -41,6 +70,8 @@ class StarNote {
       'content': content,
       'author': author,
       'timestamp': FieldValue.serverTimestamp(),
+      'category': category,
+      'tags': tags,
     };
   }
 }

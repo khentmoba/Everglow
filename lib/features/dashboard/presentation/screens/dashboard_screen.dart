@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import '../../domain/models/anniversary_counter.dart';
 import '../widgets/metric_card.dart';
 import '../widgets/letterbox_view.dart';
+import '../widgets/upcoming_countdowns.dart';
 import '../widgets/timeline_view.dart';
 import '../../../date_randomizer/presentation/widgets/randomizer_card.dart';
 import '../../../date_randomizer/data/services/date_idea_service.dart';
@@ -41,6 +42,8 @@ import '../../../../features/play_zone/presentation/widgets/play_zone_portal_car
 import '../../../../features/jukebox/presentation/widgets/jukebox_widget.dart';
 import '../../../../features/watch_party/presentation/widgets/watch_party_card.dart';
 import '../../../../features/ai/data/services/ai_service.dart';
+import '../widgets/gallery_preview.dart';
+import '../widgets/calendar_preview.dart';
 
 import 'package:everglow/shared/widgets/gamified_background.dart';
 import 'package:everglow/features/xp/data/services/xp_service.dart';
@@ -266,7 +269,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                     'since February 14, 2026',
                                     style: GoogleFonts.outfit(
                                       fontSize: 14,
-                                      color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                                      color: AppTheme.petalWhite.withValues(alpha: 0.75),
                                       fontWeight: FontWeight.w500,
                                       letterSpacing: 2.0,
                                     ),
@@ -297,6 +300,17 @@ class _DashboardScreenState extends State<DashboardScreen>
                       ),
                       _AnniversaryMetrics(animate: widget.animate),
                             const SliverToBoxAdapter(child: SizedBox(height: 32)),
+                            const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                            SliverToBoxAdapter(
+                              child: _maybeAnimate(
+                                animation: (child) => FadeInUp(
+                                  delay: const Duration(milliseconds: 850),
+                                  child: child,
+                                ),
+                                child: UpcomingCountdowns(),
+                              ),
+                            ),
+                            const SliverToBoxAdapter(child: SizedBox(height: 16)),
                             SliverToBoxAdapter(
                               child: _maybeAnimate(
                                 animation: (child) => FadeInUp(
@@ -381,7 +395,27 @@ class _DashboardScreenState extends State<DashboardScreen>
                                 child: const BooksPreview(),
                               ),
                             ),
-                            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                            SliverToBoxAdapter(
+                              child: _maybeAnimate(
+                                animation: (child) => FadeInUp(
+                                  delay: const Duration(milliseconds: 1170),
+                                  child: child,
+                                ),
+                                child: const GalleryPreview(),
+                              ),
+                            ),
+                            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                            SliverToBoxAdapter(
+                              child: _maybeAnimate(
+                                animation: (child) => FadeInUp(
+                                  delay: const Duration(milliseconds: 1175),
+                                  child: child,
+                                ),
+                                child: const CalendarPreview(),
+                              ),
+                            ),
+                            const SliverToBoxAdapter(child: SizedBox(height: 12)),
                             SliverToBoxAdapter(
                               child: _maybeAnimate(
                                 animation: (child) => FadeInUp(
@@ -456,32 +490,38 @@ class _DashboardScreenState extends State<DashboardScreen>
                       // Mochi cat button
                       Consumer<AIService>(
                         builder: (context, ai, _) {
-                          return GestureDetector(
-                            onTap: () => context.push('/mochi'),
-                            child: Container(
-                              width: 48,
-                              height: 48,
-                              margin: const EdgeInsets.only(bottom: 12),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: AppTheme.blushGold.withValues(alpha: 0.4),
-                                  width: 2,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppTheme.deepRose.withValues(alpha: 0.3),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 4),
+                          return Semantics(
+                            label: 'Open Mochi AI assistant',
+                            button: true,
+                            child: GestureDetector(
+                              onTap: () => context.push('/mochi'),
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                margin: const EdgeInsets.only(bottom: 12),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: AppTheme.blushGold.withValues(alpha: 0.6),
+                                    width: 2,
                                   ),
-                                ],
-                              ),
-                              child: ClipOval(
-                                child: Image.asset(
-                                  'assets/images/mochi_avatar.png',
-                                  width: 48,
-                                  height: 48,
-                                  fit: BoxFit.cover,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppTheme.deepRose.withValues(alpha: 0.3),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: ExcludeSemantics(
+                                  child: ClipOval(
+                                    child: Image.asset(
+                                      'assets/images/mochi_avatar.png',
+                                      width: 48,
+                                      height: 48,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -501,32 +541,36 @@ class _DashboardScreenState extends State<DashboardScreen>
                   left: 24,
                   child: FadeInDown(
                     delay: const Duration(milliseconds: 1500),
-                    child: GestureDetector(
-                      onTap: () => showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (context) => const CreatorModal(),
-                       ),
-                      child: Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.3), width: 1.5),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.deepRose.withValues(alpha: 0.15),
-                              blurRadius: 15,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.favorite_rounded,
-                          color: AppTheme.roseQuartz,
-                          size: 28,
+                    child: Semantics(
+                      label: 'Open creator tools',
+                      button: true,
+                      child: GestureDetector(
+                        onTap: () => showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (context) => const CreatorModal(),
+                         ),
+                        child: Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.65), width: 1.5),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.deepRose.withValues(alpha: 0.15),
+                                blurRadius: 15,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.favorite_rounded,
+                            color: AppTheme.roseQuartz,
+                            size: 28,
+                          ),
                         ),
                       ),
                     ),
@@ -546,27 +590,31 @@ class _DashboardScreenState extends State<DashboardScreen>
                         const SizedBox(width: 16),
                         const DashboardActions(),
                         const SizedBox(width: 16),
-                        GestureDetector(
-                          onTap: () => context.push('/canvas'),
-                          child: Container(
-                            width: 56,
-                            height: 56,
-                            decoration: BoxDecoration(
-                              color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
-                              shape: BoxShape.circle,
-                              border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.3), width: 1.5),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppTheme.deepRose.withValues(alpha: 0.15),
-                                  blurRadius: 15,
-                                  offset: const Offset(0, 5),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.brush_rounded,
-                              color: AppTheme.roseQuartz,
-                              size: 28,
+                        Semantics(
+                          label: 'Open Everglow Canvas',
+                          button: true,
+                          child: GestureDetector(
+                            onTap: () => context.push('/canvas'),
+                            child: Container(
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.65), width: 1.5),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.deepRose.withValues(alpha: 0.15),
+                                    blurRadius: 15,
+                                    offset: const Offset(0, 5),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.brush_rounded,
+                                color: AppTheme.roseQuartz,
+                                size: 28,
+                              ),
                             ),
                           ),
                         ),
@@ -581,26 +629,30 @@ class _DashboardScreenState extends State<DashboardScreen>
                   right: 24,
                   child: FadeInDown(
                     delay: const Duration(milliseconds: 1500),
-                    child: GestureDetector(
-                      onTap: () => context.push('/sanctuary'),
-                      child: Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: AppTheme.deepRose,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.deepRose.withValues(alpha: 0.3),
-                              blurRadius: 15,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.chat_bubble_outline_rounded,
-                          color: AppTheme.petalWhite,
-                          size: 28,
+                    child: Semantics(
+                      label: 'Open Sanctuary chat',
+                      button: true,
+                      child: GestureDetector(
+                        onTap: () => context.push('/sanctuary'),
+                        child: Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: AppTheme.deepRose,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.deepRose.withValues(alpha: 0.3),
+                                blurRadius: 15,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.chat_bubble_outline_rounded,
+                            color: AppTheme.petalWhite,
+                            size: 28,
+                          ),
                         ),
                       ),
                     ),

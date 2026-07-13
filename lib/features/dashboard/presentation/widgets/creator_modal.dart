@@ -34,6 +34,35 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
   final _letterContentController = TextEditingController();
   DateTime _letterUnlockDate = DateTime.now().add(const Duration(days: 1));
   bool _isSavingLetter = false;
+  String? _selectedTemplate;
+
+  // Letter templates
+  static const List<Map<String, String>> _letterTemplates = [
+    {
+      'name': 'Love Letter',
+      'icon': '💌',
+      'title': 'To My Love',
+      'content': 'I wanted to take a moment to tell you how much you mean to me. Every day with you feels like a beautiful dream I never want to wake up from...',
+    },
+    {
+      'name': 'Appreciation',
+      'icon': '🙏',
+      'title': 'Thank You For Everything',
+      'content': 'I notice all the little things you do, and I want you to know how grateful I am. You make my world brighter in ways you probably don\'t even realize...',
+    },
+    {
+      'name': 'Memory Recap',
+      'icon': '⭐',
+      'title': 'Remember When...',
+      'content': 'I was thinking about that time we... and it made me smile. I want to make sure we never forget these precious moments together...',
+    },
+    {
+      'name': 'Future Dreams',
+      'icon': '🌈',
+      'title': 'Our Future Together',
+      'content': 'I dream about all the adventures we\'ll share, the places we\'ll go, and the memories we\'ll create. Here\'s what I hope for us...',
+    },
+  ];
 
   @override
   void initState() {
@@ -235,6 +264,52 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Template picker
+            Text(
+              'Start from a template (optional)',
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.pink.shade700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _letterTemplates.map((t) {
+                  final isSelected = _selectedTemplate == t['name'];
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      selected: isSelected,
+                      label: Text('${t['icon']} ${t['name']}'),
+                      labelStyle: GoogleFonts.outfit(
+                        fontSize: 12,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        color: isSelected ? Colors.white : Colors.pink.shade600,
+                      ),
+                      selectedColor: Colors.pinkAccent,
+                      backgroundColor: Colors.pink.shade50,
+                      onSelected: (_) {
+                        setState(() {
+                          if (isSelected) {
+                            _selectedTemplate = null;
+                            _letterTitleController.clear();
+                            _letterContentController.clear();
+                          } else {
+                            _selectedTemplate = t['name'];
+                            _letterTitleController.text = t['title']!;
+                            _letterContentController.text = t['content']!;
+                          }
+                        });
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 20),
             _buildTextField(
               controller: _letterTitleController,
               label: 'Letter Title',
