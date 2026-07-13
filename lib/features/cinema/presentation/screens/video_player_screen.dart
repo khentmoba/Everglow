@@ -73,6 +73,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Timer? _loadTimer;
   Timer? _contentCheckTimer;
   JSFunction? _messageListener;
+  final ScrollController _scrollController = ScrollController();
 
   /// Tracks whether we've saved the initial "watching" status for this
   /// playback session so we don't spam Firestore on every rebuild.
@@ -403,6 +404,16 @@ _currentSeason = widget.season ?? 1;
         if (type == 'MEDIA_DATA' || type == 'PLAYER_EVENT') {
           _contentCheckTimer?.cancel();
         }
+        // Forward wheel events from proxied iframe to scroll view
+        if (type == 'proxyEmbed_scroll' && _scrollController.hasClients) {
+          final deltaY = (map['deltaY'] as num?)?.toDouble() ?? 0;
+          _scrollController.jumpTo(
+            (_scrollController.offset + deltaY).clamp(
+              _scrollController.position.minScrollExtent,
+              _scrollController.position.maxScrollExtent,
+            ),
+          );
+        }
       } catch (_) {} // ignore cross-origin / parse errors
     }).toJS;
   }
@@ -481,6 +492,7 @@ _currentSeason = widget.season ?? 1;
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _loadTimer?.cancel();
     _contentCheckTimer?.cancel();
     if (_onLoadListener != null) {
@@ -600,6 +612,7 @@ _currentSeason = widget.season ?? 1;
             _buildTopBar(),
             Expanded(
               child: CustomScrollView(
+                controller: _scrollController,
                 physics: const BouncingScrollPhysics(),
                 slivers: [
                   SliverToBoxAdapter(
