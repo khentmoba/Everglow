@@ -451,11 +451,11 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                 const SizedBox(height: 4),
 
                 // ── Jar + Stars ──
-                Expanded(
+                SizedBox(
+                  height: 480,
                   child: Center(
                     child: SizedBox(
                       width: 400,
-                      height: 480,
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
