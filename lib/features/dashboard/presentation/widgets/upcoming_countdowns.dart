@@ -18,7 +18,32 @@ class UpcomingCountdowns extends StatelessWidget {
       stream: _calendarService.getUpcomingEvents(days: 60),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const SizedBox.shrink();
+          return GestureDetector(
+            onTap: () => context.push('/calendar'),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              child: Row(
+                children: [
+                  Text(
+                    'Coming Up',
+                    style: GoogleFonts.cormorantGaramond(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.roseQuartz,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'Add dates →',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      color: AppTheme.blushGold.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
         }
 
         final events = snapshot.data!;

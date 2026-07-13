@@ -44,6 +44,7 @@ import '../../../../features/watch_party/presentation/widgets/watch_party_card.d
 import '../../../../features/ai/data/services/ai_service.dart';
 import '../widgets/gallery_preview.dart';
 import '../widgets/calendar_preview.dart';
+import '../../../../features/bucket_list/presentation/widgets/bucket_list_preview.dart';
 
 import 'package:everglow/shared/widgets/gamified_background.dart';
 import 'package:everglow/features/xp/data/services/xp_service.dart';
@@ -471,6 +472,15 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   child: child,
                                 ),
                                 child: const PlayZonePortalCard(),
+                              ),
+                            ),
+                            SliverToBoxAdapter(
+                              child: _maybeAnimate(
+                                animation: (child) => FadeInUp(
+                                  delay: const Duration(milliseconds: 1500),
+                                  child: child,
+                                ),
+                                child: const BucketListPreview(),
                               ),
                             ),
                             const SliverToBoxAdapter(child: SizedBox(height: 100)),
