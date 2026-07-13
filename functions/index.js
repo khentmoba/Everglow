@@ -692,40 +692,86 @@ exports.proxyEmbed = functions.https.onRequest(async (req, res) => {
     const adBlockScript = `
 <script>
 (function() {
-  // Block window.open popups
   var _origOpen = window.open;
   window.open = function(url) {
-    if (url && /ad|sponsor|promo|click|track|popup/i.test(url)) return null;
+    if (url && /ad|sponsor|promo|click|track|popup|banner|traffic|pop|redirect/i.test(url)) return null;
     return _origOpen.apply(this, arguments);
   };
-  // MutationObserver to remove dynamically injected ad elements
+  var _origFetch = window.fetch;
+  window.fetch = function(url, opts) {
+    var u = (typeof url === 'string') ? url : (url && url.url) || '';
+    if (/googlesyndication|doubleclick|adservice|adserver|adskeeper|juicyads|popads|exoclick|trafficjunky|hilltopads|propellerads|adsterra|clickadu|mgid|outbrain|taboola|pagead|google-analytics|adsbygoogle|googleads|adnxs|pubmatic|rubiconproject|openx|criteo|smartadserver|yieldmo|smaato/i.test(u)) {
+      return Promise.resolve(new Response('', {status: 204}));
+    }
+    return _origFetch.apply(this, arguments);
+  };
+  var _origXHR = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function(method, url) {
+    if (/googlesyndication|doubleclick|adservice|adserver|adskeeper|juicyads|popads|exoclick|trafficjunky|hilltopads|propellerads|adsterra|clickadu|mgid|outbrain|taboola|pagead|google-analytics|adsbygoogle/i.test(url)) {
+      return;
+    }
+    return _origXHR.apply(this, arguments);
+  };
+  function isAd(node) {
+    if (!node || node.nodeType !== 1) return false;
+    var tag = node.tagName;
+    var src = (node.src || node.getAttribute('src') || node.getAttribute('data-src') || '').toLowerCase();
+    var cls = ((node.className || '') + ' ' + (node.id || '')).toLowerCase();
+    var style = (node.getAttribute('style') || '').toLowerCase();
+    if (tag === 'IFRAME') {
+      if (/ad|sponsor|promo|click|track|pixel|beacon|popup|banner|traffic/i.test(src + ' ' + cls)) return true;
+      if (/z-index:\s*[89]\d{3,}/.test(style)) return true;
+      if (/display:\s*none|visibility:\s*hidden|width:\s*0|height:\s*0/.test(style) && /track|pixel|beacon/i.test(src + ' ' + cls)) return true;
+    }
+    if (tag === 'SCRIPT') {
+      if (/googlesyndication|doubleclick|adservice|adserver|adskeeper|juicyads|popads|exoclick|trafficjunky|hilltopads|propellerads|adsterra|clickadu|mgid|outbrain|taboola|pagead|google-analytics|adsbygoogle|googleads|popunder|onclick/i.test(src)) return true;
+    }
+    if (tag === 'DIV' || tag === 'SECTION' || tag === 'ASIDE' || tag === 'INS') {
+      if (/ad[-_]|ads[-_]|advert|sponsor|banner|promo|popup|overlay|taboola|outbrain|adsense|adsbygoogle|google_ads|ezoic|mediavine|adthrive/i.test(cls)) return true;
+      if (tag === 'INS' && /adsbygoogle/i.test(cls)) return true;
+    }
+    return false;
+  }
+  function removeAds(root) {
+    try {
+      var candidates = root.querySelectorAll('iframe, script[src], div, section, aside, ins');
+      candidates.forEach(function(el) { if (isAd(el)) el.remove(); });
+    } catch(e) {}
+  }
+  if (document.body) removeAds(document.body);
   var observer = new MutationObserver(function(mutations) {
     mutations.forEach(function(m) {
       m.addedNodes.forEach(function(node) {
-        if (node.nodeType !== 1) return;
-        var tag = node.tagName;
-        if (tag === 'IFRAME' || tag === 'SCRIPT') {
-          var src = node.src || node.getAttribute('src') || '';
-          if (/ad|sponsor|promo|click|track|pixel|beacon|popup/i.test(src)) {
-            node.remove();
-          }
-        }
-        if (tag === 'DIV') {
-          var cls = (node.className || '') + ' ' + (node.id || '');
-          if (/ad[-_]|sponsor|banner[-_]|overlay|popup[-_]|promo/i.test(cls)) {
-            node.remove();
-          }
+        if (isAd(node)) { node.remove(); return; }
+        if (node.querySelectorAll) {
+          try {
+            node.querySelectorAll('iframe, script[src], div, section, aside, ins').forEach(function(child) {
+              if (isAd(child)) child.remove();
+            });
+          } catch(e) {}
         }
       });
     });
   });
-  observer.observe(document.body, { childList: true, subtree: true });
-  // Prevent alert/confirm/prompt from ad scripts
+  observer.observe(document.documentElement, { childList: true, subtree: true });
   window.alert = function(){};
   window.confirm = function(){ return false; };
   window.prompt = function(){ return null; };
+  window.adsbygoogle = window.adsbygoogle || { push: function(){} };
+  window.googletag = window.googletag || { cmd: { push: function(fn){ fn(); } }, pubads: function(){ return { enableSingleRequest: function(){}, setTargeting: function(){} }; }, enableServices: function(){} };
+  // ── Forward wheel events to parent for scroll-through ──
+  // Without this, the iframe captures all wheel events and the
+  // parent page can't scroll on desktop.
+  document.addEventListener('wheel', function(e) {
+    try {
+      window.parent.postMessage({ type: 'proxyEmbed_scroll', deltaY: e.deltaY }, '*');
+    } catch(ex) {}
+  }, { passive: true });
+
+  setInterval(function() { if (document.body) removeAds(document.body); }, 1000);
 })();
-</script>`;
+</script>
+`
 
     // Inject before </body>
     html = html.replace(/<\/body>(?![\s\S]*<\/body>)/i, adBlockScript + '\n</body>');
