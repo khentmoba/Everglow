@@ -99,7 +99,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
       builder: (context) => CompositedTransformFollower(
         link: _layerLink,
         showWhenUnlinked: false,
-        offset: const Offset(-10, -250),
+        offset: const Offset(-10, -40),
         child: MouseRegion(
           onEnter: (_) {
             _isHoveringOverlay = true;
