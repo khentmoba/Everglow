@@ -5,6 +5,7 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:web/web.dart' as web;
@@ -55,6 +56,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// within [_loadTimeout], or fails three URL-form retries. The error
   /// card takes over from the spinner in that case.
   bool _iframeFailed = false;
+
+  /// When false, the player shows a confirmation card instead of the
+  /// iframe. The user must tap "Start Watching" to actually load the
+  /// embed — mimicking FluxTV's "Before you continue" gate which
+  /// prevents auto-firing ad scripts from triggering on iframe load.
+  bool _embedReady = false;
+
   late final String _viewType;
   late final web.HTMLIFrameElement _iframe;
   JSFunction? _onLoadListener;
@@ -75,6 +83,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// Cached username to avoid [context.read] from JS interop callbacks
   /// where the widget tree traversal can silently fail.
   String _currentUserName = '';
+
+  // ── Metadata state ─────────────────────────────────────────────────
+  Map<String, dynamic>? _details;
+  List<MediaItem> _similar = [];
+  bool _isLoadingDetails = true;
+  bool _isLoadingSimilar = true;
 
   /// How long to wait for the iframe to fire `load` before we consider
   /// the embed dead. vidsrc embeds usually load in 2-4s; 15s is a
@@ -123,12 +137,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           'autoplay; fullscreen; encrypted-media; picture-in-picture; accelerometer; gyroscope; clipboard-write'
       ..setAttribute('referrerpolicy', 'no-referrer')
       ..setAttribute('frameborder', '0')
-      ..setAttribute('scrolling', 'no');
+      ..setAttribute('scrolling', 'no')
+      ..setAttribute('sandbox',
+          'allow-scripts allow-same-origin allow-presentation allow-popups');
     _iframe.style
       ..border = '0'
       ..width = '100%'
       ..height = '100%'
       ..backgroundColor = '#000';
+    // CSS containment isolates the iframe's rendering from the parent
+    // page — prevents ad scripts from measuring or manipulating the
+    // parent DOM layout.
+    _iframe.style.setProperty('contain', 'layout style');
 
     _onLoadListener = ((web.Event _) {
       _loadTimer?.cancel();
@@ -153,15 +173,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 _currentSeason = widget.season ?? 1;
     _currentEpisode = widget.episode ?? 1;
 
-    // For anime we don't have a TMDB id on the MediaItem — the slot
-    // holds the MAL id. Resolve MAL→TMDB via ani.zip, then set the
-    // iframe's src once. If the lookup fails (no cross-reference
-    // exists) we land in the error card and offer external links.
-    if (widget.isAnime) {
-      _bootstrapAnime();
-    } else {
-      _iframe.src = _buildPlayerUrl(_selectedProvider);
-    }
+    // Fetch metadata in parallel (non-blocking for player)
+    _fetchDetails();
+    _fetchSimilar();
+
+    // NOTE: We intentionally do NOT set _iframe.src here.
+    // The embed only loads after the user taps "Start Watching" on the
+    // confirmation card (see _embedReady). This FluxTV-style gate
+    // prevents auto-firing ad scripts from triggering on iframe load.
 
     ui_web.platformViewRegistry
         .registerViewFactory(_viewType, (int viewId) => _iframe);
@@ -171,6 +190,32 @@ _currentSeason = widget.season ?? 1;
       DeviceOrientation.landscapeRight,
     ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
+  /// Called when the user taps "Start Watching" on the confirmation card.
+  /// Actually loads the embed into the iframe and starts the load timer.
+  void _startPlayback() {
+    setState(() {
+      _embedReady = true;
+      _isLoading = true;
+    });
+
+    _loadTimer?.cancel();
+    _contentCheckTimer?.cancel();
+    _loadTimer = Timer(_loadTimeout, () {
+      if (!mounted) return;
+      if (_isLoading) _onIframeLoadError();
+    });
+
+    // For anime we don't have a TMDB id on the MediaItem — the slot
+    // holds the MAL id. Resolve MAL→TMDB via ani.zip, then set the
+    // iframe's src once. If the lookup fails (no cross-reference
+    // exists) we land in the error card and offer external links.
+    if (widget.isAnime) {
+      _bootstrapAnime();
+    } else {
+      _iframe.src = _buildPlayerUrl(_selectedProvider);
+    }
   }
 
   /// Anime bootstrap: look up the TMDB id for the MAL id via ani.zip,
@@ -189,6 +234,30 @@ _currentSeason = widget.season ?? 1;
     }
     _externalTmdbId = tmdbId;
     _iframe.src = _buildPlayerUrl(_selectedProvider);
+  }
+
+  // ── Metadata fetching ─────────────────────────────────────────────
+
+  Future<void> _fetchDetails() async {
+    final tmdb = TMDBService();
+    final details = await tmdb.fetchMediaDetails(
+        widget.tmdbId, widget.mediaType);
+    if (!mounted) return;
+    setState(() {
+      _details = details;
+      _isLoadingDetails = false;
+    });
+  }
+
+  Future<void> _fetchSimilar() async {
+    final tmdb = TMDBService();
+    final results = await tmdb.fetchSimilar(
+        widget.tmdbId, widget.mediaType);
+    if (!mounted) return;
+    setState(() {
+      _similar = results;
+      _isLoadingSimilar = false;
+    });
   }
 
   /// Called when the iframe fires `error` or the [_loadTimeout] fires
@@ -510,118 +579,416 @@ _currentSeason = widget.season ?? 1;
       body: SafeArea(
         child: Column(
           children: [
-            // Top control & details bar
-            Container(
-              height: 56,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black,
-                border: Border(
-                  bottom: BorderSide(
-                    color: Colors.grey[900]!,
-                    width: 1,
-                  ),
-                ),
-              ),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[900],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[800]!, width: 1),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
+            _buildTopBar(),
+            Expanded(
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: Stack(
                         children: [
-                          Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 14),
-                          SizedBox(width: 6),
-                          Text(
-                            'Back',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                          ),
+                          if (_embedReady && !_iframeFailed)
+                            HtmlElementView(viewType: _viewType),
+                          if (_embedReady && _isLoading && !_iframeFailed)
+                            const Center(
+                              child: CircularProgressIndicator(
+                                  color: AppTheme.deepRose),
+                            ),
+                          if (_embedReady && _iframeFailed)
+                            _buildErrorCard(context),
+                          if (!_embedReady) _buildConfirmationCard(),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      widget.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.outfit(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                  SliverToBoxAdapter(child: _buildMetadataSection()),
+                  SliverToBoxAdapter(child: _buildServerSelectorSection()),
+                  if (widget.mediaType == 'tv' && !widget.isAnime)
+                    SliverToBoxAdapter(
+                      child: EpisodeNavigator(
+                        tmdbId: widget.tmdbId,
+                        initialSeason: _currentSeason,
+                        initialEpisode: _currentEpisode,
+                        onSeasonChanged: _onSeasonChanged,
+                        onEpisodeChanged: _onEpisodeChanged,
                       ),
                     ),
-                  ),
-                  if (!_isLoading && !_iframeFailed) ...[
-                    GestureDetector(
-                      onTap: _onIframeLoadError,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[900],
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: AppTheme.deepRose.withValues(alpha: 0.4),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.swap_horiz_rounded,
-                                color: Colors.white70, size: 14),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Try Another Source',
-                              style: GoogleFonts.outfit(
-                                color: Colors.white70,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  _buildProviderBadge(),
+                  SliverToBoxAdapter(child: _buildMoreLikeThisSection()),
+                  const SliverToBoxAdapter(child: SizedBox(height: 40)),
                 ],
               ),
             ),
-            // Player iframe area
-            Expanded(
-              child: Stack(
-                children: [
-                  if (!_iframeFailed) HtmlElementView(viewType: _viewType),
-                  if (_isLoading && !_iframeFailed)
-                    const Center(
-                      child: CircularProgressIndicator(color: AppTheme.deepRose),
-                    ),
-                  if (_iframeFailed) _buildErrorCard(context),
-                ],
-              ),
-            ),
-            // Episode Navigator for TV content
-            if (widget.mediaType == 'tv' && !widget.isAnime)
-              EpisodeNavigator(
-                tmdbId: widget.tmdbId,
-                initialSeason: _currentSeason,
-                initialEpisode: _currentEpisode,
-                onSeasonChanged: _onSeasonChanged,
-                onEpisodeChanged: _onEpisodeChanged,
-              ),
           ],
         ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // TOP BAR
+  // ---------------------------------------------------------------------------
+
+  Widget _buildTopBar() {
+    return Container(
+      height: 56,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black,
+        border: Border(
+          bottom: BorderSide(color: Colors.grey[900]!, width: 1),
+        ),
+      ),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey[900],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[800]!, width: 1),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.arrow_back_ios_new_rounded,
+                      color: Colors.white, size: 14),
+                  SizedBox(width: 6),
+                  Text('Back',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(widget.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.outfit(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold)),
+          ),
+          if (_embedReady && !_isLoading && !_iframeFailed) ...[
+            GestureDetector(
+              onTap: _onIframeLoadError,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.grey[900],
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                      color: AppTheme.deepRose.withValues(alpha: 0.4),
+                      width: 1),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.swap_horiz_rounded,
+                        color: Colors.white70, size: 14),
+                    const SizedBox(width: 4),
+                    Text('Try Another Source',
+                        style: GoogleFonts.outfit(
+                            color: Colors.white70,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          _buildProviderBadge(),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // METADATA SECTION
+  // ---------------------------------------------------------------------------
+
+  Widget _buildMetadataSection() {
+    // Extract genres from fetched details
+    final genres = _details?['genres'] as List?;
+    final genreNames = genres
+        ?.map((g) => g is Map ? (g['name']?.toString() ?? '') : g.toString())
+        .where((n) => n.isNotEmpty)
+        .toList();
+
+    // Overview / synopsis
+    final overview = (_details?['overview'] ?? '') as String;
+
+    // Rating
+    final ratingNum = _details?['vote_average'] as num?;
+    final rating = ratingNum != null ? ratingNum.toDouble().toStringAsFixed(1) : null;
+
+    // Runtime
+    final runtime = _details?['runtime'] as int?;
+    final episodeRunTimes = _details?['episode_run_time'] as List?;
+    final effectiveRuntime = runtime ??
+        (episodeRunTimes != null && episodeRunTimes.isNotEmpty
+            ? episodeRunTimes.first as int?
+            : null);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(widget.title,
+              style: GoogleFonts.outfit(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          // Meta badges row
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              _buildMetaBadge(
+                  Icons.source_rounded, _selectedProvider.shortName,
+                  accent: true),
+              _buildMetaBadge(
+                  widget.mediaType == 'movie'
+                      ? Icons.movie_rounded
+                      : Icons.tv_rounded,
+                  widget.mediaType == 'movie' ? 'Movie' : 'TV Show'),
+              if (widget.mediaType == 'tv')
+                _buildMetaBadge(Icons.layers_rounded,
+                    'S${_currentSeason} E${_currentEpisode}'),
+              if (rating != null)
+                _buildMetaBadge(Icons.star_rounded, '$rating/10'),
+              if (effectiveRuntime != null && effectiveRuntime > 0)
+                _buildMetaBadge(Icons.schedule_rounded, '${effectiveRuntime}m'),
+            ],
+          ),
+          // Genre chips
+          if (genreNames != null && genreNames.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: genreNames
+                  .take(5)
+                  .map((g) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(g,
+                            style: GoogleFonts.outfit(
+                                color: Colors.white54,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500)),
+                      ))
+                  .toList(),
+            ),
+          ],
+          // Synopsis
+          if (overview.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text(overview,
+                style: GoogleFonts.outfit(
+                    color: Colors.white.withValues(alpha: 0.65),
+                    fontSize: 13,
+                    height: 1.5)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetaBadge(IconData icon, String label,
+      {bool accent = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: accent
+            ? AppTheme.deepRose.withValues(alpha: 0.15)
+            : Colors.white.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(6),
+        border: accent
+            ? Border.all(
+                color: AppTheme.deepRose.withValues(alpha: 0.4), width: 1)
+            : null,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon,
+              color: accent ? AppTheme.deepRose : Colors.white60, size: 12),
+          const SizedBox(width: 4),
+          Text(label,
+              style: GoogleFonts.outfit(
+                  color: accent ? AppTheme.deepRose : Colors.white60,
+                  fontSize: 11,
+                  fontWeight: accent ? FontWeight.w700 : FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // SERVER SELECTOR
+  // ---------------------------------------------------------------------------
+
+  Widget _buildServerSelectorSection() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      child: GestureDetector(
+        onTap: () => _showProviderSheet(),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+                color: Colors.white.withValues(alpha: 0.1), width: 1),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: AppTheme.deepRose,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                        color: AppTheme.deepRose.withValues(alpha: 0.5),
+                        blurRadius: 6),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Server: ${_selectedProvider.name}',
+                        style: GoogleFonts.outfit(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700)),
+                    Text(_selectedProvider.desc,
+                        style: GoogleFonts.outfit(
+                            color: Colors.white38, fontSize: 11)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.swap_horiz_rounded,
+                  color: Colors.white38, size: 18),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // MORE LIKE THIS
+  // ---------------------------------------------------------------------------
+
+  Widget _buildMoreLikeThisSection() {
+    if (_isLoadingSimilar) {
+      return const Padding(
+        padding: EdgeInsets.all(20),
+        child: Center(
+          child: CircularProgressIndicator(
+              color: AppTheme.deepRose, strokeWidth: 2),
+        ),
+      );
+    }
+    if (_similar.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text('More Like This',
+                style: GoogleFonts.outfit(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 180,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: _similar.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final item = _similar[index];
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context);
+                    final id =
+                        item.isAnime ? (item.anilistId ?? item.tmdbId) : item.tmdbId;
+                    final malIdParam =
+                        item.isAnime ? '&malId=${item.tmdbId}' : '';
+                    context.push(
+                        '/cinema/video/$id?type=${item.mediaType}&title=${Uri.encodeComponent(item.title)}&anime=${item.isAnime}$malIdParam');
+                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          width: 110,
+                          height: 140,
+                          color: Colors.white.withValues(alpha: 0.06),
+                          child: item.posterPath.isNotEmpty
+                              ? Image.network(
+                                  item.posterPath.startsWith('http')
+                                      ? item.posterPath
+                                      : 'https://image.tmdb.org/t/p/w342${item.posterPath}',
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => const Center(
+                                      child: Icon(Icons.movie_rounded,
+                                          color: Colors.white24, size: 32)),
+                                )
+                              : const Center(
+                                  child: Icon(Icons.movie_rounded,
+                                      color: Colors.white24, size: 32)),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      SizedBox(
+                        width: 110,
+                        child: Text(item.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.outfit(
+                                color: Colors.white70,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600)),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -913,6 +1280,130 @@ _currentSeason = widget.season ?? 1;
                   ),
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // CONFIRMATION CARD (FluxTV-style "Before you continue" gate)
+  // ---------------------------------------------------------------------------
+
+  Widget _buildConfirmationCard() {
+    return Container(
+      color: Colors.black,
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [
+                  AppTheme.deepRose,
+                  AppTheme.deepRose.withValues(alpha: 0.6),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.deepRose.withValues(alpha: 0.35),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.play_arrow_rounded,
+              color: Colors.white,
+              size: 36,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            widget.title,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.outfit(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppTheme.deepRose.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppTheme.deepRose.withValues(alpha: 0.4),
+                width: 1,
+              ),
+            ),
+            child: Text(
+              _selectedProvider.name,
+              style: GoogleFonts.outfit(
+                color: AppTheme.roseQuartz,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+          GestureDetector(
+            onTap: _startPlayback,
+            child: Container(
+              width: 220,
+              height: 50,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppTheme.deepRose, const Color(0xFF8E1444)],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.deepRose.withValues(alpha: 0.45),
+                    blurRadius: 20,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.play_arrow_rounded,
+                      color: Colors.white, size: 22),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Start Watching',
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'This loads a third-party video source.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.outfit(
+              color: Colors.white38,
+              fontSize: 12,
             ),
           ),
         ],
