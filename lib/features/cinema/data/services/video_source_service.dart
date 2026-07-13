@@ -118,6 +118,15 @@ class VideoSourceService {
   // ---------------------------------------------------------------------------
   static final List<VideoSourceConfig> _hardcodedDefaults = [
     VideoSourceConfig(
+      id: 'videasy',
+      name: 'Videasy',
+      shortName: 'Videasy',
+      desc: 'Clean, modern player — least ads',
+      movieUrl: 'https://player.videasy.net/movie/',
+      tvUrl: 'https://player.videasy.net/tv/',
+      isRecommended: true,
+    ),
+    VideoSourceConfig(
       id: 'vidfast',
       name: 'VidFast',
       shortName: 'VidFast',
@@ -150,15 +159,6 @@ class VideoSourceService {
       desc: 'Direct TMDB-based source',
       movieUrl: 'https://www.2embed.cc/embed/',
       tvUrl: 'https://www.2embed.cc/embedtv/',
-    ),
-    VideoSourceConfig(
-      id: 'videasy',
-      name: 'Videasy',
-      shortName: 'Videasy',
-      desc: 'Clean, modern player',
-      movieUrl: 'https://player.videasy.net/movie/',
-      tvUrl: 'https://player.videasy.net/tv/',
-      isRecommended: true,
     ),
     VideoSourceConfig(
       id: 'vsembed',
