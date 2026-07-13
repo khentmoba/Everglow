@@ -394,9 +394,8 @@ _currentSeason = widget.season ?? 1;
         final data = msg.data;
         if (data == null) return;
 
-        // Only accept messages from the active provider's origin
-        final activeOrigin = _originForProvider(_selectedProvider.id);
-        if (origin != activeOrigin) return;
+        // Accept messages from the active provider origin OR our proxy origin
+        if (!_acceptedOrigins().contains(origin)) return;
 
         final map = data.dartify();
         if (map is! Map) return;
@@ -409,16 +408,21 @@ _currentSeason = widget.season ?? 1;
   }
 
   /// Returns the expected postMessage origin for a given provider.
-  /// Derives the origin from the provider's movie URL (the host portion).
-  String _originForProvider(String providerId) {
-    final cfg = _sourceService.byId(providerId);
-    if (cfg == null) return '';
-    try {
-      final uri = Uri.parse(cfg.movieUrl);
-      return '${uri.scheme}://${uri.host}';
-    } catch (_) {
-      return '';
+  /// Since we proxy embeds through our Cloud Function, we accept
+  /// messages from both the original provider origin and our proxy origin.
+  Set<String> _acceptedOrigins() {
+    final origins = <String>{};
+    // Add our proxy origin
+    origins.add('https://us-central1-everglow-1c6db.cloudfunctions.net');
+    // Add the original provider origin
+    final cfg = _sourceService.byId(_selectedProvider.id);
+    if (cfg != null) {
+      try {
+        final uri = Uri.parse(cfg.movieUrl);
+        origins.add('${uri.scheme}://${uri.host}');
+      } catch (_) {}
     }
+    return origins;
   }
 
   /// Load the user's saved default source from SharedPreferences.
@@ -574,8 +578,10 @@ _currentSeason = widget.season ?? 1;
   /// The URL the user can open in a new tab. Uses the same URL the
   /// iframe would use for the current provider — if every embed has
   /// failed, this gives the user a manual escape hatch.
+  /// Returns the direct (non-proxied) embed URL for manual browser opening.
+  /// Used as a last-resort escape hatch on the error card.
   String _externalOpenUrl() {
-    return _buildPlayerUrl(_activeProvider);
+    return _buildPlayerUrlWithForm(_activeProvider, _UrlForm.queryString);
   }
 
   @override
