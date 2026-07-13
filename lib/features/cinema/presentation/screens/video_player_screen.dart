@@ -143,11 +143,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       ..setAttribute('referrerpolicy', 'no-referrer')
       ..setAttribute('frameborder', '0')
       ..setAttribute('scrolling', 'no');
-    // NOTE: We intentionally do NOT add a sandbox attribute. Some embed
-    // providers (like Videasy) detect sandbox and refuse to load. FluxTV
-    // achieves ad containment through other means: referrerpolicy strips
-    // the Referer header, CSS containment isolates rendering, and the
-    // confirmation gate delays embed loading to break ad timing.
+    // Conditionally add sandbox for providers that support it.
+    // Providers like Movish and VidBolt work inside sandboxed iframes,
+    // which traps ads. Others (Videasy, VidSrc) detect sandbox and block.
+    _applySandbox();
     _iframe.style
       ..border = '0'
       ..width = '100%'
@@ -198,6 +197,17 @@ _currentSeason = widget.season ?? 1;
       DeviceOrientation.landscapeRight,
     ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
+  /// Applies or removes the sandbox attribute based on the current
+  /// provider's [VideoSourceConfig.sandboxSafe] flag.
+  void _applySandbox() {
+    if (_selectedProvider.sandboxSafe) {
+      _iframe.setAttribute('sandbox',
+          'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock');
+    } else {
+      _iframe.removeAttribute('sandbox');
+    }
   }
 
   /// Called when the user taps "Start Watching" on the confirmation card.
@@ -474,6 +484,7 @@ _currentSeason = widget.season ?? 1;
       if (!mounted) return;
       if (_isLoading) _onIframeLoadError();
     });
+    _applySandbox();
     _iframe.src = _buildPlayerUrl(provider);
   }
 
@@ -556,6 +567,13 @@ _currentSeason = widget.season ?? 1;
       } else {
         final separator = tvBase.endsWith('/') ? '' : '/';
         final base = '$tvBase$separator$id/$seasonNum/$epNum';
+        // Append provider-specific query params
+        if (tvBase.contains('vidfast.me')) {
+          return '$base?autoPlay=false&nextButton=true&autoNext=true&theme=E50914';
+        }
+        if (tvBase.contains('vidbolt')) {
+          return '$base?theme=red';
+        }
         return isVideasy
             ? '$base?autoplay=true&nextButton=true&episodeSelector=true'
             : base;
@@ -570,6 +588,12 @@ _currentSeason = widget.season ?? 1;
           ? ''
           : '/';
       final base = '$movieBase$separator$id';
+      if (movieBase.contains('vidfast.me')) {
+        return '$base?autoPlay=false&theme=E50914';
+      }
+      if (movieBase.contains('vidbolt')) {
+        return '$base?theme=red';
+      }
       return isVideasy ? '$base?autoplay=true' : base;
     }
   }
