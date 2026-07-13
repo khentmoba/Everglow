@@ -634,9 +634,10 @@ _currentSeason = widget.season ?? 1;
 
   Widget _buildPlayerStack() {
     return Stack(
+      fit: StackFit.expand,
       children: [
         if (_embedReady && !_iframeFailed)
-          HtmlElementView(viewType: _viewType),
+          Positioned.fill(child: HtmlElementView(viewType: _viewType)),
         if (_embedReady && _isLoading && !_iframeFailed)
           const Center(
             child: CircularProgressIndicator(color: AppTheme.deepRose),
