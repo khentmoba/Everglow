@@ -605,10 +605,9 @@ _currentSeason = widget.season ?? 1;
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    // On mobile, cap the player height so the confirmation card and
-    // metadata are visible without excessive scrolling. On desktop,
-    // use the standard 16:9 ratio.
-    final playerHeight = screenWidth < 600 ? screenWidth * 9 / 16 : null;
+    // Cap player height so metadata/episodes are always visible
+    // without excessive scrolling. 16:9 but capped at 400px.
+    final playerHeight = (screenWidth * 9 / 16).clamp(180.0, 400.0);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -622,15 +621,10 @@ _currentSeason = widget.season ?? 1;
                 slivers: [
                   SliverToBoxAdapter(
                     child: ClipRect(
-                      child: playerHeight != null
-                          ? SizedBox(
-                              height: playerHeight,
-                              child: _buildPlayerStack(),
-                            )
-                          : AspectRatio(
-                              aspectRatio: 16 / 9,
-                              child: _buildPlayerStack(),
-                            ),
+                      child: SizedBox(
+                        height: playerHeight,
+                        child: _buildPlayerStack(),
+                      ),
                     ),
                   ),
                   SliverToBoxAdapter(child: _buildMetadataSection()),
