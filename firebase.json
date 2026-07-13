@@ -15,6 +15,12 @@
     ],
     "headers": [
       {
+        "source": "**",
+        "headers": [
+          { "key": "Permissions-Policy", "value": "fullscreen=(self \"*\"), autoplay=(self \"*\"), picture-in-picture=(self \"*\")" }
+        ]
+      },
+      {
         "source": "/version.json",
         "headers": [
           { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
