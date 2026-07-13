@@ -209,12 +209,13 @@ _currentSeason = widget.season ?? 1;
 
   Future<void> _fetchSimilar() async {
     try {
-      final tmdb = TMDBService();
-      final results = await tmdb.fetchSimilar(widget.tmdbId, widget.mediaType);
+      final results = await TMDBService()
+          .fetchSimilar(widget.tmdbId, widget.mediaType)
+          .timeout(const Duration(seconds: 10));
       if (!mounted) return;
       setState(() { _similar = results; _isLoadingSimilar = false; });
     } catch (_) {
-      if (mounted) setState(() { _isLoadingSimilar = false; });
+      if (mounted) setState(() { _similar = []; _isLoadingSimilar = false; });
     }
   }
 
