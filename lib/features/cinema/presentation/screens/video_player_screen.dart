@@ -82,8 +82,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   // Metadata state
   Map<String, dynamic>? _details;
-  List<MediaItem> _similar = [];
-  bool _isLoadingSimilar = true;
 
   /// How long to wait for the iframe to fire `load` before we consider
   /// the embed dead. vidsrc embeds usually load in 2-4s; 15s is a
@@ -205,18 +203,6 @@ _currentSeason = widget.season ?? 1;
     final details = await tmdb.fetchMediaDetails(widget.tmdbId, widget.mediaType);
     if (!mounted) return;
     setState(() => _details = details);
-  }
-
-  Future<void> _fetchSimilar() async {
-    try {
-      final results = await TMDBService()
-          .fetchSimilar(widget.tmdbId, widget.mediaType)
-          .timeout(const Duration(seconds: 10));
-      if (!mounted) return;
-      setState(() { _similar = results; _isLoadingSimilar = false; });
-    } catch (_) {
-      if (mounted) setState(() { _similar = []; _isLoadingSimilar = false; });
-    }
   }
 
   /// Called when the iframe fires `error` or the [_loadTimeout] fires
@@ -650,7 +636,6 @@ _currentSeason = widget.season ?? 1;
               ),
             _buildMetadataSection(),
             _buildServerSelectorSection(),
-            _buildMoreLikeThisSection(),
             const SizedBox(height: 40),
           ],
         ),
@@ -750,37 +735,6 @@ _currentSeason = widget.season ?? 1;
   // MORE LIKE THIS
   // ---------------------------------------------------------------------------
 
-  Widget _buildMoreLikeThisSection() {
-    if (_isLoadingSimilar) return const Padding(padding: EdgeInsets.all(20), child: Center(child: CircularProgressIndicator(color: AppTheme.deepRose, strokeWidth: 2)));
-    if (_similar.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 24),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Text('More Like This', style: GoogleFonts.cormorantGaramond(color: AppColors.petalWhite, fontSize: 18, fontWeight: FontWeight.w700))),
-        const SizedBox(height: 12),
-        SizedBox(height: 180, child: ListView.separated(
-          scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 20),
-          itemCount: _similar.length, separatorBuilder: (_, _) => const SizedBox(width: 12),
-          itemBuilder: (context, index) {
-            final item = _similar[index];
-            return GestureDetector(
-              onTap: () {
-                Navigator.pop(context);
-                final id = item.isAnime ? (item.anilistId ?? item.tmdbId) : item.tmdbId;
-                final mp = item.isAnime ? '&malId=\${item.tmdbId}' : '';
-                context.push('/cinema/video/\$id?type=\${item.mediaType}&title=\${Uri.encodeComponent(item.title)}&anime=\${item.isAnime}\$mp');
-              },
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                ClipRRect(borderRadius: BorderRadius.circular(10), child: Container(width: 110, height: 140, color: Colors.white.withValues(alpha: 0.06), child: item.posterPath.isNotEmpty ? Image.network(item.posterPath.startsWith('http') ? item.posterPath : 'https://image.tmdb.org/t/p/w342\${item.posterPath}', fit: BoxFit.cover, errorBuilder: (_, _, _) => const Center(child: Icon(Icons.movie_rounded, color: Colors.white24, size: 32))) : const Center(child: Icon(Icons.movie_rounded, color: Colors.white24, size: 32)))),
-                const SizedBox(height: 6),
-                SizedBox(width: 110, child: Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.w600))),
-              ]),
-            );
-          },
-        )),
-      ]),
-    );
-  }
 
   /// The chip in the header that shows the current embed source. A
   /// [PopupMenuButton] that lets the user switch providers manually.
@@ -841,10 +795,12 @@ _currentSeason = widget.season ?? 1;
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
+      isScrollControlled: true,
       builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
             const SizedBox(height: 8),
             Container(
               width: 36,
@@ -934,6 +890,7 @@ _currentSeason = widget.season ?? 1;
             }),
             const SizedBox(height: 8),
           ],
+          ),
         ),
       ),
     ).then((provider) {
