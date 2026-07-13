@@ -208,10 +208,14 @@ _currentSeason = widget.season ?? 1;
   }
 
   Future<void> _fetchSimilar() async {
-    final tmdb = TMDBService();
-    final results = await tmdb.fetchSimilar(widget.tmdbId, widget.mediaType);
-    if (!mounted) return;
-    setState(() { _similar = results; _isLoadingSimilar = false; });
+    try {
+      final tmdb = TMDBService();
+      final results = await tmdb.fetchSimilar(widget.tmdbId, widget.mediaType);
+      if (!mounted) return;
+      setState(() { _similar = results; _isLoadingSimilar = false; });
+    } catch (_) {
+      if (mounted) setState(() { _isLoadingSimilar = false; });
+    }
   }
 
   /// Called when the iframe fires `error` or the [_loadTimeout] fires
@@ -673,7 +677,7 @@ _currentSeason = widget.season ?? 1;
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(widget.title, style: GoogleFonts.cormorantGaramond(color: AppColors.petalWhite, fontSize: 24, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 0),
           const SizedBox(height: 8),
           Wrap(spacing: 8, runSpacing: 6, children: [
             _metaBadge(Icons.source_rounded, _selectedProvider.shortName, accent: true),
@@ -731,7 +735,7 @@ _currentSeason = widget.season ?? 1;
             Container(width: 8, height: 8, decoration: BoxDecoration(color: AppColors.deepRose, shape: BoxShape.circle, boxShadow: [BoxShadow(color: AppColors.deepRose.withValues(alpha: 0.5), blurRadius: 6)])),
             const SizedBox(width: 10),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Server: \${_selectedProvider.name}', style: GoogleFonts.outfit(color: AppColors.petalWhite, fontSize: 13, fontWeight: FontWeight.w700)),
+              Text('Server: ${_selectedProvider.name}', style: GoogleFonts.outfit(color: AppColors.petalWhite, fontSize: 13, fontWeight: FontWeight.w700)),
               Text(_selectedProvider.desc, style: GoogleFonts.outfit(color: AppColors.textMuted, fontSize: 11)),
             ])),
             Icon(Icons.swap_horiz_rounded, color: AppColors.textMuted, size: 18),
