@@ -615,11 +615,9 @@ _currentSeason = widget.season ?? 1;
                 physics: const BouncingScrollPhysics(),
                 slivers: [
                   SliverToBoxAdapter(
-                    child: ClipRect(
-                      child: SizedBox(
-                        height: playerHeight,
-                        child: _buildPlayerStack(),
-                      ),
+                    child: SizedBox(
+                      height: playerHeight,
+                      child: _buildPlayerStack(),
                     ),
                   ),
                   SliverToBoxAdapter(child: _buildMetadataSection()),
