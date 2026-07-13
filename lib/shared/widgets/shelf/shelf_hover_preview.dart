@@ -39,13 +39,13 @@ class ShelfHoverPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 190,
+      width: 150,
       child: Material(
         color: Colors.transparent,
         child: Container(
           decoration: BoxDecoration(
             color: const Color(0xFF141418),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: accent.withValues(alpha: 0.18),
               width: 1,
@@ -53,43 +53,35 @@ class ShelfHoverPreview extends StatelessWidget {
             boxShadow: [
               BoxShadow(
                 color: accent.withValues(alpha: 0.1),
-                blurRadius: 40,
-                offset: const Offset(0, 20),
+                blurRadius: 30,
+                offset: const Offset(0, 12),
               ),
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.7),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
+                blurRadius: 20,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+            padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.only(left: 8),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      left: BorderSide(color: accent, width: 3),
-                    ),
-                  ),
-                  child: Text(
-                    title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      height: 1.2,
-                    ),
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.outfit(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    height: 1.2,
                   ),
                 ),
 
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
 
                 _HoverMetaChips(
                   episodeCount: episodeCount,
@@ -99,54 +91,20 @@ class ShelfHoverPreview extends StatelessWidget {
                 ),
 
                 if (genres.isNotEmpty) ...[
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 4),
                   Text(
-                    genres.join(', '),
+                    genres.take(3).join(', '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.outfit(
-                      fontSize: 10,
+                      fontSize: 9,
                       color: Colors.white.withValues(alpha: 0.45),
-                      height: 1.3,
+                      height: 1.2,
                     ),
                   ),
                 ],
 
-                if (synopsis != null && synopsis!.isNotEmpty) ...[
-                  const SizedBox(height: 5),
-                  Text(
-                    synopsis!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
-                      fontSize: 10,
-                      color: Colors.white.withValues(alpha: 0.5),
-                      height: 1.3,
-                    ),
-                  ),
-                ],
-
-                if (currentEpisode != null) ...[
-                  const SizedBox(height: 5),
-                  Row(
-                    children: [
-                      Icon(Icons.calendar_today_rounded,
-                          size: 9,
-                          color: accent.withValues(alpha: 0.8)),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Episode ${currentEpisode! + 1} next',
-                        style: GoogleFonts.outfit(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: accent.withValues(alpha: 0.9),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
 
                 Row(
                   children: [
@@ -157,7 +115,7 @@ class ShelfHoverPreview extends StatelessWidget {
                       accent: accent,
                       onTap: onWatch,
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 5),
                     _HoverButton(
                       label: 'Queue',
                       icon: Icons.add_rounded,
@@ -212,10 +170,10 @@ class _HoverMetaChips extends StatelessWidget {
       children: chips
           .map((c) => Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(4),
                   border: Border.all(
                     color: Colors.white.withValues(alpha: 0.1),
                     width: 0.6,
@@ -224,7 +182,7 @@ class _HoverMetaChips extends StatelessWidget {
                 child: Text(
                   c.label,
                   style: GoogleFonts.outfit(
-                    fontSize: 9,
+                    fontSize: 8,
                     fontWeight: FontWeight.w600,
                     color: Colors.white.withValues(alpha: 0.6),
                   ),
@@ -273,7 +231,7 @@ class _HoverButtonState extends State<_HoverButton> {
         child: AnimatedContainer(
           duration: ShelfMotion.orZero(const Duration(milliseconds: 160)),
           curve: ShelfMotion.easeOutStrong,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: widget.primary
                 ? (_hovered
@@ -302,12 +260,12 @@ class _HoverButtonState extends State<_HoverButton> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(widget.icon, size: 12, color: Colors.white),
-              const SizedBox(width: 4),
+              Icon(widget.icon, size: 10, color: Colors.white),
+              const SizedBox(width: 3),
               Text(
                 widget.label,
                 style: GoogleFonts.outfit(
-                  fontSize: 10,
+                  fontSize: 9,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),
