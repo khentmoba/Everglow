@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:everglow/core/utils/firestore_stream_utils.dart';
 import '../../domain/models/hidden_note.dart';
+import '../../../../core/utils/logger.dart';
 
 class LetterboxService {
   static final LetterboxService _instance = LetterboxService._internal();
@@ -27,9 +28,9 @@ class LetterboxService {
   Future<void> markAsRead(String noteId) async {
     try {
       await _db.collection('notes').doc(noteId).update({'isRead': true});
-      print("Marked note $noteId as read");
+      Logger.i("Marked note $noteId as read");
     } catch (e) {
-      print("Error marking note as read: $e");
+      Logger.e("Error marking note as read", error: e);
     }
   }
 
@@ -37,9 +38,9 @@ class LetterboxService {
   Future<void> addNote(HiddenNote note) async {
     try {
       await _db.collection('notes').add(note.toFirestore());
-      print("Added new note to letterbox");
+      Logger.i("Added new note to letterbox");
     } catch (e) {
-      print("Error adding note: $e");
+      Logger.e("Error adding note", error: e);
     }
   }
 

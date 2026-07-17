@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/academy_question.dart';
 import '../models/game_match.dart';
+import '../../../core/utils/logger.dart';
 
 class AcademyService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -69,9 +70,9 @@ class AcademyService {
 
         await batch.commit();
       }
-      print('Successfully seeded ${data.length} questions to Firestore');
+      Logger.i('Successfully seeded ${data.length} questions to Firestore');
     } catch (e) {
-      print('Error seeding questions: $e');
+      Logger.e('Error seeding questions', error: e);
       rethrow;
     }
   }

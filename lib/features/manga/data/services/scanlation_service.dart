@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:everglow/core/utils/connectivity_aware.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
 
 /// Scrapes scanlation-group websites for chapter lists and page images.
@@ -17,7 +19,7 @@ import 'package:everglow/features/manga/data/models/manga_item.dart';
 ///   4. FlameScans   (flamescans.org)
 ///   5. LuminousScans(luminousscans.com)
 ///   6. VoidScans    (void-scans.com)
-class ScanlationService {
+class ScanlationService with ConnectivityAware {
   static const String _proxyImageUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyScanlation';
 
@@ -115,7 +117,9 @@ class ScanlationService {
         if (slug.isNotEmpty) {
           results[site.name] = slug;
         }
-      } catch (_) { /* try next site */ }
+      } catch (e) {
+        debugPrint('[ScanlationService] Trying next source: $e');
+      }
     }
     return results;
   }
@@ -135,7 +139,9 @@ class ScanlationService {
           final key = '${site.name}:${c.chapter}';
           if (seen.add(key)) all.add(c);
         }
-      } catch (_) { /* try next site */ }
+      } catch (e) {
+        debugPrint('[ScanlationService] Trying next source: $e');
+      }
     }
     all.sort((a, b) {
       final na = double.tryParse(a.chapter) ?? 0;
@@ -189,7 +195,9 @@ class ScanlationService {
           final pages = await getChapterPages(site.name, match.id);
           if (pages != null && pages.filenames.isNotEmpty) return pages;
         }
-      } catch (_) { /* try next site */ }
+      } catch (e) {
+        debugPrint('[ScanlationService] Trying next source: $e');
+      }
     }
     return null;
   }
@@ -249,7 +257,9 @@ class ScanlationService {
             if (slug.isNotEmpty) return slug;
           }
         }
-      } catch (_) { /* try next URL */ }
+      } catch (e) {
+        debugPrint('[ScanlationService] Trying next URL: $e');
+      }
     }
 
     // Fallback: guess the slug from the title

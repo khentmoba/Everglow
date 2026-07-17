@@ -67,8 +67,8 @@ class _HeartEmojiState extends State<HeartEmoji> with SingleTickerProviderStateM
           label: 'Mood ${widget.emoji}${widget.isSelected ? ", selected" : ""}',
           child: InkWell(
             onTap: widget.onTap,
-          splashColor: widget.glowColor.withOpacity(0.3),
-          highlightColor: widget.glowColor.withOpacity(0.1),
+          splashColor: widget.glowColor.withValues(alpha: 0.3),
+          highlightColor: widget.glowColor.withValues(alpha: 0.1),
           child: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -76,7 +76,7 @@ class _HeartEmojiState extends State<HeartEmoji> with SingleTickerProviderStateM
               boxShadow: widget.isSelected
                   ? [
                       BoxShadow(
-                        color: widget.glowColor.withOpacity(0.5),
+                        color: widget.glowColor.withValues(alpha: 0.5),
                         blurRadius: 15,
                         spreadRadius: 5,
                       ),

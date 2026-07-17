@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/models/star_note.dart';
+import '../../../../core/utils/logger.dart';
 
 class StarlightService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -45,9 +46,9 @@ class StarlightService {
         'category': category,
         'tags': tags,
       });
-      print("Dropped star into jar successfully");
+      Logger.i("Dropped star into jar successfully");
     } catch (e) {
-      print("Error adding star: $e");
+      Logger.e("Error adding star", error: e);
     }
   }
 
@@ -61,7 +62,7 @@ class StarlightService {
       docs.shuffle();
       return StarNote.fromFirestore(docs.first);
     } catch (e) {
-      print("Error getting random star: $e");
+      Logger.e("Error getting random star", error: e);
       return null;
     }
   }
@@ -90,7 +91,7 @@ class StarlightService {
       }
       return results;
     } catch (e) {
-      print("Error getting on-this-day stars: $e");
+      Logger.e("Error getting on-this-day stars", error: e);
       return [];
     }
   }
@@ -115,9 +116,9 @@ class StarlightService {
   Future<void> deleteStar(String id) async {
     try {
       await _db.collection(_collection).doc(id).delete();
-      print("Deleted star $id");
+      Logger.i("Deleted star $id");
     } catch (e) {
-      print("Error deleting star: $e");
+      Logger.e("Error deleting star", error: e);
     }
   }
 }

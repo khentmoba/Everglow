@@ -42,7 +42,7 @@ class CatVisuals extends StatelessWidget {
                 borderRadius: BorderRadius.circular(size * 0.25),
                 boxShadow: [
                   BoxShadow(
-                    color: primaryColor.withOpacity(0.3),
+                    color: primaryColor.withValues(alpha: 0.3),
                     blurRadius: 10,
                     spreadRadius: 2,
                   ),
@@ -154,7 +154,7 @@ class CatVisuals extends StatelessWidget {
       child: Container(
         width: size * 0.15,
         height: 1.5,
-        color: Colors.pink[100]!.withOpacity(0.5),
+        color: Colors.pink[100]!.withValues(alpha: 0.5),
       ),
     );
   }

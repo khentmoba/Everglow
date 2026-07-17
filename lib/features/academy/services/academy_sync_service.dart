@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'trivia_api_service.dart';
 import '../models/academy_question.dart';
+import '../../../core/utils/logger.dart';
 
 class AcademySyncService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -74,7 +75,7 @@ class AcademySyncService {
 
       await batch.commit();
     } catch (e) {
-      print('Error replenishing questions: $e');
+      Logger.e('Error replenishing questions', error: e);
       rethrow;
     }
   }

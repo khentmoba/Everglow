@@ -16,7 +16,10 @@ class GlassJar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
+    return Semantics(
+      label: 'Glass jar containing gratitude notes',
+      image: true,
+      child: AnimatedBuilder(
       animation: shakeAnimation ?? const AlwaysStoppedAnimation(0.0),
       builder: (context, child) {
         return Transform.rotate(
@@ -36,9 +39,9 @@ class GlassJar extends StatelessWidget {
                 width: width,
                 height: height,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withValues(alpha: 0.1),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     width: 2,
                   ),
                   borderRadius: const BorderRadius.only(
@@ -60,7 +63,7 @@ class GlassJar extends StatelessWidget {
               width: 20,
               height: 100,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
@@ -73,16 +76,17 @@ class GlassJar extends StatelessWidget {
               width: width * 0.6,
               height: 30,
               decoration: BoxDecoration(
-                color: AppTheme.roseQuartz.withOpacity(0.5),
+                color: AppTheme.roseQuartz.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.3),
+                  color: Colors.white.withValues(alpha: 0.3),
                   width: 1,
                 ),
               ),
             ),
           ),
         ],
+      ),
       ),
     );
   }

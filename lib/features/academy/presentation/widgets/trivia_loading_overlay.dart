@@ -13,7 +13,7 @@ class TriviaLoadingOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.pink.withOpacity(0.3),
+      color: Colors.pink.withValues(alpha: 0.3),
       child: Center(
         child: BounceInDown(
           child: Container(
@@ -23,7 +23,7 @@ class TriviaLoadingOverlay extends StatelessWidget {
               borderRadius: BorderRadius.circular(30),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.pink.withOpacity(0.2),
+                  color: Colors.pink.withValues(alpha: 0.2),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),

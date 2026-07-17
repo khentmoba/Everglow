@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:everglow/core/utils/connectivity_aware.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
+import '../../../../core/utils/logger.dart';
 
 /// Talks to the MangaDex API for chapter listing and page-image
 /// resolution. All requests go through the `proxyMangaDex` Cloud
@@ -13,7 +15,7 @@ import 'package:everglow/features/manga/data/models/manga_item.dart';
 ///
 /// No API key required. Rate limiting is handled server-side by the
 /// proxy function.
-class MangaDexService {
+class MangaDexService with ConnectivityAware {
   static const String _proxyUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyMangaDex';
 
@@ -119,7 +121,7 @@ class MangaDexService {
         }).toList();
       }
     } catch (e) {
-      print('MangaDex chapter feed error: $e');
+      Logger.e('MangaDex chapter feed error', error: e);
     }
     return [];
   }
@@ -310,7 +312,7 @@ class MangaDexService {
             .toList();
       }
     } catch (e) {
-      print('MangaDex search error: $e');
+      Logger.e('MangaDex search error', error: e);
     }
     return [];
   }
@@ -346,7 +348,7 @@ class MangaDexService {
             .toList();
       }
     } catch (e) {
-      print('MangaDex popular error: $e');
+      Logger.e('MangaDex popular error', error: e);
     }
     return [];
   }
@@ -382,7 +384,7 @@ class MangaDexService {
             .toList();
       }
     } catch (e) {
-      print('MangaDex latest error: $e');
+      Logger.e('MangaDex latest error', error: e);
     }
     return [];
   }
@@ -419,7 +421,7 @@ class MangaDexService {
         );
       }
     } catch (e) {
-      print('MangaDex chapter pages error: $e');
+      Logger.e('MangaDex chapter pages error', error: e);
     }
     return null;
   }

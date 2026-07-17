@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:everglow/core/utils/firestore_stream_utils.dart';
 import '../models/bucket_item.dart';
+import '../../../../core/utils/logger.dart';
 
 /// Service for managing the shared couple bucket list.
 class BucketListService {
@@ -42,9 +43,9 @@ class BucketListService {
   Future<void> add(BucketItem item) async {
     try {
       await _db.collection(_collection).add(item.toFirestore());
-      print('Added bucket item: ${item.title}');
+      Logger.i('Added bucket item: ${item.title}');
     } catch (e) {
-      print('Error adding bucket item: $e');
+      Logger.e('Error adding bucket item', error: e);
     }
   }
 
@@ -52,9 +53,9 @@ class BucketListService {
   Future<void> update(BucketItem item) async {
     try {
       await _db.collection(_collection).doc(item.id).update(item.toFirestore());
-      print('Updated bucket item: ${item.id}');
+      Logger.i('Updated bucket item: ${item.id}');
     } catch (e) {
-      print('Error updating bucket item: $e');
+      Logger.e('Error updating bucket item', error: e);
     }
   }
 
@@ -62,9 +63,9 @@ class BucketListService {
   Future<void> delete(String id) async {
     try {
       await _db.collection(_collection).doc(id).delete();
-      print('Deleted bucket item: $id');
+      Logger.i('Deleted bucket item: $id');
     } catch (e) {
-      print('Error deleting bucket item: $e');
+      Logger.e('Error deleting bucket item', error: e);
     }
   }
 
@@ -76,9 +77,9 @@ class BucketListService {
         'completedAt': Timestamp.now(),
         'completedBy': completedBy,
       });
-      print('Marked bucket item $id as completed by $completedBy');
+      Logger.i('Marked bucket item $id as completed by $completedBy');
     } catch (e) {
-      print('Error completing bucket item: $e');
+      Logger.e('Error completing bucket item', error: e);
     }
   }
 
@@ -90,9 +91,9 @@ class BucketListService {
         'completedAt': FieldValue.delete(),
         'completedBy': FieldValue.delete(),
       });
-      print('Marked bucket item $id as uncomplete');
+      Logger.i('Marked bucket item $id as uncomplete');
     } catch (e) {
-      print('Error uncompleting bucket item: $e');
+      Logger.e('Error uncompleting bucket item', error: e);
     }
   }
 
@@ -102,9 +103,9 @@ class BucketListService {
       await _db.collection(_collection).doc(id).update({
         'status': BucketStatus.planned.name,
       });
-      print('Marked bucket item $id as planned');
+      Logger.i('Marked bucket item $id as planned');
     } catch (e) {
-      print('Error marking bucket item as planned: $e');
+      Logger.e('Error marking bucket item as planned', error: e);
     }
   }
 }

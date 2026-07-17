@@ -13,18 +13,20 @@ class CanvasPainter extends CustomPainter {
   });
 
   // ── Grid cache ──────────────────────────────────────────────────
-  // The dot-grid is pre-rendered into a Picture and reused across
-  // repaints. It only rebuilds on canvas resize, not on every stroke
-  // change. This eliminates the O(n²) point-allocation loop from the
-  // hot path (drawing strokes).
-
   Picture? _gridPicture;
   Size? _lastGridSize;
 
+  // ── Completed strokes cache ─────────────────────────────────────
+  // Pre-renders all completed (non-active) strokes into a Picture.
+  // Only rebuilds when the strokes list changes, not on every frame.
+  Picture? _strokesPicture;
+  int _lastStrokesHash = 0;
+  Size? _lastStrokesSize;
+
   @override
   void paint(Canvas canvas, Size size) {
-    // Phase 1: Subtle canvas tint so the drawing area is distinguishable
-    final bgPaint = Paint()..color = AppTheme.velvet.withOpacity(0.25);
+    // Phase 1: Subtle canvas tint
+    final bgPaint = Paint()..color = AppTheme.velvet.withValues(alpha: 0.25);
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
     // Phase 2: Draw blueprint dot-grid background from cached Picture
@@ -35,15 +37,39 @@ class CanvasPainter extends CustomPainter {
     }
     canvas.drawPicture(_gridPicture!);
 
-    // Phase 3: Draw completed strokes from Firestore
-    for (var stroke in strokes) {
-      _drawStroke(canvas, size, stroke);
+    // Phase 3: Draw completed strokes from cache
+    final strokesHash = _hashStrokes(strokes);
+    if (_strokesPicture == null || _lastStrokesHash != strokesHash || _lastStrokesSize != size) {
+      _strokesPicture?.dispose();
+      _strokesPicture = _createStrokesPicture(size, strokes);
+      _lastStrokesHash = strokesHash;
+      _lastStrokesSize = size;
     }
+    canvas.drawPicture(_strokesPicture!);
 
-    // Phase 4: Draw the active stroke currently being drawn by the user
+    // Phase 4: Draw the active stroke (changes every frame during drawing)
     if (activeStroke != null) {
       _drawStroke(canvas, size, activeStroke!);
     }
+  }
+
+  /// Hash of strokes list for cache invalidation.
+  int _hashStrokes(List<DoodleStroke> strokes) {
+    int hash = strokes.length;
+    for (final s in strokes) {
+      hash = hash * 31 + s.points.length + (s.color.hashCode ^ s.strokeWidth.round());
+    }
+    return hash;
+  }
+
+  /// Pre-renders all completed strokes into a Picture for efficient replay.
+  Picture _createStrokesPicture(Size size, List<DoodleStroke> strokes) {
+    final recorder = PictureRecorder();
+    final strokesCanvas = Canvas(recorder);
+    for (var stroke in strokes) {
+      _drawStroke(strokesCanvas, size, stroke);
+    }
+    return recorder.endRecording();
   }
 
   /// Pre-renders the dot grid into a [Picture] so every frame just
@@ -62,7 +88,7 @@ class CanvasPainter extends CustomPainter {
 
     if (points.isNotEmpty) {
       final gridPaint = Paint()
-        ..color = AppTheme.roseQuartz.withOpacity(0.10)
+        ..color = AppTheme.roseQuartz.withValues(alpha: 0.10)
         ..strokeWidth = 1.5
         ..strokeCap = StrokeCap.round;
       gridCanvas.drawPoints(PointMode.points, points, gridPaint);
@@ -90,7 +116,7 @@ class CanvasPainter extends CustomPainter {
 
     // 1. Draw glowing background shadow
     final shadowPaint = Paint()
-      ..color = color.withOpacity(0.3)
+      ..color = color.withValues(alpha: 0.3)
       ..strokeWidth = stroke.strokeWidth * 2.5
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round

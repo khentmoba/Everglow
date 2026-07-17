@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:everglow/core/utils/connectivity_aware.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
+import '../../../../core/utils/logger.dart';
 
 /// Talks to the public Comick API for catalog browsing (search, popular,
 /// latest, details, cover images). Chapter pages come from MangaKakalot
@@ -13,7 +15,7 @@ import 'package:everglow/features/manga/data/models/manga_item.dart';
 ///   * Chapters  — `GET /comic/{id}/chapters?lang=en`
 ///
 /// No API key required. The descriptive User-Agent helps with rate limiting.
-class ComickService {
+class ComickService with ConnectivityAware {
   static const String _baseUrl = 'https://api.comick.dev';
   static const String _coverBase = 'https://meo.comick.pictures';
 
@@ -245,7 +247,7 @@ class ComickService {
             .toList();
       }
     } catch (e) {
-      print('Comick search error: $e');
+      Logger.e('Comick search error', error: e);
     }
     return [];
   }
@@ -281,7 +283,7 @@ class ComickService {
             .toList();
       }
     } catch (e) {
-      print('Comick popular error: $e');
+      Logger.e('Comick popular error', error: e);
     }
     return [];
   }
@@ -317,7 +319,7 @@ class ComickService {
             .toList();
       }
     } catch (e) {
-      print('Comick latest error: $e');
+      Logger.e('Comick latest error', error: e);
     }
     return [];
   }
@@ -335,7 +337,7 @@ class ComickService {
         return _mapDetail(body);
       }
     } catch (e) {
-      print('Comick details error: $e');
+      Logger.e('Comick details error', error: e);
     }
     return null;
   }
@@ -384,7 +386,7 @@ class ComickService {
         }).toList();
       }
     } catch (e) {
-      print('Comick chapter feed error: $e');
+      Logger.e('Comick chapter feed error', error: e);
     }
     return [];
   }

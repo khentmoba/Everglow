@@ -58,7 +58,7 @@ class _AnswerButtonState extends State<AnswerButton> with SingleTickerProviderSt
             minimumSize: const Size(double.infinity, 60),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             elevation: 2,
-            shadowColor: Colors.pink.withOpacity(0.1),
+            shadowColor: Colors.pink.withValues(alpha: 0.1),
           ),
           child: Text(
             widget.text,

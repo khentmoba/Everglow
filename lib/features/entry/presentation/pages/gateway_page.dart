@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'package:go_router/go_router.dart';
 import '../state/gateway_state.dart';
+import '../../../../core/utils/logger.dart';
 import '../widgets/animated_door.dart';
 import '../widgets/passcode_input.dart';
 
@@ -31,7 +32,7 @@ class _GatewayPageState extends State<GatewayPage> {
 
   Future<void> _seedDataOnce() async {
     try {
-      print("Checking for memories to seed...");
+      Logger.d("Checking for memories to seed...");
       final db = FirebaseFirestore.instance;
 
     Future<void> seedIfMissing(String title, Milestone data) async {
@@ -39,12 +40,12 @@ class _GatewayPageState extends State<GatewayPage> {
         final snap = await db.collection('milestones').where('title', isEqualTo: title).get();
         if (snap.docs.isEmpty) {
           await db.collection('milestones').add(data.toFirestore());
-          print("Seeded: $title");
+          Logger.i("Seeded: $title");
         } else {
-          print("Already exists: $title");
+          Logger.d("Already exists: $title");
         }
       } catch (e) {
-        print("Error seeding $title: $e");
+        Logger.e("Error seeding $title", error: e);
       }
     }
 
@@ -121,9 +122,9 @@ class _GatewayPageState extends State<GatewayPage> {
       ],
     ));
 
-    print("Seeding process complete.");
+    Logger.i("Seeding process complete.");
     } catch (e) {
-      print("Global seeding error (likely permission denied): $e");
+      Logger.e("Global seeding error (likely permission denied)", error: e);
     }
   }
 
@@ -167,10 +168,27 @@ class _GatewayPageState extends State<GatewayPage> {
         // Seed milestone memories after authentication succeeds
         _seedDataOnce();
       } catch (e) {
-        print("Error during passcode login: $e");
+        Logger.e("Error during passcode login", error: e);
         try {
           await authService.ensureAuthenticated();
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[GatewayPage] ensureAuthenticated fallback failed: $e');
+        }
+      }
+
+      // Show auth error if any (non-blocking, user still proceeds)
+      if (authService.lastAuthError != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              authService.lastAuthError!,
+              style: const TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.orange.shade700,
+            duration: const Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
 
       // Let the door unlock animation play for 1.5s, then route.

@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/book_item.dart';
 import '../models/our_books_item.dart';
+import '../../../../core/utils/logger.dart';
 
 /// Persists and syncs the shared "Our Books" list between Khent and
 /// Clair. Mirrors `OurCinemaService` for the cinema feature.
@@ -84,7 +85,7 @@ class OurBooksService {
               ))
           .toList();
     } catch (e) {
-      print('Error reading cached our_books: $e');
+      Logger.e('Error reading cached our_books', error: e);
       return [];
     }
   }
@@ -111,7 +112,7 @@ class OurBooksService {
           .toList());
       await prefs.setString(_cacheKey, payload);
     } catch (e) {
-      print('Error writing our_books cache: $e');
+      Logger.e('Error writing our_books cache', error: e);
     }
   }
 
@@ -124,7 +125,7 @@ class OurBooksService {
 
   Future<OurBooksItem?> addToOurBooks(BookItem item, String addedBy) async {
     if (!coupleUsernames.contains(addedBy)) {
-      print('addToOurBooks refused: $addedBy is not a couple user');
+      Logger.w('addToOurBooks refused: $addedBy is not a couple user');
       return null;
     }
     try {
@@ -153,7 +154,7 @@ class OurBooksService {
       final docRef = await collection.add(draft.toFirestore());
       return draft.copyWith(id: docRef.id);
     } catch (e) {
-      print('Error adding to our_books: $e');
+      Logger.e('Error adding to our_books', error: e);
       return null;
     }
   }
@@ -164,7 +165,7 @@ class OurBooksService {
     required bool read,
   }) async {
     if (!coupleUsernames.contains(userName)) {
-      print('setReadFlag refused: $userName is not a couple user');
+      Logger.w('setReadFlag refused: $userName is not a couple user');
       return;
     }
     final field =
@@ -180,7 +181,7 @@ class OurBooksService {
         field: read ? Timestamp.now() : null,
       });
     } catch (e) {
-      print('Error setting read flag: $e');
+      Logger.e('Error setting read flag', error: e);
     }
   }
 
@@ -194,7 +195,7 @@ class OurBooksService {
       if (existing.docs.isEmpty) return;
       await collection.doc(existing.docs.first.id).delete();
     } catch (e) {
-      print('Error removing from our_books: $e');
+      Logger.e('Error removing from our_books', error: e);
     }
   }
 }

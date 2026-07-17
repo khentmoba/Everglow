@@ -130,7 +130,7 @@ class _PodiumScreenState extends State<PodiumScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         shape: BoxShape.circle,
-        boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.2), blurRadius: 20)],
+        boxShadow: [BoxShadow(color: Colors.pink.withValues(alpha: 0.2), blurRadius: 20)],
       ),
       child: Icon(
         isDraw ? Icons.handshake_rounded : (isWinner ? Icons.emoji_events_rounded : Icons.sentiment_satisfied_rounded),

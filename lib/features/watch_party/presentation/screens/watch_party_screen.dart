@@ -611,7 +611,9 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
         if (type == 'MEDIA_DATA' || type == 'PLAYER_EVENT') {
           _contentCheckTimer?.cancel();
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[WatchPartyScreen] Cross-origin postMessage parse error: $e');
+      }
     }).toJS;
   }
 
@@ -797,7 +799,10 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
       decoration: const BoxDecoration(color: Colors.black),
       child: Row(
         children: [
-          GestureDetector(
+          Semantics(
+            label: widget.isHost ? 'Change movie' : 'Browse movies',
+            button: true,
+            child: GestureDetector(
             onTap: () => Navigator.of(context).pop(),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -820,6 +825,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
                 ],
               ),
             ),
+          ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -863,7 +869,10 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
               ],
             ),
           ),
-          GestureDetector(
+          Semantics(
+            label: 'End watch party',
+            button: true,
+            child: GestureDetector(
             onTap: _endParty,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -885,6 +894,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
                 ],
               ),
             ),
+          ),
           ),
         ],
       ),
@@ -968,7 +978,10 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          GestureDetector(
+          Semantics(
+            label: _hostExplicitlyPaused ? 'Play video' : 'Pause video',
+            button: true,
+            child: GestureDetector(
             onTap: _togglePlayPause,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
@@ -1008,6 +1021,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
                 ],
               ),
             ),
+          ),
           ),
         ],
       ),

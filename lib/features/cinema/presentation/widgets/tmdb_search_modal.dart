@@ -102,7 +102,7 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
                     selectedColor: AppTheme.deepRose,
                     backgroundColor: AppTheme.twilight,
                     labelStyle: TextStyle(
-                      color: status == 'to-watch' ? AppTheme.petalWhite : AppTheme.roseQuartz.withOpacity(0.6),
+                      color: status == 'to-watch' ? AppTheme.petalWhite : AppTheme.roseQuartz.withValues(alpha: 0.6),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -115,7 +115,7 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
                     selectedColor: AppTheme.deepRose,
                     backgroundColor: AppTheme.twilight,
                     labelStyle: TextStyle(
-                      color: status == 'watched' ? AppTheme.petalWhite : AppTheme.roseQuartz.withOpacity(0.6),
+                      color: status == 'watched' ? AppTheme.petalWhite : AppTheme.roseQuartz.withValues(alpha: 0.6),
                     ),
                   ),
                 ],
@@ -127,7 +127,7 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
               onPressed: () => Navigator.pop(context),
               child: Text(
                 'Cancel',
-                style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withOpacity(0.6)),
+                style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
               ),
             ),
             ElevatedButton(
@@ -183,7 +183,7 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
             width: 40,
             height: 5,
             decoration: BoxDecoration(
-              color: AppTheme.roseQuartz.withOpacity(0.3),
+              color: AppTheme.roseQuartz.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(10),
             ),
           ),
@@ -207,10 +207,10 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
             style: GoogleFonts.outfit(color: AppTheme.petalWhite),
             decoration: InputDecoration(
               hintText: 'Search for a movie or show...',
-              hintStyle: GoogleFonts.outfit(color: AppTheme.petalWhite.withOpacity(0.4)),
+              hintStyle: GoogleFonts.outfit(color: AppTheme.petalWhite.withValues(alpha: 0.4)),
               prefixIcon: const Icon(Icons.search, color: AppTheme.roseQuartz),
               filled: true,
-              fillColor: AppTheme.moonlight.withOpacity(AppTheme.glassOpacity),
+              fillColor: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(20),
                 borderSide: BorderSide.none,
