@@ -619,31 +619,42 @@ _currentSeason = widget.season ?? 1;
                 ],
               ),
             ),
-            // Player iframe area
+            // Scrollable body: video + metadata + server selector
             Expanded(
-              child: Stack(
-                children: [
-                  if (!_iframeFailed) HtmlElementView(viewType: _viewType),
-                  if (_isLoading && !_iframeFailed)
-                    const Center(
-                      child: CircularProgressIndicator(color: AppTheme.deepRose),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Player iframe area — fixed 16:9 aspect ratio
+                    AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: Stack(
+                        children: [
+                          if (!_iframeFailed) HtmlElementView(viewType: _viewType),
+                          if (_isLoading && !_iframeFailed)
+                            const Center(
+                              child: CircularProgressIndicator(color: AppTheme.deepRose),
+                            ),
+                          if (_iframeFailed) _buildErrorCard(context),
+                        ],
+                      ),
                     ),
-                  if (_iframeFailed) _buildErrorCard(context),
-                ],
+                    // Episode Navigator for TV content
+                    if (widget.mediaType == 'tv' && !widget.isAnime)
+                      EpisodeNavigator(
+                        tmdbId: widget.tmdbId,
+                        initialSeason: _currentSeason,
+                        initialEpisode: _currentEpisode,
+                        onSeasonChanged: _onSeasonChanged,
+                        onEpisodeChanged: _onEpisodeChanged,
+                      ),
+                    _buildMetadataSection(),
+                    _buildServerSelectorSection(),
+                    const SizedBox(height: 40),
+                  ],
+                ),
               ),
             ),
-            // Episode Navigator for TV content
-            if (widget.mediaType == 'tv' && !widget.isAnime)
-              EpisodeNavigator(
-                tmdbId: widget.tmdbId,
-                initialSeason: _currentSeason,
-                initialEpisode: _currentEpisode,
-                onSeasonChanged: _onSeasonChanged,
-                onEpisodeChanged: _onEpisodeChanged,
-              ),
-            _buildMetadataSection(),
-            _buildServerSelectorSection(),
-            const SizedBox(height: 40),
           ],
         ),
       ),
@@ -803,6 +814,7 @@ _currentSeason = widget.season ?? 1;
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (ctx) => SafeArea(
         child: SingleChildScrollView(
           child: Column(
