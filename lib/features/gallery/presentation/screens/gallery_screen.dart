@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/shared/widgets/gamified_background.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_empty_state.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_skeleton.dart';
 import '../../domain/models/memory_photo.dart';
@@ -24,8 +25,9 @@ class _GalleryScreenState extends State<GalleryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: SafeArea(
-        child: Column(
+      body: GamifiedBackground(
+        child: SafeArea(
+          child: Column(
           children: [
             // ── Header ──
             Padding(
@@ -170,6 +172,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
             ),
           ],
         ),
+      ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {

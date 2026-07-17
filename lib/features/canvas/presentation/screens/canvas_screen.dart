@@ -116,14 +116,16 @@ class _CanvasScreenState extends State<CanvasScreen> {
 
                 return Stack(
                   children: [
-                    RepaintBoundary(
-                      child: CustomPaint(
-                        key: _canvasKey,
-                        painter: CanvasPainter(
-                          strokes: allStrokes,
-                          activeStroke: _activeStroke,
+                    ClipRect(
+                      child: RepaintBoundary(
+                        child: CustomPaint(
+                          key: _canvasKey,
+                          painter: CanvasPainter(
+                            strokes: allStrokes,
+                            activeStroke: _activeStroke,
+                          ),
+                          size: Size.infinite,
                         ),
-                        size: Size.infinite,
                       ),
                     ),
                     if (isLoading)
@@ -270,8 +272,8 @@ class _CanvasScreenState extends State<CanvasScreen> {
           strokeWidth: _currentWidth,
           points: [
             {
-              'x': localPosition.dx / box.size.width,
-              'y': localPosition.dy / box.size.height,
+              'x': (localPosition.dx / box.size.width).clamp(0.0, 1.0),
+              'y': (localPosition.dy / box.size.height).clamp(0.0, 1.0),
             }
           ],
         );
