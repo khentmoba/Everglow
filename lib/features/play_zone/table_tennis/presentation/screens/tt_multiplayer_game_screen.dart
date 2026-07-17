@@ -107,7 +107,7 @@ class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
       ..style.height = '100%'
       ..style.display = 'block'
       ..setAttribute('data-everglow-tt', '1')
-      ..allow = 'autoplay; fullscreen; pointer-lock; gamepad'
+      ..allow = 'autoplay *; fullscreen *; pointer-lock *; gamepad *'
       ..setAttribute('allowfullscreen', 'true')
       ..setAttribute('webkitallowfullscreen', 'true')
       ..setAttribute('mozallowfullscreen', 'true')
