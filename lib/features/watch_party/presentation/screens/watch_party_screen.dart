@@ -218,7 +218,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
 
     _iframe = web.HTMLIFrameElement()
       ..allow =
-          'autoplay; fullscreen; encrypted-media; picture-in-picture; accelerometer; gyroscope; clipboard-write'
+          'autoplay *; fullscreen *; encrypted-media *; picture-in-picture *; accelerometer *; gyroscope *; clipboard-write *'
       ..setAttribute('allowfullscreen', 'true')
       ..setAttribute('webkitallowfullscreen', 'true')
       ..setAttribute('mozallowfullscreen', 'true')
