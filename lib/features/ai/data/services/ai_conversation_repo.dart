@@ -73,7 +73,9 @@ class AIConversationRepository implements IAIConversationRepository {
         _set(feature, conv);
         return conv;
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[AIConversationRepository] Failed to load conversation from Firestore: $e');
+    }
 
     final conv = AIConversation(id: feature, feature: feature);
     _set(feature, conv);
@@ -186,7 +188,9 @@ class AIConversationRepository implements IAIConversationRepository {
         final summary = (data['reply'] as String? ?? '').trim();
         if (summary.isNotEmpty) return summary;
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[AIConversationRepository] Summary API call failed, falling back to local: $e');
+    }
 
     // Fallback to local summarization
     return _buildLocalSummary(messages);
@@ -346,7 +350,9 @@ class AIConversationRepository implements IAIConversationRepository {
           .collection('ai_conversations')
           .doc(feature)
           .delete();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[AIConversationRepository] Failed to delete conversation: $e');
+    }
   }
 
   /// Load assistant conversation from cache or Firestore.

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/models/calendar_event.dart';
+import '../../../../core/utils/logger.dart';
 
 class CalendarService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -42,9 +43,9 @@ class CalendarService {
   Future<void> addEvent(CalendarEvent event) async {
     try {
       await _db.collection(_collection).add(event.toFirestore());
-      print("Calendar event added: ${event.title}");
+      Logger.i("Calendar event added: ${event.title}");
     } catch (e) {
-      print("Error adding calendar event: $e");
+      Logger.e("Error adding calendar event", error: e);
     }
   }
 
@@ -53,7 +54,7 @@ class CalendarService {
     try {
       await _db.collection(_collection).doc(id).update(data);
     } catch (e) {
-      print("Error updating calendar event: $e");
+      Logger.e("Error updating calendar event", error: e);
     }
   }
 
@@ -61,9 +62,9 @@ class CalendarService {
   Future<void> deleteEvent(String id) async {
     try {
       await _db.collection(_collection).doc(id).delete();
-      print("Calendar event deleted: $id");
+      Logger.i("Calendar event deleted: $id");
     } catch (e) {
-      print("Error deleting calendar event: $e");
+      Logger.e("Error deleting calendar event", error: e);
     }
   }
 
@@ -85,7 +86,7 @@ class CalendarService {
           .map((doc) => CalendarEvent.fromFirestore(doc))
           .toList();
     } catch (e) {
-      print("Error getting events for day: $e");
+      Logger.e("Error getting events for day", error: e);
       return [];
     }
   }

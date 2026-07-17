@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:everglow/core/utils/firestore_stream_utils.dart';
 import '../../domain/models/chat_message.dart';
+import '../../../../core/utils/logger.dart';
 
 class ChatService {
   static final ChatService _instance = ChatService._internal();
@@ -21,7 +22,7 @@ class ChatService {
           try {
             messages.add(ChatMessage.fromFirestore(doc));
           } catch (e) {
-            print("Error parsing message document ${doc.id}: $e");
+            Logger.e("Error parsing message document ${doc.id}", error: e);
           }
         }
         return messages;

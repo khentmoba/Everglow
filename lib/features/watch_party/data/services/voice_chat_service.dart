@@ -473,14 +473,18 @@ class VoiceChatService {
     if (_pc != null) {
       try {
         await _pc!.close();
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[VoiceChatService] Failed to close peer connection: $e');
+      }
       _pc = null;
     }
     if (_localStream != null) {
       for (final track in _localStream!.getAudioTracks()) {
         try {
           track.stop();
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[VoiceChatService] Failed to stop audio track: $e');
+        }
       }
       _localStream = null;
     }
@@ -617,7 +621,9 @@ class VoiceChatService {
         for (final track in _localStream!.getAudioTracks()) {
           try {
             track.stop();
-          } catch (_) {}
+          } catch (e) {
+            debugPrint('[VoiceChatService] Failed to stop track before unload: $e');
+          }
         }
       }
     }).toJS;
@@ -630,7 +636,9 @@ class VoiceChatService {
     if (_beforeUnloadListener == null) return;
     try {
       web.window.removeEventListener('beforeunload', _beforeUnloadListener);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[VoiceChatService] Failed to remove beforeunload listener: $e');
+    }
     _beforeUnloadListener = null;
   }
 }

@@ -16,6 +16,7 @@ import 'package:everglow/core/theme/app_motion.dart';
 import 'package:everglow/core/theme/app_elevation.dart';
 import 'package:everglow/shared/widgets/gamified_background.dart';
 import 'package:everglow/shared/widgets/glass_container.dart';
+import '../../../core/utils/logger.dart';
 
 class AcademyHubScreen extends StatefulWidget {
   const AcademyHubScreen({super.key});
@@ -80,7 +81,7 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
         await _academyService.seedQuestions();
       }
     } catch (e) {
-      print('Error checking and seeding questions: $e');
+      Logger.e('Error checking and seeding questions', error: e);
     }
   }
 

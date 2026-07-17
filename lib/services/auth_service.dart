@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/config/env_config.dart';
 import '../features/xp/data/services/xp_service.dart';
 import '../features/dashboard/data/services/letterbox_service.dart';
+import '../core/utils/logger.dart';
 
 class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -13,6 +14,7 @@ class AuthService extends ChangeNotifier {
   String? _partnerUid;
   String? _partnerNameResolved;
   bool _hasSyncedUserDoc = false;
+  String? _lastAuthError;
 
   AuthService() {
     _loadSession();
@@ -30,7 +32,7 @@ class AuthService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _currentUser = prefs.getString('current_user_name');
     if (_currentUser != null) {
-      print("Restored session for: $_currentUser");
+      Logger.i("Restored session for: $_currentUser");
       notifyListeners();
       // If auth state already fired before we loaded the session,
       // sync the user doc now that _currentUser is available.
@@ -81,6 +83,9 @@ class AuthService extends ChangeNotifier {
   bool get isCoupleUser =>
       _currentUser == 'khentsgdz' || _currentUser == 'clairjassen';
 
+  /// Last authentication error message, if any. Cleared on successful login.
+  String? get lastAuthError => _lastAuthError;
+
   void setCurrentUser(String? name) {
     _currentUser = name;
     _saveSession(name);
@@ -97,7 +102,7 @@ class AuthService extends ChangeNotifier {
       email = EnvConfig.clairEmail;
       password = EnvConfig.clairPassword;
       if (email.isEmpty || password.isEmpty) {
-        print("Warning: CLAIR environment variables not set. Using local/default credentials.");
+        Logger.w("CLAIR environment variables not set. Using local/default credentials.");
         email = "clairjassen@scrapbook.local";
         password = "111111";
       }
@@ -105,7 +110,7 @@ class AuthService extends ChangeNotifier {
       email = EnvConfig.khentEmail;
       password = EnvConfig.khentPassword;
       if (email.isEmpty || password.isEmpty) {
-        print("Warning: KHENT environment variables not set. Using local/default credentials.");
+        Logger.w("KHENT environment variables not set. Using local/default credentials.");
         email = "khentplaysmoba@gmail.com";
         password = "297864503";
       }
@@ -113,7 +118,7 @@ class AuthService extends ChangeNotifier {
       email = EnvConfig.breyanEmail;
       password = EnvConfig.breyanPassword;
       if (email.isEmpty || password.isEmpty) {
-        print("Warning: BREYAN environment variables not set. Using local/default credentials.");
+        Logger.w("BREYAN environment variables not set. Using local/default credentials.");
         email = "breyan@scrapbook.local";
         password = "91329132";
       }
@@ -121,7 +126,7 @@ class AuthService extends ChangeNotifier {
       email = EnvConfig.octagramEmail;
       password = EnvConfig.octagramPassword;
       if (email.isEmpty || password.isEmpty) {
-        print("Warning: OCTAGRAM environment variables not set. Using local/default credentials.");
+        Logger.w("OCTAGRAM environment variables not set. Using local/default credentials.");
         email = "octagram@scrapbook.local";
         password = "80808080";
       }
@@ -130,32 +135,37 @@ class AuthService extends ChangeNotifier {
     }
 
     try {
-      print("Attempting login for $username ($email)...");
+      Logger.d("Attempting login for $username ($email)...");
       await _auth.signInWithEmailAndPassword(email: email, password: password);
       _currentUser = username;
       await _saveSession(username);
       await _syncUserDoc();
-      print("Successfully logged in as $username (UID: ${_auth.currentUser?.uid})");
+      _lastAuthError = null;
+      Logger.i("Successfully logged in as $username (UID: ${_auth.currentUser?.uid})");
       notifyListeners();
     } on FirebaseAuthException catch (e) {
-      print("FirebaseAuthException during login: ${e.code} - ${e.message}");
+      Logger.e('Login failed with FirebaseAuthException', error: e);
       if (e.code == 'user-not-found' || e.code == 'invalid-credential' || e.code == 'invalid-email') {
         try {
           await _auth.createUserWithEmailAndPassword(email: email, password: password);
           _currentUser = username;
           await _saveSession(username);
           await _syncUserDoc();
-          print("Successfully registered and logged in as new user: $username (UID: ${_auth.currentUser?.uid})");
+          _lastAuthError = null;
+          Logger.i("Successfully registered and logged in as new user: $username (UID: ${_auth.currentUser?.uid})");
           notifyListeners();
         } catch (regErr) {
-          print("Registration error for $username: $regErr");
+          _lastAuthError = 'Account creation failed. Please try again.';
+          Logger.e("Registration error for $username", error: regErr);
           await ensureAuthenticated();
         }
       } else {
+        _lastAuthError = 'Authentication failed: ${e.message ?? e.code}';
         await ensureAuthenticated();
       }
     } catch (e) {
-      print("General auth error during passcode login: $e");
+      _lastAuthError = 'Login error. Falling back to guest access.';
+      Logger.e("General auth error during passcode login", error: e);
       await ensureAuthenticated();
     }
   }
@@ -164,11 +174,11 @@ class AuthService extends ChangeNotifier {
   Future<void> ensureAuthenticated() async {
     if (_auth.currentUser == null) {
       try {
-        print("Fallback: Signing in anonymously...");
+        Logger.d("Fallback: Signing in anonymously...");
         await _auth.signInAnonymously();
-        print("Authenticated anonymously (UID: ${_auth.currentUser?.uid})");
+        Logger.i("Authenticated anonymously (UID: ${_auth.currentUser?.uid})");
       } catch (e) {
-        print("Error during anonymous authentication: $e");
+        Logger.e("Anonymous authentication failed", error: e);
       }
     }
   }
@@ -201,7 +211,7 @@ class AuthService extends ChangeNotifier {
 
       _hasSyncedUserDoc = true;
     } catch (e) {
-      print("AuthService._syncUserDoc error: $e");
+      Logger.e("AuthService._syncUserDoc failed", error: e);
     }
   }
 
@@ -233,7 +243,7 @@ class AuthService extends ChangeNotifier {
         _partnerNameResolved = null;
       }
     } catch (e) {
-      print("AuthService._resolvePartnerInfo error: $e");
+      Logger.e("AuthService._resolvePartnerInfo failed", error: e);
       _partnerUid = null;
       _partnerNameResolved = null;
     }

@@ -26,6 +26,8 @@ import 'features/watch_party/data/services/voice_chat_service.dart';
 import 'features/watch_party/presentation/widgets/incoming_watch_party_banner.dart';
 import 'features/ai/data/services/ai_service.dart';
 import 'core/services/notification_service.dart';
+import 'core/utils/logger.dart';
+import 'core/utils/connectivity_service.dart';
 
 /// Global key for SnackBar notifications.
 final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -36,9 +38,9 @@ void main() async {
   
   try {
     await dotenv.load(fileName: "assets/env.txt");
-    print("Environment variables loaded successfully");
+    Logger.i("Environment variables loaded successfully");
   } catch (e) {
-    print("Warning: Could not load env.txt file: $e. Using fallbacks.");
+    Logger.w("Could not load env.txt file: $e. Using fallbacks.");
   }
 
   await Firebase.initializeApp(
@@ -49,12 +51,15 @@ void main() async {
   // This fixes the "always buffering" issue and makes data "always there"
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
-    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+    cacheSizeBytes: 100 * 1024 * 1024, // 100 MB cap to prevent unbounded browser memory
   );
-  print("Firestore persistence enabled for robust real-time experience");
+  Logger.i("Firestore persistence enabled for robust real-time experience");
 
   // Self-hosted Google Fonts only — never fetch from the network at runtime.
   GoogleFonts.config.allowRuntimeFetching = false;
+
+  // Initialize connectivity monitoring for offline-aware error handling.
+  ConnectivityService.instance.init();
 
   // Wire global keys into NotificationService so it can show
   // foreground SnackBars and navigate on notification tap.
@@ -65,7 +70,7 @@ void main() async {
     final notificationService = NotificationService();
     await notificationService.initialize();
   } catch (e) {
-    print("Warning: Push notification init failed: $e. Continuing without notifications.");
+    Logger.w("Push notification init failed: $e. Continuing without notifications.");
   }
 
   runZonedGuarded(
@@ -93,8 +98,9 @@ class EverglowApp extends StatelessWidget {
         Provider(create: (_) => PresenceService()),
         Provider(create: (_) => DateIdeaService()),
         Provider(create: (_) => OurBooksService()),
-        Provider(create: (_) => GuardianService()),
-        Provider(create: (_) => ChatService()),
+        // GuardianService and ChatService are singletons — use the existing instance.
+        Provider.value(value: GuardianService()),
+        Provider.value(value: ChatService()),
         ChangeNotifierProvider(create: (_) => GardenProvider()),
         Provider(create: (_) => MoodService()),
         ChangeNotifierProvider(

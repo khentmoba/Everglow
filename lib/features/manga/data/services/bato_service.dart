@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:everglow/core/utils/connectivity_aware.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
+import '../../../../core/utils/logger.dart';
 
 /// Scrapes bato.to for chapter page images. Bato.to is a manga
 /// aggregator that ComicK itself uses as a source. This service
@@ -13,7 +16,7 @@ import 'package:everglow/features/manga/data/models/manga_item.dart';
 ///   * Chapter page — `GET /title/{slug}/{chapterId}` or `GET /chapter/{id}`
 ///
 /// Images are typically served from `img.bato.to` CDN.
-class BatoService {
+class BatoService with ConnectivityAware {
   static const String _baseUrl = 'https://bato.to';
 
   static const String _proxyImageUrl =
@@ -54,7 +57,9 @@ class BatoService {
           }
         }
       }
-    } catch (_) { /* not found */ }
+    } catch (e) {
+      debugPrint('[BatoService] Failed to find series ID: $e');
+    }
     return '';
   }
 
@@ -71,7 +76,7 @@ class BatoService {
         return _parseChapterList(response.body, slug);
       }
     } catch (e) {
-      print('Bato.to chapter feed error: $e');
+      Logger.e('Bato.to chapter feed error', error: e);
     }
     return [];
   }
@@ -170,7 +175,9 @@ class BatoService {
         _pageCache[chapterPath] = result;
         return result;
       }
-    } catch (_) { /* failed */ }
+    } catch (e) {
+      debugPrint('[BatoService] Failed to fetch chapter pages: $e');
+    }
     return null;
   }
 

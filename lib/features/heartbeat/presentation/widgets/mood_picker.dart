@@ -30,12 +30,12 @@ class MoodPicker extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         decoration: BoxDecoration(
-          color: AppTheme.velvet.withOpacity(0.95),
+          color: AppTheme.velvet.withValues(alpha: 0.95),
           borderRadius: BorderRadius.circular(40),
-          border: Border.all(color: AppTheme.blushGold.withOpacity(0.3), width: 1.5),
+          border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.3), width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.deepRose.withOpacity(0.2),
+              color: AppTheme.deepRose.withValues(alpha: 0.2),
               blurRadius: 30,
               spreadRadius: 5,
             ),

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/music_status.dart';
+import '../../../../core/utils/logger.dart';
 
 class MusicPersistenceService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -12,7 +13,7 @@ class MusicPersistenceService {
           .doc(status.username)
           .set(status.toMap());
     } catch (e) {
-      print('MusicPersistenceService: Error saving status for ${status.username}: $e');
+      Logger.e('MusicPersistenceService: Error saving status for ${status.username}', error: e);
     }
   }
 
@@ -23,7 +24,7 @@ class MusicPersistenceService {
         return MusicStatus.fromMap(doc.data()!);
       }
     } catch (e) {
-      print('MusicPersistenceService: Error getting status for $username: $e');
+      Logger.e('MusicPersistenceService: Error getting status for $username', error: e);
     }
     return null;
   }

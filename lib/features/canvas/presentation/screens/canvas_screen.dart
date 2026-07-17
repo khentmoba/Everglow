@@ -138,7 +138,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
                         child: Text(
                           'Draw something together',
                           style: GoogleFonts.cormorantGaramond(
-                            color: AppTheme.roseQuartz.withOpacity(0.18),
+                            color: AppTheme.roseQuartz.withValues(alpha: 0.18),
                             fontSize: 26,
                             fontWeight: FontWeight.w500,
                             letterSpacing: 1.2,
@@ -158,7 +158,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
               onPanStart: (details) => _onPanStart(details, userId),
               onPanUpdate: (details) => _onPanUpdate(details, userId),
               onPanEnd: (details) => _onPanEnd(details, userId),
-              child: Container(color: Colors.white.withOpacity(0.001)),
+              child: Container(color: Colors.white.withValues(alpha: 0.001)),
             ),
           ),
 
@@ -213,14 +213,14 @@ class _CanvasScreenState extends State<CanvasScreen> {
         ),
         content: Text(
           'This will permanently delete all doodles for everyone. Are you sure?',
-          style: GoogleFonts.outfit(color: AppTheme.petalWhite.withOpacity(0.8)),
+          style: GoogleFonts.outfit(color: AppTheme.petalWhite.withValues(alpha: 0.8)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Cancel', 
-              style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withOpacity(0.6)),
+              style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
             ),
           ),
           TextButton(

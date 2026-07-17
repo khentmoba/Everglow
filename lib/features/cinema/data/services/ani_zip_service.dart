@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:everglow/core/utils/connectivity_aware.dart';
+import 'package:everglow/core/utils/logger.dart';
 
 /// Lightweight client for the `ani.zip` mapping API
 /// (https://api.ani.zip). ani.zip aggregates per-episode metadata from
@@ -23,7 +25,7 @@ import 'package:http/http.dart' as http;
 /// The API is unauthenticated and has no published rate limit, so we
 /// don't run requests through a queue — a small in-memory cache keyed
 /// on MAL id is enough to keep re-opens snappy.
-class AniZipService {
+class AniZipService with ConnectivityAware {
   static const String _baseUrl = 'https://api.ani.zip';
 
   // Singleton — same lifetime as JikanService so the cache survives
@@ -73,7 +75,7 @@ class AniZipService {
             const Duration(seconds: 15),
           );
       if (response.statusCode != 200) {
-        print('ani.zip GET $uri failed: ${response.statusCode}');
+        Logger.e('ani.zip GET $uri failed (${response.statusCode})');
         return null;
       }
       final body = json.decode(response.body) as Map<String, dynamic>;
@@ -91,7 +93,7 @@ class AniZipService {
       _cacheAt[malId] = DateTime.now();
       return body;
     } catch (e) {
-      print('ani.zip GET $uri error: $e');
+      Logger.e('ani.zip GET $uri error', error: e);
       return null;
     }
   }

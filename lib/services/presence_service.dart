@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 import '../core/models/presence_status.dart';
+import '../core/utils/logger.dart';
 
 class PresenceService {
   PresenceService({FirebaseFirestore? firestore})
@@ -28,9 +28,7 @@ class PresenceService {
       if (data == null) return PresenceStatus.empty(uid);
       return PresenceStatus.fromFirestore(uid, data);
     }).handleError((error) {
-      if (kDebugMode) {
-        print('PresenceService watchPresence error: $error');
-      }
+        Logger.e('PresenceService watchPresence error', error: error);
       return PresenceStatus.empty(uid);
     });
   }
@@ -85,7 +83,7 @@ class PresenceService {
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {
-      print('PresenceService.setOnline FAILED for $uid ($username): $e');
+      Logger.e('PresenceService.setOnline FAILED for $uid ($username)', error: e);
     }
   }
 
@@ -101,7 +99,7 @@ class PresenceService {
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {
-      print('PresenceService.setOffline FAILED for $uid: $e');
+      Logger.e('PresenceService.setOffline FAILED for $uid', error: e);
     }
   }
 
@@ -120,7 +118,7 @@ class PresenceService {
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {
-      if (kDebugMode) print('PresenceService markDoodling error: $e');
+      Logger.e('PresenceService markDoodling error', error: e);
     }
 
     _doodleIdleTimer?.cancel();
@@ -147,7 +145,7 @@ class PresenceService {
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {
-      if (kDebugMode) print('PresenceService clearDoodling error: $e');
+      Logger.e('PresenceService clearDoodling error', error: e);
     }
   }
 

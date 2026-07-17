@@ -134,7 +134,7 @@ class _SoloStudyScreenState extends State<SoloStudyScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))],
+        boxShadow: [BoxShadow(color: Colors.pink.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 5))],
       ),
       child: Text(
         question.questionText,
@@ -170,7 +170,7 @@ class _SoloStudyScreenState extends State<SoloStudyScreen> {
               color: _isAnswered && index == question.correctOptionIndex ? Colors.green : Colors.white,
               width: 2,
             ),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)],
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 5)],
           ),
           child: Text(
             question.options[index],

@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import '../../domain/models/memory_photo.dart';
+import '../../../../core/utils/logger.dart';
 
 class GalleryService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -38,7 +39,7 @@ class GalleryService {
         'tags': tags,
       });
 
-      print("Photo uploaded successfully: ${docRef.id}");
+      Logger.i("Photo uploaded successfully: ${docRef.id}");
 
       return MemoryPhoto(
         id: docRef.id,
@@ -89,7 +90,7 @@ class GalleryService {
         // Storage deletion is best-effort
       }
 
-      print("Photo deleted: ${photo.id}");
+      Logger.i("Photo deleted: ${photo.id}");
     } catch (e) {
       debugPrint("Error deleting photo: $e");
     }

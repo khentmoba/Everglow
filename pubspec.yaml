@@ -59,6 +59,7 @@ dependencies:
   flutter_webrtc: ^0.13.0
   flutter_html: ^3.0.0
   go_router: ^14.0.0
+  pointer_interceptor: ^0.10.1+2
 
 dev_dependencies:
   flutter_test:

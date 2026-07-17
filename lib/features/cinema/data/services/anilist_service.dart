@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:everglow/core/utils/connectivity_aware.dart';
+import 'package:everglow/core/utils/logger.dart';
 import 'package:everglow/features/cinema/data/models/anilist_detail.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/jikan_service.dart';
@@ -15,7 +17,7 @@ import 'package:everglow/features/cinema/data/services/jikan_service.dart';
 /// AniList is rate-limited to 90 requests per minute, so we still pipe
 /// every request through a small FIFO queue with a 50ms gap. AniList
 /// returns 429 with a `Retry-After` header on bursts, which we honor.
-class AniListService {
+class AniListService with ConnectivityAware {
   static const String _endpoint = 'https://graphql.anilist.co';
 
   // Singleton — AniList responses are stable and we want the in-memory
@@ -58,14 +60,14 @@ class AniListService {
         if (response.statusCode == 200) {
           final body = json.decode(response.body) as Map<String, dynamic>;
           if (body['errors'] != null) {
-            print('AniList GraphQL errors: ${body['errors']}');
+            Logger.e('AniList GraphQL errors: ${body['errors']}');
           }
           return body['data'] as Map<String, dynamic>?;
         }
-        print('AniList HTTP ${response.statusCode}: ${response.body}');
+        Logger.e('AniList HTTP ${response.statusCode}: ${response.body}');
         return null;
       } catch (e) {
-        print('AniList request error: $e');
+        Logger.e('AniList request error', error: e);
         return null;
       }
     });

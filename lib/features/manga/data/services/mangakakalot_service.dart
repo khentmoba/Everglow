@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:everglow/core/utils/connectivity_aware.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
+import '../../../../core/utils/logger.dart';
 
 /// Scrapes mangakakalot.com for chapter data and page images. Catalog
 /// browsing (search, popular, latest) is still handled by [ComickService].
@@ -12,7 +14,7 @@ import 'package:everglow/features/manga/data/models/manga_item.dart';
 ///   * Search       — `GET /search/story/{title}`
 ///   * Chapter list — `GET /manga/{slug}`
 ///   * Page images  — `GET /chapter/{slug}/{chapterId}`
-class MangaKakalotService {
+class MangaKakalotService with ConnectivityAware {
   static const String _baseUrl = 'https://mangakakalot.com';
 
   static const String _proxyImageUrl =
@@ -52,7 +54,7 @@ class MangaKakalotService {
         }
       }
     } catch (e) {
-      print('MangaKakalot searchByTitle error: $e');
+      Logger.e('MangaKakalot searchByTitle error', error: e);
     }
     return '';
   }
@@ -75,7 +77,7 @@ class MangaKakalotService {
         return _parseChapterList(response.body, slug);
       }
     } catch (e) {
-      print('MangaKakalot chapter feed error: $e');
+      Logger.e('MangaKakalot chapter feed error', error: e);
     }
     return [];
   }
@@ -143,7 +145,7 @@ class MangaKakalotService {
         return result;
       }
     } catch (e) {
-      print('MangaKakalot chapter pages error: $e');
+      Logger.e('MangaKakalot chapter pages error', error: e);
     }
     return null;
   }
@@ -183,7 +185,7 @@ class MangaKakalotService {
             .toFirestore());
       }
     } catch (e) {
-      print('Error saving to manga_library: $e');
+      Logger.e('Error saving to manga_library', error: e);
     }
   }
 
@@ -200,7 +202,7 @@ class MangaKakalotService {
         await collection.doc(existing.docs.first.id).delete();
       }
     } catch (e) {
-      print('Error removing from manga_library: $e');
+      Logger.e('Error removing from manga_library', error: e);
     }
   }
 
@@ -225,7 +227,7 @@ class MangaKakalotService {
         });
       }
     } catch (e) {
-      print('Error saving reading progress: $e');
+      Logger.e('Error saving reading progress', error: e);
     }
   }
 
@@ -386,7 +388,7 @@ class MangaKakalotService {
           .toList();
       await prefs.setString(_cacheKey(userName), json.encode(listJson));
     } catch (e) {
-      print('Error caching manga_library: $e');
+      Logger.e('Error caching manga_library', error: e);
     }
   }
 
@@ -424,7 +426,7 @@ class MangaKakalotService {
         }).toList();
       }
     } catch (e) {
-      print('Error reading cached manga_library: $e');
+      Logger.e('Error reading cached manga_library', error: e);
     }
     return [];
   }

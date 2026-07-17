@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:everglow/core/utils/firestore_stream_utils.dart';
 import '../models/garden_stats.dart';
+import '../../../../core/utils/logger.dart';
 
 class GardenService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -118,6 +119,6 @@ class GardenService {
       );
       await docRef.set(stats.toFirestore());
     }
-    print('Plant type set to $plantType for user $userId');
+    Logger.i('Plant type set to $plantType for user $userId');
   }
 }

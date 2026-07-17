@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:http/http.dart' as http;
+import 'package:everglow/core/utils/connectivity_aware.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
+import '../../../../core/utils/logger.dart';
 
 /// Scrapes mangakatana.com for chapter data and page images.
 /// MangaKatana is a sister site to MangaKakalot with broader coverage,
@@ -11,7 +13,7 @@ import 'package:everglow/features/manga/data/models/manga_item.dart';
 ///   * Search       — `GET /?s={title}&search_type=title`
 ///   * Chapter list — `GET /manga/{slug}`
 ///   * Page images  — `GET /manga/{slug}/{chapterId}` (or similar)
-class MangakatanaService {
+class MangakatanaService with ConnectivityAware {
   static const String _baseUrl = 'https://mangakatana.com';
 
   static const String _proxyImageUrl =
@@ -53,7 +55,7 @@ class MangakatanaService {
         }
       }
     } catch (e) {
-      print('Mangakatana searchByTitle error: $e');
+      Logger.e('Mangakatana searchByTitle error', error: e);
     }
     return '';
   }
@@ -71,7 +73,7 @@ class MangakatanaService {
         return _parseChapterList(response.body, slug);
       }
     } catch (e) {
-      print('Mangakatana chapter feed error: $e');
+      Logger.e('Mangakatana chapter feed error', error: e);
     }
     return [];
   }
@@ -149,7 +151,7 @@ class MangakatanaService {
         return result;
       }
     } catch (e) {
-      print('Mangakatana chapter pages error: $e');
+      Logger.e('Mangakatana chapter pages error', error: e);
     }
     return null;
   }

@@ -2,6 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:collection';
 import 'package:http/http.dart' as http;
+import 'package:everglow/core/utils/connectivity_aware.dart';
+import 'package:everglow/core/utils/error_aware.dart';
+import 'package:everglow/core/utils/logger.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 
 /// REST client for the Jikan v4 API (an unofficial MyAnimeList mirror).
@@ -17,7 +20,7 @@ import 'package:everglow/features/cinema/data/models/media_item.dart';
 /// through a FIFO queue and adds a small gap between calls. When the
 /// queue head gets a `429`, we back off for the duration the response
 /// asks for and then resume.
-class JikanService {
+class JikanService with ConnectivityAware, ErrorAware {
   static const String _baseUrl = 'https://api.jikan.moe/v4';
 
   // Singleton — same lifetime as TMDBService so the queue is shared
@@ -133,11 +136,11 @@ class JikanService {
             await Future.delayed(clamped);
             continue;
           }
-          print('[Jikan] $path failed (${response.statusCode}): '
+          Logger.e('[Jikan] $path failed (${response.statusCode}): '
               '${response.body.length > 200 ? '${response.body.substring(0, 200)}...' : response.body}');
           return null;
         } catch (e) {
-          print('[Jikan] $path error: $e');
+          Logger.e('[Jikan] $path error', error: e);
           return null;
         }
       }
@@ -187,11 +190,11 @@ class JikanService {
           await Future.delayed(clamped);
           continue;
         }
-        print('[Jikan][Direct] $path failed (${response.statusCode}): '
+        Logger.e('[Jikan][Direct] $path failed (${response.statusCode}): '
             '${response.body.length > 200 ? '${response.body.substring(0, 200)}...' : response.body}');
         return null;
       } catch (e) {
-        print('[Jikan][Direct] $path error: $e');
+        Logger.e('[Jikan][Direct] $path error', error: e);
         return null;
       }
     }

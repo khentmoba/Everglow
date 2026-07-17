@@ -85,7 +85,7 @@ class _MoodHeartState extends State<_MoodHeart> with SingleTickerProviderStateMi
               ),
             if (isStressed)
               BoxShadow(
-                color: Colors.blue.withOpacity(0.3),
+                color: Colors.blue.withValues(alpha: 0.3),
                 blurRadius: 5,
                 spreadRadius: 1,
               ),

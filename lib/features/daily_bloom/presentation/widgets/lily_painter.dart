@@ -110,7 +110,7 @@ class LilyPainter extends CustomPainter {
       final petalCount = stage == 4 ? 3 : 6;
       final petalSize = stage == 4 ? 20.0 : 35.0;
       
-      paint.color = Colors.pink[200]!.withOpacity(0.9);
+      paint.color = Colors.pink[200]!.withValues(alpha: 0.9);
       for (int i = 0; i < petalCount; i++) {
         final angle = (2 * pi / petalCount) * i;
         canvas.save();
@@ -125,7 +125,7 @@ class LilyPainter extends CustomPainter {
         // Add glow if stage 5
         if (stage == 5) {
           final glowPaint = Paint()
-            ..color = Colors.pink[50]!.withOpacity(0.5)
+            ..color = Colors.pink[50]!.withValues(alpha: 0.5)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
           canvas.drawPath(petalPath, glowPaint);
         }

@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import '../models/date_idea.dart';
+import '../../../../core/utils/logger.dart';
 
 class DateIdeaService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -59,7 +60,7 @@ class DateIdeaService {
         await batch.commit();
       }
     } catch (e) {
-      print('Error seeding date ideas: $e');
+      Logger.e('Error seeding date ideas', error: e);
     }
   }
 }

@@ -46,7 +46,7 @@ class _VinylRecordState extends State<VinylRecord>
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.5),
+              color: Colors.black.withValues(alpha: 0.5),
               blurRadius: 10,
               spreadRadius: 2,
             ),
@@ -63,7 +63,7 @@ class _VinylRecordState extends State<VinylRecord>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.05),
+                    color: Colors.white.withValues(alpha: 0.05),
                     width: 0.5,
                   ),
                 ),

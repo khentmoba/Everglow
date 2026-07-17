@@ -20,12 +20,12 @@ class MemoryDetailOverlay extends StatelessWidget {
         child: Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: AppTheme.velvet.withOpacity(0.95),
+            color: AppTheme.velvet.withValues(alpha: 0.95),
             borderRadius: BorderRadius.circular(32),
-            border: Border.all(color: AppTheme.blushGold.withOpacity(0.3), width: 1.5),
+            border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.3), width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.deepRose.withOpacity(0.2),
+                color: AppTheme.deepRose.withValues(alpha: 0.2),
                 blurRadius: 20,
                 spreadRadius: 5,
               ),
@@ -55,7 +55,7 @@ class MemoryDetailOverlay extends StatelessWidget {
                             DateFormat('MMMM d, yyyy').format(milestone.date),
                             style: GoogleFonts.outfit(
                               fontSize: 14,
-                              color: AppTheme.roseQuartz.withOpacity(0.6),
+                              color: AppTheme.roseQuartz.withValues(alpha: 0.6),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -83,9 +83,9 @@ class MemoryDetailOverlay extends StatelessWidget {
                           margin: const EdgeInsets.only(bottom: 24),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: AppTheme.moonlight.withOpacity(AppTheme.glassOpacity),
+                            color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppTheme.moonlight.withOpacity(0.18), width: 1.0),
+                            border: Border.all(color: AppTheme.moonlight.withValues(alpha: 0.18), width: 1.0),
                           ),
                           child: Text(
                             "Memory by ${milestone.author} 🤍",
@@ -124,7 +124,7 @@ class MemoryDetailOverlay extends StatelessWidget {
                       "Living Archive",
                       style: GoogleFonts.outfit(
                         fontSize: 12,
-                        color: AppTheme.roseQuartz.withOpacity(0.5),
+                        color: AppTheme.roseQuartz.withValues(alpha: 0.5),
                         letterSpacing: 2,
                       ),
                     ),

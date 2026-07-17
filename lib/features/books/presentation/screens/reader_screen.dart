@@ -135,7 +135,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
           ..style.height = '100%'
           ..style.border = 'none';
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[ReaderScreen] Archive.org iframe registration failed: $e');
+    }
   }
 
   // ── TEXT PROCESSING ────────────────────────────────────────────────

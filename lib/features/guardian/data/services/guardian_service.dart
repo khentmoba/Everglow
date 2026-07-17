@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import '../models/guardian_message.dart';
+import '../../../../core/utils/logger.dart';
 
 class GuardianService {
   static final GuardianService _instance = GuardianService._internal();
@@ -65,7 +66,7 @@ class GuardianService {
       
       await batch.commit();
     } catch (e) {
-      print('Error seeding guardian messages: $e');
+      Logger.e('Error seeding guardian messages', error: e);
     }
   }
 }
