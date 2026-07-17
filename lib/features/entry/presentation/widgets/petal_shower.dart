@@ -49,7 +49,7 @@ class _PetalShowerState extends State<PetalShower> with SingleTickerProviderStat
   static Picture _createPetalShapePicture(double maxSize) {
     final recorder = PictureRecorder();
     final canvas = Canvas(recorder);
-    final paint = Paint()..color = AppTheme.roseQuartz.withOpacity(0.6);
+    final paint = Paint()..color = AppTheme.roseQuartz.withValues(alpha: 0.6);
 
     // Petal shape: two quadratic curves forming an eye-like leaf.
     // Scaled so the caller can adjust size via canvas.scale().

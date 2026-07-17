@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import '../../firebase_options.dart';
 import '../../features/dashboard/domain/models/milestone.dart';
+import 'logger.dart';
 
 Future<void> seedFirstDate() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,7 +28,7 @@ Future<void> seedFirstDate() async {
   );
 
   await db.collection('milestones').add(milestone.toFirestore());
-  print("✅ Successfully seeded 'First Date' memory!");
+  Logger.i("✅ Successfully seeded 'First Date' memory!");
 }
 
 void main() async {

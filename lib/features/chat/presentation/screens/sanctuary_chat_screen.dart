@@ -8,6 +8,7 @@ import 'package:everglow/core/theme/app_spacing.dart';
 import 'package:everglow/core/theme/app_elevation.dart';
 import 'package:everglow/shared/widgets/gamified_background.dart';
 import 'package:everglow/shared/widgets/partner_presence_indicator.dart';
+import '../../../../core/utils/logger.dart';
 import '../../data/services/chat_service.dart';
 import '../../domain/models/chat_message.dart';
 import 'package:animate_do/animate_do.dart';
@@ -89,7 +90,7 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {
-      print("Sanctuary: failed to ensure user doc: $e");
+      Logger.e("Sanctuary: failed to ensure user doc", error: e);
     }
 
     setState(() {
@@ -624,7 +625,7 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
         await user.getIdToken(true);
       }
     } catch (e) {
-      print("Token refresh failed: $e");
+      Logger.e("Token refresh failed", error: e);
     }
 
     _checkAuthAndConnect();

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:everglow/core/config/env_config.dart';
 import '../models/music_status.dart';
+import '../../../../core/utils/logger.dart';
 
 class MusicSyncService {
   String get _apiKey => EnvConfig.lastfmApiKey;
@@ -21,7 +22,7 @@ class MusicSyncService {
 
   Future<MusicStatus?> fetchRecentTrack(String username) async {
     if (_apiKey.isEmpty) {
-      print('Jukebox Service: API Key is missing!');
+      Logger.w('Jukebox Service: API Key is missing!');
       return null;
     }
 
@@ -43,7 +44,7 @@ class MusicSyncService {
             (data['recenttracks']['track'] as List).isNotEmpty) {
           return MusicStatus.fromJson(data, username);
         } else {
-          print('Jukebox Service: No tracks found for $username in response.');
+          Logger.d('Jukebox Service: No tracks found for $username in response.');
         }
       } else if (response.statusCode == 404) {
         // Last.fm returns 404 with `{"error": 6, "message": "User not found"}`
@@ -51,14 +52,14 @@ class MusicSyncService {
         // Mark the user as invalid so we never poll for them again this
         // session and just surface a quiet empty state in the UI.
         _invalidUsers.add(username);
-        print('Jukebox Service: Last.fm user "$username" not found. Skipping future polls this session.');
+        Logger.w('Jukebox Service: Last.fm user "$username" not found. Skipping future polls this session.');
       } else {
-        print('Jukebox Service Error ($username): Status ${response.statusCode} - ${response.body}');
+        Logger.e('Jukebox Service Error ($username): Status ${response.statusCode} - ${response.body}');
       }
     } on TimeoutException {
-      print('Jukebox Service Timeout: API call for $username timed out after 10s.');
+      Logger.e('Jukebox Service Timeout: API call for $username timed out after 10s.');
     } catch (e) {
-      print('Jukebox Service Exception ($username): $e');
+      Logger.e('Jukebox Service Exception ($username)', error: e);
     }
     return null;
   }

@@ -1,5 +1,6 @@
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/logger.dart';
 
 class AudioService {
   static final AudioService _instance = AudioService._internal();
@@ -29,7 +30,7 @@ class AudioService {
       await _player.setAsset(assetPath);
       await _player.play();
     } catch (e) {
-      print('Error playing SFX: $e');
+      Logger.e('Error playing SFX', error: e);
     }
   }
 

@@ -270,7 +270,9 @@ _currentSeason = widget.season ?? 1;
     if (userName.isEmpty) {
       try {
         userName = context.read<AuthService>().currentUser ?? '';
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[VideoPlayerScreen] Failed to read AuthService for username: $e');
+      }
     }
     if (userName.isEmpty) return;
 
@@ -346,7 +348,9 @@ _currentSeason = widget.season ?? 1;
         if (type == 'MEDIA_DATA' || type == 'PLAYER_EVENT') {
           _contentCheckTimer?.cancel();
         }
-      } catch (_) {} // ignore cross-origin / parse errors
+      } catch (e) {
+        debugPrint('[VideoPlayerScreen] Cross-origin postMessage parse error: $e');
+      } // ignore cross-origin / parse errors
     }).toJS;
   }
 

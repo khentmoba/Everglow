@@ -137,7 +137,9 @@ class AIService extends ChangeNotifier {
         // Archive without clearing — preserves history in sessions collection
         try {
           await _archiveSession(conversation);
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[AIService] Session archive failed: $e');
+        }
       }
 
       // Update cache

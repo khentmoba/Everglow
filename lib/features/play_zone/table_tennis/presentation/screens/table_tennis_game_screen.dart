@@ -45,7 +45,9 @@ class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
   void dispose() {
     try {
       web.document.querySelector('iframe[data-everglow-tt="1"]')?.remove();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[TableTennisGameScreen] Failed to remove iframe on dispose: $e');
+    }
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
@@ -99,7 +101,9 @@ class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
       if (mounted) {
         setState(() {});
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[TableTennisGameScreen] Failed to reload iframe: $e');
+    }
   }
 
   @override

@@ -164,7 +164,7 @@ class _AnimatedDoorState extends State<AnimatedDoor> with TickerProviderStateMix
             decoration: BoxDecoration(
               boxShadow: [
                 BoxShadow(
-                  color: Colors.white.withOpacity(0.8 * _swingAnimation.value),
+                  color: Colors.white.withValues(alpha: 0.8 * _swingAnimation.value),
                   blurRadius: 50,
                   spreadRadius: 20,
                 ),
@@ -271,12 +271,12 @@ class _AnimatedDoorState extends State<AnimatedDoor> with TickerProviderStateMix
       margin: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.black.withOpacity(0.05),
+            Colors.black.withValues(alpha: 0.05),
             Colors.transparent,
           ],
         ),

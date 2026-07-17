@@ -63,7 +63,9 @@ class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
     _bridge?.dispose();
     try {
       web.document.querySelector('iframe[data-everglow-tt="1"]')?.remove();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[TTMultiplayerGameScreen] Failed to remove iframe on dispose: $e');
+    }
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }

@@ -3,7 +3,10 @@ import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:everglow/core/utils/firestore_stream_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:everglow/core/utils/connectivity_aware.dart';
+import 'package:everglow/core/utils/error_aware.dart';
 import 'package:everglow/features/books/data/models/book_item.dart';
+import '../../../../core/utils/logger.dart';
 
 /// Talks to the public Open Library REST APIs (no key required) and
 /// to the personal `read_list` Firestore collection. Mirrors
@@ -17,7 +20,7 @@ import 'package:everglow/features/books/data/models/book_item.dart';
 ///   * Read source — derived from `ia` field: Internet Archive
 ///     borrowable copies, with a Project Gutenberg fallback when
 ///     possible.
-class OpenLibraryService {
+class OpenLibraryService with ConnectivityAware, ErrorAware {
   final String _searchBase = 'https://openlibrary.org/search.json';
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -163,10 +166,10 @@ class OpenLibraryService {
             .map((d) => _mapDocToBookItem(d as Map<String, dynamic>))
             .toList();
       } else {
-        print('Open Library search failed: ${response.statusCode}');
+        Logger.e('Open Library search failed (${response.statusCode})');
       }
     } catch (e) {
-      print('Open Library search error: $e');
+      Logger.e('Open Library search error', error: e);
     }
     return [];
   }
@@ -201,7 +204,7 @@ class OpenLibraryService {
             .toList();
       }
     } catch (e) {
-      print('Open Library subject search error ($subject): $e');
+      Logger.e('Open Library subject search error ($subject)', error: e);
     }
     return [];
   }
@@ -218,7 +221,7 @@ class OpenLibraryService {
         return json.decode(response.body) as Map<String, dynamic>;
       }
     } catch (e) {
-      print('Open Library work details error: $e');
+      Logger.e('Open Library work details error', error: e);
     }
     return null;
   }
@@ -237,7 +240,7 @@ class OpenLibraryService {
         return entries.cast<Map<String, dynamic>>();
       }
     } catch (e) {
-      print('Open Library editions error: $e');
+      Logger.e('Open Library editions error', error: e);
     }
     return [];
   }
@@ -246,7 +249,7 @@ class OpenLibraryService {
 
   Future<void> saveToReadList(BookItem item, String status, String userName) async {
     if (userName.isEmpty) {
-      print('saveToReadList: userName is empty');
+      Logger.w('saveToReadList: userName is empty');
       return;
     }
     try {
@@ -267,9 +270,9 @@ class OpenLibraryService {
             .copyWith(status: status, userName: userName, addedAt: DateTime.now())
             .toFirestore());
       }
-      print('Saved to read_list: ${item.title} ($userName)');
+      Logger.i('Saved to read_list: ${item.title} ($userName)');
     } catch (e) {
-      print('Error saving to read_list: $e');
+      Logger.e('Error saving to read_list', error: e);
     }
   }
 
@@ -286,7 +289,7 @@ class OpenLibraryService {
         await collection.doc(existing.docs.first.id).delete();
       }
     } catch (e) {
-      print('Error removing from read_list: $e');
+      Logger.e('Error removing from read_list', error: e);
     }
   }
 
@@ -332,7 +335,7 @@ class OpenLibraryService {
           .toList();
       await prefs.setString(_cacheKey(userName), json.encode(listJson));
     } catch (e) {
-      print('Error caching read_list: $e');
+      Logger.e('Error caching read_list', error: e);
     }
   }
 
@@ -365,7 +368,7 @@ class OpenLibraryService {
             .toList();
       }
     } catch (e) {
-      print('Error reading cached read_list: $e');
+      Logger.e('Error reading cached read_list', error: e);
     }
     return [];
   }
@@ -385,7 +388,7 @@ class OpenLibraryService {
         return response.body;
       }
     } catch (e) {
-      print('fetchBookText error: $e');
+      Logger.e('fetchBookText error', error: e);
     }
     return '';
   }
@@ -451,7 +454,7 @@ class OpenLibraryService {
             error ?? 'Proxy returned empty response.');
       }
     } catch (e) {
-      print('fetchBookTextFromCandidates proxy error: $e');
+      Logger.e('fetchBookTextFromCandidates proxy error', error: e);
     }
     // Fallback: direct fetch (may fail on web due to CORS, but works
     // in tests or when the proxy is unreachable).
@@ -467,7 +470,7 @@ class OpenLibraryService {
           );
         }
       } catch (e) {
-        print('fetchBookText direct fallback $i failed ($url): $e');
+        Logger.e('fetchBookText direct fallback $i failed ($url)', error: e);
       }
     }
     return FetchResult.empty(

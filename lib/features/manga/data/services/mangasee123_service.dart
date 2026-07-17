@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:everglow/core/utils/connectivity_aware.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
 
 /// Scrapes mangasee123.com for chapter page images. MangaSee123 is a
@@ -15,7 +17,7 @@ import 'package:everglow/features/manga/data/models/manga_item.dart';
 /// Images are typically served from `scans-hot.xyz` or similar CDNs.
 /// MangaSee123 loads images via JavaScript, so we extract them from
 /// embedded JSON data or page scripts.
-class MangaSee123Service {
+class MangaSee123Service with ConnectivityAware {
   static const String _baseUrl = 'https://mangasee123.com';
 
   static const String _proxyImageUrl =
@@ -58,7 +60,9 @@ class MangaSee123Service {
           }
         }
       }
-    } catch (_) { /* not found */ }
+    } catch (e) {
+      debugPrint('[MangaSee123Service] Failed to find series ID: $e');
+    }
     return '';
   }
 
@@ -110,7 +114,9 @@ class MangaSee123Service {
                 }
               }
             }
-          } catch (_) { /* ignore parse errors */ }
+          } catch (e) {
+            debugPrint('[MangaSee123Service] JSON-LD parse error: $e');
+          }
         }
 
         // Method 2: Look for CurlReading/PrefetchImages script variables
@@ -137,7 +143,9 @@ class MangaSee123Service {
                   }
                 }
               }
-            } catch (_) { /* ignore parse errors */ }
+            } catch (e) {
+              debugPrint('[MangaSee123Service] CurlReading/PrefetchImages parse error: $e');
+            }
           }
         }
 
@@ -173,7 +181,9 @@ class MangaSee123Service {
         _pageCache[cacheKey] = result;
         return result;
       }
-    } catch (_) { /* failed */ }
+    } catch (e) {
+      debugPrint('[MangaSee123Service] Failed to fetch chapter pages: $e');
+    }
     return null;
   }
 

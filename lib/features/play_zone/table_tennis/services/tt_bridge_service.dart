@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:js_interop';
+import 'package:flutter/foundation.dart';
 import 'package:web/web.dart' as web;
 
 import '../models/tt_room.dart';
@@ -75,14 +76,17 @@ class TTBridgeService {
       final msg = <String, dynamic>{'type': type, ...data};
       final jsMsg = msg.jsify();
       iframe.contentWindow?.postMessage(jsMsg!, '*'.toJS);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[TTBridgeService] Failed to post message to iframe: $e');
+    }
   }
 
   web.HTMLIFrameElement? _findIframe() {
     try {
       return web.document.querySelector('iframe[data-everglow-tt="1"]')
           as web.HTMLIFrameElement?;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[TTBridgeService] Failed to find iframe: $e');
       return null;
     }
   }

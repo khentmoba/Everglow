@@ -83,7 +83,9 @@ class _AIRecommendationsState extends State<AIRecommendations> {
             '${m.title} (${m.year})').join(', ');
           contextParts.add('Trending movies this week: $list');
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[AIRecommendations] Failed to fetch trending movies: $e');
+      }
 
       try {
         final nowPlaying = await tmdb.fetchNowPlaying();
@@ -92,7 +94,9 @@ class _AIRecommendationsState extends State<AIRecommendations> {
             '${m.title} (${m.year})').join(', ');
           contextParts.add('Now playing in theaters: $list');
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[AIRecommendations] Failed to fetch now playing: $e');
+      }
 
       try {
         final upcoming = await tmdb.fetchUpcoming();
@@ -101,7 +105,9 @@ class _AIRecommendationsState extends State<AIRecommendations> {
             '${m.title} (${m.year})').join(', ');
           contextParts.add('Coming soon: $list');
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[AIRecommendations] Failed to fetch upcoming movies: $e');
+      }
 
       final contextStr = contextParts.join('\n\n');
       final prompt = '''Based on what we have been watching and what's currently available, recommend 3 movies or series we should watch next. Pick from the trending/now playing/coming soon lists when possible — only recommend real movies that exist. Reply with ONLY a numbered list of titles with year, nothing else. Example: 1. Movie Name (2024)''';
@@ -129,7 +135,9 @@ class _AIRecommendationsState extends State<AIRecommendations> {
             found.add(searchResults.first);
           }
           await Future.delayed(const Duration(milliseconds: 200));
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[AIRecommendations] TMDB search failed: $e');
+        }
       }
 
       setState(() {

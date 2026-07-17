@@ -71,7 +71,9 @@ class _WebOverlayButtonState extends State<WebOverlayButton> {
     if (kIsWeb) {
       try {
         _element.onclick = null;
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[WebOverlayButton] Failed to clear onclick handler: $e');
+      }
     }
     super.dispose();
   }
@@ -121,7 +123,9 @@ class _WebOverlayButtonState extends State<WebOverlayButton> {
     // on this button.
     try {
       _element.blur();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[WebOverlayButton] Failed to blur element: $e');
+    }
   }
 
   @override
@@ -262,7 +266,9 @@ class _WebOverlayTextButtonState extends State<WebOverlayTextButton> {
     if (kIsWeb) {
       try {
         _element.onclick = null;
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[WebOverlayTextButton] Failed to clear onclick handler: $e');
+      }
     }
     super.dispose();
   }
@@ -339,7 +345,9 @@ class _WebOverlayTextButtonState extends State<WebOverlayTextButton> {
     widget.onTap();
     try {
       _element.blur();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[WebOverlayTextButton] Failed to blur element: $e');
+    }
   }
 
   @override

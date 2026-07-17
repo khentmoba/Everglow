@@ -1,0 +1,104 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:everglow/core/theme/app_colors.dart';
+import 'package:everglow/features/cinema/data/models/media_item.dart';
+import 'drawer_helpers.dart';
+
+/// Renders the "More Like This" horizontal rail of similar titles.
+/// Shows a loading skeleton while fetching, an empty-state message
+/// when no similar titles are found, or a horizontal scrollable list
+/// of poster cards with title and year/type labels.
+class SimilarSection extends StatelessWidget {
+  final List<MediaItem> similar;
+  final bool isLoading;
+  final void Function(MediaItem item) onItemTap;
+
+  const SimilarSection({
+    super.key,
+    required this.similar,
+    required this.isLoading,
+    required this.onItemTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) return buildLoader();
+    if (similar.isEmpty) {
+      return buildEmptySection('No similar titles found');
+    }
+
+    return SizedBox(
+      height: 210,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: similar.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final item = similar[index];
+          return GestureDetector(
+            onTap: () => onItemTap(item),
+            child: SizedBox(
+              width: 120,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.35),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: item.posterUrl.isNotEmpty
+                            ? Image.network(item.posterUrl,
+                                fit: BoxFit.cover)
+                            : Container(
+                                color: AppColors.shimmerBase,
+                                child: const Center(
+                                  child: Icon(
+                                      Icons.movie_creation_outlined,
+                                      color: AppColors.mutedPurple,
+                                      size: 28),
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      color: AppColors.petalWhite,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    item.year.isNotEmpty
+                        ? item.year
+                        : (item.mediaType == 'movie'
+                            ? 'Movie'
+                            : 'Series'),
+                    style: GoogleFonts.outfit(
+                        color: AppColors.mutedPurple, fontSize: 10),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
