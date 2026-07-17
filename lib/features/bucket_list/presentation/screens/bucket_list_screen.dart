@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/shared/widgets/gamified_background.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_error_state.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_empty_state.dart';
@@ -29,9 +30,10 @@ class _BucketListScreenState extends State<BucketListScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: SafeArea(
-        child: Column(
-          children: [
+      body: GamifiedBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
             // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -134,6 +136,7 @@ class _BucketListScreenState extends State<BucketListScreen> {
             ),
           ],
         ),
+      ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddDialog(context, auth),

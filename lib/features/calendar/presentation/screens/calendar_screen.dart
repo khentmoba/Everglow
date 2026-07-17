@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/shared/widgets/gamified_background.dart';
 import '../../domain/models/calendar_event.dart';
 import '../../data/services/calendar_service.dart';
 import '../widgets/calendar_grid.dart';
@@ -46,9 +47,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: SafeArea(
-        child: Stack(
-          children: [
+      body: GamifiedBackground(
+        child: SafeArea(
+          child: Stack(
+            children: [
             Column(
               children: [
                 // ── Header ──
@@ -239,6 +241,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ),
           ],
         ),
+      ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
