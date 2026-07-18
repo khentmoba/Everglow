@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import '../../../gallery/domain/models/memory_photo.dart';
 import '../../../gallery/data/services/gallery_service.dart';
+import 'shelf_widgets.dart';
 
 class GalleryPreview extends StatelessWidget {
   const GalleryPreview({super.key});
@@ -59,7 +60,7 @@ class GalleryPreview extends StatelessWidget {
           onTap: () => context.push('/gallery'),
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
               color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
               borderRadius: BorderRadius.circular(20),
@@ -70,66 +71,64 @@ class GalleryPreview extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.photo_library_rounded,
-                      color: AppTheme.blushGold,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Memory Gallery',
-                      style: GoogleFonts.outfit(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.roseQuartz,
+                // Header row
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.photo_library_rounded,
+                        color: AppTheme.blushGold,
+                        size: 18,
                       ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      '${photos.length} photos',
-                      style: GoogleFonts.outfit(
-                        fontSize: 11,
-                        color: AppTheme.petalWhite.withValues(alpha: 0.65),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Memory Gallery',
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.roseQuartz,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.chevron_right,
-                      color: AppTheme.blushGold.withValues(alpha: 0.65),
-                      size: 18,
-                    ),
-                  ],
+                      const Spacer(),
+                      Text(
+                        '${photos.length} photos',
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          color: AppTheme.petalWhite.withValues(alpha: 0.65),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.chevron_right,
+                        color: AppTheme.blushGold.withValues(alpha: 0.65),
+                        size: 18,
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 10),
+                // Card carousel — same style as Cinema/Manga shelves
                 SizedBox(
-                  height: 70,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: photos.length.clamp(0, 6),
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      return ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.network(
-                          GalleryService.displayUrl(photos[index].imageUrl),
-                          width: 70,
-                          height: 70,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            width: 70,
-                            height: 70,
-                            color: AppTheme.twilight,
-                            child: const Icon(
-                              Icons.image_outlined,
-                              color: AppTheme.roseQuartz,
-                              size: 24,
-                            ),
+                  height: 168,
+                  child: ShelfMarquee(
+                    itemStride: 122.0,
+                    children: [
+                      for (final photo in photos) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(right: 12),
+                          child: ShelfCard(
+                            accent: ShelfAccent.gallery,
+                            imageUrl: GalleryService.displayUrl(photo.imageUrl),
+                            title: photo.caption.isNotEmpty
+                                ? photo.caption
+                                : 'Memory',
+                            subtitle: photo.uploadedBy,
+                            onTap: () => context.push('/gallery'),
                           ),
                         ),
-                      );
-                    },
+                      ],
+                    ],
                   ),
                 ),
               ],
