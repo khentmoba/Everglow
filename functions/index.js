@@ -656,6 +656,9 @@ exports.cleanupGallery = functions.https.onRequest(async (req, res) => {
 
   res.json({ deleted });
 });
+
+/**
+ * Proxies scanlation-site chapter page images so Flutter web isn't
  * blocked by CORS or hotlink protection. Scanlation groups host images
  * on their own domains or common CDNs (Blogspot, WordPress, etc.).
  *
