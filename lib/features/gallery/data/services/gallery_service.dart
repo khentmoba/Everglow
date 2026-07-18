@@ -23,7 +23,7 @@ class GalleryService {
     final Reference ref = _storage.ref().child(path);
     final UploadTask uploadTask = ref.putData(
       imageBytes,
-      SettableMetadata(contentType: 'image/jpeg'),
+      SettableMetadata(contentType: _guessContentType(fileName)),
     );
     final TaskSnapshot snapshot = await uploadTask;
     final String downloadUrl = await snapshot.ref.getDownloadURL();
@@ -47,6 +47,16 @@ class GalleryService {
       uploadedAt: DateTime.now(),
       tags: tags,
     );
+  }
+
+  /// Guess content type from file extension, defaulting to image/jpeg.
+  static String _guessContentType(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.heic')) return 'image/heic';
+    return 'image/jpeg';
   }
 
   /// Stream of all photos, newest first.

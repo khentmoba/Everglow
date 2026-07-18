@@ -23,11 +23,16 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
   bool _isSubmitEnabled = false;
 
   Future<void> _pickImage() async {
-    final result = await ImagePickerWeb.getImageAsBytes();
-    if (result != null && mounted) {
+    final info = await ImagePickerWeb.getImageInfo;
+    if (info != null && info.data != null && mounted) {
+      // Guess extension from file name, fallback to jpg
+      String ext = 'jpg';
+      if (info.fileName != null && info.fileName!.contains('.')) {
+        ext = info.fileName!.split('.').last.toLowerCase();
+      }
       setState(() {
-        _imageBytes = result;
-        _fileName = 'photo_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        _imageBytes = info.data;
+        _fileName = 'photo_${DateTime.now().millisecondsSinceEpoch}.$ext';
         _validateInput();
       });
     }
