@@ -20,6 +20,9 @@ class MangaKakalotService with ConnectivityAware {
   static const String _proxyImageUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyMangaKakalotImage';
 
+  static const String _proxyHtmlUrl =
+      'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyFetchHtml';
+
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   static final MangaKakalotService _instance = MangaKakalotService._internal();
@@ -33,13 +36,20 @@ class MangaKakalotService with ConnectivityAware {
 
   final Map<String, MangaChapterPages> _pageCache = {};
 
+  /// Rewrite a direct [Uri] through the [proxyFetchHtml] Cloud Function
+  /// so the request works on Flutter Web (CORS-safe).
+  Uri _proxiedFetch(Uri uri) {
+    return Uri.parse(
+        '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}');
+  }
+
   /// Search MangaKakalot by title and return the manga slug
   /// (e.g. "manga-abc123456789").
   Future<String> searchByTitle(String title) async {
     if (title.trim().isEmpty) return '';
     final uri = Uri.parse('$_baseUrl/search/story/${Uri.encodeComponent(title)}');
     try {
-      final response = await http.get(uri, headers: _headers).timeout(
+      final response = await http.get(_proxiedFetch(uri), headers: _headers).timeout(
             const Duration(seconds: 8),
           );
       if (response.statusCode == 200) {
@@ -70,7 +80,7 @@ class MangaKakalotService with ConnectivityAware {
     if (slug.isEmpty) return [];
     final uri = Uri.parse('$_baseUrl/manga/$slug');
     try {
-      final response = await http.get(uri, headers: _headers).timeout(
+      final response = await http.get(_proxiedFetch(uri), headers: _headers).timeout(
             const Duration(seconds: 10),
           );
       if (response.statusCode == 200) {
@@ -120,7 +130,7 @@ class MangaKakalotService with ConnectivityAware {
     }
     final uri = Uri.parse('$_baseUrl/$chapterId');
     try {
-      final response = await http.get(uri, headers: _headers).timeout(
+      final response = await http.get(_proxiedFetch(uri), headers: _headers).timeout(
             const Duration(seconds: 10),
           );
       if (response.statusCode == 200) {

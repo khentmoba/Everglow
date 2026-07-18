@@ -1,9 +1,9 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/core/theme/app_colors.dart';
+import 'package:everglow/core/theme/app_radius.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
 import 'package:everglow/features/manga/data/services/comick_service.dart';
 import 'package:everglow/features/manga/data/services/mangadex_service.dart';
@@ -14,14 +14,11 @@ import 'package:everglow/features/manga/data/services/scanlation_service.dart';
 import 'package:everglow/features/manga/presentation/screens/manga_reader_screen.dart';
 import 'package:everglow/services/auth_service.dart';
 
-/// Bottom-sheet details for a manga / manhwa / manhua. Mirrors
-/// `EpisodeDrawer` from the cinema feature — same gradient cover,
-/// same description block, same library-status row, but the
-/// "episodes" rail is a chapter list and tapping a chapter opens
-/// the manga reader instead of the video player.
+/// Bottom-sheet details for a manga / manhwa / manhua.
+/// Features: virtualized chapter list, consistent design tokens.
 class MangaDetailsDrawer extends StatefulWidget {
   final MangaItem item;
-  const MangaDetailsDrawer({Key? key, required this.item}) : super(key: key);
+  const MangaDetailsDrawer({super.key, required this.item});
 
   @override
   State<MangaDetailsDrawer> createState() => _MangaDetailsDrawerState();
@@ -36,8 +33,6 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
   final BatoService _batoService = BatoService();
   final ScrollController _chapterScrollController = ScrollController();
 
-  /// Populated when chapters come from scanlation sites; passed to
-  /// the reader so it can resolve page images from the same sites.
   Map<String, String>? _scanlationSlugs;
 
   late MangaItem _item;
@@ -64,13 +59,9 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
       _chapterError = null;
     });
 
-    // Build list of source futures to race in parallel.
-    // First non-empty result wins — no more 5-minute sequential waits.
     final futures = <Future<List<MangaChapter>>>[];
     final timeout = const Duration(seconds: 20);
 
-    // Collect all title variants to try (main title + alt titles).
-    // This fixes "Na Honjaman Level-Up" not finding "Solo Leveling" etc.
     final titlesToTry = <String>[_item.title];
     for (final alt in _item.altTitles) {
       if (alt.isNotEmpty && !titlesToTry.contains(alt)) {
@@ -89,7 +80,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
           .timeout(timeout, onTimeout: () => <MangaChapter>[]));
     }
 
-    // 2) Comick API — search by title to find hid (for items without Comick id)
+    // 2) Comick API — search by title to find hid
     if (_item.comickSlug.isEmpty && _item.comickId == 0) {
       for (final title in titlesToTry) {
         futures.add(_comickService
@@ -106,7 +97,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
       }
     }
 
-    // 3) MangaDex API — works for MangaDex UUIDs
+    // 3) MangaDex API
     final mangaDexId = _item.mangaKakalotId;
     if (mangaDexId.isNotEmpty) {
       futures.add(_mangaDexService
@@ -121,7 +112,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
           .timeout(timeout, onTimeout: () => <MangaChapter>[]));
     }
 
-    // 4) MangaKakalot — search by each title variant
+    // 4) MangaKakalot
     for (final title in titlesToTry) {
       futures.add(_kakalotService
           .searchByTitle(title)
@@ -132,7 +123,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
       }).timeout(timeout, onTimeout: () => <MangaChapter>[]));
     }
 
-    // 5) MangaKatana — search by each title variant
+    // 5) MangaKatana
     for (final title in titlesToTry) {
       futures.add(_mangakatanaService
           .searchByTitle(title)
@@ -143,7 +134,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
       }).timeout(timeout, onTimeout: () => <MangaChapter>[]));
     }
 
-    // 6) Scanlation sites — search with main title
+    // 6) Scanlation sites
     futures.add(_scanlationService
         .searchAll(_item.title)
         .timeout(timeout, onTimeout: () => <String, String>{})
@@ -152,7 +143,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
       return _scanlationService.getChapterFeedFromAll(slugs);
     }).timeout(timeout, onTimeout: () => <MangaChapter>[]));
 
-    // 7) Bato.to — search by each title variant (good for licensed manga)
+    // 7) Bato.to
     for (final title in titlesToTry) {
       futures.add(_batoService
           .searchByTitle(title)
@@ -163,8 +154,8 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
       }).timeout(timeout, onTimeout: () => <MangaChapter>[]));
     }
 
-    // Race all sources — first non-empty result wins
-    final list = await _raceForFirstNonEmpty(futures);
+    // Pick source with most chapters
+    final list = await _pickBestFromAll(futures);
 
     if (!mounted) return;
     if (list.isNotEmpty) {
@@ -180,37 +171,21 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
     }
   }
 
-  /// Races multiple futures, returning the first non-empty result.
-  /// Individual failures are silently caught and the next source is tried.
-  Future<List<MangaChapter>> _raceForFirstNonEmpty(
+  Future<List<MangaChapter>> _pickBestFromAll(
     List<Future<List<MangaChapter>>> futures,
   ) async {
     if (futures.isEmpty) return const [];
-    final completer = Completer<List<MangaChapter>>();
-    var remaining = futures.length;
-
-    void onResult(List<MangaChapter> result) {
-      if (!completer.isCompleted && result.isNotEmpty) {
-        completer.complete(result);
-      }
-      remaining--;
-      if (remaining <= 0 && !completer.isCompleted) {
-        completer.complete(const []);
-      }
+    final results = await Future.wait(
+      futures.map((f) => f.then(
+        (list) => list,
+        onError: (_) => <MangaChapter>[],
+      )),
+    );
+    List<MangaChapter> best = const [];
+    for (final list in results) {
+      if (list.length > best.length) best = list;
     }
-
-    void onError(Object _) {
-      remaining--;
-      if (remaining <= 0 && !completer.isCompleted) {
-        completer.complete(const []);
-      }
-    }
-
-    for (final future in futures) {
-      future.then(onResult).catchError(onError);
-    }
-
-    return completer.future;
+    return best;
   }
 
   void _openReader(MangaChapter chapter) {
@@ -240,12 +215,11 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
           status == 'none'
               ? 'Removed from your library'
               : 'Set to ${_item.libraryDisplay}',
-          style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+          style: GoogleFonts.outfit(color: AppColors.petalWhite),
         ),
-        backgroundColor: AppTheme.deepRose,
+        backgroundColor: AppColors.deepRose,
         behavior: SnackBarBehavior.floating,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusSm),
       ),
     );
   }
@@ -260,7 +234,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
       builder: (context, scrollController) {
         return Container(
           decoration: const BoxDecoration(
-            color: AppTheme.twilight,
+            color: AppColors.twilight,
             borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
           ),
           child: Stack(
@@ -269,14 +243,11 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                 children: [
                   _buildHero(context),
                   _buildLibraryRow(),
-                  const Divider(
-                      height: 1,
-                      color: Color(0x33F4C2C2)),
+                  Divider(height: 1, color: AppColors.divider),
                   Expanded(
                     child: ListView(
                       controller: scrollController,
-                      padding:
-                          const EdgeInsets.fromLTRB(20, 12, 20, 32),
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
                       children: [
                         _buildDescription(),
                         const SizedBox(height: 24),
@@ -296,9 +267,8 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                     width: 40,
                     height: 5,
                     decoration: BoxDecoration(
-                      color: AppTheme.roseQuartz
-                          .withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(10),
+                      color: AppColors.roseQuartz.withValues(alpha: 0.3),
+                      borderRadius: AppRadius.radiusFull,
                     ),
                   ),
                 ),
@@ -322,26 +292,25 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
               _mangaDexService.proxiedImageUrl(_item.coverUrl),
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) =>
-                  Container(color: AppTheme.velvet),
+                  Container(color: AppColors.velvet),
             )
           else
-            Container(color: AppTheme.velvet),
+            Container(color: AppColors.velvet),
           // Bottom gradient with text
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
             child: Container(
-              padding:
-                  const EdgeInsets.fromLTRB(20, 40, 20, 16),
+              padding: const EdgeInsets.fromLTRB(20, 40, 20, 16),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    AppTheme.twilight.withValues(alpha: 0.85),
-                    AppTheme.twilight,
+                    AppColors.twilight.withValues(alpha: 0.85),
+                    AppColors.twilight,
                   ],
                 ),
               ),
@@ -355,18 +324,16 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: _typeColor
-                              .withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(4),
+                          color: _typeColor.withValues(alpha: 0.25),
+                          borderRadius: AppRadius.radiusXs,
                           border: Border.all(
-                            color: _typeColor
-                                .withValues(alpha: 0.5),
+                            color: _typeColor.withValues(alpha: 0.5),
                           ),
                         ),
                         child: Text(
                           _item.contentType.toUpperCase(),
                           style: GoogleFonts.outfit(
-                            color: AppTheme.roseQuartz,
+                            color: AppColors.roseQuartz,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.5,
@@ -379,14 +346,13 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: AppTheme.blushGold
-                                .withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(4),
+                            color: AppColors.blushGold.withValues(alpha: 0.2),
+                            borderRadius: AppRadius.radiusXs,
                           ),
                           child: Text(
                             _item.status.toUpperCase(),
                             style: GoogleFonts.outfit(
-                              color: AppTheme.blushGold,
+                              color: AppColors.blushGold,
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 0.5,
@@ -402,7 +368,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                     style: GoogleFonts.cormorantGaramond(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.roseQuartz,
+                      color: AppColors.roseQuartz,
                     ),
                   ),
                   if (_item.author.isNotEmpty)
@@ -411,8 +377,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                       child: Text(
                         'by ${_item.author}',
                         style: GoogleFonts.outfit(
-                          color: AppTheme.roseQuartz
-                              .withValues(alpha: 0.7),
+                          color: AppColors.textMuted,
                           fontSize: 13,
                         ),
                       ),
@@ -435,7 +400,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.close,
-                      color: AppTheme.petalWhite, size: 18),
+                      color: AppColors.petalWhite, size: 18),
                 ),
               ),
             ),
@@ -448,11 +413,11 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
   Color get _typeColor {
     switch (_item.originalLanguage) {
       case 'ko':
-        return const Color(0xFFE91E63);
+        return AppColors.animeMagenta;
       case 'zh':
-        return const Color(0xFF00BCD4);
+        return AppColors.animeCyan;
       default:
-        return AppTheme.deepRose;
+        return AppColors.deepRose;
     }
   }
 
@@ -465,7 +430,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
           Text(
             'My Library',
             style: GoogleFonts.outfit(
-              color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+              color: AppColors.textMuted,
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 1.0,
@@ -481,8 +446,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                 _LibChip(value: 'completed', label: 'Completed'),
                 _LibChip(value: 'on-hold', label: 'Hold'),
                 _LibChip(value: 'dropped', label: 'Dropped'),
-              ]
-                  .map((entry) {
+              ].map((entry) {
                 final selected = _item.libraryStatus == entry.value;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
@@ -491,12 +455,12 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                         style: GoogleFonts.outfit(fontSize: 12)),
                     selected: selected,
                     onSelected: (_) => _updateLibraryStatus(entry.value),
-                    selectedColor: AppTheme.deepRose,
-                    backgroundColor: AppTheme.velvet,
+                    selectedColor: AppColors.deepRose,
+                    backgroundColor: AppColors.velvet,
                     labelStyle: TextStyle(
                       color: selected
-                          ? AppTheme.petalWhite
-                          : AppTheme.roseQuartz.withValues(alpha: 0.7),
+                          ? AppColors.petalWhite
+                          : AppColors.textMuted,
                     ),
                   ),
                 );
@@ -509,16 +473,14 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
   }
 
   Widget _buildDescription() {
-    if (_item.description.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    if (_item.description.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Synopsis',
           style: GoogleFonts.outfit(
-            color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+            color: AppColors.textMuted,
             fontSize: 11,
             fontWeight: FontWeight.bold,
             letterSpacing: 1.0,
@@ -528,18 +490,15 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppTheme.moonlight
-                .withValues(alpha: AppTheme.glassOpacity),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: AppTheme.moonlight.withValues(alpha: 0.15),
-            ),
+            color: AppColors.surfaceGlass,
+            borderRadius: AppRadius.radiusLg,
+            border: Border.all(color: AppColors.border),
           ),
           child: Html(
             data: _item.description,
             style: {
               'body': Style(
-                color: AppTheme.petalWhite.withValues(alpha: 0.85),
+                color: AppColors.textMedium,
                 fontSize: FontSize(14),
                 fontFamily: GoogleFonts.outfit().fontFamily,
                 lineHeight: const LineHeight(1.6),
@@ -547,7 +506,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                 padding: HtmlPaddings.zero,
               ),
               'p': Style(margin: Margins.only(bottom: 8)),
-              'a': Style(color: AppTheme.roseQuartz),
+              'a': Style(color: AppColors.roseQuartz),
             },
           ),
         ),
@@ -561,19 +520,16 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppTheme.moonlight
-                      .withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(20),
+                  color: AppColors.moonlight.withValues(alpha: 0.10),
+                  borderRadius: AppRadius.radiusFull,
                   border: Border.all(
-                    color: AppTheme.roseQuartz
-                        .withValues(alpha: 0.2),
+                    color: AppColors.roseQuartz.withValues(alpha: 0.2),
                   ),
                 ),
                 child: Text(
                   tag,
                   style: GoogleFonts.outfit(
-                    color: AppTheme.roseQuartz
-                        .withValues(alpha: 0.8),
+                    color: AppColors.textMuted,
                     fontSize: 10,
                   ),
                 ),
@@ -595,7 +551,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
             Text(
               'Chapters',
               style: GoogleFonts.outfit(
-                color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+                color: AppColors.textMuted,
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.0,
@@ -605,7 +561,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
               Text(
                 '${_chapters.length} total',
                 style: GoogleFonts.outfit(
-                  color: AppTheme.roseQuartz.withValues(alpha: 0.5),
+                  color: AppColors.textDisabled,
                   fontSize: 11,
                 ),
               ),
@@ -614,9 +570,9 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
         const SizedBox(height: 8),
         if (_isLoadingChapters)
           const Padding(
-            padding: const EdgeInsets.symmetric(vertical: 32),
+            padding: EdgeInsets.symmetric(vertical: 32),
             child: Center(
-              child: CircularProgressIndicator(color: AppTheme.deepRose),
+              child: CircularProgressIndicator(color: AppColors.deepRose),
             ),
           )
         else if (_chapterError != null)
@@ -625,9 +581,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
             child: Center(
               child: Text(
                 _chapterError!,
-                style: GoogleFonts.outfit(
-                  color: AppTheme.roseQuartz.withValues(alpha: 0.7),
-                ),
+                style: GoogleFonts.outfit(color: AppColors.textMuted),
               ),
             ),
           )
@@ -637,18 +591,25 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
             child: Center(
               child: Text(
                 'No English chapters available.',
-                style: GoogleFonts.outfit(
-                  color: AppTheme.roseQuartz.withValues(alpha: 0.7),
-                ),
+                style: GoogleFonts.outfit(color: AppColors.textMuted),
               ),
             ),
           )
         else
-          ..._chapters.map((c) => _ChapterTile(
+          // Virtualized: only builds visible chapter tiles
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _chapters.length,
+            itemBuilder: (context, index) {
+              final c = _chapters[index];
+              return _ChapterTile(
                 chapter: c,
                 isLastRead: _item.lastReadChapterId == c.id,
                 onTap: () => _openReader(c),
-              )),
+              );
+            },
+          ),
       ],
     );
   }
@@ -677,21 +638,19 @@ class _ChapterTile extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: AppRadius.radiusSm,
           onTap: onTap,
           child: Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: isLastRead
-                  ? AppTheme.deepRose.withValues(alpha: 0.15)
-                  : AppTheme.moonlight
-                      .withValues(alpha: AppTheme.glassOpacity),
-              borderRadius: BorderRadius.circular(12),
+                  ? AppColors.deepRose.withValues(alpha: 0.15)
+                  : AppColors.surfaceGlass,
+              borderRadius: AppRadius.radiusSm,
               border: Border.all(
                 color: isLastRead
-                    ? AppTheme.deepRose.withValues(alpha: 0.4)
-                    : AppTheme.moonlight.withValues(alpha: 0.1),
+                    ? AppColors.deepRose.withValues(alpha: 0.4)
+                    : AppColors.border,
               ),
             ),
             child: Row(
@@ -700,15 +659,15 @@ class _ChapterTile extends StatelessWidget {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: AppTheme.deepRose.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
+                    color: AppColors.deepRose.withValues(alpha: 0.2),
+                    borderRadius: AppRadius.radiusXs,
                   ),
                   child: Center(
                     child: isLastRead
                         ? const Icon(Icons.bookmark,
-                            color: AppTheme.deepRose, size: 18)
+                            color: AppColors.deepRose, size: 18)
                         : const Icon(Icons.menu_book_rounded,
-                            color: AppTheme.roseQuartz, size: 18),
+                            color: AppColors.roseQuartz, size: 18),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -720,7 +679,7 @@ class _ChapterTile extends StatelessWidget {
                       Text(
                         chapter.displayTitle,
                         style: GoogleFonts.outfit(
-                          color: AppTheme.petalWhite,
+                          color: AppColors.textHigh,
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),
@@ -731,8 +690,7 @@ class _ChapterTile extends StatelessWidget {
                       Text(
                         '${chapter.scanlationGroup.isNotEmpty ? "${chapter.scanlationGroup} • " : ""}${chapter.pages} pages',
                         style: GoogleFonts.outfit(
-                          color: AppTheme.roseQuartz
-                              .withValues(alpha: 0.6),
+                          color: AppColors.textMuted,
                           fontSize: 10,
                         ),
                         maxLines: 1,
@@ -743,7 +701,7 @@ class _ChapterTile extends StatelessWidget {
                 ),
                 const Icon(
                   Icons.play_arrow_rounded,
-                  color: AppTheme.roseQuartz,
+                  color: AppColors.roseQuartz,
                   size: 22,
                 ),
               ],

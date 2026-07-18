@@ -22,6 +22,9 @@ class BatoService with ConnectivityAware {
   static const String _proxyImageUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyScanlation';
 
+  static const String _proxyHtmlUrl =
+      'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyFetchHtml';
+
   // Singleton
   static final BatoService _instance = BatoService._internal();
   factory BatoService() => _instance;
@@ -35,12 +38,19 @@ class BatoService with ConnectivityAware {
 
   final Map<String, MangaChapterPages> _pageCache = {};
 
+  /// Rewrite a direct [Uri] through the [proxyFetchHtml] Cloud Function
+  /// so the request works on Flutter Web (CORS-safe).
+  Uri _proxiedFetch(Uri uri) {
+    return Uri.parse(
+        '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}');
+  }
+
   /// Search Bato.to by title and return the first matching series slug.
   Future<String> searchByTitle(String title) async {
     if (title.trim().isEmpty) return '';
     final uri = Uri.parse('$_baseUrl/search?q=${Uri.encodeComponent(title)}');
     try {
-      final response = await http.get(uri, headers: _headers).timeout(
+      final response = await http.get(_proxiedFetch(uri), headers: _headers).timeout(
             const Duration(seconds: 8),
           );
       if (response.statusCode == 200) {
@@ -69,7 +79,7 @@ class BatoService with ConnectivityAware {
     if (slug.isEmpty) return [];
     final uri = Uri.parse('$_baseUrl/title/$slug');
     try {
-      final response = await http.get(uri, headers: _headers).timeout(
+      final response = await http.get(_proxiedFetch(uri), headers: _headers).timeout(
             const Duration(seconds: 10),
           );
       if (response.statusCode == 200) {
@@ -139,7 +149,7 @@ class BatoService with ConnectivityAware {
         ? chapterPath
         : '$_baseUrl$chapterPath';
     try {
-      final response = await http.get(Uri.parse(url), headers: _headers).timeout(
+      final response = await http.get(_proxiedFetch(Uri.parse(url)), headers: _headers).timeout(
             const Duration(seconds: 10),
           );
       if (response.statusCode == 200) {

@@ -23,6 +23,9 @@ class ScanlationService with ConnectivityAware {
   static const String _proxyImageUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyScanlation';
 
+  static const String _proxyHtmlUrl =
+      'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyFetchHtml';
+
   // Singleton
   static final ScanlationService _instance = ScanlationService._internal();
   factory ScanlationService() => _instance;
@@ -210,6 +213,13 @@ class ScanlationService with ConnectivityAware {
 
   // ── INTERNAL SCRAPING ─────────────────────────────────────
 
+  /// Rewrite a direct [Uri] through the [proxyFetchHtml] Cloud Function
+  /// so the request works on Flutter Web (CORS-safe).
+  Uri _proxiedFetch(Uri uri) {
+    return Uri.parse(
+        '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}');
+  }
+
   _ScanSite? _findSite(String name) {
     try {
       return _sites.firstWhere((s) => s.name == name);
@@ -230,7 +240,7 @@ class ScanlationService with ConnectivityAware {
     for (final searchUrl in searchUrls) {
       try {
         final response =
-            await http.get(Uri.parse(searchUrl), headers: _headers).timeout(
+            await http.get(_proxiedFetch(Uri.parse(searchUrl)), headers: _headers).timeout(
                   const Duration(seconds: 8),
                 );
         if (response.statusCode != 200) continue;
@@ -273,7 +283,7 @@ class ScanlationService with ConnectivityAware {
   Future<List<MangaChapter>> _getChapters(
       _ScanSite site, String slug) async {
     final url = '${site.baseUrl}${site.seriesPath}$slug/';
-    final response = await http.get(Uri.parse(url), headers: _headers).timeout(
+    final response = await http.get(_proxiedFetch(Uri.parse(url)), headers: _headers).timeout(
           const Duration(seconds: 8),
         );
     if (response.statusCode != 200) return [];
@@ -320,7 +330,7 @@ class ScanlationService with ConnectivityAware {
     final uri = chapterUrl.startsWith('http')
         ? Uri.parse(chapterUrl)
         : Uri.parse('${site.baseUrl}/$chapterUrl');
-    final response = await http.get(uri, headers: _headers).timeout(
+    final response = await http.get(_proxiedFetch(uri), headers: _headers).timeout(
           const Duration(seconds: 8),
         );
     if (response.statusCode != 200) return [];
