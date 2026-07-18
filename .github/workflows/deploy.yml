@@ -40,14 +40,14 @@ jobs:
         working-directory: functions
         run: npm install
 
-      - name: Deploy Cloud Functions
+      - name: Deploy Cloud Functions & Firestore Rules
         continue-on-error: true
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB }}
         run: |
           echo "$FIREBASE_SERVICE_ACCOUNT" > "$HOME"/firebase-sa.json
           GOOGLE_APPLICATION_CREDENTIALS="$HOME"/firebase-sa.json \
-            firebase deploy --only functions --project everglow-1c6db
+            firebase deploy --only functions,firestore:rules --project everglow-1c6db
 
       - name: Verify site is live
         run: |
