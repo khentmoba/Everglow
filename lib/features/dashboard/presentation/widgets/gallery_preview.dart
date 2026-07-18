@@ -113,7 +113,7 @@ class GalleryPreview extends StatelessWidget {
                       return ClipRRect(
                         borderRadius: BorderRadius.circular(10),
                         child: Image.network(
-                          photos[index].imageUrl,
+                          GalleryService.displayUrl(photos[index].imageUrl),
                           width: 70,
                           height: 70,
                           fit: BoxFit.cover,

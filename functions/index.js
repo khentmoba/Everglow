@@ -467,7 +467,195 @@ exports.proxyAnimeImage = functions.https.onRequest(async (req, res) => {
 });
 
 /**
- * Proxies scanlation-site chapter page images so Flutter web isn't
+ * Proxies gallery images from Firebase Storage so Flutter web isn't
+ * blocked by any CORS or auth issues with direct Storage download URLs.
+ *
+ * Accepts:
+ *   GET /proxyGalleryImage?url=<encoded Storage download URL>
+ *
+ * Validates that the URL belongs to the project's Storage bucket,
+ * then fetches and streams it back with permissive CORS headers.
+ */
+exports.proxyGalleryImage = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  if (req.method !== 'GET') {
+    res.status(405).json({ error: 'Only GET is accepted' });
+    return;
+  }
+
+  const targetUrl = req.query.url;
+  if (typeof targetUrl !== 'string' || targetUrl.length === 0) {
+    res.status(400).json({ error: 'Missing ?url=<image url> query param' });
+    return;
+  }
+
+  // Only allow URLs from the project's own Storage bucket
+  if (!targetUrl.includes('firebasestorage.googleapis.com') ||
+      !targetUrl.includes('everglow-1c6db')) {
+    res.status(403).json({ error: 'URL must be from the project Storage bucket' });
+    return;
+  }
+
+  try {
+    const upstream = await fetch(targetUrl, {
+      method: 'GET',
+      headers: { 'Accept': 'image/*,*/*;q=0.8' },
+      timeout: 20000,
+    });
+    if (!upstream.ok) {
+      res
+        .status(upstream.status)
+        .json({ error: `Upstream returned ${upstream.status}` });
+      return;
+    }
+    const contentType =
+      upstream.headers.get('content-type') || 'image/jpeg';
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', 'public, max-age=3600');
+    const buffer = Buffer.from(await upstream.arrayBuffer());
+    res.status(200).send(buffer);
+  } catch (e) {
+    console.warn(`proxyGalleryImage failed (${targetUrl}):`, e.message);
+    res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
+  }
+});
+
+/**
+ * Diagnostic endpoint: lists gallery Firestore docs and checks if
+ * their Storage files exist. Auth required. Remove after debugging.
+ */
+exports.debugGallery = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  const admin = getAdmin();
+  const db = admin.firestore();
+  const bucket = admin.storage().bucket();
+
+  const snap = await db.collection('gallery').orderBy('uploadedAt', 'desc').get();
+  const results = [];
+
+  for (const doc of snap.docs) {
+    const d = doc.data();
+    const entry = {
+      id: doc.id,
+      imageUrl: d.imageUrl || 'MISSING',
+      uploadedBy: d.uploadedBy,
+      caption: d.caption || '',
+    };
+
+    if (d.imageUrl) {
+      try {
+        const file = bucket.file('gallery/' + d.imageUrl.split('/o/')[1]?.split('?')[0]?.replace(/%2F/g, '/') || '');
+        const [exists] = await file.exists();
+        entry.storageExists = exists;
+        if (exists) {
+          const [meta] = await file.getMetadata();
+          entry.contentType = meta.contentType;
+          entry.size = meta.size;
+        }
+      } catch (e) {
+        entry.storageError = e.message;
+      }
+    }
+
+    // Try fetching the URL
+    try {
+      const resp = await fetch(d.imageUrl, { method: 'HEAD', redirect: 'follow' });
+      entry.httpStatus = resp.status;
+      entry.responseContentType = resp.headers.get('content-type');
+      entry.responseContentLength = resp.headers.get('content-length');
+    } catch (e) {
+      entry.fetchError = e.message;
+    }
+
+    results.push(entry);
+  }
+
+  res.json({ totalDocs: snap.size, docs: results });
+});
+
+/**
+ * Cleans up orphaned gallery data: deletes all Firestore docs in
+ * the gallery collection AND their Storage files.
+ *
+ * Accepts:
+ *   POST /cleanupGallery  { confirm: true }
+ *
+ * Auth required (only khentsgdz can call this).
+ */
+exports.cleanupGallery = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Only POST is accepted' });
+    return;
+  }
+
+  // Verify auth
+  const idToken = req.headers.authorization?.replace('Bearer ', '');
+  if (!idToken) {
+    res.status(401).json({ error: 'Auth required' });
+    return;
+  }
+  const admin = getAdmin();
+  const decoded = await admin.auth().verifyIdToken(idToken);
+  if (decoded.uid !== 'Khentsgdz' && decoded.email !== 'khentplaysmoba@gmail.com') {
+    // Try looking up by username
+    const userDoc = await admin.firestore().collection('users').doc(decoded.uid).get();
+    if (!userDoc.exists || userDoc.data()?.username !== 'khentsgdz') {
+      res.status(403).json({ error: 'Only khentsgdz can run cleanup' });
+      return;
+    }
+  }
+
+  if (req.body?.confirm !== true) {
+    res.status(400).json({ error: 'Send { confirm: true } to actually delete' });
+    return;
+  }
+
+  const db = admin.firestore();
+  const bucket = admin.storage().bucket();
+  const snap = await db.collection('gallery').get();
+  let deleted = 0;
+
+  for (const doc of snap.docs) {
+    const d = doc.data();
+    // Delete Storage file
+    if (d.imageUrl && d.imageUrl.includes('firebasestorage.googleapis.com')) {
+      try {
+        const path = decodeURIComponent(d.imageUrl.split('/o/')[1]?.split('?')[0] || '');
+        if (path) await bucket.file(path).delete();
+      } catch (_) { /* best effort */ }
+    }
+    // Delete Firestore doc
+    await doc.ref.delete();
+    deleted++;
+  }
+
+  res.json({ deleted });
+});
  * blocked by CORS or hotlink protection. Scanlation groups host images
  * on their own domains or common CDNs (Blogspot, WordPress, etc.).
  *

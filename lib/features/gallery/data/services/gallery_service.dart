@@ -9,6 +9,17 @@ class GalleryService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final String _collection = 'gallery';
 
+  /// Returns the URL used for displaying gallery images.
+  /// Routes Firebase Storage URLs through a Cloud Function proxy
+  /// on web to avoid CORS / auth issues.
+  static String displayUrl(String imageUrl) {
+    if (kIsWeb &&
+        imageUrl.contains('firebasestorage.googleapis.com')) {
+      return 'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyGalleryImage?url=${Uri.encodeComponent(imageUrl)}';
+    }
+    return imageUrl;
+  }
+
   /// Upload a photo and store its metadata in Firestore.
   Future<MemoryPhoto> uploadPhoto({
     required Uint8List imageBytes,
