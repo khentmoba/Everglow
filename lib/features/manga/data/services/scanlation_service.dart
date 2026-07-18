@@ -181,6 +181,7 @@ class ScanlationService with ConnectivityAware {
   /// site slugs. Returns pages from the first site that responds.
   Future<MangaChapterPages?> getChapterPagesFromAll(
       Map<String, String> siteSlugs, String chapterNumber) async {
+    final normalizedTarget = _normalizeChapterNum(chapterNumber);
     for (final entry in siteSlugs.entries) {
       final site = _findSite(entry.key);
       if (site == null) continue;
@@ -189,7 +190,7 @@ class ScanlationService with ConnectivityAware {
         final chapters = await _getChapters(site, entry.value);
         MangaChapter? match;
         for (final c in chapters) {
-          if (c.chapter == chapterNumber) {
+          if (_normalizeChapterNum(c.chapter) == normalizedTarget) {
             match = c;
             break;
           }
@@ -209,6 +210,15 @@ class ScanlationService with ConnectivityAware {
   String proxiedImageUrl(String originalUrl) {
     if (originalUrl.isEmpty) return '';
     return '$_proxyImageUrl?url=${Uri.encodeComponent(originalUrl)}';
+  }
+
+  /// Normalize chapter numbers so "1", "1.0", "001" all map to "1".
+  static String _normalizeChapterNum(String raw) {
+    if (raw.isEmpty) return '';
+    final n = double.tryParse(raw);
+    if (n == null) return raw;
+    if (n == n.roundToDouble()) return n.toInt().toString();
+    return n.toString();
   }
 
   // ── INTERNAL SCRAPING ─────────────────────────────────────
