@@ -120,10 +120,7 @@ class GalleryPreview extends StatelessWidget {
                           child: ShelfCard(
                             accent: ShelfAccent.gallery,
                             imageUrl: GalleryService.displayUrl(photo.imageUrl),
-                            title: photo.caption.isNotEmpty
-                                ? photo.caption
-                                : 'Memory',
-                            subtitle: photo.uploadedBy,
+                            title: '',
                             onTap: () => context.push('/gallery'),
                           ),
                         ),
