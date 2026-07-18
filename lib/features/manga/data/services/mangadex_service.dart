@@ -52,6 +52,7 @@ class MangaDexService with ConnectivityAware {
   /// Fetch the chapter list for a MangaDex manga by its UUID.
   /// Returns chapters sorted by chapter number (ascending), newest
   /// first so the reading order is natural.
+  /// Auto-paginates if the manga has more than [limit] chapters.
   Future<List<MangaChapter>> getChapterFeed(
     String mangaId, {
     String language = 'en',
@@ -59,71 +60,84 @@ class MangaDexService with ConnectivityAware {
     int offset = 0,
   }) async {
     if (mangaId.isEmpty) return [];
-    // includes[]=scanlation_group gives us group names in relationships
-    final path = 'manga/$mangaId/feed'
-        '?translatedLanguage[]=$language'
-        '&limit=$limit'
-        '&offset=$offset'
-        '&order[chapter]=asc'
-        '&includes[]=scanlation_group'
-        '&contentRating[]=safe'
-        '&contentRating[]=suggestive'
-        '&contentRating[]=erotica';
-    try {
-      final response = await http.get(_proxied(path), headers: _headers).timeout(
-            const Duration(seconds: 10),
-          );
-      if (response.statusCode == 200) {
-        final body = json.decode(response.body) as Map<String, dynamic>;
-        if (body['result'] != 'ok') return [];
-        final data = body['data'] as List? ?? [];
-        // Filter out chapters with 0 pages — these are external/official
-        // publisher links (e.g. Webnovel, Pocket Comics, TappyToon) that
-        // have no page data on MangaDex and can't be read through the
-        // at-home server. Trying to open them results in "This chapter
-        // has no readable pages."
-        final allChapters = data.whereType<Map<String, dynamic>>().toList();
-        final filtered = allChapters.where((d) {
-          final attrs = d['attributes'] as Map<String, dynamic>? ?? {};
-          final pages = (attrs['pages'] as num?)?.toInt() ?? 0;
-          return pages > 0;
-        }).toList();
+    final allChapters = <Map<String, dynamic>>[];
+    var currentOffset = offset;
+    var total = 0;
 
-        // Fallback: if all chapters were filtered out (licensed manga with
-        // only official publisher links), return the full list so at least
-        // the chapter numbers are visible in the UI.
-        final chaptersToMap = filtered.isNotEmpty ? filtered : allChapters;
-
-        return chaptersToMap.map((d) {
-          final attrs = d['attributes'] as Map<String, dynamic>? ?? {};
-          final rels = d['relationships'] as List? ?? [];
-          String group = '';
-          for (final rel in rels) {
-            if (rel is Map && rel['type'] == 'scanlation_group') {
-              group =
-                  (rel['attributes']?['name'] as String?) ?? '';
-              break;
-            }
-          }
-          return MangaChapter(
-            id: d['id'] as String? ?? '',
-            title: (attrs['title'] as String?) ?? '',
-            chapter: (attrs['chapter'] as String?) ?? '',
-            volume: (attrs['volume'] as String?) ?? '',
-            pages: (attrs['pages'] as num?)?.toInt() ?? 0,
-            translatedLanguage:
-                (attrs['translatedLanguage'] as String?) ?? language,
-            scanlationGroup: group,
-            publishAt:
-                DateTime.tryParse((attrs['publishAt'] as String?) ?? '') ??
-                    DateTime.now(),
-          );
-        }).toList();
+    // Paginate until we've fetched all chapters
+    do {
+      final path = 'manga/$mangaId/feed'
+          '?translatedLanguage[]=$language'
+          '&limit=$limit'
+          '&offset=$currentOffset'
+          '&order[chapter]=asc'
+          '&includes[]=scanlation_group'
+          '&contentRating[]=safe'
+          '&contentRating[]=suggestive'
+          '&contentRating[]=erotica';
+      try {
+        final response = await http.get(_proxied(path), headers: _headers).timeout(
+              const Duration(seconds: 10),
+            );
+        if (response.statusCode == 200) {
+          final body = json.decode(response.body) as Map<String, dynamic>;
+          if (body['result'] != 'ok') break;
+          final data = body['data'] as List? ?? [];
+          total = (body['total'] as num?)?.toInt() ?? 0;
+          allChapters.addAll(data.whereType<Map<String, dynamic>>());
+          currentOffset += data.length;
+          // Safety: stop if we got fewer than requested (end of results)
+          if (data.length < limit) break;
+        } else {
+          break;
+        }
+      } catch (e) {
+        Logger.e('MangaDex chapter feed error', error: e);
+        break;
       }
-    } catch (e) {
-      Logger.e('MangaDex chapter feed error', error: e);
-    }
-    return [];
+    } while (currentOffset < total);
+
+    if (allChapters.isEmpty) return [];
+
+    // Filter out chapters with 0 pages — these are external/official
+    // publisher links (e.g. Webnovel, Pocket Comics, TappyToon) that
+    // have no page data on MangaDex and can't be read through the
+    // at-home server.
+    final filtered = allChapters.where((d) {
+      final attrs = d['attributes'] as Map<String, dynamic>? ?? {};
+      final pages = (attrs['pages'] as num?)?.toInt() ?? 0;
+      return pages > 0;
+    }).toList();
+
+    // Fallback: if all chapters were filtered out (licensed manga with
+    // only official publisher links), return the full list so at least
+    // the chapter numbers are visible in the UI.
+    final chaptersToMap = filtered.isNotEmpty ? filtered : allChapters;
+
+    return chaptersToMap.map((d) {
+      final attrs = d['attributes'] as Map<String, dynamic>? ?? {};
+      final rels = d['relationships'] as List? ?? [];
+      String group = '';
+      for (final rel in rels) {
+        if (rel is Map && rel['type'] == 'scanlation_group') {
+          group = (rel['attributes']?['name'] as String?) ?? '';
+          break;
+        }
+      }
+      return MangaChapter(
+        id: d['id'] as String? ?? '',
+        title: (attrs['title'] as String?) ?? '',
+        chapter: (attrs['chapter'] as String?) ?? '',
+        volume: (attrs['volume'] as String?) ?? '',
+        pages: (attrs['pages'] as num?)?.toInt() ?? 0,
+        translatedLanguage:
+            (attrs['translatedLanguage'] as String?) ?? language,
+        scanlationGroup: group,
+        publishAt:
+            DateTime.tryParse((attrs['publishAt'] as String?) ?? '') ??
+                DateTime.now(),
+      );
+    }).toList();
   }
 
   // ── CATALOG / LISTING ──────────────────────────────────────

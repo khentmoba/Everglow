@@ -761,6 +761,107 @@ exports.proxyScanlation = functions.https.onRequest(async (req, res) => {
 });
 
 /**
+ * Proxies HTML scraping requests for manga services that scrape
+ * external sites (MangaKakalot, MangaKatana, Bato.to, MangaSee123,
+ * and scanlation group sites). These sites don't send CORS headers,
+ * so direct browser fetches are blocked on Flutter Web.
+ *
+ * Accepts:
+ *   GET /proxyFetchHtml?url=<encoded target URL>
+ *
+ * The function:
+ *   1. Validates the URL against a whitelist of manga/scraping domains
+ *   2. Fetches the HTML page server-side (with spoofed Referer)
+ *   3. Returns the raw HTML with permissive CORS headers
+ *
+ * This follows the same pattern as proxyScanlation (image proxy) but
+ * returns text/html instead of binary image data.
+ */
+exports.proxyFetchHtml = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  if (req.method !== 'GET') {
+    res.status(405).json({ error: 'Only GET is accepted' });
+    return;
+  }
+
+  const targetUrl = req.query.url;
+  if (typeof targetUrl !== 'string' || targetUrl.length === 0) {
+    res.status(400).json({ error: 'Missing ?url=<page url> query param' });
+    return;
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(targetUrl);
+  } catch (_) {
+    res.status(400).json({ error: 'Invalid url' });
+    return;
+  }
+
+  // ── Whitelisted manga scraping domains ─────────────────────
+  const allowedSuffixes = [
+    // MangaKakalot
+    '.mangakakalot.com',
+    // MangaKatana
+    '.mangakatana.com',
+    // Bato.to
+    '.bato.to',
+    // MangaSee123
+    '.mangasee123.com',
+    // Scanlation group sites
+    '.asurascans.com',
+    '.asuracomic.net',
+    '.reaperscans.com',
+    '.reapercomics.com',
+    '.arcanescans.com',
+    '.flamescans.org',
+    '.flamecomics.com',
+    '.luminousscans.com',
+    '.void-scans.com',
+    '.rizzcomic.com',
+  ];
+  const hostAllowed = allowedSuffixes.some(
+    (s) => parsed.hostname === s.slice(1) || parsed.hostname.endsWith(s),
+  );
+  if (parsed.protocol !== 'https:' || !hostAllowed) {
+    res.status(400).json({ error: 'Host not allowed' });
+    return;
+  }
+
+  try {
+    const upstream = await fetch(targetUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        Referer: parsed.origin + '/',
+      },
+      timeout: 20000,
+    });
+    const body = await upstream.text();
+    res.status(upstream.status);
+    res.set(
+      'Content-Type',
+      upstream.headers.get('content-type') || 'text/html; charset=utf-8',
+    );
+    res.set('Cache-Control', 'public, max-age=60');
+    res.send(body);
+  } catch (e) {
+    console.warn(`proxyFetchHtml failed (${targetUrl}):`, e.message);
+    res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
+  }
+});
+
+/**
  * Proxies video embed pages (Videasy, VidFast, VidLink, etc.) through
  * our Cloud Function to strip ad scripts before the browser renders
  * the embed. This is the server-side equivalent of FluxTV's approach

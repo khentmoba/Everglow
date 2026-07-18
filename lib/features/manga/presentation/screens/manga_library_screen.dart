@@ -5,11 +5,12 @@ import 'package:provider/provider.dart';
 
 import 'package:everglow/core/theme/app_breakpoints.dart';
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/core/theme/app_colors.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
 import 'package:everglow/features/manga/data/services/mangadex_service.dart';
 import 'package:everglow/features/manga/data/services/mangakakalot_service.dart';
 import 'package:everglow/features/manga/presentation/widgets/manga_details_drawer.dart';
-import 'package:everglow/features/manga/presentation/widgets/manga_search_modal.dart';
+import 'package:everglow/features/manga/presentation/screens/manga_search_screen.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'package:everglow/shared/widgets/shelf/atmospheric_backdrop.dart';
 import 'package:everglow/shared/widgets/shelf/scroll_edge_fade.dart';
@@ -22,13 +23,14 @@ import 'package:everglow/shared/widgets/shelf/shimmer_box.dart';
 import 'package:everglow/shared/widgets/shelf/shelf_pill_bottom_nav.dart';
 import 'package:everglow/shared/widgets/shelf/staggered_entrance.dart';
 
-const _cBlack = Color(0xFF080810);
-const _cCard = Color(0xFF1C1228);
-const _cRose = Color(0xFFF4C2C2);
-const _cDeepRose = Color(0xFFC2185B);
-const _cGold = Color(0xFFE8C97A);
-const _cWhite = Color(0xFFFFF5F5);
-const _cMuted = Color(0xFF8A7A92);
+// Manga shelf uses the anime palette from AppColors
+const _cBlack = AppColors.animeBackground;
+const _cCard = AppColors.animeCard;
+const _cRose = AppColors.animeRose;
+const _cDeepRose = AppColors.animeDeepRose;
+const _cGold = AppColors.animeGold;
+const _cWhite = AppColors.animeWhite;
+const _cMuted = AppColors.animeMuted;
 
 /// Main entry for the manga feature. Three-tab IndexedStack:
 ///   * Home    — Trending + Latest Updates carousels, content-type
@@ -143,11 +145,10 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
   }
 
   void _openSearch(String initialLanguage) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => MangaSearchModal(initialLanguage: initialLanguage),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MangaSearchScreen(initialLanguage: initialLanguage),
+      ),
     );
   }
 
@@ -211,7 +212,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
       currentIndex: _currentIndex,
       onTap: (i) {
         if (i == 2) {
-          setState(() => _currentIndex = i);
+          // Search tab — navigate to full-screen search, don't switch tab
           _openSearch(_selectedLanguage);
         } else {
           setState(() => _currentIndex = i);
@@ -334,7 +335,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
               'Latest Updates',
               'New chapters hot off the press',
               Icons.fiber_new_rounded,
-              const Color(0xFF42A5F5),
+              AppColors.animeCyan,
               _latest,
               height: 230,
             ),
@@ -345,7 +346,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
               'Top Manga',
               'Japanese',
               Icons.translate_rounded,
-              const Color(0xFFE91E63),
+              AppColors.animeMagenta,
               _mangaList,
             ),
           ),
@@ -355,7 +356,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
               'Top Manhwa',
               'Korean',
               Icons.translate_rounded,
-              const Color(0xFFE91E63),
+              AppColors.animeMagenta,
               _manhwaList,
             ),
           ),
@@ -365,7 +366,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
               'Top Manhua',
               'Chinese',
               Icons.translate_rounded,
-              const Color(0xFF00BCD4),
+              AppColors.animeCyan,
               _manhuaList,
             ),
           ),
@@ -540,9 +541,9 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
   Color _accentForLanguage(String lang) {
     switch (lang) {
       case 'ko':
-        return const Color(0xFFE91E63);
+        return AppColors.animeMagenta;
       case 'zh':
-        return const Color(0xFF00BCD4);
+        return AppColors.animeCyan;
       default:
         return AppTheme.deepRose;
     }
@@ -677,13 +678,13 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
       _LibraryBucket(
         title: 'Completed',
         icon: Icons.check_circle_outline_rounded,
-        accent: const Color(0xFF8BC34A),
+        accent: AppColors.success,
         items: _library.where((i) => i.isCompleted).toList(),
       ),
       _LibraryBucket(
         title: 'On Hold',
         icon: Icons.pause_circle_outline_rounded,
-        accent: const Color(0xFFFFB74D),
+        accent: AppColors.warmAmber,
         items: _library.where((i) => i.isOnHold).toList(),
       ),
       _LibraryBucket(
@@ -885,19 +886,10 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
     );
   }
 
-  // ── SEARCH TAB (placeholder, opens modal) ──────────────────────────
+  // ── SEARCH TAB (unused — search nav triggers full-screen push) ──────
 
   Widget _buildSearchTab() {
-    return ShelfEmptyState(
-      icon: Icons.search_rounded,
-      title: 'Find Your Next Read',
-      subtitle:
-          'Search by title. Tap any cover to add it to your library, mark chapters as read, and continue where you left off.',
-      ctaLabel: 'Open Search',
-      ctaIcon: Icons.search_rounded,
-      onCta: () => _openSearch(_selectedLanguage),
-      accent: _cDeepRose,
-    );
+    return const SizedBox.shrink();
   }
 }
 
