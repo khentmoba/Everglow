@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
@@ -11,48 +10,43 @@ class GalleryService {
   final String _collection = 'gallery';
 
   /// Upload a photo and store its metadata in Firestore.
-  Future<MemoryPhoto?> uploadPhoto({
+  Future<MemoryPhoto> uploadPhoto({
     required Uint8List imageBytes,
     required String fileName,
     required String caption,
     required String uploadedBy,
     List<String> tags = const [],
   }) async {
-    try {
-      // Upload to Firebase Storage
-      final String path =
-          "gallery/$uploadedBy/${DateTime.now().millisecondsSinceEpoch}_$fileName";
-      final Reference ref = _storage.ref().child(path);
-      final UploadTask uploadTask = ref.putData(
-        imageBytes,
-        SettableMetadata(contentType: 'image/jpeg'),
-      );
-      final TaskSnapshot snapshot = await uploadTask;
-      final String downloadUrl = await snapshot.ref.getDownloadURL();
+    // Upload to Firebase Storage
+    final String path =
+        "gallery/$uploadedBy/${DateTime.now().millisecondsSinceEpoch}_$fileName";
+    final Reference ref = _storage.ref().child(path);
+    final UploadTask uploadTask = ref.putData(
+      imageBytes,
+      SettableMetadata(contentType: 'image/jpeg'),
+    );
+    final TaskSnapshot snapshot = await uploadTask;
+    final String downloadUrl = await snapshot.ref.getDownloadURL();
 
-      // Save metadata to Firestore
-      final docRef = await _db.collection(_collection).add({
-        'imageUrl': downloadUrl,
-        'caption': caption,
-        'uploadedBy': uploadedBy,
-        'uploadedAt': FieldValue.serverTimestamp(),
-        'tags': tags,
-      });
+    // Save metadata to Firestore
+    final docRef = await _db.collection(_collection).add({
+      'imageUrl': downloadUrl,
+      'caption': caption,
+      'uploadedBy': uploadedBy,
+      'uploadedAt': FieldValue.serverTimestamp(),
+      'tags': tags,
+    });
 
-      Logger.i("Photo uploaded successfully: ${docRef.id}");
+    Logger.i("Photo uploaded successfully: ${docRef.id}");
 
-      return MemoryPhoto(
-        id: docRef.id,
-        imageUrl: downloadUrl,
-        caption: caption,
-        uploadedBy: uploadedBy,
-        uploadedAt: DateTime.now(),
-        tags: tags,
-      );
-    } catch (e) {
-      debugPrint("Error uploading photo: $e");
-      return null;
-    }
+    return MemoryPhoto(
+      id: docRef.id,
+      imageUrl: downloadUrl,
+      caption: caption,
+      uploadedBy: uploadedBy,
+      uploadedAt: DateTime.now(),
+      tags: tags,
+    );
   }
 
   /// Stream of all photos, newest first.
