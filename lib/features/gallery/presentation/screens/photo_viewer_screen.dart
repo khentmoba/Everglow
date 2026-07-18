@@ -155,7 +155,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                   maxScale: 4.0,
                   child: Center(
                     child: Image.network(
-                      photo.imageUrl,
+                      GalleryService.displayUrl(photo.imageUrl),
                       fit: BoxFit.contain,
                       loadingBuilder: (context, child, progress) {
                         if (progress == null) return child;

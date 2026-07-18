@@ -221,7 +221,7 @@ class _PhotoCard extends StatelessWidget {
           children: [
             // Photo
             Image.network(
-              photo.imageUrl,
+              GalleryService.displayUrl(photo.imageUrl),
               fit: BoxFit.cover,
               loadingBuilder: (context, child, progress) {
                 if (progress == null) return child;
