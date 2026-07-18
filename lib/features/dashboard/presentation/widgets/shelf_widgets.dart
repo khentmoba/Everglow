@@ -33,6 +33,12 @@ enum ShelfAccent {
     color: Color(0xFFE8B4BC), // softer rose for manga
     glow: Color(0xFFAD1457),
     icon: Icons.import_contacts_outlined,
+  ),
+  gallery(
+    label: 'Gallery',
+    color: Color(0xFFF4C2C2), // roseQuartz
+    glow: Color(0xFF880E4F), // deep magenta
+    icon: Icons.photo_library_outlined,
   );
 
   const ShelfAccent({
