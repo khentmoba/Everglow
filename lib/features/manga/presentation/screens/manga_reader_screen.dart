@@ -8,7 +8,6 @@ import 'package:everglow/core/theme/app_colors.dart';
 import 'package:everglow/core/theme/app_radius.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
 import 'package:everglow/features/manga/data/services/bato_service.dart';
-import 'package:everglow/features/manga/data/services/mangasee123_service.dart';
 import 'package:everglow/features/manga/data/services/mangadex_service.dart';
 import 'package:everglow/features/manga/data/services/mangakakalot_service.dart';
 import 'package:everglow/features/manga/data/services/mangakatana_service.dart';
@@ -47,7 +46,6 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
   final MangakatanaService _mangakatanaService = MangakatanaService();
   final ScanlationService _scanlationService = ScanlationService();
   final BatoService _batoService = BatoService();
-  final MangaSee123Service _mangaSeeService = MangaSee123Service();
 
   MangaChapterPages? _pages;
   bool _isLoading = true;
@@ -106,6 +104,16 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
     }
   }
 
+  /// Compare two chapter numbers accounting for formatting differences
+  /// (e.g. "1" vs "1.0" vs "001").
+  bool _chaptersMatch(String a, String b) {
+    if (a == b) return true;
+    final na = double.tryParse(a);
+    final nb = double.tryParse(b);
+    if (na != null && nb != null) return na == nb;
+    return false;
+  }
+
   Future<void> _loadPages() async {
     setState(() {
       _isLoading = true;
@@ -154,7 +162,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
         final chapters = await _kakalotService.getChapterFeed(slug);
         MangaChapter? match;
         for (final c in chapters) {
-          if (c.chapter == widget.chapter.chapter) {
+          if (_chaptersMatch(c.chapter, widget.chapter.chapter)) {
             match = c;
             break;
           }
@@ -179,24 +187,22 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
     futures.add(_resolveMangakatanaPages()
         .timeout(timeout, onTimeout: () => null));
 
-    // 5) Bato.to
+    // 5) Bato.to — only if the chapter ID is already a Bato path
     if (widget.chapter.id.startsWith('/title/') ||
-        widget.manga.mangaId.isNotEmpty) {
-      final batoPath = widget.chapter.id.startsWith('/title/')
+        widget.chapter.id.startsWith('/chapter/')) {
+      final batoPath = widget.chapter.id.startsWith('http')
           ? widget.chapter.id
-          : '/title/${widget.manga.mangaId}/chapter-${widget.chapter.chapter}';
+          : widget.chapter.id.startsWith('/')
+              ? widget.chapter.id
+              : '/${widget.chapter.id}';
       futures.add(_batoService
           .getChapterPages(batoPath)
           .timeout(timeout, onTimeout: () => null));
     }
 
-    // 6) MangaSee123
-    if (widget.manga.mangaId.isNotEmpty &&
-        widget.chapter.chapter.isNotEmpty) {
-      futures.add(_mangaSeeService
-          .getChapterPages(widget.manga.mangaId, widget.chapter.chapter)
-          .timeout(timeout, onTimeout: () => null));
-    }
+    // 6) MangaSee123 — only if we have a known slug (skip Comick hid)
+    // MangaSee123 slugs are short identifiers, not Comick hids.
+    // Disabled for now since we don't store MangaSee123 slugs.
 
     // 7) Scanlation sites
     final slugs = widget.scanlationSlugs;
@@ -224,7 +230,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
       String mangaDexId) async {
     final mdChapters = await _mangaDexService.getChapterFeed(mangaDexId);
     final targetChapter = mdChapters.cast<MangaChapter?>().firstWhere(
-          (c) => c?.chapter == widget.chapter.chapter,
+          (c) => c != null && _chaptersMatch(c.chapter, widget.chapter.chapter),
           orElse: () => null,
         );
     if (targetChapter != null) {
@@ -246,7 +252,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
       final chapters = await _mangakatanaService.getChapterFeed(slug);
       MangaChapter? match;
       for (final c in chapters) {
-        if (c.chapter == widget.chapter.chapter) {
+        if (_chaptersMatch(c.chapter, widget.chapter.chapter)) {
           match = c;
           break;
         }
@@ -271,12 +277,28 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
   Future<MangaChapterPages?> _pickBestPages(
     List<Future<MangaChapterPages?>> futures,
   ) async {
+    // Wait for ALL futures so we can pick deterministically by source
+    // priority rather than whichever finishes first.
     final results = await Future.wait(
       futures.map((f) => f.then(
         (pages) => pages,
         onError: (_) => null,
       )),
     );
+
+    // Priority order matches the order we added futures:
+    // 0) MangaDex by chapter ID
+    // 1) MangaDex by chapter number (mangaKakalotId)
+    // 2) MangaDex by chapter number (mangaId)
+    // 3) MangaKakalot direct
+    // 4..N) MangaKakalot by title search(es)
+    // N+1) MangaKatana
+    // N+2) Bato.to
+    // N+3) MangaSee123
+    // N+4) Scanlation
+    //
+    // We prefer MangaDex (structured API, reliable page counts) over
+    // scraped sources. Among equals, earlier = higher priority.
     for (final pages in results) {
       if (pages != null && pages.filenames.isNotEmpty) {
         return pages;

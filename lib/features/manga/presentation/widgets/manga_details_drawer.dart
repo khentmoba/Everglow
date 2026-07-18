@@ -134,11 +134,14 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
       }).timeout(timeout, onTimeout: () => <MangaChapter>[]));
     }
 
-    // 6) Scanlation sites
+    // 6) Scanlation sites — store slugs for later page resolution
     futures.add(_scanlationService
         .searchAll(_item.title)
         .timeout(timeout, onTimeout: () => <String, String>{})
         .then((slugs) async {
+      if (slugs.isNotEmpty && mounted) {
+        _scanlationSlugs = slugs;
+      }
       if (slugs.isEmpty) return <MangaChapter>[];
       return _scanlationService.getChapterFeedFromAll(slugs);
     }).timeout(timeout, onTimeout: () => <MangaChapter>[]));
@@ -181,11 +184,56 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
         onError: (_) => <MangaChapter>[],
       )),
     );
-    List<MangaChapter> best = const [];
+
+    // Merge all chapters from all sources, deduplicated by normalized
+    // chapter number. When duplicates exist, prefer the source that
+    // has actual page data (pages > 0) over scraped sources (pages == 0).
+    final byChapter = <String, MangaChapter>{};
     for (final list in results) {
-      if (list.length > best.length) best = list;
+      for (final ch in list) {
+        final key = _normalizeChapterNum(ch.chapter);
+        if (key.isEmpty) {
+          // Chapters without a number get unique keys by id
+          byChapter['id:${ch.id}'] = ch;
+          continue;
+        }
+        final existing = byChapter[key];
+        if (existing == null) {
+          byChapter[key] = ch;
+        } else {
+          // Prefer the one with more page data, or a richer title
+          if (ch.pages > existing.pages) {
+            byChapter[key] = ch;
+          } else if (ch.pages == existing.pages &&
+              ch.title.length > existing.title.length) {
+            byChapter[key] = ch;
+          }
+        }
+      }
     }
-    return best;
+
+    if (byChapter.isEmpty) return const [];
+
+    // Sort by chapter number ascending
+    final merged = byChapter.values.toList()
+      ..sort((a, b) {
+        final na = double.tryParse(_normalizeChapterNum(a.chapter)) ?? 0;
+        final nb = double.tryParse(_normalizeChapterNum(b.chapter)) ?? 0;
+        return na.compareTo(nb);
+      });
+
+    return merged;
+  }
+
+  /// Normalize chapter numbers so "1", "1.0", "001" all map to "1".
+  /// Returns empty string if [raw] is empty or not parseable.
+  static String _normalizeChapterNum(String raw) {
+    if (raw.isEmpty) return '';
+    final n = double.tryParse(raw);
+    if (n == null) return raw;
+    // Use integer representation when there's no fractional part
+    if (n == n.roundToDouble()) return n.toInt().toString();
+    return n.toString();
   }
 
   void _openReader(MangaChapter chapter) {
@@ -688,7 +736,7 @@ class _ChapterTile extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${chapter.scanlationGroup.isNotEmpty ? "${chapter.scanlationGroup} • " : ""}${chapter.pages} pages',
+                        '${chapter.scanlationGroup.isNotEmpty ? "${chapter.scanlationGroup} • " : ""}${chapter.pages > 0 ? "${chapter.pages} pages" : "read"}',
                         style: GoogleFonts.outfit(
                           color: AppColors.textMuted,
                           fontSize: 10,
