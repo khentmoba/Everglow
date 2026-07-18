@@ -63,3 +63,4 @@ wiki/
 .firebase/
 firebase.exe
 node_modules/
+tmp/
