@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_colors.dart';
+import 'package:everglow/core/utils/logger.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/data/models/anilist_detail.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
@@ -884,36 +885,66 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       _showSnack('Please sign in to manage your watchlist');
       return;
     }
-    if (_currentStatus == newStatus) {
-      setState(() => _currentStatus = '');
-      await _tmdbService.removeFromWatchList(widget.item.tmdbId, userName);
-      if (mounted) _showSnack('Removed from watchlist');
-    } else {
-      setState(() => _currentStatus = newStatus);
-      // Auto-detect anime so the dashboard's Anime rail picks it up
-      // automatically. We do this against TMDB /details because that's the
-      // only endpoint that reliably returns `original_language` + nested
-      // `genres` for TV. If the network call fails we just fall back to
-      // whatever the item already has.
-      bool? detectedAnime;
-      if (!widget.item.isAnime) {
-        detectedAnime = await _tmdbService.isAnimeByTmdbId(
-          widget.item.tmdbId,
-          widget.item.mediaType,
-        );
-      }
-      // Use the poster URL from the fetched details when the item from
-      // Firestore didn't have one (e.g. older items saved before posterPath
-      // was stored). This ensures the dashboard cards get their images.
-      final resolvedItem = _resolvePosterFromDetails(widget.item);
+    // Save the previous status so we can revert locally if the Firestore
+    // write fails. Without this, a network error in isAnimeByTmdbId or
+    // saveToWatchList would leave the chip highlighted (from the early
+    // setState) while the document in Firestore still has the old status —
+    // making the change appear to "revert" the next time the stream fires.
+    final previousStatus = _currentStatus;
 
-      await _tmdbService.saveToWatchList(
-        resolvedItem,
-        newStatus,
-        userName,
-        isAnimeOverride: detectedAnime,
-      );
-      if (mounted) _showSnack('Watchlist updated');
+    if (_currentStatus == newStatus) {
+      // Tapping the already-selected chip → remove from watchlist.
+      setState(() => _currentStatus = '');
+      try {
+        await _tmdbService.removeFromWatchList(widget.item.tmdbId, userName);
+        if (mounted) _showSnack('Removed from watchlist');
+      } catch (e) {
+        Logger.e('Failed to remove from watchlist', error: e);
+        if (mounted) {
+          setState(() => _currentStatus = previousStatus);
+          _showSnack('Failed to remove — please try again');
+        }
+      }
+    } else {
+      // Optimistically update the chip UI.
+      setState(() => _currentStatus = newStatus);
+      try {
+        // Auto-detect anime so the dashboard's Anime rail picks it up
+        // automatically. We do this against TMDB /details because that's the
+        // only endpoint that reliably returns `original_language` + nested
+        // `genres` for TV. If the network call fails we just fall back to
+        // whatever the item already has.
+        bool? detectedAnime;
+        if (!widget.item.isAnime) {
+          try {
+            detectedAnime = await _tmdbService.isAnimeByTmdbId(
+              widget.item.tmdbId,
+              widget.item.mediaType,
+            );
+          } catch (_) {
+            // Anime detection is best-effort; don't let a TMDB failure
+            // block the status save.
+          }
+        }
+        // Use the poster URL from the fetched details when the item from
+        // Firestore didn't have one (e.g. older items saved before posterPath
+        // was stored). This ensures the dashboard cards get their images.
+        final resolvedItem = _resolvePosterFromDetails(widget.item);
+
+        await _tmdbService.saveToWatchList(
+          resolvedItem,
+          newStatus,
+          userName,
+          isAnimeOverride: detectedAnime,
+        );
+        if (mounted) _showSnack('Watchlist updated');
+      } catch (e) {
+        Logger.e('Failed to update watchlist status', error: e);
+        if (mounted) {
+          setState(() => _currentStatus = previousStatus);
+          _showSnack('Failed to update — please try again');
+        }
+      }
     }
   }
 

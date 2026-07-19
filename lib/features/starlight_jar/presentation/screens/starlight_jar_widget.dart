@@ -202,7 +202,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
   Future<void> _showNoteDialog(StarNote note) async {
     await showDialog(
       context: context,
-      barrierColor: Colors.transparent,
+      barrierColor: Colors.black54,
       barrierDismissible: false,
       builder: (context) => NoteDisplayDialog(note: note),
     );
