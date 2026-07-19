@@ -77,6 +77,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       Logger.i("Saved to watch list successfully: ${item.title} ($userName)");
     } catch (e) {
       Logger.e("Error saving to watch list", error: e);
+      rethrow; // Let the caller know the save failed so it can revert UI state.
     }
   }
 
@@ -143,6 +144,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       }
     } catch (e) {
       Logger.e("Error removing from watch list", error: e);
+      rethrow; // Let the caller know the removal failed so it can revert UI state.
     }
   }
 
