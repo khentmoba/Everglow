@@ -278,7 +278,26 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                         Navigator.pop(context);
                         final u = context.read<AuthService>().currentUser ?? '';
                         if (u.isEmpty) return;
-                        await _tmdbService.saveToWatchList(item, status, u);
+                        try {
+                          await _tmdbService.saveToWatchList(item, status, u);
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Failed to add — please try again',
+                                  style: GoogleFonts.outfit(
+                                      color: AppTheme.petalWhite),
+                                ),
+                                backgroundColor: Colors.redAccent,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
+                              ),
+                            );
+                          }
+                          return;
+                        }
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
