@@ -220,9 +220,15 @@ class TMDBService with ConnectivityAware, ErrorAware {
     String status,
     String userName, {
     bool? isAnimeOverride,
+    String? statusOwner,
   }) =>
       _watchlist.saveToWatchList(item, status, userName,
-          isAnimeOverride: isAnimeOverride);
+          isAnimeOverride: isAnimeOverride, statusOwner: statusOwner);
+
+  /// Returns the Firestore userName of the partner that a partner-specific
+  /// status refers to (e.g. "watched-clair" → "clairjassen"), or null.
+  static String? resolveStatusOwner(String status, String currentUser) =>
+      TMDBWatchlistService.resolveStatusOwner(status, currentUser);
 
   Future<void> updateProgress(
     MediaItem item,
