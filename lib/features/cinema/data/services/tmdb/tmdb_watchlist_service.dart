@@ -30,11 +30,34 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       final collection = firestore.collection('watch_list');
 
       // Check if the SAME user already has this tmdbId
-      final existing = await collection
+      Logger.d("[WatchList] Querying tmdbId=${item.tmdbId} (${item.tmdbId.runtimeType}), userName=$userName, title=${item.title}");
+      var existing = await collection
           .where('tmdbId', isEqualTo: item.tmdbId)
           .where('userName', isEqualTo: userName)
           .limit(1)
           .get();
+      Logger.d("[WatchList] Query returned ${existing.docs.length} docs for userName=$userName");
+
+      // ── Couple-merge fallback ──────────────────────────────────────
+      // When the drawer was opened from a couple-merged stream the item
+      // may only exist under the *partner's* userName. If the current
+      // user has no document yet, look for one under the partner's name
+      // and update *that* instead of creating a duplicate entry.
+      if (existing.docs.isEmpty) {
+        final partner = _resolvePartner(userName);
+        if (partner != null && partner.isNotEmpty) {
+          Logger.d("[WatchList] No doc for $userName — checking partner=$partner");
+          final partnerDocs = await collection
+              .where('tmdbId', isEqualTo: item.tmdbId)
+              .where('userName', isEqualTo: partner)
+              .limit(1)
+              .get();
+          if (partnerDocs.docs.isNotEmpty) {
+            Logger.d("[WatchList] Found doc under partner $partner — updating that instead");
+            existing = partnerDocs;
+          }
+        }
+      }
 
       // Determine the anime flag. If the caller passed an explicit override
       // (e.g. the episode drawer detected anime via /details), trust it.
@@ -42,6 +65,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       final isAnime = isAnimeOverride ?? item.isAnime;
 
       if (existing.docs.isNotEmpty) {
+        Logger.d("[WatchList] Updating existing doc ${existing.docs.first.id} with status=$status");
         // Update status if exists — also refresh metadata fields so the
         // dashboard cards always have the latest poster, title, etc.
         // (Items saved before posterPath was stored get their poster
@@ -63,8 +87,10 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
           updateData['posterPath'] = item.posterPath;
         }
         await collection.doc(existing.docs.first.id).update(updateData);
+        Logger.d("[WatchList] Update succeeded for doc ${existing.docs.first.id}");
       } else {
         // Create new entry scoped to this user
+        Logger.d("[WatchList] No existing doc found — creating new entry");
         await collection.add(item
             .copyWith(
               status: status,
@@ -73,12 +99,22 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
               addedAt: DateTime.now(),
             )
             .toFirestore());
+        Logger.d("[WatchList] New entry created successfully");
       }
       Logger.i("Saved to watch list successfully: ${item.title} ($userName)");
-    } catch (e) {
+    } catch (e, st) {
       Logger.e("Error saving to watch list", error: e);
+      Logger.d("[WatchList] Stack trace: $st");
       rethrow; // Let the caller know the save failed so it can revert UI state.
     }
+  }
+
+  /// Resolve the partner username for couple users (khentsgdz ↔ clairjassen).
+  /// Returns null for non-couple / cinema-only users.
+  static String? _resolvePartner(String userName) {
+    if (userName == 'khentsgdz') return 'clairjassen';
+    if (userName == 'clairjassen') return 'khentsgdz';
+    return null;
   }
 
   /// Update watch progress fields for a specific watch_list item.
@@ -94,11 +130,26 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     if (userName.isEmpty) return;
     try {
       final collection = firestore.collection('watch_list');
-      final existing = await collection
+      var existing = await collection
           .where('tmdbId', isEqualTo: item.tmdbId)
           .where('userName', isEqualTo: userName)
           .limit(1)
           .get();
+
+      // Couple-merge fallback: if no doc under current user, check partner.
+      if (existing.docs.isEmpty) {
+        final partner = _resolvePartner(userName);
+        if (partner != null && partner.isNotEmpty) {
+          final partnerDocs = await collection
+              .where('tmdbId', isEqualTo: item.tmdbId)
+              .where('userName', isEqualTo: partner)
+              .limit(1)
+              .get();
+          if (partnerDocs.docs.isNotEmpty) {
+            existing = partnerDocs;
+          }
+        }
+      }
 
       final now = Timestamp.now();
       final data = <String, dynamic>{
@@ -133,11 +184,27 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     if (userName.isEmpty) return;
     try {
       final collection = firestore.collection('watch_list');
-      final existing = await collection
+      var existing = await collection
           .where('tmdbId', isEqualTo: tmdbId)
           .where('userName', isEqualTo: userName)
           .limit(1)
           .get();
+
+      // Couple-merge fallback: if no doc under current user, check partner.
+      if (existing.docs.isEmpty) {
+        final partner = _resolvePartner(userName);
+        if (partner != null && partner.isNotEmpty) {
+          final partnerDocs = await collection
+              .where('tmdbId', isEqualTo: tmdbId)
+              .where('userName', isEqualTo: partner)
+              .limit(1)
+              .get();
+          if (partnerDocs.docs.isNotEmpty) {
+            existing = partnerDocs;
+          }
+        }
+      }
+
       if (existing.docs.isNotEmpty) {
         await collection.doc(existing.docs.first.id).delete();
         Logger.i("Removed from watch list: $tmdbId ($userName)");
@@ -443,11 +510,27 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     if (userName.isEmpty) return;
     try {
       final collection = firestore.collection('watch_list');
-      final existing = await collection
+      var existing = await collection
           .where('tmdbId', isEqualTo: tmdbId)
           .where('userName', isEqualTo: userName)
           .limit(1)
           .get();
+
+      // Couple-merge fallback: if no doc under current user, check partner.
+      if (existing.docs.isEmpty) {
+        final partner = _resolvePartner(userName);
+        if (partner != null && partner.isNotEmpty) {
+          final partnerDocs = await collection
+              .where('tmdbId', isEqualTo: tmdbId)
+              .where('userName', isEqualTo: partner)
+              .limit(1)
+              .get();
+          if (partnerDocs.docs.isNotEmpty) {
+            existing = partnerDocs;
+          }
+        }
+      }
+
       if (existing.docs.isNotEmpty) {
         final data = <String, dynamic>{
           'progressUpdatedAt': Timestamp.now(),
