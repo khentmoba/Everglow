@@ -656,6 +656,62 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
 
   // ─── Migration ─────────────────────────────────────────────────────────
 
+  /// One-time cleanup: remove Khent's watchlist entries for items where
+  /// Clair also has the item with a "watched-self" status. These were
+  /// created by a bug that saved partner-specific statuses to the wrong
+  /// user's document.
+  ///
+  /// Returns the number of entries removed.
+  Future<int> cleanupDuplicatePartnerEntries() async {
+    try {
+      final collection = firestore.collection('watch_list');
+
+      // Get all of Khent's entries
+      final khentDocs = await collection
+          .where('userName', isEqualTo: 'khentsgdz')
+          .get();
+
+      // Get all of Clair's entries
+      final clairDocs = await collection
+          .where('userName', isEqualTo: 'clairjassen')
+          .get();
+
+      // Build a set of tmdbIds that Clair has with "watched-self"
+      final clairWatchedIds = <int>{};
+      for (final doc in clairDocs.docs) {
+        final data = doc.data();
+        if (data['status'] == 'watched-self') {
+          clairWatchedIds.add(data['tmdbId'] as int);
+        }
+      }
+
+      // Delete Khent's entries that match Clair's watched items
+      int deleted = 0;
+      for (final doc in khentDocs.docs) {
+        final data = doc.data();
+        final tmdbId = data['tmdbId'] as int?;
+        final status = data['status'] as String?;
+        if (tmdbId != null &&
+            clairWatchedIds.contains(tmdbId) &&
+            (status == 'watched-self' || status == 'watching-clair')) {
+          Logger.d("[Cleanup] Removing Khent's doc ${doc.id} for tmdbId=$tmdbId (status=$status) — Clair already has watched-self");
+          await doc.reference.delete();
+          deleted++;
+        }
+      }
+
+      if (deleted > 0) {
+        Logger.i("[Cleanup] Removed $deleted duplicate entries from Khent's watchlist");
+      } else {
+        Logger.i("[Cleanup] No duplicate entries found");
+      }
+      return deleted;
+    } catch (e) {
+      Logger.e("[Cleanup] Error during cleanup", error: e);
+      return 0;
+    }
+  }
+
   /// One-time migration: backfill `userName` for legacy watch_list items that
   /// predate the per-user scoping. Heuristic by status:
   ///   - watched-clair  -> clairjassen
