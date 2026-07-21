@@ -598,6 +598,62 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     }
   }
 
+  /// Remove stale partner-specific statuses from the current user's document
+  /// after routing a status update to the partner's document.
+  ///
+  /// When Khent taps "Clair Watched" and we route to Clair's doc, Khent's
+  /// own document may still have "watching-clair" — a stale partner-specific
+  /// status that would pollute the couple merge. This resets it to "to-watch".
+  Future<void> cleanStalePartnerStatus(
+    int tmdbId,
+    String userName,
+    String newStatus,
+  ) async {
+    try {
+      final collection = firestore.collection('watch_list');
+      final existing = await collection
+          .where('tmdbId', isEqualTo: tmdbId)
+          .where('userName', isEqualTo: userName)
+          .limit(1)
+          .get();
+      if (existing.docs.isEmpty) return;
+
+      final docData = existing.docs.first.data();
+      final currentStatus = docData['status'] as String? ?? '';
+
+      // Determine which partner-specific statuses to clear.
+      // If newStatus is "watched-clair", clear any "watching-clair" from
+      // the current user's doc (since Clair is no longer "just watching").
+      final stalePartner = _companionPartnerStatus(newStatus);
+      if (stalePartner != null && currentStatus == stalePartner) {
+        Logger.d("[WatchList] Cleaning stale '$currentStatus' from $userName's doc");
+        await collection.doc(existing.docs.first.id).update({'status': 'to-watch'});
+      }
+    } catch (e) {
+      Logger.e("[WatchList] Error cleaning stale partner status", error: e);
+    }
+  }
+
+  /// Returns the "watching" counterpart for a "watched" partner status,
+  /// or null if there's no stale counterpart to clean.
+  ///   "watched-clair" → "watching-clair"
+  ///   "watched-khent" → "watching-khent"
+  ///   anything else   → null
+  static String? _companionPartnerStatus(String status) {
+    switch (status) {
+      case 'watched-clair':
+        return 'watching-clair';
+      case 'watched-khent':
+        return 'watching-khent';
+      case 'watching-clair':
+        return 'watched-clair';
+      case 'watching-khent':
+        return 'watched-khent';
+      default:
+        return null;
+    }
+  }
+
   // ─── Migration ─────────────────────────────────────────────────────────
 
   /// One-time migration: backfill `userName` for legacy watch_list items that
