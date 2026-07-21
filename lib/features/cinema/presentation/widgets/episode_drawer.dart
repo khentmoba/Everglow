@@ -114,6 +114,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   /// so all status options are reachable without a horizontal scroll
   /// gesture or Shift+wheel.
   final _statusScrollCtrl = ScrollController();
+  bool _isUpdatingStatus = false;
 
   // For header parallax/fade
   late AnimationController _fadeCtrl;
@@ -879,6 +880,20 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   }
 
   Future<void> _updateStatus(String newStatus) async {
+    // Guard against rapid double-taps that would race.
+    if (_isUpdatingStatus) {
+      Logger.d("[Status] Ignoring — update already in progress");
+      return;
+    }
+    _isUpdatingStatus = true;
+    try {
+      await _doUpdateStatus(newStatus);
+    } finally {
+      _isUpdatingStatus = false;
+    }
+  }
+
+  Future<void> _doUpdateStatus(String newStatus) async {
     HapticFeedback.selectionClick();
     final userName = context.read<AuthService>().currentUser ?? '';
     Logger.d("[Status] _updateStatus called: newStatus=$newStatus, userName=$userName, currentItemStatus=${widget.item.status}, currentLocalStatus=$_currentStatus, tmdbId=${widget.item.tmdbId}, isAnime=${widget.item.isAnime}, mediaType=${widget.item.mediaType}, mounted=$mounted");
@@ -953,6 +968,22 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
           isAnimeOverride: detectedAnime,
           statusOwner: statusOwner,
         );
+
+        // Clean up stale partner-specific status from the current user's
+        // document. e.g. if Khent's doc says "watching-clair" and the user
+        // just marked Clair as watched, the old "watching-clair" on Khent's
+        // doc would pollute the couple merge.
+        if (statusOwner != null && statusOwner != userName) {
+          Logger.d("[Status] Cleaning stale partner status from current user's doc");
+          try {
+            await _tmdbService.cleanStalePartnerStatus(
+              widget.item.tmdbId, userName, newStatus);
+          } catch (e) {
+            Logger.e("[Status] Failed to clean stale status", error: e);
+            // Non-critical — don't revert the main save.
+          }
+        }
+
         Logger.d("[Status] saveToWatchList completed successfully");
         if (mounted) _showSnack('Watchlist updated');
       } catch (e) {
