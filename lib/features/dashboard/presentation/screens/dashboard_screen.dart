@@ -3,9 +3,12 @@ import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web/web.dart' as web;
 import 'package:everglow/core/theme/app_breakpoints.dart';
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/core/utils/logger.dart';
+import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:go_router/go_router.dart';
 import '../../domain/models/anniversary_counter.dart';
@@ -97,9 +100,30 @@ class _DashboardScreenState extends State<DashboardScreen>
           });
         }
 
+        // One-time cleanup of duplicate partner entries from the
+        // watchlist status routing bug. Runs once per device, then
+        // sets a flag in SharedPreferences so it never runs again.
+        _runPartnerCleanupIfNeeded(authService);
+
         _syncPresenceHeartbeat();
       }
     });
+  }
+
+  Future<void> _runPartnerCleanupIfNeeded(AuthService auth) async {
+    if (auth.currentUser != 'khentsgdz') return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool('partner_cleanup_v1') == true) return;
+      final tmdbService = TMDBService();
+      final removed = await tmdbService.cleanupDuplicatePartnerEntries();
+      if (removed > 0) {
+        Logger.i("[Dashboard] Cleanup removed $removed duplicate watchlist entries");
+      }
+      await prefs.setBool('partner_cleanup_v1', true);
+    } catch (e) {
+      Logger.e("[Dashboard] Partner cleanup failed", error: e);
+    }
   }
 
   Widget _maybeAnimate({
