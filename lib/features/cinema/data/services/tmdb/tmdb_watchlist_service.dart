@@ -21,6 +21,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     String status,
     String userName, {
     bool? isAnimeOverride,
+    String? statusOwner,
   }) async {
     if (userName.isEmpty) {
       Logger.w("Error saving to watch list: userName is empty");
@@ -29,24 +30,34 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     try {
       final collection = firestore.collection('watch_list');
 
-      // Check if the SAME user already has this tmdbId
-      Logger.d("[WatchList] Querying tmdbId=${item.tmdbId} (${item.tmdbId.runtimeType}), userName=$userName, title=${item.title}");
+      // Determine whose document to update. When a couple user taps a
+      // partner-specific chip (e.g. "Clair Watched"), the status should
+      // go on the *partner's* document, not the current user's.
+      // [statusOwner] is set by the drawer when it detects a partner-
+      // specific status.
+      final effectiveOwner = statusOwner ?? userName;
+
+      // Map partner-specific statuses to "self" variants on the owner's
+      // document. "watched-clair" on Clair's doc → "watched-self", etc.
+      final effectiveStatus = _toSelfStatus(status);
+
+      // Check if the owner already has this tmdbId
+      Logger.d("[WatchList] Querying tmdbId=${item.tmdbId} (${item.tmdbId.runtimeType}), owner=$effectiveOwner, status=$effectiveStatus, title=${item.title}");
       var existing = await collection
           .where('tmdbId', isEqualTo: item.tmdbId)
-          .where('userName', isEqualTo: userName)
+          .where('userName', isEqualTo: effectiveOwner)
           .limit(1)
           .get();
-      Logger.d("[WatchList] Query returned ${existing.docs.length} docs for userName=$userName");
+      Logger.d("[WatchList] Query returned ${existing.docs.length} docs for owner=$effectiveOwner");
 
       // ── Couple-merge fallback ──────────────────────────────────────
       // When the drawer was opened from a couple-merged stream the item
-      // may only exist under the *partner's* userName. If the current
-      // user has no document yet, look for one under the partner's name
-      // and update *that* instead of creating a duplicate entry.
+      // may only exist under the *partner's* userName. If the effective
+      // owner has no document yet, look for one under the other partner.
       if (existing.docs.isEmpty) {
-        final partner = _resolvePartner(userName);
+        final partner = _resolvePartner(effectiveOwner);
         if (partner != null && partner.isNotEmpty) {
-          Logger.d("[WatchList] No doc for $userName — checking partner=$partner");
+          Logger.d("[WatchList] No doc for $effectiveOwner — checking partner=$partner");
           final partnerDocs = await collection
               .where('tmdbId', isEqualTo: item.tmdbId)
               .where('userName', isEqualTo: partner)
@@ -65,7 +76,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       final isAnime = isAnimeOverride ?? item.isAnime;
 
       if (existing.docs.isNotEmpty) {
-        Logger.d("[WatchList] Updating existing doc ${existing.docs.first.id} with status=$status");
+        Logger.d("[WatchList] Updating existing doc ${existing.docs.first.id} with status=$effectiveStatus, owner=$effectiveOwner");
         // Update status if exists — also refresh metadata fields so the
         // dashboard cards always have the latest poster, title, etc.
         // (Items saved before posterPath was stored get their poster
@@ -75,7 +86,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
         // one — prevents an empty posterPath (e.g. from a stale Jikan
         // search result) from clobbering an already-saved poster.
         final updateData = <String, dynamic>{
-          'status': status,
+          'status': effectiveStatus,
           'isAnime': isAnime,
           'addedAt': Timestamp.now(),
           'backdropPath': item.backdropPath,
@@ -89,19 +100,19 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
         await collection.doc(existing.docs.first.id).update(updateData);
         Logger.d("[WatchList] Update succeeded for doc ${existing.docs.first.id}");
       } else {
-        // Create new entry scoped to this user
-        Logger.d("[WatchList] No existing doc found — creating new entry");
+        // Create new entry scoped to the effective owner
+        Logger.d("[WatchList] No existing doc found — creating new entry for owner=$effectiveOwner");
         await collection.add(item
             .copyWith(
-              status: status,
+              status: effectiveStatus,
               isAnime: isAnime,
-              userName: userName,
+              userName: effectiveOwner,
               addedAt: DateTime.now(),
             )
             .toFirestore());
         Logger.d("[WatchList] New entry created successfully");
       }
-      Logger.i("Saved to watch list successfully: ${item.title} ($userName)");
+      Logger.i("Saved to watch list successfully: ${item.title} ($effectiveOwner, status=$effectiveStatus)");
     } catch (e, st) {
       Logger.e("Error saving to watch list", error: e);
       Logger.d("[WatchList] Stack trace: $st");
@@ -115,6 +126,48 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     if (userName == 'khentsgdz') return 'clairjassen';
     if (userName == 'clairjassen') return 'khentsgdz';
     return null;
+  }
+
+  /// Maps partner-specific statuses to the "self" variant that should be
+  /// stored on the owner's document.
+  ///   "watched-clair"  → "watched-self"
+  ///   "watched-khent"  → "watched-self"
+  ///   "watching-clair" → "watching-self"
+  ///   "watching-khent" → "watching-self"
+  ///   "watched-both"   → "watched-self"
+  ///   "watching-both"  → "watching-self"
+  ///   anything else    → as-is
+  static String _toSelfStatus(String status) {
+    switch (status) {
+      case 'watched-clair':
+      case 'watched-khent':
+      case 'watched-both':
+        return 'watched-self';
+      case 'watching-clair':
+      case 'watching-khent':
+      case 'watching-both':
+        return 'watching-self';
+      default:
+        return status;
+    }
+  }
+
+  /// Returns the Firestore userName of the partner that a partner-specific
+  /// status refers to, or null if the status isn't partner-specific.
+  ///   "watched-clair" / "watching-clair" → "clairjassen"
+  ///   "watched-khent"  / "watching-khent" → "khentsgdz"
+  ///   "watched-both" / "watching-both" → null (ambiguous — both)
+  static String? resolveStatusOwner(String status, String currentUser) {
+    switch (status) {
+      case 'watched-clair':
+      case 'watching-clair':
+        return 'clairjassen';
+      case 'watched-khent':
+      case 'watching-khent':
+        return 'khentsgdz';
+      default:
+        return null; // Use currentUser (the standard path)
+    }
   }
 
   /// Update watch progress fields for a specific watch_list item.

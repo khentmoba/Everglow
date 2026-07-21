@@ -938,11 +938,20 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         final resolvedItem = _resolvePosterFromDetails(widget.item);
         Logger.d("[Status] Calling saveToWatchList...");
 
+        // Detect partner-specific statuses (e.g. "watched-clair") and
+        // route the save to the partner's document instead of the
+        // current user's.
+        final statusOwner = TMDBService.resolveStatusOwner(newStatus, userName);
+        if (statusOwner != null) {
+          Logger.d("[Status] Partner-specific status detected — routing to $statusOwner");
+        }
+
         await _tmdbService.saveToWatchList(
           resolvedItem,
           newStatus,
           userName,
           isAnimeOverride: detectedAnime,
+          statusOwner: statusOwner,
         );
         Logger.d("[Status] saveToWatchList completed successfully");
         if (mounted) _showSnack('Watchlist updated');
