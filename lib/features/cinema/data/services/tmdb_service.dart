@@ -230,6 +230,11 @@ class TMDBService with ConnectivityAware, ErrorAware {
   static String? resolveStatusOwner(String status, String currentUser) =>
       TMDBWatchlistService.resolveStatusOwner(status, currentUser);
 
+  /// Clean stale partner-specific status from the current user's doc.
+  Future<void> cleanStalePartnerStatus(
+          int tmdbId, String userName, String newStatus) =>
+      _watchlist.cleanStalePartnerStatus(tmdbId, userName, newStatus);
+
   Future<void> updateProgress(
     MediaItem item,
     String userName, {
