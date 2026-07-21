@@ -881,6 +881,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   Future<void> _updateStatus(String newStatus) async {
     HapticFeedback.selectionClick();
     final userName = context.read<AuthService>().currentUser ?? '';
+    Logger.d("[Status] _updateStatus called: newStatus=$newStatus, userName=$userName, currentItemStatus=${widget.item.status}, currentLocalStatus=$_currentStatus, tmdbId=${widget.item.tmdbId}, isAnime=${widget.item.isAnime}, mediaType=${widget.item.mediaType}, mounted=$mounted");
     if (userName.isEmpty) {
       _showSnack('Please sign in to manage your watchlist');
       return;
@@ -894,9 +895,11 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
 
     if (_currentStatus == newStatus) {
       // Tapping the already-selected chip → remove from watchlist.
+      Logger.d("[Status] Same status tapped — removing from watchlist");
       setState(() => _currentStatus = '');
       try {
         await _tmdbService.removeFromWatchList(widget.item.tmdbId, userName);
+        Logger.d("[Status] Remove succeeded");
         if (mounted) _showSnack('Removed from watchlist');
       } catch (e) {
         Logger.e('Failed to remove from watchlist', error: e);
@@ -917,11 +920,14 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         bool? detectedAnime;
         if (!widget.item.isAnime) {
           try {
+            Logger.d("[Status] Checking if item is anime...");
             detectedAnime = await _tmdbService.isAnimeByTmdbId(
               widget.item.tmdbId,
               widget.item.mediaType,
             );
+            Logger.d("[Status] Anime detection result: $detectedAnime");
           } catch (_) {
+            Logger.d("[Status] Anime detection failed, continuing");
             // Anime detection is best-effort; don't let a TMDB failure
             // block the status save.
           }
@@ -930,6 +936,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         // Firestore didn't have one (e.g. older items saved before posterPath
         // was stored). This ensures the dashboard cards get their images.
         final resolvedItem = _resolvePosterFromDetails(widget.item);
+        Logger.d("[Status] Calling saveToWatchList...");
 
         await _tmdbService.saveToWatchList(
           resolvedItem,
@@ -937,6 +944,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
           userName,
           isAnimeOverride: detectedAnime,
         );
+        Logger.d("[Status] saveToWatchList completed successfully");
         if (mounted) _showSnack('Watchlist updated');
       } catch (e) {
         Logger.e('Failed to update watchlist status', error: e);
