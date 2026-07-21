@@ -235,6 +235,10 @@ class TMDBService with ConnectivityAware, ErrorAware {
           int tmdbId, String userName, String newStatus) =>
       _watchlist.cleanStalePartnerStatus(tmdbId, userName, newStatus);
 
+  /// One-time cleanup of duplicate partner entries.
+  Future<int> cleanupDuplicatePartnerEntries() =>
+      _watchlist.cleanupDuplicatePartnerEntries();
+
   Future<void> updateProgress(
     MediaItem item,
     String userName, {
