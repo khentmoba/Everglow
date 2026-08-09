@@ -42,7 +42,7 @@ class _JukeboxWidgetState extends State<JukeboxWidget> {
   Widget build(BuildContext context) {
     // Primary from env, fallback to hardcoded
     final khentUser = (dotenv.isInitialized ? dotenv.env['LASTFM_USER_KHENT'] : null) ?? 'khentsgdz';
-    final clairUser = (dotenv.isInitialized ? dotenv.env['LASTFM_USER_CLAIR'] : null) ?? 'clair';
+    final clairUser = (dotenv.isInitialized ? dotenv.env['LASTFM_USER_CLAIR'] : null) ?? 'clairjassen';
 
     return StreamBuilder<Map<String, MusicStatus>>(
       stream: context.read<JukeboxProvider>().statusStream,
