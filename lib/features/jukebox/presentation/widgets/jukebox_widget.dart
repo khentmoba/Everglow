@@ -42,6 +42,7 @@ class _JukeboxWidgetState extends State<JukeboxWidget> {
   Widget build(BuildContext context) {
     // Primary from env, fallback to hardcoded
     final khentUser = (dotenv.isInitialized ? dotenv.env['LASTFM_USER_KHENT'] : null) ?? 'khentsgdz';
+    final clairUser = (dotenv.isInitialized ? dotenv.env['LASTFM_USER_CLAIR'] : null) ?? 'clair';
 
     return StreamBuilder<Map<String, MusicStatus>>(
       stream: context.read<JukeboxProvider>().statusStream,
@@ -49,9 +50,11 @@ class _JukeboxWidgetState extends State<JukeboxWidget> {
         // Fallback to empty if no data yet, though provider now seeds it
         final statuses = snapshot.data ?? {};
         final khentStatus = statuses[khentUser] ?? MusicStatus.empty(khentUser);
+        final clairStatus = statuses[clairUser] ?? MusicStatus.empty(clairUser);
 
         // Check for Ethel Cain
         _triggerHearts(khentStatus);
+        _triggerHearts(clairStatus);
 
         return Stack(
           alignment: Alignment.topCenter,
@@ -91,13 +94,20 @@ class _JukeboxWidgetState extends State<JukeboxWidget> {
                 }
 
                 if (isMobile) {
-                  return buildCard(khentStatus, 'Khent is vibing to...');
+                  return Column(
+                    children: [
+                      buildCard(khentStatus, 'Khent is vibing to...'),
+                      const SizedBox(height: 16),
+                      buildCard(clairStatus, 'Clair is vibing to...'),
+                    ],
+                  );
                 } else {
-                  return Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 560),
-                      child: buildCard(khentStatus, 'Khent is vibing to...'),
-                    ),
+                  return Row(
+                    children: [
+                      Expanded(child: buildCard(khentStatus, 'Khent is vibing to...')),
+                      const SizedBox(width: 16),
+                      Expanded(child: buildCard(clairStatus, 'Clair is vibing to...')),
+                    ],
                   );
                 }
               },
