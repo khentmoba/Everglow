@@ -107,6 +107,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// with a hardcoded fallback.
   final VideoSourceService _sourceService = VideoSourceService();
 
+  /// Listener callback for when the service's provider list updates
+  /// asynchronously from Firestore.
+  VoidCallback? _serviceListener;
+
   VideoSourceConfig get _activeProvider => _selectedProvider;
 
   List<VideoSourceConfig> get _selectableProviders =>
@@ -121,6 +125,30 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _selectedProvider = srcList.isNotEmpty ? srcList.first : _sourceService.defaultSource;
     _loadSavedDefaultSource();
     _currentUserName = context.read<AuthService>().currentUser ?? '';
+
+    // Listen for provider list updates from Firestore. If the iframe
+    // has already failed with the hardcoded defaults, retry with the
+    // freshly loaded sources.
+    _serviceListener = () {
+      if (!mounted) return;
+      final newList = _sourceService.providers;
+      if (newList.isNotEmpty && _iframeFailed) {
+        debugPrint('[VideoPlayerScreen] Providers updated from Firestore — retrying');
+        _failedProviderIds.clear();
+        _selectedProvider = newList.first;
+        setState(() {
+          _iframeFailed = false;
+          _isLoading = true;
+        });
+        _loadTimer?.cancel();
+        _loadTimer = Timer(_loadTimeout, () {
+          if (!mounted) return;
+          if (_isLoading) _onIframeLoadError();
+        });
+        _iframe.src = _buildPlayerUrl(_selectedProvider);
+      }
+    };
+    _sourceService.addListener(_serviceListener!);
 
     _viewType =
         'everglow-cinema-player-${widget.tmdbId}-${widget.mediaType}-${widget.season ?? 0}-${widget.episode ?? 0}-${DateTime.now().microsecondsSinceEpoch}';
@@ -215,6 +243,7 @@ _currentSeason = widget.season ?? 1;
     _loadTimer?.cancel();
     _contentCheckTimer?.cancel();
     if (!mounted) return;
+    debugPrint('[VideoPlayerScreen] Provider "${_selectedProvider.id}" failed (url: ${_buildPlayerUrl(_selectedProvider)})');
     _failedProviderIds.add(_selectedProvider.id);
     _tryNextProvider();
   }
@@ -386,6 +415,7 @@ _currentSeason = widget.season ?? 1;
       orElse: () => null,
     );
     if (next != null) {
+      debugPrint('[VideoPlayerScreen] Trying next provider: "${next.id}" (${_failedProviderIds.length} failed so far)');
       setState(() {
         _selectedProvider = next;
         _isLoading = true;
@@ -397,6 +427,7 @@ _currentSeason = widget.season ?? 1;
       });
       _iframe.src = _buildPlayerUrl(next);
     } else {
+      debugPrint('[VideoPlayerScreen] All ${_selectableProviders.length} providers failed — showing error card');
       setState(() => _iframeFailed = true);
     }
   }
@@ -425,6 +456,9 @@ _currentSeason = widget.season ?? 1;
   void dispose() {
     _loadTimer?.cancel();
     _contentCheckTimer?.cancel();
+    if (_serviceListener != null) {
+      _sourceService.removeListener(_serviceListener!);
+    }
     if (_onLoadListener != null) {
       _iframe.removeEventListener('load', _onLoadListener);
     }
@@ -487,15 +521,13 @@ _currentSeason = widget.season ?? 1;
       final epNum = _currentEpisode;
 
       if (tvBase.contains('vidsrc.to')) {
-        return '$tvBase$id&season=$seasonNum&episode=$epNum';
+        return '$tvBase$id?season=$seasonNum&episode=$epNum';
       } else if (tvBase.contains('multiembed.mov')) {
         return '$tvBase$id&tmdb=1&s=$seasonNum&e=$epNum';
-      } else if (tvBase.contains('2embed.cc')) {
-        return '$tvBase$id&s=$seasonNum&e=$epNum';
       } else if (provider.id == 'vsembed') {
         return '$tvBase$id?season=$seasonNum&episode=$epNum';
       } else if (tvBase.contains('embed') && !tvBase.endsWith('/')) {
-        return '$tvBase$id&season=$seasonNum&episode=$epNum';
+        return '$tvBase$id?season=$seasonNum&episode=$epNum';
       } else {
         final separator = tvBase.endsWith('/') ? '' : '/';
         final base = '$tvBase$separator$id/$seasonNum/$epNum';
@@ -687,8 +719,8 @@ _currentSeason = widget.season ?? 1;
             _metaBadge(Icons.source_rounded, _selectedProvider.shortName, accent: true),
             _metaBadge(widget.mediaType == 'movie' ? Icons.movie_rounded : Icons.tv_rounded, widget.mediaType == 'movie' ? 'Movie' : 'TV Show'),
             if (widget.mediaType == 'tv') _metaBadge(Icons.layers_rounded, 'S${_currentSeason} E${_currentEpisode}'),
-            if (rating != null) _metaBadge(Icons.star_rounded, '\$rating/10'),
-            if (effRuntime != null && effRuntime > 0) _metaBadge(Icons.schedule_rounded, '\${effRuntime}m'),
+            if (rating != null) _metaBadge(Icons.star_rounded, '$rating/10'),
+            if (effRuntime != null && effRuntime > 0) _metaBadge(Icons.schedule_rounded, '${effRuntime}m'),
           ]),
           if (genreNames != null && genreNames.isNotEmpty) ...[
             const SizedBox(height: 10),
