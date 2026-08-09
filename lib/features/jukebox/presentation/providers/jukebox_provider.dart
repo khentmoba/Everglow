@@ -23,7 +23,7 @@ class JukeboxProvider extends ChangeNotifier {
 
   void _initProvider() {
     String khentUser = 'khentsgdz';
-    String clairUser = 'clair';
+    String clairUser = 'clairjassen';
 
     if (dotenv.isInitialized) {
       khentUser = dotenv.env['LASTFM_USER_KHENT'] ?? khentUser;

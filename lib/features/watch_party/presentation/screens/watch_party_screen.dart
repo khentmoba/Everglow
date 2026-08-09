@@ -150,6 +150,10 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   /// with a hardcoded fallback.
   final VideoSourceService _sourceService = VideoSourceService();
 
+  /// Listener callback for when the service's provider list updates
+  /// asynchronously from Firestore.
+  VoidCallback? _serviceListener;
+
   // ─── Voice chat ───────────────────────────────────────────────────
   final VoiceChatService _voiceChat = VoiceChatService();
 
@@ -212,6 +216,30 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     _autoplay = !_hostExplicitlyPaused;
 
     _selectedProvider = _providers.first;
+
+    // Listen for provider list updates from Firestore. If the iframe
+    // has already failed with the hardcoded defaults, retry with the
+    // freshly loaded sources.
+    _serviceListener = () {
+      if (!mounted) return;
+      final newList = _sourceService.providers;
+      if (newList.isNotEmpty && _iframeFailed) {
+        debugPrint('[WatchPartyScreen] Providers updated from Firestore — retrying');
+        _failedProviderIds.clear();
+        _selectedProvider = newList.first;
+        setState(() {
+          _iframeFailed = false;
+          _isLoading = true;
+        });
+        _loadTimer?.cancel();
+        _loadTimer = Timer(_loadTimeout, () {
+          if (!mounted) return;
+          if (_isLoading) _onIframeLoadError();
+        });
+        _iframe.src = _buildPlayerUrl(_selectedProvider, startSeconds: 0);
+      }
+    };
+    _sourceService.addListener(_serviceListener!);
 
     _viewType =
         'everglow-watchparty-${_room.tmdbId}-${_room.mediaType}-${_room.season ?? 0}-${_room.episode ?? 0}-${DateTime.now().microsecondsSinceEpoch}';
@@ -334,6 +362,9 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     _contentCheckTimer?.cancel();
     _roomSub?.cancel();
     _voiceChat.dispose();
+    if (_serviceListener != null) {
+      _sourceService.removeListener(_serviceListener!);
+    }
     if (_onLoadListener != null) {
       _iframe.removeEventListener('load', _onLoadListener);
     }
@@ -544,6 +575,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     if (!_isLoading) return;
     _loadTimer?.cancel();
     _contentCheckTimer?.cancel();
+    debugPrint('[WatchPartyScreen] Provider "${_selectedProvider.id}" failed');
     _failedProviderIds.add(_selectedProvider.id);
     final next = _providers.cast<VideoSourceConfig?>().firstWhere(
       (p) => !_failedProviderIds.contains(p!.id),
@@ -635,11 +667,9 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
       final s = _room.season ?? 1;
       final e = _room.episode ?? 1;
       if (tvBase.contains('vidsrc.to')) {
-        base = '$tvBase$id&season=$s&episode=$e';
+        base = '$tvBase$id?season=$s&episode=$e';
       } else if (tvBase.contains('multiembed.mov')) {
         base = '$tvBase$id&tmdb=1&s=$s&e=$e';
-      } else if (tvBase.contains('2embed.cc')) {
-        base = '$tvBase$id&s=$s&e=$e';
       } else if (provider.id == 'vsembed') {
         base = '$tvBase$id?season=$s&episode=$e';
       } else {

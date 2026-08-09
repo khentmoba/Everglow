@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:everglow/features/cinema/data/models/video_source_config.dart';
 
@@ -11,7 +12,10 @@ import 'package:everglow/features/cinema/data/models/video_source_config.dart';
 /// The resolved list is cached in memory for the session. Callers should
 /// re-fetch explicitly (via [refresh]) when they want to pick up remote
 /// changes without a restart.
-class VideoSourceService {
+///
+/// Extends [ChangeNotifier] so UI consumers can listen for provider-list
+/// updates when the Firestore fetch completes asynchronously.
+class VideoSourceService extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   // Singleton
   // ---------------------------------------------------------------------------
@@ -76,6 +80,7 @@ class VideoSourceService {
   Future<void> refresh() async {
     _providers = null;
     await _fetchFromFirestore();
+    // _fetchFromFirestore already calls notifyListeners on completion.
   }
 
   // ---------------------------------------------------------------------------
@@ -101,16 +106,20 @@ class VideoSourceService {
                   ))
               .toList();
           _loading = false;
+          debugPrint('[VideoSourceService] Loaded ${_providers!.length} sources from Firestore');
+          notifyListeners();
           return;
         }
       }
-    } catch (_) {
-      // Firestore unavailable — keep the fallback below.
+      debugPrint('[VideoSourceService] Firestore doc missing or empty — using hardcoded defaults');
+    } catch (e) {
+      debugPrint('[VideoSourceService] Firestore fetch failed: $e');
     }
 
     // Fallback: use the hardcoded list.
     _providers ??= _hardcodedDefaults;
     _loading = false;
+    notifyListeners();
   }
 
   // ---------------------------------------------------------------------------
@@ -127,13 +136,30 @@ class VideoSourceService {
       isRecommended: true,
     ),
     VideoSourceConfig(
+      id: 'videasy',
+      name: 'Videasy',
+      shortName: 'Videasy',
+      desc: 'Clean, modern player',
+      movieUrl: 'https://player.videasy.net/movie/',
+      tvUrl: 'https://player.videasy.net/tv/',
+      isRecommended: true,
+    ),
+    VideoSourceConfig(
+      id: 'vidlink',
+      name: 'VidLink',
+      shortName: 'VidLink',
+      desc: 'Solid, actively maintained',
+      movieUrl: 'https://vidlink.pro/movie/',
+      tvUrl: 'https://vidlink.pro/tv/',
+      isRecommended: true,
+    ),
+    VideoSourceConfig(
       id: 'movish',
       name: 'Movish',
       shortName: 'Movish',
       desc: 'No ads — sandbox safe',
       movieUrl: 'https://movish.to/moviebox-embed/move/',
       tvUrl: 'https://movish.to/moviebox-embed/tv/',
-      isRecommended: true,
       sandboxSafe: true,
     ),
     VideoSourceConfig(
@@ -143,64 +169,7 @@ class VideoSourceService {
       desc: 'No ads — sandbox safe',
       movieUrl: 'https://vidbolt.xyz/movie/',
       tvUrl: 'https://vidbolt.xyz/tv/',
-      isRecommended: true,
       sandboxSafe: true,
-    ),
-    VideoSourceConfig(
-      id: 'vaplayer',
-      name: 'VAPlayer',
-      shortName: 'VAPlayer',
-      desc: 'Low ads',
-      movieUrl: 'https://vaplayer.ru/embed/movie/',
-      tvUrl: 'https://vaplayer.ru/embed/tv/',
-    ),
-    VideoSourceConfig(
-      id: 'videasy',
-      name: 'Videasy',
-      shortName: 'Videasy',
-      desc: 'Clean, modern player',
-      movieUrl: 'https://player.videasy.net/movie/',
-      tvUrl: 'https://player.videasy.net/tv/',
-    ),
-    VideoSourceConfig(
-      id: 'vidlink',
-      name: 'VidLink',
-      shortName: 'VidLink',
-      desc: 'Solid, actively maintained',
-      movieUrl: 'https://vidlink.pro/movie/',
-      tvUrl: 'https://vidlink.pro/tv/',
-    ),
-    VideoSourceConfig(
-      id: 'vares',
-      name: 'Vares',
-      shortName: 'Vares',
-      desc: 'Ads',
-      movieUrl: 'https://vares.top/movie/',
-      tvUrl: 'https://vares.top/tv/',
-    ),
-    VideoSourceConfig(
-      id: 'vidfast.me',
-      name: 'November',
-      shortName: 'November',
-      desc: 'Ads',
-      movieUrl: 'https://vidfast.me/movie/',
-      tvUrl: 'https://vidfast.me/tv/',
-    ),
-    VideoSourceConfig(
-      id: 'multiembed',
-      name: 'MultiEmbed',
-      shortName: 'MultiEmbed',
-      desc: 'Multi-source fallback',
-      movieUrl: 'https://multiembed.mov/?video_id=',
-      tvUrl: 'https://multiembed.mov/?video_id=',
-    ),
-    VideoSourceConfig(
-      id: '2embed.cc',
-      name: '2Embed',
-      shortName: '2Embed',
-      desc: 'Direct TMDB-based source',
-      movieUrl: 'https://www.2embed.cc/embed/',
-      tvUrl: 'https://www.2embed.cc/embedtv/',
     ),
     VideoSourceConfig(
       id: 'vsembed',
@@ -214,7 +183,7 @@ class VideoSourceService {
       id: 'vidrock',
       name: 'VidRock',
       shortName: 'VidRock',
-      desc: 'Reliable VidSrc mirror',
+      desc: 'Reliable mirror',
       movieUrl: 'https://vidrock.ru/movie/',
       tvUrl: 'https://vidrock.ru/tv/',
     ),
@@ -233,6 +202,14 @@ class VideoSourceService {
       desc: 'Last resort, ad-heavy',
       movieUrl: 'https://vidsrc.to/embed/movie/',
       tvUrl: 'https://vidsrc.to/embed/tv/',
+    ),
+    VideoSourceConfig(
+      id: 'multiembed',
+      name: 'MultiEmbed',
+      shortName: 'MultiEmbed',
+      desc: 'Multi-source fallback',
+      movieUrl: 'https://multiembed.mov/?video_id=',
+      tvUrl: 'https://multiembed.mov/?video_id=',
     ),
   ];
 }
