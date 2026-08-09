@@ -55,7 +55,7 @@ jobs:
         run: |
           echo "$FIREBASE_SERVICE_ACCOUNT" > "$HOME"/firebase-sa.json
           GOOGLE_APPLICATION_CREDENTIALS="$HOME"/firebase-sa.json \
-          firebase deploy --only functions,firestore:rules,storage --project everglow-1c6db
+          firebase deploy --only functions,firestore:rules --project everglow-1c6db
 
       - name: Verify site is live
         run: |
