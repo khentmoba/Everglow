@@ -127,15 +127,6 @@ class VideoSourceService extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   static final List<VideoSourceConfig> _hardcodedDefaults = [
     VideoSourceConfig(
-      id: 'vidfast',
-      name: 'VidFast',
-      shortName: 'VidFast',
-      desc: 'Fast, multiple CDN domains',
-      movieUrl: 'https://vidfast.pro/movie/',
-      tvUrl: 'https://vidfast.pro/tv/',
-      isRecommended: true,
-    ),
-    VideoSourceConfig(
       id: 'videasy',
       name: 'Videasy',
       shortName: 'Videasy',
@@ -145,21 +136,13 @@ class VideoSourceService extends ChangeNotifier {
       isRecommended: true,
     ),
     VideoSourceConfig(
-      id: 'vidlink',
-      name: 'VidLink',
-      shortName: 'VidLink',
-      desc: 'Solid, actively maintained',
-      movieUrl: 'https://vidlink.pro/movie/',
-      tvUrl: 'https://vidlink.pro/tv/',
-      isRecommended: true,
-    ),
-    VideoSourceConfig(
       id: 'movish',
       name: 'Movish',
       shortName: 'Movish',
       desc: 'No ads — sandbox safe',
       movieUrl: 'https://movish.to/moviebox-embed/move/',
       tvUrl: 'https://movish.to/moviebox-embed/tv/',
+      isRecommended: true,
       sandboxSafe: true,
     ),
     VideoSourceConfig(
@@ -169,6 +152,7 @@ class VideoSourceService extends ChangeNotifier {
       desc: 'No ads — sandbox safe',
       movieUrl: 'https://vidbolt.xyz/movie/',
       tvUrl: 'https://vidbolt.xyz/tv/',
+      isRecommended: true,
       sandboxSafe: true,
     ),
     VideoSourceConfig(
