@@ -78,7 +78,7 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
   }
 
   String get _backdropUrl {
-    if (widget.item.backdropPath.isNotEmpty) return widget.item.backdropPath;
+    if (widget.item.backdropUrl.isNotEmpty) return widget.item.backdropUrl;
     final path = _details?['backdrop_path'];
     if (path is String && path.isNotEmpty) {
       return 'https://image.tmdb.org/t/p/w780$path';

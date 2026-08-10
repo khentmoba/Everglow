@@ -160,7 +160,7 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
   }
 
   String get _backdropUrl {
-    if (_item.backdropPath.isNotEmpty) return _item.backdropPath;
+    if (_item.backdropUrl.isNotEmpty) return _item.backdropUrl;
     return _item.posterUrl;
   }
 

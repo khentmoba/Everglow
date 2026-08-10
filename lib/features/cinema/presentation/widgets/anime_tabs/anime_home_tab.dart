@@ -363,8 +363,8 @@ class AnimeHomeTab extends StatelessWidget {
         title: m.title,
         subtitle: m.year.isNotEmpty ? m.year : 'Tap to explore',
         eyebrow: rank <= 3 ? '★ Top $rank' : 'Trending #$rank',
-        imageUrl: m.backdropPath.isNotEmpty
-            ? m.backdropPath
+        imageUrl: m.backdropUrl.isNotEmpty
+            ? m.backdropUrl
             : m.posterPath,
         posterUrl: m.posterPath,
         synopsis: m.synopsis,
@@ -667,9 +667,9 @@ class AnimeHomeTab extends StatelessWidget {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      if (item.backdropPath.isNotEmpty)
+                      if (item.backdropUrl.isNotEmpty)
                         Image.network(
-                          item.backdropPath,
+                          item.backdropUrl,
                           fit: BoxFit.cover,
                           cacheWidth: 900,
                           errorBuilder: (_, _, _) => Image.network(
