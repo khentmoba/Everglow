@@ -7,10 +7,10 @@ import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/features/cinema/presentation/widgets/episode_drawer.dart';
 import 'package:everglow/services/auth_service.dart';
-import 'package:everglow/shared/widgets/shelf/atmospheric_backdrop.dart';
-import 'package:everglow/shared/widgets/shelf/cinema_nav_bar.dart';
 import 'package:everglow/core/theme/app_breakpoints.dart';
 import 'package:go_router/go_router.dart';
+import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_colors.dart';
+import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_nav_bar.dart';
 
 import 'package:everglow/features/cinema/presentation/widgets/tabs/cinema_home_tab.dart'
     show CinemaHomeTab, featuredGenres;
@@ -36,6 +36,12 @@ class _CinemaScreenState extends State<CinemaScreen>
     with TickerProviderStateMixin {
   final TMDBService _tmdbService = TMDBService();
   int _currentIndex = 0;
+  bool _navScrolled = false;
+
+  /// Bumped every time a nav link targets the Browse tab so it rebuilds
+  /// with the requested filter even when it is already mounted.
+  int _browseSeed = 0;
+  String? _pendingBrowseOption;
 
   // Nav animation
   late AnimationController _navController;
@@ -119,8 +125,9 @@ class _CinemaScreenState extends State<CinemaScreen>
 
   void _splitWatchlists() {
     _watchedList = _watchlist.where((item) => item.isWatched).toList();
-    _watchingList =
-        _watchlist.where((item) => item.isCurrentlyWatching).toList();
+    _watchingList = _watchlist
+        .where((item) => item.isCurrentlyWatching)
+        .toList();
   }
 
   Future<void> _fetchHomeData() async {
@@ -279,44 +286,48 @@ class _CinemaScreenState extends State<CinemaScreen>
 
     if (!mounted) return;
     setState(() {
-      _discoveryRows['korean_dramas'] =
-          (languageRows[0] as List<MediaItem>)
-              .where((m) => !m.isAnime)
-              .toList();
-      _discoveryRows['bollywood'] =
-          (languageRows[1] as List<MediaItem>)
-              .where((m) => !m.isAnime)
-              .toList();
-      _discoveryRows['spanish_cinema'] =
-          (languageRows[2] as List<MediaItem>)
-              .where((m) => !m.isAnime)
-              .toList();
-      _discoveryRows['french_cinema'] =
-          (languageRows[3] as List<MediaItem>)
-              .where((m) => !m.isAnime)
-              .toList();
-      _discoveryRows['decade_2010s'] =
-          (decadeRows[0] as List<MediaItem>)
-              .where((m) => !m.isAnime)
-              .toList();
-      _discoveryRows['decade_2000s'] =
-          (decadeRows[1] as List<MediaItem>)
-              .where((m) => !m.isAnime)
-              .toList();
-      _discoveryRows['classic_films'] =
-          (decadeRows[2] as List<MediaItem>)
-              .where((m) => !m.isAnime)
-              .toList();
+      _discoveryRows['korean_dramas'] = (languageRows[0] as List<MediaItem>)
+          .where((m) => !m.isAnime)
+          .toList();
+      _discoveryRows['bollywood'] = (languageRows[1] as List<MediaItem>)
+          .where((m) => !m.isAnime)
+          .toList();
+      _discoveryRows['spanish_cinema'] = (languageRows[2] as List<MediaItem>)
+          .where((m) => !m.isAnime)
+          .toList();
+      _discoveryRows['french_cinema'] = (languageRows[3] as List<MediaItem>)
+          .where((m) => !m.isAnime)
+          .toList();
+      _discoveryRows['decade_2010s'] = (decadeRows[0] as List<MediaItem>)
+          .where((m) => !m.isAnime)
+          .toList();
+      _discoveryRows['decade_2000s'] = (decadeRows[1] as List<MediaItem>)
+          .where((m) => !m.isAnime)
+          .toList();
+      _discoveryRows['classic_films'] = (decadeRows[2] as List<MediaItem>)
+          .where((m) => !m.isAnime)
+          .toList();
     });
   }
 
   void _showMediaDetails(MediaItem item) {
     HapticFeedback.lightImpact();
-    showModalBottomSheet(
+    showGeneralDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => EpisodeDrawer(item: item),
+      barrierDismissible: true,
+      barrierLabel: 'Close details',
+      barrierColor: Colors.black.withValues(alpha: 0.65),
+      transitionDuration: const Duration(milliseconds: 320),
+      pageBuilder: (context, _, _) => EpisodeDrawer(item: item),
+      transitionBuilder: (context, animation, _, child) {
+        final offset = Tween<Offset>(
+          begin: const Offset(0, 0.06),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+        );
+        return SlideTransition(position: offset, child: child);
+      },
     );
   }
 
@@ -325,110 +336,163 @@ class _CinemaScreenState extends State<CinemaScreen>
     setState(() => _currentIndex = index);
   }
 
+  /// Opens the Browse tab seeded with [optionId] (used by nav links).
+  void _openBrowse(String optionId) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _pendingBrowseOption = optionId;
+      _browseSeed++;
+      _currentIndex = 2;
+    });
+  }
+
+  /// Netflix-style Play from the billboard: movies jump straight into the
+  /// player; series open the drawer so the right episode can be picked.
+  void _playNow(MediaItem item) {
+    if (item.mediaType == 'movie') {
+      context.push(
+        '/cinema/video/${item.tmdbId}?type=movie'
+        '&title=${Uri.encodeComponent(item.title)}&anime=false',
+      );
+      return;
+    }
+    _showMediaDetails(item);
+  }
+
+  void _onNavSelect(int tab, String? browseOptionId) {
+    if (browseOptionId != null) {
+      _openBrowse(browseOptionId);
+      return;
+    }
+    _switchTab(tab);
+  }
+
   @override
   Widget build(BuildContext context) {
     final isMobile = AppBreakpoint.isMobile(context);
     final isCoupleUser = context.read<AuthService>().isCoupleUser;
 
-    final navBarItems = const [
-      CinemaNavItem(
-        icon: Icons.home_outlined,
-        activeIcon: Icons.home_rounded,
-        label: 'Home',
-      ),
-      CinemaNavItem(
-        icon: Icons.search_rounded,
-        activeIcon: Icons.search_rounded,
-        label: 'Search',
-      ),
-      CinemaNavItem(
-        icon: Icons.category_outlined,
-        activeIcon: Icons.category_rounded,
-        label: 'Browse',
-      ),
-      CinemaNavItem(
-        icon: Icons.collections_bookmark_outlined,
-        activeIcon: Icons.collections_bookmark_rounded,
-        label: 'Library',
-      ),
-    ];
-
     return Scaffold(
       extendBody: true,
-      backgroundColor: const Color(0xFF080810),
-      body: Stack(
-        children: [
-          const ShelfAtmosphericBackdrop(),
-          // Content
-          IndexedStack(
-            index: _currentIndex,
-            children: [
-              CinemaHomeTab(
-                isLoadingHome: _isLoadingHome,
-                trendingCarousel: _trendingCarousel,
-                topRatedMovies: _topRatedMovies,
-                popularTVShows: _popularTVShows,
-                nowShowing: _nowShowing,
-                newlyReleased: _newlyReleased,
-                popularMovies: _popularMovies,
-                topRatedTV: _topRatedTV,
-                airingToday: _airingToday,
-                onTheAir: _onTheAir,
-                discoveryRows: _discoveryRows,
-                genreLists: _genreLists,
-                watchingList: _watchingList,
-                watchedList: _watchedList,
-                trendingGlobal: _trendingGlobal,
-                trendingPH: _trendingPH,
-                onRefresh: _fetchHomeData,
-                onMediaTap: _showMediaDetails,
-                onSwitchTab: _switchTab,
-              ),
-              CinemaSearchTab(
-                trendingGlobal: _trendingGlobal,
-                onMediaTap: _showMediaDetails,
-                onSwitchTab: _switchTab,
-              ),
-              CinemaBrowseTab(
-                onMediaTap: _showMediaDetails,
-              ),
-              CinemaLibraryTab(
-                watchlist: _watchlist,
-                onMediaTap: _showMediaDetails,
-                onSwitchTab: _switchTab,
-              ),
-            ],
-          ),
-          // Floating top navbar (desktop/tablet only — overlays hero)
-          if (!isMobile)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: CinemaNavBar(
-                currentIndex: _currentIndex,
-                items: navBarItems,
-                onTap: _switchTab,
-                onSearchTap: () => _switchTab(1),
-                logoText: 'Everglow Cinema',
-                onBackToDashboard: isCoupleUser
-                    ? () => context.go('/dashboard')
-                    : null,
-              ),
+      backgroundColor: NetflixColors.background,
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          final scrolled = notification.metrics.pixels > 48;
+          if (scrolled != _navScrolled) {
+            setState(() => _navScrolled = scrolled);
+          }
+          return false;
+        },
+        child: Stack(
+          children: [
+            const ColoredBox(color: NetflixColors.background),
+            // Content
+            IndexedStack(
+              index: _currentIndex,
+              children: [
+                CinemaHomeTab(
+                  isLoadingHome: _isLoadingHome,
+                  trendingCarousel: _trendingCarousel,
+                  topRatedMovies: _topRatedMovies,
+                  popularTVShows: _popularTVShows,
+                  nowShowing: _nowShowing,
+                  newlyReleased: _newlyReleased,
+                  popularMovies: _popularMovies,
+                  topRatedTV: _topRatedTV,
+                  airingToday: _airingToday,
+                  onTheAir: _onTheAir,
+                  discoveryRows: _discoveryRows,
+                  genreLists: _genreLists,
+                  watchingList: _watchingList,
+                  watchedList: _watchedList,
+                  trendingGlobal: _trendingGlobal,
+                  trendingPH: _trendingPH,
+                  onRefresh: _fetchHomeData,
+                  onMediaTap: _showMediaDetails,
+                  onPlay: _playNow,
+                  onSwitchTab: _switchTab,
+                ),
+                CinemaSearchTab(
+                  trendingGlobal: _trendingGlobal,
+                  onMediaTap: _showMediaDetails,
+                  onSwitchTab: _switchTab,
+                ),
+                CinemaBrowseTab(
+                  key: ValueKey('browse-$_browseSeed'),
+                  initialOptionId: _pendingBrowseOption,
+                  onMediaTap: _showMediaDetails,
+                ),
+                CinemaLibraryTab(
+                  watchlist: _watchlist,
+                  onMediaTap: _showMediaDetails,
+                  onSwitchTab: _switchTab,
+                ),
+              ],
             ),
-        ],
+            // Floating top navbar (desktop/tablet only — overlays hero)
+            if (!isMobile)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: NetflixNavBar(
+                  scrolled: _navScrolled,
+                  currentIndex: _currentIndex,
+                  links: const [
+                    NetflixNavLink('Home', 0),
+                    NetflixNavLink('Movies', 2, 'collection-movies'),
+                    NetflixNavLink('TV Shows', 2, 'collection-tv'),
+                    NetflixNavLink('New & Popular', 2, 'collection-new'),
+                    NetflixNavLink('My List', 3),
+                  ],
+                  onSelect: _onNavSelect,
+                  onSearchTap: () => _switchTab(1),
+                  onBackToDashboard: isCoupleUser
+                      ? () => context.go('/dashboard')
+                      : null,
+                ),
+              ),
+          ],
+        ),
       ),
-      // Bottom nav (mobile only)
       bottomNavigationBar: isMobile
-          ? CinemaNavBar(
+          ? NetflixNavBar(
+              scrolled: _navScrolled,
               currentIndex: _currentIndex,
-              items: navBarItems,
-              onTap: _switchTab,
-              onSearchTap: () => _switchTab(1),
-              logoText: 'Everglow Cinema',
-              onBackToDashboard: isCoupleUser
-                  ? () => context.go('/dashboard')
-                  : null,
+              links: const [
+                NetflixNavLink('Home', 0),
+                NetflixNavLink('New & Popular', 2, 'collection-new'),
+                NetflixNavLink('My List', 3),
+                NetflixNavLink('Search', 1),
+              ],
+              mobileItems: const [
+                NetflixMobileItem(
+                  label: 'Home',
+                  icon: Icons.home_outlined,
+                  activeIcon: Icons.home_rounded,
+                  tab: 0,
+                ),
+                NetflixMobileItem(
+                  label: 'New & Popular',
+                  icon: Icons.local_fire_department_outlined,
+                  activeIcon: Icons.local_fire_department_rounded,
+                  tab: 2,
+                  browseOptionId: 'collection-new',
+                ),
+                NetflixMobileItem(
+                  label: 'My List',
+                  icon: Icons.bookmark_border_rounded,
+                  activeIcon: Icons.bookmark_rounded,
+                  tab: 3,
+                ),
+                NetflixMobileItem(
+                  label: 'Search',
+                  icon: Icons.search_rounded,
+                  activeIcon: Icons.search_rounded,
+                  tab: 1,
+                ),
+              ],
+              onSelect: _onNavSelect,
             )
           : null,
     );

@@ -6,7 +6,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_colors.dart';
 import 'package:everglow/core/utils/logger.dart';
-import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/data/models/anilist_detail.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/ani_zip_service.dart';
@@ -26,10 +25,7 @@ import 'episode_drawer_sections/trailer_section.dart';
 class EpisodeDrawer extends StatefulWidget {
   final MediaItem item;
 
-  const EpisodeDrawer({
-    super.key,
-    required this.item,
-  });
+  const EpisodeDrawer({super.key, required this.item});
 
   @override
   State<EpisodeDrawer> createState() => _EpisodeDrawerState();
@@ -82,15 +78,14 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   /// non-anime items so the meta row just skips it.
   String get _studio => _isAnimeSourced
       ? (_aniListDetail?.studios.isNotEmpty == true
-          ? _aniListDetail!.studios.first
-          : widget.item.studio)
+            ? _aniListDetail!.studios.first
+            : widget.item.studio)
       : '';
 
   /// Format string (TV, TV Short, Movie, OVA, ONA, Special, Music) for
   /// anime items. Empty otherwise.
-  String get _format => _isAnimeSourced
-      ? (_aniListDetail?.format ?? widget.item.format)
-      : '';
+  String get _format =>
+      _isAnimeSourced ? (_aniListDetail?.format ?? widget.item.format) : '';
 
   /// Airing status (Airing / Finished Airing / Not yet aired) for anime
   /// items. Empty otherwise.
@@ -102,7 +97,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   /// in via the Anime feature, not via TMDB discover). Drives which
   /// service we route the detail-page fetches to.
   bool get _isAnimeSourced => widget.item.source == 'jikan';
-  
+
   // Trailer state
   String? _trailerKey;
   bool _isLoadingTrailer = false;
@@ -155,13 +150,14 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     setState(() => _isLoadingTrailer = true);
     try {
       String? key;
-    if (_isAnimeSourced) {
-      // AniList has a `trailer` field; we surface it for the hero
+      if (_isAnimeSourced) {
+        // AniList has a `trailer` field; we surface it for the hero
         // player when it's a YouTube id. We still call this after
         // [_fetchMediaDetails] has run, so we can read the resolved id
         // off [_aniListDetail] if it's available; otherwise we kick off
         // a fresh detail fetch and use it.
-        final detail = _aniListDetail ??
+        final detail =
+            _aniListDetail ??
             await _aniListService.fetchDetails(malId: _effectiveMalId);
         _aniListDetail ??= detail;
         key = detail?.trailerYoutubeId;
@@ -170,7 +166,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         key ??= await _jikanTrailerKey(_effectiveMalId);
       } else {
         key = await _tmdbService.fetchTrailerKey(
-            widget.item.tmdbId, widget.item.mediaType);
+          widget.item.tmdbId,
+          widget.item.mediaType,
+        );
       }
       if (mounted) {
         setState(() {
@@ -260,9 +258,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       '_format': detail.format,
       '_airingStatus': detail.airingStatus,
       '_studios': detail.studios,
-      'genres': detail.genres
-          .map((g) => {'id': g, 'name': g})
-          .toList(),
+      'genres': detail.genres.map((g) => {'id': g, 'name': g}).toList(),
     };
 
     setState(() {
@@ -283,12 +279,21 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     }
 
     if (tmdbSeriesId != null) {
-      final tmdbDetails = await _tmdbService.fetchMediaDetails(tmdbSeriesId, 'tv');
+      final tmdbDetails = await _tmdbService.fetchMediaDetails(
+        tmdbSeriesId,
+        'tv',
+      );
       if (tmdbDetails != null && mounted) {
-        final tmdbSeasons = (tmdbDetails['seasons'] as List?)
-            ?.whereType<Map<String, dynamic>>()
-            .where((s) => (s['season_number'] is int) && (s['season_number'] as int) > 0)
-            .toList() ?? [];
+        final tmdbSeasons =
+            (tmdbDetails['seasons'] as List?)
+                ?.whereType<Map<String, dynamic>>()
+                .where(
+                  (s) =>
+                      (s['season_number'] is int) &&
+                      (s['season_number'] as int) > 0,
+                )
+                .toList() ??
+            [];
         if (tmdbSeasons.isNotEmpty) {
           setState(() {
             _aniSearchedTmdbId = tmdbSeriesId;
@@ -308,7 +313,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         : 12;
     setState(() {
       _seasons = [
-        {'season_number': 1, 'name': 'Episodes', 'episode_count': synthCount}
+        {'season_number': 1, 'name': 'Episodes', 'episode_count': synthCount},
       ];
       _selectedSeasonNumber = 1;
       _fetchSeasonEpisodes(1);
@@ -321,27 +326,32 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   /// then Current, then SEQUELs. Empty list when there's only 1 season.
   List<SeasonNavItem> _buildAnimeSeasons(AniListDetail detail) {
     final list = <SeasonNavItem>[];
-    for (final r in detail.relations) {
-    }
-    list.add(SeasonNavItem(
-      id: detail.id,
-      malId: detail.malId ?? widget.item.tmdbId,
-      title: detail.titleEnglish.isNotEmpty ? detail.titleEnglish : detail.titleRomaji,
-      coverImageUrl: detail.coverImageUrl,
-      isCurrent: true,
-      relationType: 'CURRENT',
-    ));
+    for (final r in detail.relations) {}
+    list.add(
+      SeasonNavItem(
+        id: detail.id,
+        malId: detail.malId ?? widget.item.tmdbId,
+        title: detail.titleEnglish.isNotEmpty
+            ? detail.titleEnglish
+            : detail.titleRomaji,
+        coverImageUrl: detail.coverImageUrl,
+        isCurrent: true,
+        relationType: 'CURRENT',
+      ),
+    );
 
     for (final r in detail.relations) {
       if (r.relationType != 'SEQUEL' && r.relationType != 'PREQUEL') continue;
-      list.add(SeasonNavItem(
-        id: r.id,
-        malId: r.malId ?? r.id,
-        title: r.title,
-        coverImageUrl: r.coverImageUrl,
-        isCurrent: false,
-        relationType: r.relationType,
-      ));
+      list.add(
+        SeasonNavItem(
+          id: r.id,
+          malId: r.malId ?? r.id,
+          title: r.title,
+          coverImageUrl: r.coverImageUrl,
+          isCurrent: false,
+          relationType: r.relationType,
+        ),
+      );
     }
 
     // Only show navigation if there are other seasons to navigate to
@@ -349,8 +359,10 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
 
     // Sort: PREQUELs first, CURRENT, SEQUELs last
     const order = {'PREQUEL': 0, 'CURRENT': 1, 'SEQUEL': 2};
-    list.sort((a, b) =>
-        (order[a.relationType] ?? 3).compareTo(order[b.relationType] ?? 3));
+    list.sort(
+      (a, b) =>
+          (order[a.relationType] ?? 3).compareTo(order[b.relationType] ?? 3),
+    );
 
     return list;
   }
@@ -359,7 +371,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   /// branching in [_fetchMediaDetails] reads cleanly.
   Future<void> _fetchTmdbDetails() async {
     final details = await _tmdbService.fetchMediaDetails(
-        widget.item.tmdbId, widget.item.mediaType);
+      widget.item.tmdbId,
+      widget.item.mediaType,
+    );
     if (mounted) {
       setState(() {
         _details = details;
@@ -395,7 +409,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     if (_isAnimeSourced && _aniSearchedTmdbId != null) {
       // Use TMDB season data like cinema for anime with a TMDB mapping.
       final episodes = await _tmdbService.fetchSeasonEpisodes(
-          _aniSearchedTmdbId!, seasonNumber);
+        _aniSearchedTmdbId!,
+        seasonNumber,
+      );
       if (mounted && _selectedSeasonNumber == seasonNumber) {
         setState(() {
           _episodes = episodes;
@@ -417,7 +433,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       return;
     }
     final episodes = await _tmdbService.fetchSeasonEpisodes(
-        widget.item.tmdbId, seasonNumber);
+      widget.item.tmdbId,
+      seasonNumber,
+    );
     if (mounted && _selectedSeasonNumber == seasonNumber) {
       setState(() {
         _episodes = episodes;
@@ -475,7 +493,10 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     final jikanMaxNum = jikanEps
         .map((e) => (e['mal_id'] as num?)?.toInt() ?? 0)
         .fold<int>(0, (a, b) => a > b ? a : b);
-    final aniZipMaxNum = aniZipImages.keys.fold<int>(0, (a, b) => a > b ? a : b);
+    final aniZipMaxNum = aniZipImages.keys.fold<int>(
+      0,
+      (a, b) => a > b ? a : b,
+    );
     final maxKnown = jikanMaxNum > aniZipMaxNum ? jikanMaxNum : aniZipMaxNum;
 
     int episodeCount;
@@ -523,8 +544,10 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       }
       _aniSearchedTmdbId = tmdbSeriesId;
       if (tmdbSeriesId != null) {
-        tmdbStills =
-            await _fetchTmdbEpisodeStills(tmdbSeriesId, _aniListDetail);
+        tmdbStills = await _fetchTmdbEpisodeStills(
+          tmdbSeriesId,
+          _aniListDetail,
+        );
       }
     }
     final posterUrl =
@@ -544,8 +567,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
           ? jikanTitle
           : anilistTitles[i] ?? 'Episode $i';
       final aired = je?['aired'] as String?;
-      final duration =
-          (je?['duration'] is num) ? (je?['duration'] as num).toInt() : null;
+      final duration = (je?['duration'] is num)
+          ? (je?['duration'] as num).toInt()
+          : null;
 
       final tmdb = tmdbStills[i];
       final tmdbStill = needsTmdbFallback ? tmdb?.stillUrl : null;
@@ -570,12 +594,11 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   /// data. Returns the episode-number -> {stillUrl, overview} map;
   /// empty on any miss.
   Future<Map<int, ({String? stillUrl, String? overview})>>
-      _fetchTmdbEpisodeStills(
-          int tmdbSeriesId, AniListDetail? detail) async {
-    final details =
-        await _tmdbService.fetchMediaDetails(tmdbSeriesId, 'tv');
+  _fetchTmdbEpisodeStills(int tmdbSeriesId, AniListDetail? detail) async {
+    final details = await _tmdbService.fetchMediaDetails(tmdbSeriesId, 'tv');
     if (details == null) return {};
-    final seasons = (details['seasons'] as List?)
+    final seasons =
+        (details['seasons'] as List?)
             ?.whereType<Map<String, dynamic>>()
             .toList() ??
         [];
@@ -583,8 +606,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
 
     // Match by broadcast year. Different seasons of the same anime
     // almost always air in different years, so year alone disambiguates.
-    final animeYear =
-        detail?.seasonYear ?? int.tryParse(widget.item.year);
+    final animeYear = detail?.seasonYear ?? int.tryParse(widget.item.year);
     int? bestSn;
     int bestScore = 9999;
     for (final s in seasons) {
@@ -609,8 +631,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     }
     _tmdbMatchedSeason = bestSn;
 
-    final eps =
-        await _tmdbService.fetchSeasonEpisodes(tmdbSeriesId, bestSn);
+    final eps = await _tmdbService.fetchSeasonEpisodes(tmdbSeriesId, bestSn);
     final out = <int, ({String? stillUrl, String? overview})>{};
     for (final ep in eps) {
       if (ep is! Map<String, dynamic>) continue;
@@ -649,7 +670,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
           : <Map<String, dynamic>>[];
     } else {
       cast = await _tmdbService.fetchCredits(
-          widget.item.tmdbId, widget.item.mediaType);
+        widget.item.tmdbId,
+        widget.item.mediaType,
+      );
     }
     if (mounted) {
       setState(() {
@@ -665,7 +688,8 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   /// multiple rows). `character` holds the role name, `name` holds the
   /// VA, mirroring the TMDB convention.
   List<Map<String, dynamic>> _mapAniListCharacters(
-      List<AniListCharacter> characters) {
+    List<AniListCharacter> characters,
+  ) {
     final out = <Map<String, dynamic>>[];
     for (final c in characters) {
       if (c.voiceActors.isEmpty) continue;
@@ -701,7 +725,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         }
       } else {
         reviews = await _tmdbService.fetchReviews(
-            widget.item.tmdbId, widget.item.mediaType);
+          widget.item.tmdbId,
+          widget.item.mediaType,
+        );
       }
       if (mounted) {
         setState(() {
@@ -738,7 +764,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         'content': (r['review'] as String?) ?? '',
         'rating': r['score'],
         'createdAt': r['date'] ?? '',
-        'avatar': (user['images'] as Map<String, dynamic>?)?['jpg']?['image_url'] ?? '',
+        'avatar':
+            (user['images'] as Map<String, dynamic>?)?['jpg']?['image_url'] ??
+            '',
       };
     }).toList();
   }
@@ -772,7 +800,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       }
     } else {
       similar = await _tmdbService.fetchSimilar(
-          widget.item.tmdbId, widget.item.mediaType);
+        widget.item.tmdbId,
+        widget.item.mediaType,
+      );
     }
     if (mounted) {
       setState(() {
@@ -797,22 +827,25 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       if (id == null || id == 0) continue;
       final images = entry['images'] as Map<String, dynamic>?;
       final jpg = images?['jpg'] as Map<String, dynamic>?;
-      final poster = (jpg?['large_image_url'] as String?) ??
+      final poster =
+          (jpg?['large_image_url'] as String?) ??
           (jpg?['image_url'] as String?) ??
           '';
-      out.add(MediaItem(
-        id: '',
-        tmdbId: id,
-        title: (entry['title'] as String?) ?? 'Unknown',
-        mediaType: 'tv',
-        posterPath: poster,
-        backdropPath: '',
-        year: '',
-        status: 'to-watch',
-        isAnime: true,
-        addedAt: DateTime.now(),
-        source: 'jikan',
-      ));
+      out.add(
+        MediaItem(
+          id: '',
+          tmdbId: id,
+          title: (entry['title'] as String?) ?? 'Unknown',
+          mediaType: 'tv',
+          posterPath: poster,
+          backdropPath: '',
+          year: '',
+          status: 'to-watch',
+          isAnime: true,
+          addedAt: DateTime.now(),
+          source: 'jikan',
+        ),
+      );
     }
     return out;
   }
@@ -896,7 +929,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   Future<void> _doUpdateStatus(String newStatus) async {
     HapticFeedback.selectionClick();
     final userName = context.read<AuthService>().currentUser ?? '';
-    Logger.d("[Status] _updateStatus called: newStatus=$newStatus, userName=$userName, currentItemStatus=${widget.item.status}, currentLocalStatus=$_currentStatus, tmdbId=${widget.item.tmdbId}, isAnime=${widget.item.isAnime}, mediaType=${widget.item.mediaType}, mounted=$mounted");
+    Logger.d(
+      "[Status] _updateStatus called: newStatus=$newStatus, userName=$userName, currentItemStatus=${widget.item.status}, currentLocalStatus=$_currentStatus, tmdbId=${widget.item.tmdbId}, isAnime=${widget.item.isAnime}, mediaType=${widget.item.mediaType}, mounted=$mounted",
+    );
     if (userName.isEmpty) {
       _showSnack('Please sign in to manage your watchlist');
       return;
@@ -958,7 +993,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         // current user's.
         final statusOwner = TMDBService.resolveStatusOwner(newStatus, userName);
         if (statusOwner != null) {
-          Logger.d("[Status] Partner-specific status detected — routing to $statusOwner");
+          Logger.d(
+            "[Status] Partner-specific status detected — routing to $statusOwner",
+          );
         }
 
         await _tmdbService.saveToWatchList(
@@ -974,10 +1011,15 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         // just marked Clair as watched, the old "watching-clair" on Khent's
         // doc would pollute the couple merge.
         if (statusOwner != null && statusOwner != userName) {
-          Logger.d("[Status] Cleaning stale partner status from current user's doc");
+          Logger.d(
+            "[Status] Cleaning stale partner status from current user's doc",
+          );
           try {
             await _tmdbService.cleanStalePartnerStatus(
-              widget.item.tmdbId, userName, newStatus);
+              widget.item.tmdbId,
+              userName,
+              newStatus,
+            );
           } catch (e) {
             Logger.e("[Status] Failed to clean stale status", error: e);
             // Non-critical — don't revert the main save.
@@ -1032,7 +1074,10 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg, style: GoogleFonts.outfit(color: AppColors.petalWhite)),
+        content: Text(
+          msg,
+          style: GoogleFonts.outfit(color: AppColors.petalWhite),
+        ),
         backgroundColor: AppColors.deepRose,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1046,14 +1091,18 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   void _playMovie() {
     final id = _isAnimeSourced ? _effectiveMalId : widget.item.tmdbId;
     final malIdParam = _isAnimeSourced ? '&malId=$_effectiveMalId' : '';
-    context.push('/cinema/video/$id?type=movie&title=${Uri.encodeComponent(widget.item.title)}&anime=$_isAnimeSourced$malIdParam');
+    context.push(
+      '/cinema/video/$id?type=movie&title=${Uri.encodeComponent(widget.item.title)}&anime=$_isAnimeSourced$malIdParam',
+    );
   }
 
   void _playEpisode(int season, int episode, String epTitle) {
     final id = _isAnimeSourced ? _effectiveMalId : widget.item.tmdbId;
     final malIdParam = _isAnimeSourced ? '&malId=$_effectiveMalId' : '';
     final title = '${cleanTitle(widget.item.title)}: $epTitle';
-    context.push('/cinema/video/$id?type=tv&title=${Uri.encodeComponent(title)}&season=$season&episode=$episode&anime=$_isAnimeSourced$malIdParam');
+    context.push(
+      '/cinema/video/$id?type=tv&title=${Uri.encodeComponent(title)}&season=$season&episode=$episode&anime=$_isAnimeSourced$malIdParam',
+    );
   }
 
   void _showSimilarItem(MediaItem item) {
@@ -1102,7 +1151,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   @override
   Widget build(BuildContext context) {
     final ratingNum = _details?['vote_average'] as num?;
-    final rating = ratingNum != null ? ratingNum.toDouble().toStringAsFixed(1) : 'N/A';
+    final rating = ratingNum != null
+        ? ratingNum.toDouble().toStringAsFixed(1)
+        : 'N/A';
     // For anime we don't have TMDB's `release_date` / `first_air_date`,
     // so we fall back to AniList's `seasonYear` and finally to whatever
     // the MediaItem already remembers from Jikan's discover payload.
@@ -1124,9 +1175,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     final runtime = _isAnimeSourced
         ? (_details?['_duration'])
         : (_details?['runtime'] ??
-            (episodeRunTimes != null && episodeRunTimes.isNotEmpty
-                ? episodeRunTimes.first
-                : null));
+              (episodeRunTimes != null && episodeRunTimes.isNotEmpty
+                  ? episodeRunTimes.first
+                  : null));
     final backdropPath = _details?['backdrop_path'];
     // For anime, backdrop is a fully-qualified AniList CDN URL stored on
     // `_details[_backdropUrl]`; for TMDB it's a path that we need to
@@ -1139,142 +1190,150 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       backdropUrl = (aniBackdrop != null && aniBackdrop.isNotEmpty)
           ? aniBackdrop
           : widget.item.backdropPath.isNotEmpty
-              ? widget.item.backdropPath
-              : widget.item.posterPath;
+          ? widget.item.backdropPath
+          : widget.item.posterPath;
     } else {
       backdropUrl = backdropPath != null
           ? 'https://image.tmdb.org/t/p/w780$backdropPath'
           : widget.item.backdropPath.isNotEmpty
-              ? widget.item.backdropPath
-              : widget.item.posterPath;
+          ? widget.item.backdropPath
+          : widget.item.posterPath;
     }
     final ratingVal = double.tryParse(rating) ?? 0;
     final ratingFraction = (ratingVal / 10).clamp(0.0, 1.0);
 
-    return FractionallySizedBox(
-      heightFactor: 0.93,
-      alignment: Alignment.bottomCenter,
+    return SizedBox(
+      width: double.infinity,
+      height: MediaQuery.sizeOf(context).height,
       child: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.deepBlack,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-        ),
+        decoration: const BoxDecoration(color: AppColors.deepBlack),
         child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+          borderRadius: BorderRadius.zero,
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-            // ── HERO BACKDROP ──
-            SliverToBoxAdapter(
-              child: TrailerSection(
-                backdropUrl: backdropUrl ?? '',
-                trailerKey: _trailerKey,
-                isLoadingTrailer: _isLoadingTrailer,
-                isPlayingTrailer: _isPlayingTrailer,
-                isMobile: _isMobile,
-                year: year,
-                rating: rating,
-                ratingFraction: ratingFraction,
-                runtime: runtime,
-                title: widget.item.title,
-                isDetailsLoading: _details == null,
-                onToggleTrailer: () => setState(() => _isPlayingTrailer = true),
-                onCloseTrailer: () => setState(() => _isPlayingTrailer = false),
-                onClose: () => Navigator.pop(context),
-              ),
-            ),
-
-            // ── META + ACTIONS ──
-            SliverToBoxAdapter(
-              child: FadeTransition(
-                opacity: _fadeAnim,
-                child: _buildMetaSection(year, rating, ratingFraction, runtime),
-              ),
-            ),
-
-            if (widget.item.mediaType == 'movie')
+              // ── HERO BACKDROP ──
               SliverToBoxAdapter(
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  child: Column(
-                    children: [
-                      _buildPlayButton(),
-                      const SizedBox(height: 10),
-                      if (context.watch<AuthService>().isCoupleUser)
-                        StartWatchPartyButton(
-                          media: MediaRef(
-                            tmdbId: _isAnimeSourced
-                                ? _effectiveMalId
-                                : widget.item.tmdbId,
-                            malId: _isAnimeSourced ? _effectiveMalId : null,
-                            mediaType: 'movie',
-                            isAnime: _isAnimeSourced,
-                            title: widget.item.title,
-                            posterPath: widget.item.posterPath,
-                          ),
-                        ),
-                    ],
+                child: TrailerSection(
+                  backdropUrl: backdropUrl ?? '',
+                  trailerKey: _trailerKey,
+                  isLoadingTrailer: _isLoadingTrailer,
+                  isPlayingTrailer: _isPlayingTrailer,
+                  isMobile: _isMobile,
+                  year: year,
+                  rating: rating,
+                  ratingFraction: ratingFraction,
+                  runtime: runtime,
+                  title: widget.item.title,
+                  isDetailsLoading: _details == null,
+                  onToggleTrailer: () =>
+                      setState(() => _isPlayingTrailer = true),
+                  onCloseTrailer: () =>
+                      setState(() => _isPlayingTrailer = false),
+                  onClose: () => Navigator.pop(context),
+                ),
+              ),
+
+              // ── META + ACTIONS ──
+              SliverToBoxAdapter(
+                child: FadeTransition(
+                  opacity: _fadeAnim,
+                  child: _buildMetaSection(
+                    year,
+                    rating,
+                    ratingFraction,
+                    runtime,
                   ),
                 ),
-              )
-            else
+              ),
+
+              if (widget.item.mediaType == 'movie')
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
+                    child: Column(
+                      children: [
+                        _buildPlayButton(),
+                        const SizedBox(height: 10),
+                        if (context.watch<AuthService>().isCoupleUser)
+                          StartWatchPartyButton(
+                            media: MediaRef(
+                              tmdbId: _isAnimeSourced
+                                  ? _effectiveMalId
+                                  : widget.item.tmdbId,
+                              malId: _isAnimeSourced ? _effectiveMalId : null,
+                              mediaType: 'movie',
+                              isAnime: _isAnimeSourced,
+                              title: widget.item.title,
+                              posterPath: widget.item.posterPath,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                SliverToBoxAdapter(
+                  child: EpisodeListSection(
+                    episodes: _episodes,
+                    seasons: _seasons,
+                    selectedSeasonNumber: _selectedSeasonNumber,
+                    isLoadingEpisodes: _isLoadingEpisodes,
+                    tmdbMatchedSeason: _tmdbMatchedSeason,
+                    isAnimeSourced: _isAnimeSourced,
+                    effectiveMalId: _effectiveMalId,
+                    item: widget.item,
+                    isCouple: context.watch<AuthService>().isCoupleUser,
+                    onPlayEpisode: _playEpisode,
+                    onSeasonChanged: (sn) {
+                      setState(() => _selectedSeasonNumber = sn);
+                      _fetchSeasonEpisodes(sn);
+                    },
+                  ),
+                ),
+
+              // ── CAST ──
               SliverToBoxAdapter(
-                child: EpisodeListSection(
-                  episodes: _episodes,
-                  seasons: _seasons,
-                  selectedSeasonNumber: _selectedSeasonNumber,
-                  isLoadingEpisodes: _isLoadingEpisodes,
-                  tmdbMatchedSeason: _tmdbMatchedSeason,
+                child: buildDrawerSectionHeader(
+                  _isAnimeSourced ? 'Voice Cast' : 'Cast',
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: CastSection(
+                  cast: _cast,
+                  isLoading: _isLoadingCast,
                   isAnimeSourced: _isAnimeSourced,
-                  effectiveMalId: _effectiveMalId,
-                  item: widget.item,
-                  isCouple: context.watch<AuthService>().isCoupleUser,
-                  onPlayEpisode: _playEpisode,
-                  onSeasonChanged: (sn) {
-                    setState(() => _selectedSeasonNumber = sn);
-                    _fetchSeasonEpisodes(sn);
-                  },
                 ),
               ),
 
-            // ── CAST ──
-            SliverToBoxAdapter(
-                child: buildDrawerSectionHeader(
-                    _isAnimeSourced ? 'Voice Cast' : 'Cast')),
-            SliverToBoxAdapter(
-              child: CastSection(
-                cast: _cast,
-                isLoading: _isLoadingCast,
-                isAnimeSourced: _isAnimeSourced,
+              // ── REVIEWS ──
+              SliverToBoxAdapter(child: buildDrawerSectionHeader('Reviews')),
+              SliverToBoxAdapter(
+                child: ReviewsSection(
+                  reviews: _reviews,
+                  isLoading: _isLoadingReviews,
+                ),
               ),
-            ),
 
-            // ── REVIEWS ──
-            SliverToBoxAdapter(
-                child: buildDrawerSectionHeader('Reviews')),
-            SliverToBoxAdapter(
-              child: ReviewsSection(
-                reviews: _reviews,
-                isLoading: _isLoadingReviews,
+              // ── MORE LIKE THIS ──
+              SliverToBoxAdapter(
+                child: buildDrawerSectionHeader("Mochi says… 🐱"),
               ),
-            ),
-
-            // ── MORE LIKE THIS ──
-            SliverToBoxAdapter(
-                child: buildDrawerSectionHeader("Mochi says… 🐱")),
-            SliverToBoxAdapter(
-              child: SimilarSection(
-                similar: _similar,
-                isLoading: _isLoadingSimilar,
-                onItemTap: _showSimilarItem,
+              SliverToBoxAdapter(
+                child: SimilarSection(
+                  similar: _similar,
+                  isLoading: _isLoadingSimilar,
+                  onItemTap: _showSimilarItem,
+                ),
               ),
-            ),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 60)),
-          ],
+              const SliverToBoxAdapter(child: SizedBox(height: 60)),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -1284,7 +1343,11 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   // ═══════════════════════════════════════════════════════════════
 
   Widget _buildMetaSection(
-      String year, String rating, double ratingFraction, dynamic runtime) {
+    String year,
+    String rating,
+    double ratingFraction,
+    dynamic runtime,
+  ) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
       child: Column(
@@ -1311,110 +1374,145 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
               spacing: 6,
               runSpacing: 6,
               children: [
-                if (_studio.isNotEmpty) _buildAnimeFactChip(_studio, Icons.movie_creation_outlined),
-                if (_format.isNotEmpty) _buildAnimeFactChip(_format, Icons.tv_rounded),
-                if (_airingStatus.isNotEmpty) _buildAnimeFactChip(_airingStatus, Icons.fiber_manual_record_rounded),
-                if (_aniListDetail?.nextAiringAt != null) _buildAiringCountdownChip(_aniListDetail!.nextAiringAt!, _aniListDetail!.nextAiringEpisode),
+                if (_studio.isNotEmpty)
+                  _buildAnimeFactChip(_studio, Icons.movie_creation_outlined),
+                if (_format.isNotEmpty)
+                  _buildAnimeFactChip(_format, Icons.tv_rounded),
+                if (_airingStatus.isNotEmpty)
+                  _buildAnimeFactChip(
+                    _airingStatus,
+                    Icons.fiber_manual_record_rounded,
+                  ),
+                if (_aniListDetail?.nextAiringAt != null)
+                  _buildAiringCountdownChip(
+                    _aniListDetail!.nextAiringAt!,
+                    _aniListDetail!.nextAiringEpisode,
+                  ),
               ],
             ),
             const SizedBox(height: 18),
           ],
 
-          // Watchlist label + status chips
-          Row(
-            children: [
-              Container(
-                width: 3,
-                height: 16,
-                decoration: BoxDecoration(
-                  color: AppColors.deepRose,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'WATCHLIST STATUS',
-                style: GoogleFonts.outfit(
-                  color: AppColors.mutedPurple,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 10,
-                  letterSpacing: 2,
-                ),
-              ),
-            ],
+          // Watchlist status heading
+          Text(
+            'Status',
+            style: GoogleFonts.outfit(
+              color: AppColors.petalWhite,
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+            ),
           ),
           const SizedBox(height: 10),
           // Cinema-only profiles (Breyan, Octagram) only get generic
           // "Want to Watch" / "Watched" — never the partner-specific chips,
           // which would leak Khent/Clair semantics.
-          Builder(builder: (context) {
-            final isCinemaOnly =
-                context.watch<AuthService>().isCinemaOnlyUser;
-            final chips = isCinemaOnly
-                ? Row(
-                    children: [
-                      _buildStatusChip('Want to Watch', 'to-watch',
-                          icon: Icons.bookmark_rounded),
-                      const SizedBox(width: 8),
-                      _buildStatusChip('Currently Watching', 'watching-self',
+          Builder(
+            builder: (context) {
+              final isCinemaOnly = context
+                  .watch<AuthService>()
+                  .isCinemaOnlyUser;
+              final chips = isCinemaOnly
+                  ? Row(
+                      children: [
+                        _buildStatusChip(
+                          'Want to Watch',
+                          'to-watch',
+                          icon: Icons.bookmark_rounded,
+                        ),
+                        const SizedBox(width: 8),
+                        _buildStatusChip(
+                          'Currently Watching',
+                          'watching-self',
                           icon: Icons.play_circle_filled_rounded,
-                          activeColor: const Color(0xFFFF6D00)),
-                      const SizedBox(width: 8),
-                      _buildStatusChip('Watched', 'watched-self',
+                          activeColor: const Color(0xFFFF6D00),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildStatusChip(
+                          'Watched',
+                          'watched-self',
                           icon: Icons.check_circle_rounded,
-                          activeColor: const Color(0xFF2E7D32)),
-                    ],
-                  )
-                : Row(
-                    children: [
-                      _buildStatusChip('Want to Watch', 'to-watch',
-                          icon: Icons.bookmark_rounded),
-                      const SizedBox(width: 8),
-                      _buildStatusChip('Khent Watching', 'watching-khent',
+                          activeColor: const Color(0xFF2E7D32),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        _buildStatusChip(
+                          'Want to Watch',
+                          'to-watch',
+                          icon: Icons.bookmark_rounded,
+                        ),
+                        const SizedBox(width: 8),
+                        _buildStatusChip(
+                          'Khent Watching',
+                          'watching-khent',
                           icon: Icons.play_circle_filled_rounded,
-                          activeColor: const Color(0xFFFF6D00)),
-                      const SizedBox(width: 8),
-                      _buildStatusChip('Clair Watching', 'watching-clair',
+                          activeColor: const Color(0xFFFF6D00),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildStatusChip(
+                          'Clair Watching',
+                          'watching-clair',
                           icon: Icons.play_circle_filled_rounded,
-                          activeColor: const Color(0xFFE91E8C)),
-                      const SizedBox(width: 8),
-                      _buildStatusChip('Khent Watched', 'watched-khent',
-                          icon: Icons.person_rounded,
-                          activeColor: const Color(0xFF1976D2)),
-                      const SizedBox(width: 8),
-                      _buildStatusChip('Clair Watched', 'watched-clair',
-                          icon: Icons.favorite_rounded,
-                          activeColor: const Color(0xFFE91E8C)),
-                      const SizedBox(width: 8),
-                      _buildStatusChip('Both Watched', 'watched-both',
+                          activeColor: const Color(0xFFE91E8C),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildStatusChip(
+                          'Both Watching',
+                          'watching-both',
                           icon: Icons.people_rounded,
-                          activeColor: const Color(0xFF2E7D32)),
-                    ],
-                  );
-            return Scrollbar(
-              thumbVisibility: true,
-              controller: _statusScrollCtrl,
-              scrollbarOrientation: ScrollbarOrientation.bottom,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
+                          activeColor: const Color(0xFFFF9800),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildStatusChip(
+                          'Khent Watched',
+                          'watched-khent',
+                          icon: Icons.person_rounded,
+                          activeColor: const Color(0xFF1976D2),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildStatusChip(
+                          'Clair Watched',
+                          'watched-clair',
+                          icon: Icons.favorite_rounded,
+                          activeColor: const Color(0xFFE91E8C),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildStatusChip(
+                          'Both Watched',
+                          'watched-both',
+                          icon: Icons.people_rounded,
+                          activeColor: const Color(0xFF2E7D32),
+                        ),
+                      ],
+                    );
+              return Scrollbar(
+                thumbVisibility: true,
                 controller: _statusScrollCtrl,
-                child: Listener(
-                  onPointerSignal: (event) {
-                    if (event is PointerScrollEvent &&
-                        event.scrollDelta.dy != 0) {
-                      final ctrl = _statusScrollCtrl;
-                      final clamped = (ctrl.offset + event.scrollDelta.dy)
-                          .clamp(ctrl.position.minScrollExtent,
-                              ctrl.position.maxScrollExtent);
-                      ctrl.jumpTo(clamped);
-                    }
-                  },
-                  child: chips,
+                scrollbarOrientation: ScrollbarOrientation.bottom,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  controller: _statusScrollCtrl,
+                  child: Listener(
+                    onPointerSignal: (event) {
+                      if (event is PointerScrollEvent &&
+                          event.scrollDelta.dy != 0) {
+                        final ctrl = _statusScrollCtrl;
+                        final clamped = (ctrl.offset + event.scrollDelta.dy)
+                            .clamp(
+                              ctrl.position.minScrollExtent,
+                              ctrl.position.maxScrollExtent,
+                            );
+                        ctrl.jumpTo(clamped);
+                      }
+                    },
+                    child: chips,
+                  ),
                 ),
-              ),
-            );
-          }),
+              );
+            },
+          ),
           const SizedBox(height: 20),
 
           // Overview
@@ -1445,16 +1543,12 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       child: Container(
         height: 54,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppColors.deepRose, Color(0xFF8E1444)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-          borderRadius: BorderRadius.circular(16),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(6),
           boxShadow: [
             BoxShadow(
-              color: AppColors.deepRose.withValues(alpha: 0.45),
-              blurRadius: 20,
+              color: Colors.black.withValues(alpha: 0.4),
+              blurRadius: 16,
               offset: const Offset(0, 6),
             ),
           ],
@@ -1462,24 +1556,14 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.play_arrow_rounded,
-                  color: Colors.white, size: 22),
-            ),
-            const SizedBox(width: 12),
+            const Icon(Icons.play_arrow_rounded, color: Colors.black, size: 24),
+            const SizedBox(width: 8),
             Text(
-              'PLAY MOVIE',
+              'Play',
               style: GoogleFonts.outfit(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
+                color: Colors.black,
+                fontWeight: FontWeight.w700,
                 fontSize: 15,
-                letterSpacing: 1.5,
               ),
             ),
           ],
@@ -1543,7 +1627,10 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                   onTap: () => _switchAnimeSeason(s),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: isCurrent
                           ? AppColors.deepRose.withValues(alpha: 0.2)
@@ -1571,15 +1658,19 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                                 width: 20,
                                 height: 20,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                                errorBuilder: (_, _, _) =>
+                                    const SizedBox.shrink(),
                               ),
                             ),
                           ),
                         if (isCurrent)
                           Padding(
                             padding: const EdgeInsets.only(right: 6),
-                            child: Icon(Icons.play_arrow_rounded,
-                                color: AppColors.deepRose, size: 14),
+                            child: Icon(
+                              Icons.play_arrow_rounded,
+                              color: AppColors.deepRose,
+                              size: 14,
+                            ),
                           ),
                         Flexible(
                           child: Text(
@@ -1590,8 +1681,12 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.outfit(
-                              color: isCurrent ? AppColors.deepRose : AppColors.petalWhite.withValues(alpha: 0.8),
-                              fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+                              color: isCurrent
+                                  ? AppColors.deepRose
+                                  : AppColors.petalWhite.withValues(alpha: 0.8),
+                              fontWeight: isCurrent
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
                               fontSize: 12,
                             ),
                           ),
@@ -1622,30 +1717,20 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   // ═══════════════════════════════════════════════════════════════
 
   Widget _buildGenreChip(String name) {
-    // Assign a color per genre for distinction
-    final colors = [
-      AppColors.deepRose,
-      AppColors.warmAmber,
-      AppTheme.softLavender,
-      const Color(0xFF00BCD4),
-      const Color(0xFF4CAF50),
-      const Color(0xFF9C27B0),
-    ];
-    final color = name.isEmpty
-        ? AppColors.deepRose
-        : colors[name.codeUnitAt(0) % colors.length];
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.35), width: 1),
+        color: AppColors.shimmerBase,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: AppColors.moonlight.withValues(alpha: 0.14),
+          width: 1,
+        ),
       ),
       child: Text(
         name,
         style: GoogleFonts.outfit(
-          color: color,
+          color: AppColors.textMedium,
           fontSize: 11,
           fontWeight: FontWeight.w600,
         ),
@@ -1662,7 +1747,10 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       decoration: BoxDecoration(
         color: AppColors.shimmerBase,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.blushGold.withValues(alpha: 0.35), width: 1),
+        border: Border.all(
+          color: AppColors.blushGold.withValues(alpha: 0.35),
+          width: 1,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1708,23 +1796,14 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         curve: Curves.easeInOut,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
-          color: isSelected ? activeColor.withValues(alpha: 0.2) : AppColors.shimmerBase,
-          borderRadius: BorderRadius.circular(22),
+          color: isSelected ? Colors.white : AppColors.shimmerBase,
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected
-                ? activeColor.withValues(alpha: 0.7)
-                : AppColors.roseQuartz.withValues(alpha: 0.15),
+                ? Colors.white
+                : AppColors.moonlight.withValues(alpha: 0.14),
             width: 1.2,
           ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: activeColor.withValues(alpha: 0.25),
-                    blurRadius: 14,
-                    offset: const Offset(0, 3),
-                  ),
-                ]
-              : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1732,17 +1811,15 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
             Icon(
               icon,
               size: 14,
-              color:
-                  isSelected ? activeColor : AppColors.mutedPurple,
+              color: isSelected ? Colors.black : AppColors.mutedPurple,
             ),
             const SizedBox(width: 6),
             Text(
               label,
               style: GoogleFonts.outfit(
-                color: isSelected ? activeColor : AppColors.mutedPurple,
+                color: isSelected ? Colors.black : AppColors.mutedPurple,
                 fontSize: 12,
-                fontWeight:
-                    isSelected ? FontWeight.w700 : FontWeight.w500,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               ),
             ),
           ],
@@ -1808,7 +1885,10 @@ class _AiringCountdownChipState extends State<_AiringCountdownChip> {
           ],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.deepRose.withValues(alpha: 0.5), width: 1),
+        border: Border.all(
+          color: AppColors.deepRose.withValues(alpha: 0.5),
+          width: 1,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

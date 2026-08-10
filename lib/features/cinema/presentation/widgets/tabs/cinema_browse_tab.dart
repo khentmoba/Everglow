@@ -1,33 +1,25 @@
-import 'dart:async';
-import 'package:flutter/material.dart' hide FilterChip;
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:everglow/core/theme/app_breakpoints.dart';
+import 'package:everglow/features/cinema/data/cinema_browse_config.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
-import 'package:everglow/features/cinema/data/cinema_browse_config.dart';
-import 'package:everglow/shared/widgets/shelf/shelf_section_header.dart';
-import 'package:everglow/shared/widgets/shelf/shelf_empty_state.dart';
-import 'package:everglow/shared/widgets/shelf/shelf_poster_card.dart';
-import 'package:everglow/shared/widgets/shelf/filter_chip.dart';
-import 'package:everglow/core/theme/app_breakpoints.dart';
+import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_colors.dart';
+import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_poster_card.dart';
 
-// ─── Cinema Color Tokens ─────────────────────────────────────────────
-const _cDeepRose = Color(0xFFC2185B);
-const _cAmber = Color(0xFFF0A500);
-const _cWhite = Color(0xFFFFF5F5);
-const _cMuted = Color(0xFF8A7A92);
-
-// ─────────────────────────────────────────────────────────────────────
-// 3. BROWSE TAB
-// ─────────────────────────────────────────────────────────────────────
-
+/// Netflix-style browse: quiet category chips feeding a poster grid.
 class CinemaBrowseTab extends StatefulWidget {
   final void Function(MediaItem) onMediaTap;
+
+  /// Browse option to auto-select on first build (used by top nav links).
+  final String? initialOptionId;
 
   const CinemaBrowseTab({
     super.key,
     required this.onMediaTap,
+    this.initialOptionId,
   });
 
   @override
@@ -44,45 +36,37 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
   bool _browseHasMore = true;
 
   @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialOptionId;
+    if (initial != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final option = cinemaBrowseOptions.where((o) => o.id == initial);
+        if (option.isNotEmpty && mounted) {
+          _selectBrowseOption(option.first);
+        }
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.only(bottom: 100),
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
-          child: Row(
-            children: [
-              Container(
-                width: 3,
-                height: 28,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [_cDeepRose, _cAmber],
-                  ),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Browse',
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: _cWhite,
-                ),
-              ),
-            ],
+          padding: EdgeInsets.fromLTRB(
+            AppBreakpoint.isDesktop(context) ? 48 : 16,
+            24,
+            AppBreakpoint.isDesktop(context) ? 48 : 16,
+            4,
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           child: Text(
-            'Filter by genre, decade, language, or sort order.',
+            'Browse',
             style: GoogleFonts.outfit(
-              fontSize: 12,
-              color: _cMuted,
+              fontSize: AppBreakpoint.isDesktop(context) ? 22 : 20,
+              fontWeight: FontWeight.w700,
+              color: NetflixColors.textPrimary,
             ),
           ),
         ),
@@ -94,70 +78,43 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
   }
 
   Widget _buildBrowseGroup(BrowseCategoryGroup group) {
-    final options =
-        cinemaBrowseOptions.where((o) => o.group == group).toList();
-    final meta = browseGroupMeta(group);
+    final options = cinemaBrowseOptions.where((o) => o.group == group).toList();
+    if (options.isEmpty) return const SizedBox.shrink();
+    final isDesktop = AppBreakpoint.isDesktop(context);
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
+      padding: const EdgeInsets.fromLTRB(0, 14, 0, 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-            child: Row(
-              children: [
-                Container(
-                  width: 3,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        meta.tint,
-                        meta.tint.withValues(alpha: 0.25),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Icon(meta.icon, color: meta.tint, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  meta.title,
-                  style: GoogleFonts.cormorantGaramond(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: meta.tint,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  meta.subtitle,
-                  style: GoogleFonts.outfit(
-                    fontSize: 11,
-                    color: _cMuted,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ],
+            padding: EdgeInsets.fromLTRB(
+              isDesktop ? 48 : 16,
+              0,
+              isDesktop ? 48 : 16,
+              10,
+            ),
+            child: Text(
+              browseGroupMeta(group).title,
+              style: GoogleFonts.outfit(
+                fontSize: isDesktop ? 16 : 15,
+                fontWeight: FontWeight.w700,
+                color: NetflixColors.textSecondary,
+              ),
             ),
           ),
           SizedBox(
-            height: 38,
+            height: 36,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: isDesktop ? 48 : 16),
               itemCount: options.length,
               separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (context, i) {
                 final option = options[i];
                 final selected = _selectedBrowseOptionId == option.id;
-                return FilterChip(
-                  icon: option.icon,
+                return _BrowsePill(
                   label: option.label,
-                  color: option.color,
                   selected: selected,
                   onTap: () => _selectBrowseOption(option),
                 );
@@ -172,61 +129,75 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
   Widget _buildBrowseResults() {
     if (_isLoadingBrowse) {
       return const Padding(
-        padding: EdgeInsets.all(32),
+        padding: EdgeInsets.all(48),
         child: Center(
-          child: CircularProgressIndicator(color: _cDeepRose),
+          child: SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(
+              color: NetflixColors.accent,
+              strokeWidth: 2.5,
+            ),
+          ),
         ),
       );
     }
 
     if (_browseResults.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.fromLTRB(20, 16, 20, 32),
-        child: ShelfEmptyState(
-          icon: Icons.search_off_rounded,
-          title: 'No results',
-          subtitle: 'Try a different filter.',
-          accent: _cDeepRose,
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+        child: Center(
+          child: Text(
+            'No titles found for this filter.',
+            style: GoogleFonts.outfit(
+              color: NetflixColors.textMuted,
+              fontSize: 13.5,
+            ),
+          ),
         ),
       );
     }
 
+    final isDesktop = AppBreakpoint.isDesktop(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-          child: ShelfSectionHeader(
-            eyebrow: 'Results',
-            title: '${_browseResults.length} titles',
-            icon: Icons.movie_filter_rounded,
-            accent: _cDeepRose,
+          padding: EdgeInsets.fromLTRB(
+            isDesktop ? 48 : 16,
+            18,
+            isDesktop ? 48 : 16,
+            12,
+          ),
+          child: Text(
+            '${_browseResults.length} titles',
+            style: GoogleFonts.outfit(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: NetflixColors.textMuted,
+            ),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: EdgeInsets.symmetric(horizontal: isDesktop ? 48 : 16),
           child: GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: AppBreakpoint.isDesktop(context)
+              crossAxisCount: isDesktop
                   ? 6
-                  : (AppBreakpoint.isTablet(context) ? 4 : 2),
-              childAspectRatio: 0.65,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
+                  : (AppBreakpoint.isTablet(context) ? 4 : 3),
+              childAspectRatio: 0.67,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
             ),
             itemCount: _browseResults.length,
             itemBuilder: (context, index) {
               final item = _browseResults[index];
-              return ShelfPosterCard(
-                imageUrl: item.posterPath,
-                title: item.title,
-                subtitle: item.year.isNotEmpty ? item.year : null,
-                badge: item.mediaType == 'movie' ? 'MOVIE' : 'TV',
-                badgeIcon: item.mediaType == 'movie'
-                    ? Icons.movie_outlined
-                    : Icons.tv_outlined,
+              return NetflixPosterCard(
+                item: item,
+                compact: true,
+                selfPreview: true,
                 onTap: () => widget.onMediaTap(item),
               );
             },
@@ -234,26 +205,24 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
         ),
         if (_browseHasMore)
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
             child: Center(
               child: GestureDetector(
                 onTap: _loadMoreBrowse,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
+                    horizontal: 26,
+                    vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: _cDeepRose.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: _cDeepRose.withValues(alpha: 0.5),
-                    ),
+                    color: NetflixColors.surface,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: NetflixColors.hairline),
                   ),
                   child: Text(
-                    'Load more',
+                    'Load More',
                     style: GoogleFonts.outfit(
-                      color: _cDeepRose,
+                      color: NetflixColors.textPrimary,
                       fontWeight: FontWeight.w700,
                       fontSize: 13,
                     ),
@@ -307,7 +276,6 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
     });
   }
 
-  /// Shared fetch logic for browse pagination.
   Future<List<MediaItem>> _fetchBrowsePage(BrowseCategoryOption option) async {
     if (option.genreId != null) {
       return _tmdbService.discoverByGenre(
@@ -315,18 +283,57 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
         mediaType: option.mediaType,
         sortBy: option.sortBy,
       );
-    } else {
-      return _tmdbService.discoverMedia(
-        mediaType: option.mediaType,
-        sortBy: option.sortBy,
-        withGenres: option.genreId != null ? [option.genreId!] : null,
-        yearGte: option.yearGte,
-        yearLte: option.yearLte,
-        voteAverageGte: option.voteAverageGte,
-        voteCountGte: option.voteCountGte,
-        withOriginalLanguage: option.withOriginalLanguage,
-        page: _browseCurrentPage,
-      );
     }
+    return _tmdbService.discoverMedia(
+      mediaType: option.mediaType,
+      sortBy: option.sortBy,
+      yearGte: option.yearGte,
+      yearLte: option.yearLte,
+      voteAverageGte: option.voteAverageGte,
+      voteCountGte: option.voteCountGte,
+      withOriginalLanguage: option.withOriginalLanguage,
+      page: _browseCurrentPage,
+    );
+  }
+}
+
+class _BrowsePill extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _BrowsePill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 15),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : NetflixColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected ? Colors.white : NetflixColors.hairline,
+          ),
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.outfit(
+            color: selected ? Colors.black : NetflixColors.textSecondary,
+            fontSize: 12.5,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
   }
 }

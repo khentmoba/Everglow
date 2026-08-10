@@ -1,23 +1,15 @@
-import 'package:flutter/material.dart' hide FilterChip;
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:everglow/features/cinema/data/models/media_item.dart';
-import 'package:everglow/shared/widgets/shelf/shelf_icon_button.dart';
-import 'package:everglow/shared/widgets/shelf/shelf_poster_card.dart';
 import 'package:everglow/core/theme/app_breakpoints.dart';
+import 'package:everglow/features/cinema/data/models/media_item.dart';
+import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_colors.dart';
+import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_poster_card.dart';
 
-// ─── Cinema Color Tokens ─────────────────────────────────────────────
-const _cDeepRose = Color(0xFFC2185B);
-const _cGold = Color(0xFFE8C97A);
-const _cAmber = Color(0xFFF0A500);
-const _cWhite = Color(0xFFFFF5F5);
-const _cMuted = Color(0xFF8A7A92);
+enum _LibraryFilter { all, watching, toWatch, watched }
 
-// ─────────────────────────────────────────────────────────────────────
-// 4. LIBRARY TAB
-// ─────────────────────────────────────────────────────────────────────
-
-class CinemaLibraryTab extends StatelessWidget {
+/// My List - a quiet poster grid of the couple's cinema collection.
+class CinemaLibraryTab extends StatefulWidget {
   final List<MediaItem> watchlist;
   final void Function(MediaItem) onMediaTap;
   final void Function(int) onSwitchTab;
@@ -30,105 +22,155 @@ class CinemaLibraryTab extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final currentlyWatching =
-        watchlist.where((i) => i.isCurrentlyWatching).toList();
-    final wantToWatch = watchlist.where((i) => i.isToWatch).toList();
-    final watched = watchlist.where((i) => i.isWatched).toList();
+  State<CinemaLibraryTab> createState() => _CinemaLibraryTabState();
+}
 
-    if (currentlyWatching.isEmpty && wantToWatch.isEmpty && watched.isEmpty) {
-      return _buildEmptyLibrary(context);
+class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
+  _LibraryFilter _filter = _LibraryFilter.all;
+
+  List<MediaItem> get _visible {
+    final all = widget.watchlist;
+    return switch (_filter) {
+      _LibraryFilter.all => all,
+      _LibraryFilter.watching =>
+        all.where((i) => i.isCurrentlyWatching).toList(),
+      _LibraryFilter.toWatch => all.where((i) => i.isToWatch).toList(),
+      _LibraryFilter.watched => all.where((i) => i.isWatched).toList(),
+    };
+  }
+
+  double _progress(MediaItem item) {
+    if (item.mediaType == 'tv') {
+      final ep = item.currentEpisode ?? 1;
+      return ((ep - 1) % 12) / 12;
     }
+    return 0.12;
+  }
 
+  @override
+  Widget build(BuildContext context) {
+    final isEmpty = widget.watchlist
+        .where((i) => i.isCurrentlyWatching || i.isToWatch || i.isWatched)
+        .isEmpty;
+
+    if (isEmpty) return _buildEmptyLibrary(context);
+
+    final isDesktop = AppBreakpoint.isDesktop(context);
+    final visible = _visible;
     return ListView(
-      padding: const EdgeInsets.only(bottom: 100),
+      padding: EdgeInsets.only(bottom: 110),
       children: [
-        // Header
         Padding(
           padding: EdgeInsets.fromLTRB(
-            20,
-            MediaQuery.of(context).padding.top + 14,
-            20,
-            0,
+            isDesktop ? 48 : 16,
+            isDesktop ? 24 : (MediaQuery.paddingOf(context).top + 12),
+            isDesktop ? 48 : 16,
+            2,
           ),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              ShelfIconButton(
-                icon: Icons.arrow_back_ios_new_rounded,
-                semanticLabel: 'Back to Home',
-                tooltip: 'Back to Home',
-                onTap: () => onSwitchTab(0),
+              Text(
+                'My List',
+                style: GoogleFonts.outfit(
+                  fontSize: isDesktop ? 22 : 20,
+                  fontWeight: FontWeight.w700,
+                  color: NetflixColors.textPrimary,
+                ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Our Library',
-                      style: GoogleFonts.cormorantGaramond(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        color: _cWhite,
-                      ),
-                    ),
-                    Text(
-                      'CINEMA COLLECTION',
-                      style: GoogleFonts.outfit(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: _cMuted,
-                        letterSpacing: 2.0,
-                      ),
-                    ),
-                  ],
+              const SizedBox(width: 10),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Text(
+                  '${widget.watchlist.length} ${widget.watchlist.length == 1 ? 'title' : 'titles'}',
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    color: NetflixColors.textMuted,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 8),
-        // Currently Watching
-        if (currentlyWatching.isNotEmpty) ...[
-          _librarySectionHeader(
-            context,
-            'Currently Watching',
-            'RESUME PLAYING',
-            Icons.play_circle_filled_rounded,
-            const Color(0xFFFF6D00),
-            currentlyWatching.length,
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            isDesktop ? 48 : 16,
+            14,
+            isDesktop ? 48 : 16,
+            18,
           ),
-          _libraryGrid(context, currentlyWatching),
-        ],
-        // Want to Watch
-        if (wantToWatch.isNotEmpty) ...[
-          _librarySectionHeader(
-            context,
-            'Want to Watch',
-            'YOUR QUEUE',
-            Icons.bookmark_rounded,
-            _cGold,
-            wantToWatch.length,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _LibraryPill(
+                label: 'All',
+                selected: _filter == _LibraryFilter.all,
+                onTap: () => setState(() => _filter = _LibraryFilter.all),
+              ),
+              _LibraryPill(
+                label: 'Watching',
+                selected: _filter == _LibraryFilter.watching,
+                onTap: () => setState(() => _filter = _LibraryFilter.watching),
+              ),
+              _LibraryPill(
+                label: 'To Watch',
+                selected: _filter == _LibraryFilter.toWatch,
+                onTap: () => setState(() => _filter = _LibraryFilter.toWatch),
+              ),
+              _LibraryPill(
+                label: 'Watched',
+                selected: _filter == _LibraryFilter.watched,
+                onTap: () => setState(() => _filter = _LibraryFilter.watched),
+              ),
+            ],
           ),
-          _libraryGrid(context, wantToWatch, badgeColor: _cGold),
-        ],
-        // Watched
-        if (watched.isNotEmpty) ...[
-          _librarySectionHeader(
-            context,
-            'Watched',
-            'COMPLETED',
-            Icons.check_circle_rounded,
-            const Color(0xFF2E7D32),
-            watched.length,
+        ),
+        if (visible.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 60),
+            child: Center(
+              child: Text(
+                'Nothing here yet.',
+                style: GoogleFonts.outfit(
+                  color: NetflixColors.textMuted,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          )
+        else
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.symmetric(horizontal: isDesktop ? 48 : 16),
+            itemCount: visible.length,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: isDesktop
+                  ? 6
+                  : (AppBreakpoint.isTablet(context) ? 4 : 3),
+              childAspectRatio: 0.67,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+            ),
+            itemBuilder: (context, index) {
+              final item = visible[index];
+              return NetflixPosterCard(
+                item: item,
+                compact: true,
+                selfPreview: true,
+                progress: item.isCurrentlyWatching ? _progress(item) : null,
+                onTap: () => widget.onMediaTap(item),
+              );
+            },
           ),
-          _libraryGrid(context, watched, badgeColor: const Color(0xFF2E7D32)),
-        ],
       ],
     );
   }
 
   Widget _buildEmptyLibrary(BuildContext context) {
+    final isDesktop = AppBreakpoint.isDesktop(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -136,86 +178,57 @@ class CinemaLibraryTab extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [_cDeepRose, _cAmber],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: _cDeepRose.withValues(alpha: 0.3),
-                    blurRadius: 30,
-                    spreadRadius: -8,
-                  ),
-                ],
-              ),
-              alignment: Alignment.center,
-              child: const Icon(
-                Icons.collections_bookmark_rounded,
-                color: _cWhite,
-                size: 44,
-              ),
+            Icon(
+              Icons.bookmark_border_rounded,
+              color: NetflixColors.textMuted,
+              size: 52,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
             Text(
-              'Your cinema library is empty',
-              style: GoogleFonts.cormorantGaramond(
-                fontSize: 24,
+              'Your list is empty',
+              style: GoogleFonts.outfit(
+                fontSize: isDesktop ? 19 : 17,
                 fontWeight: FontWeight.w700,
-                color: _cWhite,
+                color: NetflixColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
-              "Search for movies or shows and add them to your library.\nItems you're watching or have watched will appear here.",
+              'Movies and shows you save or watch will appear here.',
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
-                color: _cMuted,
+                color: NetflixColors.textMuted,
                 fontSize: 13,
                 height: 1.5,
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 26),
             GestureDetector(
-              onTap: () => onSwitchTab(1),
+              onTap: () => widget.onSwitchTab(1),
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 14,
+                  horizontal: 22,
+                  vertical: 11,
                 ),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      _cDeepRose.withValues(alpha: 0.3),
-                      _cDeepRose.withValues(alpha: 0.15),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: _cDeepRose.withValues(alpha: 0.5),
-                    width: 1.2,
-                  ),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(
                       Icons.search_rounded,
-                      color: _cWhite,
-                      size: 18,
+                      color: Colors.black,
+                      size: 17,
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Text(
-                      'Search Movies & TV',
+                      'Find Something',
                       style: GoogleFonts.outfit(
-                        color: _cWhite,
+                        color: Colors.black,
                         fontWeight: FontWeight.w700,
-                        fontSize: 14,
+                        fontSize: 13.5,
                       ),
                     ),
                   ],
@@ -227,127 +240,42 @@ class CinemaLibraryTab extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _librarySectionHeader(
-    BuildContext context,
-    String title,
-    String subtitle,
-    IconData icon,
-    Color accent,
-    int count,
-  ) {
-    final isDesktop = AppBreakpoint.isDesktop(context);
-    final horizontalPad = isDesktop ? 48.0 : 20.0;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(horizontalPad, 16, horizontalPad, 14),
-      child: Row(
-        children: [
-          Container(
-            width: 3,
-            height: 20,
-            decoration: BoxDecoration(
-              color: accent,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Icon(icon, color: accent, size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.cormorantGaramond(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: _cWhite,
-                  ),
-                ),
-                if (subtitle.isNotEmpty)
-                  Text(
-                    subtitle,
-                    style: GoogleFonts.outfit(
-                      fontSize: 9,
-                      color: _cMuted,
-                      letterSpacing: 1.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: accent.withValues(alpha: 0.3)),
-            ),
-            child: Text(
-              '$count',
-              style: GoogleFonts.outfit(
-                color: accent,
-                fontWeight: FontWeight.w800,
-                fontSize: 13,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+class _LibraryPill extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
 
-  Widget _libraryGrid(
-    BuildContext context,
-    List<MediaItem> items, {
-    Color? badgeColor,
-  }) {
-    if (items.isEmpty) return const SizedBox.shrink();
-    final isDesktop = AppBreakpoint.isDesktop(context);
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      itemCount: items.length,
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount:
-            isDesktop ? 6 : (AppBreakpoint.isTablet(context) ? 4 : 2),
-        childAspectRatio: 0.65,
-        crossAxisSpacing: 14,
-        mainAxisSpacing: 14,
+  const _LibraryPill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : NetflixColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected ? Colors.white : NetflixColors.hairline,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.outfit(
+            color: selected ? Colors.black : NetflixColors.textSecondary,
+            fontSize: 12.5,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
       ),
-      itemBuilder: (context, index) {
-        final item = items[index];
-        String badgeLabel;
-        Color bColor;
-        IconData bIcon;
-        if (item.isCurrentlyWatching) {
-          badgeLabel = item.currentEpisode != null
-              ? 'S${item.currentSeason ?? 1}E${item.currentEpisode}'
-              : 'WATCHING';
-          bColor = const Color(0xFFFF6D00);
-          bIcon = Icons.play_circle_filled_rounded;
-        } else if (item.isWatched) {
-          badgeLabel = item.watchedDisplay.toUpperCase();
-          bColor = badgeColor ?? const Color(0xFF2E7D32);
-          bIcon = Icons.check_rounded;
-        } else {
-          badgeLabel = item.wanterDisplay.toUpperCase();
-          bColor = badgeColor ?? _cGold;
-          bIcon = Icons.bookmark_rounded;
-        }
-        return ShelfPosterCard(
-          imageUrl: item.posterPath,
-          title: item.title,
-          subtitle: item.year.isNotEmpty ? item.year : null,
-          badge: badgeLabel,
-          badgeColor: bColor,
-          badgeIcon: bIcon,
-          onTap: () => onMediaTap(item),
-        );
-      },
     );
   }
 }
