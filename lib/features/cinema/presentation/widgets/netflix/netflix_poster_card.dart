@@ -148,6 +148,7 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
   void _removeSelfPreview() {
     _previewEntry?.remove();
     _previewEntry = null;
+    _pointerInPreview = false;
   }
 
   @override
@@ -324,7 +325,7 @@ class _NetflixContinueCardState extends State<NetflixContinueCard> {
   bool _hovered = false;
 
   String get _backdropUrl {
-    final b = widget.item.backdropPath;
+    final b = widget.item.backdropUrl;
     if (b.isNotEmpty) return b;
     return widget.item.posterUrl;
   }
