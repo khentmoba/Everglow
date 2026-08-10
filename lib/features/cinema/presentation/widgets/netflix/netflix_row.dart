@@ -36,11 +36,13 @@ class NetflixRow extends StatefulWidget {
 class _NetflixRowState extends State<NetflixRow> {
   final ScrollController _controller = ScrollController();
   OverlayEntry? _previewEntry;
+  MediaItem? _previewItem;
   Timer? _previewTimer;
   bool _pointerInPreview = false;
   bool _hovering = false;
   bool _canLeft = false;
   bool _canRight = false;
+  int _hoverGeneration = 0;
 
   @override
   void initState() {
@@ -80,21 +82,27 @@ class _NetflixRowState extends State<NetflixRow> {
   }
 
   void _onCardHover(bool hovered, Rect rect, MediaItem item) {
+    final generation = ++_hoverGeneration;
     if (!hovered) {
       _previewTimer?.cancel();
-      if (!_pointerInPreview) _removePreview();
+      // Only the row owns the popover: when the pointer leaves a card but is
+      // inside the popover, keep it until the popover's own MouseRegion fires.
+      if (!_pointerInPreview || _previewItem != item) _removePreview();
       return;
     }
     if (!AppBreakpoint.isDesktop(context)) return;
+    // Hovering a different card should immediately retire the previous
+    // popover instead of letting overlapping entries trap each other.
+    if (_previewItem != item) _removePreview();
     _previewTimer?.cancel();
     _previewTimer = Timer(const Duration(milliseconds: 260), () {
-      if (!mounted) return;
+      if (!mounted || generation != _hoverGeneration) return;
+      _removePreview();
       _showPreview(rect, item);
     });
   }
 
   void _showPreview(Rect rect, MediaItem item) {
-    if (_previewEntry != null) return;
     final overlay = Overlay.of(context);
     final screen = MediaQuery.sizeOf(context);
     final width = (screen.width * 0.26).clamp(300.0, 360.0);
@@ -105,6 +113,7 @@ class _NetflixRowState extends State<NetflixRow> {
       screen: screen,
     );
 
+    _previewItem = item;
     _previewEntry = OverlayEntry(
       builder: (_) => Positioned(
         left: offset.dx,
@@ -135,15 +144,17 @@ class _NetflixRowState extends State<NetflixRow> {
   void _removePreview() {
     _previewEntry?.remove();
     _previewEntry = null;
+    _previewItem = null;
+    _pointerInPreview = false;
   }
 
   void _onRowExit() {
     _hovering = false;
     setState(() {});
     _previewTimer?.cancel();
-    Future.delayed(const Duration(milliseconds: 140), () {
-      if (mounted && !_pointerInPreview) _removePreview();
-    });
+    // Removes immediately when the pointer is not inside the popover; the
+    // popover's own MouseRegion.onExit handles the keep-while-hovered case.
+    if (!_pointerInPreview) _removePreview();
   }
 
   @override
@@ -256,29 +267,35 @@ class NetflixContinueRow extends StatefulWidget {
 class _NetflixContinueRowState extends State<NetflixContinueRow> {
   final ScrollController _controller = ScrollController();
   OverlayEntry? _previewEntry;
+  MediaItem? _previewItem;
   Timer? _previewTimer;
   bool _pointerInPreview = false;
+  int _hoverGeneration = 0;
 
   @override
   void dispose() {
     _previewTimer?.cancel();
-    _previewEntry?.remove();
+    _removePreview();
     _controller.dispose();
     super.dispose();
   }
 
   void _onCardHover(bool hovered, Rect rect, MediaItem item) {
+    final generation = ++_hoverGeneration;
     if (!hovered) {
       _previewTimer?.cancel();
-      if (!_pointerInPreview) _previewEntry?.remove();
-      _previewEntry = null;
+      // Only the row owns the popover: keep it while the pointer is inside
+      // the popover and the popover belongs to this card, otherwise remove.
+      if (!_pointerInPreview || _previewItem != item) _removePreview();
       return;
     }
     if (!AppBreakpoint.isDesktop(context)) return;
+    // Hovering a different card immediately retires the previous popover.
+    if (_previewItem != item) _removePreview();
     _previewTimer?.cancel();
     _previewTimer = Timer(const Duration(milliseconds: 260), () {
-      if (!mounted) return;
-      if (_previewEntry != null) return;
+      if (!mounted || generation != _hoverGeneration) return;
+      _removePreview();
       final overlay = Overlay.of(context);
       final screen = MediaQuery.sizeOf(context);
       final width = (screen.width * 0.26).clamp(300.0, 360.0);
@@ -288,6 +305,7 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
         previewSize: Size(width, height),
         screen: screen,
       );
+      _previewItem = item;
       final entry = OverlayEntry(
         builder: (_) => Positioned(
           left: offset.dx,
@@ -299,15 +317,13 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
             onExit: (_) {
               _pointerInPreview = false;
               _previewTimer?.cancel();
-              _previewEntry?.remove();
-              _previewEntry = null;
+              if (_previewItem == item) _removePreview();
             },
             child: NetflixHoverPreview(
               item: item,
               width: width,
               onTap: () {
-                _previewEntry?.remove();
-                _previewEntry = null;
+                _removePreview();
                 widget.onTapItem(item);
               },
             ),
@@ -317,6 +333,13 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
       overlay.insert(entry);
       _previewEntry = entry;
     });
+  }
+
+  void _removePreview() {
+    _previewEntry?.remove();
+    _previewEntry = null;
+    _previewItem = null;
+    _pointerInPreview = false;
   }
 
   @override
@@ -350,12 +373,7 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
           child: MouseRegion(
             onExit: (_) {
               _previewTimer?.cancel();
-              Future.delayed(const Duration(milliseconds: 140), () {
-                if (mounted && !_pointerInPreview) {
-                  _previewEntry?.remove();
-                  _previewEntry = null;
-                }
-              });
+              if (!_pointerInPreview) _removePreview();
             },
             child: ListView.separated(
               controller: _controller,
