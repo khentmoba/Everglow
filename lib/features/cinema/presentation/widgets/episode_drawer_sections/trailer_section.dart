@@ -48,7 +48,7 @@ class TrailerSection extends StatelessWidget {
       children: [
         // Backdrop image or Trailer Player
         SizedBox(
-          height: 280,
+          height: isMobile ? 300 : 460,
           width: double.infinity,
           child: isPlayingTrailer && trailerKey != null
               ? _buildTrailerPlayer()
@@ -127,11 +127,13 @@ class TrailerSection extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: 0.5),
                 shape: BoxShape.circle,
-                border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.15)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
               ),
-              child: const Icon(Icons.close_rounded,
-                  color: Colors.white, size: 18),
+              child: const Icon(
+                Icons.close_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
             ),
           ),
         ),
@@ -147,63 +149,74 @@ class TrailerSection extends StatelessWidget {
               Text(
                 cleanTitle(title),
                 style: GoogleFonts.cormorantGaramond(
-                  fontSize: 30,
+                  fontSize: isMobile ? 30 : 42,
                   fontWeight: FontWeight.w900,
                   color: Colors.white,
                   height: 1.1,
                   shadows: [
                     Shadow(
-                        color: Colors.black.withValues(alpha: 0.7),
-                        blurRadius: 16),
+                      color: Colors.black.withValues(alpha: 0.7),
+                      blurRadius: 16,
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 6),
               Row(
                 children: [
+                  if (double.tryParse(rating) != null) ...[
+                    Text(
+                      '${(double.parse(rating) * 10).round()}% Match',
+                      style: GoogleFonts.outfit(
+                        color: const Color(0xFF7ED69A),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    dot(),
+                  ],
                   if (year.isNotEmpty) ...[
                     Text(
                       year,
                       style: GoogleFonts.outfit(
-                        color: AppColors.blushGold,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        color: Colors.white.withValues(alpha: 0.75),
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     dot(),
                   ],
-                  // Rating stars
-                  ...List.generate(5, (i) {
-                    final filled =
-                        i < (ratingFraction * 5).round();
-                    return Icon(
-                      filled
-                          ? Icons.star_rounded
-                          : Icons.star_outline_rounded,
-                      color: AppColors.warmAmber,
-                      size: 14,
-                    );
-                  }),
-                  const SizedBox(width: 4),
-                  Text(
-                    rating,
-                    style: GoogleFonts.outfit(
-                      color: AppColors.warmAmber,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
                   if (runtime != null) ...[
-                    dot(),
                     Text(
                       '${runtime}m',
                       style: GoogleFonts.outfit(
-                        color:
-                            Colors.white.withValues(alpha: 0.6),
-                        fontSize: 12,
+                        color: Colors.white.withValues(alpha: 0.75),
+                        fontSize: 12.5,
                       ),
                     ),
+                    dot(),
                   ],
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 1.5,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.55),
+                      ),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(
+                      'HD',
+                      style: GoogleFonts.outfit(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -230,27 +243,28 @@ class TrailerSection extends StatelessWidget {
           child: GestureDetector(
             onTap: onCloseTrailer,
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: 0.7),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                    color:
-                        Colors.white.withValues(alpha: 0.15)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.close_rounded,
-                      color: Colors.white, size: 14),
+                  const Icon(
+                    Icons.close_rounded,
+                    color: Colors.white,
+                    size: 14,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     'Close Trailer',
                     style: GoogleFonts.outfit(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold),
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -272,31 +286,27 @@ class TrailerSection extends StatelessWidget {
                 cacheWidth: 900,
                 loadingBuilder: (context, child, progress) {
                   if (progress == null) return child;
-                  return _buildBackdropPlaceholder(
-                    isLoading: true,
-                  );
+                  return _buildBackdropPlaceholder(isLoading: true);
                 },
                 errorBuilder: (_, _, _) =>
                     _buildBackdropPlaceholder(isLoading: false),
               )
-            : _buildBackdropPlaceholder(
-                isLoading: isDetailsLoading,
-              ),
+            : _buildBackdropPlaceholder(isLoading: isDetailsLoading),
         if (trailerKey != null && !isLoadingTrailer)
           Center(
             child: GestureDetector(
               onTap: onToggleTrailer,
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 10),
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
-                  color: AppColors.deepRose
-                      .withValues(alpha: 0.85),
+                  color: AppColors.deepRose.withValues(alpha: 0.85),
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.deepRose
-                          .withValues(alpha: 0.5),
+                      color: AppColors.deepRose.withValues(alpha: 0.5),
                       blurRadius: 15,
                       offset: const Offset(0, 5),
                     ),
@@ -305,8 +315,11 @@ class TrailerSection extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.play_arrow_rounded,
-                        color: Colors.white, size: 18),
+                    const Icon(
+                      Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       'Watch Trailer',
@@ -350,8 +363,7 @@ class TrailerSection extends StatelessWidget {
               children: [
                 Icon(
                   Icons.movie_creation_outlined,
-                  color: AppColors.mutedPurple
-                      .withValues(alpha: 0.6),
+                  color: AppColors.mutedPurple.withValues(alpha: 0.6),
                   size: 42,
                 ),
                 const SizedBox(height: 8),

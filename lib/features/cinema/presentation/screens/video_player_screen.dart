@@ -103,6 +103,24 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// this session so auto-fallback doesn't re-try a dead source.
   final Set<String> _failedProviderIds = {};
 
+  /// Whether the player is in custom fullscreen (theater) mode.
+  bool _isFullscreen = false;
+
+  /// Drives the page scroll view so wheel events from the embed iframe
+  /// (which Flutter never sees) can be forwarded to it.
+  final ScrollController _scrollController = ScrollController();
+
+  /// Native wheel listener on the embed iframe. The iframe swallows
+  /// wheel events, so without this the page can't be scrolled in
+  /// browser fullscreen, where the player covers the whole viewport.
+  JSFunction? _onWheelListener;
+
+  /// DOM exit chip shown in theater mode. It lives outside Flutter's
+  /// canvas (which sits underneath the fixed-position iframe), so it
+  /// stays reachable while theater mode is on.
+  web.HTMLDivElement? _fullscreenExitButton;
+  JSFunction? _onFullscreenExitListener;
+
   /// Shared embed-provider service. Sources are loaded from Firestore
   /// with a hardcoded fallback.
   final VideoSourceService _sourceService = VideoSourceService();
@@ -179,6 +197,33 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }).toJS;
     _iframe.addEventListener('load', _onLoadListener);
     _iframe.addEventListener('error', _onErrorListener);
+
+    // Wheel events over the native iframe never reach Flutter's
+    // scrollable, so forward them to the page scroll view directly.
+    // This keeps the page scrollable even in browser fullscreen, where
+    // the player fills nearly the entire viewport.
+    _onWheelListener = ((web.Event e) {
+      if (_isFullscreen || !_scrollController.hasClients) return;
+      final wheel = e as web.WheelEvent;
+      if (wheel.ctrlKey) return; // Leave pinch-zoom gestures alone.
+      wheel.preventDefault();
+      var delta = wheel.deltaY;
+      switch (wheel.deltaMode) {
+        case 1: // DOM_DELTA_LINE
+          delta *= 20;
+          break;
+        case 2: // DOM_DELTA_PAGE
+          delta *= 600;
+          break;
+      }
+      if (delta == 0) return;
+      final position = _scrollController.position;
+      final target = (position.pixels + delta)
+          .clamp(position.minScrollExtent, position.maxScrollExtent)
+          .toDouble();
+      if (target != position.pixels) position.jumpTo(target);
+    }).toJS;
+    _iframe.addEventListener('wheel', _onWheelListener, true.toJS);
 
     _loadTimer = Timer(_loadTimeout, () {
       if (!mounted) return;
@@ -452,6 +497,76 @@ _currentSeason = widget.season ?? 1;
     _iframe.src = _buildPlayerUrl(provider);
   }
 
+  /// Toggles custom fullscreen (theater) mode. Instead of using the
+  /// browser Fullscreen API (which doesn't play well with Flutter web's
+  /// rendering layer and causes the player controls to be cut off), we
+  /// expand the iframe via CSS `position: fixed` to fill the viewport
+  /// and show a DOM exit chip on top so the user is never trapped.
+  void _toggleFullScreen() {
+    final entering = !_isFullscreen;
+    setState(() => _isFullscreen = entering);
+    if (entering) {
+      _iframe.style
+        ..position = 'fixed'
+        ..top = '0'
+        ..left = '0'
+        ..width = '100vw'
+        ..height = '100vh'
+        ..zIndex = '9999';
+      _showFullscreenExitButton();
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    } else {
+      _iframe.style
+        ..position = ''
+        ..top = ''
+        ..left = ''
+        ..width = '100%'
+        ..height = '100%'
+        ..zIndex = '';
+      _hideFullscreenExitButton();
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
+  }
+
+  /// Adds the DOM exit chip for theater mode. Flutter widgets can't
+  /// paint above the platform-view iframe, so this chip is a plain DOM
+  /// element appended to the page with a higher z-index.
+  void _showFullscreenExitButton() {
+    if (_fullscreenExitButton != null) return;
+    final button = web.HTMLDivElement()..textContent = 'Exit theater';
+    button.style
+      ..position = 'fixed'
+      ..top = '16px'
+      ..right = '16px'
+      ..zIndex = '10000'
+      ..padding = '10px 14px'
+      ..background = 'rgba(28, 18, 40, 0.92)'
+      ..border = '1px solid rgba(255, 255, 255, 0.28)'
+      ..borderRadius = '999px'
+      ..boxShadow = '0 6px 22px rgba(0, 0, 0, 0.5)'
+      ..cursor = 'pointer'
+      ..color = '#FFFFFF'
+      ..fontSize = '13px'
+      ..fontWeight = '700'
+      ..fontFamily = 'system-ui, sans-serif'
+      ..userSelect = 'none';
+    _onFullscreenExitListener = ((web.Event _) => _toggleFullScreen()).toJS;
+    button.addEventListener('click', _onFullscreenExitListener);
+    web.document.body?.appendChild(button);
+    _fullscreenExitButton = button;
+  }
+
+  void _hideFullscreenExitButton() {
+    final button = _fullscreenExitButton;
+    _fullscreenExitButton = null;
+    if (button == null) return;
+    if (_onFullscreenExitListener != null) {
+      button.removeEventListener('click', _onFullscreenExitListener);
+      _onFullscreenExitListener = null;
+    }
+    button.remove();
+  }
+
   @override
   void dispose() {
     _loadTimer?.cancel();
@@ -465,10 +580,24 @@ _currentSeason = widget.season ?? 1;
     if (_onErrorListener != null) {
       _iframe.removeEventListener('error', _onErrorListener);
     }
+    if (_onWheelListener != null) {
+      _iframe.removeEventListener('wheel', _onWheelListener);
+    }
     if (_messageListener != null) {
       web.window.removeEventListener('message', _messageListener);
     }
+    if (_isFullscreen) {
+      _iframe.style
+        ..position = ''
+        ..top = ''
+        ..left = ''
+        ..width = '100%'
+        ..height = '100%'
+        ..zIndex = '';
+    }
+    _hideFullscreenExitButton();
     _iframe.src = 'about:blank';
+    _scrollController.dispose();
 
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -647,6 +776,28 @@ _currentSeason = widget.season ?? 1;
                     ),
                     const SizedBox(width: 8),
                   ],
+                  const SizedBox(width: 8),
+                  Tooltip(
+                    message: 'Theater mode',
+                    child: GestureDetector(
+                      onTap: _toggleFullScreen,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[900],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                              color: Colors.grey[800]!, width: 1),
+                        ),
+                        child: const Icon(
+                          Icons.fullscreen_rounded,
+                          color: Colors.white70,
+                          size: 16,
+                        ),
+                      ),
+                    ),
+                  ),
                   _buildProviderBadge(),
                 ],
               ),
@@ -654,22 +805,49 @@ _currentSeason = widget.season ?? 1;
             // Scrollable body: video + metadata + server selector
             Expanded(
               child: SingleChildScrollView(
+                controller: _scrollController,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Player iframe area — fixed 16:9 aspect ratio
-                    AspectRatio(
-                      aspectRatio: 16 / 9,
-                      child: Stack(
-                        children: [
-                          if (!_iframeFailed) HtmlElementView(viewType: _viewType),
-                          if (_isLoading && !_iframeFailed)
-                            const Center(
-                              child: CircularProgressIndicator(color: AppTheme.deepRose),
+                    // Player iframe area: 16:9, but capped so a strip of
+                    // page content stays visible below it. In browser
+                    // fullscreen the full-width player is taller than the
+                    // viewport, and because embeds swallow wheel events the
+                    // page can't be scrolled down to the server selector.
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final maxPlayerHeight =
+                            (MediaQuery.sizeOf(context).height - 296)
+                                .clamp(240.0, double.infinity)
+                                .toDouble();
+                        if (_iframeFailed) {
+                          return ConstrainedBox(
+                            constraints:
+                                BoxConstraints(maxHeight: maxPlayerHeight),
+                            child: _buildErrorCard(context),
+                          );
+                        }
+                        return ConstrainedBox(
+                          constraints:
+                              BoxConstraints(maxHeight: maxPlayerHeight),
+                          child: Center(
+                            child: AspectRatio(
+                              aspectRatio: 16 / 9,
+                              child: Stack(
+                                children: [
+                                  HtmlElementView(viewType: _viewType),
+                                  if (_isLoading)
+                                    const Center(
+                                      child: CircularProgressIndicator(
+                                        color: AppTheme.deepRose,
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
-                          if (_iframeFailed) _buildErrorCard(context),
-                        ],
-                      ),
+                          ),
+                        );
+                      },
                     ),
                     // Episode Navigator for TV content
                     if (widget.mediaType == 'tv' && !widget.isAnime)

@@ -10,14 +10,15 @@ const proxyAnimeImageUrl =
 /// Strip trailing " Season X", " Season X Part Y", " 2nd Season", etc.
 String cleanTitle(String title) {
   return title.replaceAll(
-      RegExp(
-          r'\s+(Season\s+\d+(\s+Part\s+\d+)?|\d+(st|nd|rd|th)\s+Season)$',
-          caseSensitive: false),
-      '');
+    RegExp(
+      r'\s+(Season\s+\d+(\s+Part\s+\d+)?|\d+(st|nd|rd|th)\s+Season)$',
+      caseSensitive: false,
+    ),
+    '',
+  );
 }
 
-String getInitial(String name) =>
-    name.isNotEmpty ? name[0].toUpperCase() : '?';
+String getInitial(String name) => name.isNotEmpty ? name[0].toUpperCase() : '?';
 
 Color avatarColor(String name) {
   final palette = [
@@ -54,7 +55,9 @@ Widget buildLoader() {
         width: 22,
         height: 22,
         child: CircularProgressIndicator(
-            color: AppColors.deepRose, strokeWidth: 2),
+          color: AppColors.deepRose,
+          strokeWidth: 2,
+        ),
       ),
     ),
   );
@@ -72,48 +75,26 @@ Widget buildEmptySection(String msg) {
 
 Widget buildDrawerSectionHeader(String title) {
   return Padding(
-    padding: const EdgeInsets.fromLTRB(20, 28, 20, 14),
-    child: Row(
-      children: [
-        Container(
-          width: 3,
-          height: 20,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [AppColors.deepRose, Color(0x44C2185B)],
-            ),
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: GoogleFonts.cormorantGaramond(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: AppColors.petalWhite,
-              ),
-            ),
-          ],
-        ),
-      ],
+    padding: const EdgeInsets.fromLTRB(20, 26, 20, 12),
+    child: Text(
+      title,
+      style: GoogleFonts.outfit(
+        fontSize: 19,
+        fontWeight: FontWeight.w700,
+        color: AppColors.petalWhite,
+      ),
     ),
   );
 }
 
 Widget dot() => Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: Container(
-        width: 3,
-        height: 3,
-        decoration: const BoxDecoration(
-          color: AppColors.mutedPurple,
-          shape: BoxShape.circle,
-        ),
-      ),
-    );
+  padding: const EdgeInsets.symmetric(horizontal: 6),
+  child: Container(
+    width: 3,
+    height: 3,
+    decoration: const BoxDecoration(
+      color: AppColors.mutedPurple,
+      shape: BoxShape.circle,
+    ),
+  ),
+);

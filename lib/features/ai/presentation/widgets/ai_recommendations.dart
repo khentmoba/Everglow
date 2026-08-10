@@ -6,8 +6,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../data/services/ai_service.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_breakpoints.dart';
 import '../../../cinema/data/models/media_item.dart';
 import '../../../cinema/data/services/tmdb_service.dart';
+import '../../../cinema/presentation/widgets/netflix/netflix_poster_card.dart';
 import '../../../../shared/widgets/shelf/scroll_edge_fade.dart';
 import '../../../../shared/widgets/shelf/shelf_poster_card.dart';
 import '../../../../shared/utils/text_utils.dart';
@@ -19,12 +21,18 @@ class AIRecommendations extends StatefulWidget {
   final void Function(MediaItem item)? onTapItem;
   final bool autoLoad;
 
+  /// Renders recommendations with Netflix-style posters (and hover
+  /// previews) instead of the shared shelf card. Only the Cinema home
+  /// enables this; Anime and Dashboard keep the legacy card.
+  final bool netflixStyle;
+
   const AIRecommendations({
     super.key,
     this.mood,
     this.title = "Mochi's Picks 🐱",
     this.onTapItem,
     this.autoLoad = false,
+    this.netflixStyle = false,
   });
 
   @override
@@ -68,10 +76,12 @@ class _AIRecommendationsState extends State<AIRecommendations> {
           .limit(20)
           .get();
       if (cinemaSnapshot.docs.isNotEmpty) {
-        final items = cinemaSnapshot.docs.map((doc) {
-          final d = doc.data();
-          return '${d['title'] ?? 'Unknown'} (${d['mediaType'] ?? 'movie'}) - ${d['status'] ?? 'plan to watch'}';
-        }).join('\n');
+        final items = cinemaSnapshot.docs
+            .map((doc) {
+              final d = doc.data();
+              return '${d['title'] ?? 'Unknown'} (${d['mediaType'] ?? 'movie'}) - ${d['status'] ?? 'plan to watch'}';
+            })
+            .join('\n');
         contextParts.add('Our watchlist:\n$items');
       }
 
@@ -79,8 +89,10 @@ class _AIRecommendationsState extends State<AIRecommendations> {
       try {
         final trending = await tmdb.fetchTrending(timeWindow: 'week');
         if (trending.isNotEmpty) {
-          final list = trending.take(10).map((m) =>
-            '${m.title} (${m.year})').join(', ');
+          final list = trending
+              .take(10)
+              .map((m) => '${m.title} (${m.year})')
+              .join(', ');
           contextParts.add('Trending movies this week: $list');
         }
       } catch (e) {
@@ -90,8 +102,10 @@ class _AIRecommendationsState extends State<AIRecommendations> {
       try {
         final nowPlaying = await tmdb.fetchNowPlaying();
         if (nowPlaying.isNotEmpty) {
-          final list = nowPlaying.take(8).map((m) =>
-            '${m.title} (${m.year})').join(', ');
+          final list = nowPlaying
+              .take(8)
+              .map((m) => '${m.title} (${m.year})')
+              .join(', ');
           contextParts.add('Now playing in theaters: $list');
         }
       } catch (e) {
@@ -101,8 +115,10 @@ class _AIRecommendationsState extends State<AIRecommendations> {
       try {
         final upcoming = await tmdb.fetchUpcoming();
         if (upcoming.isNotEmpty) {
-          final list = upcoming.take(8).map((m) =>
-            '${m.title} (${m.year})').join(', ');
+          final list = upcoming
+              .take(8)
+              .map((m) => '${m.title} (${m.year})')
+              .join(', ');
           contextParts.add('Coming soon: $list');
         }
       } catch (e) {
@@ -110,7 +126,8 @@ class _AIRecommendationsState extends State<AIRecommendations> {
       }
 
       final contextStr = contextParts.join('\n\n');
-      final prompt = '''Based on what we have been watching and what's currently available, recommend 3 movies or series we should watch next. Pick from the trending/now playing/coming soon lists when possible — only recommend real movies that exist. Reply with ONLY a numbered list of titles with year, nothing else. Example: 1. Movie Name (2024)''';
+      final prompt =
+          '''Based on what we have been watching and what's currently available, recommend 3 movies or series we should watch next. Pick from the trending/now playing/coming soon lists when possible — only recommend real movies that exist. Reply with ONLY a numbered list of titles with year, nothing else. Example: 1. Movie Name (2024)''';
 
       final result = await ai.quickAsk(
         message: prompt,
@@ -147,7 +164,8 @@ class _AIRecommendationsState extends State<AIRecommendations> {
     } catch (e) {
       debugPrint('Mochi picks error: $e');
       setState(() {
-        _aiText = 'Mew... I couldn\'t find anything right now! Try again later? 🐱';
+        _aiText =
+            'Mew... I couldn\'t find anything right now! Try again later? 🐱';
         _foundItems = [];
       });
     } finally {
@@ -165,10 +183,14 @@ class _AIRecommendationsState extends State<AIRecommendations> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppTheme.twilight,
-        title: Text(item.title,
-            style: GoogleFonts.outfit(color: AppTheme.petalWhite)),
-        content: Text(item.year.isNotEmpty ? item.year : '',
-            style: GoogleFonts.outfit(color: AppTheme.roseQuartz)),
+        title: Text(
+          item.title,
+          style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+        ),
+        content: Text(
+          item.year.isNotEmpty ? item.year : '',
+          style: GoogleFonts.outfit(color: AppTheme.roseQuartz),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -195,11 +217,16 @@ class _AIRecommendationsState extends State<AIRecommendations> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                      color: AppTheme.blushGold.withValues(alpha: 0.6)),
+                    color: AppTheme.blushGold.withValues(alpha: 0.6),
+                  ),
                 ),
                 child: ClipOval(
-                  child: Image.asset('assets/images/mochi_avatar.png',
-                      width: 26, height: 26, fit: BoxFit.cover),
+                  child: Image.asset(
+                    'assets/images/mochi_avatar.png',
+                    width: 26,
+                    height: 26,
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -217,11 +244,14 @@ class _AIRecommendationsState extends State<AIRecommendations> {
                 GestureDetector(
                   onTap: _getRecommendations,
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       border: Border.all(
-                          color: AppTheme.blushGold.withValues(alpha: 0.6)),
+                        color: AppTheme.blushGold.withValues(alpha: 0.6),
+                      ),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -247,9 +277,10 @@ class _AIRecommendationsState extends State<AIRecommendations> {
                 children: [
                   CircularProgressIndicator(color: AppTheme.blushGold),
                   SizedBox(height: 10),
-                  Text('Mochi is thinking... 🍡',
-                      style: TextStyle(
-                          color: AppTheme.roseQuartz, fontSize: 13)),
+                  Text(
+                    'Mochi is thinking... 🍡',
+                    style: TextStyle(color: AppTheme.roseQuartz, fontSize: 13),
+                  ),
                 ],
               ),
             ),
@@ -266,7 +297,8 @@ class _AIRecommendationsState extends State<AIRecommendations> {
                 color: AppTheme.deepRose.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                    color: AppTheme.blushGold.withValues(alpha: 0.1)),
+                  color: AppTheme.blushGold.withValues(alpha: 0.1),
+                ),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -277,11 +309,16 @@ class _AIRecommendationsState extends State<AIRecommendations> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                          color: AppTheme.blushGold.withValues(alpha: 0.65)),
+                        color: AppTheme.blushGold.withValues(alpha: 0.65),
+                      ),
                     ),
                     child: ClipOval(
-                      child: Image.asset('assets/images/mochi_avatar.png',
-                          width: 24, height: 24, fit: BoxFit.cover),
+                      child: Image.asset(
+                        'assets/images/mochi_avatar.png',
+                        width: 24,
+                        height: 24,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -303,7 +340,9 @@ class _AIRecommendationsState extends State<AIRecommendations> {
         // ── Found movie poster cards ────────────────────
         if (_foundItems.isNotEmpty && !_isLoading)
           SizedBox(
-            height: 200,
+            height: widget.netflixStyle && AppBreakpoint.isDesktop(context)
+                ? 264
+                : 200,
             child: ScrollEdgeFade(
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
@@ -312,6 +351,20 @@ class _AIRecommendationsState extends State<AIRecommendations> {
                 separatorBuilder: (_, __) => const SizedBox(width: 12),
                 itemBuilder: (_, i) {
                   final item = _foundItems[i];
+                  if (widget.netflixStyle) {
+                    final width = AppBreakpoint.isDesktop(context)
+                        ? 172.0
+                        : 124.0;
+                    return SizedBox(
+                      width: width,
+                      child: NetflixPosterCard(
+                        item: item,
+                        compact: true,
+                        selfPreview: true,
+                        onTap: () => _openDetail(item),
+                      ),
+                    );
+                  }
                   return SizedBox(
                     width: 130,
                     child: ShelfPosterCard(
