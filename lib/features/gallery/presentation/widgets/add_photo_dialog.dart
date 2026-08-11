@@ -1,5 +1,6 @@
 import 'dart:typed_data';
-import 'package:flutter/material.dart';import 'package:image_picker_web/image_picker_web.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker_web/image_picker_web.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'package:provider/provider.dart';
@@ -132,10 +133,7 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                   child: _imageBytes != null
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(16),
-                          child: Image.memory(
-                            _imageBytes!,
-                            fit: BoxFit.cover,
-                          ),
+                          child: Image.memory(_imageBytes!, fit: BoxFit.cover),
                         )
                       : Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -148,8 +146,12 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                             const SizedBox(height: 12),
                             Text(
                               "Tap to choose a photo",
-                              style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite
-                                    .withValues(alpha: 0.5), fontSize: 14),
+                              style: AppTypography.outfitWhite.copyWith(
+                                color: AppTheme.petalWhite.withValues(
+                                  alpha: 0.5,
+                                ),
+                                fontSize: 14,
+                              ),
                             ),
                           ],
                         ),
@@ -160,10 +162,14 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
               // Caption Input
               TextField(
                 controller: _captionController,
-                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
+                style: AppTypography.outfitWhite.copyWith(
+                  color: AppTheme.petalWhite,
+                ),
                 decoration: InputDecoration(
                   hintText: "Add a caption…",
-                  hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.65)),
+                  hintStyle: AppTypography.outfitWhite.copyWith(
+                    color: AppTheme.petalWhite.withValues(alpha: 0.65),
+                  ),
                   filled: true,
                   fillColor: AppTheme.twilight,
                   border: OutlineInputBorder(
@@ -189,7 +195,9 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                     onPressed: () => Navigator.pop(context),
                     child: Text(
                       "Cancel",
-                      style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
+                      style: AppTypography.outfitWhite.copyWith(
+                        color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -200,8 +208,9 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.deepRose,
                       foregroundColor: AppTheme.petalWhite,
-                      disabledBackgroundColor:
-                          AppTheme.deepRose.withValues(alpha: 0.3),
+                      disabledBackgroundColor: AppTheme.deepRose.withValues(
+                        alpha: 0.3,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(24),
                       ),
@@ -221,7 +230,9 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                           )
                         : Text(
                             "Upload",
-                            style: AppTypography.outfitWhite.copyWith(fontWeight: FontWeight.bold),
+                            style: AppTypography.outfitWhite.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                   ),
                 ],

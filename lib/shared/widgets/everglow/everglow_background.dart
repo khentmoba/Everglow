@@ -83,7 +83,7 @@ class _EverglowBackgroundState extends State<EverglowBackground>
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
-      child: Positioned.fill(
+      child: SizedBox.expand(
       child: IgnorePointer(
         child: ExcludeSemantics(
           child: Container(

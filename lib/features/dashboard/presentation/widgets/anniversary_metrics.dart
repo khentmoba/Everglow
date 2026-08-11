@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
-import 'package:everglow/core/theme/app_breakpoints.dart';
 import '../../domain/models/anniversary_counter.dart';
 import '../widgets/metric_card.dart';
 
@@ -68,39 +67,87 @@ class _AnniversaryMetricsState extends State<AnniversaryMetrics> {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       sliver: SliverGrid(
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: AppBreakpoint.isDesktop(context) ? 3 : 2,
+          crossAxisCount: _crossAxisCount(context),
           mainAxisSpacing: 24,
           crossAxisSpacing: 24,
           childAspectRatio: 1.3,
         ),
         delegate: SliverChildListDelegate([
           _maybeAnimate(
-            animation: (child) => FadeInLeft(delay: const Duration(milliseconds: 200), child: child),
-            child: _MetricCardAnimated(label: 'Years', listenable: _notifier, selector: (c) => c.years),
+            animation: (child) => FadeInLeft(
+              delay: const Duration(milliseconds: 200),
+              child: child,
+            ),
+            child: _MetricCardAnimated(
+              label: 'Years',
+              listenable: _notifier,
+              selector: (c) => c.years,
+            ),
           ),
           _maybeAnimate(
-            animation: (child) => FadeInRight(delay: const Duration(milliseconds: 300), child: child),
-            child: _MetricCardAnimated(label: 'Months', listenable: _notifier, selector: (c) => c.months),
+            animation: (child) => FadeInRight(
+              delay: const Duration(milliseconds: 300),
+              child: child,
+            ),
+            child: _MetricCardAnimated(
+              label: 'Months',
+              listenable: _notifier,
+              selector: (c) => c.months,
+            ),
           ),
           _maybeAnimate(
-            animation: (child) => FadeInLeft(delay: const Duration(milliseconds: 400), child: child),
-            child: _MetricCardAnimated(label: 'Days', listenable: _notifier, selector: (c) => c.days),
+            animation: (child) => FadeInLeft(
+              delay: const Duration(milliseconds: 400),
+              child: child,
+            ),
+            child: _MetricCardAnimated(
+              label: 'Days',
+              listenable: _notifier,
+              selector: (c) => c.days,
+            ),
           ),
           _maybeAnimate(
-            animation: (child) => FadeInRight(delay: const Duration(milliseconds: 500), child: child),
-            child: _MetricCardAnimated(label: 'Hours', listenable: _notifier, selector: (c) => c.hours),
+            animation: (child) => FadeInRight(
+              delay: const Duration(milliseconds: 500),
+              child: child,
+            ),
+            child: _MetricCardAnimated(
+              label: 'Hours',
+              listenable: _notifier,
+              selector: (c) => c.hours,
+            ),
           ),
           _maybeAnimate(
-            animation: (child) => FadeInLeft(delay: const Duration(milliseconds: 600), child: child),
-            child: _MetricCardAnimated(label: 'Minutes', listenable: _notifier, selector: (c) => c.minutes),
+            animation: (child) => FadeInLeft(
+              delay: const Duration(milliseconds: 600),
+              child: child,
+            ),
+            child: _MetricCardAnimated(
+              label: 'Minutes',
+              listenable: _notifier,
+              selector: (c) => c.minutes,
+            ),
           ),
           _maybeAnimate(
-            animation: (child) => FadeInRight(delay: const Duration(milliseconds: 700), child: child),
-            child: _MetricCardAnimated(label: 'Seconds', listenable: _notifier, selector: (c) => c.seconds),
+            animation: (child) => FadeInRight(
+              delay: const Duration(milliseconds: 700),
+              child: child,
+            ),
+            child: _MetricCardAnimated(
+              label: 'Seconds',
+              listenable: _notifier,
+              selector: (c) => c.seconds,
+            ),
           ),
         ]),
       ),
     );
+  }
+
+  int _crossAxisCount(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width >= 600) return 3;
+    return 2;
   }
 }
 

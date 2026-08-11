@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'package:flutter/material.dart';import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../services/auth_service.dart';
@@ -11,7 +12,8 @@ class TTMultiplayerLobbyScreen extends StatefulWidget {
   const TTMultiplayerLobbyScreen({super.key});
 
   @override
-  State<TTMultiplayerLobbyScreen> createState() => _TTMultiplayerLobbyScreenState();
+  State<TTMultiplayerLobbyScreen> createState() =>
+      _TTMultiplayerLobbyScreenState();
 }
 
 class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
@@ -37,8 +39,11 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.sports_tennis_rounded,
-                  size: 64, color: AppTheme.warmAmber),
+              const Icon(
+                Icons.sports_tennis_rounded,
+                size: 64,
+                color: AppTheme.warmAmber,
+              ),
               const SizedBox(height: 16),
               Text(
                 'Table Tennis 1v1',
@@ -47,20 +52,23 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
               const SizedBox(height: 8),
               Text(
                 'Play against your partner',
-                style: AppTypography.outfitWhite.copyWith(fontSize: 14, color: AppTheme.petalWhite.withValues(alpha: 0.75)),
+                style: AppTypography.outfitWhite.copyWith(
+                  fontSize: 14,
+                  color: AppTheme.petalWhite.withValues(alpha: 0.75),
+                ),
               ),
               const SizedBox(height: 48),
-              if (!_searching && _countdown == 0)
-                _buildFindMatchButton(),
-              if (_searching)
-                _buildSearchingState(),
-              if (_countdown > 0)
-                _buildCountdown(),
+              if (!_searching && _countdown == 0) _buildFindMatchButton(),
+              if (_searching) _buildSearchingState(),
+              if (_countdown > 0) _buildCountdown(),
               const SizedBox(height: 32),
               if (_roomId != null)
                 Text(
                   'Room: $_roomId',
-                  style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.petalWhite.withValues(alpha: 0.55)),
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 12,
+                    color: AppTheme.petalWhite.withValues(alpha: 0.55),
+                  ),
                 ),
             ],
           ),
@@ -89,7 +97,12 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
         ),
         child: Text(
           'Find Match',
-          style: AppTypography.outfitWhite.copyWith(fontWeight: FontWeight.w900, color: AppTheme.petalWhite, letterSpacing: 2, fontSize: 16),
+          style: AppTypography.outfitWhite.copyWith(
+            fontWeight: FontWeight.w900,
+            color: AppTheme.petalWhite,
+            letterSpacing: 2,
+            fontSize: 16,
+          ),
         ),
       ),
     );
@@ -109,7 +122,10 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
         const SizedBox(height: 16),
         Text(
           _statusText ?? 'Searching for opponent...',
-          style: AppTypography.outfitWhite.copyWith(fontSize: 16, color: AppTheme.petalWhite),
+          style: AppTypography.outfitWhite.copyWith(
+            fontSize: 16,
+            color: AppTheme.petalWhite,
+          ),
         ),
         const SizedBox(height: 8),
         Row(
@@ -139,7 +155,9 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
           onPressed: _cancelSearch,
           child: Text(
             'Cancel',
-            style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.7)),
+            style: AppTypography.outfitWhite.copyWith(
+              color: AppTheme.petalWhite.withValues(alpha: 0.7),
+            ),
           ),
         ),
       ],
@@ -151,7 +169,10 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
       children: [
         Text(
           'Match found!',
-          style: AppTypography.outfitBold.copyWith(fontSize: 20, color: AppTheme.warmAmber),
+          style: AppTypography.outfitBold.copyWith(
+            fontSize: 20,
+            color: AppTheme.warmAmber,
+          ),
         ),
         const SizedBox(height: 16),
         Text(
@@ -222,10 +243,8 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
       if (!mounted) return false;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => TTMultiplayerGameScreen(
-            roomId: roomId,
-            isHost: isHost,
-          ),
+          builder: (_) =>
+              TTMultiplayerGameScreen(roomId: roomId, isHost: isHost),
         ),
       );
       return false;

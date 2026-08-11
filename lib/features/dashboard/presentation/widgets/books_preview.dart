@@ -154,21 +154,24 @@ class _OurBooksSubrowState extends State<_OurBooksSubrow> {
     if (oldWidget.ourBooksService != widget.ourBooksService ||
         oldWidget.adder != widget.adder) {
       _sub?.cancel();
-      setState(() { _items = const []; _hasLoaded = false; });
+      setState(() {
+        _items = const [];
+        _hasLoaded = false;
+      });
       _subscribe();
     }
   }
 
   void _subscribe() {
-    _sub = widget.ourBooksService
-        .getOurBooksByAdderStream(widget.adder)
-        .listen((items) {
-      if (!mounted) return;
-      setState(() {
-        _items = items;
-        _hasLoaded = true;
-      });
-    });
+    _sub = widget.ourBooksService.getOurBooksByAdderStream(widget.adder).listen(
+      (items) {
+        if (!mounted) return;
+        setState(() {
+          _items = items;
+          _hasLoaded = true;
+        });
+      },
+    );
   }
 
   @override
@@ -257,17 +260,16 @@ class _PersonalBooksShelf extends StatelessWidget {
           : StreamBuilder<List<BookItem>>(
               stream: openLibraryService.getReadListStream(userName),
               builder: (context, snapshot) {
-                if (snapshot.hasError || (!snapshot.hasData && snapshot.connectionState == ConnectionState.done)) {
+                if (snapshot.hasError ||
+                    (!snapshot.hasData &&
+                        snapshot.connectionState == ConnectionState.done)) {
                   return ShelfEmpty(
                     accent: ShelfAccent.books,
                     message: 'Could not load books. Tap to retry.',
                   );
                 }
                 if (!snapshot.hasData) {
-                  return const ShelfMarquee(
-                    hasLoaded: false,
-                    children: [],
-                  );
+                  return const ShelfMarquee(hasLoaded: false, children: []);
                 }
                 final items = snapshot.data!;
                 if (items.isEmpty) {

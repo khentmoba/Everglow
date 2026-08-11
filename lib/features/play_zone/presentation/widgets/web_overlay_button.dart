@@ -172,7 +172,8 @@ class _WebOverlayButtonState extends State<WebOverlayButton> {
     if (code == Icons.flag_rounded.codePoint || code == Icons.flag.codePoint) {
       return '\u2691';
     }
-    if (code == Icons.check_rounded.codePoint || code == Icons.check.codePoint) {
+    if (code == Icons.check_rounded.codePoint ||
+        code == Icons.check.codePoint) {
       return '\u2713';
     }
     if (code == Icons.arrow_back_ios_new_rounded.codePoint ||
@@ -267,7 +268,9 @@ class _WebOverlayTextButtonState extends State<WebOverlayTextButton> {
       try {
         _element.onclick = null;
       } catch (e) {
-        debugPrint('[WebOverlayTextButton] Failed to clear onclick handler: $e');
+        debugPrint(
+          '[WebOverlayTextButton] Failed to clear onclick handler: $e',
+        );
       }
     }
     super.dispose();
@@ -325,8 +328,7 @@ class _WebOverlayTextButtonState extends State<WebOverlayTextButton> {
   void _applyGradient(web.HTMLButtonElement btn) {
     if (widget.gradient.length < 2) {
       final c = widget.gradient.first;
-      btn.style.background =
-          'rgba(${_r(c)}, ${_g(c)}, ${_b(c)}, 1)';
+      btn.style.background = 'rgba(${_r(c)}, ${_g(c)}, ${_b(c)}, 1)';
       return;
     }
     final a = widget.gradient.first;
@@ -421,7 +423,8 @@ class _WebOverlayTextButtonState extends State<WebOverlayTextButton> {
     if (code == Icons.flag_rounded.codePoint || code == Icons.flag.codePoint) {
       return '\u2691';
     }
-    if (code == Icons.check_rounded.codePoint || code == Icons.check.codePoint) {
+    if (code == Icons.check_rounded.codePoint ||
+        code == Icons.check.codePoint) {
       return '\u2713';
     }
     if (code == Icons.replay_rounded.codePoint ||
@@ -537,7 +540,8 @@ class _WebOverlayPillState extends State<WebOverlayPill> {
   List<web.Node> _buildChildren() {
     final children = <web.Node>[];
     if (widget.leadingIcon != null) {
-      final iconSpan = web.document.createElement('span') as web.HTMLSpanElement;
+      final iconSpan =
+          web.document.createElement('span') as web.HTMLSpanElement;
       iconSpan.textContent = _iconChar(widget.leadingIcon!);
       iconSpan.style.fontSize = '18px';
       iconSpan.style.lineHeight = '1';
@@ -606,7 +610,8 @@ class _WebOverlayPillState extends State<WebOverlayPill> {
     if (code == Icons.flag_rounded.codePoint || code == Icons.flag.codePoint) {
       return '\u2691';
     }
-    if (code == Icons.check_rounded.codePoint || code == Icons.check.codePoint) {
+    if (code == Icons.check_rounded.codePoint ||
+        code == Icons.check.codePoint) {
       return '\u2713';
     }
     if (code == Icons.check_circle_rounded.codePoint ||

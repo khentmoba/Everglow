@@ -8,11 +8,7 @@ class NoteCard extends StatelessWidget {
   final HiddenNote note;
   final VoidCallback onTap;
 
-  const NoteCard({
-    super.key,
-    required this.note,
-    required this.onTap,
-  });
+  const NoteCard({super.key, required this.note, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +24,10 @@ class NoteCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(24.0),
           border: unlocked && !note.isRead
               ? Border.all(color: AppTheme.blushGold, width: 1.5)
-              : Border.all(color: AppTheme.moonlight.withValues(alpha: 0.15), width: 1.0),
+              : Border.all(
+                  color: AppTheme.moonlight.withValues(alpha: 0.15),
+                  width: 1.0,
+                ),
           opacity: unlocked && !note.isRead ? 0.22 : 0.12,
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -40,7 +39,7 @@ class NoteCard extends StatelessWidget {
                       ? (note.isRead ? Icons.drafts_outlined : Icons.favorite)
                       : Icons.lock_outline,
                   size: 36,
-                  color: unlocked 
+                  color: unlocked
                       ? (note.isRead ? AppTheme.roseQuartz : AppTheme.deepRose)
                       : AppTheme.blushGold,
                   shadows: [
@@ -57,13 +56,21 @@ class NoteCard extends StatelessWidget {
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTypography.outfitWhite.copyWith(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.petalWhite, letterSpacing: 0.5),
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.petalWhite,
+                    letterSpacing: 0.5,
+                  ),
                 ),
                 if (!unlocked) ...[
                   const SizedBox(height: 8),
                   Text(
                     _getCountdownText(note.unlockDate),
-                    style: AppTypography.outfitBold.copyWith(fontSize: 11, color: AppTheme.petalWhite.withValues(alpha: 0.75)),
+                    style: AppTypography.outfitBold.copyWith(
+                      fontSize: 11,
+                      color: AppTheme.petalWhite.withValues(alpha: 0.75),
+                    ),
                   ),
                 ],
               ],

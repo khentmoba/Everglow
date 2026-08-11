@@ -20,14 +20,10 @@ class TTBridgeService {
   String? get roomId => _roomId;
   bool get isHost => _isHost;
 
-  TTBridgeService({
-    required TTMultiplayerService mpService,
-  }) : _mpService = mpService;
+  TTBridgeService({required TTMultiplayerService mpService})
+    : _mpService = mpService;
 
-  void connect({
-    required String roomId,
-    required bool isHost,
-  }) {
+  void connect({required String roomId, required bool isHost}) {
     _roomId = roomId;
     _isHost = isHost;
     _localTick = 0;
@@ -36,7 +32,10 @@ class TTBridgeService {
     final iframe = _findIframe();
     if (iframe != null) {
       final side = isHost ? 'near' : 'far';
-      _postMessage(iframe, 'START_MP', <String, dynamic>{'isHost': isHost, 'side': side});
+      _postMessage(iframe, 'START_MP', <String, dynamic>{
+        'isHost': isHost,
+        'side': side,
+      });
     }
 
     _firestoreSub = _mpService.watchRoom(roomId).listen((room) {
@@ -71,7 +70,11 @@ class TTBridgeService {
     }
   }
 
-  void _postMessage(web.HTMLIFrameElement iframe, String type, Map<String, dynamic> data) {
+  void _postMessage(
+    web.HTMLIFrameElement iframe,
+    String type,
+    Map<String, dynamic> data,
+  ) {
     try {
       final msg = <String, dynamic>{'type': type, ...data};
       final jsMsg = msg.jsify();

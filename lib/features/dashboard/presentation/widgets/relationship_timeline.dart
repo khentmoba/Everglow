@@ -64,17 +64,34 @@ class _RelationshipTimelineState extends State<RelationshipTimeline> {
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
           child: Row(
             children: [
-              Expanded(child: Divider(color: AppTheme.blushGold.withValues(alpha: 0.15), thickness: 1)),
+              Expanded(
+                child: Divider(
+                  color: AppTheme.blushGold.withValues(alpha: 0.15),
+                  thickness: 1,
+                ),
+              ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12.0),
                 child: Text(
                   'OUR STORY',
-                  style: AppTypography.cormorantBlack.copyWith(fontSize: 20, letterSpacing: 2.0, shadows: [
-                      BoxShadow(color: AppTheme.deepRose.withValues(alpha: 0.5), blurRadius: 10),
-                    ]),
+                  style: AppTypography.cormorantBlack.copyWith(
+                    fontSize: 20,
+                    letterSpacing: 2.0,
+                    shadows: [
+                      BoxShadow(
+                        color: AppTheme.deepRose.withValues(alpha: 0.5),
+                        blurRadius: 10,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              Expanded(child: Divider(color: AppTheme.blushGold.withValues(alpha: 0.15), thickness: 1)),
+              Expanded(
+                child: Divider(
+                  color: AppTheme.blushGold.withValues(alpha: 0.15),
+                  thickness: 1,
+                ),
+              ),
             ],
           ),
         ),
@@ -85,9 +102,17 @@ class _RelationshipTimelineState extends State<RelationshipTimeline> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildToggleChip('Timeline', !_showGallery, () => setState(() => _showGallery = false)),
+              _buildToggleChip(
+                'Timeline',
+                !_showGallery,
+                () => setState(() => _showGallery = false),
+              ),
               const SizedBox(width: 8),
-              _buildToggleChip('Gallery', _showGallery, () => setState(() => _showGallery = true)),
+              _buildToggleChip(
+                'Gallery',
+                _showGallery,
+                () => setState(() => _showGallery = true),
+              ),
             ],
           ),
         ),
@@ -101,7 +126,8 @@ class _RelationshipTimelineState extends State<RelationshipTimeline> {
               return _buildErrorState();
             }
 
-            if (!snapshot.hasData && snapshot.connectionState == ConnectionState.waiting) {
+            if (!snapshot.hasData &&
+                snapshot.connectionState == ConnectionState.waiting) {
               return _buildLoadingState();
             }
 
@@ -119,7 +145,10 @@ class _RelationshipTimelineState extends State<RelationshipTimeline> {
               return _GalleryView(milestones: milestones);
             }
 
-            return _TimelineAxis(milestones: milestones, scrollController: _scrollController);
+            return _TimelineAxis(
+              milestones: milestones,
+              scrollController: _scrollController,
+            );
           },
         ),
         const SizedBox(height: 16),
@@ -149,9 +178,13 @@ class _RelationshipTimelineState extends State<RelationshipTimeline> {
           ),
           child: Text(
             label,
-            style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, color: isSelected
+            style: AppTypography.outfitWhite.copyWith(
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              color: isSelected
                   ? AppTheme.blushGold
-                  : AppTheme.petalWhite.withValues(alpha: 0.6)),
+                  : AppTheme.petalWhite.withValues(alpha: 0.6),
+            ),
           ),
         ),
       ),
@@ -163,11 +196,18 @@ class _RelationshipTimelineState extends State<RelationshipTimeline> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.cloud_off_rounded, size: 32, color: AppTheme.roseQuartz.withValues(alpha: 0.4)),
+          Icon(
+            Icons.cloud_off_rounded,
+            size: 32,
+            color: AppTheme.roseQuartz.withValues(alpha: 0.4),
+          ),
           const SizedBox(height: 8),
           Text(
             'Could not load timeline',
-            style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 13),
+            style: AppTypography.outfitWhite.copyWith(
+              color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+              fontSize: 13,
+            ),
           ),
         ],
       ),
@@ -190,7 +230,10 @@ class _RelationshipTimelineState extends State<RelationshipTimeline> {
           const SizedBox(height: 8),
           Text(
             'Loading memories...',
-            style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.5), fontSize: 12),
+            style: AppTypography.outfitWhite.copyWith(
+              color: AppTheme.roseQuartz.withValues(alpha: 0.5),
+              fontSize: 12,
+            ),
           ),
         ],
       ),
@@ -203,7 +246,10 @@ class _TimelineAxis extends StatelessWidget {
   final List<Milestone> milestones;
   final ScrollController scrollController;
 
-  const _TimelineAxis({required this.milestones, required this.scrollController});
+  const _TimelineAxis({
+    required this.milestones,
+    required this.scrollController,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -284,11 +330,16 @@ class _TimelinePainter extends CustomPainter {
         final textPainter = TextPainter(
           text: TextSpan(
             text: '$year',
-            style: AppTypography.outfitBold.copyWith(fontSize: 10, color: AppTheme.blushGold.withValues(alpha: 0.5)),
+            style: AppTypography.outfitBold.copyWith(
+              fontSize: 10,
+              color: AppTheme.blushGold.withValues(alpha: 0.5),
+            ),
           ),
-          
         )..layout();
-        textPainter.paint(canvas, Offset(x - textPainter.width / 2, lineY + 14));
+        textPainter.paint(
+          canvas,
+          Offset(x - textPainter.width / 2, lineY + 14),
+        );
         lastYear = year;
       }
     }
@@ -342,20 +393,21 @@ class _TimelineNode extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // Category emoji
-          Text(
-            milestone.category.emoji,
-            style: const TextStyle(fontSize: 20),
-          ),
+          Text(milestone.category.emoji, style: const TextStyle(fontSize: 20)),
           const SizedBox(height: 4),
           // Date
           Text(
             DateFormat('MMM d').format(milestone.date),
-            style: AppTypography.outfitBold.copyWith(fontSize: 10, color: AppTheme.blushGold.withValues(alpha: 0.7)),
+            style: AppTypography.outfitBold.copyWith(
+              fontSize: 10,
+              color: AppTheme.blushGold.withValues(alpha: 0.7),
+            ),
           ),
           const SizedBox(height: 6),
           // Node circle (interactive)
           Semantics(
-            label: 'Milestone: ${milestone.title}, ${DateFormat.yMMMd().format(milestone.date)}',
+            label:
+                'Milestone: ${milestone.title}, ${DateFormat.yMMMd().format(milestone.date)}',
             button: true,
             child: GestureDetector(
               onTap: () {
@@ -418,7 +470,10 @@ class _TimelineNode extends StatelessWidget {
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: AppTypography.outfitBold.copyWith(fontSize: 11, color: AppTheme.petalWhite.withValues(alpha: 0.8)),
+              style: AppTypography.outfitBold.copyWith(
+                fontSize: 11,
+                color: AppTheme.petalWhite.withValues(alpha: 0.8),
+              ),
             ),
           ),
         ],
@@ -461,7 +516,9 @@ class _GalleryView extends StatelessWidget {
               },
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
+                  color: AppTheme.moonlight.withValues(
+                    alpha: AppTheme.glassOpacity,
+                  ),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: AppTheme.blushGold.withValues(alpha: 0.15),
@@ -473,7 +530,9 @@ class _GalleryView extends StatelessWidget {
                       Expanded(
                         flex: 2,
                         child: ClipRRect(
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(20),
+                          ),
                           child: Image.network(
                             milestone.imageUrls.first,
                             width: double.infinity,
@@ -481,7 +540,12 @@ class _GalleryView extends StatelessWidget {
                             errorBuilder: (_, _, _) => Container(
                               color: AppTheme.deepRose.withValues(alpha: 0.1),
                               child: Center(
-                                child: Icon(Icons.image, color: AppTheme.roseQuartz.withValues(alpha: 0.3)),
+                                child: Icon(
+                                  Icons.image,
+                                  color: AppTheme.roseQuartz.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -496,19 +560,27 @@ class _GalleryView extends StatelessWidget {
                           children: [
                             Row(
                               children: [
-                                Text(milestone.category.emoji, style: const TextStyle(fontSize: 16)),
+                                Text(
+                                  milestone.category.emoji,
+                                  style: const TextStyle(fontSize: 16),
+                                ),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
                                     milestone.title,
-                                    style: AppTypography.cormorantBold.copyWith(fontSize: 18),
+                                    style: AppTypography.cormorantBold.copyWith(
+                                      fontSize: 18,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
                             Text(
                               DateFormat('MMMM d, yyyy').format(milestone.date),
-                              style: AppTypography.outfitBold.copyWith(fontSize: 12, color: AppTheme.blushGold),
+                              style: AppTypography.outfitBold.copyWith(
+                                fontSize: 12,
+                                color: AppTheme.blushGold,
+                              ),
                             ),
                             const SizedBox(height: 4),
                             Expanded(
@@ -516,7 +588,12 @@ class _GalleryView extends StatelessWidget {
                                 milestone.description,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.7), fontSize: 12),
+                                style: AppTypography.outfitWhite.copyWith(
+                                  color: AppTheme.petalWhite.withValues(
+                                    alpha: 0.7,
+                                  ),
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
                           ],

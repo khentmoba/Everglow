@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';import 'package:everglow/core/theme/app_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'package:provider/provider.dart';
 import '../../domain/models/memory_photo.dart';
@@ -43,24 +44,23 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
         backgroundColor: AppTheme.velvet,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: BorderSide(
-            color: AppTheme.blushGold.withValues(alpha: 0.25),
-          ),
+          side: BorderSide(color: AppTheme.blushGold.withValues(alpha: 0.25)),
         ),
-        title: Text(
-          'Delete Photo?',
-          style: AppTypography.cormorantBold,
-        ),
+        title: Text('Delete Photo?', style: AppTypography.cormorantBold),
         content: Text(
           'This action cannot be undone.',
-          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.7)),
+          style: AppTypography.outfitWhite.copyWith(
+            color: AppTheme.petalWhite.withValues(alpha: 0.7),
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Cancel',
-              style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+              ),
             ),
           ),
           TextButton(
@@ -82,7 +82,10 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
             },
             child: Text(
               'Delete',
-              style: AppTypography.outfitWhite.copyWith(color: AppTheme.deepRose, fontWeight: FontWeight.bold),
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppTheme.deepRose,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -109,15 +112,17 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
         ),
         title: Text(
           '${_currentIndex + 1} / ${widget.photos.length}',
-          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 14),
+          style: AppTypography.outfitWhite.copyWith(
+            color: AppTheme.petalWhite,
+            fontSize: 14,
+          ),
         ),
         centerTitle: true,
         actions: [
           if (widget.photos.isNotEmpty &&
               widget.photos[_currentIndex].uploadedBy == myUid)
             IconButton(
-              onPressed: () =>
-                  _showDeleteDialog(widget.photos[_currentIndex]),
+              onPressed: () => _showDeleteDialog(widget.photos[_currentIndex]),
               icon: const Icon(
                 Icons.delete_outline_rounded,
                 color: AppTheme.deepRose,
@@ -149,7 +154,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                           child: CircularProgressIndicator(
                             value: progress.expectedTotalBytes != null
                                 ? progress.cumulativeBytesLoaded /
-                                    progress.expectedTotalBytes!
+                                      progress.expectedTotalBytes!
                                 : null,
                             color: AppTheme.blushGold,
                           ),
@@ -180,10 +185,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.8),
-                    Colors.black,
-                  ],
+                  colors: [Colors.black.withValues(alpha: 0.8), Colors.black],
                 ),
               ),
               child: Column(
@@ -193,19 +195,28 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                   if (widget.photos[_currentIndex].caption.isNotEmpty)
                     Text(
                       widget.photos[_currentIndex].caption,
-                      style: AppTypography.cormorantRegular.copyWith(fontSize: 18, fontStyle: FontStyle.italic),
+                      style: AppTypography.cormorantRegular.copyWith(
+                        fontSize: 18,
+                        fontStyle: FontStyle.italic,
+                      ),
                     ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
                       Text(
                         '📸 ${widget.photos[_currentIndex].uploadedBy}',
-                        style: AppTypography.outfitBold.copyWith(fontSize: 12, color: AppTheme.blushGold),
+                        style: AppTypography.outfitBold.copyWith(
+                          fontSize: 12,
+                          color: AppTheme.blushGold,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Text(
                         '${widget.photos[_currentIndex].uploadedAt.month}/${widget.photos[_currentIndex].uploadedAt.day}/${widget.photos[_currentIndex].uploadedAt.year}',
-                        style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.petalWhite.withValues(alpha: 0.65)),
+                        style: AppTypography.outfitWhite.copyWith(
+                          fontSize: 12,
+                          color: AppTheme.petalWhite.withValues(alpha: 0.65),
+                        ),
                       ),
                     ],
                   ),
@@ -213,8 +224,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 6,
-                      children: widget.photos[_currentIndex]
-                          .tags
+                      children: widget.photos[_currentIndex].tags
                           .map(
                             (tag) => Container(
                               padding: const EdgeInsets.symmetric(
@@ -222,13 +232,17 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: AppTheme.softLavender
-                                    .withValues(alpha: 0.2),
+                                color: AppTheme.softLavender.withValues(
+                                  alpha: 0.2,
+                                ),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 "#$tag",
-                                style: AppTypography.outfitWhite.copyWith(fontSize: 10, color: AppTheme.softLavender),
+                                style: AppTypography.outfitWhite.copyWith(
+                                  fontSize: 10,
+                                  color: AppTheme.softLavender,
+                                ),
                               ),
                             ),
                           )

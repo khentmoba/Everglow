@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/features/date_randomizer/data/services/date_idea_service.dart';
@@ -5,10 +6,12 @@ import 'package:everglow/features/date_randomizer/data/models/date_idea.dart';
 import 'package:everglow/features/date_randomizer/presentation/widgets/celebration_dialog.dart';
 import 'package:everglow/features/date_randomizer/data/services/ai_date_idea_generator.dart';
 import 'package:everglow/features/ai/data/services/ai_service.dart';
-import 'package:everglow/shared/widgets/glass_container.dart';
 import 'package:everglow/shared/widgets/bouncy_button.dart';
 import 'package:everglow/shared/widgets/animated_emblem.dart';
-import 'package:everglow/core/theme/app_theme.dart';import 'package:everglow/core/theme/app_typography.dart';
+import 'package:everglow/core/theme/app_colors.dart';
+import 'package:everglow/core/theme/app_radius.dart';
+import 'package:everglow/core/theme/app_motion.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class RandomizerCard extends StatefulWidget {
   final DateIdeaService service;
@@ -55,14 +58,12 @@ class _RandomizerCardState extends State<RandomizerCard>
     DateIdea? idea;
 
     if (_useAI) {
-      // Try AI-generated idea first
       final generator = AIDateIdeaGenerator(aiService);
       idea = await generator.generatePersonalizedIdea();
     }
 
-    // Fallback to regular random idea
     idea ??= widget.service.getRandomIdea();
-    
+
     if (!mounted) return;
 
     if (idea != null) {
@@ -70,10 +71,10 @@ class _RandomizerCardState extends State<RandomizerCard>
         context: context,
         barrierDismissible: true,
         barrierLabel: '',
-        barrierColor: AppTheme.deepRose.withValues(alpha: 0.3),
+        barrierColor: AppColors.deepRose.withValues(alpha: 0.3),
         transitionDuration: const Duration(milliseconds: 800),
         pageBuilder: (context, anim1, anim2) {
-          return CelebrationDialog(title: idea?.title ?? 'Date Night!');
+          return CelebrationDialog(title: idea!.title);
         },
         transitionBuilder: (context, anim1, anim2, child) {
           return ScaleTransition(
@@ -84,133 +85,243 @@ class _RandomizerCardState extends State<RandomizerCard>
       );
     }
 
-    setState(() => _isSpinning = false);
+    if (mounted) setState(() => _isSpinning = false);
   }
 
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
       child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: GlassContainer(
-        padding: const EdgeInsets.all(32),
-        borderRadius: BorderRadius.circular(24),
-        child: Column(
-          children: [
-            Text(
-              'Digital Roulette',
-              style: AppTypography.cormorantBlack.copyWith(fontSize: 26, letterSpacing: 1),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Container(
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.velvet.withValues(alpha: 0.72),
+                AppColors.inkDeep.withValues(alpha: 0.72),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              'SPIN FOR A DATE DESTINY',
-              style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.75), fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+            borderRadius: AppRadius.radiusX2,
+            border: Border.all(
+              color: AppColors.moonlight.withValues(alpha: 0.14),
             ),
-            const SizedBox(height: 12),
-            // AI Mode toggle
-            Semantics(
-              label: _useAI ? 'AI mode enabled. Tap to switch to random.' : 'Random mode. Tap to enable AI.',
-              button: true,
-              toggled: _useAI,
-              child: GestureDetector(
-              onTap: () => setState(() => _useAI = !_useAI),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _useAI
-                      ? AppTheme.blushGold.withValues(alpha: 0.2)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: _useAI
-                        ? AppTheme.blushGold
-                        : AppTheme.petalWhite.withValues(alpha: 0.2),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.inkDeep.withValues(alpha: 0.45),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+              BoxShadow(
+                color: AppColors.deepRose.withValues(alpha: 0.12),
+                blurRadius: 26,
+                spreadRadius: -6,
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                top: 0,
+                left: 22,
+                right: 22,
+                child: Container(
+                  height: 1.4,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.transparent,
+                        AppColors.auroraGold.withValues(alpha: 0.55),
+                        Colors.transparent,
+                      ],
+                    ),
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _useAI ? Icons.auto_awesome_rounded : Icons.shuffle_rounded,
-                      size: 14,
-                      color: _useAI ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.7),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      _useAI ? 'AI Powered ✨' : 'Random',
-                      style: AppTypography.outfitBold.copyWith(fontSize: 11, color: _useAI ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.7)),
-                    ),
-                  ],
                 ),
               ),
-             ),
-            ),
-            const SizedBox(height: 40),
-            RotationTransition(
-              turns: _controller,
-              child: Stack(
-                alignment: Alignment.center,
+              Column(
                 children: [
-                  // Roulette Ring
-                  Container(
-                    width: 150,
-                    height: 150,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppTheme.blushGold.withValues(alpha: 0.65),
-                        width: 8,
-                      ),
-                    ),
-                    child: CustomPaint(
-                      painter: _RoulettePainter(),
+                  Text(
+                    'Digital Roulette',
+                    style: AppTypography.cormorantBlack.copyWith(
+                      fontSize: 26,
+                      letterSpacing: 1,
                     ),
                   ),
-                  // Center Button
-                  BouncyButton(
-                    onTap: _handleSpin,
-                    child: const AnimatedEmblem(
-                      icon: Icons.favorite_rounded,
-                      size: 60,
-                      color: AppTheme.deepRose,
+                  const SizedBox(height: 6),
+                  Text(
+                    'SPIN FOR A DATE DESTINY',
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: AppColors.petalWhite.withValues(alpha: 0.75),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.6,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Semantics(
+                    label: _useAI
+                        ? 'AI mode enabled. Tap to switch to random.'
+                        : 'Random mode. Tap to enable AI.',
+                    button: true,
+                    toggled: _useAI,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _useAI = !_useAI),
+                      child: AnimatedContainer(
+                        duration: AppMotion.orZero(AppMotion.medium),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _useAI
+                              ? AppColors.auroraGold.withValues(alpha: 0.18)
+                              : AppColors.moonlight.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: _useAI
+                                ? AppColors.auroraGold.withValues(alpha: 0.7)
+                                : AppColors.moonlight.withValues(alpha: 0.22),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _useAI
+                                  ? Icons.auto_awesome_rounded
+                                  : Icons.shuffle_rounded,
+                              size: 14,
+                              color: _useAI
+                                  ? AppColors.auroraGold
+                                  : AppColors.petalWhite.withValues(alpha: 0.7),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _useAI ? 'AI Powered' : 'Random',
+                              style: AppTypography.outfitBold.copyWith(
+                                fontSize: 11,
+                                color: _useAI
+                                    ? AppColors.auroraGold
+                                    : AppColors.petalWhite.withValues(
+                                        alpha: 0.7,
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 36),
+                  RotationTransition(
+                    turns: _controller,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Roulette ring with gradient rim.
+                        Container(
+                          width: 156,
+                          height: 156,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: SweepGradient(
+                              colors: [
+                                AppColors.deepRose,
+                                AppColors.auroraGold,
+                                AppColors.softLavender,
+                                AppColors.deepRose,
+                              ],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.deepRose.withValues(
+                                  alpha: 0.35,
+                                ),
+                                blurRadius: 24,
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.all(4),
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColors.inkDeep,
+                            ),
+                            child: CustomPaint(
+                              painter: const _RoulettePainter(),
+                            ),
+                          ),
+                        ),
+                        // Center heart button.
+                        BouncyButton(
+                          onTap: _handleSpin,
+                          child: const AnimatedEmblem(
+                            icon: Icons.favorite_rounded,
+                            size: 62,
+                            color: AppColors.deepRose,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 34),
+                  Text(
+                    _isSpinning ? 'DECIDING YOUR FATE...' : 'TAP THE HEART',
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: _isSpinning
+                          ? AppColors.auroraGold
+                          : AppColors.roseQuartz.withValues(alpha: 0.6),
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
                     ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 40),
-            Text(
-              _isSpinning ? 'DECIDING YOUR FATE...' : 'TAP THE HEART',
-              style: AppTypography.outfitWhite.copyWith(color: _isSpinning ? AppTheme.blushGold : AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 2),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
 }
 
 class _RoulettePainter extends CustomPainter {
+  const _RoulettePainter();
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppTheme.blushGold.withValues(alpha: 0.5)
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
+      ..color = AppColors.auroraGold.withValues(alpha: 0.55)
+      ..strokeWidth = 1.6
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
 
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
 
-    for (int i = 0; i < 12; i++) {
-      final angle = (i * 30) * (3.14159 / 180);
-      // Actually draw proper spokes
+    for (int i = 0; i < 16; i++) {
+      final angle = (i * 22.5) * (math.pi / 180);
+      final dx = math.cos(angle);
+      final dy = math.sin(angle);
       canvas.drawLine(
-        Offset(center.dx + (radius - 15) * (angle), center.dy + (radius - 15) * (angle)), // This logic is wrong but illustrative
-        Offset(center.dx + radius * (angle), center.dy + radius * (angle)),
+        Offset(center.dx + (radius - 14) * dx, center.dy + (radius - 14) * dy),
+        Offset(center.dx + (radius - 2) * dx, center.dy + (radius - 2) * dy),
         paint,
       );
     }
+
+    // Inner ring.
+    canvas.drawCircle(
+      center,
+      radius - 18,
+      Paint()
+        ..color = AppColors.blushGold.withValues(alpha: 0.28)
+        ..strokeWidth = 1
+        ..style = PaintingStyle.stroke,
+    );
   }
 
   @override

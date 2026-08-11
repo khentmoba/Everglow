@@ -6,10 +6,7 @@ import 'package:everglow/core/theme/app_typography.dart';
 class NoteDialog extends StatelessWidget {
   final HiddenNote note;
 
-  const NoteDialog({
-    super.key,
-    required this.note,
-  });
+  const NoteDialog({super.key, required this.note});
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +20,10 @@ class NoteDialog extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppTheme.velvet, // Dark romantic paper color
             borderRadius: BorderRadius.circular(24.0),
-            border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.2), width: 1.5),
+            border: Border.all(
+              color: AppTheme.blushGold.withValues(alpha: 0.2),
+              width: 1.5,
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.4),
@@ -46,7 +46,11 @@ class NoteDialog extends StatelessWidget {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    const Icon(Icons.favorite, color: AppTheme.deepRose, size: 24),
+                    const Icon(
+                      Icons.favorite,
+                      color: AppTheme.deepRose,
+                      size: 24,
+                    ),
                     Positioned(
                       right: 12,
                       child: IconButton(
@@ -71,12 +75,17 @@ class NoteDialog extends StatelessWidget {
                       children: [
                         Text(
                           note.title,
-                          style: AppTypography.handwrittenTitle().copyWith(color: AppTheme.blushGold),
+                          style: AppTypography.handwrittenTitle().copyWith(
+                            color: AppTheme.blushGold,
+                          ),
                         ),
                         const SizedBox(height: 24),
                         Text(
                           note.content,
-                          style: AppTypography.handwrittenBody().copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.9), height: 1.4),
+                          style: AppTypography.handwrittenBody().copyWith(
+                            color: AppTheme.petalWhite.withValues(alpha: 0.9),
+                            height: 1.4,
+                          ),
                         ),
                       ],
                     ),

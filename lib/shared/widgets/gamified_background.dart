@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_theme.dart';
+import 'package:everglow/core/theme/app_colors.dart';
+import 'package:everglow/core/theme/app_motion.dart';
 import 'circuitry_painter.dart';
 
+/// Atmospheric animated backdrop shared by feature screens.
+///
+/// A slow drifting gradient over a deep night base with soft glows and
+/// a faint petal field. Honors reduced-motion by rendering static.
 class GamifiedBackground extends StatefulWidget {
   final Widget child;
   const GamifiedBackground({super.key, required this.child});
@@ -12,49 +17,78 @@ class GamifiedBackground extends StatefulWidget {
 
 class _GamifiedBackgroundState extends State<GamifiedBackground>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  late AnimationController _controller;
-  late Animation<Alignment> _topAlignmentAnimation;
-  late Animation<Alignment> _bottomAlignmentAnimation;
+  AnimationController? _controller;
+  Animation<Alignment>? _topAlignmentAnimation;
+  Animation<Alignment>? _bottomAlignmentAnimation;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _controller = AnimationController(
-      duration: const Duration(seconds: 20),
+    if (!AppMotion.reduced) {
+      _startAnimations();
+    }
+  }
+
+  void _startAnimations() {
+    _controller?.dispose();
+    final controller = AnimationController(
+      duration: const Duration(seconds: 28),
       vsync: this,
     )..repeat(reverse: true);
+    _controller = controller;
 
     _topAlignmentAnimation = TweenSequence<Alignment>([
-      TweenSequenceItem(tween: AlignmentTween(begin: Alignment.topLeft, end: Alignment.topRight), weight: 1),
-      TweenSequenceItem(tween: AlignmentTween(begin: Alignment.topRight, end: Alignment.bottomRight), weight: 1),
-      TweenSequenceItem(tween: AlignmentTween(begin: Alignment.bottomRight, end: Alignment.bottomLeft), weight: 1),
-      TweenSequenceItem(tween: AlignmentTween(begin: Alignment.bottomLeft, end: Alignment.topLeft), weight: 1),
-    ]).animate(_controller);
+      TweenSequenceItem(
+        tween: AlignmentTween(
+          begin: const Alignment(-0.6, -0.9),
+          end: const Alignment(0.6, -0.9),
+        ),
+        weight: 1,
+      ),
+      TweenSequenceItem(
+        tween: AlignmentTween(
+          begin: const Alignment(0.6, -0.9),
+          end: const Alignment(0.6, 0.9),
+        ),
+        weight: 1,
+      ),
+    ]).animate(controller);
 
     _bottomAlignmentAnimation = TweenSequence<Alignment>([
-      TweenSequenceItem(tween: AlignmentTween(begin: Alignment.bottomRight, end: Alignment.bottomLeft), weight: 1),
-      TweenSequenceItem(tween: AlignmentTween(begin: Alignment.bottomLeft, end: Alignment.topLeft), weight: 1),
-      TweenSequenceItem(tween: AlignmentTween(begin: Alignment.topLeft, end: Alignment.topRight), weight: 1),
-      TweenSequenceItem(tween: AlignmentTween(begin: Alignment.topRight, end: Alignment.bottomRight), weight: 1),
-    ]).animate(_controller);
+      TweenSequenceItem(
+        tween: AlignmentTween(
+          begin: const Alignment(0.6, 0.9),
+          end: const Alignment(-0.6, 0.9),
+        ),
+        weight: 1,
+      ),
+      TweenSequenceItem(
+        tween: AlignmentTween(
+          begin: const Alignment(-0.6, 0.9),
+          end: const Alignment(-0.6, -0.9),
+        ),
+        weight: 1,
+      ),
+    ]).animate(controller);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (AppMotion.reduced) return;
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
-      _controller.stop();
+      _controller?.stop();
     } else if (state == AppLifecycleState.resumed) {
-      _controller.repeat(reverse: true);
+      _controller?.repeat(reverse: true);
     }
   }
 
@@ -62,32 +96,54 @@ class _GamifiedBackgroundState extends State<GamifiedBackground>
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // Animated background layer isolated from the content tree.
         Positioned.fill(
           child: RepaintBoundary(
             child: AnimatedBuilder(
-              animation: _controller,
+              animation: _controller ?? const AlwaysStoppedAnimation(0.0),
               builder: (context, child) {
                 return Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: const [
-                        AppTheme.twilight,
-                        AppTheme.velvet,
-                        AppTheme.deepRose,
+                        AppColors.inkDeep,
+                        AppColors.twilight,
+                        AppColors.velvet,
                       ],
-                      begin: _topAlignmentAnimation.value,
-                      end: _bottomAlignmentAnimation.value,
+                      begin:
+                          _topAlignmentAnimation?.value ??
+                          const Alignment(-0.6, -0.9),
+                      end:
+                          _bottomAlignmentAnimation?.value ??
+                          const Alignment(0.6, 0.9),
                     ),
                   ),
-                  child: child,
+                  child: Stack(
+                    children: [
+                      child!,
+                      // Soft glows.
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: RadialGradient(
+                              center: const Alignment(-0.7, -0.8),
+                              radius: 0.9,
+                              colors: [
+                                AppColors.velvet.withValues(alpha: 0.16),
+                                Colors.transparent,
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 );
               },
               child: CustomPaint(
                 size: Size.infinite,
                 painter: PetalFieldPainter(
-                  color: AppTheme.roseQuartz,
-                  opacity: AppTheme.petalFieldOpacity,
+                  color: AppColors.roseQuartz,
+                  opacity: 0.05,
                 ),
               ),
             ),

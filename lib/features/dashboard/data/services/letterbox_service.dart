@@ -18,8 +18,10 @@ class LetterboxService {
           .orderBy('unlockDate', descending: false)
           .snapshots()
           .map((snapshot) {
-        return snapshot.docs.map((doc) => HiddenNote.fromFirestore(doc)).toList();
-      }),
+            return snapshot.docs
+                .map((doc) => HiddenNote.fromFirestore(doc))
+                .toList();
+          }),
       label: 'letterbox-notes',
     );
   }
@@ -67,7 +69,7 @@ class LetterboxService {
       deleteBatch.delete(doc.reference);
     }
     await deleteBatch.commit();
-    
+
     // 2. Add the new note
     final data = {
       'title': 'My Favorite Number',

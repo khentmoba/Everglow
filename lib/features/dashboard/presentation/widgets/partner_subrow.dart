@@ -84,10 +84,7 @@ class _SubrowLabel extends StatelessWidget {
           height: 2,
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [
-                accent.color,
-                accent.color.withValues(alpha: 0.0),
-              ],
+              colors: [accent.color, accent.color.withValues(alpha: 0.0)],
             ),
             borderRadius: BorderRadius.circular(1),
           ),
@@ -95,7 +92,12 @@ class _SubrowLabel extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           '$label:',
-          style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: FontWeight.w800, color: accent.color, letterSpacing: 1.8),
+          style: AppTypography.outfitWhite.copyWith(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            color: accent.color,
+            letterSpacing: 1.8,
+          ),
         ),
       ],
     );
@@ -122,7 +124,12 @@ class _SubrowEmptyLine extends StatelessWidget {
       ),
       child: Text(
         message,
-        style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.65), fontStyle: FontStyle.italic, fontSize: 12, height: 1.3),
+        style: AppTypography.outfitWhite.copyWith(
+          color: AppTheme.roseQuartz.withValues(alpha: 0.65),
+          fontStyle: FontStyle.italic,
+          fontSize: 12,
+          height: 1.3,
+        ),
       ),
     );
   }

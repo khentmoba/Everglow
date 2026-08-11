@@ -13,8 +13,10 @@ class StarlightService {
         .orderBy('timestamp', descending: true)
         .limit(200)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => StarNote.fromFirestore(doc)).toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => StarNote.fromFirestore(doc)).toList(),
+        );
   }
 
   /// Stars filtered by category.
@@ -25,8 +27,10 @@ class StarlightService {
         .orderBy('timestamp', descending: true)
         .limit(100)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => StarNote.fromFirestore(doc)).toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => StarNote.fromFirestore(doc)).toList(),
+        );
   }
 
   /// Add a new star with category and tags.
@@ -84,7 +88,8 @@ class StarlightService {
       final results = <StarNote>[];
       for (final doc in snapshot.docs) {
         final note = StarNote.fromFirestore(doc);
-        if (note.timestamp.month == month && note.timestamp.day == day &&
+        if (note.timestamp.month == month &&
+            note.timestamp.day == day &&
             note.timestamp.year != now.year) {
           results.add(note);
         }
@@ -104,12 +109,16 @@ class StarlightService {
         .orderBy('timestamp', descending: true)
         .limit(200)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => StarNote.fromFirestore(doc))
-            .where((note) =>
-                note.content.toLowerCase().contains(lowerQuery) ||
-                note.tags.any((t) => t.toLowerCase().contains(lowerQuery)))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => StarNote.fromFirestore(doc))
+              .where(
+                (note) =>
+                    note.content.toLowerCase().contains(lowerQuery) ||
+                    note.tags.any((t) => t.toLowerCase().contains(lowerQuery)),
+              )
+              .toList(),
+        );
   }
 
   /// Delete a star note.

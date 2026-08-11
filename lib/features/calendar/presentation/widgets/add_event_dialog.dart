@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';import 'package:everglow/core/theme/app_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'package:provider/provider.dart';
 import '../../domain/models/calendar_event.dart';
@@ -102,7 +103,10 @@ class _AddEventDialogState extends State<AddEventDialog> {
               const SizedBox(height: 4),
               Text(
                 dayLabel,
-                style: AppTypography.outfitWhite.copyWith(fontSize: 13, color: AppTheme.blushGold),
+                style: AppTypography.outfitWhite.copyWith(
+                  fontSize: 13,
+                  color: AppTheme.blushGold,
+                ),
               ),
               const SizedBox(height: 20),
 
@@ -135,9 +139,15 @@ class _AddEventDialogState extends State<AddEventDialog> {
                       ),
                       child: Text(
                         "${info.$1} ${info.$2}",
-                        style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, color: isSelected
+                        style: AppTypography.outfitWhite.copyWith(
+                          fontSize: 12,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.w500,
+                          color: isSelected
                               ? AppTheme.petalWhite
-                              : AppTheme.petalWhite.withValues(alpha: 0.7)),
+                              : AppTheme.petalWhite.withValues(alpha: 0.7),
+                        ),
                       ),
                     ),
                   );
@@ -149,10 +159,14 @@ class _AddEventDialogState extends State<AddEventDialog> {
               // ── Title ──
               TextField(
                 controller: _titleController,
-                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
+                style: AppTypography.outfitWhite.copyWith(
+                  color: AppTheme.petalWhite,
+                ),
                 decoration: InputDecoration(
                   hintText: "Event title",
-                  hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.65)),
+                  hintStyle: AppTypography.outfitWhite.copyWith(
+                    color: AppTheme.petalWhite.withValues(alpha: 0.65),
+                  ),
                   filled: true,
                   fillColor: AppTheme.twilight,
                   border: OutlineInputBorder(
@@ -174,10 +188,14 @@ class _AddEventDialogState extends State<AddEventDialog> {
               TextField(
                 controller: _descController,
                 maxLines: 2,
-                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
+                style: AppTypography.outfitWhite.copyWith(
+                  color: AppTheme.petalWhite,
+                ),
                 decoration: InputDecoration(
                   hintText: "Description (optional)",
-                  hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.65)),
+                  hintStyle: AppTypography.outfitWhite.copyWith(
+                    color: AppTheme.petalWhite.withValues(alpha: 0.65),
+                  ),
                   filled: true,
                   fillColor: AppTheme.twilight,
                   border: OutlineInputBorder(
@@ -200,7 +218,10 @@ class _AddEventDialogState extends State<AddEventDialog> {
                 children: [
                   Text(
                     "Repeat",
-                    style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.petalWhite.withValues(alpha: 0.75)),
+                    style: AppTypography.outfitWhite.copyWith(
+                      fontSize: 12,
+                      color: AppTheme.petalWhite.withValues(alpha: 0.75),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -218,12 +239,12 @@ class _AddEventDialogState extends State<AddEventDialog> {
                         isExpanded: true,
                         dropdownColor: AppTheme.twilight,
                         underline: const SizedBox(),
-                        style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 13),
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: AppTheme.petalWhite,
+                          fontSize: 13,
+                        ),
                         items: const [
-                          DropdownMenuItem(
-                            value: 'none',
-                            child: Text('None'),
-                          ),
+                          DropdownMenuItem(value: 'none', child: Text('None')),
                           DropdownMenuItem(
                             value: 'monthly',
                             child: Text('Monthly'),
@@ -252,20 +273,23 @@ class _AddEventDialogState extends State<AddEventDialog> {
                     onPressed: () => Navigator.pop(context),
                     child: Text(
                       "Cancel",
-                      style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
+                      style: AppTypography.outfitWhite.copyWith(
+                        color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton(
-                    onPressed: _titleController.text.trim().isNotEmpty &&
-                            !_isSaving
+                    onPressed:
+                        _titleController.text.trim().isNotEmpty && !_isSaving
                         ? _save
                         : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.deepRose,
                       foregroundColor: AppTheme.petalWhite,
-                      disabledBackgroundColor:
-                          AppTheme.deepRose.withValues(alpha: 0.3),
+                      disabledBackgroundColor: AppTheme.deepRose.withValues(
+                        alpha: 0.3,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(24),
                       ),
@@ -285,8 +309,9 @@ class _AddEventDialogState extends State<AddEventDialog> {
                           )
                         : Text(
                             "Save",
-                            style:
-                                AppTypography.outfitWhite.copyWith(fontWeight: FontWeight.bold),
+                            style: AppTypography.outfitWhite.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                   ),
                 ],

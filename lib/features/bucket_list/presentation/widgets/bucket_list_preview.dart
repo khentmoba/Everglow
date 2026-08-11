@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';import 'package:go_router/go_router.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import '../../data/models/bucket_item.dart';
 import '../../data/services/bucket_list_service.dart';
@@ -24,7 +25,9 @@ class BucketListPreview extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
+                  color: AppTheme.moonlight.withValues(
+                    alpha: AppTheme.glassOpacity,
+                  ),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: AppTheme.blushGold.withValues(alpha: 0.15),
@@ -37,7 +40,10 @@ class BucketListPreview extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'Your bucket list is empty — add your first dream!',
-                        style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.petalWhite.withValues(alpha: 0.6)),
+                        style: AppTypography.outfitWhite.copyWith(
+                          fontSize: 12,
+                          color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                        ),
                       ),
                     ),
                     Icon(
@@ -52,7 +58,9 @@ class BucketListPreview extends StatelessWidget {
           );
         }
 
-        final completed = all.where((i) => i.status == BucketStatus.completed).length;
+        final completed = all
+            .where((i) => i.status == BucketStatus.completed)
+            .length;
         final total = all.length;
         final progress = total > 0 ? completed / total : 0.0;
         final recentWishes = all
@@ -65,12 +73,15 @@ class BucketListPreview extends StatelessWidget {
           child: GestureDetector(
             onTap: () => context.push('/bucket-list'),
             child: Semantics(
-              label: 'Bucket List: $completed of $total dreams fulfilled. Tap to open.',
+              label:
+                  'Bucket List: $completed of $total dreams fulfilled. Tap to open.',
               button: true,
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
+                  color: AppTheme.moonlight.withValues(
+                    alpha: AppTheme.glassOpacity,
+                  ),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: AppTheme.blushGold.withValues(alpha: 0.15),
@@ -91,13 +102,14 @@ class BucketListPreview extends StatelessWidget {
                               CircularProgressIndicator(
                                 value: progress,
                                 strokeWidth: 3,
-                                backgroundColor: AppTheme.petalWhite.withValues(alpha: 0.1),
-                                valueColor: AlwaysStoppedAnimation(AppTheme.blushGold),
+                                backgroundColor: AppTheme.petalWhite.withValues(
+                                  alpha: 0.1,
+                                ),
+                                valueColor: AlwaysStoppedAnimation(
+                                  AppTheme.blushGold,
+                                ),
                               ),
-                              Text(
-                                '🌟',
-                                style: const TextStyle(fontSize: 16),
-                              ),
+                              Text('🌟', style: const TextStyle(fontSize: 16)),
                             ],
                           ),
                         ),
@@ -108,11 +120,18 @@ class BucketListPreview extends StatelessWidget {
                             children: [
                               Text(
                                 'Our Bucket List',
-                                style: AppTypography.cormorantBold.copyWith(fontSize: 18),
+                                style: AppTypography.cormorantBold.copyWith(
+                                  fontSize: 18,
+                                ),
                               ),
                               Text(
                                 '$completed of $total dreams fulfilled',
-                                style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: AppTheme.petalWhite.withValues(alpha: 0.6)),
+                                style: AppTypography.outfitWhite.copyWith(
+                                  fontSize: 11,
+                                  color: AppTheme.petalWhite.withValues(
+                                    alpha: 0.6,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -125,23 +144,33 @@ class BucketListPreview extends StatelessWidget {
                     ),
                     if (recentWishes.isNotEmpty) ...[
                       const SizedBox(height: 12),
-                      ...recentWishes.map((item) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Row(
-                          children: [
-                            Text(item.category.emoji, style: const TextStyle(fontSize: 12)),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                item.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.petalWhite.withValues(alpha: 0.7)),
+                      ...recentWishes.map(
+                        (item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Row(
+                            children: [
+                              Text(
+                                item.category.emoji,
+                                style: const TextStyle(fontSize: 12),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  item.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTypography.outfitWhite.copyWith(
+                                    fontSize: 12,
+                                    color: AppTheme.petalWhite.withValues(
+                                      alpha: 0.7,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      )),
+                      ),
                     ],
                   ],
                 ),

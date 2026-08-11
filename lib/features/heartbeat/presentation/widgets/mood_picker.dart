@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/theme/app_typography.dart';
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/core/theme/app_colors.dart';
+import 'package:everglow/core/theme/app_radius.dart';
 import '../controllers/mood_controller.dart';
 import 'heart_emoji.dart';
 import '../../../../services/auth_service.dart';
@@ -30,14 +32,29 @@ class MoodPicker extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         decoration: BoxDecoration(
-          color: AppTheme.velvet.withValues(alpha: 0.95),
-          borderRadius: BorderRadius.circular(40),
-          border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.3), width: 1.5),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppColors.velvet.withValues(alpha: 0.95),
+              AppColors.inkDeep.withValues(alpha: 0.95),
+            ],
+          ),
+          borderRadius: AppRadius.radiusX3,
+          border: Border.all(
+            color: AppColors.auroraGold.withValues(alpha: 0.4),
+            width: 1.5,
+          ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.deepRose.withValues(alpha: 0.2),
+              color: AppColors.deepRose.withValues(alpha: 0.3),
               blurRadius: 30,
               spreadRadius: 5,
+            ),
+            BoxShadow(
+              color: AppColors.auroraGold.withValues(alpha: 0.15),
+              blurRadius: 40,
+              spreadRadius: -6,
             ),
           ],
         ),
@@ -48,7 +65,10 @@ class MoodPicker extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
                 'How is your heart today?',
-                style: AppTypography.cormorantBold.copyWith(fontSize: 16, letterSpacing: 0.5),
+                style: AppTypography.cormorantBold.copyWith(
+                  fontSize: 16,
+                  letterSpacing: 0.5,
+                ),
               ),
             ),
             Row(
@@ -72,7 +92,7 @@ class MoodPicker extends StatelessWidget {
                         SnackBar(
                           content: Text(
                             'Sending your love to $partnerName...',
-                    style: AppTypography.outfitWhite,
+                            style: AppTypography.outfitWhite,
                           ),
                           backgroundColor: AppTheme.deepRose,
                           behavior: SnackBarBehavior.floating,

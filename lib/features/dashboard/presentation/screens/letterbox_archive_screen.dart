@@ -1,8 +1,11 @@
-import 'package:flutter/material.dart';import 'package:go_router/go_router.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/core/theme/app_colors.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_error_state.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_empty_state.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_skeleton.dart';
+import 'package:everglow/shared/widgets/everglow/everglow_background.dart';
 import '../../domain/models/hidden_note.dart';
 import '../../data/services/letterbox_service.dart';
 import '../widgets/note_dialog.dart';
@@ -30,16 +33,16 @@ class _LetterArchiveSearchDelegate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.twilight,
+      backgroundColor: AppColors.inkDeep,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text(
-          'Search Letters',
-          style: AppTypography.cormorantBold,
-        ),
+        title: Text('Search Letters', style: AppTypography.cormorantBold),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.roseQuartz),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: AppTheme.roseQuartz,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -70,12 +73,15 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.twilight,
+      backgroundColor: AppColors.inkDeep,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.roseQuartz),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: AppTheme.roseQuartz,
+          ),
           onPressed: () => context.go('/dashboard'),
         ),
         title: Text(
@@ -89,109 +95,159 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // Filter chips
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _LetterFilter.values.map((f) {
-                  final isSelected = _filter == f;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      selected: isSelected,
-                      label: Text(
-                        f.label,
-                        style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, color: isSelected ? AppTheme.petalWhite : AppTheme.roseQuartz),
-                      ),
-                      selectedColor: AppTheme.deepRose.withValues(alpha: 0.4),
-                      backgroundColor: AppTheme.velvet.withValues(alpha: 0.5),
-                      side: BorderSide(
-                        color: isSelected
-                            ? AppTheme.blushGold.withValues(alpha: 0.5)
-                            : AppTheme.moonlight.withValues(alpha: 0.15),
-                      ),
-                      onSelected: (_) => setState(() => _filter = f),
-                    ),
-                  );
-                }).toList(),
-              ),
+          Positioned.fill(
+            child: EverglowBackground(
+              baseColor: AppColors.inkDeep,
+              glows: const [
+                RadialGlow(
+                  color: AppColors.auroraGold,
+                  alignment: Alignment(-0.7, -0.9),
+                  size: 0.9,
+                  opacity: 0.10,
+                ),
+                RadialGlow(
+                  color: AppColors.softLavender,
+                  alignment: Alignment(0.9, 0.8),
+                  size: 0.7,
+                  opacity: 0.10,
+                ),
+              ],
+              showPetals: true,
             ),
           ),
+          Column(
+            children: [
+              // Filter chips
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: _LetterFilter.values.map((f) {
+                      final isSelected = _filter == f;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          selected: isSelected,
+                          label: Text(
+                            f.label,
+                            style: AppTypography.outfitWhite.copyWith(
+                              fontSize: 12,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
+                              color: isSelected
+                                  ? AppTheme.petalWhite
+                                  : AppTheme.roseQuartz,
+                            ),
+                          ),
+                          selectedColor: AppTheme.deepRose.withValues(
+                            alpha: 0.4,
+                          ),
+                          backgroundColor: AppTheme.velvet.withValues(
+                            alpha: 0.5,
+                          ),
+                          side: BorderSide(
+                            color: isSelected
+                                ? AppTheme.blushGold.withValues(alpha: 0.5)
+                                : AppTheme.moonlight.withValues(alpha: 0.15),
+                          ),
+                          onSelected: (_) => setState(() => _filter = f),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
 
-          // Letter list
-          Expanded(
-            child: StreamBuilder<List<HiddenNote>>(
-              stream: _service.notes,
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return EverglowErrorState(
-                    message: 'Could not load letters',
-                    onRetry: () => setState(() {}),
-                    icon: Icons.mail_outline_rounded,
-                  );
-                }
+              // Letter list
+              Expanded(
+                child: StreamBuilder<List<HiddenNote>>(
+                  stream: _service.notes,
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return EverglowErrorState(
+                        message: 'Could not load letters',
+                        onRetry: () => setState(() {}),
+                        icon: Icons.mail_outline_rounded,
+                      );
+                    }
 
-                if (!snapshot.hasData) {
-                  return ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: 5,
-                    itemBuilder: (_, _) => const Padding(
-                      padding: EdgeInsets.only(bottom: 12),
-                      child: EverglowSkeleton(width: double.infinity, height: 80, radius: 16),
-                    ),
-                  );
-                }
+                    if (!snapshot.hasData) {
+                      return ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: 5,
+                        itemBuilder: (_, _) => const Padding(
+                          padding: EdgeInsets.only(bottom: 12),
+                          child: EverglowSkeleton(
+                            width: double.infinity,
+                            height: 80,
+                            radius: 16,
+                          ),
+                        ),
+                      );
+                    }
 
-                var notes = snapshot.data!;
+                    var notes = snapshot.data!;
 
-                // Apply filter
-                notes = notes.where((n) {
-                  switch (_filter) {
-                    case _LetterFilter.locked:
-                      return !n.isUnlocked;
-                    case _LetterFilter.unread:
-                      return n.isUnlocked && !n.isRead;
-                    case _LetterFilter.read:
-                      return n.isRead;
-                    case _LetterFilter.all:
-                      return true;
-                  }
-                }).toList();
+                    // Apply filter
+                    notes = notes.where((n) {
+                      switch (_filter) {
+                        case _LetterFilter.locked:
+                          return !n.isUnlocked;
+                        case _LetterFilter.unread:
+                          return n.isUnlocked && !n.isRead;
+                        case _LetterFilter.read:
+                          return n.isRead;
+                        case _LetterFilter.all:
+                          return true;
+                      }
+                    }).toList();
 
-                // Apply search
-                if (_searchQuery.isNotEmpty) {
-                  final q = _searchQuery.toLowerCase();
-                  notes = notes.where((n) =>
-                      n.title.toLowerCase().contains(q) ||
-                      n.content.toLowerCase().contains(q)).toList();
-                }
+                    // Apply search
+                    if (_searchQuery.isNotEmpty) {
+                      final q = _searchQuery.toLowerCase();
+                      notes = notes
+                          .where(
+                            (n) =>
+                                n.title.toLowerCase().contains(q) ||
+                                n.content.toLowerCase().contains(q),
+                          )
+                          .toList();
+                    }
 
-                if (notes.isEmpty) {
-                  return EverglowEmptyState(
-                    icon: Icons.mail_outline_rounded,
-                    title: _filter == _LetterFilter.all
-                        ? 'No letters yet'
-                        : 'No ${_filter.label.toLowerCase()} letters',
-                    subtitle: 'Check back later! 🌸',
-                  );
-                }
+                    if (notes.isEmpty) {
+                      return EverglowEmptyState(
+                        icon: Icons.mail_outline_rounded,
+                        title: _filter == _LetterFilter.all
+                            ? 'No letters yet'
+                            : 'No ${_filter.label.toLowerCase()} letters',
+                        subtitle: 'Check back later! 🌸',
+                      );
+                    }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  itemCount: notes.length,
-                  itemBuilder: (context, index) {
-                    return _LetterListTile(
-                      note: notes[index],
-                      onTap: () => _openNote(notes[index]),
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      itemCount: notes.length,
+                      itemBuilder: (context, index) {
+                        return _LetterListTile(
+                          note: notes[index],
+                          onTap: () => _openNote(notes[index]),
+                        );
+                      },
                     );
                   },
-                );
-              },
-            ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -262,8 +318,8 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
     final countdown = diff.inDays > 0
         ? '${diff.inDays} day${diff.inDays == 1 ? '' : 's'}'
         : diff.inHours > 0
-            ? '${diff.inHours} hour${diff.inHours == 1 ? '' : 's'}'
-            : 'soon';
+        ? '${diff.inHours} hour${diff.inHours == 1 ? '' : 's'}'
+        : 'soon';
 
     showDialog(
       context: context,
@@ -278,12 +334,18 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.lock_outline, size: 48, color: AppTheme.blushGold.withValues(alpha: 0.7)),
+            Icon(
+              Icons.lock_outline,
+              size: 48,
+              color: AppTheme.blushGold.withValues(alpha: 0.7),
+            ),
             const SizedBox(height: 16),
             Text(
               'This letter will unlock in $countdown.',
               textAlign: TextAlign.center,
-              style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.8)),
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppTheme.petalWhite.withValues(alpha: 0.8),
+              ),
             ),
           ],
         ),
@@ -292,7 +354,10 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
             onPressed: () => Navigator.pop(context),
             child: Text(
               'I\'ll wait 🌸',
-              style: AppTypography.outfitWhite.copyWith(color: AppTheme.blushGold, fontWeight: FontWeight.bold),
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppTheme.blushGold,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -339,7 +404,9 @@ class _LetterListTile extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: unlocked
-                      ? (isNew ? AppTheme.deepRose.withValues(alpha: 0.3) : AppTheme.velvet)
+                      ? (isNew
+                            ? AppTheme.deepRose.withValues(alpha: 0.3)
+                            : AppTheme.velvet)
                       : AppTheme.blushGold.withValues(alpha: 0.15),
                 ),
                 child: Icon(
@@ -362,18 +429,25 @@ class _LetterListTile extends StatelessWidget {
                       note.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppTypography.outfitWhite.copyWith(fontSize: 14, fontWeight: isNew ? FontWeight.bold : FontWeight.w500, color: AppTheme.petalWhite),
+                      style: AppTypography.outfitWhite.copyWith(
+                        fontSize: 14,
+                        fontWeight: isNew ? FontWeight.bold : FontWeight.w500,
+                        color: AppTheme.petalWhite,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       unlocked
                           ? (note.content.length > 60
-                              ? '${note.content.substring(0, 60)}...'
-                              : note.content)
+                                ? '${note.content.substring(0, 60)}...'
+                                : note.content)
                           : 'Sealed until ${_formatDate(note.unlockDate)}',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
+                      style: AppTypography.outfitWhite.copyWith(
+                        fontSize: 12,
+                        color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+                      ),
                     ),
                   ],
                 ),
@@ -425,8 +499,8 @@ class _CountdownBadge extends StatelessWidget {
     final text = diff.inDays > 0
         ? '${diff.inDays}d'
         : diff.inHours > 0
-            ? '${diff.inHours}h'
-            : 'Soon';
+        ? '${diff.inHours}h'
+        : 'Soon';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -442,7 +516,11 @@ class _CountdownBadge extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             text,
-            style: AppTypography.outfitWhite.copyWith(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.blushGold),
+            style: AppTypography.outfitWhite.copyWith(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.blushGold,
+            ),
           ),
         ],
       ),

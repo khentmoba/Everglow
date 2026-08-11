@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'package:flutter/material.dart';import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:everglow/services/auth_service.dart';
 import '../services/academy_service.dart';
@@ -8,6 +9,8 @@ import 'package:go_router/go_router.dart';
 import 'package:everglow/core/router/app_router.dart';
 import '../services/academy_sync_service.dart';
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/core/theme/app_colors.dart';
+import 'package:everglow/shared/widgets/everglow/everglow_feature_header.dart';
 import 'package:everglow/core/theme/app_radius.dart';
 import 'package:everglow/core/theme/app_spacing.dart';
 import 'package:everglow/core/theme/app_motion.dart';
@@ -31,8 +34,10 @@ class AcademyHubScreen extends StatefulWidget {
         const begin = Offset(0.0, 1.0);
         const end = Offset.zero;
         const curve = Curves.easeInOut;
-        var slideTween =
-            Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+        var slideTween = Tween(
+          begin: begin,
+          end: end,
+        ).chain(CurveTween(curve: curve));
         var fadeTween = Tween<double>(begin: 0.0, end: 1.0);
         return FadeTransition(
           opacity: animation.drive(fadeTween),
@@ -107,13 +112,13 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
             .doc(match.matchId)
             .snapshots()
             .listen((snapshot) {
-          if (!mounted) return;
-          final updatedMatch = GameMatch.fromFirestore(snapshot);
-          if (updatedMatch.status == 'active') {
-            _timeoutTimer?.cancel();
-            _goToGame(updatedMatch);
-          }
-        });
+              if (!mounted) return;
+              final updatedMatch = GameMatch.fromFirestore(snapshot);
+              if (updatedMatch.status == 'active') {
+                _timeoutTimer?.cancel();
+                _goToGame(updatedMatch);
+              }
+            });
       }
     } catch (e) {
       if (mounted) {
@@ -150,24 +155,29 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
         ),
         content: Text(
           'We couldn\'t find a partner for you right now. Would you like to play Solo instead?',
-          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.8)),
+          style: AppTypography.outfitWhite.copyWith(
+            color: AppTheme.petalWhite.withValues(alpha: 0.8),
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Cancel',
-              style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+              ),
             ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.deepRose,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.deepRose),
             child: Text(
               'Play Solo',
-              style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontWeight: FontWeight.bold),
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppTheme.petalWhite,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -274,23 +284,11 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.xl),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(
-                        Icons.arrow_back_ios,
-                        color: AppTheme.roseQuartz,
-                      ),
-                    ),
-                    Text(
-                      'Academy Hub',
-                      style: AppTypography.cormorantBold.copyWith(fontSize: 28),
-                    ),
-                  ],
-                ),
+              const EverglowFeatureHeader(
+                title: 'Academy Hub',
+                subtitle: 'play, learn, compete',
+                icon: Icons.school_rounded,
+                hue: AppColors.softLavender,
               ),
               Expanded(
                 child: Center(
@@ -306,7 +304,9 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
                           const SizedBox(height: AppSpacing.xl),
                           Text(
                             _statusMessage ?? '',
-                            style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz),
+                            style: AppTypography.outfitWhite.copyWith(
+                              color: AppTheme.roseQuartz,
+                            ),
                           ),
                           const SizedBox(height: AppSpacing.xl),
                           TextButton(
@@ -314,7 +314,9 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
                                 setState(() => _isSearching = false),
                             child: Text(
                               'Cancel Search',
-                              style: AppTypography.outfitWhite.copyWith(color: AppTheme.blushGold),
+                              style: AppTypography.outfitWhite.copyWith(
+                                color: AppTheme.blushGold,
+                              ),
                             ),
                           ),
                         ] else ...[
@@ -323,7 +325,8 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
                             'Practice on your own',
                             Icons.menu_book_rounded,
                             () => _showCategoryPicker(
-                                _startSoloStudyWithCategory),
+                              _startSoloStudyWithCategory,
+                            ),
                           ),
                           const SizedBox(height: AppSpacing.x2),
                           _buildModeButton(
@@ -336,7 +339,9 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
                             const SizedBox(height: AppSpacing.xl),
                             Text(
                               _statusMessage!,
-                              style: AppTypography.outfitWhite.copyWith(color: AppTheme.blushGold),
+                              style: AppTypography.outfitWhite.copyWith(
+                                color: AppTheme.blushGold,
+                              ),
                             ),
                           ],
                         ],
@@ -383,7 +388,10 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
                   ),
                   Text(
                     subtitle,
-                    style: AppTypography.outfitWhite.copyWith(fontSize: 13, color: AppTheme.petalWhite.withValues(alpha: 0.75)),
+                    style: AppTypography.outfitWhite.copyWith(
+                      fontSize: 13,
+                      color: AppTheme.petalWhite.withValues(alpha: 0.75),
+                    ),
                   ),
                 ],
               ),
@@ -467,10 +475,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet>
         );
 
         _slideAnimations.add(
-          Tween<Offset>(
-            begin: const Offset(0, 0.15),
-            end: Offset.zero,
-          ).animate(
+          Tween<Offset>(begin: const Offset(0, 0.15), end: Offset.zero).animate(
             CurvedAnimation(
               parent: _animController,
               curve: Interval(start, end, curve: AppMotion.easeOutExpo),
@@ -584,15 +589,13 @@ class _CategoryCardState extends State<_CategoryCard>
       duration: AppMotion.fast,
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: AppMotion.pressScale,
-    ).animate(
-      CurvedAnimation(
-        parent: _pressController,
-        curve: AppMotion.easeOutStrong,
-      ),
-    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: AppMotion.pressScale)
+        .animate(
+          CurvedAnimation(
+            parent: _pressController,
+            curve: AppMotion.easeOutStrong,
+          ),
+        );
   }
 
   @override
@@ -616,10 +619,7 @@ class _CategoryCardState extends State<_CategoryCard>
         child: AnimatedBuilder(
           animation: _scaleAnimation,
           builder: (context, child) {
-            return Transform.scale(
-              scale: _scaleAnimation.value,
-              child: child,
-            );
+            return Transform.scale(scale: _scaleAnimation.value, child: child);
           },
           child: AnimatedContainer(
             duration: AppMotion.fast,
@@ -635,9 +635,7 @@ class _CategoryCardState extends State<_CategoryCard>
                     : AppTheme.moonlight.withValues(alpha: 0.12),
                 width: 1.0,
               ),
-              boxShadow: _isHovered
-                  ? AppElevation.glowRose
-                  : AppElevation.e1,
+              boxShadow: _isHovered ? AppElevation.glowRose : AppElevation.e1,
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -662,9 +660,12 @@ class _CategoryCardState extends State<_CategoryCard>
                 const SizedBox(height: AppSpacing.sm),
                 Text(
                   widget.data.label,
-                  style: AppTypography.outfitBold.copyWith(fontSize: 13, color: _isHovered
+                  style: AppTypography.outfitBold.copyWith(
+                    fontSize: 13,
+                    color: _isHovered
                         ? AppTheme.petalWhite
-                        : AppTheme.petalWhite.withValues(alpha: 0.85)),
+                        : AppTheme.petalWhite.withValues(alpha: 0.85),
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ],

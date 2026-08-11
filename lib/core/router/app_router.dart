@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:everglow/core/theme/app_colors.dart';
+import 'package:everglow/shared/widgets/everglow/everglow_background.dart';
 
 // Model types for extra parameter casting
 import '../../features/manga/data/models/manga_item.dart';
@@ -49,17 +51,12 @@ final GoRouter appRouter = GoRouter(
   debugLogDiagnostics: false,
   routes: [
     // ── Gateway (passcode entry) ──────────────────────────
-    GoRoute(
-      path: '/',
-      builder: (_, _) => const GatewayPage(),
-    ),
+    GoRoute(path: '/', builder: (_, _) => const GatewayPage()),
 
     // ── Dashboard ─────────────────────────────────────────
     GoRoute(
       path: '/dashboard',
-      builder: (_, state) => DashboardScreen(
-        animate: state.extra == true,
-      ),
+      builder: (_, state) => DashboardScreen(animate: state.extra == true),
     ),
 
     // ── Cinema ────────────────────────────────────────────
@@ -83,10 +80,7 @@ final GoRouter appRouter = GoRouter(
     ),
 
     // ── Anime ─────────────────────────────────────────────
-    GoRoute(
-      path: '/anime',
-      builder: (_, _) => const AnimeScreen(),
-    ),
+    GoRoute(path: '/anime', builder: (_, _) => const AnimeScreen()),
 
     // ── Books ─────────────────────────────────────────────
     GoRoute(
@@ -95,18 +89,13 @@ final GoRouter appRouter = GoRouter(
       routes: [
         GoRoute(
           path: 'reader',
-          builder: (_, state) => ReaderScreen(
-            book: state.extra! as BookItem,
-          ),
+          builder: (_, state) => ReaderScreen(book: state.extra! as BookItem),
         ),
       ],
     ),
 
     // ── Our Books (couple shared) ─────────────────────────
-    GoRoute(
-      path: '/our-books',
-      builder: (_, _) => const OurBooksScreen(),
-    ),
+    GoRoute(path: '/our-books', builder: (_, _) => const OurBooksScreen()),
 
     // ── Manga ─────────────────────────────────────────────
     GoRoute(
@@ -155,9 +144,7 @@ final GoRouter appRouter = GoRouter(
         ),
         GoRoute(
           path: 'podium',
-          builder: (_, state) => PodiumScreen(
-            match: state.extra! as GameMatch,
-          ),
+          builder: (_, state) => PodiumScreen(match: state.extra! as GameMatch),
         ),
       ],
     ),
@@ -167,10 +154,7 @@ final GoRouter appRouter = GoRouter(
       path: '/play-zone',
       builder: (_, _) => const PlayZoneHubScreen(),
       routes: [
-        GoRoute(
-          path: 'tt',
-          builder: (_, _) => const TableTennisGameScreen(),
-        ),
+        GoRoute(path: 'tt', builder: (_, _) => const TableTennisGameScreen()),
         GoRoute(
           path: 'tt/lobby',
           builder: (_, _) => const TTMultiplayerLobbyScreen(),
@@ -179,10 +163,7 @@ final GoRouter appRouter = GoRouter(
     ),
 
     // ── Canvas (collaborative drawing) ────────────────────
-    GoRoute(
-      path: '/canvas',
-      builder: (_, _) => const CanvasScreen(),
-    ),
+    GoRoute(path: '/canvas', builder: (_, _) => const CanvasScreen()),
 
     // ── Letterbox Archive ─────────────────────────────────
     GoRoute(
@@ -191,56 +172,32 @@ final GoRouter appRouter = GoRouter(
     ),
 
     // ── Sanctuary (couple chat) ───────────────────────────
-    GoRoute(
-      path: '/sanctuary',
-      builder: (_, _) => const SanctuaryChatScreen(),
-    ),
+    GoRoute(path: '/sanctuary', builder: (_, _) => const SanctuaryChatScreen()),
 
     // ── Mochi AI assistant ────────────────────────────────
-    GoRoute(
-      path: '/mochi',
-      builder: (_, _) => const MochiScreen(),
-    ),
+    GoRoute(path: '/mochi', builder: (_, _) => const MochiScreen()),
 
     // ── Starlight Jar ─────────────────────────────────────
-    GoRoute(
-      path: '/starlight',
-      builder: (_, _) => const StarlightJarWidget(),
-    ),
+    GoRoute(path: '/starlight', builder: (_, _) => const _StarlightPage()),
 
     // ── Shared Garden ─────────────────────────────────────
-    GoRoute(
-      path: '/garden',
-      builder: (_, _) => const SharedGardenView(),
-    ),
+    GoRoute(path: '/garden', builder: (_, _) => const SharedGardenView()),
 
     // ── Bucket List ───────────────────────────────────────
-    GoRoute(
-      path: '/bucket-list',
-      builder: (_, _) => const BucketListScreen(),
-    ),
+    GoRoute(path: '/bucket-list', builder: (_, _) => const BucketListScreen()),
 
     // ── Memory Gallery ─────────────────────────────────────
-    GoRoute(
-      path: '/gallery',
-      builder: (_, _) => const GalleryScreen(),
-    ),
+    GoRoute(path: '/gallery', builder: (_, _) => const GalleryScreen()),
 
     // ── Shared Calendar ─────────────────────────────────────
-    GoRoute(
-      path: '/calendar',
-      builder: (_, _) => const CalendarScreen(),
-    ),
+    GoRoute(path: '/calendar', builder: (_, _) => const CalendarScreen()),
 
     // ── Watch Party ───────────────────────────────────────
     GoRoute(
       path: '/watch-party',
       builder: (_, state) {
         final args = state.extra! as WatchPartyArgs;
-        return WatchPartyScreen(
-          initialRoom: args.room,
-          isHost: args.isHost,
-        );
+        return WatchPartyScreen(initialRoom: args.room, isHost: args.isHost);
       },
     ),
   ],
@@ -252,7 +209,11 @@ final GoRouter appRouter = GoRouter(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.cloud_off_outlined, size: 64, color: Color(0xFFF4C2C2)),
+          const Icon(
+            Icons.cloud_off_outlined,
+            size: 64,
+            color: Color(0xFFF4C2C2),
+          ),
           const SizedBox(height: 24),
           Text(
             'Page not found',
@@ -300,6 +261,44 @@ class MangaReaderArgs {
     required this.chapter,
     required this.allChapters,
   });
+}
+
+/// Page shell for the standalone Starlight Jar route so it keeps the
+/// shared atmospheric background (the widget itself is also embedded
+/// directly inside the dashboard).
+class _StarlightPage extends StatelessWidget {
+  const _StarlightPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: EverglowBackground(
+              baseColor: AppColors.inkDeep,
+              glows: const [
+                RadialGlow(
+                  color: AppColors.auroraLilac,
+                  alignment: Alignment(-0.6, -0.9),
+                  size: 0.9,
+                  opacity: 0.14,
+                ),
+                RadialGlow(
+                  color: AppColors.blushGold,
+                  alignment: Alignment(0.9, 0.8),
+                  size: 0.7,
+                  opacity: 0.10,
+                ),
+              ],
+              showPetals: true,
+            ),
+          ),
+          const StarlightJarWidget(),
+        ],
+      ),
+    );
+  }
 }
 
 /// Args for SoloStudyScreen.

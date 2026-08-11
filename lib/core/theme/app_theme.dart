@@ -21,20 +21,41 @@ class AppTheme {
   // ── Re-export palette for backwards compat ─────────────────
   // These now delegate to AppColors. Existing code that references
   // `AppTheme.roseQuartz` etc. will continue to work.
-  static const Color roseQuartz   = AppColors.roseQuartz;
-  static const Color deepRose     = AppColors.deepRose;
-  static const Color blushGold    = AppColors.blushGold;
-  static const Color twilight     = AppColors.twilight;
-  static const Color velvet       = AppColors.velvet;
-  static const Color petalWhite   = AppColors.petalWhite;
+  static const Color roseQuartz = AppColors.roseQuartz;
+  static const Color deepRose = AppColors.deepRose;
+  static const Color blushGold = AppColors.blushGold;
+  static const Color twilight = AppColors.twilight;
+  static const Color velvet = AppColors.velvet;
+  static const Color petalWhite = AppColors.petalWhite;
   static const Color softLavender = AppColors.softLavender;
-  static const Color warmAmber    = AppColors.warmAmber;
-  static const Color moonlight    = AppColors.moonlight;
+  static const Color warmAmber = AppColors.warmAmber;
+  static const Color moonlight = AppColors.moonlight;
 
   // ── Gradient / glass constants ─────────────────────────────
 
   static const LinearGradient gamifiedGradient = LinearGradient(
     colors: [AppColors.twilight, AppColors.velvet, AppColors.deepRose],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  /// Rich "everglow dusk" backdrop used by the gateway and dashboards.
+  static const LinearGradient duskGradient = LinearGradient(
+    colors: [AppColors.inkDeep, AppColors.twilight, AppColors.velvet],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
+
+  /// Warm accent sweep for headers, buttons and highlight strips.
+  static const LinearGradient roseGoldGradient = LinearGradient(
+    colors: [AppColors.auroraRose, AppColors.deepRose, AppColors.blushGold],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  /// Soft moonlight-to-lavender wash for glass panels.
+  static const LinearGradient lilacWash = LinearGradient(
+    colors: [AppColors.softLavender, AppColors.moonlight],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -70,9 +91,7 @@ class AppTheme {
           backgroundColor: AppColors.deepRose,
           foregroundColor: AppColors.petalWhite,
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
-          shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.radiusX2,
-          ),
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusX2),
           textStyle: AppTypography.labelLarge(),
         ),
       ),
@@ -81,7 +100,10 @@ class AppTheme {
 
   // ── Accessibility ──────────────────────────────────────────
 
-  static bool get shouldReduceMotion =>
-      WidgetsBinding.instance.platformDispatcher.accessibilityFeatures.reduceMotion;
+  static bool get shouldReduceMotion => WidgetsBinding
+      .instance
+      .platformDispatcher
+      .accessibilityFeatures
+      .reduceMotion;
   static const double petalFieldOpacity = 0.08;
 }

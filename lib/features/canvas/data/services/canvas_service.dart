@@ -11,9 +11,11 @@ class CanvasService {
         .collection(_collection)
         .orderBy('createdAt', descending: false)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => DoodleStroke.fromFirestore(doc))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => DoodleStroke.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   Future<void> saveStroke(DoodleStroke stroke) async {
@@ -25,7 +27,7 @@ class CanvasService {
   }
 
   // --- Live Drawing Support ---
-  
+
   Future<void> updateActiveStroke(String userId, DoodleStroke stroke) async {
     await _db.collection('live_canvas').doc(userId).set(stroke.toMap());
   }
@@ -35,8 +37,14 @@ class CanvasService {
   }
 
   Stream<List<DoodleStroke>> getLiveStrokesStream() {
-    return _db.collection('live_canvas').snapshots().map((snapshot) => 
-      snapshot.docs.map((doc) => DoodleStroke.fromFirestore(doc)).toList());
+    return _db
+        .collection('live_canvas')
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => DoodleStroke.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   Future<void> clearAllStrokes() async {
@@ -49,7 +57,10 @@ class CanvasService {
   }
 
   /// Delegates to [simplifyCanvasPoints] from canvas_point_utils.dart.
-  List<Map<String, double>> simplifyPoints(List<Map<String, double>> points, {double epsilon = 0.001}) {
+  List<Map<String, double>> simplifyPoints(
+    List<Map<String, double>> points, {
+    double epsilon = 0.001,
+  }) {
     return simplifyCanvasPoints(points, epsilon: epsilon);
   }
 }

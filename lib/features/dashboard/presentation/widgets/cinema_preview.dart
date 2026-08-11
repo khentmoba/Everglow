@@ -195,10 +195,7 @@ class _CinemaShelfState extends State<_CinemaShelf> {
           ),
         );
       }
-      return SizedBox(
-        height: 168,
-        child: ShelfMarquee(children: cards),
-      );
+      return SizedBox(height: 168, child: ShelfMarquee(children: cards));
     }
     return PartnerSubrow(
       label: widget.label!,

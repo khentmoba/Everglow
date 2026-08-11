@@ -1,11 +1,19 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
+import 'package:everglow/core/theme/app_motion.dart';
+import 'package:everglow/core/theme/app_colors.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
+/// The Everglow entry door.
+///
+/// An arched double-tone door with carved bevels, a brass lever and a
+/// keyhole escutcheon. It breathes softly on the gateway, then swings
+/// open with a shaft of light when the passcode unlocks.
 class AnimatedDoor extends StatefulWidget {
   final bool isUnlocked;
   final bool isError;
   final bool isRevealing;
+  final bool isLoaded;
   final Widget? keypad;
   final VoidCallback? onEntranceComplete;
 
@@ -14,6 +22,7 @@ class AnimatedDoor extends StatefulWidget {
     this.isUnlocked = false,
     this.isError = false,
     this.isRevealing = false,
+    this.isLoaded = false,
     this.keypad,
     this.onEntranceComplete,
   });
@@ -22,63 +31,62 @@ class AnimatedDoor extends StatefulWidget {
   State<AnimatedDoor> createState() => _AnimatedDoorState();
 }
 
-class _AnimatedDoorState extends State<AnimatedDoor> with TickerProviderStateMixin {
-  late AnimationController _entranceController;
-  late AnimationController _swingController;
-  late AnimationController _handleController;
-  late AnimationController _zoomController;
-  
-  late Animation<double> _entranceAnimation;
-  late Animation<double> _swingAnimation;
-  late Animation<double> _handleAnimation;
-  late Animation<double> _zoomAnimation;
+class _AnimatedDoorState extends State<AnimatedDoor>
+    with TickerProviderStateMixin {
+  late final AnimationController _entranceController;
+  late final AnimationController _swingController;
+  late final AnimationController _handleController;
+  late final AnimationController _zoomController;
+  late final AnimationController _breatheController;
+
+  late final Animation<double> _entrance;
+  late final Animation<double> _swing;
+  late final Animation<double> _handle;
+  late final Animation<double> _zoom;
 
   @override
   void initState() {
     super.initState();
-    
     _entranceController = AnimationController(
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1400),
       vsync: this,
     );
-
     _swingController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1700),
       vsync: this,
     );
-
     _handleController = AnimationController(
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 700),
       vsync: this,
     );
-
     _zoomController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 1100),
       vsync: this,
     );
+    _breatheController = AnimationController(
+      duration: const Duration(seconds: 3),
+      vsync: this,
+    )..repeat(reverse: true);
 
-    _entranceAnimation = CurvedAnimation(
+    _entrance = CurvedAnimation(
       parent: _entranceController,
-      curve: Curves.elasticOut,
+      curve: AppMotion.orLinear(const Cubic(0.16, 1.0, 0.3, 1.0)),
     );
-
-    _swingAnimation = CurvedAnimation(
+    _swing = CurvedAnimation(
       parent: _swingController,
-      curve: Curves.easeInOutCubic,
+      curve: AppMotion.orLinear(Curves.easeInOutCubic),
     );
-
-    _handleAnimation = CurvedAnimation(
+    _handle = CurvedAnimation(
       parent: _handleController,
-      curve: Curves.bounceOut,
+      curve: AppMotion.orLinear(const Cubic(0.34, 1.56, 0.64, 1.0)),
     );
-
-    _zoomAnimation = CurvedAnimation(
+    _zoom = CurvedAnimation(
       parent: _zoomController,
-      curve: Curves.easeInQuint,
+      curve: AppMotion.orLinear(Curves.easeInQuint),
     );
 
     _entranceController.forward().then((_) {
-      if (widget.onEntranceComplete != null) {
+      if (mounted && widget.onEntranceComplete != null) {
         widget.onEntranceComplete!();
       }
     });
@@ -97,7 +105,7 @@ class _AnimatedDoorState extends State<AnimatedDoor> with TickerProviderStateMix
 
   Future<void> _unlockSequence() async {
     await _handleController.forward();
-    await Future.delayed(const Duration(milliseconds: 200));
+    await Future.delayed(const Duration(milliseconds: 180));
     await _swingController.forward();
   }
 
@@ -107,67 +115,133 @@ class _AnimatedDoorState extends State<AnimatedDoor> with TickerProviderStateMix
     _swingController.dispose();
     _handleController.dispose();
     _zoomController.dispose();
+    _breatheController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final viewport = MediaQuery.sizeOf(context);
+    final scale = math.min(
+      1.0,
+      math.min((viewport.width - 24) / 330, (viewport.height - 48) / 560),
+    );
     return RepaintBoundary(
       child: AnimatedBuilder(
-      animation: Listenable.merge([_entranceAnimation, _swingAnimation, _zoomAnimation]),
-      builder: (context, child) {
-        final zoomScale = 1.0 + (4.0 * _zoomAnimation.value);
-        return Transform.scale(
-          scale: (0.8 + (0.2 * _entranceAnimation.value)) * zoomScale,
-          child: Opacity(
-            opacity: (_entranceAnimation.value * (1.0 - _zoomAnimation.value)).clamp(0.0, 1.0),
-            child: Center(
-              child: SizedBox(
-                width: 300,
-                height: 500,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    // Light Bloom behind the door
-                    if (widget.isUnlocked)
-                      _buildLightBloom(),
-                    
-                    // Door Frame (Shadow/Depth)
-                    _buildDoorFrame(),
-                    
-                    // The Swinging Door Panel
-                    Transform(
-                      alignment: Alignment.centerLeft,
-                      transform: Matrix4.identity()
-                        ..setEntry(3, 2, 0.001) // Perspective
-                        ..rotateY(-math.pi / 2 * _swingAnimation.value),
-                      child: _buildDoorPanel(),
-                    ),
-                  ],
+        animation: Listenable.merge([
+          _entranceController,
+          _swingController,
+          _zoomController,
+          _breatheController,
+        ]),
+        builder: (context, _) {
+          final zoomScale = 1.0 + (4.0 * _zoom.value);
+          final breathe = 1.0 + (0.012 * _breatheController.value);
+          final entranceBounce = 0.92 + (0.08 * _entrance.value);
+
+          return Transform.scale(
+            scale: entranceBounce * zoomScale * breathe,
+            child: Opacity(
+              opacity: (_entrance.value * (1.0 - _zoom.value)).clamp(0.0, 1.0),
+              child: Transform.scale(
+                scale: scale,
+                child: SizedBox(
+                  width: 330,
+                  height: 560,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.center,
+                    children: [
+                      // Soft halo behind the whole door.
+                      _buildHalo(),
+                      // Twinkling sparkles.
+                      _buildSparkles(),
+                      // Light that pours out while the door swings open.
+                      if (widget.isUnlocked) _buildLightBloom(),
+                      // The frame stays put while the panel swings.
+                      _buildDoorFrame(),
+                      // The swinging panel.
+                      Transform(
+                        alignment: Alignment.centerLeft,
+                        transform: Matrix4.identity()
+                          ..setEntry(3, 2, 0.001)
+                          ..rotateY(-math.pi / 2 * _swing.value),
+                        child: _buildDoorPanel(),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ── Layers ────────────────────────────────────────────────────────────────
+
+  Widget _buildHalo() {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.deepRose.withValues(
+                  alpha: 0.22 + (0.08 * _breatheController.value),
+                ),
+                blurRadius: 90,
+                spreadRadius: 24,
+              ),
+              BoxShadow(
+                color: AppColors.blushGold.withValues(alpha: 0.10),
+                blurRadius: 140,
+                spreadRadius: 40,
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSparkles() {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: CustomPaint(
+          painter: _SparklePainter(progress: _breatheController.value),
+        ),
       ),
     );
   }
 
   Widget _buildLightBloom() {
     return AnimatedBuilder(
-      animation: _swingAnimation,
-      builder: (context, child) {
+      animation: _swingController,
+      builder: (context, _) {
+        final t = _swing.value;
         return Center(
           child: Container(
-            width: 250 * _swingAnimation.value,
-            height: 450 * _swingAnimation.value,
+            width: 300 * (0.35 + (0.65 * t)),
+            height: 560 * (0.45 + (0.55 * t)),
             decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment(0.2, 0),
+                radius: 0.9,
+                colors: [
+                  AppColors.blushGold.withValues(alpha: 0.85 * t),
+                  AppColors.auroraRose.withValues(alpha: 0.35 * t),
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.45, 1.0],
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.white.withValues(alpha: 0.8 * _swingAnimation.value),
-                  blurRadius: 50,
-                  spreadRadius: 20,
+                  color: AppColors.petalWhite.withValues(alpha: 0.5 * t),
+                  blurRadius: 70,
+                  spreadRadius: 30,
                 ),
               ],
             ),
@@ -178,80 +252,135 @@ class _AnimatedDoorState extends State<AnimatedDoor> with TickerProviderStateMix
   }
 
   Widget _buildDoorFrame() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.twilight,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.velvet, width: 8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 25,
-            spreadRadius: 5,
+    return Positioned.fill(
+      child: ClipPath(
+        clipper: const _ArchClipper(),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                AppColors.blushGold.withValues(alpha: 0.9),
+                AppColors.velvet,
+                AppColors.twilight,
+              ],
+              stops: const [0.0, 0.28, 1.0],
+            ),
           ),
-        ],
+          child: Padding(
+            padding: const EdgeInsets.all(7),
+            child: ClipPath(
+              clipper: const _ArchClipper(),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [AppColors.inkDeep, AppColors.twilight],
+                  ),
+                  border: Border.all(
+                    color: AppColors.moonlight.withValues(alpha: 0.22),
+                    width: 1.2,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildDoorPanel() {
-    return Container(
-      decoration: BoxDecoration(
-        color: widget.isError ? Colors.red[900] : AppTheme.velvet,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.moonlight.withValues(alpha: 0.2), width: 2),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            widget.isError ? Colors.red[800]! : AppTheme.velvet,
-            widget.isError ? Colors.red[950]! : AppTheme.twilight,
-          ],
-          stops: [0.0, 1.0 - (0.5 * _swingAnimation.value)],
+    final error = widget.isError;
+    return SizedBox(
+      width: 316,
+      height: 546,
+      child: ClipPath(
+        clipper: const _ArchClipper(),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                if (error) ...[
+                  AppColors.error.withValues(alpha: 0.75),
+                  AppColors.deepRose.withValues(alpha: 0.9),
+                ] else ...[
+                  AppColors.velvet,
+                  AppColors.twilight,
+                ],
+              ],
+              stops: [0.0, 1.0 - (0.45 * _swing.value)],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(
+                  alpha: 0.55 - (0.25 * _swing.value),
+                ),
+                blurRadius: 26,
+                offset: Offset(
+                  12 * (1 - _swing.value),
+                  12 * (1 - _swing.value),
+                ),
+              ),
+              BoxShadow(
+                color: error
+                    ? AppColors.error.withValues(alpha: 0.35)
+                    : AppColors.deepRose.withValues(alpha: 0.25),
+                blurRadius: 40,
+                spreadRadius: -8,
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              // Carved bevels.
+              Positioned.fill(child: _buildPanelBevels()),
+              // Engraved nameplate.
+              Positioned(top: 34, left: 0, right: 0, child: _buildNameplate()),
+              Positioned(
+                top: 92,
+                left: 0,
+                right: 0,
+                child: Text(
+                  'Khent & Clair  |  Feb 14, 2026',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.handwrittenBody().copyWith(
+                    fontSize: 15,
+                    color: AppColors.blushGold.withValues(alpha: 0.9),
+                    height: 1.0,
+                  ),
+                ),
+              ),
+              // Keypad.
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 64, 44, 42),
+                  child: widget.keypad ?? const SizedBox.shrink(),
+                ),
+              ),
+              // Brass lever.
+              Positioned(
+                right: 14,
+                top: 262,
+                child: AnimatedBuilder(
+                  animation: _handleController,
+                  builder: (context, _) {
+                    return Transform.rotate(
+                      angle: _handle.value * (math.pi / 5),
+                      child: _buildLever(),
+                    );
+                  },
+                ),
+              ),
+              // Keyhole escutcheon below the lever.
+              Positioned(right: 38, top: 330, child: _buildEscutcheon()),
+            ],
+          ),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5 - (0.2 * _swingAnimation.value)),
-            blurRadius: 20,
-            offset: Offset(10 * (1 - _swingAnimation.value), 10 * (1 - _swingAnimation.value)),
-          ),
-          // Inner glow
-          BoxShadow(
-            color: AppTheme.moonlight.withValues(alpha: 0.1),
-            blurRadius: 2,
-            spreadRadius: -2,
-            offset: const Offset(2, 2),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          // Door Panels (Beveled Look)
-          _buildPanelBevels(),
-          
-          // Integrated Keypad Area
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-              child: widget.keypad ?? const SizedBox.shrink(),
-            ),
-          ),
-          
-          // Door Handle
-          Positioned(
-            right: 20,
-            top: 250,
-            child: AnimatedBuilder(
-              animation: _handleAnimation,
-              builder: (context, child) {
-                return Transform.rotate(
-                  angle: _handleAnimation.value * (math.pi / 4),
-                  child: _buildHandle(),
-                );
-              },
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -259,95 +388,136 @@ class _AnimatedDoorState extends State<AnimatedDoor> with TickerProviderStateMix
   Widget _buildPanelBevels() {
     return Column(
       children: [
-        Expanded(flex: 3, child: _bevelBox()),
-        Expanded(flex: 1, child: _bevelBox()),
-        Expanded(flex: 3, child: _bevelBox()),
+        Expanded(flex: 3, child: _bevelBox(topArch: true)),
+        Expanded(flex: 1, child: _bevelBox(topArch: false)),
+        Expanded(flex: 3, child: _bevelBox(topArch: true)),
       ],
     );
   }
 
-  Widget _bevelBox() {
+  Widget _bevelBox({required bool topArch}) {
     return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+      margin: const EdgeInsets.symmetric(horizontal: 34, vertical: 16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(topArch ? 26 : 10),
+          bottom: const Radius.circular(10),
+        ),
+        border: Border.all(
+          color: AppColors.moonlight.withValues(alpha: 0.18),
+          width: 1,
+        ),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.black.withValues(alpha: 0.05),
+            AppColors.moonlight.withValues(alpha: 0.09),
             Colors.transparent,
+            AppColors.inkDeep.withValues(alpha: 0.28),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHandle() {
+  Widget _buildNameplate() {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 9),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          gradient: LinearGradient(
+            colors: [
+              AppColors.blushGold.withValues(alpha: 0.85),
+              AppColors.auroraGold.withValues(alpha: 0.65),
+            ],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.blushGold.withValues(alpha: 0.35),
+              blurRadius: 18,
+            ),
+          ],
+        ),
+        child: Text(
+          'EVERGLOW',
+          style: AppTypography.labelMedium().copyWith(
+            color: AppColors.inkDeep,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 3.4,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLever() {
     return SizedBox(
-      width: 60,
-      height: 30,
+      width: 78,
+      height: 40,
       child: Stack(
         clipBehavior: Clip.none,
         alignment: Alignment.centerLeft,
         children: [
-          // The base of the handle
+          // Rosette.
           Container(
-            width: 35,
-            height: 35,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
+              gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [AppTheme.blushGold.withValues(alpha: 0.65), AppTheme.blushGold],
+                colors: [AppColors.auroraGold, AppColors.blushGold],
+              ),
+              border: Border.all(
+                color: AppColors.petalWhite.withValues(alpha: 0.35),
+                width: 1.2,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 4,
-                  offset: const Offset(1, 1),
+                  color: Colors.black.withValues(alpha: 0.4),
+                  blurRadius: 6,
+                  offset: const Offset(1, 2),
+                ),
+                BoxShadow(
+                  color: AppColors.auroraGold.withValues(alpha: 0.5),
+                  blurRadius: 14,
                 ),
               ],
             ),
             child: Center(
               child: Container(
-                width: 8,
-                height: 12,
+                width: 10,
+                height: 14,
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.7),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(4),
-                    topRight: Radius.circular(4),
-                    bottomLeft: Radius.circular(2),
-                    bottomRight: Radius.circular(2),
-                  ),
+                  color: AppColors.inkDeep.withValues(alpha: 0.75),
+                  borderRadius: BorderRadius.circular(4),
                 ),
               ),
             ),
           ),
-          // The lever
+          // Lever arm.
           Positioned(
-            left: 15,
+            left: 20,
             child: Container(
-              width: 50,
-              height: 14,
+              width: 60,
+              height: 15,
               decoration: BoxDecoration(
                 borderRadius: const BorderRadius.only(
                   topRight: Radius.circular(12),
                   bottomRight: Radius.circular(12),
                 ),
-                gradient: LinearGradient(
+                gradient: const LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [AppTheme.blushGold, AppTheme.blushGold.withValues(alpha: 0.7)],
+                  colors: [AppColors.auroraGold, AppColors.blushGold],
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.4),
-                    blurRadius: 6,
+                    color: Colors.black.withValues(alpha: 0.45),
+                    blurRadius: 7,
                     offset: const Offset(2, 3),
                   ),
                 ],
@@ -358,4 +528,97 @@ class _AnimatedDoorState extends State<AnimatedDoor> with TickerProviderStateMix
       ),
     );
   }
+
+  Widget _buildEscutcheon() {
+    return Container(
+      width: 46,
+      height: 56,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.blushGold, AppColors.auroraGold],
+        ),
+        border: Border.all(color: AppColors.petalWhite.withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 6,
+            offset: const Offset(1, 2),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Container(
+          width: 16,
+          height: 22,
+          decoration: BoxDecoration(
+            color: AppColors.inkDeep.withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              width: 7,
+              height: 8,
+              margin: const EdgeInsets.only(bottom: 3),
+              decoration: const BoxDecoration(
+                color: AppColors.inkDeep,
+                borderRadius: BorderRadius.vertical(bottom: Radius.circular(4)),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Arched door silhouette.
+class _ArchClipper extends CustomClipper<Path> {
+  const _ArchClipper();
+
+  @override
+  Path getClip(Size size) {
+    final r = size;
+    final archRadius = math.min(r.width / 2, r.height * 0.24);
+    return Path()
+      ..moveTo(0, r.height)
+      ..lineTo(0, archRadius)
+      ..quadraticBezierTo(0, 0, archRadius, 0)
+      ..lineTo(r.width - archRadius, 0)
+      ..quadraticBezierTo(r.width, 0, r.width, archRadius)
+      ..lineTo(r.width, r.height)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(_ArchClipper oldClipper) => false;
+}
+
+/// Twinkling gold dust drifting in front of the door.
+class _SparklePainter extends CustomPainter {
+  final double progress;
+
+  _SparklePainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint();
+    for (int i = 0; i < 26; i++) {
+      final seed = i * 137.0;
+      final x = ((seed * 1.61) % 1.0) * size.width;
+      final y = ((seed * 3.71) % 1.0) * size.height;
+      final twinkle =
+          0.25 + (0.55 * (0.5 + 0.5 * math.sin(progress * math.pi * 4 + seed)));
+      final radius = 0.8 + ((seed % 1.0) * 1.4);
+      paint.color = AppColors.auroraGold.withValues(alpha: twinkle * 0.55);
+      canvas.drawCircle(Offset(x, y), radius, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SparklePainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }

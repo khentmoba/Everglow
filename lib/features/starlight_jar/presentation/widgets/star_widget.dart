@@ -32,10 +32,7 @@ class StarWidget extends StatelessWidget {
             color: color,
             size: size,
             shadows: [
-              Shadow(
-                color: color.withValues(alpha: 0.8),
-                blurRadius: 10,
-              ),
+              Shadow(color: color.withValues(alpha: 0.8), blurRadius: 10),
             ],
           ),
         ),

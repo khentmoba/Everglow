@@ -15,7 +15,8 @@ class CreatorModal extends StatefulWidget {
   State<CreatorModal> createState() => _CreatorModalState();
 }
 
-class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderStateMixin {
+class _CreatorModalState extends State<CreatorModal>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _creatorService = CreatorService();
 
@@ -42,25 +43,29 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
       'name': 'Love Letter',
       'icon': '💌',
       'title': 'To My Love',
-      'content': 'I wanted to take a moment to tell you how much you mean to me. Every day with you feels like a beautiful dream I never want to wake up from...',
+      'content':
+          'I wanted to take a moment to tell you how much you mean to me. Every day with you feels like a beautiful dream I never want to wake up from...',
     },
     {
       'name': 'Appreciation',
       'icon': '🙏',
       'title': 'Thank You For Everything',
-      'content': 'I notice all the little things you do, and I want you to know how grateful I am. You make my world brighter in ways you probably don\'t even realize...',
+      'content':
+          'I notice all the little things you do, and I want you to know how grateful I am. You make my world brighter in ways you probably don\'t even realize...',
     },
     {
       'name': 'Memory Recap',
       'icon': '⭐',
       'title': 'Remember When...',
-      'content': 'I was thinking about that time we... and it made me smile. I want to make sure we never forget these precious moments together...',
+      'content':
+          'I was thinking about that time we... and it made me smile. I want to make sure we never forget these precious moments together...',
     },
     {
       'name': 'Future Dreams',
       'icon': '🌈',
       'title': 'Our Future Together',
-      'content': 'I dream about all the adventures we\'ll share, the places we\'ll go, and the memories we\'ll create. Here\'s what I hope for us...',
+      'content':
+          'I dream about all the adventures we\'ll share, the places we\'ll go, and the memories we\'ll create. Here\'s what I hope for us...',
     },
   ];
 
@@ -85,7 +90,8 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
     if (bytes != null) {
       setState(() {
         _memoryImageBytes = bytes;
-        _memoryImageName = 'memory_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        _memoryImageName =
+            'memory_${DateTime.now().millisecondsSinceEpoch}.jpg';
       });
     }
   }
@@ -100,7 +106,10 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
     try {
       List<String> imageUrls = [];
       if (_memoryImageBytes != null && _memoryImageName != null) {
-        final url = await _creatorService.uploadImage(_memoryImageBytes!, _memoryImageName!);
+        final url = await _creatorService.uploadImage(
+          _memoryImageBytes!,
+          _memoryImageName!,
+        );
         if (url != null) imageUrls.add(url);
       }
 
@@ -120,9 +129,9 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSavingMemory = false);
@@ -149,9 +158,9 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSavingLetter = false);
@@ -184,7 +193,9 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
             indicatorColor: Colors.pinkAccent,
             labelColor: Colors.pinkAccent,
             unselectedLabelColor: Colors.pink.shade200,
-            labelStyle: AppTypography.outfitWhite.copyWith(fontWeight: FontWeight.bold),
+            labelStyle: AppTypography.outfitWhite.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
             tabs: const [
               Tab(text: 'Add Memory'),
               Tab(text: 'Drop a Letter'),
@@ -199,7 +210,6 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
                 _buildAddMemoryForm(),
                 _buildDropLetterForm(),
                 _buildCinemaForm(),
-
               ],
             ),
           ),
@@ -269,7 +279,10 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
             // Template picker
             Text(
               'Start from a template (optional)',
-              style: AppTypography.outfitBold.copyWith(fontSize: 14, color: Colors.pink.shade700),
+              style: AppTypography.outfitBold.copyWith(
+                fontSize: 14,
+                color: Colors.pink.shade700,
+              ),
             ),
             const SizedBox(height: 8),
             SingleChildScrollView(
@@ -282,7 +295,13 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
                     child: ChoiceChip(
                       selected: isSelected,
                       label: Text('${t['icon']} ${t['name']}'),
-                      labelStyle: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, color: isSelected ? Colors.white : Colors.pink.shade600),
+                      labelStyle: AppTypography.outfitWhite.copyWith(
+                        fontSize: 12,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.w500,
+                        color: isSelected ? Colors.white : Colors.pink.shade600,
+                      ),
                       selectedColor: Colors.pinkAccent,
                       backgroundColor: Colors.pink.shade50,
                       onSelected: (_) {
@@ -356,7 +375,10 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
       children: [
         Text(
           label,
-          style: AppTypography.outfitBold.copyWith(fontSize: 14, color: Colors.pink.shade700),
+          style: AppTypography.outfitBold.copyWith(
+            fontSize: 14,
+            color: Colors.pink.shade700,
+          ),
         ),
         const SizedBox(height: 8),
         TextFormField(
@@ -374,7 +396,8 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
             ),
             contentPadding: const EdgeInsets.all(16),
           ),
-          validator: (value) => value == null || value.isEmpty ? 'Please fill this in' : null,
+          validator: (value) =>
+              value == null || value.isEmpty ? 'Please fill this in' : null,
         ),
       ],
     );
@@ -390,7 +413,10 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
       children: [
         Text(
           label,
-          style: AppTypography.outfitBold.copyWith(fontSize: 14, color: Colors.pink.shade700),
+          style: AppTypography.outfitBold.copyWith(
+            fontSize: 14,
+            color: Colors.pink.shade700,
+          ),
         ),
         const SizedBox(height: 8),
         InkWell(
@@ -423,7 +449,10 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
       children: [
         Text(
           'Add a Photo',
-          style: AppTypography.outfitBold.copyWith(fontSize: 14, color: Colors.pink.shade700),
+          style: AppTypography.outfitBold.copyWith(
+            fontSize: 14,
+            color: Colors.pink.shade700,
+          ),
         ),
         const SizedBox(height: 8),
         InkWell(
@@ -433,10 +462,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.pink.shade50,
-                width: 2,
-              ),
+              border: Border.all(color: Colors.pink.shade50, width: 2),
             ),
             child: _memoryImageBytes != null
                 ? Stack(
@@ -458,7 +484,11 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
                           radius: 12,
                           child: IconButton(
                             padding: EdgeInsets.zero,
-                            icon: const Icon(Icons.close, size: 16, color: Colors.white),
+                            icon: const Icon(
+                              Icons.close,
+                              size: 16,
+                              color: Colors.white,
+                            ),
                             onPressed: () => setState(() {
                               _memoryImageBytes = null;
                               _memoryImageName = null;
@@ -472,11 +502,18 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.add_photo_alternate_rounded, size: 32, color: Colors.pink.shade200),
+                        Icon(
+                          Icons.add_photo_alternate_rounded,
+                          size: 32,
+                          color: Colors.pink.shade200,
+                        ),
                         const SizedBox(height: 4),
                         Text(
                           'Tap to pick an image',
-                          style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: Colors.pink.shade200),
+                          style: AppTypography.outfitWhite.copyWith(
+                            fontSize: 12,
+                            color: Colors.pink.shade200,
+                          ),
                         ),
                       ],
                     ),
@@ -498,9 +535,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
         backgroundColor: Colors.pinkAccent,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         elevation: 0,
       ),
       child: isLoading
@@ -514,7 +549,10 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
             )
           : Text(
               label,
-              style: AppTypography.outfitWhite.copyWith(fontSize: 16, fontWeight: FontWeight.bold),
+              style: AppTypography.outfitWhite.copyWith(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
             ),
     );
   }
@@ -526,18 +564,29 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 20),
-          Icon(Icons.movie_creation_outlined, size: 60, color: Colors.pink.shade100),
+          Icon(
+            Icons.movie_creation_outlined,
+            size: 60,
+            color: Colors.pink.shade100,
+          ),
           const SizedBox(height: 16),
           Text(
             'Movie Night Planner',
             textAlign: TextAlign.center,
-            style: AppTypography.outfitWhite.copyWith(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.pink.shade700),
+            style: AppTypography.outfitWhite.copyWith(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.pink.shade700,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             'Search for movies and TV shows to add to our shared watch list.',
             textAlign: TextAlign.center,
-            style: AppTypography.outfitWhite.copyWith(fontSize: 14, color: Colors.pink.shade300),
+            style: AppTypography.outfitWhite.copyWith(
+              fontSize: 14,
+              color: Colors.pink.shade300,
+            ),
           ),
           const SizedBox(height: 40),
           _buildSubmitButton(
@@ -557,5 +606,4 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
       ),
     );
   }
-
 }

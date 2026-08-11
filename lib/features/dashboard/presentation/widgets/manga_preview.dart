@@ -208,10 +208,7 @@ class _MangaShelfState extends State<_MangaShelf> {
           ),
         );
       }
-      return SizedBox(
-        height: 168,
-        child: ShelfMarquee(children: cards),
-      );
+      return SizedBox(height: 168, child: ShelfMarquee(children: cards));
     }
     return PartnerSubrow(
       label: widget.label!,

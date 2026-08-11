@@ -8,7 +8,7 @@ import '../models/tt_room.dart';
 class TTMultiplayerService {
   final FirebaseFirestore _fs;
   TTMultiplayerService({FirebaseFirestore? firestore})
-      : _fs = firestore ?? FirebaseFirestore.instance;
+    : _fs = firestore ?? FirebaseFirestore.instance;
 
   static const String _collection = 'tt_rooms';
 
@@ -22,9 +22,7 @@ class TTMultiplayerService {
     return list.join();
   }
 
-  Future<TTRoom> createRoom({
-    required String hostUid,
-  }) async {
+  Future<TTRoom> createRoom({required String hostUid}) async {
     final id = _generateId();
     final side = DateTime.now().millisecondsSinceEpoch.isEven ? 'near' : 'far';
     final room = TTRoom(
@@ -91,23 +89,25 @@ class TTMultiplayerService {
     required TTRoomStatus status,
   }) async {
     final ref = _doc(roomId);
-    await _fs.runTransaction((txn) async {
-      final snap = await txn.get(ref);
-      if (!snap.exists) return;
-      final serverTick = (snap.data()?['lastTick'] as int?) ?? 0;
-      if (localTick < serverTick + 1) return;
-      txn.update(ref, {
-        'hostPaddleY': hostPaddleY,
-        'ball': ball.toMap(),
-        'hostScore': hostScore,
-        'guestScore': guestScore,
-        'status': status.name,
-        'lastTick': localTick,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    }).catchError((e, st) {
-      if (kDebugMode) debugPrint('writeHostState failed: $e');
-    });
+    await _fs
+        .runTransaction((txn) async {
+          final snap = await txn.get(ref);
+          if (!snap.exists) return;
+          final serverTick = (snap.data()?['lastTick'] as int?) ?? 0;
+          if (localTick < serverTick + 1) return;
+          txn.update(ref, {
+            'hostPaddleY': hostPaddleY,
+            'ball': ball.toMap(),
+            'hostScore': hostScore,
+            'guestScore': guestScore,
+            'status': status.name,
+            'lastTick': localTick,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        })
+        .catchError((e, st) {
+          if (kDebugMode) debugPrint('writeHostState failed: $e');
+        });
   }
 
   Future<void> writeGuestPaddle({
@@ -116,19 +116,21 @@ class TTMultiplayerService {
     required double guestPaddleY,
   }) async {
     final ref = _doc(roomId);
-    await _fs.runTransaction((txn) async {
-      final snap = await txn.get(ref);
-      if (!snap.exists) return;
-      final serverTick = (snap.data()?['lastTick'] as int?) ?? 0;
-      if (localTick < serverTick + 1) return;
-      txn.update(ref, {
-        'guestPaddleY': guestPaddleY,
-        'lastTick': localTick,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    }).catchError((e, st) {
-      if (kDebugMode) debugPrint('writeGuestPaddle failed: $e');
-    });
+    await _fs
+        .runTransaction((txn) async {
+          final snap = await txn.get(ref);
+          if (!snap.exists) return;
+          final serverTick = (snap.data()?['lastTick'] as int?) ?? 0;
+          if (localTick < serverTick + 1) return;
+          txn.update(ref, {
+            'guestPaddleY': guestPaddleY,
+            'lastTick': localTick,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        })
+        .catchError((e, st) {
+          if (kDebugMode) debugPrint('writeGuestPaddle failed: $e');
+        });
   }
 
   Future<void> endMatch({required String roomId}) async {

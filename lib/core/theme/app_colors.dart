@@ -13,32 +13,57 @@ class AppColors {
   AppColors._();
 
   // ── Base palette (Dusk Petal) ──────────────────────────────
-  static const Color twilight      = Color(0xFF1A1A2E); // bg base
-  static const Color velvet        = Color(0xFF2D1B33); // elevated surface, gradient mid
-  static const Color roseQuartz    = Color(0xFFF4C2C2); // primary text on dark, soft accent
-  static const Color deepRose      = Color(0xFFC2185B); // primary accent (≤10% of screen)
-  static const Color blushGold     = Color(0xFFE8D5B7); // tertiary accent, value numerals
-  static const Color petalWhite    = Color(0xFFFFF5F5); // high-emphasis text base
-  static const Color softLavender  = Color(0xFFD4B5D6); // secondary accent
-  static const Color moonlight     = Color(0xFFF0E6FF); // glass tint, borders, dividers
-  static const Color warmAmber     = Color(0xFFF0A500); // warning / doodle accent
+  static const Color twilight = Color(0xFF1A1A2E); // bg base
+  static const Color velvet = Color(
+    0xFF2D1B33,
+  ); // elevated surface, gradient mid
+  static const Color roseQuartz = Color(
+    0xFFF4C2C2,
+  ); // primary text on dark, soft accent
+  static const Color deepRose = Color(
+    0xFFC2185B,
+  ); // primary accent (≤10% of screen)
+  static const Color blushGold = Color(
+    0xFFE8D5B7,
+  ); // tertiary accent, value numerals
+  static const Color petalWhite = Color(0xFFFFF5F5); // high-emphasis text base
+  static const Color softLavender = Color(0xFFD4B5D6); // secondary accent
+  static const Color moonlight = Color(
+    0xFFF0E6FF,
+  ); // glass tint, borders, dividers
+  static const Color warmAmber = Color(0xFFF0A500); // warning / doodle accent
+
+  // ── Extended palette (Everglow v6 UI refresh) ─────────────────────────────
+  static const Color auroraRose = Color(0xFFFF6F91); // vivid rose glow
+  static const Color auroraGold = Color(0xFFF5C97B); // warm candle gold
+  static const Color auroraLilac = Color(0xFFB79CED); // twilight violet
+  static const Color auroraTeal = Color(0xFF7EE8D2); // quiet teal pop
+  static const Color inkDeep = Color(0xFF100A1C); // deepest night bg
+  static const Color plum = Color(0xFF3A2352); // elevated violet
+  static const Color silk = Color(0xFF2E203E); // soft elevated surface
 
   // ── Episode drawer / card extras ───────────────────────────
-  static const Color deepBlack     = Color(0xFF12091A); // episode drawer bg
-  static const Color mutedPurple   = Color(0xFF8A7A92); // muted secondary text
+  static const Color deepBlack = Color(0xFF12091A); // episode drawer bg
+  static const Color mutedPurple = Color(0xFF8A7A92); // muted secondary text
 
   // ── Semantic colors ────────────────────────────────────────
-  static const Color success       = Color(0xFF4ADE80); // online presence
-  static const Color error         = Color(0xFFE5739B); // on-palette rose-red
-  static const Color warning       = warmAmber;
-  static const Color info          = softLavender;
+  static const Color success = Color(0xFF4ADE80); // online presence
+  static const Color error = Color(0xFFE5739B); // on-palette rose-red
+  static const Color warning = warmAmber;
+  static const Color info = softLavender;
 
   // ── Surface hierarchy ──────────────────────────────────────
-  static const Color surface           = twilight;
-  static const Color surfaceElevated   = velvet;
+  static const Color surface = twilight;
+  static const Color surfaceElevated = velvet;
 
   /// Glass fill — moonlight at 12% opacity.
   static Color get surfaceGlass => moonlight.withValues(alpha: 0.12);
+
+  /// Frosted panel fill used on cards over rich gradients.
+  static Color get panelGlass => inkDeep.withValues(alpha: 0.55);
+
+  /// Softer glass for hover/reveal states.
+  static Color get glassSoft => moonlight.withValues(alpha: 0.08);
 
   // ── Text roles (verified ≥4.5:1 on twilight) ──────────────
   // NOTE: Executor MUST run `dart run tool/contrast_check.dart` after
@@ -65,25 +90,24 @@ class AppColors {
   static Color get divider => moonlight.withValues(alpha: 0.18);
 
   // ── Glow accents (for boxShadow) ───────────────────────────
-  static Color get glowRose     => deepRose.withValues(alpha: 0.35);
-  static Color get glowGold     => blushGold.withValues(alpha: 0.30);
+  static Color get glowRose => deepRose.withValues(alpha: 0.35);
+  static Color get glowGold => blushGold.withValues(alpha: 0.30);
   static Color get glowLavender => softLavender.withValues(alpha: 0.28);
 
   // ── Shimmer skeleton tones ─────────────────────────────────
-  static const Color shimmerBase      = Color(0xFF1C1228);
+  static const Color shimmerBase = Color(0xFF1C1228);
   static const Color shimmerHighlight = Color(0xFF2A1F3A);
 
   // ── Anime palette (vibrant, energetic — used by AnimeScreen) ───
-  static const Color animeBackground     = Color(0xFF080810);
-  static const Color animeCard           = Color(0xFF1C1228);
-  static const Color animeRose           = Color(0xFFF4C2C2);
-  static const Color animeDeepRose       = Color(0xFFC2185B);
-  static const Color animeGold           = Color(0xFFE8C97A);
-  static const Color animeWhite          = Color(0xFFFFF5F5);
-  static const Color animeMuted          = Color(0xFF8A7A92);
-  static const Color animeCyan           = Color(0xFF00BCD4);
-  static const Color animeMagenta        = Color(0xFFFF2D55);
+  static const Color animeBackground = Color(0xFF080810);
+  static const Color animeCard = Color(0xFF1C1228);
+  static const Color animeRose = Color(0xFFF4C2C2);
+  static const Color animeDeepRose = Color(0xFFC2185B);
+  static const Color animeGold = Color(0xFFE8C97A);
+  static const Color animeWhite = Color(0xFFFFF5F5);
+  static const Color animeMuted = Color(0xFF8A7A92);
+  static const Color animeCyan = Color(0xFF00BCD4);
+  static const Color animeMagenta = Color(0xFFFF2D55);
   static const Color animeElectricPurple = Color(0xFF7C3AED);
-  static const Color animeVibrantPink    = Color(0xFFFF4081);
-
+  static const Color animeVibrantPink = Color(0xFFFF4081);
 }

@@ -7,6 +7,7 @@ class DoodleStroke {
   final double strokeWidth;
   final DateTime? createdAt;
   final String userId;
+
   /// Optional text content. When non-null, this stroke is a text annotation
   /// positioned at [points.first].
   final String? text;
@@ -28,10 +29,14 @@ class DoodleStroke {
     final data = doc.data() as Map<String, dynamic>;
     return DoodleStroke(
       id: doc.id,
-      points: (data['points'] as List).map((p) => {
-        'x': (p['x'] as num).toDouble(),
-        'y': (p['y'] as num).toDouble(),
-      }).toList(),
+      points: (data['points'] as List)
+          .map(
+            (p) => {
+              'x': (p['x'] as num).toDouble(),
+              'y': (p['y'] as num).toDouble(),
+            },
+          )
+          .toList(),
       color: data['color'] ?? '#FFC0CB',
       strokeWidth: (data['strokeWidth'] as num?)?.toDouble() ?? 3.0,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
@@ -45,7 +50,9 @@ class DoodleStroke {
       'points': points,
       'color': color,
       'strokeWidth': strokeWidth,
-      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
+      'createdAt': createdAt != null
+          ? Timestamp.fromDate(createdAt!)
+          : FieldValue.serverTimestamp(),
       'userId': userId,
       if (text != null) 'text': text,
     };

@@ -13,8 +13,7 @@ class GalleryService {
   /// Routes Firebase Storage URLs through a Cloud Function proxy
   /// on web to avoid CORS / auth issues.
   static String displayUrl(String imageUrl) {
-    if (kIsWeb &&
-        imageUrl.contains('firebasestorage.googleapis.com')) {
+    if (kIsWeb && imageUrl.contains('firebasestorage.googleapis.com')) {
       return 'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyGalleryImage?url=${Uri.encodeComponent(imageUrl)}';
     }
     return imageUrl;
@@ -76,8 +75,11 @@ class GalleryService {
         .collection(_collection)
         .orderBy('uploadedAt', descending: true)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => MemoryPhoto.fromFirestore(doc)).toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => MemoryPhoto.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   /// Stream of recent photos (for dashboard preview).
@@ -87,8 +89,11 @@ class GalleryService {
         .orderBy('uploadedAt', descending: true)
         .limit(limit)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => MemoryPhoto.fromFirestore(doc)).toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => MemoryPhoto.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   /// Delete a photo from Firestore and Storage.
@@ -119,12 +124,16 @@ class GalleryService {
         .orderBy('uploadedAt', descending: true)
         .limit(100)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => MemoryPhoto.fromFirestore(doc))
-            .where((photo) =>
-                photo.caption.toLowerCase().contains(lowerQuery) ||
-                photo.tags.any((t) => t.toLowerCase().contains(lowerQuery)))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => MemoryPhoto.fromFirestore(doc))
+              .where(
+                (photo) =>
+                    photo.caption.toLowerCase().contains(lowerQuery) ||
+                    photo.tags.any((t) => t.toLowerCase().contains(lowerQuery)),
+              )
+              .toList(),
+        );
   }
 
   /// "On This Day" — photos uploaded on the same month+day in previous years.

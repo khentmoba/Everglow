@@ -18,6 +18,7 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../shared/utils/text_utils.dart';
+import '../../../../shared/widgets/everglow/everglow_background.dart';
 import 'mochi_sidebar.dart';
 
 /// Full-screen Mochi AI assistant, inspired by Vercel's chatbot interface.
@@ -105,7 +106,8 @@ class _MochiScreenState extends State<MochiScreen> {
   }
 
   void _onScroll() {
-    final show = _scroll.hasClients &&
+    final show =
+        _scroll.hasClients &&
         _scroll.position.maxScrollExtent - _scroll.position.pixels > 300;
     if (show != _showScrollButton) {
       setState(() => _showScrollButton = show);
@@ -161,8 +163,10 @@ class _MochiScreenState extends State<MochiScreen> {
       final msg = e.toString().replaceFirst('Exception: ', '');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Mochi couldn\'t respond: $msg',
-              style: AppTypography.bodySmall()),
+          content: Text(
+            'Mochi couldn\'t respond: $msg',
+            style: AppTypography.bodySmall(),
+          ),
           backgroundColor: AppColors.deepRose.withValues(alpha: 0.9),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLg),
@@ -185,7 +189,8 @@ class _MochiScreenState extends State<MochiScreen> {
       if (images.isNotEmpty) {
         for (final image in images) {
           final bytes = await image.readAsBytes();
-          final base64Data = 'data:image/${image.name.split('.').last};base64,${base64Encode(bytes)}';
+          final base64Data =
+              'data:image/${image.name.split('.').last};base64,${base64Encode(bytes)}';
           if (!mounted) return;
           setState(() {
             _attachedImages.add(base64Data);
@@ -200,8 +205,10 @@ class _MochiScreenState extends State<MochiScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to attach images: $e',
-                style: AppTypography.bodySmall()),
+            content: Text(
+              'Failed to attach images: $e',
+              style: AppTypography.bodySmall(),
+            ),
             backgroundColor: AppColors.deepRose.withValues(alpha: 0.9),
           ),
         );
@@ -222,16 +229,40 @@ class _MochiScreenState extends State<MochiScreen> {
       backgroundColor: AppColors.twilight,
       body: Stack(
         children: [
+          // Atmosphere
+          Positioned.fill(
+            child: EverglowBackground(
+              baseColor: AppColors.inkDeep,
+              glows: const [
+                RadialGlow(
+                  color: AppColors.auroraLilac,
+                  alignment: Alignment(-0.7, -0.9),
+                  size: 0.9,
+                  opacity: 0.14,
+                ),
+                RadialGlow(
+                  color: AppColors.deepRose,
+                  alignment: Alignment(0.9, 0.9),
+                  size: 0.8,
+                  opacity: 0.10,
+                ),
+              ],
+            ),
+          ),
           // Main content
           SafeArea(
             child: Column(
               children: [
                 _MochiHeader(
                   onBack: () => context.pop(),
-                  onSidebarToggle: () => setState(() => _isSidebarOpen = !_isSidebarOpen),
+                  onSidebarToggle: () =>
+                      setState(() => _isSidebarOpen = !_isSidebarOpen),
                   onNewChat: _newChat,
                 ),
-                Divider(height: 1, color: AppColors.blushGold.withValues(alpha: 0.06)),
+                Divider(
+                  height: 1,
+                  color: AppColors.blushGold.withValues(alpha: 0.06),
+                ),
                 Expanded(
                   child: Stack(
                     children: [
@@ -249,14 +280,17 @@ class _MochiScreenState extends State<MochiScreen> {
                           }
 
                           final streamBubble = 1;
-                          final itemCount = allMsgs.length +
+                          final itemCount =
+                              allMsgs.length +
                               (loading && !hasDraft ? 1 : 0) +
                               (hasDraft ? streamBubble : 0);
 
                           return ListView.builder(
                             controller: _scroll,
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 14),
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
                             itemCount: itemCount,
                             itemBuilder: (_, i) {
                               int idx = 0;
@@ -282,7 +316,8 @@ class _MochiScreenState extends State<MochiScreen> {
                               final msg = allMsgs[i - idx];
                               return _MessageBubble(
                                 key: ValueKey(
-                                    'msg_${msg.timestamp.millisecondsSinceEpoch}_$i'),
+                                  'msg_${msg.timestamp.millisecondsSinceEpoch}_$i',
+                                ),
                                 text: msg.content,
                                 isUser: msg.role == 'user',
                                 timestamp: msg.timestamp,
@@ -304,12 +339,13 @@ class _MochiScreenState extends State<MochiScreen> {
                                 onTap: () => _scrollToBottom(),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 14, vertical: 7),
+                                    horizontal: 14,
+                                    vertical: 7,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: AppColors.surfaceGlass,
                                     borderRadius: AppRadius.radiusFull,
-                                    border:
-                                        Border.all(color: AppColors.border),
+                                    border: Border.all(color: AppColors.border),
                                   ),
                                   child: Icon(
                                     Icons.keyboard_arrow_down_rounded,
@@ -378,8 +414,11 @@ class _MochiHeader extends StatelessWidget {
         children: [
           IconButton(
             onPressed: onBack,
-            icon: Icon(Icons.arrow_back_ios_new_rounded,
-                color: AppColors.textMuted, size: 20),
+            icon: Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: AppColors.textMuted,
+              size: 20,
+            ),
             tooltip: 'Back',
           ),
           const SizedBox(width: 4),
@@ -407,7 +446,11 @@ class _MochiHeader extends StatelessWidget {
           // Sidebar toggle
           IconButton(
             onPressed: onSidebarToggle,
-            icon: Icon(Icons.menu_rounded, color: AppColors.textMuted, size: 20),
+            icon: Icon(
+              Icons.menu_rounded,
+              color: AppColors.textMuted,
+              size: 20,
+            ),
             tooltip: 'History',
           ),
         ],
@@ -523,10 +566,7 @@ class _DelayedFadeIn extends StatefulWidget {
   final Widget child;
   final Duration delay;
 
-  const _DelayedFadeIn({
-    required this.child,
-    this.delay = Duration.zero,
-  });
+  const _DelayedFadeIn({required this.child, this.delay = Duration.zero});
 
   @override
   State<_DelayedFadeIn> createState() => _DelayedFadeInState();
@@ -542,7 +582,9 @@ class _DelayedFadeInState extends State<_DelayedFadeIn>
   void initState() {
     super.initState();
     _controller = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 500));
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
     _opacity = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
     _slide = Tween<Offset>(
       begin: const Offset(0, 0.15),
@@ -605,15 +647,17 @@ class _MessageBubbleState extends State<_MessageBubble> {
 
   @override
   Widget build(BuildContext context) {
-    final displayText =
-        widget.isUser ? widget.text : stripMarkdown(widget.text);
+    final displayText = widget.isUser
+        ? widget.text
+        : stripMarkdown(widget.text);
     final hasReasoning =
         widget.reasoning != null && widget.reasoning!.isNotEmpty;
 
     final timeStr = widget.timestamp != null
         ? DateFormat('h:mm a').format(widget.timestamp!)
         : '';
-    final isToday = widget.timestamp != null &&
+    final isToday =
+        widget.timestamp != null &&
         DateTime.now().day == widget.timestamp!.day &&
         DateTime.now().month == widget.timestamp!.month &&
         DateTime.now().year == widget.timestamp!.year;
@@ -624,8 +668,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
-        mainAxisAlignment:
-            widget.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: widget.isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!widget.isUser) ...[
@@ -647,13 +692,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 Clipboard.setData(ClipboardData(text: displayText));
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Copied',
-                        style: AppTypography.bodySmall()),
+                    content: Text('Copied', style: AppTypography.bodySmall()),
                     duration: const Duration(seconds: 1),
                     backgroundColor: AppColors.velvet,
                     behavior: SnackBarBehavior.floating,
                     shape: RoundedRectangleBorder(
-                        borderRadius: AppRadius.radiusLg),
+                      borderRadius: AppRadius.radiusLg,
+                    ),
                     margin: const EdgeInsets.all(AppSpacing.lg),
                   ),
                 );
@@ -662,8 +707,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 constraints: BoxConstraints(
                   maxWidth: MediaQuery.sizeOf(context).width * 0.75,
                 ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   gradient: widget.isUser
                       ? LinearGradient(
@@ -677,17 +724,14 @@ class _MessageBubbleState extends State<_MessageBubble> {
                       : null,
                   color: widget.isUser ? null : AppColors.surfaceGlass,
                   borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(
-                        widget.isUser ? AppRadius.lg : 4),
-                    topRight: Radius.circular(
-                        widget.isUser ? 4 : AppRadius.lg),
+                    topLeft: Radius.circular(widget.isUser ? AppRadius.lg : 4),
+                    topRight: Radius.circular(widget.isUser ? 4 : AppRadius.lg),
                     bottomLeft: Radius.circular(AppRadius.lg),
                     bottomRight: Radius.circular(AppRadius.lg),
                   ),
                   border: widget.isUser
                       ? null
-                      : Border.all(
-                          color: AppColors.border, width: 0.5),
+                      : Border.all(color: AppColors.border, width: 0.5),
                 ),
                 child: Column(
                   crossAxisAlignment: widget.isUser
@@ -696,19 +740,21 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   children: [
                     if (hasReasoning)
                       GestureDetector(
-                        onTap: () => setState(
-                            () => _showReasoning = !_showReasoning),
+                        onTap: () =>
+                            setState(() => _showReasoning = !_showReasoning),
                         child: Container(
                           margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 8),
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
-                            color:
-                                AppColors.velvet.withValues(alpha: 0.6),
+                            color: AppColors.velvet.withValues(alpha: 0.6),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: AppColors.blushGold
-                                  .withValues(alpha: 0.15),
+                              color: AppColors.blushGold.withValues(
+                                alpha: 0.15,
+                              ),
                             ),
                           ),
                           child: Column(
@@ -718,27 +764,28 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.psychology_rounded,
-                                      size: 14,
-                                      color: AppColors.blushGold
-                                          .withValues(alpha: 0.7)),
+                                  Icon(
+                                    Icons.psychology_rounded,
+                                    size: 14,
+                                    color: AppColors.blushGold.withValues(
+                                      alpha: 0.7,
+                                    ),
+                                  ),
                                   const SizedBox(width: 6),
                                   Text(
                                     'Thinking${widget.isStreaming ? '...' : ''}',
-                                    style: AppTypography.bodySmall()
-                                        .copyWith(
+                                    style: AppTypography.bodySmall().copyWith(
                                       fontSize: 10,
-                                      color: AppColors.textMuted
-                                          .withValues(alpha: 0.8),
+                                      color: AppColors.textMuted.withValues(
+                                        alpha: 0.8,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 6),
                                   Icon(
                                     _showReasoning
-                                        ? Icons
-                                            .keyboard_arrow_up_rounded
-                                        : Icons
-                                            .keyboard_arrow_down_rounded,
+                                        ? Icons.keyboard_arrow_up_rounded
+                                        : Icons.keyboard_arrow_down_rounded,
                                     size: 14,
                                     color: AppColors.textDisabled,
                                   ),
@@ -748,11 +795,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                 const SizedBox(height: 4),
                                 Text(
                                   widget.reasoning!,
-                                  style: AppTypography.bodySmall()
-                                      .copyWith(
+                                  style: AppTypography.bodySmall().copyWith(
                                     fontSize: 10,
-                                    color: AppColors.textMuted
-                                        .withValues(alpha: 0.6),
+                                    color: AppColors.textMuted.withValues(
+                                      alpha: 0.6,
+                                    ),
                                     height: 1.4,
                                     fontStyle: FontStyle.italic,
                                   ),
@@ -771,7 +818,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         ),
                       )
                     else
-                      widget.text.isEmpty && widget.isStreaming && widget.toolStatus != null && widget.toolStatus!.isNotEmpty
+                      widget.text.isEmpty &&
+                              widget.isStreaming &&
+                              widget.toolStatus != null &&
+                              widget.toolStatus!.isNotEmpty
                           ? Text(
                               _formatToolStatus(widget.toolStatus!),
                               style: AppTypography.bodyMedium().copyWith(
@@ -818,15 +868,17 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               widget.isStreaming
                                   ? 'replying...'
                                   : isToday
-                                      ? timeStr
-                                      : fullDateStr,
+                                  ? timeStr
+                                  : fullDateStr,
                               style: AppTypography.bodySmall().copyWith(
                                 fontSize: 10,
                                 color: widget.isUser
-                                    ? AppColors.petalWhite
-                                        .withValues(alpha: 0.5)
-                                    : AppColors.textMuted
-                                        .withValues(alpha: 0.6),
+                                    ? AppColors.petalWhite.withValues(
+                                        alpha: 0.5,
+                                      )
+                                    : AppColors.textMuted.withValues(
+                                        alpha: 0.6,
+                                      ),
                               ),
                             ),
                           ],
@@ -865,17 +917,15 @@ class _MarkdownText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = baseStyle ??
+    final style =
+        baseStyle ??
         AppTypography.bodyMedium().copyWith(
           color: AppColors.textHigh,
           height: 1.5,
         );
 
     return RichText(
-      text: TextSpan(
-        style: style,
-        children: _parseInline(text, style),
-      ),
+      text: TextSpan(style: style, children: _parseInline(text, style)),
     );
   }
 
@@ -893,33 +943,43 @@ class _MarkdownText extends StatelessWidget {
 
       final full = match.group(0)!;
       if (full.startsWith('**')) {
-        spans.add(TextSpan(
-          text: match.group(2),
-          style: base.copyWith(fontWeight: FontWeight.w700),
-        ));
-      } else if (full.startsWith('__')) {
-        spans.add(TextSpan(
-          text: match.group(3),
-          style: base.copyWith(fontWeight: FontWeight.w700),
-        ));
-      } else if (full.startsWith('*')) {
-        spans.add(TextSpan(
-          text: match.group(4),
-          style: base.copyWith(fontStyle: FontStyle.italic),
-        ));
-      } else if (full.startsWith('_')) {
-        spans.add(TextSpan(
-          text: match.group(5),
-          style: base.copyWith(fontStyle: FontStyle.italic),
-        ));
-      } else if (full.startsWith('`')) {
-        spans.add(TextSpan(
-          text: match.group(6),
-          style: base.copyWith(
-            fontFamily: 'monospace',
-            backgroundColor: AppColors.velvet.withValues(alpha: 0.5),
+        spans.add(
+          TextSpan(
+            text: match.group(2),
+            style: base.copyWith(fontWeight: FontWeight.w700),
           ),
-        ));
+        );
+      } else if (full.startsWith('__')) {
+        spans.add(
+          TextSpan(
+            text: match.group(3),
+            style: base.copyWith(fontWeight: FontWeight.w700),
+          ),
+        );
+      } else if (full.startsWith('*')) {
+        spans.add(
+          TextSpan(
+            text: match.group(4),
+            style: base.copyWith(fontStyle: FontStyle.italic),
+          ),
+        );
+      } else if (full.startsWith('_')) {
+        spans.add(
+          TextSpan(
+            text: match.group(5),
+            style: base.copyWith(fontStyle: FontStyle.italic),
+          ),
+        );
+      } else if (full.startsWith('`')) {
+        spans.add(
+          TextSpan(
+            text: match.group(6),
+            style: base.copyWith(
+              fontFamily: 'monospace',
+              backgroundColor: AppColors.velvet.withValues(alpha: 0.5),
+            ),
+          ),
+        );
       }
 
       lastEnd = match.end;
@@ -973,8 +1033,9 @@ class _ThinkingIndicatorState extends State<_ThinkingIndicator>
   void initState() {
     super.initState();
     _c = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1500))
-      ..repeat();
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
   }
 
   @override
@@ -1001,8 +1062,7 @@ class _ThinkingIndicatorState extends State<_ThinkingIndicator>
           ),
           const SizedBox(width: 10),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: AppColors.surfaceGlass,
               borderRadius: const BorderRadius.only(
@@ -1029,11 +1089,12 @@ class _ThinkingIndicatorState extends State<_ThinkingIndicator>
                 ...List.generate(3, (i) {
                   final delay = i * 0.2;
                   final t = (_c.value - delay).clamp(0.0, 1.0);
-                  final opacity = (t < 0.5 ? t * 2 : (1 - t) * 2)
-                      .clamp(0.3, 1.0);
+                  final opacity = (t < 0.5 ? t * 2 : (1 - t) * 2).clamp(
+                    0.3,
+                    1.0,
+                  );
                   return Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 1.5),
+                    padding: const EdgeInsets.symmetric(horizontal: 1.5),
                     child: Opacity(
                       opacity: opacity,
                       child: Container(
@@ -1073,10 +1134,8 @@ class _ErrorBanner extends StatelessWidget {
           return const SizedBox.shrink();
         }
         return Container(
-          margin:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: AppColors.deepRose.withValues(alpha: 0.15),
             borderRadius: AppRadius.radiusLg,
@@ -1086,8 +1145,11 @@ class _ErrorBanner extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(Icons.error_outline_rounded,
-                  color: AppColors.deepRose, size: 18),
+              const Icon(
+                Icons.error_outline_rounded,
+                color: AppColors.deepRose,
+                size: 18,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -1103,7 +1165,9 @@ class _ErrorBanner extends StatelessWidget {
                 onTap: onRetry,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 6),
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.deepRose.withValues(alpha: 0.2),
                     borderRadius: AppRadius.radiusSm,
@@ -1221,8 +1285,11 @@ class _ComposerInputState extends State<_ComposerInput> {
                                     color: Colors.black54,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(Icons.close,
-                                      size: 12, color: Colors.white),
+                                  child: const Icon(
+                                    Icons.close,
+                                    size: 12,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             ),
@@ -1236,10 +1303,7 @@ class _ComposerInputState extends State<_ComposerInput> {
                 decoration: BoxDecoration(
                   color: AppColors.surfaceGlass,
                   borderRadius: AppRadius.radiusX2,
-                  border: Border.all(
-                    color: AppColors.border,
-                    width: 0.5,
-                  ),
+                  border: Border.all(color: AppColors.border, width: 0.5),
                 ),
                 child: Focus(
                   onKeyEvent: (node, event) {
@@ -1256,11 +1320,13 @@ class _ComposerInputState extends State<_ComposerInput> {
                     children: [
                       IconButton(
                         onPressed: widget.onPickImages,
-                        icon: Icon(Icons.add_photo_alternate_rounded,
-                            color: widget.attachedImages.isNotEmpty
-                                ? AppColors.blushGold
-                                : AppColors.textMuted,
-                            size: 22),
+                        icon: Icon(
+                          Icons.add_photo_alternate_rounded,
+                          color: widget.attachedImages.isNotEmpty
+                              ? AppColors.blushGold
+                              : AppColors.textMuted,
+                          size: 22,
+                        ),
                         tooltip: 'Attach images',
                       ),
                       Expanded(
@@ -1287,7 +1353,9 @@ class _ComposerInputState extends State<_ComposerInput> {
                       Padding(
                         padding: const EdgeInsets.only(right: 8, bottom: 4),
                         child: GestureDetector(
-                          onTap: (ai.isLoading || (!_hasText && widget.attachedImages.isEmpty))
+                          onTap:
+                              (ai.isLoading ||
+                                  (!_hasText && widget.attachedImages.isEmpty))
                               ? null
                               : widget.onSend,
                           child: AnimatedContainer(
@@ -1295,7 +1363,10 @@ class _ComposerInputState extends State<_ComposerInput> {
                             width: 36,
                             height: 36,
                             decoration: BoxDecoration(
-                              gradient: (!ai.isLoading && (_hasText || widget.attachedImages.isNotEmpty))
+                              gradient:
+                                  (!ai.isLoading &&
+                                      (_hasText ||
+                                          widget.attachedImages.isNotEmpty))
                                   ? const LinearGradient(
                                       colors: [
                                         AppColors.blushGold,
@@ -1305,7 +1376,10 @@ class _ComposerInputState extends State<_ComposerInput> {
                                       end: Alignment.bottomRight,
                                     )
                                   : null,
-                              color: (!ai.isLoading && (_hasText || widget.attachedImages.isNotEmpty))
+                              color:
+                                  (!ai.isLoading &&
+                                      (_hasText ||
+                                          widget.attachedImages.isNotEmpty))
                                   ? null
                                   : AppColors.velvet.withValues(alpha: 0.4),
                               borderRadius: AppRadius.radiusLg,
@@ -1322,7 +1396,9 @@ class _ComposerInputState extends State<_ComposerInput> {
                                     )
                                   : Icon(
                                       Icons.arrow_upward_rounded,
-                                      color: (_hasText || widget.attachedImages.isNotEmpty)
+                                      color:
+                                          (_hasText ||
+                                              widget.attachedImages.isNotEmpty)
                                           ? AppColors.petalWhite
                                           : AppColors.textDisabled,
                                       size: 20,

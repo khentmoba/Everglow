@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/core/theme/app_colors.dart';
 import 'package:everglow/shared/widgets/gamified_background.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_error_state.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_empty_state.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_skeleton.dart';
+import 'package:everglow/shared/widgets/everglow/everglow_feature_header.dart';
 import '../../data/models/bucket_item.dart';
 import '../../data/services/bucket_list_service.dart';
 import '../widgets/bucket_item_card.dart';
@@ -33,104 +35,92 @@ class _BucketListScreenState extends State<BucketListScreen> {
         child: SafeArea(
           child: Column(
             children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => context.go('/dashboard'),
-                    icon: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: AppTheme.roseQuartz,
-                      size: 20,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    'Our Bucket List',
-                    style: AppTypography.cormorantBold.copyWith(fontSize: 22, letterSpacing: 1.5),
-                  ),
-                  const Spacer(),
-                  const SizedBox(width: 48),
-                ],
+              // Header
+              const EverglowFeatureHeader(
+                title: 'Our Bucket List',
+                subtitle: 'dreams we chase together',
+                icon: Icons.card_travel_rounded,
+                hue: AppColors.auroraTeal,
               ),
-            ),
-            const SizedBox(height: 8),
+              const SizedBox(height: 8),
 
-            // Progress bar
-            _buildProgressHeader(service),
-            const SizedBox(height: 12),
+              // Progress bar
+              _buildProgressHeader(service),
+              const SizedBox(height: 12),
 
-            // Filter chips
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  _buildFilterChip(null, 'All'),
-                  const SizedBox(width: 8),
-                  _buildFilterChip(BucketStatus.wish, 'Wishes'),
-                  const SizedBox(width: 8),
-                  _buildFilterChip(BucketStatus.planned, 'Planned'),
-                  const SizedBox(width: 8),
-                  _buildFilterChip(BucketStatus.completed, 'Done'),
-                ],
+              // Filter chips
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    _buildFilterChip(null, 'All'),
+                    const SizedBox(width: 8),
+                    _buildFilterChip(BucketStatus.wish, 'Wishes'),
+                    const SizedBox(width: 8),
+                    _buildFilterChip(BucketStatus.planned, 'Planned'),
+                    const SizedBox(width: 8),
+                    _buildFilterChip(BucketStatus.completed, 'Done'),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
+              const SizedBox(height: 12),
 
-            // List
-            Expanded(
-              child: StreamBuilder<List<BucketItem>>(
-                stream: _filter != null
-                    ? service.watchByStatus(_filter!)
-                    : service.watchAll(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return EverglowErrorState(
-                      message: 'Could not load bucket list',
-                      onRetry: () => setState(() {}),
-                      icon: Icons.cloud_off_outlined,
-                    );
-                  }
-
-                  if (!snapshot.hasData) {
-                    return const EverglowSkeleton(
-                      width: double.infinity,
-                      height: 80,
-                      radius: 16,
-                    );
-                  }
-
-                  final items = snapshot.data!;
-                  if (items.isEmpty) {
-                    return EverglowEmptyState(
-                      icon: Icons.auto_awesome,
-                      title: _filter == null
-                          ? 'Your bucket list is empty'
-                          : 'No ${_filter!.displayName.toLowerCase()} items yet',
-                      subtitle: _filter == null ? 'Add your first dream together!' : null,
-                      ctaLabel: _filter == null ? 'Add Dream' : null,
-                      onCta: _filter == null ? () => _showAddDialog(context, auth) : null,
-                    );
-                  }
-
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: items.length,
-                    itemBuilder: (context, index) {
-                      return BucketItemCard(
-                        item: items[index],
-                        currentUsername: auth.currentUser ?? '',
+              // List
+              Expanded(
+                child: StreamBuilder<List<BucketItem>>(
+                  stream: _filter != null
+                      ? service.watchByStatus(_filter!)
+                      : service.watchAll(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return EverglowErrorState(
+                        message: 'Could not load bucket list',
+                        onRetry: () => setState(() {}),
+                        icon: Icons.cloud_off_outlined,
                       );
-                    },
-                  );
-                },
+                    }
+
+                    if (!snapshot.hasData) {
+                      return const EverglowSkeleton(
+                        width: double.infinity,
+                        height: 80,
+                        radius: 16,
+                      );
+                    }
+
+                    final items = snapshot.data!;
+                    if (items.isEmpty) {
+                      return EverglowEmptyState(
+                        icon: Icons.auto_awesome,
+                        title: _filter == null
+                            ? 'Your bucket list is empty'
+                            : 'No ${_filter!.displayName.toLowerCase()} items yet',
+                        subtitle: _filter == null
+                            ? 'Add your first dream together!'
+                            : null,
+                        ctaLabel: _filter == null ? 'Add Dream' : null,
+                        onCta: _filter == null
+                            ? () => _showAddDialog(context, auth)
+                            : null,
+                      );
+                    }
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: items.length,
+                      itemBuilder: (context, index) {
+                        return BucketItemCard(
+                          item: items[index],
+                          currentUsername: auth.currentUser ?? '',
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddDialog(context, auth),
@@ -146,7 +136,9 @@ class _BucketListScreenState extends State<BucketListScreen> {
       stream: service.watchAll(),
       builder: (context, snapshot) {
         final all = snapshot.data ?? [];
-        final completed = all.where((i) => i.status == BucketStatus.completed).length;
+        final completed = all
+            .where((i) => i.status == BucketStatus.completed)
+            .length;
         final total = all.length;
         final progress = total > 0 ? completed / total : 0.0;
 
@@ -155,7 +147,9 @@ class _BucketListScreenState extends State<BucketListScreen> {
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
+              color: AppTheme.moonlight.withValues(
+                alpha: AppTheme.glassOpacity,
+              ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: AppTheme.blushGold.withValues(alpha: 0.15),
@@ -172,12 +166,18 @@ class _BucketListScreenState extends State<BucketListScreen> {
                       CircularProgressIndicator(
                         value: progress,
                         strokeWidth: 4,
-                        backgroundColor: AppTheme.petalWhite.withValues(alpha: 0.1),
+                        backgroundColor: AppTheme.petalWhite.withValues(
+                          alpha: 0.1,
+                        ),
                         valueColor: AlwaysStoppedAnimation(AppTheme.blushGold),
                       ),
                       Text(
                         '$completed',
-                        style: AppTypography.outfitWhite.copyWith(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.blushGold),
+                        style: AppTypography.outfitWhite.copyWith(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.blushGold,
+                        ),
                       ),
                     ],
                   ),
@@ -189,12 +189,18 @@ class _BucketListScreenState extends State<BucketListScreen> {
                     children: [
                       Text(
                         '$completed of $total dreams fulfilled ✨',
-                        style: AppTypography.outfitBold.copyWith(fontSize: 14, color: AppTheme.petalWhite),
+                        style: AppTypography.outfitBold.copyWith(
+                          fontSize: 14,
+                          color: AppTheme.petalWhite,
+                        ),
                       ),
                       if (total > 0)
                         Text(
                           '${(progress * 100).round()}% complete',
-                          style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: AppTheme.petalWhite.withValues(alpha: 0.6)),
+                          style: AppTypography.outfitWhite.copyWith(
+                            fontSize: 11,
+                            color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                          ),
                         ),
                     ],
                   ),
@@ -230,9 +236,13 @@ class _BucketListScreenState extends State<BucketListScreen> {
           ),
           child: Text(
             label,
-            style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, color: isSelected
+            style: AppTypography.outfitWhite.copyWith(
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              color: isSelected
                   ? AppTheme.blushGold
-                  : AppTheme.petalWhite.withValues(alpha: 0.6)),
+                  : AppTheme.petalWhite.withValues(alpha: 0.6),
+            ),
           ),
         ),
       ),
@@ -242,9 +252,8 @@ class _BucketListScreenState extends State<BucketListScreen> {
   void _showAddDialog(BuildContext context, AuthService auth) {
     showDialog(
       context: context,
-      builder: (context) => AddBucketItemDialog(
-        createdBy: auth.currentUser ?? 'unknown',
-      ),
+      builder: (context) =>
+          AddBucketItemDialog(createdBy: auth.currentUser ?? 'unknown'),
     );
   }
 }

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:everglow/core/theme/app_colors.dart';
+import 'package:everglow/core/theme/app_radius.dart';
 import 'package:everglow/core/theme/app_typography.dart';
 
 class AnswerButton extends StatefulWidget {
@@ -17,9 +19,11 @@ class AnswerButton extends StatefulWidget {
   State<AnswerButton> createState() => _AnswerButtonState();
 }
 
-class _AnswerButtonState extends State<AnswerButton> with SingleTickerProviderStateMixin {
+class _AnswerButtonState extends State<AnswerButton>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
+  bool _hovered = false;
 
   @override
   void initState() {
@@ -28,9 +32,10 @@ class _AnswerButtonState extends State<AnswerButton> with SingleTickerProviderSt
       duration: const Duration(milliseconds: 100),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.95,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -41,32 +46,84 @@ class _AnswerButtonState extends State<AnswerButton> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    final enabled = !widget.isLocked && widget.onTap != null;
     return RepaintBoundary(
       child: ScaleTransition(
-      scale: _scaleAnimation,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: ElevatedButton(
-          onPressed: widget.isLocked || widget.onTap == null
-              ? null
-              : () {
-                  _controller.forward().then((_) => _controller.reverse());
-                  widget.onTap!();
-                },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: widget.isLocked ? Colors.grey[100] : Colors.white,
-            foregroundColor: const Color(0xFFFF69B4),
-            minimumSize: const Size(double.infinity, 60),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            elevation: 2,
-            shadowColor: Colors.pink.withValues(alpha: 0.1),
-          ),
-          child: Text(
-            widget.text,
-            style: AppTypography.outfitWhite.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
+        scale: _scaleAnimation,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: MouseRegion(
+            cursor: enabled
+                ? SystemMouseCursors.click
+                : SystemMouseCursors.basic,
+            onEnter: (_) => setState(() => _hovered = true),
+            onExit: (_) => setState(() => _hovered = false),
+            child: GestureDetector(
+              onTap: enabled
+                  ? () {
+                      _controller.forward().then((_) => _controller.reverse());
+                      widget.onTap!();
+                    }
+                  : null,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: double.infinity,
+                height: 60,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: widget.isLocked
+                        ? [
+                            AppColors.moonlight.withValues(alpha: 0.06),
+                            AppColors.inkDeep.withValues(alpha: 0.4),
+                          ]
+                        : _hovered
+                        ? [
+                            AppColors.deepRose.withValues(alpha: 0.28),
+                            AppColors.velvet.withValues(alpha: 0.9),
+                          ]
+                        : [
+                            AppColors.moonlight.withValues(alpha: 0.14),
+                            AppColors.inkDeep.withValues(alpha: 0.6),
+                          ],
+                  ),
+                  borderRadius: AppRadius.radiusXl,
+                  border: Border.all(
+                    color: widget.isLocked
+                        ? AppColors.moonlight.withValues(alpha: 0.12)
+                        : AppColors.auroraRose.withValues(
+                            alpha: _hovered ? 0.7 : 0.35,
+                          ),
+                    width: 1.4,
+                  ),
+                  boxShadow: _hovered && !widget.isLocked
+                      ? [
+                          BoxShadow(
+                            color: AppColors.deepRose.withValues(alpha: 0.3),
+                            blurRadius: 18,
+                            offset: const Offset(0, 6),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Center(
+                  child: Text(
+                    widget.text,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.outfitWhite.copyWith(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: widget.isLocked
+                          ? AppColors.textDisabled
+                          : AppColors.petalWhite,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
-      ),
       ),
     );
   }
