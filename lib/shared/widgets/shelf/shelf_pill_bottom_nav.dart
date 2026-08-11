@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../core/theme/app_typography.dart';
 
 import '../../../core/theme/app_theme.dart';
 import 'motion.dart';
@@ -38,7 +38,7 @@ class ShelfPillBottomNav extends StatelessWidget {
         20,
         0,
         20,
-        MediaQuery.of(context).padding.bottom + 12,
+        MediaQuery.paddingOf(context).bottom + 12,
       ),
       decoration: BoxDecoration(
         color: const Color(0xFF1C1228),
@@ -110,9 +110,8 @@ class ShelfPillBottomNav extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 item.label,
-                style: GoogleFonts.outfit(
+                style: AppTypography.outfitHeading.copyWith(
                   fontSize: 12,
-                  fontWeight: FontWeight.w700,
                   color: accentColor,
                 ),
               ),

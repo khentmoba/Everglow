@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'package:animate_do/animate_do.dart';
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';import 'package:provider/provider.dart';
 
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +9,7 @@ import 'package:everglow/features/books/data/models/our_books_item.dart';
 import 'package:everglow/features/books/data/services/our_books_service.dart';
 import 'package:everglow/features/books/presentation/widgets/ol_search_modal.dart';
 import 'package:everglow/services/auth_service.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Shared couple list. Mirrors `OurCinemaScreen` from the cinema
 /// feature.
@@ -76,10 +75,7 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
         body: Center(
           child: Text(
             'This space is just for the two of you.',
-            style: GoogleFonts.cormorantGaramond(
-              color: AppTheme.roseQuartz,
-              fontSize: 18,
-            ),
+            style: AppTypography.cormorantRegular.copyWith(fontSize: 18),
           ),
         ),
       );
@@ -170,18 +166,12 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
             children: [
               Text(
                 'OUR BOOKS',
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  color: AppTheme.petalWhite,
-                  letterSpacing: 4,
-                  shadows: [
+                style: AppTypography.cormorantBlackWhite.copyWith(fontSize: 24, letterSpacing: 4, shadows: [
                     Shadow(
                       color: AppTheme.deepRose.withValues(alpha: 0.3),
                       blurRadius: 8,
                     ),
-                  ],
-                ),
+                  ]),
               ),
               const SizedBox(height: 2),
               Row(
@@ -200,12 +190,7 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                     currentUser == 'khentsgdz'
                         ? 'KHENT & CLAIR'
                         : 'CLAIR & KHENT',
-                    style: GoogleFonts.outfit(
-                      fontSize: 9,
-                      color: AppTheme.roseQuartz.withValues(alpha: 0.6),
-                      letterSpacing: 2.5,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: AppTypography.outfitHeading.copyWith(fontSize: 9, color: AppTheme.roseQuartz.withValues(alpha: 0.6), letterSpacing: 2.5),
                   ),
                   const SizedBox(width: 6),
                   Container(
@@ -303,12 +288,7 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
               Flexible(
                 child: Text(
                   label,
-                  style: GoogleFonts.outfit(
-                    color: active ? AppTheme.petalWhite : AppTheme.roseQuartz,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                    letterSpacing: 0.5,
-                  ),
+                  style: AppTypography.outfitHeading.copyWith(color: active ? AppTheme.petalWhite : AppTheme.roseQuartz, fontSize: 12, letterSpacing: 0.5),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -329,11 +309,7 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                 ),
                 child: Text(
                   '$count',
-                  style: GoogleFonts.outfit(
-                    color: active ? AppTheme.petalWhite : AppTheme.roseQuartz,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: AppTypography.outfitWhite.copyWith(color: active ? AppTheme.petalWhite : AppTheme.roseQuartz, fontSize: 10, fontWeight: FontWeight.w800),
                 ),
               ),
             ],
@@ -411,12 +387,7 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                             item.title,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.outfit(
-                              color: AppTheme.petalWhite,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
-                              height: 1.25,
-                            ),
+                            style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontWeight: FontWeight.w800, fontSize: 15, height: 1.25),
                           ),
                           if (item.author.isNotEmpty) ...[
                             const SizedBox(height: 4),
@@ -424,12 +395,8 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                               'by ${item.author}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.outfit(
-                                color: AppTheme.roseQuartz
-                                    .withValues(alpha: 0.8),
-                                fontSize: 11,
-                                fontStyle: FontStyle.italic,
-                              ),
+                              style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz
+                                    .withValues(alpha: 0.8), fontSize: 11, fontStyle: FontStyle.italic),
                             ),
                           ],
                           const SizedBox(height: 8),
@@ -438,11 +405,7 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                               if (item.year.isNotEmpty) ...[
                                 Text(
                                   item.year,
-                                  style: GoogleFonts.outfit(
-                                    color: AppTheme.blushGold,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                                  style: AppTypography.outfitHeading.copyWith(color: AppTheme.blushGold, fontSize: 12),
                                 ),
                                 const SizedBox(width: 10),
                               ],
@@ -463,12 +426,7 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                                   item.readSourceLabel.isNotEmpty
                                       ? item.readSourceLabel.toUpperCase()
                                       : 'BOOK',
-                                  style: GoogleFonts.outfit(
-                                    color: AppTheme.roseQuartz,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.8,
-                                  ),
+                                  style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 0.8),
                                 ),
                               ),
                             ],
@@ -631,23 +589,15 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
             alignment: Alignment.center,
             child: Text(
               initial,
-              style: GoogleFonts.outfit(
-                color: Colors.white,
-                fontSize: 9,
-                fontWeight: FontWeight.w900,
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900),
             ),
           ),
           const SizedBox(width: 5),
           Text(
             label,
-            style: GoogleFonts.outfit(
-              color: read
+            style: AppTypography.outfitHeading.copyWith(color: read
                   ? Colors.white
-                  : AppTheme.roseQuartz.withValues(alpha: 0.7),
-              fontSize: 10.5,
-              fontWeight: FontWeight.w700,
-            ),
+                  : AppTheme.roseQuartz.withValues(alpha: 0.7), fontSize: 10.5),
           ),
         ],
       ),
@@ -700,33 +650,25 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(
           'Remove from Our Books?',
-          style: GoogleFonts.cormorantGaramond(
-            color: AppTheme.roseQuartz,
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
-          ),
+          style: AppTypography.cormorantBold.copyWith(fontSize: 22),
         ),
         content: Text(
           'This will remove "${item.title}" from the shared list for both of you.',
-          style: GoogleFonts.outfit(
-              color: AppTheme.petalWhite, fontSize: 13, height: 1.4),
+          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 13, height: 1.4),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text(
               'Cancel',
-              style: GoogleFonts.outfit(color: AppTheme.roseQuartz),
+              style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz),
             ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(
               'Remove',
-              style: GoogleFonts.outfit(
-                color: AppTheme.deepRose,
-                fontWeight: FontWeight.bold,
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: AppTheme.deepRose, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -756,11 +698,7 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                   ? 'No shared picks yet.\nSearch and add one to "Ours".'
                   : 'Nothing read together yet.\nYour first shared book awaits.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                color: AppTheme.roseQuartz,
-                fontSize: 14,
-                height: 1.5,
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz, fontSize: 14, height: 1.5),
             ),
             if (isToReadTab) ...[
               const SizedBox(height: 24),
@@ -792,12 +730,7 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                       const SizedBox(width: 8),
                       Text(
                         'Add a book to read together',
-                        style: GoogleFonts.outfit(
-                          color: AppTheme.petalWhite,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                          letterSpacing: 0.4,
-                        ),
+                        style: AppTypography.outfitHeading.copyWith(color: AppTheme.petalWhite, fontSize: 13, letterSpacing: 0.4),
                       ),
                     ],
                   ),
@@ -859,12 +792,7 @@ class _ReadButton extends StatelessWidget {
               child: Text(
                 read ? '$label ✓' : label,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.outfit(
-                  color:
-                      read ? Colors.white : Colors.white.withValues(alpha: 0.85),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                ),
+                style: AppTypography.outfitHeading.copyWith(color: read ? Colors.white : Colors.white.withValues(alpha: 0.85), fontSize: 12),
               ),
             ),
           ],

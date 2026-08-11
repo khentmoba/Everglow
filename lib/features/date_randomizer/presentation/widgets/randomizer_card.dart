@@ -8,8 +8,7 @@ import 'package:everglow/features/ai/data/services/ai_service.dart';
 import 'package:everglow/shared/widgets/glass_container.dart';
 import 'package:everglow/shared/widgets/bouncy_button.dart';
 import 'package:everglow/shared/widgets/animated_emblem.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:everglow/core/theme/app_theme.dart';import 'package:everglow/core/theme/app_typography.dart';
 
 class RandomizerCard extends StatefulWidget {
   final DateIdeaService service;
@@ -89,7 +88,8 @@ class _RandomizerCardState extends State<RandomizerCard>
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return RepaintBoundary(
+      child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: GlassContainer(
         padding: const EdgeInsets.all(32),
@@ -98,22 +98,12 @@ class _RandomizerCardState extends State<RandomizerCard>
           children: [
             Text(
               'Digital Roulette',
-              style: GoogleFonts.cormorantGaramond(
-                color: AppTheme.roseQuartz,
-                fontSize: 26,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1,
-              ),
+              style: AppTypography.cormorantBlack.copyWith(fontSize: 26, letterSpacing: 1),
             ),
             const SizedBox(height: 8),
             Text(
               'SPIN FOR A DATE DESTINY',
-              style: GoogleFonts.outfit(
-                color: AppTheme.petalWhite.withValues(alpha: 0.75),
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.5,
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.75), fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1.5),
             ),
             const SizedBox(height: 12),
             // AI Mode toggle
@@ -147,11 +137,7 @@ class _RandomizerCardState extends State<RandomizerCard>
                     const SizedBox(width: 6),
                     Text(
                       _useAI ? 'AI Powered ✨' : 'Random',
-                      style: GoogleFonts.outfit(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: _useAI ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.7),
-                      ),
+                      style: AppTypography.outfitBold.copyWith(fontSize: 11, color: _useAI ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.7)),
                     ),
                   ],
                 ),
@@ -194,15 +180,11 @@ class _RandomizerCardState extends State<RandomizerCard>
             const SizedBox(height: 40),
             Text(
               _isSpinning ? 'DECIDING YOUR FATE...' : 'TAP THE HEART',
-              style: GoogleFonts.outfit(
-                color: _isSpinning ? AppTheme.blushGold : AppTheme.roseQuartz.withValues(alpha: 0.6),
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: _isSpinning ? AppTheme.blushGold : AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 13, fontWeight: FontWeight.bold, letterSpacing: 2),
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -212,7 +194,7 @@ class _RoulettePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppTheme.champagneGold.withValues(alpha: 0.5)
+      ..color = AppTheme.blushGold.withValues(alpha: 0.5)
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 

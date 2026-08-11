@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:confetti/confetti.dart';
 import 'package:provider/provider.dart';
 import '../models/game_match.dart';
 import '../services/academy_service.dart';
 import 'package:everglow/services/auth_service.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class PodiumScreen extends StatefulWidget {
   final GameMatch match;
@@ -76,18 +76,11 @@ class _PodiumScreenState extends State<PodiumScreen> {
                 const SizedBox(height: 30),
                 Text(
                   title,
-                  style: GoogleFonts.outfit(
-                    fontSize: 42,
-                    fontWeight: FontWeight.w900,
-                    color: const Color(0xFFFF69B4),
-                  ),
+                  style: AppTypography.outfitWhite.copyWith(fontSize: 42, fontWeight: FontWeight.w900, color: const Color(0xFFFF69B4)),
                 ),
                 Text(
                   subtitle,
-                  style: GoogleFonts.outfit(
-                    fontSize: 18,
-                    color: Colors.pink[300],
-                  ),
+                  style: AppTypography.outfitWhite.copyWith(fontSize: 18, color: Colors.pink[300]),
                 ),
                 const SizedBox(height: 50),
                 _buildFinalScores(),
@@ -103,7 +96,7 @@ class _PodiumScreenState extends State<PodiumScreen> {
                   ),
                   child: Text(
                     'Return to Hub',
-                    style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: AppTypography.outfitWhite.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -147,7 +140,7 @@ class _PodiumScreenState extends State<PodiumScreen> {
         _buildScoreDisplay('Khent', widget.match.khentScore),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 30),
-          child: Text('-', style: GoogleFonts.outfit(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.black26)),
+          child: Text('-', style: AppTypography.outfitWhite.copyWith(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.black26)),
         ),
         _buildScoreDisplay('Clair', widget.match.clairScore),
       ],
@@ -157,8 +150,8 @@ class _PodiumScreenState extends State<PodiumScreen> {
   Widget _buildScoreDisplay(String name, int score) {
     return Column(
       children: [
-        Text(name, style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black54)),
-        Text(score.toString(), style: GoogleFonts.outfit(fontSize: 48, fontWeight: FontWeight.w900, color: const Color(0xFFFF69B4))),
+        Text(name, style: AppTypography.outfitWhite.copyWith(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black54)),
+        Text(score.toString(), style: AppTypography.outfitWhite.copyWith(fontSize: 48, fontWeight: FontWeight.w900, color: const Color(0xFFFF69B4))),
       ],
     );
   }

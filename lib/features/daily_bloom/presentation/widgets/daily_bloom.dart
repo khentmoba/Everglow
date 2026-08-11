@@ -7,7 +7,7 @@ import 'garden_plant_view.dart';
 import 'garden_weather_overlay.dart';
 import 'plant_picker_sheet.dart';
 import 'package:everglow/core/theme/app_theme.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class DailyBloom extends StatefulWidget {
   const DailyBloom({super.key});
@@ -96,9 +96,8 @@ class _DailyBloomState extends State<DailyBloom> {
                                     Text(
                                       plantType.stageDescriptions[effectiveStage.clamp(0, 5)],
                                       textAlign: TextAlign.center,
-                                      style: GoogleFonts.outfit(
+                                      style: AppTypography.outfitHeading.copyWith(
                                         color: AppTheme.blushGold,
-                                        fontWeight: FontWeight.bold,
                                         fontSize: 13,
                                         height: 1.3,
                                       ),
@@ -108,7 +107,7 @@ class _DailyBloomState extends State<DailyBloom> {
                                       Text(
                                         '${plantType.seasonalBonusName} bonus active ✨',
                                         textAlign: TextAlign.center,
-                                        style: GoogleFonts.outfit(
+                                        style: AppTypography.outfitWhite.copyWith(
                                           color: AppTheme.petalWhite.withValues(alpha: 0.7),
                                           fontSize: 11,
                                         ),
@@ -215,10 +214,9 @@ class _DailyBloomState extends State<DailyBloom> {
           const SizedBox(width: 4),
           Text(
             label,
-            style: GoogleFonts.outfit(
+            style: AppTypography.outfitBold.copyWith(
               fontSize: 12,
               color: AppTheme.petalWhite.withValues(alpha: 0.8),
-              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -253,10 +251,9 @@ class _DailyBloomState extends State<DailyBloom> {
               const SizedBox(width: 4),
               Text(
                 label,
-                style: GoogleFonts.outfit(
+                style: AppTypography.outfitBold.copyWith(
                   fontSize: 11,
                   color: AppTheme.roseQuartz,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],

@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../core/theme/app_typography.dart';
 
 import '../../../core/theme/app_theme.dart';
 
@@ -261,7 +261,7 @@ class _HeroSlide extends StatelessWidget {
                         ),
                         child: Text(
                           (item.eyebrow ?? 'TRENDING').toUpperCase(),
-                          style: GoogleFonts.outfit(
+                          style: AppTypography.outfitHeading.copyWith(
                             color: Colors.white,
                             fontSize: 9,
                             fontWeight: FontWeight.w800,
@@ -274,25 +274,19 @@ class _HeroSlide extends StatelessWidget {
                         item.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.cormorantGaramond(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w900,
-                          color: AppTheme.petalWhite,
-                          height: 1.1,
-                          shadows: [
+                        style: AppTypography.cormorantBlackWhite.copyWith(fontSize: 26, height: 1.1, shadows: [
                             Shadow(
                               color: Colors.black.withValues(alpha: 0.6),
                               blurRadius: 12,
                             ),
-                          ],
-                        ),
+                          ]),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         item.subtitle,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.outfit(
+                        style: AppTypography.outfitWhite.copyWith(
                           color: AppTheme.roseQuartz
                               .withValues(alpha: 0.85),
                           fontSize: 12,

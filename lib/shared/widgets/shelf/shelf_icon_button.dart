@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../core/theme/app_typography.dart';
 
 import '../../../core/theme/app_theme.dart';
 import 'motion.dart';
@@ -96,10 +96,8 @@ class _ShelfIconButtonState extends State<ShelfIconButton> {
         child: widget.tooltip != null
             ? Tooltip(
                 message: widget.tooltip!,
-                textStyle: GoogleFonts.outfit(
-                  color: AppTheme.petalWhite,
+                textStyle: AppTypography.outfitBold.copyWith(
                   fontSize: 11,
-                  fontWeight: FontWeight.w600,
                 ),
                 decoration: BoxDecoration(
                   color: AppTheme.velvet,

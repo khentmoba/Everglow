@@ -1,6 +1,4 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter/material.dart';import 'package:go_router/go_router.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/shared/widgets/gamified_background.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_empty_state.dart';
@@ -9,6 +7,7 @@ import '../../domain/models/memory_photo.dart';
 import '../../data/services/gallery_service.dart';
 import '../widgets/add_photo_dialog.dart';
 import 'photo_viewer_screen.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class GalleryScreen extends StatefulWidget {
   const GalleryScreen({super.key});
@@ -45,12 +44,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   const Spacer(),
                   Text(
                     'Memory Gallery',
-                    style: GoogleFonts.cormorantGaramond(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.roseQuartz,
-                      letterSpacing: 1.5,
-                    ),
+                    style: AppTypography.cormorantBold.copyWith(fontSize: 22, letterSpacing: 1.5),
                   ),
                   const Spacer(),
                   const SizedBox(width: 48),
@@ -62,17 +56,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
               child: TextField(
-                style: GoogleFonts.outfit(
-                  color: AppTheme.petalWhite,
-                  fontSize: 13,
-                ),
+                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 13),
                 onChanged: (v) => setState(() => _searchQuery = v.trim()),
                 decoration: InputDecoration(
                   hintText: "Search memories…",
-                  hintStyle: GoogleFonts.outfit(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.55),
-                    fontSize: 13,
-                  ),
+                  hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.55), fontSize: 13),
                   prefixIcon: const Icon(
                     Icons.search,
                     color: AppTheme.blushGold,
@@ -275,20 +263,12 @@ class _PhotoCard extends StatelessWidget {
                         photo.caption,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.outfit(
-                          fontSize: 11,
-                          color: AppTheme.petalWhite,
-                          fontWeight: FontWeight.w500,
-                        ),
+                        style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: AppTheme.petalWhite, fontWeight: FontWeight.w500),
                       ),
                     const SizedBox(height: 2),
                     Text(
                       photo.uploadedBy,
-                      style: GoogleFonts.outfit(
-                        fontSize: 9,
-                        color: AppTheme.blushGold,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: AppTypography.outfitBold.copyWith(fontSize: 9, color: AppTheme.blushGold),
                     ),
                   ],
                 ),

@@ -1,9 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:everglow/core/theme/app_colors.dart';
+import 'package:flutter/material.dart';import 'package:everglow/core/theme/app_colors.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/watch_party/presentation/widgets/start_watch_party_button.dart';
 import 'drawer_helpers.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Data class for anime season navigation entries. Each entry represents one
 /// season of a multi-season anime series, built from AniList SEQUEL/PREQUEL
@@ -94,20 +93,11 @@ class EpisodeListSection extends StatelessWidget {
           children: [
             Text(
               'Episodes',
-              style: GoogleFonts.cormorantGaramond(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: AppColors.petalWhite,
-              ),
+              style: AppTypography.cormorantExtraBoldWhite.copyWith(fontSize: 22),
             ),
             Text(
               'SELECT AN EPISODE TO PLAY',
-              style: GoogleFonts.outfit(
-                fontSize: 9,
-                color: AppColors.mutedPurple,
-                letterSpacing: 2,
-                fontWeight: FontWeight.w700,
-              ),
+              style: AppTypography.outfitHeading.copyWith(fontSize: 9, color: AppColors.mutedPurple, letterSpacing: 2),
             ),
           ],
         ),
@@ -127,10 +117,7 @@ class EpisodeListSection extends StatelessWidget {
               isDense: true,
               icon: const Icon(Icons.expand_more_rounded,
                   color: AppColors.deepRose, size: 18),
-              style: GoogleFonts.outfit(
-                  color: AppColors.petalWhite,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13),
+              style: AppTypography.outfitBold.copyWith(fontSize: 13),
               onChanged: (int? value) {
                 if (value != null) {
                   onSeasonChanged(value);
@@ -300,12 +287,7 @@ class _EpisodeTileState extends State<EpisodeTile> {
                         widget.epName,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.outfit(
-                          color: AppColors.petalWhite,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                          height: 1.25,
-                        ),
+                        style: AppTypography.outfitHeading.copyWith(fontSize: 13, height: 1.25),
                       ),
                       if (widget.epOverview.isNotEmpty) ...[
                         const SizedBox(height: 4),
@@ -313,11 +295,7 @@ class _EpisodeTileState extends State<EpisodeTile> {
                           widget.epOverview,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.outfit(
-                            color: AppColors.mutedPurple,
-                            fontSize: 11,
-                            height: 1.4,
-                          ),
+                          style: AppTypography.outfitWhite.copyWith(color: AppColors.mutedPurple, fontSize: 11, height: 1.4),
                         ),
                       ],
                     ],
@@ -381,12 +359,7 @@ class _EpisodeTileState extends State<EpisodeTile> {
       alignment: Alignment.center,
       child: Text(
         widget.epNum.toString().padLeft(2, '0'),
-        style: GoogleFonts.cormorantGaramond(
-          fontSize: 28,
-          fontWeight: FontWeight.w900,
-          color: AppColors.deepRose,
-          height: 1,
-        ),
+        style: AppTypography.cormorantBlack.copyWith(fontSize: 28, height: 1, color: AppColors.deepRose),
       ),
     );
   }
@@ -439,18 +412,12 @@ class _EpisodeTileState extends State<EpisodeTile> {
               bottom: 6,
               child: Text(
                 widget.epNum.toString().padLeft(2, '0'),
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.petalWhite,
-                  height: 1,
-                  shadows: [
+                style: AppTypography.cormorantBlackWhite.copyWith(fontSize: 20, height: 1, shadows: [
                     Shadow(
                       color: Colors.black.withValues(alpha: 0.8),
                       blurRadius: 6,
                     ),
-                  ],
-                ),
+                  ]),
               ),
             ),
           ],

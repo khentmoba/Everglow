@@ -1,8 +1,7 @@
 import 'dart:math';
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:everglow/core/theme/app_theme.dart';import 'package:everglow/core/theme/app_typography.dart';
 
 class CelebrationDialog extends StatelessWidget {
   final String title;
@@ -51,23 +50,13 @@ class CelebrationDialog extends StatelessWidget {
                   const SizedBox(height: 24),
                   Text(
                     "You should...",
-                    style: GoogleFonts.outfit(
-                      color: AppTheme.blushGold,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.2,
-                    ),
+                    style: AppTypography.outfitBold.copyWith(color: AppTheme.blushGold, fontSize: 16, letterSpacing: 1.2),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     title,
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.cormorantGaramond(
-                      color: AppTheme.roseQuartz,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                      height: 1.2,
-                    ),
+                    style: AppTypography.cormorantBlack.copyWith(fontSize: 28, height: 1.2),
                   ),
                   const SizedBox(height: 32),
                   ElevatedButton(
@@ -86,10 +75,7 @@ class CelebrationDialog extends StatelessWidget {
                     ),
                     child: Text(
                       'Perfect!',
-                      style: GoogleFonts.outfit(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: AppTypography.outfitWhite.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],

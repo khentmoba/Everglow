@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../core/theme/app_typography.dart';
 
 /// A shareable filter chip with animated selection state, hover/touch
 /// feedback, and a tinted icon + label.
@@ -90,7 +90,7 @@ class _FilterChipState extends State<FilterChip> {
                 const SizedBox(width: 6),
                 Text(
                   widget.label,
-                  style: GoogleFonts.outfit(
+                  style: AppTypography.outfitWhite.copyWith(
                     fontSize: 12,
                     color: selected
                         ? tint

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:everglow/features/dashboard/domain/models/hidden_note.dart';
 import 'package:everglow/shared/widgets/glass_container.dart';
 import 'package:everglow/core/theme/app_theme.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class NoteCard extends StatelessWidget {
   final HiddenNote note;
@@ -57,22 +57,13 @@ class NoteCard extends StatelessWidget {
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.petalWhite,
-                    letterSpacing: 0.5,
-                  ),
+                  style: AppTypography.outfitWhite.copyWith(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.petalWhite, letterSpacing: 0.5),
                 ),
                 if (!unlocked) ...[
                   const SizedBox(height: 8),
                   Text(
                     _getCountdownText(note.unlockDate),
-                    style: GoogleFonts.outfit(
-                      fontSize: 11,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.75),
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: AppTypography.outfitBold.copyWith(fontSize: 11, color: AppTheme.petalWhite.withValues(alpha: 0.75)),
                   ),
                 ],
               ],

@@ -174,6 +174,7 @@ class GuardianController extends ChangeNotifier {
     // Random interval 3-7 minutes
     final minutes = 3 + (DateTime.now().millisecond % 5);
     _idleTimer = Timer(Duration(minutes: minutes), () {
+      if (!mounted) return;
       // In AI mode, generate a contextual greeting
       if (_isAIMode && _aiService != null) {
         _showAIGreeting();

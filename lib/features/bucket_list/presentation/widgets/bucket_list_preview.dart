@@ -1,9 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter/material.dart';import 'package:go_router/go_router.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import '../../data/models/bucket_item.dart';
 import '../../data/services/bucket_list_service.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Dashboard preview widget showing bucket list progress + recent wishes.
 class BucketListPreview extends StatelessWidget {
@@ -38,10 +37,7 @@ class BucketListPreview extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'Your bucket list is empty — add your first dream!',
-                        style: GoogleFonts.outfit(
-                          fontSize: 12,
-                          color: AppTheme.petalWhite.withValues(alpha: 0.6),
-                        ),
+                        style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.petalWhite.withValues(alpha: 0.6)),
                       ),
                     ),
                     Icon(
@@ -112,18 +108,11 @@ class BucketListPreview extends StatelessWidget {
                             children: [
                               Text(
                                 'Our Bucket List',
-                                style: GoogleFonts.cormorantGaramond(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.roseQuartz,
-                                ),
+                                style: AppTypography.cormorantBold.copyWith(fontSize: 18),
                               ),
                               Text(
                                 '$completed of $total dreams fulfilled',
-                                style: GoogleFonts.outfit(
-                                  fontSize: 11,
-                                  color: AppTheme.petalWhite.withValues(alpha: 0.6),
-                                ),
+                                style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: AppTheme.petalWhite.withValues(alpha: 0.6)),
                               ),
                             ],
                           ),
@@ -147,10 +136,7 @@ class BucketListPreview extends StatelessWidget {
                                 item.title,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.outfit(
-                                  fontSize: 12,
-                                  color: AppTheme.petalWhite.withValues(alpha: 0.7),
-                                ),
+                                style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.petalWhite.withValues(alpha: 0.7)),
                               ),
                             ),
                           ],

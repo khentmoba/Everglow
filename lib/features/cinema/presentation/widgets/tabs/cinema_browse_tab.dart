@@ -1,6 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'package:everglow/core/theme/app_breakpoints.dart';
 import 'package:everglow/features/cinema/data/cinema_browse_config.dart';
@@ -8,6 +7,7 @@ import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_colors.dart';
 import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_poster_card.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Netflix-style browse: quiet category chips feeding a poster grid.
 class CinemaBrowseTab extends StatefulWidget {
@@ -51,28 +51,28 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 100),
-      children: [
-        Padding(
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
           padding: EdgeInsets.fromLTRB(
             AppBreakpoint.isDesktop(context) ? 48 : 16,
             24,
             AppBreakpoint.isDesktop(context) ? 48 : 16,
             4,
           ),
-          child: Text(
-            'Browse',
-            style: GoogleFonts.outfit(
-              fontSize: AppBreakpoint.isDesktop(context) ? 22 : 20,
-              fontWeight: FontWeight.w700,
-              color: NetflixColors.textPrimary,
+          sliver: SliverToBoxAdapter(
+            child: Text(
+              'Browse',
+              style: AppTypography.outfitHeading.copyWith(fontSize: AppBreakpoint.isDesktop(context) ? 22 : 20, color: NetflixColors.textPrimary),
             ),
           ),
         ),
-        ...BrowseCategoryGroup.values.map(_buildBrowseGroup),
-        const SizedBox(height: 16),
-        if (_selectedBrowseOptionId != null) _buildBrowseResults(),
+        ...BrowseCategoryGroup.values.map(
+          (group) => SliverToBoxAdapter(child: _buildBrowseGroup(group)),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+        if (_selectedBrowseOptionId != null) ..._buildBrowseResultSlivers(),
+        const SliverToBoxAdapter(child: SizedBox(height: 100)),
       ],
     );
   }
@@ -96,11 +96,7 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
             ),
             child: Text(
               browseGroupMeta(group).title,
-              style: GoogleFonts.outfit(
-                fontSize: isDesktop ? 16 : 15,
-                fontWeight: FontWeight.w700,
-                color: NetflixColors.textSecondary,
-              ),
+              style: AppTypography.outfitHeading.copyWith(fontSize: isDesktop ? 16 : 15, color: NetflixColors.textSecondary),
             ),
           ),
           SizedBox(
@@ -126,43 +122,47 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
     );
   }
 
-  Widget _buildBrowseResults() {
+  List<Widget> _buildBrowseResultSlivers() {
     if (_isLoadingBrowse) {
-      return const Padding(
-        padding: EdgeInsets.all(48),
-        child: Center(
-          child: SizedBox(
-            width: 28,
-            height: 28,
-            child: CircularProgressIndicator(
-              color: NetflixColors.accent,
-              strokeWidth: 2.5,
+      return [
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.all(48),
+            child: Center(
+              child: SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  color: NetflixColors.accent,
+                  strokeWidth: 2.5,
+                ),
+              ),
             ),
           ),
         ),
-      );
+      ];
     }
 
     if (_browseResults.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
-        child: Center(
-          child: Text(
-            'No titles found for this filter.',
-            style: GoogleFonts.outfit(
-              color: NetflixColors.textMuted,
-              fontSize: 13.5,
+      return [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+            child: Center(
+              child: Text(
+                'No titles found for this filter.',
+                style: AppTypography.outfitWhite.copyWith(color: NetflixColors.textMuted, fontSize: 13.5),
+              ),
             ),
           ),
         ),
-      );
+      ];
     }
 
     final isDesktop = AppBreakpoint.isDesktop(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
+    return [
+      SliverToBoxAdapter(
+        child: Padding(
           padding: EdgeInsets.fromLTRB(
             isDesktop ? 48 : 16,
             18,
@@ -170,41 +170,37 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
             12,
           ),
           child: Text(
-            '${_browseResults.length} titles',
-            style: GoogleFonts.outfit(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: NetflixColors.textMuted,
-            ),
+            '\ titles',
+            style: AppTypography.outfitWhite.copyWith(fontSize: 13, fontWeight: FontWeight.w500, color: NetflixColors.textMuted),
           ),
         ),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: isDesktop ? 48 : 16),
-          child: GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: isDesktop
-                  ? 6
-                  : (AppBreakpoint.isTablet(context) ? 4 : 3),
-              childAspectRatio: 0.67,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-            ),
-            itemCount: _browseResults.length,
-            itemBuilder: (context, index) {
-              final item = _browseResults[index];
-              return NetflixPosterCard(
-                item: item,
-                compact: true,
-                selfPreview: true,
-                onTap: () => widget.onMediaTap(item),
-              );
-            },
+      ),
+      SliverPadding(
+        padding: EdgeInsets.symmetric(horizontal: isDesktop ? 48 : 16),
+        sliver: SliverGrid.builder(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: isDesktop
+                ? 6
+                : (AppBreakpoint.isTablet(context) ? 4 : 3),
+            childAspectRatio: 0.67,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
           ),
+          itemCount: _browseResults.length,
+          itemBuilder: (context, index) {
+            final item = _browseResults[index];
+            return NetflixPosterCard(
+              item: item,
+              compact: true,
+              selfPreview: true,
+              onTap: () => widget.onMediaTap(item),
+            );
+          },
         ),
-        if (_browseHasMore)
-          Padding(
+      ),
+      if (_browseHasMore)
+        SliverToBoxAdapter(
+          child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
             child: Center(
               child: GestureDetector(
@@ -221,18 +217,14 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
                   ),
                   child: Text(
                     'Load More',
-                    style: GoogleFonts.outfit(
-                      color: NetflixColors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
+                    style: AppTypography.outfitHeading.copyWith(color: NetflixColors.textPrimary, fontSize: 13),
                   ),
                 ),
               ),
             ),
           ),
-      ],
-    );
+        ),
+    ];
   }
 
   void _selectBrowseOption(BrowseCategoryOption option) {
@@ -327,11 +319,7 @@ class _BrowsePill extends StatelessWidget {
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: GoogleFonts.outfit(
-            color: selected ? Colors.black : NetflixColors.textSecondary,
-            fontSize: 12.5,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-          ),
+          style: AppTypography.outfitHeading.copyWith(color: selected ? Colors.black : NetflixColors.textSecondary, fontSize: 12.5),
         ),
       ),
     );

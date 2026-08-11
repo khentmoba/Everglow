@@ -47,7 +47,8 @@ class _ShimmerBoxState extends State<ShimmerBox>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
+    return RepaintBoundary(
+      child: AnimatedBuilder(
       animation: _anim,
       builder: (context, child) {
         return ShaderMask(
@@ -78,6 +79,7 @@ class _ShimmerBoxState extends State<ShimmerBox>
           color: widget.base,
           borderRadius: BorderRadius.circular(widget.radius),
         ),
+      ),
       ),
     );
   }

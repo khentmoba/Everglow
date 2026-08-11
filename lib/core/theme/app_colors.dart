@@ -86,15 +86,4 @@ class AppColors {
   static const Color animeElectricPurple = Color(0xFF7C3AED);
   static const Color animeVibrantPink    = Color(0xFFFF4081);
 
-  // ── Legacy aliases (remove after full migration) ───────────
-  @Deprecated('Use roseQuartz instead')
-  static const Color primaryPink     = roseQuartz;
-  @Deprecated('Use deepRose instead')
-  static const Color peachyMagenta   = deepRose;
-  @Deprecated('Use softLavender instead')
-  static const Color neonTeal        = softLavender;
-  @Deprecated('Use twilight instead')
-  static const Color electricBlue    = twilight;
-  @Deprecated('Use blushGold instead')
-  static const Color champagneGold   = blushGold;
 }

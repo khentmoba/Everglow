@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
+import 'package:everglow/core/theme/app_typography.dart';
 import 'package:everglow/core/theme/app_motion.dart';
 import 'netflix_colors.dart';
-
 /// A navigation link for the cinema top/bottom bars.
 class NetflixNavLink {
   final String label;
@@ -176,12 +174,7 @@ class _NetflixTopNav extends StatelessWidget {
               const SizedBox(width: 10),
               Text(
                 logoText,
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: isDesktop ? 21 : 18,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFFF4C2C2),
-                  letterSpacing: 0.4,
-                ),
+              style: AppTypography.cormorantExtraBold.copyWith(fontSize: isDesktop ? 21 : 18, letterSpacing: 0.4, color: const Color(0xFFF4C2C2)),
               ),
             ],
           ),
@@ -254,13 +247,10 @@ class _TopLinkState extends State<_TopLink> {
         onTap: widget.onTap,
         child: Text(
           widget.label,
-          style: GoogleFonts.outfit(
-            fontSize: 14,
-            fontWeight: widget.active ? FontWeight.w700 : FontWeight.w500,
-            color: widget.active || _hovered
-                ? Colors.white
-                : Colors.white.withValues(alpha: 0.72),
-          ),
+         style: AppTypography.outfitHeading.copyWith(fontSize: 14, color: widget.active || _hovered
+               ? Colors.white
+               : Colors.white.withValues(alpha: 0.72)),
+// replaced
         ),
       ),
     );
@@ -360,13 +350,9 @@ class _MobileTab extends StatelessWidget {
             item.label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.outfit(
-              fontSize: 9.5,
-              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-              color: active
+            style: AppTypography.outfitHeading.copyWith(fontSize: 9.5, color: active
                   ? Colors.white
-                  : Colors.white.withValues(alpha: 0.55),
-            ),
+                  : Colors.white.withValues(alpha: 0.55)),
           ),
         ],
       ),

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../models/academy_question.dart';
 import '../services/academy_service.dart';
 import 'package:everglow/services/auth_service.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class SoloStudyScreen extends StatefulWidget {
   final List<AcademyQuestion> questions;
@@ -93,7 +93,7 @@ class _SoloStudyScreenState extends State<SoloStudyScreen> {
                   children: [
                     Text(
                       'Question ${_currentIndex + 1}/${widget.questions.length}',
-                      style: GoogleFonts.outfit(fontSize: 18, color: Colors.pink[300]),
+                      style: AppTypography.outfitWhite.copyWith(fontSize: 18, color: Colors.pink[300]),
                     ),
                     const SizedBox(height: 20),
                     _buildQuestionCard(currentQuestion),
@@ -121,7 +121,7 @@ class _SoloStudyScreenState extends State<SoloStudyScreen> {
           ),
           Text(
             'Score: $_score',
-            style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: const Color(0xFFFF69B4)),
+            style: AppTypography.outfitWhite.copyWith(fontSize: 20, fontWeight: FontWeight.bold, color: const Color(0xFFFF69B4)),
           ),
         ],
       ),
@@ -139,7 +139,7 @@ class _SoloStudyScreenState extends State<SoloStudyScreen> {
       child: Text(
         question.questionText,
         textAlign: TextAlign.center,
-        style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold),
+        style: AppTypography.outfitWhite.copyWith(fontSize: 22, fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -175,7 +175,7 @@ class _SoloStudyScreenState extends State<SoloStudyScreen> {
           child: Text(
             question.options[index],
             textAlign: TextAlign.center,
-            style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w500),
+            style: AppTypography.outfitWhite.copyWith(fontSize: 18, fontWeight: FontWeight.w500),
           ),
         ),
       ),

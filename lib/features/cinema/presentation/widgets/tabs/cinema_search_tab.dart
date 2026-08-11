@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'package:everglow/core/theme/app_breakpoints.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_colors.dart';
 import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_poster_card.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Netflix-style search: a quiet input, instant results, popular searches.
 class CinemaSearchTab extends StatefulWidget {
@@ -71,11 +71,7 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
             children: [
               Text(
                 'Search',
-                style: GoogleFonts.outfit(
-                  fontSize: isDesktop ? 22 : 20,
-                  fontWeight: FontWeight.w700,
-                  color: NetflixColors.textPrimary,
-                ),
+                style: AppTypography.outfitHeading.copyWith(fontSize: isDesktop ? 22 : 20, color: NetflixColors.textPrimary),
               ),
               const SizedBox(height: 14),
               Container(
@@ -87,16 +83,10 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
                 child: TextField(
                   controller: _searchController,
                   onChanged: _onSearchChanged,
-                  style: GoogleFonts.outfit(
-                    color: NetflixColors.textPrimary,
-                    fontSize: 15,
-                  ),
+                  style: AppTypography.outfitWhite.copyWith(color: NetflixColors.textPrimary, fontSize: 15),
                   decoration: InputDecoration(
                     hintText: 'Titles, actors, genres',
-                    hintStyle: GoogleFonts.outfit(
-                      color: NetflixColors.textMuted,
-                      fontSize: 15,
-                    ),
+                    hintStyle: AppTypography.outfitWhite.copyWith(color: NetflixColors.textMuted, fontSize: 15),
                     prefixIcon: Icon(
                       Icons.search_rounded,
                       color: NetflixColors.textSecondary,
@@ -207,7 +197,7 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
+            const Icon(
               Icons.search_off_rounded,
               color: NetflixColors.textMuted,
               size: 42,
@@ -215,20 +205,13 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
             const SizedBox(height: 14),
             Text(
               'No results found',
-              style: GoogleFonts.outfit(
-                color: NetflixColors.textPrimary,
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-              ),
+              style: AppTypography.outfitHeading.copyWith(color: NetflixColors.textPrimary, fontSize: 17),
             ),
             const SizedBox(height: 6),
             Text(
               'Try a different title or keyword.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                color: NetflixColors.textMuted,
-                fontSize: 13,
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: NetflixColors.textMuted, fontSize: 13),
             ),
           ],
         ),
@@ -257,11 +240,7 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
                 children: [
                   Text(
                     'Popular Searches',
-                    style: GoogleFonts.outfit(
-                      color: NetflixColors.textPrimary,
-                      fontSize: isDesktop ? 18 : 16,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: AppTypography.outfitHeading.copyWith(color: NetflixColors.textPrimary, fontSize: isDesktop ? 18 : 16),
                   ),
                   const SizedBox(height: 12),
                   Wrap(
@@ -284,11 +263,7 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
             padding: EdgeInsets.fromLTRB(horizontalPad, 20, horizontalPad, 14),
             child: Text(
               'Popular Now',
-              style: GoogleFonts.outfit(
-                color: NetflixColors.textPrimary,
-                fontSize: isDesktop ? 18 : 16,
-                fontWeight: FontWeight.w700,
-              ),
+              style: AppTypography.outfitHeading.copyWith(color: NetflixColors.textPrimary, fontSize: isDesktop ? 18 : 16),
             ),
           ),
         ),
@@ -314,7 +289,7 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
             }, childCount: widget.trendingGlobal.length),
           ),
         ),
-        const SliverPadding(padding: EdgeInsets.only(bottom: 120)),
+        const SliverPadding(padding: const EdgeInsets.only(bottom: 120)),
       ],
     );
   }
@@ -322,6 +297,7 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
   void _onSearchChanged(String query) {
     if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
       if (query.trim().isNotEmpty) {
         _performSearch(query.trim());
       } else {
@@ -485,11 +461,7 @@ class _SearchPill extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: GoogleFonts.outfit(
-            color: selected ? Colors.black : NetflixColors.textSecondary,
-            fontSize: 12.5,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-          ),
+          style: AppTypography.outfitHeading.copyWith(color: selected ? Colors.black : NetflixColors.textSecondary, fontSize: 12.5),
         ),
       ),
     );

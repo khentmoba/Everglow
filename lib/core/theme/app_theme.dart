@@ -31,18 +31,6 @@ class AppTheme {
   static const Color warmAmber    = AppColors.warmAmber;
   static const Color moonlight    = AppColors.moonlight;
 
-  // ── Legacy aliases (remove after full migration) ───────────
-  @Deprecated('Use roseQuartz instead')
-  static const Color primaryPink   = AppColors.roseQuartz;
-  @Deprecated('Use deepRose instead')
-  static const Color peachyMagenta = AppColors.deepRose;
-  @Deprecated('Use softLavender instead')
-  static const Color neonTeal      = AppColors.softLavender;
-  @Deprecated('Use twilight instead')
-  static const Color electricBlue  = AppColors.twilight;
-  @Deprecated('Use blushGold instead')
-  static const Color champagneGold = AppColors.blushGold;
-
   // ── Gradient / glass constants ─────────────────────────────
 
   static const LinearGradient gamifiedGradient = LinearGradient(
@@ -95,4 +83,5 @@ class AppTheme {
 
   static bool get shouldReduceMotion =>
       WidgetsBinding.instance.platformDispatcher.accessibilityFeatures.reduceMotion;
+  static const double petalFieldOpacity = 0.08;
 }

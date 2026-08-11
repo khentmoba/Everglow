@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
 import '../../domain/models/star_note.dart';
 import 'package:everglow/core/theme/app_theme.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class NoteDisplayDialog extends StatefulWidget {
   final StarNote note;
@@ -59,7 +59,8 @@ class _NoteDisplayDialogState extends State<NoteDisplayDialog>
     final info = starCategoryInfo[widget.note.category] ??
         ('⭐', widget.note.category);
 
-    return Stack(
+    return RepaintBoundary(
+      child: Stack(
       children: [
         // Confetti overlay
         if (widget.showConfetti)
@@ -118,12 +119,7 @@ class _NoteDisplayDialogState extends State<NoteDisplayDialog>
                     ),
                     child: Text(
                       "${info.$1} ${info.$2}",
-                      style: GoogleFonts.outfit(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.blushGold,
-                        letterSpacing: 0.8,
-                      ),
+                      style: AppTypography.outfitBold.copyWith(fontSize: 11, color: AppTheme.blushGold, letterSpacing: 0.8),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -136,12 +132,7 @@ class _NoteDisplayDialogState extends State<NoteDisplayDialog>
                   Text(
                     widget.note.content,
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.cormorantGaramond(
-                      fontSize: 22,
-                      color: AppTheme.roseQuartz,
-                      fontStyle: FontStyle.italic,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: AppTypography.cormorantHeading.copyWith(fontSize: 22, color: AppTheme.roseQuartz, fontStyle: FontStyle.italic),
                   ),
 
                   // Tags
@@ -165,10 +156,7 @@ class _NoteDisplayDialogState extends State<NoteDisplayDialog>
                               ),
                               child: Text(
                                 "#$tag",
-                                style: GoogleFonts.outfit(
-                                  fontSize: 10,
-                                  color: AppTheme.softLavender,
-                                ),
+                                style: AppTypography.outfitWhite.copyWith(fontSize: 10, color: AppTheme.softLavender),
                               ),
                             ),
                           )
@@ -179,20 +167,12 @@ class _NoteDisplayDialogState extends State<NoteDisplayDialog>
                   const SizedBox(height: 24),
                   Text(
                     "— ${widget.note.author.toUpperCase()}",
-                    style: GoogleFonts.outfit(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.blushGold,
-                      letterSpacing: 1.2,
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.blushGold, letterSpacing: 1.2),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     "${widget.note.timestamp.month}/${widget.note.timestamp.day}/${widget.note.timestamp.year}",
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.7),
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.petalWhite.withValues(alpha: 0.7)),
                   ),
                   const SizedBox(height: 32),
                   ElevatedButton(
@@ -211,7 +191,7 @@ class _NoteDisplayDialogState extends State<NoteDisplayDialog>
                     ),
                     child: Text(
                       "Close",
-                      style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                      style: AppTypography.outfitWhite.copyWith(fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -220,6 +200,7 @@ class _NoteDisplayDialogState extends State<NoteDisplayDialog>
           ),
         ),
       ],
+      ),
     );
   }
 }

@@ -1,8 +1,7 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:everglow/core/theme/app_colors.dart';
+import 'package:flutter/material.dart';import 'package:everglow/core/theme/app_colors.dart';
 import 'package:everglow/features/cinema/presentation/widgets/trailer_player.dart';
 import 'drawer_helpers.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Renders the hero backdrop area: a full-width backdrop image with an
 /// optional embedded YouTube trailer player, cinematic gradient overlays,
@@ -148,18 +147,12 @@ class TrailerSection extends StatelessWidget {
             children: [
               Text(
                 cleanTitle(title),
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: isMobile ? 30 : 42,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  height: 1.1,
-                  shadows: [
+                style: AppTypography.cormorantBlack.copyWith(fontSize: isMobile ? 30 : 42, height: 1.1, shadows: [
                     Shadow(
                       color: Colors.black.withValues(alpha: 0.7),
                       blurRadius: 16,
                     ),
-                  ],
-                ),
+                  ], color: Colors.white),
               ),
               const SizedBox(height: 6),
               Row(
@@ -167,32 +160,21 @@ class TrailerSection extends StatelessWidget {
                   if (double.tryParse(rating) != null) ...[
                     Text(
                       '${(double.parse(rating) * 10).round()}% Match',
-                      style: GoogleFonts.outfit(
-                        color: const Color(0xFF7ED69A),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: AppTypography.outfitHeading.copyWith(color: const Color(0xFF7ED69A), fontSize: 13),
                     ),
                     dot(),
                   ],
                   if (year.isNotEmpty) ...[
                     Text(
                       year,
-                      style: GoogleFonts.outfit(
-                        color: Colors.white.withValues(alpha: 0.75),
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: AppTypography.outfitWhite.copyWith(color: Colors.white.withValues(alpha: 0.75), fontSize: 12.5, fontWeight: FontWeight.w500),
                     ),
                     dot(),
                   ],
                   if (runtime != null) ...[
                     Text(
                       '${runtime}m',
-                      style: GoogleFonts.outfit(
-                        color: Colors.white.withValues(alpha: 0.75),
-                        fontSize: 12.5,
-                      ),
+                      style: AppTypography.outfitWhite.copyWith(color: Colors.white.withValues(alpha: 0.75), fontSize: 12.5),
                     ),
                     dot(),
                   ],
@@ -209,12 +191,7 @@ class TrailerSection extends StatelessWidget {
                     ),
                     child: Text(
                       'HD',
-                      style: GoogleFonts.outfit(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
-                      ),
+                      style: AppTypography.outfitHeading.copyWith(color: Colors.white.withValues(alpha: 0.9), fontSize: 9, letterSpacing: 0.5),
                     ),
                   ),
                 ],
@@ -260,11 +237,7 @@ class TrailerSection extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     'Close Trailer',
-                    style: GoogleFonts.outfit(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -323,12 +296,7 @@ class TrailerSection extends StatelessWidget {
                     const SizedBox(width: 6),
                     Text(
                       'Watch Trailer',
-                      style: GoogleFonts.outfit(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        letterSpacing: 0.5,
-                      ),
+                      style: AppTypography.outfitWhite.copyWith(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5),
                     ),
                   ],
                 ),
@@ -369,12 +337,7 @@ class TrailerSection extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   'No preview available',
-                  style: GoogleFonts.outfit(
-                    color: AppColors.mutedPurple,
-                    fontSize: 11,
-                    letterSpacing: 1.2,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: AppTypography.outfitBold.copyWith(color: AppColors.mutedPurple, fontSize: 11, letterSpacing: 1.2),
                 ),
               ],
             ),

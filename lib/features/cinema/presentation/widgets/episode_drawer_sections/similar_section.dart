@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:everglow/core/theme/app_colors.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'drawer_helpers.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Renders the "More Like This" horizontal rail of similar titles.
 /// Shows a loading skeleton while fetching, an empty-state message
@@ -78,11 +78,7 @@ class SimilarSection extends StatelessWidget {
                     item.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
-                      color: AppColors.petalWhite,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: AppTypography.outfitBold.copyWith(fontSize: 11),
                   ),
                   Text(
                     item.year.isNotEmpty
@@ -90,8 +86,7 @@ class SimilarSection extends StatelessWidget {
                         : (item.mediaType == 'movie'
                             ? 'Movie'
                             : 'Series'),
-                    style: GoogleFonts.outfit(
-                        color: AppColors.mutedPurple, fontSize: 10),
+                    style: AppTypography.outfitWhite.copyWith(color: AppColors.mutedPurple, fontSize: 10),
                   ),
                 ],
               ),

@@ -1,11 +1,10 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter/material.dart';import 'package:go_router/go_router.dart';
 import 'package:everglow/shared/widgets/glass_container.dart';
 import 'package:everglow/shared/widgets/animated_emblem.dart';
 import 'package:everglow/shared/widgets/bouncy_button.dart';
 import 'package:everglow/shared/widgets/gamified_background.dart';
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class PlayZoneHubScreen extends StatefulWidget {
   const PlayZoneHubScreen({super.key});
@@ -55,11 +54,7 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
                     ),
                     Text(
                       'Play Zone',
-                      style: GoogleFonts.cormorantGaramond(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.roseQuartz,
-                      ),
+                      style: AppTypography.cormorantBold.copyWith(fontSize: 32),
                     ),
                   ],
                 ),
@@ -97,26 +92,17 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
             const SizedBox(height: 16),
             Text(
               'Table Tennis World Tour',
-              style: GoogleFonts.cormorantGaramond(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.roseQuartz,
-                letterSpacing: 0.5,
-                shadows: [
+              style: AppTypography.cormorantBold.copyWith(fontSize: 28, letterSpacing: 0.5, shadows: [
                   BoxShadow(
                     color: AppTheme.deepRose.withValues(alpha: 0.4),
                     blurRadius: 15,
                   ),
-                ],
-              ),
+                ]),
             ),
             const SizedBox(height: 8),
             Text(
               'Smash your way through the world tournament bracket',
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                color: AppTheme.petalWhite.withValues(alpha: 0.7),
-              ),
+              style: AppTypography.outfitWhite.copyWith(fontSize: 14, color: AppTheme.petalWhite.withValues(alpha: 0.7)),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -143,12 +129,7 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
                     ),
                     child: Text(
                       'SOLO',
-                      style: GoogleFonts.outfit(
-                        fontWeight: FontWeight.w900,
-                        color: AppTheme.petalWhite,
-                        letterSpacing: 2.0,
-                        fontSize: 14,
-                      ),
+                      style: AppTypography.outfitWhite.copyWith(fontWeight: FontWeight.w900, color: AppTheme.petalWhite, letterSpacing: 2.0, fontSize: 14),
                     ),
                   ),
                 ),
@@ -179,12 +160,7 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
                         const SizedBox(width: 6),
                         Text(
                           '1v1',
-                          style: GoogleFonts.outfit(
-                            fontWeight: FontWeight.w900,
-                            color: AppTheme.petalWhite,
-                            letterSpacing: 2.0,
-                            fontSize: 14,
-                          ),
+                          style: AppTypography.outfitWhite.copyWith(fontWeight: FontWeight.w900, color: AppTheme.petalWhite, letterSpacing: 2.0, fontSize: 14),
                         ),
                       ],
                     ),

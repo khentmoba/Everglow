@@ -1,12 +1,10 @@
-import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import '../../domain/models/milestone.dart';
 import '../../data/services/milestone_service.dart';
 import 'memory_detail_view.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// A scroll-driven horizontal timeline visualization of relationship milestones.
 class RelationshipTimeline extends StatefulWidget {
@@ -71,15 +69,9 @@ class _RelationshipTimelineState extends State<RelationshipTimeline> {
                 padding: const EdgeInsets.symmetric(horizontal: 12.0),
                 child: Text(
                   'OUR STORY',
-                  style: GoogleFonts.cormorantGaramond(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 20,
-                    color: AppTheme.roseQuartz,
-                    letterSpacing: 2.0,
-                    shadows: [
+                  style: AppTypography.cormorantBlack.copyWith(fontSize: 20, letterSpacing: 2.0, shadows: [
                       BoxShadow(color: AppTheme.deepRose.withValues(alpha: 0.5), blurRadius: 10),
-                    ],
-                  ),
+                    ]),
                 ),
               ),
               Expanded(child: Divider(color: AppTheme.blushGold.withValues(alpha: 0.15), thickness: 1)),
@@ -157,13 +149,9 @@ class _RelationshipTimelineState extends State<RelationshipTimeline> {
           ),
           child: Text(
             label,
-            style: GoogleFonts.outfit(
-              fontSize: 12,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-              color: isSelected
+            style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, color: isSelected
                   ? AppTheme.blushGold
-                  : AppTheme.petalWhite.withValues(alpha: 0.6),
-            ),
+                  : AppTheme.petalWhite.withValues(alpha: 0.6)),
           ),
         ),
       ),
@@ -179,7 +167,7 @@ class _RelationshipTimelineState extends State<RelationshipTimeline> {
           const SizedBox(height: 8),
           Text(
             'Could not load timeline',
-            style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 13),
+            style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 13),
           ),
         ],
       ),
@@ -202,10 +190,7 @@ class _RelationshipTimelineState extends State<RelationshipTimeline> {
           const SizedBox(height: 8),
           Text(
             'Loading memories...',
-            style: GoogleFonts.outfit(
-              color: AppTheme.roseQuartz.withValues(alpha: 0.5),
-              fontSize: 12,
-            ),
+            style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.5), fontSize: 12),
           ),
         ],
       ),
@@ -299,11 +284,7 @@ class _TimelinePainter extends CustomPainter {
         final textPainter = TextPainter(
           text: TextSpan(
             text: '$year',
-            style: GoogleFonts.outfit(
-              fontSize: 10,
-              color: AppTheme.blushGold.withValues(alpha: 0.5),
-              fontWeight: FontWeight.w600,
-            ),
+            style: AppTypography.outfitBold.copyWith(fontSize: 10, color: AppTheme.blushGold.withValues(alpha: 0.5)),
           ),
           
         )..layout();
@@ -369,11 +350,7 @@ class _TimelineNode extends StatelessWidget {
           // Date
           Text(
             DateFormat('MMM d').format(milestone.date),
-            style: GoogleFonts.outfit(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.blushGold.withValues(alpha: 0.7),
-            ),
+            style: AppTypography.outfitBold.copyWith(fontSize: 10, color: AppTheme.blushGold.withValues(alpha: 0.7)),
           ),
           const SizedBox(height: 6),
           // Node circle (interactive)
@@ -441,11 +418,7 @@ class _TimelineNode extends StatelessWidget {
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.outfit(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.petalWhite.withValues(alpha: 0.8),
-              ),
+              style: AppTypography.outfitBold.copyWith(fontSize: 11, color: AppTheme.petalWhite.withValues(alpha: 0.8)),
             ),
           ),
         ],
@@ -528,22 +501,14 @@ class _GalleryView extends StatelessWidget {
                                 Expanded(
                                   child: Text(
                                     milestone.title,
-                                    style: GoogleFonts.cormorantGaramond(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18,
-                                      color: AppTheme.roseQuartz,
-                                    ),
+                                    style: AppTypography.cormorantBold.copyWith(fontSize: 18),
                                   ),
                                 ),
                               ],
                             ),
                             Text(
                               DateFormat('MMMM d, yyyy').format(milestone.date),
-                              style: GoogleFonts.outfit(
-                                fontSize: 12,
-                                color: AppTheme.blushGold,
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style: AppTypography.outfitBold.copyWith(fontSize: 12, color: AppTheme.blushGold),
                             ),
                             const SizedBox(height: 4),
                             Expanded(
@@ -551,10 +516,7 @@ class _GalleryView extends StatelessWidget {
                                 milestone.description,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.outfit(
-                                  color: AppTheme.petalWhite.withValues(alpha: 0.7),
-                                  fontSize: 12,
-                                ),
+                                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.7), fontSize: 12),
                               ),
                             ),
                           ],

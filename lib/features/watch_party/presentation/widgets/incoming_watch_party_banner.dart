@@ -1,9 +1,7 @@
 import 'dart:async';
 
 import 'package:animate_do/animate_do.dart';
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';import 'package:provider/provider.dart';
 
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/services/auth_service.dart';
@@ -12,6 +10,7 @@ import '../../data/services/voice_chat_service.dart';
 import '../../data/services/watch_party_service.dart';
 import '../../data/models/watch_party_room.dart';
 import '../screens/watch_party_screen.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Strict-silent banner that appears at the top of the screen when
 /// the partner has started a watch party. **No sound, no vibration
@@ -118,12 +117,7 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
                               children: [
                                 Text(
                                   'Join',
-                                  style: GoogleFonts.outfit(
-                                    color: AppTheme.twilight,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.5,
-                                  ),
+                                  style: AppTypography.outfitWhite.copyWith(color: AppTheme.twilight, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.5),
                                 ),
                                 const SizedBox(width: 4),
                                 const Icon(
@@ -190,11 +184,7 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
       child: Center(
         child: Text(
           initial,
-          style: GoogleFonts.cormorantGaramond(
-            color: AppTheme.twilight,
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-          ),
+          style: AppTypography.cormorantExtraBold.copyWith(fontSize: 20, color: AppTheme.twilight),
         ),
       ),
     );
@@ -208,11 +198,7 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
       children: [
         Text(
           '${incoming.callerName} started a watch party',
-          style: GoogleFonts.outfit(
-            color: AppTheme.petalWhite,
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-          ),
+          style: AppTypography.outfitHeading.copyWith(color: AppTheme.petalWhite, fontSize: 13),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -221,10 +207,7 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
           hasTitle
               ? 'Watching ${incoming.mediaTitle}${_episodeSuffix(incoming)}'
               : 'Tap to join',
-          style: GoogleFonts.outfit(
-            color: AppTheme.petalWhite.withValues(alpha: 0.7),
-            fontSize: 11,
-          ),
+          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.7), fontSize: 11),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),

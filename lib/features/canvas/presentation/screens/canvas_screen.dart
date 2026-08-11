@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import 'package:provider/provider.dart';import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_error_state.dart';
 import '../../../../services/auth_service.dart';
 import '../../../../services/presence_service.dart';
@@ -11,6 +9,7 @@ import '../../domain/models/doodle_stroke.dart';
 import '../../data/services/canvas_service.dart';
 import '../widgets/canvas_painter.dart';
 import '../widgets/canvas_toolbar.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class CanvasScreen extends StatefulWidget {
   const CanvasScreen({super.key});
@@ -79,11 +78,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
       appBar: AppBar(
         title: Text(
           'Everglow Canvas', 
-          style: GoogleFonts.cormorantGaramond(
-            color: AppTheme.roseQuartz,
-            fontWeight: FontWeight.bold,
-            fontSize: 24,
-          ),
+          style: AppTypography.cormorantBold.copyWith(fontSize: 24),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -139,12 +134,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
                       Center(
                         child: Text(
                           'Draw something together',
-                          style: GoogleFonts.cormorantGaramond(
-                            color: AppTheme.roseQuartz.withValues(alpha: 0.18),
-                            fontSize: 26,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 1.2,
-                          ),
+                          style: AppTypography.cormorantRegular.copyWith(fontSize: 26, letterSpacing: 1.2, fontWeight: FontWeight.w500),
                         ),
                       ),
                   ],
@@ -207,22 +197,18 @@ class _CanvasScreenState extends State<CanvasScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(
           'Clear Canvas?',
-          style: GoogleFonts.cormorantGaramond(
-            color: AppTheme.roseQuartz,
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
-          ),
+          style: AppTypography.cormorantBold.copyWith(fontSize: 22),
         ),
         content: Text(
           'This will permanently delete all doodles for everyone. Are you sure?',
-          style: GoogleFonts.outfit(color: AppTheme.petalWhite.withValues(alpha: 0.8)),
+          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.8)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Cancel', 
-              style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
+              style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
             ),
           ),
           TextButton(
@@ -232,7 +218,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
             },
             child: Text(
               'Clear', 
-              style: GoogleFonts.outfit(color: Colors.redAccent, fontWeight: FontWeight.bold),
+              style: AppTypography.outfitWhite.copyWith(color: Colors.redAccent, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -352,18 +338,15 @@ class _CanvasScreenState extends State<CanvasScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(
           'Add Text',
-          style: GoogleFonts.cormorantGaramond(
-            color: AppTheme.roseQuartz,
-            fontWeight: FontWeight.bold,
-          ),
+          style: AppTypography.cormorantBold,
         ),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
           decoration: InputDecoration(
             hintText: 'Type something...',
-            hintStyle: GoogleFonts.outfit(color: AppTheme.roseQuartz.withValues(alpha: 0.5)),
+            hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.5)),
             filled: true,
             fillColor: AppTheme.twilight,
             border: OutlineInputBorder(
@@ -379,14 +362,14 @@ class _CanvasScreenState extends State<CanvasScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: GoogleFonts.outfit(color: AppTheme.roseQuartz)),
+            child: Text('Cancel', style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz)),
           ),
           TextButton(
             onPressed: () {
               _saveTextAnnotation(controller.text, normX, normY, userId);
               Navigator.pop(context);
             },
-            child: Text('Add', style: GoogleFonts.outfit(color: AppTheme.blushGold, fontWeight: FontWeight.bold)),
+            child: Text('Add', style: AppTypography.outfitWhite.copyWith(color: AppTheme.blushGold, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

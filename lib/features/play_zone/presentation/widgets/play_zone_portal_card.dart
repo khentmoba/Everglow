@@ -1,10 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter/material.dart';import 'package:go_router/go_router.dart';
 import 'package:everglow/shared/widgets/glass_container.dart';
 import 'package:everglow/shared/widgets/animated_emblem.dart';
 import 'package:everglow/shared/widgets/bouncy_button.dart';
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class PlayZonePortalCard extends StatelessWidget {
   const PlayZonePortalCard({super.key});
@@ -43,18 +42,12 @@ class PlayZonePortalCard extends StatelessWidget {
                   const SizedBox(height: 12),
                   Text(
                     'Play Zone',
-                    style: GoogleFonts.cormorantGaramond(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.roseQuartz,
-                      letterSpacing: 0.5,
-                      shadows: [
+                    style: AppTypography.cormorantBold.copyWith(fontSize: 28, letterSpacing: 0.5, shadows: [
                         BoxShadow(
                           color: AppTheme.deepRose.withValues(alpha: 0.4),
                           blurRadius: 15,
                         ),
-                      ],
-                    ),
+                      ]),
                   ),
                   const SizedBox(height: 20),
                   Semantics(
@@ -79,11 +72,7 @@ class PlayZonePortalCard extends StatelessWidget {
                         ),
                         child: Text(
                           'ENTER PLAY ZONE',
-                          style: GoogleFonts.outfit(
-                            fontWeight: FontWeight.w900,
-                            color: AppTheme.petalWhite,
-                            letterSpacing: 2.0,
-                          ),
+                          style: AppTypography.outfitWhite.copyWith(fontWeight: FontWeight.w900, color: AppTheme.petalWhite, letterSpacing: 2.0),
                         ),
                       ),
                     ),

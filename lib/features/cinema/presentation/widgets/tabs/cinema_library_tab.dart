@@ -1,10 +1,10 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+﻿import 'package:flutter/material.dart';
 
 import 'package:everglow/core/theme/app_breakpoints.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_colors.dart';
 import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_poster_card.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 enum _LibraryFilter { all, watching, toWatch, watched }
 
@@ -57,50 +57,42 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
 
     final isDesktop = AppBreakpoint.isDesktop(context);
     final visible = _visible;
-    return ListView(
-      padding: EdgeInsets.only(bottom: 110),
-      children: [
-        Padding(
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
           padding: EdgeInsets.fromLTRB(
             isDesktop ? 48 : 16,
             isDesktop ? 24 : (MediaQuery.paddingOf(context).top + 12),
             isDesktop ? 48 : 16,
             2,
           ),
-          child: Row(
+          sliver: SliverToBoxAdapter(child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
                 'My List',
-                style: GoogleFonts.outfit(
-                  fontSize: isDesktop ? 22 : 20,
-                  fontWeight: FontWeight.w700,
-                  color: NetflixColors.textPrimary,
-                ),
+                style: AppTypography.outfitHeading.copyWith(fontSize: isDesktop ? 22 : 20, color: NetflixColors.textPrimary),
               ),
               const SizedBox(width: 10),
               Padding(
                 padding: const EdgeInsets.only(bottom: 2),
                 child: Text(
                   '${widget.watchlist.length} ${widget.watchlist.length == 1 ? 'title' : 'titles'}',
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    color: NetflixColors.textMuted,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: AppTypography.outfitWhite.copyWith(fontSize: 13, color: NetflixColors.textMuted, fontWeight: FontWeight.w500),
                 ),
               ),
             ],
           ),
+          ),
         ),
-        Padding(
+        SliverPadding(
           padding: EdgeInsets.fromLTRB(
             isDesktop ? 48 : 16,
             14,
             isDesktop ? 48 : 16,
             18,
           ),
-          child: Wrap(
+          sliver: SliverToBoxAdapter(child: Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
@@ -126,45 +118,48 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
               ),
             ],
           ),
+          ),
         ),
         if (visible.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 60),
-            child: Center(
-              child: Text(
-                'Nothing here yet.',
-                style: GoogleFonts.outfit(
-                  color: NetflixColors.textMuted,
-                  fontSize: 14,
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 60),
+              child: Center(
+                child: Text(
+                  'Nothing here yet.',
+                  style: AppTypography.outfitWhite.copyWith(color: NetflixColors.textMuted, fontSize: 14),
                 ),
               ),
             ),
           )
         else
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
+          SliverPadding(
             padding: EdgeInsets.symmetric(horizontal: isDesktop ? 48 : 16),
-            itemCount: visible.length,
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: isDesktop
-                  ? 6
-                  : (AppBreakpoint.isTablet(context) ? 4 : 3),
-              childAspectRatio: 0.67,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
+            sliver: SliverGrid.builder(
+              itemCount: visible.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: isDesktop
+                    ? 6
+                    : (AppBreakpoint.isTablet(context) ? 4 : 3),
+                childAspectRatio: 0.67,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+              ),
+              itemBuilder: (context, index) {
+                final item = visible[index];
+                return NetflixPosterCard(
+                  item: item,
+                  compact: true,
+                  selfPreview: true,
+                  progress: item.isCurrentlyWatching ? _progress(item) : null,
+                  onTap: () => widget.onMediaTap(item),
+                );
+              },
             ),
-            itemBuilder: (context, index) {
-              final item = visible[index];
-              return NetflixPosterCard(
-                item: item,
-                compact: true,
-                selfPreview: true,
-                progress: item.isCurrentlyWatching ? _progress(item) : null,
-                onTap: () => widget.onMediaTap(item),
-              );
-            },
           ),
+        // Bottom padding
+        SliverToBoxAdapter(
+            child: SizedBox(height: 110)),
       ],
     );
   }
@@ -186,21 +181,13 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
             const SizedBox(height: 18),
             Text(
               'Your list is empty',
-              style: GoogleFonts.outfit(
-                fontSize: isDesktop ? 19 : 17,
-                fontWeight: FontWeight.w700,
-                color: NetflixColors.textPrimary,
-              ),
+              style: AppTypography.outfitHeading.copyWith(fontSize: isDesktop ? 19 : 17, color: NetflixColors.textPrimary),
             ),
             const SizedBox(height: 6),
             Text(
               'Movies and shows you save or watch will appear here.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                color: NetflixColors.textMuted,
-                fontSize: 13,
-                height: 1.5,
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: NetflixColors.textMuted, fontSize: 13, height: 1.5),
             ),
             const SizedBox(height: 26),
             GestureDetector(
@@ -225,11 +212,7 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
                     const SizedBox(width: 8),
                     Text(
                       'Find Something',
-                      style: GoogleFonts.outfit(
-                        color: Colors.black,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13.5,
-                      ),
+                      style: AppTypography.outfitHeading.copyWith(color: Colors.black, fontSize: 13.5),
                     ),
                   ],
                 ),
@@ -269,11 +252,7 @@ class _LibraryPill extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: GoogleFonts.outfit(
-            color: selected ? Colors.black : NetflixColors.textSecondary,
-            fontSize: 12.5,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-          ),
+          style: AppTypography.outfitHeading.copyWith(color: selected ? Colors.black : NetflixColors.textSecondary, fontSize: 12.5),
         ),
       ),
     );

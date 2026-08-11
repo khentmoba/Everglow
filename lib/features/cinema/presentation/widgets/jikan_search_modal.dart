@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/anilist_service.dart';
@@ -9,6 +7,7 @@ import 'package:everglow/features/cinema/data/services/jikan_service.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'media_poster_card.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Anime-only search modal. Backed by [JikanService] (REST, MAL-sourced)
 /// so the results include titles that TMDB doesn't catalogue well —
@@ -45,6 +44,7 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
     // Slightly longer debounce than TMDB's modal because Jikan is more
     // rate-limited and a 500ms gap is friendlier to the public instance.
     _debounce = Timer(const Duration(milliseconds: 600), () {
+      if (!mounted) return;
       if (query.isNotEmpty) {
         _performSearch(query);
       } else {
@@ -109,11 +109,7 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
           backgroundColor: AppTheme.velvet,
           title: Text(
             'Add to Everglow?',
-            style: GoogleFonts.cormorantGaramond(
-              color: AppTheme.roseQuartz,
-              fontWeight: FontWeight.bold,
-              fontSize: 22,
-            ),
+            style: AppTypography.cormorantBold.copyWith(fontSize: 22),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -135,26 +131,21 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
                   ),
                   child: Text(
                     item.studio,
-                    style: GoogleFonts.outfit(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.deepRose,
-                    ),
+                    style: AppTypography.outfitBold.copyWith(fontSize: 10, color: AppTheme.deepRose),
                   ),
                 ),
               const SizedBox(height: 12),
               Text(
                 item.title,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(
-                    color: AppTheme.petalWhite, fontWeight: FontWeight.w600),
+                style: AppTypography.outfitBold.copyWith(color: AppTheme.petalWhite),
               ),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   ChoiceChip(
-                    label: Text('To Watch', style: GoogleFonts.outfit()),
+                    label: Text('To Watch', style: AppTypography.outfitWhite),
                     selected: status == 'to-watch',
                     onSelected: (selected) {
                       if (selected) setDialogState(() => status = 'to-watch');
@@ -169,7 +160,7 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
                   ),
                   const SizedBox(width: 8),
                   ChoiceChip(
-                    label: Text('Watched', style: GoogleFonts.outfit()),
+                    label: Text('Watched', style: AppTypography.outfitWhite),
                     selected: status == 'watched',
                     onSelected: (selected) {
                       if (selected) setDialogState(() => status = 'watched');
@@ -191,8 +182,7 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
               onPressed: () => Navigator.pop(context),
               child: Text(
                 'Cancel',
-                style: GoogleFonts.outfit(
-                    color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
+                style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
               ),
             ),
             ElevatedButton(
@@ -208,7 +198,7 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
                       SnackBar(
                         content: Text(
                           'Failed to add — please try again',
-                          style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+                          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
                         ),
                         backgroundColor: Colors.redAccent,
                         behavior: SnackBarBehavior.floating,
@@ -225,7 +215,7 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
                     SnackBar(
                       content: Text(
                         successMessage,
-                        style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+                        style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
                       ),
                       backgroundColor: AppTheme.deepRose,
                       behavior: SnackBarBehavior.floating,
@@ -243,8 +233,7 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
               ),
               child: Text(
                 'Add',
-                style: GoogleFonts.outfit(
-                    color: AppTheme.petalWhite, fontWeight: FontWeight.bold),
+                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -256,7 +245,7 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.8,
+      height: MediaQuery.sizeOf(context).height * 0.8,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: const BoxDecoration(
         color: AppTheme.velvet,
@@ -276,22 +265,18 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
 
           Text(
             'Find Your Next Anime 🌸',
-            style: GoogleFonts.cormorantGaramond(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.roseQuartz,
-            ),
+            style: AppTypography.cormorantBold.copyWith(fontSize: 20),
           ),
           const SizedBox(height: 20),
 
           TextField(
             controller: _searchController,
             onChanged: _onSearchChanged,
-            style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+            style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
             decoration: InputDecoration(
               hintText: 'Search anime titles, studios, anything…',
               hintStyle:
-                  GoogleFonts.outfit(color: AppTheme.petalWhite.withValues(alpha: 0.65)),
+                  AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.65)),
               prefixIcon: const Icon(Icons.search, color: AppTheme.roseQuartz),
               filled: true,
               fillColor: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
@@ -345,9 +330,7 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
           _searchController.text.isEmpty
               ? 'Start typing to find magic\u2026'
               : 'No anime found',
-          style: GoogleFonts.outfit(
-              color: AppTheme.roseQuartz.withValues(alpha: 0.6),
-              fontSize: 16),
+          style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 16),
         ),
         if (_errorMessage != null) ...[
           const SizedBox(height: 8),
@@ -356,10 +339,7 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
             child: Text(
               _errorMessage!,
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                color: AppTheme.deepRose.withValues(alpha: 0.9),
-                fontSize: 12,
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: AppTheme.deepRose.withValues(alpha: 0.9), fontSize: 12),
             ),
           ),
         ],

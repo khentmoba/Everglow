@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'dart:html' as html;
+import 'dart:js_interop';
+import 'package:web/web.dart' as web;
 import 'package:flutter/foundation.dart';
 
 /// Monitors network connectivity status for web platform.
@@ -17,7 +18,7 @@ class ConnectivityService {
   Stream<bool> get onConnectivityChanged => _controller.stream;
 
   /// Current connectivity status.
-  bool get isOnline => html.window.navigator.onLine ?? true;
+  bool get isOnline => web.window.navigator.onLine;
 
   bool _initialized = false;
 
@@ -26,33 +27,24 @@ class ConnectivityService {
     if (_initialized) return;
     _initialized = true;
 
-    html.window.addEventListener('online', (_) {
+    web.window.addEventListener('online', (web.Event _) {
       _controller.add(true);
-    });
+    }.toJS);
 
-    html.window.addEventListener('offline', (_) {
+    web.window.addEventListener('offline', (web.Event _) {
       _controller.add(false);
-    });
+    }.toJS);
   }
 
   /// One-shot connectivity check by attempting to fetch a tiny resource.
   /// More reliable than `navigator.onLine` which can report false positives.
   Future<bool> checkConnectivity() async {
     try {
-      final request = html.HttpRequest();
-      request.open('HEAD', '/favicon.ico', async: true);
-      final completer = Completer<bool>();
-      request.onLoad.listen((_) {
-        if (!completer.isCompleted) completer.complete(request.status == 200);
-      });
-      request.onError.listen((_) {
-        if (!completer.isCompleted) completer.complete(false);
-      });
-      request.send();
-      Future.delayed(const Duration(seconds: 5), () {
-        if (!completer.isCompleted) completer.complete(false);
-      });
-      return completer.future;
+      final response = await web.window.fetch(
+        '/favicon.ico'.toJS,
+        web.RequestInit(method: 'HEAD'),
+      ).toDart;
+      return response.status == 200;
     } catch (e) {
       debugPrint('[ConnectivityService] Check failed: $e');
       return false;

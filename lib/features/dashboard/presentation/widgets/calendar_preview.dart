@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import '../../../calendar/domain/models/calendar_event.dart';
 import '../../../calendar/data/services/calendar_service.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class CalendarPreview extends StatelessWidget {
   const CalendarPreview({super.key});
@@ -38,10 +38,7 @@ class CalendarPreview extends StatelessWidget {
                   Expanded(
                     child: Text(
                       'No upcoming dates — tap to add one!',
-                      style: GoogleFonts.outfit(
-                        fontSize: 12,
-                        color: AppTheme.petalWhite.withValues(alpha: 0.6),
-                      ),
+                      style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.petalWhite.withValues(alpha: 0.6)),
                     ),
                   ),
                   Icon(
@@ -80,11 +77,7 @@ class CalendarPreview extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       'Upcoming Dates',
-                      style: GoogleFonts.outfit(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.roseQuartz,
-                      ),
+                      style: AppTypography.outfitWhite.copyWith(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.roseQuartz),
                     ),
                     const Spacer(),
                     Icon(
@@ -118,19 +111,12 @@ class CalendarPreview extends StatelessWidget {
                             event.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.outfit(
-                              fontSize: 12,
-                              color: AppTheme.petalWhite,
-                              fontWeight: FontWeight.w500,
-                            ),
+                            style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.petalWhite, fontWeight: FontWeight.w500),
                           ),
                         ),
                         Text(
                           timeLabel,
-                          style: GoogleFonts.outfit(
-                            fontSize: 10,
-                            color: AppTheme.blushGold,
-                          ),
+                          style: AppTypography.outfitWhite.copyWith(fontSize: 10, color: AppTheme.blushGold),
                         ),
                       ],
                     ),
