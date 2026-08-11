@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_typography.dart';
 
@@ -70,27 +69,11 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
 
   bool get _isDesktop => AppBreakpoint.isDesktop(context);
 
-  bool get _hasHoverData =>
-      widget.synopsis != null ||
-      widget.episodeCount != null ||
-      widget.format != null ||
-      widget.bannerUrl != null;
-
   String get _resolvedImageUrl {
     final url = widget.imageUrl;
     if (url.isEmpty) return '';
     if (url.startsWith('http')) return url;
     return '$_tmdbImageBase$url';
-  }
-
-  void _showHoverPreview() {
-    // Hover preview disabled — cards already show title, year, and a
-    // play-button overlay on hover.  The floating overlay was too
-    // prominent and overlapped other content.
-  }
-
-  void _dismissHoverPreview() {
-    // Hover preview disabled.
   }
 
   @override
