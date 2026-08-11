@@ -26,7 +26,9 @@ class _CatVisualsState extends State<CatVisuals> {
     ui_web.platformViewRegistry.registerViewFactory(_viewType, (int viewId) {
       final el = web.document.createElement('model-viewer') as web.HTMLElement;
       el
-        ..setAttribute('src', 'assets/models/chibi_cat.glb')
+        // Web-relative path (the pubspec asset key gains an extra
+        // `assets/` prefix in the compiled web bundle).
+        ..setAttribute('src', 'assets/assets/models/chibi_cat.glb')
         ..setAttribute('alt', 'Everglow Guardian Cat')
         ..setAttribute('auto-rotate', '')
         ..setAttribute('auto-rotate-delay', '2000')

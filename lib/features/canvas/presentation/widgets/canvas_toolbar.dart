@@ -53,7 +53,10 @@ class CanvasToolbar extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppTheme.velvet.withValues(alpha: 0.85),
               borderRadius: BorderRadius.circular(32),
-              border: Border.all(color: AppTheme.moonlight.withValues(alpha: 0.18), width: 1.5),
+              border: Border.all(
+                color: AppTheme.moonlight.withValues(alpha: 0.18),
+                width: 1.5,
+              ),
               boxShadow: [
                 BoxShadow(
                   color: AppTheme.deepRose.withValues(alpha: 0.15),
@@ -86,7 +89,7 @@ class CanvasToolbar extends StatelessWidget {
                     onTap: () => onToolChanged(CanvasTool.text),
                     semanticLabel: 'Text tool',
                   ),
-                  
+
                   const _VerticalDivider(),
 
                   // History
@@ -94,28 +97,35 @@ class CanvasToolbar extends StatelessWidget {
                     icon: Icons.undo_rounded,
                     isActive: false,
                     onTap: onUndo,
-                    color: canUndo ? AppTheme.roseQuartz : AppTheme.petalWhite.withValues(alpha: 0.2),
+                    color: canUndo
+                        ? AppTheme.roseQuartz
+                        : AppTheme.petalWhite.withValues(alpha: 0.2),
                     semanticLabel: 'Undo',
                   ),
                   _ToolButton(
                     icon: Icons.redo_rounded,
                     isActive: false,
                     onTap: onRedo,
-                    color: canRedo ? AppTheme.roseQuartz : AppTheme.petalWhite.withValues(alpha: 0.2),
+                    color: canRedo
+                        ? AppTheme.roseQuartz
+                        : AppTheme.petalWhite.withValues(alpha: 0.2),
                     semanticLabel: 'Redo',
                   ),
 
                   const _VerticalDivider(),
 
                   // Color Palette - Scrollable for mobile
-                  ...palette.map((hex) => _ColorButton(
-                    hex: hex,
-                    isActive: activeColor == hex && activeTool == CanvasTool.pen,
-                    onTap: () {
-                      onToolChanged(CanvasTool.pen);
-                      onColorChanged(hex);
-                    },
-                  )),
+                  ...palette.map(
+                    (hex) => _ColorButton(
+                      hex: hex,
+                      isActive:
+                          activeColor == hex && activeTool == CanvasTool.pen,
+                      onTap: () {
+                        onToolChanged(CanvasTool.pen);
+                        onColorChanged(hex);
+                      },
+                    ),
+                  ),
 
                   const _VerticalDivider(),
 
@@ -127,11 +137,17 @@ class CanvasToolbar extends StatelessWidget {
                       child: SliderTheme(
                         data: SliderTheme.of(context).copyWith(
                           trackHeight: 3,
-                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                          thumbShape: const RoundSliderThumbShape(
+                            enabledThumbRadius: 6,
+                          ),
                           activeTrackColor: AppTheme.roseQuartz,
-                          inactiveTrackColor: AppTheme.moonlight.withValues(alpha: 0.15),
+                          inactiveTrackColor: AppTheme.moonlight.withValues(
+                            alpha: 0.15,
+                          ),
                           thumbColor: AppTheme.blushGold,
-                          overlayColor: AppTheme.blushGold.withValues(alpha: 0.1),
+                          overlayColor: AppTheme.blushGold.withValues(
+                            alpha: 0.1,
+                          ),
                         ),
                         child: Slider(
                           value: strokeWidth,
@@ -205,12 +221,16 @@ class _ToolButton extends StatelessWidget {
           padding: const EdgeInsets.all(10),
           margin: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
-            color: isActive ? AppTheme.deepRose.withValues(alpha: 0.2) : Colors.transparent,
+            color: isActive
+                ? AppTheme.deepRose.withValues(alpha: 0.2)
+                : Colors.transparent,
             shape: BoxShape.circle,
           ),
           child: Icon(
             icon,
-            color: isActive ? AppTheme.roseQuartz : (color ?? AppTheme.petalWhite.withValues(alpha: 0.6)),
+            color: isActive
+                ? AppTheme.roseQuartz
+                : (color ?? AppTheme.petalWhite.withValues(alpha: 0.6)),
             size: 24,
           ),
         ),
@@ -232,19 +252,25 @@ class _ColorButton extends StatelessWidget {
 
   String _colorName(String hex) {
     switch (hex) {
-      case '#FFC0CB': return 'Pink';
-      case '#B0E0E6': return 'Powder Blue';
-      case '#FFFACD': return 'Lemon Chiffon';
-      case '#98FB98': return 'Pale Green';
-      case '#E6E6FA': return 'Lavender';
-      default: return 'Color';
+      case '#FFC0CB':
+        return 'Pink';
+      case '#B0E0E6':
+        return 'Powder Blue';
+      case '#FFFACD':
+        return 'Lemon Chiffon';
+      case '#98FB98':
+        return 'Pale Green';
+      case '#E6E6FA':
+        return 'Lavender';
+      default:
+        return 'Color';
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final color = Color(int.parse(hex.replaceFirst('#', 'FF'), radix: 16));
-    
+
     return Semantics(
       label: '${_colorName(hex)} color',
       button: true,

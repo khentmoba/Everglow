@@ -1,9 +1,12 @@
-import 'package:flutter/material.dart';import 'package:go_router/go_router.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:everglow/shared/widgets/glass_container.dart';
 import 'package:everglow/shared/widgets/animated_emblem.dart';
 import 'package:everglow/shared/widgets/bouncy_button.dart';
 import 'package:everglow/shared/widgets/gamified_background.dart';
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/core/theme/app_colors.dart';
+import 'package:everglow/shared/widgets/everglow/everglow_feature_header.dart';
 import 'package:everglow/core/theme/app_typography.dart';
 
 class PlayZoneHubScreen extends StatefulWidget {
@@ -20,8 +23,10 @@ class PlayZoneHubScreen extends StatefulWidget {
         const begin = Offset(0.0, 1.0);
         const end = Offset.zero;
         const curve = Curves.easeInOut;
-        var slideTween =
-            Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+        var slideTween = Tween(
+          begin: begin,
+          end: end,
+        ).chain(CurveTween(curve: curve));
         var fadeTween = Tween<double>(begin: 0.0, end: 1.0);
         return FadeTransition(
           opacity: animation.drive(fadeTween),
@@ -43,27 +48,19 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.arrow_back_ios,
-                          color: AppTheme.roseQuartz),
-                    ),
-                    Text(
-                      'Play Zone',
-                      style: AppTypography.cormorantBold.copyWith(fontSize: 32),
-                    ),
-                  ],
-                ),
+              const EverglowFeatureHeader(
+                title: 'Play Zone',
+                subtitle: 'games for two',
+                icon: Icons.sports_esports_rounded,
+                hue: AppColors.auroraGold,
               ),
               Expanded(
                 child: Center(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 16),
+                      horizontal: 24,
+                      vertical: 16,
+                    ),
                     child: _buildTableTennisCard(),
                   ),
                 ),
@@ -79,7 +76,9 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
     return GlassContainer(
       borderRadius: BorderRadius.circular(24.0),
       border: Border.all(
-          color: AppTheme.blushGold.withValues(alpha: 0.25), width: 1.5),
+        color: AppTheme.blushGold.withValues(alpha: 0.25),
+        width: 1.5,
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 36),
         child: Column(
@@ -92,17 +91,24 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
             const SizedBox(height: 16),
             Text(
               'Table Tennis World Tour',
-              style: AppTypography.cormorantBold.copyWith(fontSize: 28, letterSpacing: 0.5, shadows: [
+              style: AppTypography.cormorantBold.copyWith(
+                fontSize: 28,
+                letterSpacing: 0.5,
+                shadows: [
                   BoxShadow(
                     color: AppTheme.deepRose.withValues(alpha: 0.4),
                     blurRadius: 15,
                   ),
-                ]),
+                ],
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               'Smash your way through the world tournament bracket',
-              style: AppTypography.outfitWhite.copyWith(fontSize: 14, color: AppTheme.petalWhite.withValues(alpha: 0.7)),
+              style: AppTypography.outfitWhite.copyWith(
+                fontSize: 14,
+                color: AppTheme.petalWhite.withValues(alpha: 0.7),
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -113,7 +119,9 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
                   onTap: () => _startTableTennis(),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 28, vertical: 12),
+                      horizontal: 28,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [AppTheme.warmAmber, AppTheme.deepRose],
@@ -129,7 +137,12 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
                     ),
                     child: Text(
                       'SOLO',
-                      style: AppTypography.outfitWhite.copyWith(fontWeight: FontWeight.w900, color: AppTheme.petalWhite, letterSpacing: 2.0, fontSize: 14),
+                      style: AppTypography.outfitWhite.copyWith(
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.petalWhite,
+                        letterSpacing: 2.0,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
                 ),
@@ -138,7 +151,9 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
                   onTap: () => _startTableTennis1v1(),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 28, vertical: 12),
+                      horizontal: 28,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [AppTheme.softLavender, AppTheme.deepRose],
@@ -155,12 +170,20 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.people_rounded,
-                            color: AppTheme.petalWhite, size: 18),
+                        const Icon(
+                          Icons.people_rounded,
+                          color: AppTheme.petalWhite,
+                          size: 18,
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           '1v1',
-                          style: AppTypography.outfitWhite.copyWith(fontWeight: FontWeight.w900, color: AppTheme.petalWhite, letterSpacing: 2.0, fontSize: 14),
+                          style: AppTypography.outfitWhite.copyWith(
+                            fontWeight: FontWeight.w900,
+                            color: AppTheme.petalWhite,
+                            letterSpacing: 2.0,
+                            fontSize: 14,
+                          ),
                         ),
                       ],
                     ),

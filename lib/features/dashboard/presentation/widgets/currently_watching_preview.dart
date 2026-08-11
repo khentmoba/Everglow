@@ -35,7 +35,9 @@ class CurrentlyWatchingPreview extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _CurrentlyWatchingHeader(stream: tmdbService.getCurrentlyWatchingStream(userName)),
+          _CurrentlyWatchingHeader(
+            stream: tmdbService.getCurrentlyWatchingStream(userName),
+          ),
           if (isCouple && partner != null && partner.isNotEmpty) ...[
             _CurrentlyWatchingShelf(
               stream: tmdbService.getCurrentlyWatchingStream(userName),
@@ -122,7 +124,8 @@ class _CurrentlyWatchingShelf extends StatefulWidget {
   });
 
   @override
-  State<_CurrentlyWatchingShelf> createState() => _CurrentlyWatchingShelfState();
+  State<_CurrentlyWatchingShelf> createState() =>
+      _CurrentlyWatchingShelfState();
 }
 
 class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
@@ -141,7 +144,10 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.stream != widget.stream) {
       _streamSub?.cancel();
-      setState(() { _items = []; _hasLoaded = false; });
+      setState(() {
+        _items = [];
+        _hasLoaded = false;
+      });
       _subscribe();
     }
   }
@@ -208,8 +214,7 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
           (item) => Padding(
             padding: const EdgeInsets.only(right: 12),
             child: ShelfCard(
-              accent:
-                  item.isAnime ? ShelfAccent.anime : ShelfAccent.cinema,
+              accent: item.isAnime ? ShelfAccent.anime : ShelfAccent.cinema,
               imageUrl: item.posterPath,
               title: _sanitizeTitle(item.title),
               subtitle: _subtitleFor(item),
@@ -243,10 +248,7 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
           ),
         );
       }
-      return SizedBox(
-        height: 168,
-        child: ShelfMarquee(children: cards),
-      );
+      return SizedBox(height: 168, child: ShelfMarquee(children: cards));
     }
     // Couple path: partner sub-row beneath the existing single-row.
     return PartnerSubrow(

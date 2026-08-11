@@ -45,9 +45,8 @@ class StarNote {
       author: data['author'] ?? '',
       timestamp: _parseTimestamp(data['timestamp']),
       category: data['category'] ?? 'gratitude',
-      tags: (data['tags'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
+      tags:
+          (data['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
           const [],
     );
   }

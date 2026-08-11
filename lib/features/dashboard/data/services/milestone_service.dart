@@ -17,8 +17,10 @@ class MilestoneService {
           .orderBy('date', descending: false)
           .snapshots()
           .map((snapshot) {
-        return snapshot.docs.map((doc) => Milestone.fromFirestore(doc)).toList();
-      }),
+            return snapshot.docs
+                .map((doc) => Milestone.fromFirestore(doc))
+                .toList();
+          }),
       label: 'milestones',
     );
   }

@@ -24,7 +24,8 @@ class ChatBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final timeStr = DateFormat('h:mm a').format(timestamp);
     final dateStr = DateFormat('MMM d').format(timestamp);
-    final isToday = DateTime.now().day == timestamp.day &&
+    final isToday =
+        DateTime.now().day == timestamp.day &&
         DateTime.now().month == timestamp.month &&
         DateTime.now().year == timestamp.year;
 
@@ -33,8 +34,9 @@ class ChatBubble extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4.0),
         child: Column(
-          crossAxisAlignment:
-              isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: isMe
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
             if (!isMe)
               Padding(
@@ -62,7 +64,8 @@ class ChatBubble extends StatelessWidget {
                     backgroundColor: AppColors.velvet,
                     behavior: SnackBarBehavior.floating,
                     shape: RoundedRectangleBorder(
-                        borderRadius: AppRadius.radiusLg),
+                      borderRadius: AppRadius.radiusLg,
+                    ),
                     margin: const EdgeInsets.all(16),
                   ),
                 );
@@ -72,15 +75,15 @@ class ChatBubble extends StatelessWidget {
                   maxWidth: MediaQuery.sizeOf(context).width * 0.75,
                 ),
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 12),
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   gradient: isMe
                       ? LinearGradient(
                           colors: [
-                            AppColors.deepRose
-                                .withValues(alpha: 0.65),
-                            AppColors.deepRose
-                                .withValues(alpha: 0.35),
+                            AppColors.deepRose.withValues(alpha: 0.65),
+                            AppColors.deepRose.withValues(alpha: 0.35),
                           ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
@@ -95,13 +98,10 @@ class ChatBubble extends StatelessWidget {
                   ),
                   border: isMe
                       ? null
-                      : Border.all(
-                          color: AppColors.border, width: 0.5),
+                      : Border.all(color: AppColors.border, width: 0.5),
                   boxShadow: [
                     BoxShadow(
-                      color: (isMe
-                              ? AppColors.deepRose
-                              : AppColors.roseQuartz)
+                      color: (isMe ? AppColors.deepRose : AppColors.roseQuartz)
                           .withValues(alpha: 0.06),
                       blurRadius: 15,
                       offset: const Offset(0, 5),
@@ -125,10 +125,8 @@ class ChatBubble extends StatelessWidget {
                         fontSize: 9,
                         fontWeight: FontWeight.w500,
                         color: isMe
-                            ? AppColors.petalWhite
-                                .withValues(alpha: 0.7)
-                            : AppColors.roseQuartz
-                                .withValues(alpha: 0.7),
+                            ? AppColors.petalWhite.withValues(alpha: 0.7)
+                            : AppColors.roseQuartz.withValues(alpha: 0.7),
                       ),
                     ),
                   ],

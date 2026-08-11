@@ -45,7 +45,11 @@ class TriviaLoadingOverlay extends StatelessWidget {
                 Text(
                   message,
                   textAlign: TextAlign.center,
-                  style: AppTypography.outfitWhite.copyWith(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.pink[400]),
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.pink[400],
+                  ),
                 ),
                 const SizedBox(height: 16),
                 ClipRRect(

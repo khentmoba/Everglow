@@ -35,12 +35,16 @@ class Milestone {
   factory Milestone.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return Milestone(
-      id:          doc.id,
-      title:       data['title']       as String,
+      id: doc.id,
+      title: data['title'] as String,
       description: data['description'] as String,
-      date:        _parseDateTime(data['date']),
-      imageUrls:    (data['imageUrls'] as List<dynamic>?)?.map((e) => e as String).toList() ?? [],
-      author:      data['author']      as String?,
+      date: _parseDateTime(data['date']),
+      imageUrls:
+          (data['imageUrls'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
+      author: data['author'] as String?,
       category: MilestoneCategory.values.firstWhere(
         (c) => c.name == data['category'],
         orElse: () => MilestoneCategory.memory,
@@ -63,11 +67,11 @@ class Milestone {
 
   Map<String, dynamic> toFirestore() {
     return {
-      'title':       title,
+      'title': title,
       'description': description,
-      'date':        Timestamp.fromDate(date),
-      'imageUrls':   imageUrls,
-      'category':    category.name,
+      'date': Timestamp.fromDate(date),
+      'imageUrls': imageUrls,
+      'category': category.name,
       if (author != null) 'author': author,
     };
   }

@@ -1,13 +1,17 @@
-import 'package:flutter/material.dart';import 'package:go_router/go_router.dart';
+import 'package:flutter/material.dart';
 import 'package:everglow/core/theme/app_theme.dart';
-import 'package:everglow/shared/widgets/gamified_background.dart';
+import 'package:everglow/core/theme/app_colors.dart';
+import 'package:everglow/core/theme/app_radius.dart';
+import 'package:everglow/core/theme/app_motion.dart';
+import 'package:everglow/core/theme/app_typography.dart';
+import 'package:everglow/shared/widgets/everglow/everglow_background.dart';
+import 'package:everglow/shared/widgets/everglow/everglow_feature_header.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_empty_state.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_skeleton.dart';
 import '../../domain/models/memory_photo.dart';
 import '../../data/services/gallery_service.dart';
 import '../widgets/add_photo_dialog.dart';
 import 'photo_viewer_screen.dart';
-import 'package:everglow/core/theme/app_typography.dart';
 
 class GalleryScreen extends StatefulWidget {
   const GalleryScreen({super.key});
@@ -20,261 +24,380 @@ class _GalleryScreenState extends State<GalleryScreen> {
   final GalleryService _galleryService = GalleryService();
   String _searchQuery = '';
 
+  Future<void> _openAddPhoto() async {
+    await showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (context) => const AddPhotoDialog(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: GamifiedBackground(
-        child: SafeArea(
-          child: Column(
-          children: [
-            // ── Header ──
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => context.go('/dashboard'),
-                    icon: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      color: AppTheme.roseQuartz,
-                      size: 20,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    'Memory Gallery',
-                    style: AppTypography.cormorantBold.copyWith(fontSize: 22, letterSpacing: 1.5),
-                  ),
-                  const Spacer(),
-                  const SizedBox(width: 48),
-                ],
-              ),
-            ),
-
-            // ── Search Bar ──
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-              child: TextField(
-                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 13),
-                onChanged: (v) => setState(() => _searchQuery = v.trim()),
-                decoration: InputDecoration(
-                  hintText: "Search memories…",
-                  hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.55), fontSize: 13),
-                  prefixIcon: const Icon(
-                    Icons.search,
-                    color: AppTheme.blushGold,
-                    size: 18,
-                  ),
-                  isDense: true,
-                  filled: true,
-                  fillColor: AppTheme.twilight,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(
-                      color: AppTheme.blushGold.withValues(alpha: 0.15),
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: AppTheme.blushGold),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: EverglowBackground(
+              baseColor: AppColors.inkDeep,
+              glows: const [
+                RadialGlow(
+                  color: AppColors.deepRose,
+                  alignment: Alignment(-0.7, -0.9),
+                  size: 0.9,
+                  opacity: 0.16,
                 ),
-              ),
+                RadialGlow(
+                  color: AppColors.auroraLilac,
+                  alignment: Alignment(0.9, 0.7),
+                  size: 0.7,
+                  opacity: 0.10,
+                ),
+              ],
+              showPetals: true,
             ),
-
-            const SizedBox(height: 4),
-
-            // ── Photo Grid ──
-            Expanded(
-              child: StreamBuilder<List<MemoryPhoto>>(
-                stream: _searchQuery.isNotEmpty
-                    ? _galleryService.searchPhotos(_searchQuery)
-                    : _galleryService.getPhotosStream(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const EverglowSkeletonGrid(
-                      count: 6,
-                      crossAxisCount: 3,
-                      itemHeight: 200,
-                      spacing: 10,
-                      childAspectRatio: 0.75,
-                    );
-                  }
-
-                  final photos = snapshot.data ?? [];
-
-                  if (photos.isEmpty) {
-                    return EverglowEmptyState(
-                      icon: Icons.photo_library_outlined,
-                      title: 'No memories yet',
-                      subtitle: 'Tap + to add your first photo',
-                      ctaLabel: 'Add Photo',
-                      onCta: () async {
-                        await showDialog(
-                          context: context,
-                          barrierColor: Colors.transparent,
-                          builder: (context) => const AddPhotoDialog(),
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+                const EverglowFeatureHeader(
+                  title: 'Memory Gallery',
+                  subtitle: 'our shared album',
+                  icon: Icons.photo_library_rounded,
+                  hue: AppColors.roseQuartz,
+                ),
+                _buildSearchBar(),
+                const SizedBox(height: 4),
+                Expanded(
+                  child: StreamBuilder<List<MemoryPhoto>>(
+                    stream: _searchQuery.isNotEmpty
+                        ? _galleryService.searchPhotos(_searchQuery)
+                        : _galleryService.getPhotosStream(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const EverglowSkeletonGrid(
+                          count: 6,
+                          crossAxisCount: 3,
+                          itemHeight: 200,
+                          spacing: 10,
+                          childAspectRatio: 0.75,
                         );
-                      },
-                    );
-                  }
+                      }
 
-                  return GridView.builder(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 4,
-                    ),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 8,
-                      crossAxisSpacing: 8,
-                      childAspectRatio: 0.85,
-                    ),
-                    itemCount: photos.length,
-                    itemBuilder: (context, index) {
-                      final photo = photos[index];
-                      return _PhotoCard(
-                        photo: photo,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => PhotoViewerScreen(
-                                photos: photos,
-                                initialIndex: index,
-                              ),
+                      final photos = snapshot.data ?? [];
+                      if (photos.isEmpty) {
+                        return EverglowEmptyState(
+                          icon: Icons.photo_library_outlined,
+                          title: 'No memories yet',
+                          subtitle: 'Tap + to add your first photo',
+                          ctaLabel: 'Add Photo',
+                          onCta: _openAddPhoto,
+                        );
+                      }
+
+                      return GridView.builder(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              mainAxisSpacing: 10,
+                              crossAxisSpacing: 10,
+                              childAspectRatio: 0.82,
                             ),
+                        itemCount: photos.length,
+                        itemBuilder: (context, index) {
+                          final photo = photos[index];
+                          return _PhotoCard(
+                            photo: photo,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => PhotoViewerScreen(
+                                    photos: photos,
+                                    initialIndex: index,
+                                  ),
+                                ),
+                              );
+                            },
                           );
                         },
                       );
                     },
-                  );
-                },
-              ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
+        ],
+      ),
+      floatingActionButton: _FloatingAddButton(onPressed: _openAddPhoto),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      child: AnimatedContainer(
+        duration: AppMotion.orZero(AppMotion.fast),
+        decoration: BoxDecoration(
+          color: AppColors.moonlight.withValues(alpha: 0.08),
+          borderRadius: AppRadius.radiusLg,
+          border: Border.all(
+            color: AppColors.blushGold.withValues(alpha: 0.18),
+          ),
         ),
-      ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          await showDialog(
-            context: context,
-            barrierColor: Colors.transparent,
-            builder: (context) => const AddPhotoDialog(),
-          );
-        },
-        backgroundColor: AppTheme.deepRose,
-        foregroundColor: AppTheme.petalWhite,
-        child: const Icon(Icons.add_photo_alternate_rounded),
+        child: TextField(
+          style: AppTypography.outfitWhite.copyWith(
+            color: AppColors.petalWhite,
+            fontSize: 13,
+          ),
+          onChanged: (v) => setState(() => _searchQuery = v.trim()),
+          decoration: InputDecoration(
+            hintText: 'Search memories...',
+            hintStyle: AppTypography.outfitWhite.copyWith(
+              color: AppColors.petalWhite.withValues(alpha: 0.5),
+              fontSize: 13,
+            ),
+            prefixIcon: const Icon(
+              Icons.search_rounded,
+              color: AppColors.blushGold,
+              size: 19,
+            ),
+            isDense: true,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
+          ),
+        ),
       ),
     );
   }
 }
 
-class _PhotoCard extends StatelessWidget {
+class _FloatingAddButton extends StatefulWidget {
+  final VoidCallback onPressed;
+
+  const _FloatingAddButton({required this.onPressed});
+
+  @override
+  State<_FloatingAddButton> createState() => _FloatingAddButtonState();
+}
+
+class _FloatingAddButtonState extends State<_FloatingAddButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Add a photo',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: widget.onPressed,
+          child: AnimatedContainer(
+            duration: AppMotion.orZero(AppMotion.fast),
+            curve: AppMotion.easeOutStrong,
+            transform: Matrix4.identity()
+              ..scaleByDouble(
+                _hovered ? 1.08 : 1.0,
+                _hovered ? 1.08 : 1.0,
+                _hovered ? 1.08 : 1.0,
+                1.0,
+              ),
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: AppTheme.roseGoldGradient,
+              border: Border.all(
+                color: AppColors.petalWhite.withValues(alpha: 0.4),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.deepRose.withValues(alpha: 0.45),
+                  blurRadius: 24,
+                  spreadRadius: -2,
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.add_photo_alternate_rounded,
+              color: AppColors.petalWhite,
+              size: 26,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PhotoCard extends StatefulWidget {
   final MemoryPhoto photo;
   final VoidCallback onTap;
 
   const _PhotoCard({required this.photo, required this.onTap});
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppTheme.blushGold.withValues(alpha: 0.15),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.deepRose.withValues(alpha: 0.15),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Photo
-            Image.network(
-              GalleryService.displayUrl(photo.imageUrl),
-              fit: BoxFit.cover,
-              loadingBuilder: (context, child, progress) {
-                if (progress == null) return child;
-                return Container(
-                  color: AppTheme.twilight,
-                  child: const Center(
-                    child: CircularProgressIndicator(
-                      color: AppTheme.blushGold,
-                      strokeWidth: 2,
-                    ),
-                  ),
-                );
-              },
-              errorBuilder: (context, error, stack) {
-                return Container(
-                  color: AppTheme.twilight,
-                  child: const Center(
-                    child: Icon(
-                      Icons.broken_image_rounded,
-                      color: AppTheme.roseQuartz,
-                      size: 32,
-                    ),
-                  ),
-                );
-              },
-            ),
+  State<_PhotoCard> createState() => _PhotoCardState();
+}
 
-            // Gradient overlay at bottom
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(10, 30, 10, 8),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.7),
-                    ],
+class _PhotoCardState extends State<_PhotoCard> {
+  bool _hovered = false;
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final photo = widget.photo;
+    return Semantics(
+      button: true,
+      label: photo.caption.isEmpty ? 'Memory photo' : photo.caption,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTapDown: (_) => setState(() => _pressed = true),
+          onTapUp: (_) {
+            setState(() => _pressed = false);
+            widget.onTap();
+          },
+          onTapCancel: () => setState(() => _pressed = false),
+          child: AnimatedContainer(
+            duration: AppMotion.orZero(AppMotion.medium),
+            curve: AppMotion.easeOutStrong,
+            transform: Matrix4.identity()
+              ..translateByDouble(0.0, _hovered ? -4.0 : 0.0, 0.0, 1.0)
+              ..scaleByDouble(
+                _pressed ? 0.95 : (_hovered ? 1.03 : 1.0),
+                _pressed ? 0.95 : (_hovered ? 1.03 : 1.0),
+                _pressed ? 0.95 : (_hovered ? 1.03 : 1.0),
+                1.0,
+              ),
+            decoration: BoxDecoration(
+              borderRadius: AppRadius.radiusLg,
+              border: Border.all(
+                color: _hovered
+                    ? AppColors.blushGold.withValues(alpha: 0.6)
+                    : AppColors.blushGold.withValues(alpha: 0.18),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.inkDeep.withValues(alpha: 0.5),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+                if (_hovered)
+                  BoxShadow(
+                    color: AppColors.deepRose.withValues(alpha: 0.25),
+                    blurRadius: 22,
+                    offset: const Offset(0, 8),
+                  ),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.network(
+                  GalleryService.displayUrl(photo.imageUrl),
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return Container(
+                      color: AppColors.twilight,
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.blushGold,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stack) {
+                    return Container(
+                      color: AppColors.twilight,
+                      child: const Center(
+                        child: Icon(
+                          Icons.broken_image_rounded,
+                          color: AppColors.roseQuartz,
+                          size: 32,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                // Bottom gradient + caption
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(10, 34, 10, 9),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.72),
+                        ],
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (photo.caption.isNotEmpty)
+                          Text(
+                            photo.caption,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.outfitWhite.copyWith(
+                              fontSize: 11,
+                              color: AppColors.petalWhite,
+                              fontWeight: FontWeight.w500,
+                              height: 1.25,
+                            ),
+                          ),
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.favorite_rounded,
+                              size: 9,
+                              color: AppColors.auroraRose,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                photo.uploadedBy,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.outfitBold.copyWith(
+                                  fontSize: 9,
+                                  color: AppColors.blushGold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (photo.caption.isNotEmpty)
-                      Text(
-                        photo.caption,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: AppTheme.petalWhite, fontWeight: FontWeight.w500),
-                      ),
-                    const SizedBox(height: 2),
-                    Text(
-                      photo.uploadedBy,
-                      style: AppTypography.outfitBold.copyWith(fontSize: 9, color: AppTheme.blushGold),
-                    ),
-                  ],
-                ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

@@ -25,9 +25,8 @@ class MemoryPhoto {
       caption: data['caption'] ?? '',
       uploadedBy: data['uploadedBy'] ?? '',
       uploadedAt: _parseTimestamp(data['uploadedAt']),
-      tags: (data['tags'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
+      tags:
+          (data['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
           const [],
     );
   }

@@ -24,7 +24,7 @@ class AcademySyncService {
     final apiCategoryId = (apiIds..shuffle()).first;
 
     final count = await _getUnusedQuestionCount(category);
-    
+
     if (count < _minThreshold) {
       if (matchId != null) {
         await _firestore.collection('active_matches').doc(matchId).update({
@@ -47,7 +47,7 @@ class AcademySyncService {
         .collection('academy_questions')
         .where('category', isEqualTo: category)
         .get();
-    
+
     return snapshot.docs.length;
   }
 
@@ -59,12 +59,12 @@ class AcademySyncService {
       );
 
       final batch = _firestore.batch();
-      
+
       for (var question in newQuestions) {
         // Update the ID using the hash logic from US1
         final id = AcademyQuestion.generateId(question.questionText);
         final docRef = _firestore.collection('academy_questions').doc(id);
-        
+
         batch.set(docRef, {
           ...question.toMap(),
           'id': id,

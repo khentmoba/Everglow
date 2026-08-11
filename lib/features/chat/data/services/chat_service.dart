@@ -17,16 +17,16 @@ class ChatService {
           .orderBy('timestamp', descending: false)
           .snapshots()
           .map((snapshot) {
-        final messages = <ChatMessage>[];
-        for (var doc in snapshot.docs) {
-          try {
-            messages.add(ChatMessage.fromFirestore(doc));
-          } catch (e) {
-            Logger.e("Error parsing message document ${doc.id}", error: e);
-          }
-        }
-        return messages;
-      }),
+            final messages = <ChatMessage>[];
+            for (var doc in snapshot.docs) {
+              try {
+                messages.add(ChatMessage.fromFirestore(doc));
+              } catch (e) {
+                Logger.e("Error parsing message document ${doc.id}", error: e);
+              }
+            }
+            return messages;
+          }),
       label: 'sanctuary-chat',
       duration: const Duration(seconds: 10),
     );
@@ -34,7 +34,7 @@ class ChatService {
 
   Future<void> sendMessage(String text, String sender, String senderUid) async {
     if (text.trim().isEmpty) return;
-    
+
     try {
       final message = ChatMessage(
         id: '',
