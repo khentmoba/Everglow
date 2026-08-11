@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'dart:ui';
 import '../../../../core/theme/app_theme.dart';
 
 class AnimatedDoor extends StatefulWidget {

@@ -29,12 +29,12 @@ class MangaReaderScreen extends StatefulWidget {
   final Map<String, String>? scanlationSlugs;
 
   const MangaReaderScreen({
-    Key? key,
+    super.key,
     required this.manga,
     required this.chapter,
     required this.allChapters,
     this.scanlationSlugs,
-  }) : super(key: key);
+  });
 
   @override
   State<MangaReaderScreen> createState() => _MangaReaderScreenState();

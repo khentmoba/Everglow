@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+// Maintenance script: console output is intentional for operator feedback.
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CleanupService {

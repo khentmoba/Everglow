@@ -155,9 +155,9 @@ class TTMultiplayerState {
   static int latestGuestScore = 0;
 
   static void handleMessage(web.MessageEvent event) {
-    final data = event.data;
+    final data = event.data.dartify();
     if (data is! Map) return;
-    final map = Map<String, dynamic>.from(data as Map);
+    final map = Map<String, dynamic>.from(data);
     final type = map['type'] as String?;
     switch (type) {
       case 'LOCAL_PADDLE':

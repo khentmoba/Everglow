@@ -23,7 +23,7 @@ import 'shelf_widgets.dart';
 /// Non-couple users keep the original merged-couple or single-user
 /// layout that streams every title in their library (any status).
 class MangaPreview extends StatelessWidget {
-  const MangaPreview({Key? key}) : super(key: key);
+  const MangaPreview({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -216,10 +216,10 @@ class _MangaShelfState extends State<_MangaShelf> {
     return PartnerSubrow(
       label: widget.label!,
       accent: ShelfAccent.manga,
-      children: _hasLoaded ? cards : const [],
       emptyMessage: widget.isSelf
           ? 'You aren\'t reading anything right now.'
           : 'Nothing on their reading list.',
+      children: _hasLoaded ? cards : const [],
     );
   }
 }

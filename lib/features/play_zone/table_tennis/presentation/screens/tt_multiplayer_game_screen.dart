@@ -34,10 +34,10 @@ class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
 
   TTBridgeService? _bridge;
   JSFunction? _messageListener;
-  bool _booted = true;
+  final bool _booted = true;
   bool _isMobile = false;
-  bool _gameEnded = false;
-  int _finalScore = 0;
+  final bool _gameEnded = false;
+  final int _finalScore = 0;
 
   @override
   void initState() {

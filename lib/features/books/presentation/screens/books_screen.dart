@@ -33,7 +33,7 @@ const _cMuted = Color(0xFF8A7A92);
 /// (Home, Search, To Read, Read) with a custom glassmorphic bottom
 /// nav. Mirrors `CinemaScreen` from the cinema feature.
 class BooksScreen extends StatefulWidget {
-  const BooksScreen({Key? key}) : super(key: key);
+  const BooksScreen({super.key});
 
   @override
   State<BooksScreen> createState() => _BooksScreenState();
@@ -180,7 +180,7 @@ class _BooksScreenState extends State<BooksScreen> {
     }
   }
 
-  static const Duration _carouselHoldDuration = const Duration(seconds: 12);
+  static const Duration _carouselHoldDuration = Duration(seconds: 12);
 
   void _onCarouselPageChanged(int index) {
     setState(() => _carouselPage = index);
@@ -328,7 +328,7 @@ class _BooksScreenState extends State<BooksScreen> {
             ),
           ),
           ..._buildSubjectRows(),
-          const SliverPadding(padding: const EdgeInsets.only(bottom: 100)),
+          const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
         ],
       ),
     );
@@ -1182,7 +1182,7 @@ class _BooksScreenState extends State<BooksScreen> {
         ),
         const SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: EdgeInsets.symmetric(horizontal: 12),
             child: ShimmerBox(height: 320, radius: 24),
           ),
         ),

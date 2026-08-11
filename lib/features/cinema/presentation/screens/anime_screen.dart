@@ -41,7 +41,7 @@ const _cElectricPurple = AppColors.animeElectricPurple;
 ///                TMDB fallback). Results show anime poster cards with
 ///                an "Add to Everglow?" dialog on tap.
 class AnimeScreen extends StatefulWidget {
-  const AnimeScreen({Key? key}) : super(key: key);
+  const AnimeScreen({super.key});
 
   @override
   State<AnimeScreen> createState() => _AnimeScreenState();
@@ -656,7 +656,7 @@ class _AnimeSparklesState extends State<_AnimeSparkles>
     return RepaintBoundary(
       child: AnimatedBuilder(
         animation: _ctrl,
-        builder: (_, __) => CustomPaint(
+        builder: (_, _) => CustomPaint(
           size: Size.infinite,
           painter: _SparklePainter(
             sparkles: _sparkles,

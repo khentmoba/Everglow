@@ -62,7 +62,7 @@ class _EverglowSparklesState extends State<EverglowSparkles>
         child: ExcludeSemantics(
           child: AnimatedBuilder(
             animation: _controller ?? const AlwaysStoppedAnimation(0),
-            builder: (_, __) => CustomPaint(
+            builder: (_, _) => CustomPaint(
               painter: _SparklePainter(
                 sparkles: _sparkles,
                 color: widget.color,

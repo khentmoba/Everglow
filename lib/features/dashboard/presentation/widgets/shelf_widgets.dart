@@ -65,13 +65,13 @@ class ShelfHeader extends StatelessWidget {
   final VoidCallback onViewAll;
 
   const ShelfHeader({
-    Key? key,
+    super.key,
     required this.accent,
     required this.title,
     required this.itemCount,
     required this.onViewAll,
     this.badge,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -249,14 +249,14 @@ class ShelfCard extends StatefulWidget {
   final VoidCallback? onTap;
 
   const ShelfCard({
-    Key? key,
+    super.key,
     required this.accent,
     required this.imageUrl,
     required this.title,
     this.subtitle,
     this.topBadge,
     this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   State<ShelfCard> createState() => _ShelfCardState();
@@ -305,8 +305,8 @@ class _ShelfCardState extends State<ShelfCard> {
           duration: const Duration(milliseconds: 220),
           curve: Curves.easeOut,
           transform: Matrix4.identity()
-            ..translate(0.0, isHovered ? -4.0 : 0.0)
-            ..scale(_pressed ? 0.95 : (isHovered ? 1.04 : 1.0)),
+            ..translateByDouble(0.0, isHovered ? -4.0 : 0.0, 0.0)
+            ..scaleByDouble(_pressed ? 0.95 : (isHovered ? 1.04 : 1.0)),
           width: 110,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
@@ -495,11 +495,11 @@ class ShelfEmpty extends StatelessWidget {
   final IconData? icon;
 
   const ShelfEmpty({
-    Key? key,
+    super.key,
     required this.accent,
     required this.message,
     this.icon,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -565,13 +565,13 @@ class ShelfMarquee extends StatefulWidget {
   final int skeletonCount;
 
   const ShelfMarquee({
-    Key? key,
+    super.key,
     required this.children,
     this.itemStride = 122.0,
     this.pixelsPerSecond = 30.0,
     this.hasLoaded = true,
     this.skeletonCount = 5,
-  }) : super(key: key);
+  });
 
   @override
   State<ShelfMarquee> createState() => _ShelfMarqueeState();

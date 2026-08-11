@@ -14,7 +14,7 @@ import 'package:everglow/core/theme/app_typography.dart';
 /// Shared couple list. Mirrors `OurCinemaScreen` from the cinema
 /// feature.
 class OurBooksScreen extends StatefulWidget {
-  const OurBooksScreen({Key? key}) : super(key: key);
+  const OurBooksScreen({super.key});
 
   @override
   State<OurBooksScreen> createState() => _OurBooksScreenState();

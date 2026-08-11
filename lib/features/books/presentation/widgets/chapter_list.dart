@@ -18,18 +18,18 @@ class ChapterList extends StatelessWidget {
   final ValueChanged<int> onChapterTap;
 
   const ChapterList({
-    Key? key,
+    super.key,
     required this.chapters,
     required this.isLoading,
     required this.currentChapterIndex,
     required this.onChapterTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
       return const Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(24),
         child: Center(
           child: SizedBox(
             width: 24,

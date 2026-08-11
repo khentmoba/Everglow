@@ -18,8 +18,7 @@ import 'package:everglow/core/theme/app_typography.dart';
 class MangaSearchModal extends StatefulWidget {
   /// Optional pre-selected content type filter. Empty means "All".
   final String initialLanguage;
-  const MangaSearchModal({Key? key, this.initialLanguage = ''})
-      : super(key: key);
+  const MangaSearchModal({super.key, this.initialLanguage = ''});
 
   @override
   State<MangaSearchModal> createState() => _MangaSearchModalState();
@@ -234,7 +233,7 @@ class _MangaSearchModalState extends State<MangaSearchModal> {
                   userName: u,
                 );
                 await _md.saveToLibrary(saved, status, u);
-                if (mounted) {
+                if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(

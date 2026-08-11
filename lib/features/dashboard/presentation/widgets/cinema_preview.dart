@@ -20,7 +20,7 @@ import 'shelf_widgets.dart';
 /// Non-couple users keep the original single-row layout (one stream
 /// of their own watched items only).
 class CinemaPreview extends StatelessWidget {
-  const CinemaPreview({Key? key}) : super(key: key);
+  const CinemaPreview({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -203,10 +203,10 @@ class _CinemaShelfState extends State<_CinemaShelf> {
     return PartnerSubrow(
       label: widget.label!,
       accent: ShelfAccent.cinema,
-      children: _hasLoaded ? cards : const [],
       emptyMessage: widget.isSelf
           ? 'You haven\'t finished anything yet.'
           : 'Nothing finished on their end.',
+      children: _hasLoaded ? cards : const [],
     );
   }
 }

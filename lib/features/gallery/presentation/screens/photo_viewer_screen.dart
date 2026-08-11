@@ -67,7 +67,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
             onPressed: () async {
               Navigator.pop(context); // Close dialog
               await GalleryService().deletePhoto(photo);
-              if (mounted) {
+              if (context.mounted) {
                 if (widget.photos.length <= 1) {
                   Navigator.pop(context);
                 } else {

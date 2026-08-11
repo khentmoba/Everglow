@@ -65,7 +65,7 @@ class _LetterArchiveSearchDelegate extends StatelessWidget {
 class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
   final LetterboxService _service = LetterboxService();
   _LetterFilter _filter = _LetterFilter.all;
-  String _searchQuery = '';
+  final String _searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
@@ -139,7 +139,7 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
                   return ListView.builder(
                     padding: const EdgeInsets.all(16),
                     itemCount: 5,
-                    itemBuilder: (_, __) => const Padding(
+                    itemBuilder: (_, _) => const Padding(
                       padding: EdgeInsets.only(bottom: 12),
                       child: EverglowSkeleton(width: double.infinity, height: 80, radius: 16),
                     ),
@@ -215,7 +215,7 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
       }
     }).toList();
 
-    if (!mounted) return;
+    if (!context.mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(

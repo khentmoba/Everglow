@@ -1,3 +1,6 @@
+// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
+// Mochi runs on Flutter web only; dart:html powers image attachments and
+// browser clipboard integration that has no non-web equivalent here.
 import 'dart:convert';
 import 'dart:html' as html;
 import 'package:flutter/foundation.dart';
@@ -233,7 +236,7 @@ class _MochiScreenState extends State<MochiScreen> {
                   child: Stack(
                     children: [
                       Consumer<AIService>(
-                        builder: (_, ai, __) {
+                        builder: (_, ai, _) {
                           final allMsgs =
                               ai.assistantConversation?.messages ?? [];
                           final loading = ai.isLoading;
@@ -1004,9 +1007,9 @@ class _ThinkingIndicatorState extends State<_ThinkingIndicator>
               color: AppColors.surfaceGlass,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(4),
-                topRight: const Radius.circular(16),
-                bottomLeft: const Radius.circular(16),
-                bottomRight: const Radius.circular(16),
+                topRight: Radius.circular(16),
+                bottomLeft: Radius.circular(16),
+                bottomRight: Radius.circular(16),
               ),
               border: Border.all(color: AppColors.border, width: 0.5),
             ),
@@ -1064,7 +1067,7 @@ class _ErrorBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<AIService>(
-      builder: (_, ai, __) {
+      builder: (_, ai, _) {
         final error = ai.lastError;
         if (error == null || lastSentMessage == null) {
           return const SizedBox.shrink();
@@ -1166,7 +1169,7 @@ class _ComposerInputState extends State<_ComposerInput> {
   @override
   Widget build(BuildContext context) {
     return Consumer<AIService>(
-      builder: (_, ai, __) {
+      builder: (_, ai, _) {
         return Container(
           key: widget.inputKey,
           padding: EdgeInsets.fromLTRB(
@@ -1194,7 +1197,7 @@ class _ComposerInputState extends State<_ComposerInput> {
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: widget.attachedImages.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      separatorBuilder: (_, _) => const SizedBox(width: 8),
                       itemBuilder: (_, i) {
                         return Stack(
                           children: [

@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
-/// 3D chibi cat guardian rendered via the <model-viewer> web component.
+/// 3D chibi cat guardian rendered via the `<model-viewer>` web component.
 class CatVisuals extends StatefulWidget {
   final double size;
 

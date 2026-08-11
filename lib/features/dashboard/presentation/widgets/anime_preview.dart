@@ -19,7 +19,7 @@ import 'shelf_widgets.dart';
 /// Non-couple users keep the original single-row layout (one stream
 /// of their own watched anime only).
 class AnimePreview extends StatelessWidget {
-  const AnimePreview({Key? key}) : super(key: key);
+  const AnimePreview({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -205,10 +205,10 @@ class _AnimeShelfState extends State<_AnimeShelf> {
     return PartnerSubrow(
       label: widget.label!,
       accent: ShelfAccent.anime,
-      children: _hasLoaded ? cards : const [],
       emptyMessage: widget.isSelf
           ? 'You haven\'t finished any anime yet.'
           : 'Nothing finished on their end.',
+      children: _hasLoaded ? cards : const [],
     );
   }
 }

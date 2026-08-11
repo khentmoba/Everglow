@@ -27,7 +27,7 @@ import 'shelf_widgets.dart';
 /// "Our Books" rail has always shown the personal read history for
 /// non-couple accounts).
 class BooksPreview extends StatelessWidget {
-  const BooksPreview({Key? key}) : super(key: key);
+  const BooksPreview({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -214,10 +214,10 @@ class _OurBooksSubrowState extends State<_OurBooksSubrow> {
     return PartnerSubrow(
       label: widget.label,
       accent: ShelfAccent.books,
-      children: _hasLoaded ? _buildCards() : const [],
       emptyMessage: widget.isSelf
           ? 'You haven\'t added any books to "Ours" yet.'
           : 'They haven\'t added any books to "Ours" yet.',
+      children: _hasLoaded ? _buildCards() : const [],
     );
   }
 }

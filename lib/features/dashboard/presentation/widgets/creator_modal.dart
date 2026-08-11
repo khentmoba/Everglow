@@ -92,7 +92,9 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
 
   Future<void> _saveMemory() async {
     if (!_memoryFormKey.currentState!.validate()) return;
-    
+
+    final author = context.read<AuthService>().currentUser;
+
     setState(() => _isSavingMemory = true);
 
     try {
@@ -107,7 +109,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
         description: _memoryDescController.text,
         date: _memoryDate,
         imageUrls: imageUrls,
-        author: context.read<AuthService>().currentUser,
+        author: author,
       );
 
       if (mounted) {

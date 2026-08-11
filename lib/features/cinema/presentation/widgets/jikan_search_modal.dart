@@ -16,7 +16,7 @@ import 'package:everglow/core/theme/app_typography.dart';
 /// app (dashboard, couple merge, watchlist) keeps treating the row as
 /// a single `MediaItem`.
 class JikanSearchModal extends StatefulWidget {
-  const JikanSearchModal({Key? key}) : super(key: key);
+  const JikanSearchModal({super.key});
 
   @override
   State<JikanSearchModal> createState() => _JikanSearchModalState();
@@ -193,7 +193,7 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
                 try {
                   await _tmdbService.saveToWatchList(item, status, u);
                 } catch (e) {
-                  if (mounted) {
+                  if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
@@ -210,7 +210,7 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
                   return;
                 }
                 final successMessage = '🌸 ${item.title} added to Everglow!';
-                if (mounted) {
+                if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
