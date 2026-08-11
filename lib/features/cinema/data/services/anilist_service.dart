@@ -90,7 +90,7 @@ class AniListService with ConnectivityAware {
     }
 
     final variables = <String, dynamic>{
-      if (anilistId != null) 'id': anilistId,
+      'id': ?anilistId,
       // GraphQL variable name has to match the query (`$idMal`), not the
       // `Media.idMal` field. The previous `'malId': malId` mismatch
       // silently produced errors and returned a null `Media`, which is

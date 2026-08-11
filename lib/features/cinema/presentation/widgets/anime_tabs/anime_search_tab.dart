@@ -261,7 +261,7 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                         try {
                           await _tmdbService.saveToWatchList(item, status, u);
                         } catch (e) {
-                          if (mounted) {
+                          if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
@@ -277,7 +277,7 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                           }
                           return;
                         }
-                        if (mounted) {
+                        if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(

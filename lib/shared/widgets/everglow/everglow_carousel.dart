@@ -150,7 +150,7 @@ class _CarouselSlide extends StatelessWidget {
                   Image.network(
                     item.imageUrl!,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
+                    errorBuilder: (_, _, _) => Container(
                       color: AppColors.velvet,
                       child: Center(
                         child: Icon(Icons.movie_outlined,

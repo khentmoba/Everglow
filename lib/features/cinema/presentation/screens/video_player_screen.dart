@@ -86,12 +86,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// the embed dead. vidsrc embeds usually load in 2-4s; 15s is a
   /// generous ceiling that still surfaces 404s within a reasonable
   /// user wait.
-  static const Duration _loadTimeout = const Duration(seconds: 15);
+  static const Duration _loadTimeout = Duration(seconds: 15);
 
   /// How long to wait for VidLink to send a `MEDIA_DATA` postMessage
   /// event after the iframe loads. If the event never arrives the
   /// provider likely showed "content not available", so we fall back.
-  static const Duration _contentCheckTimeout = const Duration(seconds: 8);
+  static const Duration _contentCheckTimeout = Duration(seconds: 8);
 
   /// The currently selected embed source. Starts at the user's saved
   /// default (or the first entry from VideoSourceService); auto-fallback
@@ -711,8 +711,8 @@ _currentSeason = widget.season ?? 1;
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 14),
-                          const SizedBox(width: 6),
+                          Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 14),
+                          SizedBox(width: 6),
                           Text(
                             'Back',
                             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
@@ -864,7 +864,7 @@ _currentSeason = widget.season ?? 1;
     final genreNames = genres?.map((g) => g is Map ? (g['name']?.toString() ?? '') : g.toString()).where((n) => n.isNotEmpty).toList();
     final overview = (_details?['overview'] ?? '') as String;
     final ratingNum = _details?['vote_average'] as num?;
-    final rating = ratingNum != null ? ratingNum.toDouble().toStringAsFixed(1) : null;
+    final rating = ratingNum?.toDouble().toStringAsFixed(1);
     final runtime = _details?['runtime'] as int?;
     final epRun = _details?['episode_run_time'] as List?;
     final effRuntime = runtime ?? (epRun != null && epRun.isNotEmpty ? epRun.first as int? : null);
@@ -879,7 +879,7 @@ _currentSeason = widget.season ?? 1;
           Wrap(spacing: 8, runSpacing: 6, children: [
             _metaBadge(Icons.source_rounded, _selectedProvider.shortName, accent: true),
             _metaBadge(widget.mediaType == 'movie' ? Icons.movie_rounded : Icons.tv_rounded, widget.mediaType == 'movie' ? 'Movie' : 'TV Show'),
-            if (widget.mediaType == 'tv') _metaBadge(Icons.layers_rounded, 'S${_currentSeason} E${_currentEpisode}'),
+            if (widget.mediaType == 'tv') _metaBadge(Icons.layers_rounded, 'S$_currentSeason E$_currentEpisode'),
             if (rating != null) _metaBadge(Icons.star_rounded, '$rating/10'),
             if (effRuntime != null && effRuntime > 0) _metaBadge(Icons.schedule_rounded, '${effRuntime}m'),
           ]),
@@ -999,7 +999,7 @@ _currentSeason = widget.season ?? 1;
       context: context,
       backgroundColor: const Color(0xFF1C1228),
       shape: const RoundedRectangleBorder(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       isScrollControlled: true,
       useSafeArea: true,

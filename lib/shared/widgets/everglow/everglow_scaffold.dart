@@ -93,7 +93,7 @@ class EverglowScaffold extends StatelessWidget {
             child: Column(
               children: [
                 // AppBar
-                if (appBar != null) appBar!,
+                ?appBar,
 
                 // Body
                 Expanded(

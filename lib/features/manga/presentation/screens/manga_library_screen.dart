@@ -39,7 +39,7 @@ const _cMuted = AppColors.animeMuted;
 ///
 /// Mirrors `CinemaScreen` from the cinema feature.
 class MangaLibraryScreen extends StatefulWidget {
-  const MangaLibraryScreen({Key? key}) : super(key: key);
+  const MangaLibraryScreen({super.key});
 
   @override
   State<MangaLibraryScreen> createState() => _MangaLibraryScreenState();
@@ -605,7 +605,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen> {
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 20),
           itemCount: items.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          separatorBuilder: (_, _) => const SizedBox(width: 12),
           itemBuilder: (context, index) {
             final item = items[index];
             final typeAccent =

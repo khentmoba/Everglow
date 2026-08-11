@@ -222,7 +222,7 @@ class AnimeBrowseTab extends StatelessWidget {
                     ),
                     if (row != null && !row.isLoading && row.items.isNotEmpty)
                       Text(
-                        '\ titles found',
+                        '${row.items.length} titles found',
                         style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: _cMuted),
                       ),
                   ],

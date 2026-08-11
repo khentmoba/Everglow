@@ -83,7 +83,7 @@ class _EverglowIconButtonState extends State<EverglowIconButton> {
       curve: AppMotion.easeOutStrong,
       width: widget.size,
       height: widget.size,
-      transform: Matrix4.identity()..scale(effectiveScale),
+      transform: Matrix4.identity()..scaleByDouble(effectiveScale),
       decoration: BoxDecoration(
         color: bg,
         shape: BoxShape.circle,

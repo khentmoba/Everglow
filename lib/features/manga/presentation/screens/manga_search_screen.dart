@@ -21,8 +21,7 @@ const _cWhite = AppColors.animeWhite;
 /// Tap a result to open the chapter details drawer.
 class MangaSearchScreen extends StatefulWidget {
   final String initialLanguage;
-  const MangaSearchScreen({Key? key, this.initialLanguage = ''})
-      : super(key: key);
+  const MangaSearchScreen({super.key, this.initialLanguage = ''});
 
   @override
   State<MangaSearchScreen> createState() => _MangaSearchScreenState();

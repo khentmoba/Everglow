@@ -46,7 +46,7 @@ class EverglowDialog extends StatelessWidget {
           child: FadeTransition(opacity: a1, child: widget),
         );
       },
-      pageBuilder: (_, __, ___) => EverglowDialog(
+      pageBuilder: (_, _, _) => EverglowDialog(
         radius: radius,
         padding: padding,
         child: child,

@@ -118,7 +118,7 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
             return TweenAnimationBuilder<double>(
               tween: Tween(begin: 0.0, end: 1.0),
               duration: Duration(milliseconds: 600 + i * 200),
-              builder: (_, v, __) {
+              builder: (_, v, _) {
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: Container(

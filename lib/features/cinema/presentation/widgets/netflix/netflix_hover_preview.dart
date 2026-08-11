@@ -120,10 +120,10 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
     final seasons = _details?['number_of_seasons'] as num?;
     final episodes = _details?['number_of_episodes'] as num?;
     if (seasons != null && seasons > 0 && episodes != null && episodes > 0) {
-      return '${seasons} Season${seasons == 1 ? '' : 's'} · $episodes eps';
+      return '$seasons Season${seasons == 1 ? '' : 's'} · $episodes eps';
     }
     if (seasons != null && seasons > 0) {
-      return '${seasons} Season${seasons == 1 ? '' : 's'}';
+      return '$seasons Season${seasons == 1 ? '' : 's'}';
     }
     return null;
   }

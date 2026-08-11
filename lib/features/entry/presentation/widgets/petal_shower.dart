@@ -14,7 +14,7 @@ class PetalShower extends StatefulWidget {
 
 class _PetalShowerState extends State<PetalShower> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  final List<_PetalData> _petals = [];
+  final List<PetalData> _petals = [];
   late final Picture _petalShapePicture;
   static const int _petalCount = 30;
 
@@ -33,7 +33,7 @@ class _PetalShowerState extends State<PetalShower> with SingleTickerProviderStat
 
     final rng = math.Random();
     for (int i = 0; i < _petalCount; i++) {
-      _petals.add(_PetalData(
+      _petals.add(PetalData(
         x: rng.nextDouble(),
         y: rng.nextDouble() * -1,
         size: rng.nextDouble() * 15 + 10,
@@ -91,7 +91,7 @@ class _PetalShowerState extends State<PetalShower> with SingleTickerProviderStat
   }
 }
 
-class _PetalData {
+class PetalData {
   final double x;
   final double y;
   final double size;
@@ -99,7 +99,7 @@ class _PetalData {
   final double angle;
   final double drift;
 
-  const _PetalData({
+  const PetalData({
     required this.x,
     required this.y,
     required this.size,
@@ -110,7 +110,7 @@ class _PetalData {
 }
 
 class PetalPainter extends CustomPainter {
-  final List<_PetalData> petals;
+  final List<PetalData> petals;
   final double progress;
   final Picture shapePicture;
 

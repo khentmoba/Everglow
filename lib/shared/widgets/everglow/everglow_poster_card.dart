@@ -60,8 +60,8 @@ class _EverglowPosterCardState extends State<EverglowPosterCard> {
       width: widget.width,
       height: widget.height,
       transform: Matrix4.identity()
-        ..translate(0.0, effectiveTranslateY, 0.0)
-        ..scale(effectiveScale),
+        ..translateByDouble(0.0, effectiveTranslateY, 0.0)
+        ..scaleByDouble(effectiveScale),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(widget.radius),
         border: Border.all(
@@ -215,7 +215,7 @@ class _EverglowPosterCardState extends State<EverglowPosterCard> {
                 ? child
                 : const SizedBox.shrink();
           },
-          errorBuilder: (_, __, ___) {
+          errorBuilder: (_, _, _) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted && !_imageError) {
                 setState(() => _imageError = true);

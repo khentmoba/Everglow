@@ -18,7 +18,7 @@ import 'shelf_widgets.dart';
 /// dashboard. Non-couple users keep the original single-row layout
 /// (one stream of their own items only).
 class CurrentlyWatchingPreview extends StatelessWidget {
-  const CurrentlyWatchingPreview({Key? key}) : super(key: key);
+  const CurrentlyWatchingPreview({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -252,10 +252,10 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
     return PartnerSubrow(
       label: widget.label!,
       accent: ShelfAccent.cinema,
-      children: _hasLoaded ? cards : const [],
       emptyMessage: widget.isSelf
           ? 'You aren\'t watching anything right now.'
           : 'Nothing playing on their end.',
+      children: _hasLoaded ? cards : const [],
     );
   }
 }

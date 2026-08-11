@@ -8,7 +8,7 @@ import 'media_poster_card.dart';
 import 'package:everglow/core/theme/app_typography.dart';
 
 class TMDBSearchModal extends StatefulWidget {
-  const TMDBSearchModal({Key? key}) : super(key: key);
+  const TMDBSearchModal({super.key});
 
   @override
   State<TMDBSearchModal> createState() => _TMDBSearchModalState();
@@ -134,7 +134,7 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
                 try {
                   await _tmdbService.saveToWatchList(item, status, u);
                 } catch (e) {
-                  if (mounted) {
+                  if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
@@ -150,7 +150,7 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
                   return;
                 }
                 final successMessage = '🌸 ${item.title} added to Everglow!';
-                if (mounted) {
+                if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(

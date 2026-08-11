@@ -394,7 +394,7 @@ class _TimelineNode extends StatelessWidget {
                           width: 36,
                           height: 36,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Icon(
+                          errorBuilder: (_, _, _) => Icon(
                             Icons.favorite_rounded,
                             size: 16,
                             color: AppTheme.roseQuartz,
@@ -478,7 +478,7 @@ class _GalleryView extends StatelessWidget {
                             milestone.imageUrls.first,
                             width: double.infinity,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
+                            errorBuilder: (_, _, _) => Container(
                               color: AppTheme.deepRose.withValues(alpha: 0.1),
                               child: Center(
                                 child: Icon(Icons.image, color: AppTheme.roseQuartz.withValues(alpha: 0.3)),

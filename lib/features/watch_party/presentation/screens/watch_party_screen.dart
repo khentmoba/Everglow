@@ -177,16 +177,16 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
 
   /// How long we wait for the iframe to fire `load` before declaring
   /// the embed dead and trying the next provider.
-  static const Duration _loadTimeout = const Duration(seconds: 15);
+  static const Duration _loadTimeout = Duration(seconds: 15);
 
   /// How long to wait for VidLink to send a `MEDIA_DATA` postMessage
   /// event after the iframe loads. If the event never arrives the
   /// provider likely showed "content not available", so we fall back.
-  static const Duration _contentCheckTimeout = const Duration(seconds: 8);
+  static const Duration _contentCheckTimeout = Duration(seconds: 8);
 
   /// Heartbeat interval. 5s keeps the partner's local clock within
   /// ~5s of the host without thrashing Firestore.
-  static const Duration _heartbeatInterval = const Duration(seconds: 5);
+  static const Duration _heartbeatInterval = Duration(seconds: 5);
 
   /// Free embed providers. Shared via [VideoSourceService] which loads
   /// from Firestore with a hardcoded fallback. The watch-party player
@@ -904,8 +904,8 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.close_rounded, color: Colors.white, size: 14),
-                  const SizedBox(width: 4),
+                  Icon(Icons.close_rounded, color: Colors.white, size: 14),
+                  SizedBox(width: 4),
                   const Text('End',
                       style: TextStyle(
                           color: Colors.white,

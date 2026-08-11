@@ -125,7 +125,7 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      'S${_selectedSeason}',
+                      'S$_selectedSeason',
                       style: AppTypography.outfitBold.copyWith(color: Colors.white54, fontSize: 10),
                     ),
                   ),

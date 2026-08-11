@@ -152,7 +152,7 @@ class MusicCard extends StatelessWidget {
                   ),
                 ],
               ),
-              if (heartAnimationWidget != null) heartAnimationWidget!,
+              ?heartAnimationWidget,
             ],
           ),
         ),

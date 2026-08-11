@@ -168,7 +168,9 @@ class MangaSee123Service with ConnectivityAware {
             if (src.isEmpty) continue;
             if (!RegExp(r'\.(jpg|jpeg|png|webp|gif|bmp)(\?|$)',
                     caseSensitive: false)
-                .hasMatch(src)) continue;
+                .hasMatch(src)) {
+              continue;
+            }
             urls.add(src);
           }
         }

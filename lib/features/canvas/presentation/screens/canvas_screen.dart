@@ -36,7 +36,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
   CanvasTool _activeTool = CanvasTool.pen;
   String _currentColor = '#FFC0CB'; 
   double _currentWidth = 3.0;
-  double _eraserRadius = 15.0; 
+  final double _eraserRadius = 15.0; 
 
   @override
   void initState() {

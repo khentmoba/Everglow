@@ -37,13 +37,13 @@ class PartnerSubrow extends StatelessWidget {
   final double height;
 
   const PartnerSubrow({
-    Key? key,
+    super.key,
     required this.label,
     required this.children,
     required this.accent,
     this.emptyMessage = 'Nothing here yet.',
     this.height = 168,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

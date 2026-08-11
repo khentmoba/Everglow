@@ -48,8 +48,8 @@ class _EverglowCardState extends State<EverglowCard> {
       duration: AppMotion.orZero(AppMotion.fast),
       curve: AppMotion.easeOutStrong,
       transform: Matrix4.identity()
-        ..translate(0.0, effectiveTranslateY, 0.0)
-        ..scale(effectiveScale),
+        ..translateByDouble(0.0, effectiveTranslateY, 0.0)
+        ..scaleByDouble(effectiveScale),
       padding: widget.padding,
       decoration: BoxDecoration(
         color: widget.fillColor ?? AppColors.surfaceGlass,

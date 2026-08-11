@@ -28,7 +28,7 @@ enum ReaderMode { text, embed }
 
 class ReaderScreen extends StatefulWidget {
   final BookItem book;
-  const ReaderScreen({Key? key, required this.book}) : super(key: key);
+  const ReaderScreen({super.key, required this.book});
 
   @override
   State<ReaderScreen> createState() => _ReaderScreenState();
@@ -263,8 +263,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const CircularProgressIndicator(color: AppTheme.deepRose),
-                const SizedBox(height: 16),
+                CircularProgressIndicator(color: AppTheme.deepRose),
+                SizedBox(height: 16),
                 Text(
                   'Opening the pages…',
                   style: TextStyle(
@@ -610,7 +610,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         builder: (ctx, controller) => Container(
           decoration: const BoxDecoration(
             color: AppTheme.velvet,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           ),
           child: Column(
             children: [
@@ -712,7 +712,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       builder: (_) => Container(
         decoration: const BoxDecoration(
           color: AppTheme.velvet,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         child: Column(

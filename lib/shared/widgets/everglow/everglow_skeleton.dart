@@ -64,7 +64,7 @@ class _EverglowSkeletonState extends State<EverglowSkeleton>
     return RepaintBoundary(
       child: AnimatedBuilder(
       animation: _controller!,
-      builder: (_, __) => Container(
+      builder: (_, _) => Container(
         width: widget.width,
         height: widget.height,
         decoration: BoxDecoration(
@@ -113,8 +113,8 @@ class EverglowSkeletonRow extends StatelessWidget {
         physics: const NeverScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 20),
         itemCount: count,
-        separatorBuilder: (_, __) => SizedBox(width: spacing),
-        itemBuilder: (_, __) => EverglowSkeleton(
+        separatorBuilder: (_, _) => SizedBox(width: spacing),
+        itemBuilder: (_, _) => EverglowSkeleton(
           width: itemWidth,
           height: itemHeight,
           radius: 14,
@@ -154,7 +154,7 @@ class EverglowSkeletonGrid extends StatelessWidget {
         childAspectRatio: childAspectRatio,
       ),
       itemCount: count,
-      itemBuilder: (_, __) => const EverglowSkeleton(
+      itemBuilder: (_, _) => const EverglowSkeleton(
         radius: 14,
       ),
     );

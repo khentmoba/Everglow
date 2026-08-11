@@ -376,7 +376,9 @@ class ScanlationService with ConnectivityAware {
         if (src.isEmpty) continue;
         if (!RegExp(r'\.(jpg|jpeg|png|webp|gif|bmp)(\?|$)',
                 caseSensitive: false)
-            .hasMatch(src)) continue;
+            .hasMatch(src)) {
+          continue;
+        }
         if (excludeRe.hasMatch(src)) continue;
 
         // Handle protocol-relative URLs

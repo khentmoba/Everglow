@@ -104,8 +104,8 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
       duration: ShelfMotion.orZero(const Duration(milliseconds: 200)),
       curve: ShelfMotion.easeOutStrong,
       transform: Matrix4.identity()
-        ..translate(0.0, liftY, 0.0)
-        ..scale(scaleVal),
+        ..translateByDouble(0.0, liftY, 0.0)
+        ..scaleByDouble(scaleVal),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         boxShadow: _focused

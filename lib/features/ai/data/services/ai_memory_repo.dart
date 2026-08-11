@@ -16,10 +16,13 @@ class AIMemoryRepository implements IAIMemoryRepository {
       : _db = db ?? FirebaseFirestore.instance,
         _user = user;
 
+  @override
   List<String> get all => List.unmodifiable(_memories);
+  @override
   bool get isLoaded => _memoriesLoaded;
 
   /// Load up to 200 facts from Firestore (once).
+  @override
   Future<void> load() async {
     if (_memoriesLoaded) return;
     try {
@@ -43,6 +46,7 @@ class AIMemoryRepository implements IAIMemoryRepository {
   }
 
   /// Save a fact to Firestore and cache it.
+  @override
   Future<void> save(String fact, {String category = 'fact'}) async {
     if (fact.trim().isEmpty) return;
     try {
@@ -66,6 +70,7 @@ class AIMemoryRepository implements IAIMemoryRepository {
   }
 
   /// Delete a fact from Firestore and cache.
+  @override
   Future<void> delete(String factId) async {
     try {
       final snapshot = await _db
@@ -85,6 +90,7 @@ class AIMemoryRepository implements IAIMemoryRepository {
   }
 
   /// Check if a normalized fact is already in the cache.
+  @override
   bool isDuplicate(String fact) {
     final normalized = fact.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '').trim();
     return _memories.any((existing) {
@@ -96,6 +102,7 @@ class AIMemoryRepository implements IAIMemoryRepository {
   }
 
   /// Reset cache (call on logout).
+  @override
   void reset() {
     _memories = [];
     _memoriesLoaded = false;

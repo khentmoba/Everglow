@@ -51,7 +51,7 @@ final GoRouter appRouter = GoRouter(
     // ── Gateway (passcode entry) ──────────────────────────
     GoRoute(
       path: '/',
-      builder: (_, __) => const GatewayPage(),
+      builder: (_, _) => const GatewayPage(),
     ),
 
     // ── Dashboard ─────────────────────────────────────────
@@ -65,7 +65,7 @@ final GoRouter appRouter = GoRouter(
     // ── Cinema ────────────────────────────────────────────
     GoRoute(
       path: '/cinema',
-      builder: (_, __) => const CinemaScreen(),
+      builder: (_, _) => const CinemaScreen(),
       routes: [
         GoRoute(
           path: 'video/:id',
@@ -85,13 +85,13 @@ final GoRouter appRouter = GoRouter(
     // ── Anime ─────────────────────────────────────────────
     GoRoute(
       path: '/anime',
-      builder: (_, __) => const AnimeScreen(),
+      builder: (_, _) => const AnimeScreen(),
     ),
 
     // ── Books ─────────────────────────────────────────────
     GoRoute(
       path: '/books',
-      builder: (_, __) => const BooksScreen(),
+      builder: (_, _) => const BooksScreen(),
       routes: [
         GoRoute(
           path: 'reader',
@@ -105,13 +105,13 @@ final GoRouter appRouter = GoRouter(
     // ── Our Books (couple shared) ─────────────────────────
     GoRoute(
       path: '/our-books',
-      builder: (_, __) => const OurBooksScreen(),
+      builder: (_, _) => const OurBooksScreen(),
     ),
 
     // ── Manga ─────────────────────────────────────────────
     GoRoute(
       path: '/manga',
-      builder: (_, __) => const MangaLibraryScreen(),
+      builder: (_, _) => const MangaLibraryScreen(),
       routes: [
         GoRoute(
           path: 'reader',
@@ -130,7 +130,7 @@ final GoRouter appRouter = GoRouter(
     // ── Academy ───────────────────────────────────────────
     GoRoute(
       path: '/academy',
-      builder: (_, __) => const AcademyHubScreen(),
+      builder: (_, _) => const AcademyHubScreen(),
       routes: [
         GoRoute(
           path: 'solo',
@@ -165,15 +165,15 @@ final GoRouter appRouter = GoRouter(
     // ── Play Zone ─────────────────────────────────────────
     GoRoute(
       path: '/play-zone',
-      builder: (_, __) => const PlayZoneHubScreen(),
+      builder: (_, _) => const PlayZoneHubScreen(),
       routes: [
         GoRoute(
           path: 'tt',
-          builder: (_, __) => const TableTennisGameScreen(),
+          builder: (_, _) => const TableTennisGameScreen(),
         ),
         GoRoute(
           path: 'tt/lobby',
-          builder: (_, __) => const TTMultiplayerLobbyScreen(),
+          builder: (_, _) => const TTMultiplayerLobbyScreen(),
         ),
       ],
     ),
@@ -181,55 +181,55 @@ final GoRouter appRouter = GoRouter(
     // ── Canvas (collaborative drawing) ────────────────────
     GoRoute(
       path: '/canvas',
-      builder: (_, __) => const CanvasScreen(),
+      builder: (_, _) => const CanvasScreen(),
     ),
 
     // ── Letterbox Archive ─────────────────────────────────
     GoRoute(
       path: '/letterbox',
-      builder: (_, __) => const LetterboxArchiveScreen(),
+      builder: (_, _) => const LetterboxArchiveScreen(),
     ),
 
     // ── Sanctuary (couple chat) ───────────────────────────
     GoRoute(
       path: '/sanctuary',
-      builder: (_, __) => const SanctuaryChatScreen(),
+      builder: (_, _) => const SanctuaryChatScreen(),
     ),
 
     // ── Mochi AI assistant ────────────────────────────────
     GoRoute(
       path: '/mochi',
-      builder: (_, __) => const MochiScreen(),
+      builder: (_, _) => const MochiScreen(),
     ),
 
     // ── Starlight Jar ─────────────────────────────────────
     GoRoute(
       path: '/starlight',
-      builder: (_, __) => const StarlightJarWidget(),
+      builder: (_, _) => const StarlightJarWidget(),
     ),
 
     // ── Shared Garden ─────────────────────────────────────
     GoRoute(
       path: '/garden',
-      builder: (_, __) => const SharedGardenView(),
+      builder: (_, _) => const SharedGardenView(),
     ),
 
     // ── Bucket List ───────────────────────────────────────
     GoRoute(
       path: '/bucket-list',
-      builder: (_, __) => const BucketListScreen(),
+      builder: (_, _) => const BucketListScreen(),
     ),
 
     // ── Memory Gallery ─────────────────────────────────────
     GoRoute(
       path: '/gallery',
-      builder: (_, __) => const GalleryScreen(),
+      builder: (_, _) => const GalleryScreen(),
     ),
 
     // ── Shared Calendar ─────────────────────────────────────
     GoRoute(
       path: '/calendar',
-      builder: (_, __) => const CalendarScreen(),
+      builder: (_, _) => const CalendarScreen(),
     ),
 
     // ── Watch Party ───────────────────────────────────────

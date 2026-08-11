@@ -167,7 +167,9 @@ class BatoService with ConnectivityAware {
           final src = (m.group(1) ?? '').trim();
           if (src.isEmpty) continue;
           if (!RegExp(r'\.(jpg|jpeg|png|webp|gif|bmp)(\?|$)', caseSensitive: false)
-              .hasMatch(src)) continue;
+              .hasMatch(src)) {
+            continue;
+          }
           if (excludeRe.hasMatch(src)) continue;
           urls.add(src);
         }

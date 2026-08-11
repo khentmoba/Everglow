@@ -26,15 +26,15 @@ void main() {
 
   group('AppColors semantic roles', () {
     test('textHigh is near-white', () {
-      expect(AppColors.textHigh.alpha, greaterThan(200));
+      expect((AppColors.textHigh.a * 255).round(), greaterThan(200));
     });
 
     test('textDisabled is significantly transparent', () {
-      expect(AppColors.textDisabled.alpha, lessThan(120));
+      expect((AppColors.textDisabled.a * 255).round(), lessThan(120));
     });
 
     test('border is transparent', () {
-      expect(AppColors.border.alpha, lessThan(60));
+      expect((AppColors.border.a * 255).round(), lessThan(60));
     });
   });
 }

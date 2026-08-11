@@ -27,7 +27,7 @@ class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
   late final String _viewType =
       'tabletennis-iframe-${DateTime.now().microsecondsSinceEpoch}-${identityHashCode(Object())}';
 
-  bool _booted = true;
+  final bool _booted = true;
   bool _isMobile = false;
 
   @override

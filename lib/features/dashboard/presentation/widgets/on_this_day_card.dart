@@ -259,8 +259,8 @@ class _MemoryCardState extends State<_MemoryCard> {
           curve: Curves.easeOut,
           width: 140,
           transform: Matrix4.identity()
-            ..translate(0.0, _hovered ? -3.0 : 0.0)
-            ..scale(_pressed ? 0.97 : (_hovered ? 1.03 : 1.0)),
+            ..translateByDouble(0.0, _hovered ? -3.0 : 0.0, 0.0)
+            ..scaleByDouble(_pressed ? 0.97 : (_hovered ? 1.03 : 1.0)),
           decoration: BoxDecoration(
             color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
             borderRadius: BorderRadius.circular(14),
@@ -391,4 +391,3 @@ class _CardPlaceholder extends StatelessWidget {
     );
   }
 }
-

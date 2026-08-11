@@ -79,7 +79,7 @@ class EverglowSectionHeader extends StatelessWidget {
                   ),
                 ),
               ),
-            if (trailing != null) trailing!,
+            ?trailing,
             // See all
             if (seeAllLabel != null && onSeeAll != null) ...[
               const SizedBox(width: AppSpacing.md),

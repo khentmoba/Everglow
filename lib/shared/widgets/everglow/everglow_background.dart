@@ -115,7 +115,7 @@ class _EverglowBackgroundState extends State<EverglowBackground>
                   Positioned.fill(
                     child: AnimatedBuilder(
                       animation: _controller!,
-                      builder: (_, __) => CustomPaint(
+                      builder: (_, _) => CustomPaint(
                         painter: _PetalPainter(_controller!.value),
                       ),
                     ),

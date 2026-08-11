@@ -170,7 +170,7 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
             12,
           ),
           child: Text(
-            '\ titles',
+            '${_browseResults.length} titles',
             style: AppTypography.outfitWhite.copyWith(fontSize: 13, fontWeight: FontWeight.w500, color: NetflixColors.textMuted),
           ),
         ),

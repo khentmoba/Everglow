@@ -16,8 +16,7 @@ import 'package:everglow/core/theme/app_typography.dart';
 class OLSearchModal extends StatefulWidget {
   /// Pre-selects the "Mine" / "Ours" scope toggle. Defaults to 'mine'.
   final String initialScope;
-  const OLSearchModal({Key? key, this.initialScope = 'mine'})
-      : super(key: key);
+  const OLSearchModal({super.key, this.initialScope = 'mine'});
 
   @override
   State<OLSearchModal> createState() => _OLSearchModalState();
