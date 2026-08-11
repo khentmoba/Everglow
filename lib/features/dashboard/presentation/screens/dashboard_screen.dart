@@ -82,7 +82,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         final currentUsername = authService.currentUser;
         if (currentUsername != null) {
           moodController.checkTodayStatus(currentUsername).then((_) {
-            if (!context.mounted) return;
+            if (!mounted) return;
             if (!moodController.hasSubmittedToday) {
               context.read<GuardianController>().triggerMoodPrompt();
             }

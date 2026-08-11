@@ -305,8 +305,8 @@ class _ShelfCardState extends State<ShelfCard> {
           duration: const Duration(milliseconds: 220),
           curve: Curves.easeOut,
           transform: Matrix4.identity()
-            ..translateByDouble(0.0, isHovered ? -4.0 : 0.0, 0.0)
-            ..scaleByDouble(_pressed ? 0.95 : (isHovered ? 1.04 : 1.0)),
+            ..translateByDouble(0.0, isHovered ? -4.0 : 0.0, 0.0, 1.0)
+            ..scaleByDouble(_pressed ? 0.95 : (isHovered ? 1.04 : 1.0), _pressed ? 0.95 : (isHovered ? 1.04 : 1.0), _pressed ? 0.95 : (isHovered ? 1.04 : 1.0), 1.0),
           width: 110,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),

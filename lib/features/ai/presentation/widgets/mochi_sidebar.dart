@@ -91,7 +91,7 @@ class _MochiSidebarState extends State<MochiSidebar> {
       ),
     );
 
-    if (confirmed == true && context.mounted) {
+    if (confirmed == true && mounted) {
       final ai = context.read<AIService>();
       await ai.deleteSession(session.id);
       await _loadSessions();

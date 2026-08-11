@@ -60,8 +60,8 @@ class _EverglowPosterCardState extends State<EverglowPosterCard> {
       width: widget.width,
       height: widget.height,
       transform: Matrix4.identity()
-        ..translateByDouble(0.0, effectiveTranslateY, 0.0)
-        ..scaleByDouble(effectiveScale),
+        ..translateByDouble(0.0, effectiveTranslateY, 0.0, 1.0)
+        ..scaleByDouble(effectiveScale, effectiveScale, effectiveScale, 1.0),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(widget.radius),
         border: Border.all(

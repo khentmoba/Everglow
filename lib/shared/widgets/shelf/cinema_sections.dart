@@ -525,7 +525,7 @@ class ProviderRow {
   final String name;
   final IconData icon;
   final Color color;
-  final List<_ProviderItem> items;
+  final List<ProviderItem> items;
 
   const ProviderRow({
     required this.name,
@@ -535,13 +535,13 @@ class ProviderRow {
   });
 }
 
-class _ProviderItem {
+class ProviderItem {
   final String id;
   final String title;
   final String imageUrl;
   final VoidCallback? onTap;
 
-  const _ProviderItem({
+  const ProviderItem({
     required this.id,
     required this.title,
     required this.imageUrl,
@@ -644,7 +644,7 @@ ProviderRow buildProviderRow<T>({
     icon: icon,
     color: color,
     items: items.map((item) {
-      return _ProviderItem(
+      return ProviderItem(
         id: getId(item),
         title: getTitle(item),
         imageUrl: getImageUrl(item),

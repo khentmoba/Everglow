@@ -97,7 +97,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
       builder: (context) => const DropStarDialog(),
     );
 
-    if (result != null && result.content.trim().isNotEmpty && context.mounted) {
+    if (result != null && result.content.trim().isNotEmpty && mounted) {
       final auth = context.read<AuthService>();
       final author = auth.currentUser ?? 'unknown';
 
