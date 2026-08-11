@@ -657,7 +657,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
               },
               child: Container(
                 constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.75,
+                  maxWidth: MediaQuery.sizeOf(context).width * 0.75,
                 ),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1004,9 +1004,9 @@ class _ThinkingIndicatorState extends State<_ThinkingIndicator>
               color: AppColors.surfaceGlass,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(4),
-                topRight: Radius.circular(16),
-                bottomLeft: Radius.circular(16),
-                bottomRight: Radius.circular(16),
+                topRight: const Radius.circular(16),
+                bottomLeft: const Radius.circular(16),
+                bottomRight: const Radius.circular(16),
               ),
               border: Border.all(color: AppColors.border, width: 0.5),
             ),
@@ -1173,7 +1173,7 @@ class _ComposerInputState extends State<_ComposerInput> {
             AppSpacing.lg,
             10,
             AppSpacing.lg,
-            14 + MediaQuery.of(context).viewInsets.bottom,
+            14 + MediaQuery.viewInsetsOf(context).bottom,
           ),
           decoration: BoxDecoration(
             border: Border(

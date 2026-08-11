@@ -58,7 +58,8 @@ class _GardenPlantViewState extends State<GardenPlantView>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
+    return RepaintBoundary(
+      child: AnimatedBuilder(
       animation: _breathingController,
       builder: (context, _) {
         return AnimatedSwitcher(
@@ -76,6 +77,7 @@ class _GardenPlantViewState extends State<GardenPlantView>
           ),
         );
       },
+      ),
     );
   }
 }

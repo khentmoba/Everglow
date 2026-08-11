@@ -56,7 +56,8 @@ class _EverglowSparklesState extends State<EverglowSparkles>
 
   @override
   Widget build(BuildContext context) {
-    return Positioned.fill(
+    return RepaintBoundary(
+      child: Positioned.fill(
       child: IgnorePointer(
         child: ExcludeSemantics(
           child: AnimatedBuilder(
@@ -71,6 +72,7 @@ class _EverglowSparklesState extends State<EverglowSparkles>
             ),
           ),
         ),
+      ),
       ),
     );
   }

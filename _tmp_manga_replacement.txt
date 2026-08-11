@@ -1,0 +1,120 @@
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'MANGA SHELF',
+                  style: GoogleFonts.cormorantGaramond(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: _cWhite,
+                    letterSpacing: 3,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 4,
+                      decoration: const BoxDecoration(
+                        color: _cDeepRose,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'MANGA \u00b7 MANHWA \u00b7 MANHUA',
+                      style: GoogleFonts.outfit(
+                        fontSize: 9,
+                        color: _cMuted,
+                        letterSpacing: 2.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      width: 4,
+                      height: 4,
+                      decoration: const BoxDecoration(
+                        color: _cDeepRose,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (int i = 0; i < buckets.length; i++)
+                      _bucketChip(buckets[i], i == safeIndex,
+                          () => setState(() => _libraryTab = i)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
+          sliver: SliverToBoxAdapter(
+            child: ShelfSectionHeader(
+              eyebrow: showing.items.isEmpty
+                  ? 'Nothing here yet'
+                  : 'Currently Showing',
+              title: showing.title,
+              icon: showing.icon,
+              accent: showing.accent,
+              count: showing.items.length,
+              countLabel: 'titles',
+            ),
+          ),
+        ),
+        if (showing.items.isEmpty)
+          SliverToBoxAdapter(
+            child: ShelfEmptyState(
+              icon: showing.icon,
+              title: 'No \ titles yet',
+              subtitle:
+                  'Anything you add to your library with this status will show up here.',
+              accent: showing.accent,
+            ),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            sliver: SliverGrid.builder(
+              itemCount: showing.items.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: AppBreakpoint.isDesktop(context)
+                    ? 6
+                    : (AppBreakpoint.isTablet(context) ? 4 : 2),
+                childAspectRatio: 0.65,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 14,
+              ),
+              itemBuilder: (context, index) {
+                final item = showing.items[index];
+                return ShelfPosterCard(
+                  imageUrl: _proxyCoverUrl(item.coverUrl),
+                  title: item.title,
+                  subtitle: item.year.isNotEmpty
+                      ? '\ \u00b7 '
+                      : item.contentType,
+                  badge: showing.title.toUpperCase(),
+                  badgeColor: showing.accent,
+                  badgeIcon: showing.icon,
+                  onTap: () => _openDetails(item),
+                );
+              },
+            ),
+          ),
+        const SliverToBoxAdapter(child: SizedBox(height: 100)),
+      ],
+    );

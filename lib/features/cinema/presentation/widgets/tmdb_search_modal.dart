@@ -1,12 +1,11 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'media_poster_card.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class TMDBSearchModal extends StatefulWidget {
   const TMDBSearchModal({Key? key}) : super(key: key);
@@ -32,6 +31,7 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
       if (query.isNotEmpty) {
         _performSearch(query);
       } else {
@@ -68,11 +68,7 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
           backgroundColor: AppTheme.velvet,
           title: Text(
             'Add to Everglow?',
-            style: GoogleFonts.cormorantGaramond(
-              color: AppTheme.roseQuartz,
-              fontWeight: FontWeight.bold,
-              fontSize: 22,
-            ),
+            style: AppTypography.cormorantBold.copyWith(fontSize: 22),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -87,14 +83,14 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
               Text(
                 item.title,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(color: AppTheme.petalWhite, fontWeight: FontWeight.w600),
+                style: AppTypography.outfitBold.copyWith(color: AppTheme.petalWhite),
               ),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   ChoiceChip(
-                    label: Text('To Watch', style: GoogleFonts.outfit()),
+                    label: Text('To Watch', style: AppTypography.outfitWhite),
                     selected: status == 'to-watch',
                     onSelected: (selected) {
                       if (selected) setDialogState(() => status = 'to-watch');
@@ -107,7 +103,7 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
                   ),
                   const SizedBox(width: 8),
                   ChoiceChip(
-                    label: Text('Watched', style: GoogleFonts.outfit()),
+                    label: Text('Watched', style: AppTypography.outfitWhite),
                     selected: status == 'watched',
                     onSelected: (selected) {
                       if (selected) setDialogState(() => status = 'watched');
@@ -127,7 +123,7 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
               onPressed: () => Navigator.pop(context),
               child: Text(
                 'Cancel',
-                style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
+                style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
               ),
             ),
             ElevatedButton(
@@ -143,7 +139,7 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
                       SnackBar(
                         content: Text(
                           'Failed to add — please try again',
-                          style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+                          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
                         ),
                         backgroundColor: Colors.redAccent,
                         behavior: SnackBarBehavior.floating,
@@ -159,7 +155,7 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
                     SnackBar(
                       content: Text(
                         successMessage,
-                        style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+                        style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
                       ),
                       backgroundColor: AppTheme.deepRose,
                       behavior: SnackBarBehavior.floating,
@@ -175,7 +171,7 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
               ),
               child: Text(
                 'Add',
-                style: GoogleFonts.outfit(color: AppTheme.petalWhite, fontWeight: FontWeight.bold),
+                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -187,7 +183,7 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.8,
+      height: MediaQuery.sizeOf(context).height * 0.8,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: const BoxDecoration(
         color: AppTheme.velvet,
@@ -209,11 +205,7 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
           // Title
           Text(
             'Find Your Next Cinema Moment 🍿',
-            style: GoogleFonts.cormorantGaramond(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.roseQuartz,
-            ),
+            style: AppTypography.cormorantBold.copyWith(fontSize: 20),
           ),
           const SizedBox(height: 20),
 
@@ -221,10 +213,10 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
           TextField(
             controller: _searchController,
             onChanged: _onSearchChanged,
-            style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+            style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
             decoration: InputDecoration(
               hintText: 'Search for a movie or show...',
-              hintStyle: GoogleFonts.outfit(color: AppTheme.petalWhite.withValues(alpha: 0.4)),
+              hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.4)),
               prefixIcon: const Icon(Icons.search, color: AppTheme.roseQuartz),
               filled: true,
               fillColor: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
@@ -272,7 +264,7 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
         const SizedBox(height: 16),
         Text(
           _searchController.text.isEmpty ? 'Start typing to find magic\u2026' : 'No movies found',
-          style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 16),
+          style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 16),
         ),
       ],
     );

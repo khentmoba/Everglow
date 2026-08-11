@@ -53,4 +53,32 @@ class ChatService {
       rethrow;
     }
   }
+
+  /// "On This Day" — chat messages from the same month+day in previous years.
+  Future<List<ChatMessage>> getMessagesFromThisDay() async {
+    final now = DateTime.now();
+    final month = now.month;
+    final day = now.day;
+
+    try {
+      final snapshot = await _db
+          .collection('sanctuary_messages')
+          .orderBy('timestamp', descending: true)
+          .get();
+
+      final results = <ChatMessage>[];
+      for (final doc in snapshot.docs) {
+        final msg = ChatMessage.fromFirestore(doc);
+        if (msg.timestamp.month == month &&
+            msg.timestamp.day == day &&
+            msg.timestamp.year != now.year) {
+          results.add(msg);
+        }
+      }
+      return results;
+    } catch (e) {
+      Logger.e("Error getting on-this-day messages", error: e);
+      return [];
+    }
+  }
 }

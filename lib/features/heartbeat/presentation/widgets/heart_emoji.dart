@@ -56,7 +56,8 @@ class _HeartEmojiState extends State<HeartEmoji> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    return ScaleTransition(
+    return RepaintBoundary(
+      child: ScaleTransition(
       scale: _scaleAnimation,
       child: Material(
         color: Colors.transparent,
@@ -89,7 +90,8 @@ class _HeartEmojiState extends State<HeartEmoji> with SingleTickerProviderStateM
             ),
           ),
          ),
-        ),
+       ),
+      ),
       ),
     );
   }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class AnswerButton extends StatefulWidget {
   final String text;
@@ -41,7 +41,8 @@ class _AnswerButtonState extends State<AnswerButton> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    return ScaleTransition(
+    return RepaintBoundary(
+      child: ScaleTransition(
       scale: _scaleAnimation,
       child: Padding(
         padding: const EdgeInsets.only(bottom: 16),
@@ -62,9 +63,10 @@ class _AnswerButtonState extends State<AnswerButton> with SingleTickerProviderSt
           ),
           child: Text(
             widget.text,
-            style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold),
+            style: AppTypography.outfitWhite.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
           ),
         ),
+      ),
       ),
     );
   }

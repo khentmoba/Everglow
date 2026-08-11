@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../core/theme/app_typography.dart';
 
 import '../../../core/theme/app_theme.dart';
 import 'motion.dart';
@@ -69,23 +69,18 @@ class ShelfEmptyState extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: GoogleFonts.cormorantGaramond(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.petalWhite,
-                height: 1.2,
-              ),
+              style: AppTypography.cormorantBoldWhite.copyWith(fontSize: 22, height: 1.2),
             ),
             if (subtitle != null) ...[
               const SizedBox(height: 6),
               Text(
                 subtitle!,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(
-                  color: AppTheme.roseQuartz.withValues(alpha: 0.7),
-                  fontSize: 13,
-                  height: 1.5,
-                ),
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppTheme.roseQuartz.withValues(alpha: 0.7),
+                fontSize: 13,
+                height: 1.5,
+              ),
               ),
             ],
             if (ctaLabel != null && onCta != null) ...[
@@ -178,9 +173,7 @@ class _CtaButtonState extends State<_CtaButton> {
                 ],
                 Text(
                   widget.label,
-                  style: GoogleFonts.outfit(
-                    color: AppTheme.petalWhite,
-                    fontWeight: FontWeight.w700,
+                  style: AppTypography.outfitHeading.copyWith(
                     fontSize: 13,
                     letterSpacing: 0.4,
                   ),

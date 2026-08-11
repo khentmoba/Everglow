@@ -63,7 +63,8 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   Widget build(BuildContext context) {
     if (widget.children.isEmpty) return const SizedBox.shrink();
 
-    return MouseRegion(
+    return RepaintBoundary(
+      child: MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: ClipRect(
@@ -72,6 +73,7 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
             return _buildContent(constraints.maxWidth);
           },
         ),
+      ),
       ),
     );
   }

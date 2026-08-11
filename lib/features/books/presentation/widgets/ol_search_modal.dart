@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:animate_do/animate_do.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:animate_do/animate_do.dart';import 'package:provider/provider.dart';
 
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/books/data/models/book_item.dart';
@@ -10,6 +8,7 @@ import 'package:everglow/features/books/data/services/open_library_service.dart'
 import 'package:everglow/features/books/data/services/our_books_service.dart';
 import 'package:everglow/features/books/presentation/widgets/book_cover_card.dart';
 import 'package:everglow/services/auth_service.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Bottom sheet for searching the Open Library catalog and adding a
 /// book to either the personal "Mine" list or the shared "Our Books"
@@ -42,6 +41,7 @@ class _OLSearchModalState extends State<OLSearchModal> {
   void _onChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
       if (query.isNotEmpty) {
         _runSearch(query);
       } else {
@@ -77,11 +77,7 @@ class _OLSearchModalState extends State<OLSearchModal> {
           backgroundColor: AppTheme.velvet,
           title: Text(
             'Add to Everglow?',
-            style: GoogleFonts.cormorantGaramond(
-              color: AppTheme.roseQuartz,
-              fontWeight: FontWeight.bold,
-              fontSize: 22,
-            ),
+            style: AppTypography.cormorantBold.copyWith(fontSize: 22),
           ),
           content: SingleChildScrollView(
             child: Column(
@@ -98,19 +94,14 @@ class _OLSearchModalState extends State<OLSearchModal> {
                 Text(
                   item.title,
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.outfit(
-                      color: AppTheme.petalWhite, fontWeight: FontWeight.w600),
+                  style: AppTypography.outfitBold.copyWith(color: AppTheme.petalWhite),
                 ),
                 if (item.author.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
                     item.author,
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.outfit(
-                      color: AppTheme.roseQuartz.withValues(alpha: 0.7),
-                      fontStyle: FontStyle.italic,
-                      fontSize: 12,
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.7), fontStyle: FontStyle.italic, fontSize: 12),
                   ),
                 ],
                 const SizedBox(height: 16),
@@ -151,7 +142,7 @@ class _OLSearchModalState extends State<OLSearchModal> {
                     children: [
                       ChoiceChip(
                         label:
-                            Text('To Read', style: GoogleFonts.outfit()),
+                            Text('To Read', style: AppTypography.outfitWhite),
                         selected: status == 'to-read',
                         onSelected: (selected) {
                           if (selected) {
@@ -168,7 +159,7 @@ class _OLSearchModalState extends State<OLSearchModal> {
                       ),
                       const SizedBox(width: 8),
                       ChoiceChip(
-                        label: Text('Read', style: GoogleFonts.outfit()),
+                        label: Text('Read', style: AppTypography.outfitWhite),
                         selected: status == 'read',
                         onSelected: (selected) {
                           if (selected) {
@@ -193,8 +184,7 @@ class _OLSearchModalState extends State<OLSearchModal> {
               onPressed: () => Navigator.pop(ctx),
               child: Text(
                 'Cancel',
-                style: GoogleFonts.outfit(
-                    color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
+                style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
               ),
             ),
             ElevatedButton(
@@ -217,7 +207,7 @@ class _OLSearchModalState extends State<OLSearchModal> {
                     SnackBar(
                       content: Text(
                         successMessage,
-                        style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+                        style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
                       ),
                       backgroundColor: AppTheme.deepRose,
                       behavior: SnackBarBehavior.floating,
@@ -237,8 +227,7 @@ class _OLSearchModalState extends State<OLSearchModal> {
               ),
               child: Text(
                 'Add',
-                style: GoogleFonts.outfit(
-                    color: AppTheme.petalWhite, fontWeight: FontWeight.bold),
+                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -284,13 +273,9 @@ class _OLSearchModalState extends State<OLSearchModal> {
               const SizedBox(width: 6),
               Text(
                 label,
-                style: GoogleFonts.outfit(
-                  color: active
+                style: AppTypography.outfitHeading.copyWith(color: active
                       ? AppTheme.petalWhite
-                      : AppTheme.roseQuartz.withValues(alpha: 0.7),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
+                      : AppTheme.roseQuartz.withValues(alpha: 0.7), fontSize: 13),
               ),
             ],
           ),
@@ -302,7 +287,7 @@ class _OLSearchModalState extends State<OLSearchModal> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
+      height: MediaQuery.sizeOf(context).height * 0.85,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: const BoxDecoration(
         color: AppTheme.velvet,
@@ -321,21 +306,16 @@ class _OLSearchModalState extends State<OLSearchModal> {
           const SizedBox(height: 20),
           Text(
             'Find Your Next Read 📖',
-            style: GoogleFonts.cormorantGaramond(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.roseQuartz,
-            ),
+            style: AppTypography.cormorantBold.copyWith(fontSize: 20),
           ),
           const SizedBox(height: 20),
           TextField(
             controller: _controller,
             onChanged: _onChanged,
-            style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+            style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
             decoration: InputDecoration(
               hintText: 'Search title, author, or subject...',
-              hintStyle: GoogleFonts.outfit(
-                  color: AppTheme.petalWhite.withValues(alpha: 0.65)),
+              hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.65)),
               prefixIcon:
                   const Icon(Icons.search, color: AppTheme.roseQuartz),
               filled: true,
@@ -390,9 +370,7 @@ class _OLSearchModalState extends State<OLSearchModal> {
             _controller.text.isEmpty
                 ? 'Start typing to find a book...'
                 : 'No books found! 🌸',
-            style: GoogleFonts.outfit(
-                color: AppTheme.roseQuartz.withValues(alpha: 0.6),
-                fontSize: 16),
+            style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 16),
           ),
         ],
       ),

@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart' hide FilterChip;
-import 'package:google_fonts/google_fonts.dart';
-
 import 'package:everglow/core/theme/app_breakpoints.dart';
 import 'package:everglow/core/theme/app_colors.dart';
 import 'package:everglow/features/cinema/data/anime_categories.dart';
@@ -11,6 +9,7 @@ import 'package:everglow/shared/widgets/shelf/shelf_empty_state.dart';
 import 'package:everglow/shared/widgets/shelf/shimmer_box.dart';
 
 import 'anime_models.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 // ── Anime palette (subset used by the Browse tab) ───────────────
 const _cRose           = AppColors.animeRose;
@@ -44,12 +43,11 @@ class AnimeBrowseTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 100),
-      children: [
-        Padding(
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 4),
-          child: Row(
+          sliver: SliverToBoxAdapter(child: Row(
             children: [
               Container(
                 width: 3,
@@ -66,11 +64,7 @@ class AnimeBrowseTab extends StatelessWidget {
               const SizedBox(width: 12),
               Text(
                 'Browse',
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: _cRose,
-                ),
+                style: AppTypography.cormorantBold.copyWith(fontSize: 28, color: _cRose),
               ),
               const Spacer(),
               if (selectedCategoryId != null)
@@ -96,11 +90,7 @@ class AnimeBrowseTab extends StatelessWidget {
                           const SizedBox(width: 6),
                           Text(
                             'Clear Filter',
-                            style: GoogleFonts.outfit(
-                              color: _cMagenta,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: AppTypography.outfitBold.copyWith(color: _cMagenta, fontSize: 12),
                           ),
                         ],
                       ),
@@ -109,22 +99,23 @@ class AnimeBrowseTab extends StatelessWidget {
                 ),
             ],
           ),
+          ),
         ),
-        Padding(
+        SliverPadding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-          child: Text(
-            'Filter by format, genre, status, or curated list.',
-            style: GoogleFonts.outfit(
-              fontSize: 12,
-              color: _cRose.withValues(alpha: 0.6),
+          sliver: SliverToBoxAdapter(
+            child: Text(
+              'Filter by format, genre, status, or curated list.',
+              style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: _cRose.withValues(alpha: 0.6)),
             ),
           ),
         ),
         ...AnimeCategoryGroup.values.map(
-          (group) => _buildBrowseGroup(context, group),
+          (group) => SliverToBoxAdapter(
+              child: _buildBrowseGroup(context, group)),
         ),
-        const SizedBox(height: 16),
-        if (selectedCategoryId != null) _buildBrowseResults(context),
+        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+        if (selectedCategoryId != null) ..._buildBrowseResultSlivers(context),
       ],
     );
   }
@@ -164,20 +155,12 @@ class AnimeBrowseTab extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   groupMeta.title,
-                  style: GoogleFonts.cormorantGaramond(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: groupMeta.tint,
-                  ),
+                  style: AppTypography.cormorantBold.copyWith(fontSize: 22, color: groupMeta.tint),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   groupMeta.subtitle,
-                  style: GoogleFonts.outfit(
-                    fontSize: 11,
-                    color: _cMuted,
-                    letterSpacing: 0.3,
-                  ),
+                  style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: _cMuted, letterSpacing: 0.3),
                 ),
               ],
             ),
@@ -207,18 +190,16 @@ class AnimeBrowseTab extends StatelessWidget {
     );
   }
 
-  Widget _buildBrowseResults(BuildContext context) {
+  List<Widget> _buildBrowseResultSlivers(BuildContext context) {
     final isDesktop = AppBreakpoint.isDesktop(context);
     final row = browseResults[selectedCategoryId];
     final option = animeCategoryOptions.firstWhere(
       (o) => o.id == selectedCategoryId,
       orElse: () => animeCategoryOptions.first,
     );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 16),
-        Padding(
+    return [
+      SliverToBoxAdapter(
+        child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
           child: Row(
             children: [
@@ -237,19 +218,12 @@ class AnimeBrowseTab extends StatelessWidget {
                   children: [
                     Text(
                       option.label,
-                      style: GoogleFonts.cormorantGaramond(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: option.color,
-                      ),
+                      style: AppTypography.cormorantBold.copyWith(fontSize: 22, color: option.color),
                     ),
                     if (row != null && !row.isLoading && row.items.isNotEmpty)
                       Text(
-                        '${row.items.length} titles found',
-                        style: GoogleFonts.outfit(
-                          fontSize: 12,
-                          color: _cMuted,
-                        ),
+                        '\ titles found',
+                        style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: _cMuted),
                       ),
                   ],
                 ),
@@ -257,25 +231,25 @@ class AnimeBrowseTab extends StatelessWidget {
             ],
           ),
         ),
-        if (row == null || row.isLoading)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: 12,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount:
-                    isDesktop ? 6 : (AppBreakpoint.isTablet(context) ? 4 : 2),
-                childAspectRatio: 0.65,
-                crossAxisSpacing: 14,
-                mainAxisSpacing: 14,
-              ),
-              itemBuilder: (_, _) => const ShimmerBox(height: 220, radius: 14),
+      ),
+      if (row == null || row.isLoading)
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          sliver: SliverGrid.builder(
+            itemCount: 12,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount:
+                  isDesktop ? 6 : (AppBreakpoint.isTablet(context) ? 4 : 2),
+              childAspectRatio: 0.65,
+              crossAxisSpacing: 14,
+              mainAxisSpacing: 14,
             ),
-          )
-        else if (row.items.isEmpty)
-          Padding(
+            itemBuilder: (_, _) => const ShimmerBox(height: 220, radius: 14),
+          ),
+        )
+      else if (row.items.isEmpty)
+        SliverToBoxAdapter(
+          child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
             child: row.hasError
                 ? Container(
@@ -295,10 +269,7 @@ class AnimeBrowseTab extends StatelessWidget {
                         const SizedBox(height: 12),
                         Text(
                           'Couldn\'t load results',
-                          style: GoogleFonts.outfit(
-                            color: _cMuted,
-                            fontSize: 14,
-                          ),
+                          style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 14),
                         ),
                         const SizedBox(height: 12),
                         GestureDetector(
@@ -315,11 +286,7 @@ class AnimeBrowseTab extends StatelessWidget {
                             ),
                             child: Text(
                               'Retry',
-                              style: GoogleFonts.outfit(
-                                color: option.color,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style: AppTypography.outfitBold.copyWith(color: option.color, fontSize: 13),
                             ),
                           ),
                         ),
@@ -333,12 +300,12 @@ class AnimeBrowseTab extends StatelessWidget {
                         'Try another filter, or pull to refresh to fetch the latest.',
                     accent: option.color,
                   ),
-          )
-        else
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+          ),
+        )
+      else
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          sliver: SliverGrid.builder(
             itemCount: row.items.length,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount:
@@ -360,8 +327,8 @@ class AnimeBrowseTab extends StatelessWidget {
               );
             },
           ),
-      ],
-    );
+        ),
+    ];
   }
 
   AnimeBrowseGroupMeta _groupMeta(AnimeCategoryGroup g) {

@@ -121,7 +121,7 @@ class _EverglowButtonState extends State<EverglowButton>
       child = Tooltip(message: widget.tooltip!, child: child);
     }
 
-    return child;
+    return RepaintBoundary(child: child);
   }
 
   EdgeInsets _buildPadding() {

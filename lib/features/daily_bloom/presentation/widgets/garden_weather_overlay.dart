@@ -58,7 +58,8 @@ class _GardenWeatherOverlayState extends State<GardenWeatherOverlay>
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
+    return RepaintBoundary(
+      child: IgnorePointer(
       child: AnimatedBuilder(
         animation: _controller,
         builder: (context, _) {
@@ -81,6 +82,7 @@ class _GardenWeatherOverlayState extends State<GardenWeatherOverlay>
             ),
           );
         },
+      ),
       ),
     );
   }

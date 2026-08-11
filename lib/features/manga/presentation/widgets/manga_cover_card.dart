@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:everglow/core/theme/app_radius.dart';
 import 'package:everglow/core/theme/app_colors.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
 import 'package:everglow/features/manga/data/services/mangadex_service.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Grid card for a manga / manhwa / manhua cover.
 /// Features: hover/press scale, shimmer loading, consistent tokens.
@@ -55,7 +55,8 @@ class _MangaCoverCardState extends State<MangaCoverCard>
 
   @override
   Widget build(BuildContext context) {
-    return FadeInUp(
+    return RepaintBoundary(
+      child: FadeInUp(
       duration: const Duration(milliseconds: 400),
       child: MouseRegion(
         onEnter: (_) => setState(() => _isHovered = true),
@@ -145,11 +146,7 @@ class _MangaCoverCardState extends State<MangaCoverCard>
                               const SizedBox(width: 4),
                               Text(
                                 widget.item.libraryDisplay,
-                                style: GoogleFonts.outfit(
-                                  color: AppColors.petalWhite,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: AppTypography.outfitWhite.copyWith(fontSize: 9, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
@@ -182,12 +179,7 @@ class _MangaCoverCardState extends State<MangaCoverCard>
                           children: [
                             Text(
                               widget.item.title,
-                              style: GoogleFonts.outfit(
-                                color: AppColors.petalWhite,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.2,
-                              ),
+                              style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.2),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -208,23 +200,14 @@ class _MangaCoverCardState extends State<MangaCoverCard>
                                   ),
                                   child: Text(
                                     widget.item.contentType.toUpperCase(),
-                                    style: GoogleFonts.outfit(
-                                      color: AppColors.roseQuartz,
-                                      fontSize: 8,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.5,
-                                    ),
+                                    style: AppTypography.outfitWhite.copyWith(color: AppColors.roseQuartz, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                                   ),
                                 ),
                                 if (widget.item.year.isNotEmpty)
                                   Text(
                                     widget.item.year,
-                                    style: GoogleFonts.outfit(
-                                      color: AppColors.blushGold
-                                          .withValues(alpha: 0.8),
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                                    style: AppTypography.outfitWhite.copyWith(color: AppColors.blushGold
+                                          .withValues(alpha: 0.8), fontSize: 10, fontWeight: FontWeight.w500),
                                   ),
                               ],
                             ),
@@ -249,6 +232,7 @@ class _MangaCoverCardState extends State<MangaCoverCard>
             ),
           ),
         ),
+      ),
       ),
     );
   }

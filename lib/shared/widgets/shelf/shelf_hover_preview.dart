@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../core/theme/app_typography.dart';
 
 import '../../../core/theme/app_theme.dart';
 import 'motion.dart';
@@ -73,10 +73,9 @@ class ShelfHoverPreview extends StatelessWidget {
                   title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
+                  style: AppTypography.outfitHeading.copyWith(
                     color: Colors.white,
+                    fontSize: 11,
                     height: 1.2,
                   ),
                 ),
@@ -96,7 +95,7 @@ class ShelfHoverPreview extends StatelessWidget {
                     genres.take(3).join(', '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
+                    style: AppTypography.outfitWhite.copyWith(
                       fontSize: 9,
                       color: Colors.white.withValues(alpha: 0.45),
                       height: 1.2,
@@ -181,9 +180,8 @@ class _HoverMetaChips extends StatelessWidget {
                 ),
                 child: Text(
                   c.label,
-                  style: GoogleFonts.outfit(
+                  style: AppTypography.outfitBold.copyWith(
                     fontSize: 8,
-                    fontWeight: FontWeight.w600,
                     color: Colors.white.withValues(alpha: 0.6),
                   ),
                 ),
@@ -264,10 +262,8 @@ class _HoverButtonState extends State<_HoverButton> {
               const SizedBox(width: 3),
               Text(
                 widget.label,
-                style: GoogleFonts.outfit(
+                style: AppTypography.outfitHeading.copyWith(
                   fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
                 ),
               ),
             ],

@@ -1,6 +1,4 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter/material.dart';import 'package:go_router/go_router.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/shared/widgets/gamified_background.dart';
 import '../../domain/models/calendar_event.dart';
@@ -8,6 +6,7 @@ import '../../data/services/calendar_service.dart';
 import '../widgets/calendar_grid.dart';
 import '../widgets/day_detail_sheet.dart';
 import '../widgets/add_event_dialog.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -69,12 +68,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       const Spacer(),
                       Text(
                         'Shared Calendar',
-                        style: GoogleFonts.cormorantGaramond(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.roseQuartz,
-                          letterSpacing: 1.5,
-                        ),
+                        style: AppTypography.cormorantBold.copyWith(fontSize: 22, letterSpacing: 1.5),
                       ),
                       const Spacer(),
                       const SizedBox(width: 48),
@@ -106,11 +100,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               children: [
                                 Text(
                                   'Upcoming',
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.roseQuartz,
-                                  ),
+                                  style: AppTypography.outfitWhite.copyWith(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.roseQuartz),
                                 ),
                               ],
                             ),
@@ -126,11 +116,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                   return Center(
                                     child: Text(
                                       "No upcoming events",
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 13,
-                                        color: AppTheme.petalWhite
-                                            .withValues(alpha: 0.4),
-                                      ),
+                                      style: AppTypography.outfitWhite.copyWith(fontSize: 13, color: AppTheme.petalWhite
+                                            .withValues(alpha: 0.4)),
                                     ),
                                   );
                                 }
@@ -184,21 +171,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                               children: [
                                                 Text(
                                                   event.title,
-                                                  style: GoogleFonts.outfit(
-                                                    fontSize: 13,
-                                                    fontWeight:
-                                                        FontWeight.bold,
-                                                    color: AppTheme
-                                                        .petalWhite,
-                                                  ),
+                                                  style: AppTypography.outfitWhite.copyWith(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme
+                                                        .petalWhite),
                                                 ),
                                                 Text(
                                                   timeLabel,
-                                                  style: GoogleFonts.outfit(
-                                                    fontSize: 11,
-                                                    color: AppTheme
-                                                        .blushGold,
-                                                  ),
+                                                  style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: AppTheme
+                                                        .blushGold),
                                                 ),
                                               ],
                                             ),

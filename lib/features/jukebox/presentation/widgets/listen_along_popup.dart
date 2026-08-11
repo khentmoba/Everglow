@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../data/models/music_status.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:everglow/core/theme/app_theme.dart';import 'package:everglow/core/theme/app_typography.dart';
 
 class ListenAlongPopup extends StatelessWidget {
   final MusicStatus status;
@@ -58,30 +57,19 @@ class ListenAlongPopup extends StatelessWidget {
             Text(
               status.trackName,
               textAlign: TextAlign.center,
-              style: GoogleFonts.cormorantGaramond(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.roseQuartz,
-              ),
+              style: AppTypography.cormorantBold.copyWith(fontSize: 24),
             ),
             const SizedBox(height: 8),
             Text(
               status.artistName,
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                fontSize: 16,
-                color: AppTheme.blushGold,
-                fontWeight: FontWeight.w500,
-              ),
+              style: AppTypography.outfitWhite.copyWith(fontSize: 16, color: AppTheme.blushGold, fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 4),
             Text(
               status.albumName,
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                fontSize: 13,
-                color: AppTheme.petalWhite.withValues(alpha: 0.7),
-              ),
+              style: AppTypography.outfitWhite.copyWith(fontSize: 13, color: AppTheme.petalWhite.withValues(alpha: 0.7)),
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
@@ -89,7 +77,7 @@ class ListenAlongPopup extends StatelessWidget {
               icon: const Icon(Icons.play_circle_fill, size: 24, color: AppTheme.petalWhite),
               label: Text(
                 'Listen on Spotify',
-                style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                style: AppTypography.outfitWhite.copyWith(fontWeight: FontWeight.bold),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.deepRose,
@@ -104,7 +92,7 @@ class ListenAlongPopup extends StatelessWidget {
               onPressed: () => Navigator.pop(context),
               child: Text(
                 'Close',
-                style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
+                style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
               ),
             ),
           ],

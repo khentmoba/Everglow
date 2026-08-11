@@ -1,8 +1,7 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import 'package:flutter/material.dart';import 'package:everglow/core/theme/app_theme.dart';
 import '../../data/models/bucket_item.dart';
 import '../../data/services/bucket_list_service.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Dialog for adding a new bucket list item.
 class AddBucketItemDialog extends StatefulWidget {
@@ -65,23 +64,17 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
             children: [
               Text(
                 'Add a Dream',
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.roseQuartz,
-                ),
+                style: AppTypography.cormorantBold.copyWith(fontSize: 24),
               ),
               const SizedBox(height: 16),
 
               // Title
               TextField(
                 controller: _titleController,
-                style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
                 decoration: InputDecoration(
                   hintText: 'What do you want to do together?',
-                  hintStyle: GoogleFonts.outfit(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.4),
-                  ),
+                  hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.4)),
                   filled: true,
                   fillColor: AppTheme.twilight,
                   border: OutlineInputBorder(
@@ -97,13 +90,11 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
               // Description
               TextField(
                 controller: _descController,
-                style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
                 maxLines: 2,
                 decoration: InputDecoration(
                   hintText: 'Details (optional)',
-                  hintStyle: GoogleFonts.outfit(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.4),
-                  ),
+                  hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.4)),
                   filled: true,
                   fillColor: AppTheme.twilight,
                   border: OutlineInputBorder(
@@ -118,11 +109,7 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
               // Category picker
               Text(
                 'Category',
-                style: GoogleFonts.outfit(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.7),
-                ),
+                style: AppTypography.outfitBold.copyWith(fontSize: 12, color: AppTheme.petalWhite.withValues(alpha: 0.7)),
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -156,13 +143,9 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                             const SizedBox(width: 6),
                             Text(
                               cat.displayName,
-                              style: GoogleFonts.outfit(
-                                fontSize: 12,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                color: isSelected
+                              style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, color: isSelected
                                     ? AppTheme.blushGold
-                                    : AppTheme.petalWhite.withValues(alpha: 0.6),
-                              ),
+                                    : AppTheme.petalWhite.withValues(alpha: 0.6)),
                             ),
                           ],
                         ),
@@ -200,11 +183,7 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                             )
                           : Text(
                               'Add to Bucket List 🌟',
-                              style: GoogleFonts.outfit(
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.petalWhite,
-                                fontSize: 14,
-                              ),
+                              style: AppTypography.outfitBold.copyWith(color: AppTheme.petalWhite, fontSize: 14),
                             ),
                     ),
                   ),

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'package:everglow/core/theme/app_breakpoints.dart';
 import 'package:everglow/core/theme/app_motion.dart';
@@ -8,6 +7,7 @@ import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'netflix_colors.dart';
 import 'netflix_hover_preview.dart';
 import 'netflix_poster_card.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Horizontal content rail with a Netflix-style title, edge arrows on
 /// desktop, and a floating hover preview that pops above the row.
@@ -180,12 +180,7 @@ class _NetflixRowState extends State<NetflixRow> {
           ),
           child: Text(
             widget.title,
-            style: GoogleFonts.outfit(
-              color: NetflixColors.textPrimary,
-              fontSize: isDesktop ? 20 : 17,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0,
-            ),
+            style: AppTypography.outfitHeading.copyWith(color: NetflixColors.textPrimary, fontSize: isDesktop ? 20 : 17, letterSpacing: 0),
           ),
         ),
         SizedBox(
@@ -361,11 +356,7 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
           ),
           child: Text(
             'Continue Watching',
-            style: GoogleFonts.outfit(
-              color: NetflixColors.textPrimary,
-              fontSize: isDesktop ? 20 : 17,
-              fontWeight: FontWeight.w700,
-            ),
+            style: AppTypography.outfitHeading.copyWith(color: NetflixColors.textPrimary, fontSize: isDesktop ? 20 : 17),
           ),
         ),
         SizedBox(

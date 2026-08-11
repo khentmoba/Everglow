@@ -1,9 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import 'package:flutter/material.dart';import 'package:everglow/core/theme/app_theme.dart';
 import 'package:intl/intl.dart';
 import '../../data/models/bucket_item.dart';
 import '../../data/services/bucket_list_service.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// A card displaying a single bucket list item.
 class BucketItemCard extends StatelessWidget {
@@ -57,11 +56,11 @@ class BucketItemCard extends StatelessWidget {
               context: context,
               builder: (ctx) => AlertDialog(
                 backgroundColor: AppTheme.velvet,
-                title: Text('Delete "${item.title}"?', style: GoogleFonts.outfit(color: AppTheme.roseQuartz)),
-                content: Text('This cannot be undone.', style: GoogleFonts.outfit(color: AppTheme.petalWhite.withValues(alpha: 0.7))),
+                title: Text('Delete "${item.title}"?', style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz)),
+                content: Text('This cannot be undone.', style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.7))),
                 actions: [
-                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancel', style: GoogleFonts.outfit(color: AppTheme.petalWhite.withValues(alpha: 0.6)))),
-                  TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Delete', style: GoogleFonts.outfit(color: Colors.redAccent))),
+                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancel', style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.6)))),
+                  TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Delete', style: AppTypography.outfitWhite.copyWith(color: Colors.redAccent))),
                 ],
               ),
             );
@@ -112,24 +111,16 @@ class BucketItemCard extends StatelessWidget {
                       children: [
                         Text(
                           item.title,
-                          style: GoogleFonts.outfit(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: isCompleted
+                          style: AppTypography.outfitBold.copyWith(fontSize: 14, color: isCompleted
                                 ? AppTheme.petalWhite.withValues(alpha: 0.5)
-                                : AppTheme.petalWhite,
-                            decoration: isCompleted ? TextDecoration.lineThrough : null,
-                          ),
+                                : AppTheme.petalWhite, decoration: isCompleted ? TextDecoration.lineThrough : null),
                         ),
                         if (item.description.isNotEmpty)
                           Text(
                             item.description,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.outfit(
-                              fontSize: 11,
-                              color: AppTheme.petalWhite.withValues(alpha: 0.5),
-                            ),
+                            style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: AppTheme.petalWhite.withValues(alpha: 0.5)),
                           ),
                       ],
                     ),
@@ -199,11 +190,7 @@ class BucketItemCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     item.title,
-                    style: GoogleFonts.cormorantGaramond(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.roseQuartz,
-                    ),
+                    style: AppTypography.cormorantBold.copyWith(fontSize: 22),
                   ),
                 ),
               ],
@@ -212,28 +199,19 @@ class BucketItemCard extends StatelessWidget {
             if (item.description.isNotEmpty) ...[
               Text(
                 item.description,
-                style: GoogleFonts.outfit(
-                  color: AppTheme.petalWhite.withValues(alpha: 0.8),
-                  fontSize: 14,
-                ),
+                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.8), fontSize: 14),
               ),
               const SizedBox(height: 8),
             ],
             Text(
               'Added by ${item.createdBy} · ${DateFormat.yMMMd().format(item.createdAt)}',
-              style: GoogleFonts.outfit(
-                fontSize: 11,
-                color: AppTheme.petalWhite.withValues(alpha: 0.5),
-              ),
+              style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: AppTheme.petalWhite.withValues(alpha: 0.5)),
             ),
             if (item.completedAt != null) ...[
               const SizedBox(height: 4),
               Text(
                 '✅ Completed by ${item.completedBy} · ${DateFormat.yMMMd().format(item.completedAt!)}',
-                style: GoogleFonts.outfit(
-                  fontSize: 11,
-                  color: Colors.green.withValues(alpha: 0.8),
-                ),
+                style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: Colors.green.withValues(alpha: 0.8)),
               ),
             ],
             const SizedBox(height: 16),
@@ -298,11 +276,7 @@ class BucketItemCard extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               label,
-              style: GoogleFonts.outfit(
-                fontWeight: FontWeight.w600,
-                color: AppTheme.petalWhite,
-                fontSize: 13,
-              ),
+              style: AppTypography.outfitBold.copyWith(color: AppTheme.petalWhite, fontSize: 13),
             ),
           ],
         ),

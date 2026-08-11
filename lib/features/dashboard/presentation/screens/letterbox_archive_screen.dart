@@ -1,6 +1,4 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter/material.dart';import 'package:go_router/go_router.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_error_state.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_empty_state.dart';
@@ -8,6 +6,7 @@ import 'package:everglow/shared/widgets/everglow/everglow_skeleton.dart';
 import '../../domain/models/hidden_note.dart';
 import '../../data/services/letterbox_service.dart';
 import '../widgets/note_dialog.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Full-screen letter archive with search and filter (locked / unread / read).
 class LetterboxArchiveScreen extends StatefulWidget {
@@ -37,10 +36,7 @@ class _LetterArchiveSearchDelegate extends StatelessWidget {
         elevation: 0,
         title: Text(
           'Search Letters',
-          style: GoogleFonts.cormorantGaramond(
-            color: AppTheme.roseQuartz,
-            fontWeight: FontWeight.bold,
-          ),
+          style: AppTypography.cormorantBold,
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.roseQuartz),
@@ -84,11 +80,7 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
         ),
         title: Text(
           'Letter Archive',
-          style: GoogleFonts.cormorantGaramond(
-            color: AppTheme.roseQuartz,
-            fontWeight: FontWeight.bold,
-            fontSize: 24,
-          ),
+          style: AppTypography.cormorantBold.copyWith(fontSize: 24),
         ),
         actions: [
           IconButton(
@@ -113,11 +105,7 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
                       selected: isSelected,
                       label: Text(
                         f.label,
-                        style: GoogleFonts.outfit(
-                          fontSize: 12,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                          color: isSelected ? AppTheme.petalWhite : AppTheme.roseQuartz,
-                        ),
+                        style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, color: isSelected ? AppTheme.petalWhite : AppTheme.roseQuartz),
                       ),
                       selectedColor: AppTheme.deepRose.withValues(alpha: 0.4),
                       backgroundColor: AppTheme.velvet.withValues(alpha: 0.5),
@@ -285,11 +273,7 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
         title: Text(
           'Still sealed 🤫',
           textAlign: TextAlign.center,
-          style: GoogleFonts.cormorantGaramond(
-            color: AppTheme.roseQuartz,
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
-          ),
+          style: AppTypography.cormorantBold.copyWith(fontSize: 22),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -299,9 +283,7 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
             Text(
               'This letter will unlock in $countdown.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                color: AppTheme.petalWhite.withValues(alpha: 0.8),
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.8)),
             ),
           ],
         ),
@@ -310,10 +292,7 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
             onPressed: () => Navigator.pop(context),
             child: Text(
               'I\'ll wait 🌸',
-              style: GoogleFonts.outfit(
-                color: AppTheme.blushGold,
-                fontWeight: FontWeight.bold,
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: AppTheme.blushGold, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -383,11 +362,7 @@ class _LetterListTile extends StatelessWidget {
                       note.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.outfit(
-                        fontSize: 14,
-                        fontWeight: isNew ? FontWeight.bold : FontWeight.w500,
-                        color: AppTheme.petalWhite,
-                      ),
+                      style: AppTypography.outfitWhite.copyWith(fontSize: 14, fontWeight: isNew ? FontWeight.bold : FontWeight.w500, color: AppTheme.petalWhite),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -398,10 +373,7 @@ class _LetterListTile extends StatelessWidget {
                           : 'Sealed until ${_formatDate(note.unlockDate)}',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.outfit(
-                        fontSize: 12,
-                        color: AppTheme.roseQuartz.withValues(alpha: 0.6),
-                      ),
+                      style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
                     ),
                   ],
                 ),
@@ -470,11 +442,7 @@ class _CountdownBadge extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             text,
-            style: GoogleFonts.outfit(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.blushGold,
-            ),
+            style: AppTypography.outfitWhite.copyWith(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.blushGold),
           ),
         ],
       ),

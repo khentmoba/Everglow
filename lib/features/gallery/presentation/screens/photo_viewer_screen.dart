@@ -1,10 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import 'package:flutter/material.dart';import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'package:provider/provider.dart';
 import '../../domain/models/memory_photo.dart';
 import '../../data/services/gallery_service.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class PhotoViewerScreen extends StatefulWidget {
   final List<MemoryPhoto> photos;
@@ -50,25 +49,18 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
         ),
         title: Text(
           'Delete Photo?',
-          style: GoogleFonts.cormorantGaramond(
-            color: AppTheme.roseQuartz,
-            fontWeight: FontWeight.bold,
-          ),
+          style: AppTypography.cormorantBold,
         ),
         content: Text(
           'This action cannot be undone.',
-          style: GoogleFonts.outfit(
-            color: AppTheme.petalWhite.withValues(alpha: 0.7),
-          ),
+          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.7)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Cancel',
-              style: GoogleFonts.outfit(
-                color: AppTheme.roseQuartz.withValues(alpha: 0.6),
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
             ),
           ),
           TextButton(
@@ -90,10 +82,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
             },
             child: Text(
               'Delete',
-              style: GoogleFonts.outfit(
-                color: AppTheme.deepRose,
-                fontWeight: FontWeight.bold,
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: AppTheme.deepRose, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -120,10 +109,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
         ),
         title: Text(
           '${_currentIndex + 1} / ${widget.photos.length}',
-          style: GoogleFonts.outfit(
-            color: AppTheme.petalWhite,
-            fontSize: 14,
-          ),
+          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 14),
         ),
         centerTitle: true,
         actions: [
@@ -207,30 +193,19 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                   if (widget.photos[_currentIndex].caption.isNotEmpty)
                     Text(
                       widget.photos[_currentIndex].caption,
-                      style: GoogleFonts.cormorantGaramond(
-                        fontSize: 18,
-                        color: AppTheme.roseQuartz,
-                        fontStyle: FontStyle.italic,
-                      ),
+                      style: AppTypography.cormorantRegular.copyWith(fontSize: 18, fontStyle: FontStyle.italic),
                     ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
                       Text(
                         '📸 ${widget.photos[_currentIndex].uploadedBy}',
-                        style: GoogleFonts.outfit(
-                          fontSize: 12,
-                          color: AppTheme.blushGold,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: AppTypography.outfitBold.copyWith(fontSize: 12, color: AppTheme.blushGold),
                       ),
                       const SizedBox(width: 12),
                       Text(
                         '${widget.photos[_currentIndex].uploadedAt.month}/${widget.photos[_currentIndex].uploadedAt.day}/${widget.photos[_currentIndex].uploadedAt.year}',
-                        style: GoogleFonts.outfit(
-                          fontSize: 12,
-                          color: AppTheme.petalWhite.withValues(alpha: 0.65),
-                        ),
+                        style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.petalWhite.withValues(alpha: 0.65)),
                       ),
                     ],
                   ),
@@ -253,10 +228,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                               ),
                               child: Text(
                                 "#$tag",
-                                style: GoogleFonts.outfit(
-                                  fontSize: 10,
-                                  color: AppTheme.softLavender,
-                                ),
+                                style: AppTypography.outfitWhite.copyWith(fontSize: 10, color: AppTheme.softLavender),
                               ),
                             ),
                           )

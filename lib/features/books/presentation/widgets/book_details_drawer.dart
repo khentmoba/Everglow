@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';import 'package:provider/provider.dart';
 
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:go_router/go_router.dart';
 import 'package:everglow/features/books/data/models/book_item.dart';
 import 'package:everglow/features/books/data/services/open_library_service.dart';
 import 'package:everglow/services/auth_service.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Re-derive a fully-resolved [BookItem] before opening the reader.
 /// Stale Firestore documents may carry an empty `readSourceUrl`
@@ -94,7 +93,7 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg, style: GoogleFonts.outfit(color: AppTheme.petalWhite)),
+        content: Text(msg, style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite)),
         backgroundColor: AppTheme.deepRose,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -115,7 +114,7 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.9,
+      height: MediaQuery.sizeOf(context).height * 0.9,
       decoration: const BoxDecoration(
         color: AppTheme.velvet,
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
@@ -223,18 +222,12 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
             children: [
               Text(
                 widget.item.title,
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  height: 1.1,
-                  shadows: [
+                style: AppTypography.cormorantBlack.copyWith(fontSize: 28, height: 1.1, shadows: [
                     Shadow(
                       color: Colors.black.withValues(alpha: 0.7),
                       blurRadius: 16,
                     ),
-                  ],
-                ),
+                  ], color: Colors.white),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -242,12 +235,7 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
                 const SizedBox(height: 6),
                 Text(
                   'by ${widget.item.author}',
-                  style: GoogleFonts.outfit(
-                    color: AppTheme.roseQuartz.withValues(alpha: 0.9),
-                    fontSize: 13,
-                    fontStyle: FontStyle.italic,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.9), fontSize: 13, fontStyle: FontStyle.italic, fontWeight: FontWeight.w500),
                 ),
               ],
               const SizedBox(height: 8),
@@ -256,11 +244,7 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
                   if (widget.item.year.isNotEmpty) ...[
                     Text(
                       widget.item.year,
-                      style: GoogleFonts.outfit(
-                        color: AppTheme.blushGold,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: AppTypography.outfitHeading.copyWith(color: AppTheme.blushGold, fontSize: 12),
                     ),
                     _dot(),
                   ],
@@ -273,11 +257,7 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
                     const SizedBox(width: 4),
                     Text(
                       widget.item.readSourceLabel,
-                      style: GoogleFonts.outfit(
-                        color: AppTheme.roseQuartz,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: AppTypography.outfitBold.copyWith(color: AppTheme.roseQuartz, fontSize: 12),
                     ),
                   ],
                 ],
@@ -335,12 +315,7 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
               const SizedBox(width: 8),
               Text(
                 'READING STATUS',
-                style: GoogleFonts.outfit(
-                  color: AppTheme.roseQuartz.withValues(alpha: 0.7),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 10,
-                  letterSpacing: 2,
-                ),
+                style: AppTypography.outfitHeading.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.7), fontSize: 10, letterSpacing: 2),
               ),
             ],
           ),
@@ -413,13 +388,9 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
             ],
             Text(
               label,
-              style: GoogleFonts.outfit(
-                color: active
+              style: AppTypography.outfitHeading.copyWith(color: active
                     ? Colors.white
-                    : AppTheme.roseQuartz.withValues(alpha: 0.85),
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-              ),
+                    : AppTheme.roseQuartz.withValues(alpha: 0.85), fontSize: 12),
             ),
           ],
         ),
@@ -436,11 +407,7 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
         children: [
           Text(
             _description,
-            style: GoogleFonts.outfit(
-              color: AppTheme.petalWhite.withValues(alpha: 0.78),
-              fontSize: 13.5,
-              height: 1.55,
-            ),
+            style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.78), fontSize: 13.5, height: 1.55),
           ),
         ],
       ),
@@ -469,11 +436,7 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
                   ),
                   child: Text(
                     s,
-                    style: GoogleFonts.outfit(
-                      color: AppTheme.petalWhite.withValues(alpha: 0.8),
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.8), fontSize: 10.5, fontWeight: FontWeight.w500),
                   ),
                 ))
             .toList(),
@@ -530,14 +493,9 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
             const SizedBox(width: 12),
             Text(
               hasSource ? 'READ BOOK' : 'NO READABLE COPY FOUND',
-              style: GoogleFonts.outfit(
-                color: hasSource
+              style: AppTypography.outfitWhite.copyWith(color: hasSource
                     ? Colors.white
-                    : AppTheme.roseQuartz.withValues(alpha: 0.6),
-                fontWeight: FontWeight.w800,
-                fontSize: 15,
-                letterSpacing: 1.5,
-              ),
+                    : AppTheme.roseQuartz.withValues(alpha: 0.6), fontWeight: FontWeight.w800, fontSize: 15, letterSpacing: 1.5),
             ),
           ],
         ),

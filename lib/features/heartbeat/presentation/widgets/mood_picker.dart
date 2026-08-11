@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/theme/app_typography.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import '../controllers/mood_controller.dart';
 import 'heart_emoji.dart';
@@ -48,12 +48,7 @@ class MoodPicker extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
                 'How is your heart today?',
-                style: GoogleFonts.cormorantGaramond(
-                  color: AppTheme.roseQuartz,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                ),
+                style: AppTypography.cormorantBold.copyWith(fontSize: 16, letterSpacing: 0.5),
               ),
             ),
             Row(
@@ -77,7 +72,7 @@ class MoodPicker extends StatelessWidget {
                         SnackBar(
                           content: Text(
                             'Sending your love to $partnerName...',
-                            style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+                    style: AppTypography.outfitWhite,
                           ),
                           backgroundColor: AppTheme.deepRose,
                           behavior: SnackBarBehavior.floating,

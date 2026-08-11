@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../models/game_match.dart';
 import '../models/academy_question.dart';
 import '../services/academy_service.dart';
@@ -9,6 +8,7 @@ import '../widgets/score_tracker.dart';
 import '../widgets/answer_button.dart';
 import '../presentation/widgets/trivia_loading_overlay.dart';
 import 'package:go_router/go_router.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class GameBoardScreen extends StatefulWidget {
   final String matchId;
@@ -105,11 +105,7 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
                           children: [
                             Text(
                               'Question ${match.questionIndex + 1}/10',
-                              style: GoogleFonts.outfit(
-                                fontSize: 18,
-                                color: const Color(0xFFFF69B4),
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style: AppTypography.outfitBold.copyWith(fontSize: 18, color: const Color(0xFFFF69B4)),
                             ),
                             const SizedBox(height: 20),
                             Container(
@@ -129,11 +125,7 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
                               child: Text(
                                 currentQuestion.questionText,
                                 textAlign: TextAlign.center,
-                                style: GoogleFonts.outfit(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-                                ),
+                                style: AppTypography.outfitWhite.copyWith(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
                               ),
                             ),
                             const SizedBox(height: 40),
@@ -149,10 +141,7 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
                                 padding: const EdgeInsets.only(top: 20),
                                 child: Text(
                                   'Locked out for 2 seconds...',
-                                  style: GoogleFonts.outfit(
-                                    color: Colors.redAccent,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                  style: AppTypography.outfitWhite.copyWith(color: Colors.redAccent, fontWeight: FontWeight.bold),
                                 ),
                               ),
                           ],

@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:everglow/services/auth_service.dart';
 import '../services/academy_service.dart';
@@ -17,6 +15,7 @@ import 'package:everglow/core/theme/app_elevation.dart';
 import 'package:everglow/shared/widgets/gamified_background.dart';
 import 'package:everglow/shared/widgets/glass_container.dart';
 import '../../../core/utils/logger.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class AcademyHubScreen extends StatefulWidget {
   const AcademyHubScreen({super.key});
@@ -147,26 +146,18 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
         shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusX2),
         title: Text(
           'Matchmaking Timeout',
-          style: GoogleFonts.cormorantGaramond(
-            color: AppTheme.roseQuartz,
-            fontWeight: FontWeight.bold,
-            fontSize: 24,
-          ),
+          style: AppTypography.cormorantBold.copyWith(fontSize: 24),
         ),
         content: Text(
           'We couldn\'t find a partner for you right now. Would you like to play Solo instead?',
-          style: GoogleFonts.outfit(
-            color: AppTheme.petalWhite.withValues(alpha: 0.8),
-          ),
+          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.8)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Cancel',
-              style: GoogleFonts.outfit(
-                color: AppTheme.roseQuartz.withValues(alpha: 0.6),
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
             ),
           ),
           ElevatedButton(
@@ -176,10 +167,7 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
             ),
             child: Text(
               'Play Solo',
-              style: GoogleFonts.outfit(
-                color: AppTheme.petalWhite,
-                fontWeight: FontWeight.bold,
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -299,11 +287,7 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
                     ),
                     Text(
                       'Academy Hub',
-                      style: GoogleFonts.cormorantGaramond(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.roseQuartz,
-                      ),
+                      style: AppTypography.cormorantBold.copyWith(fontSize: 28),
                     ),
                   ],
                 ),
@@ -322,9 +306,7 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
                           const SizedBox(height: AppSpacing.xl),
                           Text(
                             _statusMessage ?? '',
-                            style: GoogleFonts.outfit(
-                              color: AppTheme.roseQuartz,
-                            ),
+                            style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz),
                           ),
                           const SizedBox(height: AppSpacing.xl),
                           TextButton(
@@ -332,9 +314,7 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
                                 setState(() => _isSearching = false),
                             child: Text(
                               'Cancel Search',
-                              style: GoogleFonts.outfit(
-                                color: AppTheme.blushGold,
-                              ),
+                              style: AppTypography.outfitWhite.copyWith(color: AppTheme.blushGold),
                             ),
                           ),
                         ] else ...[
@@ -356,9 +336,7 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
                             const SizedBox(height: AppSpacing.xl),
                             Text(
                               _statusMessage!,
-                              style: GoogleFonts.outfit(
-                                color: AppTheme.blushGold,
-                              ),
+                              style: AppTypography.outfitWhite.copyWith(color: AppTheme.blushGold),
                             ),
                           ],
                         ],
@@ -401,18 +379,11 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
                 children: [
                   Text(
                     title,
-                    style: GoogleFonts.cormorantGaramond(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.roseQuartz,
-                    ),
+                    style: AppTypography.cormorantBold.copyWith(fontSize: 22),
                   ),
                   Text(
                     subtitle,
-                    style: GoogleFonts.outfit(
-                      fontSize: 13,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.75),
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(fontSize: 13, color: AppTheme.petalWhite.withValues(alpha: 0.75)),
                   ),
                 ],
               ),
@@ -520,7 +491,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet>
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.of(context).viewInsets.bottom;
+    final bottomPadding = MediaQuery.viewInsetsOf(context).bottom;
 
     return Container(
       margin: const EdgeInsets.only(top: AppSpacing.x5),
@@ -544,11 +515,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet>
           const SizedBox(height: AppSpacing.lg),
           Text(
             'Choose Category',
-            style: GoogleFonts.cormorantGaramond(
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.roseQuartz,
-            ),
+            style: AppTypography.cormorantBold.copyWith(fontSize: 26),
           ),
           const SizedBox(height: AppSpacing.x2),
           GridView.count(
@@ -695,13 +662,9 @@ class _CategoryCardState extends State<_CategoryCard>
                 const SizedBox(height: AppSpacing.sm),
                 Text(
                   widget.data.label,
-                  style: GoogleFonts.outfit(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    color: _isHovered
+                  style: AppTypography.outfitBold.copyWith(fontSize: 13, color: _isHovered
                         ? AppTheme.petalWhite
-                        : AppTheme.petalWhite.withValues(alpha: 0.85),
-                  ),
+                        : AppTheme.petalWhite.withValues(alpha: 0.85)),
                   textAlign: TextAlign.center,
                 ),
               ],

@@ -126,4 +126,32 @@ class GalleryService {
                 photo.tags.any((t) => t.toLowerCase().contains(lowerQuery)))
             .toList());
   }
+
+  /// "On This Day" — photos uploaded on the same month+day in previous years.
+  Future<List<MemoryPhoto>> getPhotosFromThisDay() async {
+    final now = DateTime.now();
+    final month = now.month;
+    final day = now.day;
+
+    try {
+      final snapshot = await _db
+          .collection(_collection)
+          .orderBy('uploadedAt', descending: true)
+          .get();
+
+      final results = <MemoryPhoto>[];
+      for (final doc in snapshot.docs) {
+        final photo = MemoryPhoto.fromFirestore(doc);
+        if (photo.uploadedAt.month == month &&
+            photo.uploadedAt.day == day &&
+            photo.uploadedAt.year != now.year) {
+          results.add(photo);
+        }
+      }
+      return results;
+    } catch (e) {
+      Logger.e("Error getting on-this-day photos", error: e);
+      return [];
+    }
+  }
 }

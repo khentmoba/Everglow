@@ -82,7 +82,8 @@ class _EverglowBackgroundState extends State<EverglowBackground>
 
   @override
   Widget build(BuildContext context) {
-    return Positioned.fill(
+    return RepaintBoundary(
+      child: Positioned.fill(
       child: IgnorePointer(
         child: ExcludeSemantics(
           child: Container(
@@ -123,6 +124,7 @@ class _EverglowBackgroundState extends State<EverglowBackground>
             ),
           ),
         ),
+      ),
       ),
     );
   }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/theme/app_typography.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import '../../data/models/plant_type.dart';
 
@@ -41,16 +41,12 @@ class PlantPickerSheet extends StatelessWidget {
           ),
           Text(
             'Choose Your Plant',
-            style: GoogleFonts.cormorantGaramond(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.roseQuartz,
-            ),
+            style: AppTypography.cormorantBold.copyWith(fontSize: 22),
           ),
           const SizedBox(height: 4),
           Text(
             'Each plant has a seasonal bonus month',
-            style: GoogleFonts.outfit(
+            style: AppTypography.outfitWhite.copyWith(
               fontSize: 12,
               color: AppTheme.petalWhite.withValues(alpha: 0.6),
             ),
@@ -102,9 +98,8 @@ class PlantPickerSheet extends StatelessWidget {
                         children: [
                           Text(
                             plant.displayName,
-                            style: GoogleFonts.outfit(
+                            style: AppTypography.outfitBold.copyWith(
                               fontSize: 15,
-                              fontWeight: FontWeight.w600,
                               color: isSelected
                                   ? AppTheme.blushGold
                                   : AppTheme.petalWhite,
@@ -123,9 +118,8 @@ class PlantPickerSheet extends StatelessWidget {
                               ),
                               child: Text(
                                 '${plant.seasonalBonusName} ✨',
-                                style: GoogleFonts.outfit(
+                                style: AppTypography.outfitHeading.copyWith(
                                   fontSize: 9,
-                                  fontWeight: FontWeight.bold,
                                   color: AppTheme.blushGold,
                                 ),
                               ),
@@ -136,7 +130,7 @@ class PlantPickerSheet extends StatelessWidget {
                       if (plant.seasonalBonusName != null)
                         Text(
                           'Bonus: ${plant.seasonalBonusName}',
-                          style: GoogleFonts.outfit(
+                          style: AppTypography.outfitWhite.copyWith(
                             fontSize: 11,
                             color: AppTheme.petalWhite.withValues(alpha: 0.5),
                           ),

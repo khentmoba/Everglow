@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../../../core/theme/app_breakpoints.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_typography.dart';
 import 'shelf_hero_carousel.dart';
 import 'motion.dart';
 
@@ -257,7 +256,7 @@ class _HeroBannerSlide extends StatelessWidget {
                         ),
                         child: Text(
                           (item.eyebrow ?? 'TRENDING').toUpperCase(),
-                          style: GoogleFonts.outfit(
+                          style: AppTypography.outfitHeading.copyWith(
                             color: Colors.white,
                             fontSize: 9,
                             fontWeight: FontWeight.w800,
@@ -272,18 +271,12 @@ class _HeroBannerSlide extends StatelessWidget {
                         item.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.cormorantGaramond(
-                          fontSize: isDesktop ? 40 : 28,
-                          fontWeight: FontWeight.w900,
-                          color: AppTheme.petalWhite,
-                          height: 1.05,
-                          shadows: [
+                          style: AppTypography.cormorantBlackWhite.copyWith(fontSize: isDesktop ? 40 : 28, height: 1.05, shadows: [
                             Shadow(
                               color: Colors.black.withValues(alpha: 0.7),
                               blurRadius: 16,
                             ),
-                          ],
-                        ),
+                          ]),
                       ),
 
                       // Subtitle (English title / year)
@@ -293,7 +286,7 @@ class _HeroBannerSlide extends StatelessWidget {
                           item.subtitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.outfit(
+                          style: AppTypography.outfitWhite.copyWith(
                             color: AppTheme.roseQuartz
                                 .withValues(alpha: 0.85),
                             fontSize: isDesktop ? 15 : 12,
@@ -310,7 +303,7 @@ class _HeroBannerSlide extends StatelessWidget {
                           item.synopsis!,
                           maxLines: isDesktop ? 4 : 3,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.outfit(
+                          style: AppTypography.outfitWhite.copyWith(
                             color: Colors.white.withValues(alpha: 0.6),
                             fontSize: isDesktop ? 13 : 11,
                             height: 1.5,
@@ -503,10 +496,9 @@ class _MetaChip extends StatelessWidget {
           const SizedBox(width: 5),
           Text(
             label,
-            style: GoogleFonts.outfit(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+            style: AppTypography.outfitBold.copyWith(
               color: Colors.white.withValues(alpha: 0.75),
+              fontSize: 11,
             ),
           ),
         ],
@@ -568,10 +560,8 @@ class _ActionButton extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               label,
-              style: GoogleFonts.outfit(
+              style: AppTypography.outfitHeading.copyWith(
                 fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
               ),
             ),
           ],

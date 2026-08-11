@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
 import 'package:everglow/features/manga/data/services/mangadex_service.dart';
 import 'package:everglow/features/manga/data/services/mangakakalot_service.dart';
-import 'package:everglow/features/manga/presentation/screens/manga_library_screen.dart';
 import 'package:everglow/features/manga/presentation/widgets/manga_details_drawer.dart';
 import 'package:everglow/services/auth_service.dart';
 import '_partner_label.dart';
@@ -29,6 +28,7 @@ class MangaPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final service = MangaKakalotService();
+
     final auth = context.watch<AuthService>();
     final userName = auth.currentUser ?? '';
     final isCouple = auth.isCoupleUser;

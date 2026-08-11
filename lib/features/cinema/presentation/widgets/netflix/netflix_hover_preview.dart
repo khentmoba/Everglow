@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
+import 'package:everglow/core/theme/app_typography.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'netflix_colors.dart';
@@ -229,36 +228,35 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                         children: [
                           Text(
                             '$_matchPercent% Match',
-                            style: GoogleFonts.outfit(
-                              color: NetflixColors.match,
+                            style: AppTypography.outfitHeading.copyWith(
                               fontSize: 12,
-                              fontWeight: FontWeight.w700,
+                              color: NetflixColors.match,
                             ),
                           ),
                           if (_year.isNotEmpty)
                             Text(
                               _year,
-                              style: GoogleFonts.outfit(
-                                color: NetflixColors.textSecondary,
+                              style: AppTypography.outfitMuted.copyWith(
                                 fontSize: 12,
+                                color: NetflixColors.textSecondary,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
                           if (_runtime != null)
                             Text(
                               _runtime!,
-                              style: GoogleFonts.outfit(
-                                color: NetflixColors.textSecondary,
+                              style: AppTypography.outfitMuted.copyWith(
                                 fontSize: 12,
+                                color: NetflixColors.textSecondary,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
                           if (_seriesInfo != null)
                             Text(
                               _seriesInfo!,
-                              style: GoogleFonts.outfit(
-                                color: NetflixColors.textSecondary,
+                              style: AppTypography.outfitMuted.copyWith(
                                 fontSize: 12,
+                                color: NetflixColors.textSecondary,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -270,23 +268,21 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                         widget.item.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.outfit(
-                          color: Colors.white,
+                        style: AppTypography.outfitHeading.copyWith(
                           fontSize: 15,
-                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 6),
-                      Expanded(
-                        child: Text(
-                          _synopsis,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.outfit(
-                            color: NetflixColors.textSecondary,
-                            fontSize: 11.5,
-                            height: 1.35,
-                          ),
+                        Expanded(
+                          child: Text(
+                            _synopsis,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.outfitMuted.copyWith(
+                              fontSize: 11.5,
+                              color: NetflixColors.textSecondary,
+                              height: 1.35,
+                            ),
                         ),
                       ),
                       if (_genres.isNotEmpty) ...[
@@ -295,9 +291,9 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                           _genres.take(3).join(' · '),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.outfit(
-                            color: NetflixColors.textMuted,
+                          style: AppTypography.outfitMuted.copyWith(
                             fontSize: 10.5,
+                            color: NetflixColors.textMuted,
                           ),
                         ),
                       ],
@@ -326,10 +322,9 @@ class _HdBadge extends StatelessWidget {
       ),
       child: Text(
         'HD',
-        style: GoogleFonts.outfit(
-          color: Colors.white.withValues(alpha: 0.9),
+        style: AppTypography.outfitHeading.copyWith(
           fontSize: 9,
-          fontWeight: FontWeight.w700,
+          color: Colors.white.withValues(alpha: 0.9),
           letterSpacing: 0.5,
         ),
       ),

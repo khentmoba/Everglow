@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_colors.dart';
 import 'package:everglow/core/utils/logger.dart';
@@ -21,6 +20,7 @@ import 'episode_drawer_sections/cast_section.dart';
 import 'episode_drawer_sections/reviews_section.dart';
 import 'episode_drawer_sections/similar_section.dart';
 import 'episode_drawer_sections/trailer_section.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class EpisodeDrawer extends StatefulWidget {
   final MediaItem item;
@@ -118,7 +118,11 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   @override
   void initState() {
     super.initState();
-    _currentStatus = widget.item.status;
+    // Resolve "watched-self" / "watching-self" to the partner-specific
+    // variant so the correct chip is highlighted. Per-user Firestore
+    // docs store "self" variants, but couple chips expect "watched-khent",
+    // "watched-clair", etc.
+    _currentStatus = widget.item.resolveCoupleStatus();
     _fadeCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -136,7 +140,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _isMobile = MediaQuery.of(context).size.width < 600;
+    _isMobile = MediaQuery.sizeOf(context).width < 600;
   }
 
   @override
@@ -928,7 +932,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
 
   Future<void> _doUpdateStatus(String newStatus) async {
     HapticFeedback.selectionClick();
-    final userName = context.read<AuthService>().currentUser ?? '';
+    final auth = context.read<AuthService>();
+    final userName = auth.currentUser ?? '';
+    final partnerUsername = auth.partnerUsername;
     Logger.d(
       "[Status] _updateStatus called: newStatus=$newStatus, userName=$userName, currentItemStatus=${widget.item.status}, currentLocalStatus=$_currentStatus, tmdbId=${widget.item.tmdbId}, isAnime=${widget.item.isAnime}, mediaType=${widget.item.mediaType}, mounted=$mounted",
     );
@@ -949,6 +955,19 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       setState(() => _currentStatus = '');
       try {
         await _tmdbService.removeFromWatchList(widget.item.tmdbId, userName);
+        // For "Both" statuses, also remove from the partner's doc.
+        if (previousStatus == 'watched-both' ||
+            previousStatus == 'watching-both') {
+          if (partnerUsername != null && partnerUsername.isNotEmpty) {
+            Logger.d("[Status] Both status — also removing from partner $partnerUsername");
+            try {
+              await _tmdbService.removeFromWatchList(
+                  widget.item.tmdbId, partnerUsername);
+            } catch (e) {
+              Logger.e("[Status] Failed to remove from partner", error: e);
+            }
+          }
+        }
         Logger.d("[Status] Remove succeeded");
         if (mounted) _showSnack('Removed from watchlist');
       } catch (e) {
@@ -1005,6 +1024,31 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
           isAnimeOverride: detectedAnime,
           statusOwner: statusOwner,
         );
+
+        // For "Both" statuses (watched-both, watching-both), also update
+        // the partner's document so both partners are marked. Without
+        // this, "Both Watched" would only save to the current user.
+        if (newStatus == 'watched-both' || newStatus == 'watching-both') {
+          final partner = partnerUsername;
+          if (partner != null && partner.isNotEmpty) {
+            final selfStatus =
+                newStatus == 'watched-both' ? 'watched-self' : 'watching-self';
+            Logger.d(
+              "[Status] Both status â€” also saving $selfStatus to partner $partner",
+            );
+            try {
+              await _tmdbService.saveToWatchList(
+                resolvedItem,
+                selfStatus,
+                partner,
+                isAnimeOverride: detectedAnime,
+              );
+            } catch (e) {
+              Logger.e("[Status] Failed to save Both status to partner", error: e);
+              // Non-critical â€” the current user's save already succeeded.
+            }
+          }
+        }
 
         // Clean up stale partner-specific status from the current user's
         // document. e.g. if Khent's doc says "watching-clair" and the user
@@ -1076,7 +1120,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       SnackBar(
         content: Text(
           msg,
-          style: GoogleFonts.outfit(color: AppColors.petalWhite),
+          style: AppTypography.outfitWhite,
         ),
         backgroundColor: AppColors.deepRose,
         behavior: SnackBarBehavior.floating,
@@ -1396,11 +1440,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
           // Watchlist status heading
           Text(
             'Status',
-            style: GoogleFonts.outfit(
-              color: AppColors.petalWhite,
-              fontWeight: FontWeight.w700,
-              fontSize: 15,
-            ),
+            style: AppTypography.outfitHeading.copyWith(fontSize: 15),
           ),
           const SizedBox(height: 10),
           // Cinema-only profiles (Breyan, Octagram) only get generic
@@ -1520,11 +1560,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
               (_details!['overview'] as String).isNotEmpty) ...[
             Text(
               _details!['overview'],
-              style: GoogleFonts.outfit(
-                color: AppColors.petalWhite.withValues(alpha: 0.75),
-                fontSize: 13.5,
-                height: 1.55,
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: AppColors.petalWhite.withValues(alpha: 0.75), fontSize: 13.5, height: 1.55),
             ),
             const SizedBox(height: 20),
           ],
@@ -1560,11 +1596,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
             const SizedBox(width: 8),
             Text(
               'Play',
-              style: GoogleFonts.outfit(
-                color: Colors.black,
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-              ),
+              style: AppTypography.outfitHeading.copyWith(color: Colors.black, fontSize: 15),
             ),
           ],
         ),
@@ -1603,12 +1635,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
               const SizedBox(width: 8),
               Text(
                 'SEASONS',
-                style: GoogleFonts.outfit(
-                  color: AppColors.mutedPurple,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 10,
-                  letterSpacing: 2,
-                ),
+                style: AppTypography.outfitHeading.copyWith(color: AppColors.mutedPurple, fontSize: 10, letterSpacing: 2),
               ),
             ],
           ),
@@ -1680,15 +1707,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                                 : s.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.outfit(
-                              color: isCurrent
+                            style: AppTypography.outfitHeading.copyWith(color: isCurrent
                                   ? AppColors.deepRose
-                                  : AppColors.petalWhite.withValues(alpha: 0.8),
-                              fontWeight: isCurrent
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              fontSize: 12,
-                            ),
+                                  : AppColors.petalWhite.withValues(alpha: 0.8), fontSize: 12),
                           ),
                         ),
                         if (!isCurrent)
@@ -1729,11 +1750,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       ),
       child: Text(
         name,
-        style: GoogleFonts.outfit(
-          color: AppColors.textMedium,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-        ),
+        style: AppTypography.outfitBold.copyWith(color: AppColors.textMedium, fontSize: 11),
       ),
     );
   }
@@ -1759,12 +1776,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
           const SizedBox(width: 5),
           Text(
             label,
-            style: GoogleFonts.outfit(
-              color: AppColors.blushGold,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.4,
-            ),
+            style: AppTypography.outfitHeading.copyWith(color: AppColors.blushGold, fontSize: 10, letterSpacing: 0.4),
           ),
         ],
       ),
@@ -1816,11 +1828,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
             const SizedBox(width: 6),
             Text(
               label,
-              style: GoogleFonts.outfit(
-                color: isSelected ? Colors.black : AppColors.mutedPurple,
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-              ),
+              style: AppTypography.outfitHeading.copyWith(color: isSelected ? Colors.black : AppColors.mutedPurple, fontSize: 12),
             ),
           ],
         ),
@@ -1893,16 +1901,11 @@ class _AiringCountdownChipState extends State<_AiringCountdownChip> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.timer_outlined, color: AppColors.deepRose, size: 11),
+          const Icon(Icons.timer_outlined, color: AppColors.deepRose, size: 11),
           const SizedBox(width: 5),
           Text(
             label,
-            style: GoogleFonts.outfit(
-              color: AppColors.deepRose,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.4,
-            ),
+            style: AppTypography.outfitHeading.copyWith(color: AppColors.deepRose, fontSize: 10, letterSpacing: 0.4),
           ),
         ],
       ),

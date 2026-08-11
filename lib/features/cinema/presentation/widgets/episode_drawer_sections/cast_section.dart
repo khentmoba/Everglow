@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:everglow/core/theme/app_colors.dart';
 import 'drawer_helpers.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Renders the horizontal cast/voice-actor rail. Shows a loading
 /// skeleton while fetching, an empty-state message when no cast is
@@ -79,11 +79,7 @@ class CastSection extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.outfit(
-                          color: AppColors.petalWhite,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: AppTypography.outfitBold.copyWith(fontSize: 11),
                       ),
                       if (name.isNotEmpty)
                         Text(
@@ -91,11 +87,7 @@ class CastSection extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.outfit(
-                            color: AppColors.mutedPurple,
-                            fontSize: 9,
-                            fontStyle: FontStyle.italic,
-                          ),
+                          style: AppTypography.outfitWhite.copyWith(color: AppColors.mutedPurple, fontSize: 9, fontStyle: FontStyle.italic),
                         ),
                     ] else ...[
                       Text(
@@ -103,11 +95,7 @@ class CastSection extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.outfit(
-                          color: AppColors.petalWhite,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: AppTypography.outfitBold.copyWith(fontSize: 11),
                       ),
                       if (character.isNotEmpty)
                         Text(
@@ -115,11 +103,7 @@ class CastSection extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.outfit(
-                            color: AppColors.mutedPurple,
-                            fontSize: 9,
-                            fontStyle: FontStyle.italic,
-                          ),
+                          style: AppTypography.outfitWhite.copyWith(color: AppColors.mutedPurple, fontSize: 9, fontStyle: FontStyle.italic),
                         ),
                     ],
                   ],

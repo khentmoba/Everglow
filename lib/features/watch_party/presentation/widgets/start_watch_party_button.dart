@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';import 'package:provider/provider.dart';
 
 import 'package:everglow/services/auth_service.dart';
 import '../../data/models/watch_party_room.dart';
 import '../../data/services/watch_party_service.dart';
 import '../screens/watch_party_screen.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 const _cDeepRose = Color(0xFFC2185B);
 const _cGold = Color(0xFFE8C97A);
@@ -165,12 +164,7 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
             const SizedBox(width: 6),
             Text(
               label,
-              style: GoogleFonts.outfit(
-                color: _cWhite,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.4,
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: _cWhite, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.4),
             ),
           ],
         ),
@@ -247,11 +241,7 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
                         : hasParty
                             ? 'Watching now'
                             : 'Movie Night',
-                    style: GoogleFonts.cormorantGaramond(
-                      color: _cWhite,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    style: AppTypography.cormorantExtraBold.copyWith(fontSize: 18, color: _cWhite),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -260,11 +250,7 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
                         : hasParty
                             ? (room?.title ?? 'Resuming your party…')
                             : 'Watch a film in real time with your love',
-                    style: GoogleFonts.outfit(
-                      color: _cWhite.withValues(alpha: 0.7),
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(color: _cWhite.withValues(alpha: 0.7), fontSize: 11.5, fontWeight: FontWeight.w500),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -287,12 +273,7 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
                 children: [
                   Text(
                     label,
-                    style: GoogleFonts.outfit(
-                      color: iconColor,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1,
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(color: iconColor, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1),
                   ),
                   const SizedBox(width: 4),
                   Icon(
@@ -406,7 +387,7 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
           SnackBar(
             content: Text(
               'Browse a title first to start a party.',
-              style: GoogleFonts.outfit(color: Colors.white),
+              style: AppTypography.outfitWhite.copyWith(color: Colors.white),
             ),
             backgroundColor: _cDeepRose,
             behavior: SnackBarBehavior.floating,

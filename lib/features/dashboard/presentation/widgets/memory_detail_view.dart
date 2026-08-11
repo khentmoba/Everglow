@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:animate_do/animate_do.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import 'package:animate_do/animate_do.dart';import 'package:everglow/core/theme/app_theme.dart';
 import '../../domain/models/milestone.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class MemoryDetailOverlay extends StatelessWidget {
   final Milestone milestone;
@@ -45,19 +44,11 @@ class MemoryDetailOverlay extends StatelessWidget {
                         children: [
                           Text(
                             milestone.title,
-                            style: GoogleFonts.cormorantGaramond(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.roseQuartz,
-                            ),
+                            style: AppTypography.cormorantBold.copyWith(fontSize: 24),
                           ),
                           Text(
                             DateFormat('MMMM d, yyyy').format(milestone.date),
-                            style: GoogleFonts.outfit(
-                              fontSize: 14,
-                              color: AppTheme.roseQuartz.withValues(alpha: 0.6),
-                              fontWeight: FontWeight.w500,
-                            ),
+                            style: AppTypography.outfitWhite.copyWith(fontSize: 14, color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontWeight: FontWeight.w500),
                           ),
                         ],
                       ),
@@ -89,22 +80,14 @@ class MemoryDetailOverlay extends StatelessWidget {
                           ),
                           child: Text(
                             "Memory by ${milestone.author} 🤍",
-                            style: GoogleFonts.outfit(
-                              fontSize: 12,
-                              fontStyle: FontStyle.italic,
-                              color: AppTheme.blushGold,
-                            ),
+                            style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontStyle: FontStyle.italic, color: AppTheme.blushGold),
                           ),
                         ),
                       
                       // Full Description
                       Text(
                         milestone.description,
-                        style: GoogleFonts.outfit(
-                          fontSize: 16,
-                          height: 1.6,
-                          color: AppTheme.petalWhite,
-                        ),
+                        style: AppTypography.outfitWhite.copyWith(fontSize: 16, height: 1.6, color: AppTheme.petalWhite),
                       ),
                       const SizedBox(height: 40),
                     ],
@@ -122,11 +105,7 @@ class MemoryDetailOverlay extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       "Living Archive",
-                      style: GoogleFonts.outfit(
-                        fontSize: 12,
-                        color: AppTheme.roseQuartz.withValues(alpha: 0.5),
-                        letterSpacing: 2,
-                      ),
+                      style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.roseQuartz.withValues(alpha: 0.5), letterSpacing: 2),
                     ),
                     const SizedBox(width: 8),
                     const Icon(Icons.favorite, color: AppTheme.deepRose, size: 16),

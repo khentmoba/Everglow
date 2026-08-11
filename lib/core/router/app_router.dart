@@ -7,6 +7,7 @@ import '../../features/academy/models/academy_question.dart';
 import '../../features/academy/models/game_match.dart';
 
 import '../../features/watch_party/data/models/watch_party_room.dart';
+import '../../features/books/data/models/book_item.dart';
 import '../../features/daily_bloom/presentation/widgets/shared_garden_view.dart';
 import '../../features/bucket_list/presentation/screens/bucket_list_screen.dart';
 
@@ -95,7 +96,7 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: 'reader',
           builder: (_, state) => ReaderScreen(
-            book: state.extra! as dynamic,  // BookItem passed via extra
+            book: state.extra! as BookItem,
           ),
         ),
       ],

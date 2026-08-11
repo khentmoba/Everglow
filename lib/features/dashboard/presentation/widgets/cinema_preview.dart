@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
-import 'package:everglow/features/cinema/presentation/screens/cinema_screen.dart';
 import 'package:everglow/features/cinema/presentation/widgets/episode_drawer.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'package:everglow/features/ai/presentation/widgets/ai_recommendations.dart';

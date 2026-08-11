@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:everglow/core/theme/app_colors.dart';
 import 'drawer_helpers.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Renders the reviews section: a vertical list of review cards with
 /// avatar, author name, rating, and preview text. Shows a loading
@@ -85,11 +85,7 @@ class ReviewsSection extends StatelessWidget {
                             author,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.outfit(
-                              color: AppColors.petalWhite,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                            ),
+                            style: AppTypography.outfitHeading.copyWith(fontSize: 13),
                           ),
                           if (rating != null)
                             Row(
@@ -100,11 +96,7 @@ class ReviewsSection extends StatelessWidget {
                                 const SizedBox(width: 3),
                                 Text(
                                   rating.toString(),
-                                  style: GoogleFonts.outfit(
-                                    color: AppColors.warmAmber,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                  style: AppTypography.outfitWhite.copyWith(color: AppColors.warmAmber, fontSize: 11, fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
@@ -116,12 +108,7 @@ class ReviewsSection extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   preview,
-                  style: GoogleFonts.outfit(
-                    color:
-                        AppColors.petalWhite.withValues(alpha: 0.75),
-                    fontSize: 13,
-                    height: 1.5,
-                  ),
+                  style: AppTypography.outfitWhite.copyWith(color: AppColors.petalWhite.withValues(alpha: 0.75), fontSize: 13, height: 1.5),
                 ),
               ],
             ),

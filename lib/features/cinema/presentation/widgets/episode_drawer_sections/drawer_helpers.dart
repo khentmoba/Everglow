@@ -1,6 +1,5 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:everglow/core/theme/app_colors.dart';
+import 'package:flutter/material.dart';import 'package:everglow/core/theme/app_colors.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Proxy URL for CORS-blocked anime thumbnail CDNs (Crunchyroll, etc.).
 /// Fetches the image server-side and returns it with permissive CORS headers.
@@ -38,11 +37,7 @@ Widget buildCastInitial(String name) {
     alignment: Alignment.center,
     child: Text(
       getInitial(name),
-      style: GoogleFonts.cormorantGaramond(
-        fontSize: 26,
-        fontWeight: FontWeight.bold,
-        color: avatarColor(name),
-      ),
+      style: AppTypography.cormorantBold.copyWith(fontSize: 26, color: avatarColor(name)),
     ),
   );
 }
@@ -68,7 +63,7 @@ Widget buildEmptySection(String msg) {
     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
     child: Text(
       msg,
-      style: GoogleFonts.outfit(color: AppColors.mutedPurple, fontSize: 13),
+      style: AppTypography.outfitWhite.copyWith(color: AppColors.mutedPurple, fontSize: 13),
     ),
   );
 }
@@ -78,11 +73,7 @@ Widget buildDrawerSectionHeader(String title) {
     padding: const EdgeInsets.fromLTRB(20, 26, 20, 12),
     child: Text(
       title,
-      style: GoogleFonts.outfit(
-        fontSize: 19,
-        fontWeight: FontWeight.w700,
-        color: AppColors.petalWhite,
-      ),
+      style: AppTypography.outfitHeading.copyWith(fontSize: 19),
     ),
   );
 }

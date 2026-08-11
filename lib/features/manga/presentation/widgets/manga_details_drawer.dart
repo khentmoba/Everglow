@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_html/flutter_html.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_html/flutter_html.dart';import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_colors.dart';
 import 'package:everglow/core/theme/app_radius.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
@@ -13,6 +11,7 @@ import 'package:everglow/features/manga/data/services/bato_service.dart';
 import 'package:everglow/features/manga/data/services/scanlation_service.dart';
 import 'package:everglow/features/manga/presentation/screens/manga_reader_screen.dart';
 import 'package:everglow/services/auth_service.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Bottom-sheet details for a manga / manhwa / manhua.
 /// Features: virtualized chapter list, consistent design tokens.
@@ -263,7 +262,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
           status == 'none'
               ? 'Removed from your library'
               : 'Set to ${_item.libraryDisplay}',
-          style: GoogleFonts.outfit(color: AppColors.petalWhite),
+          style: AppTypography.outfitWhite,
         ),
         backgroundColor: AppColors.deepRose,
         behavior: SnackBarBehavior.floating,
@@ -293,13 +292,77 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                   _buildLibraryRow(),
                   Divider(height: 1, color: AppColors.divider),
                   Expanded(
-                    child: ListView(
+                    child: CustomScrollView(
                       controller: scrollController,
-                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-                      children: [
-                        _buildDescription(),
-                        const SizedBox(height: 24),
-                        _buildChapterList(),
+                      slivers: [
+                        SliverPadding(
+                          padding:
+                              const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                          sliver: SliverToBoxAdapter(
+                              child: _buildDescription()),
+                        ),
+                        const SliverToBoxAdapter(
+                            child: SizedBox(height: 24)),
+                        SliverPadding(
+                          padding:
+                              const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                          sliver: SliverToBoxAdapter(
+                              child: _buildChapterHeader()),
+                        ),
+                        if (_isLoadingChapters)
+                          const SliverToBoxAdapter(
+                            child: Padding(
+                              padding:
+                                  EdgeInsets.symmetric(vertical: 32),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                    color: AppColors.deepRose),
+                              ),
+                            ),
+                          )
+                        else if (_chapterError != null)
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 24),
+                              child: Center(
+                                child: Text(
+                                  _chapterError!,
+                                  style: AppTypography.outfitWhite.copyWith(color: AppColors.textMuted),
+                                ),
+                              ),
+                            ),
+                          )
+                        else if (_chapters.isEmpty)
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 24),
+                              child: Center(
+                                child: Text(
+                                  'No English chapters available.',
+                                  style: AppTypography.outfitWhite.copyWith(color: AppColors.textMuted),
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(
+                                20, 0, 20, 32),
+                            sliver: SliverList.builder(
+                              itemCount: _chapters.length,
+                              itemBuilder: (context, index) {
+                                final c = _chapters[index];
+                                return _ChapterTile(
+                                  chapter: c,
+                                  isLastRead:
+                                      _item.lastReadChapterId == c.id,
+                                  onTap: () => _openReader(c),
+                                );
+                              },
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -380,12 +443,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                         ),
                         child: Text(
                           _item.contentType.toUpperCase(),
-                          style: GoogleFonts.outfit(
-                            color: AppColors.roseQuartz,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                          ),
+                          style: AppTypography.outfitWhite.copyWith(color: AppColors.roseQuartz, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                         ),
                       ),
                       if (_item.status.isNotEmpty) ...[
@@ -399,12 +457,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                           ),
                           child: Text(
                             _item.status.toUpperCase(),
-                            style: GoogleFonts.outfit(
-                              color: AppColors.blushGold,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
+                            style: AppTypography.outfitWhite.copyWith(color: AppColors.blushGold, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                           ),
                         ),
                       ],
@@ -413,21 +466,14 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                   const SizedBox(height: 8),
                   Text(
                     _item.title,
-                    style: GoogleFonts.cormorantGaramond(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.roseQuartz,
-                    ),
+                    style: AppTypography.cormorantBold.copyWith(fontSize: 28),
                   ),
                   if (_item.author.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
                         'by ${_item.author}',
-                        style: GoogleFonts.outfit(
-                          color: AppColors.textMuted,
-                          fontSize: 13,
-                        ),
+                        style: AppTypography.outfitWhite.copyWith(color: AppColors.textMuted, fontSize: 13),
                       ),
                     ),
                 ],
@@ -477,12 +523,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
         children: [
           Text(
             'My Library',
-            style: GoogleFonts.outfit(
-              color: AppColors.textMuted,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.0,
-            ),
+            style: AppTypography.outfitWhite.copyWith(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.0),
           ),
           const SizedBox(height: 8),
           SingleChildScrollView(
@@ -500,7 +541,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                   padding: const EdgeInsets.only(right: 8),
                   child: ChoiceChip(
                     label: Text(entry.label,
-                        style: GoogleFonts.outfit(fontSize: 12)),
+                        style: AppTypography.outfitWhite.copyWith(fontSize: 12)),
                     selected: selected,
                     onSelected: (_) => _updateLibraryStatus(entry.value),
                     selectedColor: AppColors.deepRose,
@@ -527,12 +568,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
       children: [
         Text(
           'Synopsis',
-          style: GoogleFonts.outfit(
-            color: AppColors.textMuted,
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-          ),
+          style: AppTypography.outfitWhite.copyWith(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.0),
         ),
         const SizedBox(height: 8),
         Container(
@@ -548,7 +584,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
               'body': Style(
                 color: AppColors.textMedium,
                 fontSize: FontSize(14),
-                fontFamily: GoogleFonts.outfit().fontFamily,
+                fontFamily: AppTypography.outfitWhite.fontFamily,
                 lineHeight: const LineHeight(1.6),
                 margin: Margins.zero,
                 padding: HtmlPaddings.zero,
@@ -576,10 +612,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                 ),
                 child: Text(
                   tag,
-                  style: GoogleFonts.outfit(
-                    color: AppColors.textMuted,
-                    fontSize: 10,
-                  ),
+                  style: AppTypography.outfitWhite.copyWith(color: AppColors.textMuted, fontSize: 10),
                 ),
               );
             }).toList(),
@@ -589,74 +622,18 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
     );
   }
 
-  Widget _buildChapterList() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildChapterHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Chapters',
-              style: GoogleFonts.outfit(
-                color: AppColors.textMuted,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.0,
-              ),
-            ),
-            if (_chapters.isNotEmpty)
-              Text(
-                '${_chapters.length} total',
-                style: GoogleFonts.outfit(
-                  color: AppColors.textDisabled,
-                  fontSize: 11,
-                ),
-              ),
-          ],
+        Text(
+          'Chapters',
+          style: AppTypography.outfitWhite.copyWith(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.0),
         ),
-        const SizedBox(height: 8),
-        if (_isLoadingChapters)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 32),
-            child: Center(
-              child: CircularProgressIndicator(color: AppColors.deepRose),
-            ),
-          )
-        else if (_chapterError != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: Text(
-                _chapterError!,
-                style: GoogleFonts.outfit(color: AppColors.textMuted),
-              ),
-            ),
-          )
-        else if (_chapters.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: Text(
-                'No English chapters available.',
-                style: GoogleFonts.outfit(color: AppColors.textMuted),
-              ),
-            ),
-          )
-        else
-          // Virtualized: only builds visible chapter tiles
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _chapters.length,
-            itemBuilder: (context, index) {
-              final c = _chapters[index];
-              return _ChapterTile(
-                chapter: c,
-                isLastRead: _item.lastReadChapterId == c.id,
-                onTap: () => _openReader(c),
-              );
-            },
+        if (_chapters.isNotEmpty)
+          Text(
+            ' total',
+            style: AppTypography.outfitWhite.copyWith(color: AppColors.textDisabled, fontSize: 11),
           ),
       ],
     );
@@ -726,21 +703,14 @@ class _ChapterTile extends StatelessWidget {
                     children: [
                       Text(
                         chapter.displayTitle,
-                        style: GoogleFonts.outfit(
-                          color: AppColors.textHigh,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: AppTypography.outfitBold.copyWith(color: AppColors.textHigh, fontSize: 13),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '${chapter.scanlationGroup.isNotEmpty ? "${chapter.scanlationGroup} • " : ""}${chapter.pages > 0 ? "${chapter.pages} pages" : "read"}',
-                        style: GoogleFonts.outfit(
-                          color: AppColors.textMuted,
-                          fontSize: 10,
-                        ),
+                        style: AppTypography.outfitWhite.copyWith(color: AppColors.textMuted, fontSize: 10),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),

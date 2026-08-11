@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../data/services/tmdb_service.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Horizontal scrollable season selector + episode grid for TV content.
 /// Fetches season/episode data from TMDB and lets the user pick an episode
@@ -114,11 +114,7 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
                 const SizedBox(width: 8),
                 Text(
                   'Episodes',
-                  style: GoogleFonts.outfit(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: AppTypography.outfitHeading.copyWith(color: Colors.white, fontSize: 13),
                 ),
                 if (!_isLoadingSeasons && _seasons.isNotEmpty) ...[
                   const SizedBox(width: 6),
@@ -130,11 +126,7 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
                     ),
                     child: Text(
                       'S${_selectedSeason}',
-                      style: GoogleFonts.outfit(
-                        color: Colors.white54,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: AppTypography.outfitBold.copyWith(color: Colors.white54, fontSize: 10),
                     ),
                   ),
                 ],
@@ -225,11 +217,7 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
               ),
               child: Text(
                 name,
-                style: GoogleFonts.outfit(
-                  color: isSelected ? const Color(0xFFC2185B) : Colors.white70,
-                  fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                ),
+                style: AppTypography.outfitHeading.copyWith(color: isSelected ? const Color(0xFFC2185B) : Colors.white70, fontSize: 11),
               ),
             ),
           );
@@ -310,13 +298,9 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
                               ),
                               child: Text(
                                 'E$epNum',
-                                style: GoogleFonts.outfit(
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.w700,
-                                  color: isSelected
+                                style: AppTypography.outfitHeading.copyWith(fontSize: 8, color: isSelected
                                       ? const Color(0xFFC2185B)
-                                      : Colors.white54,
-                                ),
+                                      : Colors.white54),
                               ),
                             ),
                           ],
@@ -326,11 +310,7 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
                           name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.outfit(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
+                          style: AppTypography.outfitBold.copyWith(fontSize: 10, color: Colors.white),
                         ),
                       ],
                     ),
@@ -350,11 +330,7 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
       alignment: Alignment.center,
       child: Text(
         'E$epNum',
-        style: GoogleFonts.outfit(
-          color: Colors.white24,
-          fontSize: 20,
-          fontWeight: FontWeight.w800,
-        ),
+        style: AppTypography.outfitWhite.copyWith(color: Colors.white24, fontSize: 20, fontWeight: FontWeight.w800),
       ),
     );
   }

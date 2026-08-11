@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/core/models/presence_status.dart';
 import 'package:everglow/core/theme/app_theme.dart';
+import '../../core/theme/app_typography.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'package:everglow/services/presence_service.dart';
 
@@ -127,25 +127,20 @@ class _DoodleBanner extends StatelessWidget {
                 children: [
                   Text(
                     isActive ? '$name is doodling' : subtitle ?? '$name is here',
-                    style: GoogleFonts.outfit(
-                      color: AppTheme.petalWhite,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: AppTypography.outfitBold.copyWith(fontSize: 12),
                   ),
                   if (isActive) ...[
                     const SizedBox(width: 6),
                     Text(
                       '✨',
-                      style: GoogleFonts.outfit(fontSize: 12),
+                      style: AppTypography.outfitWhite.copyWith(fontSize: 12),
                     ),
                     const SizedBox(width: 4),
                     Text(
                       _formatElapsed(elapsed),
-                      style: GoogleFonts.outfit(
+                      style: AppTypography.outfitHeading.copyWith(
                         color: accent,
                         fontSize: 12,
-                        fontWeight: FontWeight.w700,
                         fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
@@ -155,7 +150,7 @@ class _DoodleBanner extends StatelessWidget {
               if (isActive)
                 Text(
                   'active doodle',
-                  style: GoogleFonts.outfit(
+                  style: AppTypography.outfitWhite.copyWith(
                     color: AppTheme.petalWhite.withValues(alpha: 0.75),
                     fontSize: 9,
                     letterSpacing: 0.8,
@@ -164,7 +159,7 @@ class _DoodleBanner extends StatelessWidget {
               else
                 Text(
                   'not active doodling',
-                  style: GoogleFonts.outfit(
+                  style: AppTypography.outfitWhite.copyWith(
                     color: AppTheme.petalWhite.withValues(alpha: 0.7),
                     fontSize: 9,
                     letterSpacing: 0.6,
@@ -227,7 +222,8 @@ class _PulsingDotState extends State<_PulsingDot>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
+    return RepaintBoundary(
+      child: AnimatedBuilder(
       animation: _ctrl,
       builder: (context, _) {
         final t = widget.active ? _ctrl.value : 0.0;
@@ -249,6 +245,7 @@ class _PulsingDotState extends State<_PulsingDot>
           ),
         );
       },
+      ),
     );
   }
 }

@@ -1,14 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:animate_do/animate_do.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:everglow/core/theme/app_colors.dart';
+import 'package:animate_do/animate_do.dart';import 'package:everglow/core/theme/app_colors.dart';
 import 'package:everglow/core/theme/app_radius.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
 import 'package:everglow/features/manga/data/services/comick_service.dart';
 import 'package:everglow/features/manga/data/services/mangadex_service.dart';
 import 'package:everglow/features/manga/presentation/widgets/manga_cover_card.dart';
 import 'package:everglow/features/manga/presentation/widgets/manga_details_drawer.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 // Search screen uses the anime palette from AppColors
 const _cBlack = AppColors.animeBackground;
@@ -61,6 +60,7 @@ class _MangaSearchScreenState extends State<MangaSearchScreen> {
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
       if (query.isNotEmpty) {
         _performSearch(query);
       } else {
@@ -195,14 +195,11 @@ class _MangaSearchScreenState extends State<MangaSearchScreen> {
                 controller: _searchController,
                 focusNode: _searchFocus,
                 onChanged: _onSearchChanged,
-                style: GoogleFonts.outfit(color: _cWhite, fontSize: 14),
+                style: AppTypography.outfitWhite.copyWith(color: _cWhite, fontSize: 14),
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
                   hintText: 'Search manga, manhwa, manhua...',
-                  hintStyle: GoogleFonts.outfit(
-                    color: _cMuted,
-                    fontSize: 14,
-                  ),
+                  hintStyle: AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 14),
                   prefixIcon: const Icon(Icons.search,
                       color: _cMuted, size: 20),
                   suffixIcon: _searchController.text.isNotEmpty
@@ -277,11 +274,7 @@ class _MangaSearchScreenState extends State<MangaSearchScreen> {
             const SizedBox(width: 6),
             Text(
               label,
-              style: GoogleFonts.outfit(
-                fontSize: 12,
-                color: selected ? _cWhite : _cRose,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              ),
+              style: AppTypography.outfitHeading.copyWith(fontSize: 12, color: selected ? _cWhite : _cRose),
             ),
           ],
         ),
@@ -329,7 +322,7 @@ class _MangaSearchScreenState extends State<MangaSearchScreen> {
   }
 
   int _gridColumns(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
+    final width = MediaQuery.sizeOf(context).width;
     if (width > 1200) return 6;
     if (width > 900) return 5;
     if (width > 600) return 4;
@@ -348,20 +341,13 @@ class _MangaSearchScreenState extends State<MangaSearchScreen> {
             const SizedBox(height: 20),
             Text(
               'Find Your Next Read',
-              style: GoogleFonts.cormorantGaramond(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: _cRose,
-              ),
+              style: AppTypography.cormorantBold.copyWith(fontSize: 24, color: _cRose),
             ),
             const SizedBox(height: 8),
             Text(
               'Search by title to discover manga,\nmanhwa, and manhua',
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                color: _cMuted,
-                fontSize: 14,
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 14),
             ),
           ],
         ),
@@ -380,16 +366,12 @@ class _MangaSearchScreenState extends State<MangaSearchScreen> {
             const SizedBox(height: 16),
             Text(
               'No results found',
-              style: GoogleFonts.outfit(
-                color: _cRose,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              style: AppTypography.outfitBold.copyWith(color: _cRose, fontSize: 16),
             ),
             const SizedBox(height: 4),
             Text(
               'Try a different search term or filter',
-              style: GoogleFonts.outfit(color: _cMuted, fontSize: 13),
+              style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 13),
             ),
           ],
         ),

@@ -1,12 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:web/web.dart' as web;
+import 'package:flutter/services.dart';import 'package:web/web.dart' as web;
 import 'dart:ui_web' as ui_web;
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../presentation/widgets/web_overlay_button.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class TableTennisGameScreen extends StatefulWidget {
   const TableTennisGameScreen({super.key});
@@ -129,14 +128,14 @@ class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
                   alignment: Alignment.center,
                   child: Text(
                     'Table Tennis World Tour is only available in the web build.',
-                    style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+                    style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
                   ),
                 ),
               ),
 
             if (_booted)
               Positioned(
-                top: MediaQuery.of(context).padding.top + 8,
+                top: MediaQuery.paddingOf(context).top + 8,
                 left: 12,
                 right: 12,
                 child: Row(
@@ -171,27 +170,19 @@ class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
                       const SizedBox(height: 12),
                       Text(
                         'Rotate your device',
-                        style: GoogleFonts.cormorantGaramond(
-                          color: AppTheme.petalWhite,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: AppTypography.cormorantSemiBoldWhite.copyWith(fontSize: 28),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Table Tennis runs in landscape.',
-                        style: GoogleFonts.outfit(
-                          color: AppTheme.petalWhite.withValues(alpha: 0.75),
-                        ),
+                        style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.75)),
                       ),
                       const SizedBox(height: 24),
                       TextButton(
                         onPressed: _close,
                         child: Text(
                           'Back',
-                          style: GoogleFonts.outfit(
-                            color: AppTheme.petalWhite.withValues(alpha: 0.7),
-                          ),
+                          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.7)),
                         ),
                       ),
                     ],

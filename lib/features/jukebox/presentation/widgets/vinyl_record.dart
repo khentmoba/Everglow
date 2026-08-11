@@ -29,7 +29,8 @@ class _VinylRecordState extends State<VinylRecord>
 
   @override
   Widget build(BuildContext context) {
-    return RotationTransition(
+    return RepaintBoundary(
+      child: RotationTransition(
       turns: _controller,
       child: Container(
         width: 60,
@@ -90,6 +91,7 @@ class _VinylRecordState extends State<VinylRecord>
             ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'package:everglow/core/theme/app_motion.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'netflix_colors.dart';
 import 'netflix_hover_preview.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Tells the owning row where this card sits on screen so a floating
 /// preview can be anchored to it (Netflix-style hover popover).
@@ -267,15 +267,10 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
                 fit: BoxFit.contain,
                 child: Text(
                   '${widget.rank}',
-                  style: GoogleFonts.outfit(
-                    fontSize: 150,
-                    fontWeight: FontWeight.w900,
-                    height: 0.9,
-                    foreground: Paint()
+                  style: AppTypography.outfitWhite.copyWith(fontSize: 150, fontWeight: FontWeight.w900, height: 0.9, foreground: Paint()
                       ..style = PaintingStyle.stroke
                       ..strokeWidth = 3
-                      ..color = _rankColor(widget.rank!),
-                  ),
+                      ..color = _rankColor(widget.rank!)),
                 ),
               ),
             ),
@@ -426,11 +421,7 @@ class _NetflixContinueCardState extends State<NetflixContinueCard> {
                                   widget.item.title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.outfit(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                                  style: AppTypography.outfitHeading.copyWith(color: Colors.white, fontSize: 13),
                                 ),
                               ),
                               const Icon(
@@ -464,11 +455,7 @@ class _NetflixContinueCardState extends State<NetflixContinueCard> {
                       widget.subtitle!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.outfit(
-                        color: NetflixColors.textSecondary,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: AppTypography.outfitWhite.copyWith(color: NetflixColors.textSecondary, fontSize: 11.5, fontWeight: FontWeight.w500),
                     ),
                   ],
                 ],
@@ -496,11 +483,7 @@ class _PosterFallback extends StatelessWidget {
         maxLines: 3,
         overflow: TextOverflow.ellipsis,
         textAlign: TextAlign.center,
-        style: GoogleFonts.outfit(
-          color: NetflixColors.textSecondary,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-        ),
+        style: AppTypography.outfitBold.copyWith(color: NetflixColors.textSecondary, fontSize: 11),
       ),
     );
   }

@@ -1,10 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import 'package:flutter/material.dart';import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'package:provider/provider.dart';
 import '../../domain/models/calendar_event.dart';
 import '../../data/services/calendar_service.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class AddEventDialog extends StatefulWidget {
   final DateTime selectedDay;
@@ -75,7 +74,7 @@ class _AddEventDialogState extends State<AddEventDialog> {
         margin: const EdgeInsets.symmetric(horizontal: 32),
         padding: const EdgeInsets.all(24),
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.85,
         ),
         decoration: BoxDecoration(
           color: AppTheme.velvet,
@@ -98,19 +97,12 @@ class _AddEventDialogState extends State<AddEventDialog> {
             children: [
               Text(
                 "Add Event 📅",
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.roseQuartz,
-                ),
+                style: AppTypography.cormorantBold.copyWith(fontSize: 26),
               ),
               const SizedBox(height: 4),
               Text(
                 dayLabel,
-                style: GoogleFonts.outfit(
-                  fontSize: 13,
-                  color: AppTheme.blushGold,
-                ),
+                style: AppTypography.outfitWhite.copyWith(fontSize: 13, color: AppTheme.blushGold),
               ),
               const SizedBox(height: 20),
 
@@ -143,14 +135,9 @@ class _AddEventDialogState extends State<AddEventDialog> {
                       ),
                       child: Text(
                         "${info.$1} ${info.$2}",
-                        style: GoogleFonts.outfit(
-                          fontSize: 12,
-                          fontWeight:
-                              isSelected ? FontWeight.bold : FontWeight.w500,
-                          color: isSelected
+                        style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, color: isSelected
                               ? AppTheme.petalWhite
-                              : AppTheme.petalWhite.withValues(alpha: 0.7),
-                        ),
+                              : AppTheme.petalWhite.withValues(alpha: 0.7)),
                       ),
                     ),
                   );
@@ -162,12 +149,10 @@ class _AddEventDialogState extends State<AddEventDialog> {
               // ── Title ──
               TextField(
                 controller: _titleController,
-                style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
                 decoration: InputDecoration(
                   hintText: "Event title",
-                  hintStyle: GoogleFonts.outfit(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.65),
-                  ),
+                  hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.65)),
                   filled: true,
                   fillColor: AppTheme.twilight,
                   border: OutlineInputBorder(
@@ -189,12 +174,10 @@ class _AddEventDialogState extends State<AddEventDialog> {
               TextField(
                 controller: _descController,
                 maxLines: 2,
-                style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
                 decoration: InputDecoration(
                   hintText: "Description (optional)",
-                  hintStyle: GoogleFonts.outfit(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.65),
-                  ),
+                  hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.65)),
                   filled: true,
                   fillColor: AppTheme.twilight,
                   border: OutlineInputBorder(
@@ -217,10 +200,7 @@ class _AddEventDialogState extends State<AddEventDialog> {
                 children: [
                   Text(
                     "Repeat",
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.75),
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.petalWhite.withValues(alpha: 0.75)),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -238,10 +218,7 @@ class _AddEventDialogState extends State<AddEventDialog> {
                         isExpanded: true,
                         dropdownColor: AppTheme.twilight,
                         underline: const SizedBox(),
-                        style: GoogleFonts.outfit(
-                          color: AppTheme.petalWhite,
-                          fontSize: 13,
-                        ),
+                        style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 13),
                         items: const [
                           DropdownMenuItem(
                             value: 'none',
@@ -275,9 +252,7 @@ class _AddEventDialogState extends State<AddEventDialog> {
                     onPressed: () => Navigator.pop(context),
                     child: Text(
                       "Cancel",
-                      style: GoogleFonts.outfit(
-                        color: AppTheme.roseQuartz.withValues(alpha: 0.6),
-                      ),
+                      style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -311,7 +286,7 @@ class _AddEventDialogState extends State<AddEventDialog> {
                         : Text(
                             "Save",
                             style:
-                                GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                                AppTypography.outfitWhite.copyWith(fontWeight: FontWeight.bold),
                           ),
                   ),
                 ],

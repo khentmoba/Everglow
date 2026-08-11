@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';import 'package:provider/provider.dart';
 
 import 'package:everglow/core/theme/app_breakpoints.dart';
 import 'package:everglow/core/theme/app_theme.dart';
@@ -22,6 +20,7 @@ import 'package:everglow/shared/widgets/shelf/shelf_empty_state.dart';
 import 'package:everglow/shared/widgets/shelf/shimmer_box.dart';
 import 'package:everglow/shared/widgets/shelf/shelf_pill_bottom_nav.dart';
 import 'package:everglow/shared/widgets/shelf/staggered_entrance.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 // Manga shelf uses the anime palette from AppColors
 const _cBlack = AppColors.animeBackground;
@@ -46,8 +45,7 @@ class MangaLibraryScreen extends StatefulWidget {
   State<MangaLibraryScreen> createState() => _MangaLibraryScreenState();
 }
 
-class _MangaLibraryScreenState extends State<MangaLibraryScreen>
-    with TickerProviderStateMixin {
+class _MangaLibraryScreenState extends State<MangaLibraryScreen> {
   final MangaKakalotService _service = MangaKakalotService();
   final MangaDexService _mangaDex = MangaDexService();
   int _currentIndex = 0;
@@ -276,20 +274,13 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
                     const SizedBox(height: 8),
                     Text(
                       'Unable to load catalogue right now.',
-                      style: GoogleFonts.outfit(
-                        color: _cRose,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: AppTypography.outfitBold.copyWith(color: _cRose, fontSize: 14),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Pull down to retry or use Search to find titles.',
-                      style: GoogleFonts.outfit(
-                        color: _cMuted,
-                        fontSize: 12,
-                      ),
+                      style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 12),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -471,19 +462,11 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
               children: [
                 Text(
                   'Manga Shelf',
-                  style: GoogleFonts.cormorantGaramond(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: _cRose,
-                    height: 1.1,
-                  ),
+                  style: AppTypography.cormorantBold.copyWith(fontSize: 26, height: 1.1, color: _cRose),
                 ),
                 Text(
                   'Manga · Manhwa · Manhua',
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    color: _cRose.withValues(alpha: 0.6),
-                  ),
+                  style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: _cRose.withValues(alpha: 0.6)),
                 ),
               ],
             ),
@@ -579,10 +562,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
               const SizedBox(height: 8),
               Text(
                 _homeError!,
-                style: GoogleFonts.outfit(
-                  color: _cMuted,
-                  fontStyle: FontStyle.italic,
-                ),
+                style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontStyle: FontStyle.italic),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
@@ -600,11 +580,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
                   ),
                   child: Text(
                     'Retry',
-                    style: GoogleFonts.outfit(
-                      color: _cRose,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: AppTypography.outfitHeading.copyWith(color: _cRose, fontSize: 12),
                   ),
                 ),
               ),
@@ -616,10 +592,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: Text(
           'Nothing here yet.',
-          style: GoogleFonts.outfit(
-            color: _cMuted,
-            fontStyle: FontStyle.italic,
-          ),
+          style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontStyle: FontStyle.italic),
         ),
       );
     }
@@ -715,118 +688,114 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
         ? buckets[safeIndex]
         : activeBucket;
 
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 100),
-      children: [
-        Padding(
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'MANGA SHELF',
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: _cWhite,
-                  letterSpacing: 3,
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'MANGA SHELF',
+                  style: AppTypography.cormorantBlack.copyWith(fontSize: 22, letterSpacing: 3, color: _cWhite),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Container(
-                    width: 4,
-                    height: 4,
-                    decoration: const BoxDecoration(
-                      color: _cDeepRose,
-                      shape: BoxShape.circle,
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 4,
+                      decoration: const BoxDecoration(
+                        color: _cDeepRose,
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'MANGA · MANHWA · MANHUA',
-                    style: GoogleFonts.outfit(
-                      fontSize: 9,
-                      color: _cMuted,
-                      letterSpacing: 2.5,
-                      fontWeight: FontWeight.w700,
+                    const SizedBox(width: 6),
+                    Text(
+                      'MANGA · MANHWA · MANHUA',
+                      style: AppTypography.outfitHeading.copyWith(fontSize: 9, color: _cMuted, letterSpacing: 2.5),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Container(
-                    width: 4,
-                    height: 4,
-                    decoration: const BoxDecoration(
-                      color: _cDeepRose,
-                      shape: BoxShape.circle,
+                    const SizedBox(width: 6),
+                    Container(
+                      width: 4,
+                      height: 4,
+                      decoration: const BoxDecoration(
+                        color: _cDeepRose,
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (int i = 0; i < buckets.length; i++)
-                    _bucketChip(buckets[i], i == safeIndex,
-                        () => setState(() => _libraryTab = i)),
-                ],
-              ),
-            ],
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (int i = 0; i < buckets.length; i++)
+                      _bucketChip(buckets[i], i == safeIndex,
+                          () => setState(() => _libraryTab = i)),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
-        Padding(
+        SliverPadding(
           padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
-          child: ShelfSectionHeader(
-            eyebrow: showing.items.isEmpty
-                ? 'Nothing here yet'
-                : 'Currently Showing',
-            title: showing.title,
-            icon: showing.icon,
-            accent: showing.accent,
-            count: showing.items.length,
-            countLabel: 'titles',
+          sliver: SliverToBoxAdapter(
+            child: ShelfSectionHeader(
+              eyebrow: showing.items.isEmpty
+                  ? 'Nothing here yet'
+                  : 'Currently Showing',
+              title: showing.title,
+              icon: showing.icon,
+              accent: showing.accent,
+              count: showing.items.length,
+              countLabel: 'titles',
+            ),
           ),
         ),
         if (showing.items.isEmpty)
-          ShelfEmptyState(
-            icon: showing.icon,
-            title: 'No ${showing.title.toLowerCase()} titles yet',
-            subtitle:
-                'Anything you add to your library with this status will show up here.',
-            accent: showing.accent,
+          SliverToBoxAdapter(
+            child: ShelfEmptyState(
+              icon: showing.icon,
+              title: 'No ${showing.title.toLowerCase()} titles yet',
+              subtitle:
+                  'Anything you add to your library with this status will show up here.',
+              accent: showing.accent,
+            ),
           )
         else
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
+          SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            itemCount: showing.items.length,
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: AppBreakpoint.isDesktop(context)
-                  ? 6
-                  : (AppBreakpoint.isTablet(context) ? 4 : 2),
-              childAspectRatio: 0.65,
-              crossAxisSpacing: 14,
-              mainAxisSpacing: 14,
+            sliver: SliverGrid.builder(
+              itemCount: showing.items.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: AppBreakpoint.isDesktop(context)
+                    ? 6
+                    : (AppBreakpoint.isTablet(context) ? 4 : 2),
+                childAspectRatio: 0.65,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 14,
+              ),
+              itemBuilder: (context, index) {
+                final item = showing.items[index];
+                return ShelfPosterCard(
+                  imageUrl: _proxyCoverUrl(item.coverUrl),
+                  title: item.title,
+                  subtitle: item.year.isNotEmpty
+                      ? '${item.contentType} · ${item.year}'
+                      : item.contentType,
+                  badge: showing.title.toUpperCase(),
+                  badgeColor: showing.accent,
+                  badgeIcon: showing.icon,
+                  onTap: () => _openDetails(item),
+                );
+              },
             ),
-            itemBuilder: (context, index) {
-              final item = showing.items[index];
-              return ShelfPosterCard(
-                imageUrl: _proxyCoverUrl(item.coverUrl),
-                title: item.title,
-                subtitle: item.year.isNotEmpty
-                    ? '${item.contentType} · ${item.year}'
-                    : item.contentType,
-                badge: showing.title.toUpperCase(),
-                badgeColor: showing.accent,
-                badgeIcon: showing.icon,
-                onTap: () => _openDetails(item),
-              );
-            },
           ),
+        const SliverToBoxAdapter(child: SizedBox(height: 100)),
       ],
     );
   }
@@ -856,11 +825,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
             const SizedBox(width: 6),
             Text(
               bucket.title,
-              style: GoogleFonts.outfit(
-                fontSize: 11,
-                color: selected ? bucket.accent : _cRose,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              ),
+              style: AppTypography.outfitHeading.copyWith(fontSize: 11, color: selected ? bucket.accent : _cRose),
             ),
             const SizedBox(width: 8),
             Container(
@@ -873,11 +838,7 @@ class _MangaLibraryScreenState extends State<MangaLibraryScreen>
               ),
               child: Text(
                 '${bucket.items.length}',
-                style: GoogleFonts.outfit(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                  color: selected ? Colors.white : _cMuted,
-                ),
+                style: AppTypography.outfitWhite.copyWith(fontSize: 9, fontWeight: FontWeight.w800, color: selected ? Colors.white : _cMuted),
               ),
             ),
           ],
@@ -943,11 +904,7 @@ class _LangFilterChip extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               label,
-              style: GoogleFonts.outfit(
-                color: selected ? _cWhite : _cRose,
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              ),
+              style: AppTypography.outfitHeading.copyWith(color: selected ? _cWhite : _cRose, fontSize: 12),
             ),
           ],
         ),

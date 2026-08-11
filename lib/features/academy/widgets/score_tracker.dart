@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class ScoreTracker extends StatelessWidget {
   final int khentScore;
@@ -39,11 +39,7 @@ class ScoreTracker extends StatelessWidget {
             children: [
               Text(
                 'VS',
-                style: GoogleFonts.outfit(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFFFF69B4),
-                ),
+                style: AppTypography.outfitWhite.copyWith(fontSize: 20, fontWeight: FontWeight.w900, color: const Color(0xFFFF69B4)),
               ),
               const SizedBox(height: 4),
               Container(
@@ -77,19 +73,11 @@ class ScoreTracker extends StatelessWidget {
       children: [
         Text(
           name,
-          style: GoogleFonts.outfit(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Colors.black54,
-          ),
+          style: AppTypography.outfitBold.copyWith(fontSize: 16, color: Colors.black54),
         ),
         Text(
           score.toString(),
-          style: GoogleFonts.outfit(
-            fontSize: 32,
-            fontWeight: FontWeight.w900,
-            color: color,
-          ),
+          style: AppTypography.outfitWhite.copyWith(fontSize: 32, fontWeight: FontWeight.w900, color: color),
         ),
       ],
     );

@@ -46,7 +46,8 @@ class _AnimatedEmblemState extends State<AnimatedEmblem> with SingleTickerProvid
   Widget build(BuildContext context) {
     final effectiveColor = widget.color ?? AppTheme.deepRose;
 
-    return AnimatedBuilder(
+    return RepaintBoundary(
+      child: AnimatedBuilder(
       animation: _glowAnimation,
       builder: (context, child) {
         return Container(
@@ -80,7 +81,7 @@ class _AnimatedEmblemState extends State<AnimatedEmblem> with SingleTickerProvid
           ),
         );
       },
+      ),
     );
   }
 }
-

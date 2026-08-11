@@ -4,7 +4,6 @@ import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -20,6 +19,7 @@ import 'package:everglow/features/cinema/data/models/video_source_config.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/presentation/widgets/episode_navigator.dart';
 import 'package:everglow/services/auth_service.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final int tmdbId;
@@ -87,12 +87,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// the embed dead. vidsrc embeds usually load in 2-4s; 15s is a
   /// generous ceiling that still surfaces 404s within a reasonable
   /// user wait.
-  static const Duration _loadTimeout = Duration(seconds: 15);
+  static const Duration _loadTimeout = const Duration(seconds: 15);
 
   /// How long to wait for VidLink to send a `MEDIA_DATA` postMessage
   /// event after the iframe loads. If the event never arrives the
   /// provider likely showed "content not available", so we fall back.
-  static const Duration _contentCheckTimeout = Duration(seconds: 8);
+  static const Duration _contentCheckTimeout = const Duration(seconds: 8);
 
   /// The currently selected embed source. Starts at the user's saved
   /// default (or the first entry from VideoSourceService); auto-fallback
@@ -719,8 +719,8 @@ _currentSeason = widget.season ?? 1;
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 14),
-                          SizedBox(width: 6),
+                          const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 14),
+                          const SizedBox(width: 6),
                           Text(
                             'Back',
                             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
@@ -735,11 +735,7 @@ _currentSeason = widget.season ?? 1;
                       widget.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.outfit(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: AppTypography.outfitWhite.copyWith(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
                   if (!_isLoading && !_iframeFailed) ...[
@@ -764,11 +760,7 @@ _currentSeason = widget.season ?? 1;
                             const SizedBox(width: 4),
                             Text(
                               'Try Another Source',
-                              style: GoogleFonts.outfit(
-                                color: Colors.white70,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                              ),
+                              style: AppTypography.outfitHeading.copyWith(color: Colors.white70, fontSize: 11),
                             ),
                           ],
                         ),
@@ -871,7 +863,6 @@ _currentSeason = widget.season ?? 1;
     );
   }
 
-
   // ---------------------------------------------------------------------------
   // METADATA SECTION
   // ---------------------------------------------------------------------------
@@ -905,12 +896,12 @@ _currentSeason = widget.season ?? 1;
             Wrap(spacing: 6, runSpacing: 6, children: genreNames.take(5).map((g) => Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(color: AppColors.surfaceGlass, borderRadius: BorderRadius.circular(AppRadius.xs)),
-              child: Text(g, style: GoogleFonts.outfit(color: AppColors.textMuted, fontSize: 11)),
+              child: Text(g, style: AppTypography.outfitWhite.copyWith(color: AppColors.textMuted, fontSize: 11)),
             )).toList()),
           ],
           if (overview.isNotEmpty) ...[
             const SizedBox(height: 14),
-            Text(overview, style: GoogleFonts.outfit(color: AppColors.textMedium, fontSize: 13, height: 1.5)),
+            Text(overview, style: AppTypography.outfitWhite.copyWith(color: AppColors.textMedium, fontSize: 13, height: 1.5)),
           ],
         ],
       ),
@@ -928,7 +919,7 @@ _currentSeason = widget.season ?? 1;
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(icon, color: accent ? AppColors.deepRose : AppColors.textMuted, size: 12),
         const SizedBox(width: 4),
-        Text(label, style: GoogleFonts.outfit(color: accent ? AppColors.deepRose : AppColors.textMuted, fontSize: 11, fontWeight: accent ? FontWeight.w700 : FontWeight.w600)),
+        Text(label, style: AppTypography.outfitHeading.copyWith(color: accent ? AppColors.deepRose : AppColors.textMuted, fontSize: 11)),
       ]),
     );
   }
@@ -943,14 +934,14 @@ _currentSeason = widget.season ?? 1;
       child: GestureDetector(
         onTap: () => _showProviderSheet(),
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
           decoration: BoxDecoration(color: AppColors.velvet.withValues(alpha: 0.5), borderRadius: BorderRadius.circular(AppRadius.sm), border: Border.all(color: AppColors.border, width: 1)),
           child: Row(children: [
             Container(width: 8, height: 8, decoration: BoxDecoration(color: AppColors.deepRose, shape: BoxShape.circle, boxShadow: [BoxShadow(color: AppColors.deepRose.withValues(alpha: 0.5), blurRadius: 6)])),
             const SizedBox(width: 10),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Server: ${_selectedProvider.name}', style: GoogleFonts.outfit(color: AppColors.petalWhite, fontSize: 13, fontWeight: FontWeight.w700)),
-              Text(_selectedProvider.desc, style: GoogleFonts.outfit(color: AppColors.textMuted, fontSize: 11)),
+              Text('Server: ${_selectedProvider.name}', style: AppTypography.outfitHeading.copyWith(fontSize: 13)),
+              Text(_selectedProvider.desc, style: AppTypography.outfitWhite.copyWith(color: AppColors.textMuted, fontSize: 11)),
             ])),
             Icon(Icons.swap_horiz_rounded, color: AppColors.textMuted, size: 18),
           ]),
@@ -962,7 +953,6 @@ _currentSeason = widget.season ?? 1;
   // ---------------------------------------------------------------------------
   // MORE LIKE THIS
   // ---------------------------------------------------------------------------
-
 
   /// The chip in the header that shows the current embed source. A
   /// [PopupMenuButton] that lets the user switch providers manually.
@@ -992,11 +982,7 @@ _currentSeason = widget.season ?? 1;
           const SizedBox(width: 8),
           Text(
             active.shortName,
-            style: GoogleFonts.outfit(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
+            style: AppTypography.outfitWhite.copyWith(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
           ),
           if (isSelectable) ...[
             const SizedBox(width: 4),
@@ -1021,7 +1007,7 @@ _currentSeason = widget.season ?? 1;
       context: context,
       backgroundColor: const Color(0xFF1C1228),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
       isScrollControlled: true,
       useSafeArea: true,
@@ -1042,19 +1028,12 @@ _currentSeason = widget.season ?? 1;
             const SizedBox(height: 16),
             Text(
               'Switch Source',
-              style: GoogleFonts.outfit(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(
               'Select a streaming provider',
-              style: GoogleFonts.outfit(
-                color: Colors.white54,
-                fontSize: 12,
-              ),
+              style: AppTypography.outfitMuted.copyWith(color: Colors.white54, fontSize: 12),
             ),
             const SizedBox(height: 12),
             ..._selectableProviders.map((p) {
@@ -1069,18 +1048,11 @@ _currentSeason = widget.season ?? 1;
                 ),
                 title: Text(
                   p.name,
-                  style: GoogleFonts.outfit(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: AppTypography.outfitWhite.copyWith(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
                 ),
                 subtitle: Text(
                   p.desc,
-                  style: GoogleFonts.outfit(
-                    color: Colors.white54,
-                    fontSize: 11,
-                  ),
+                  style: AppTypography.outfitMuted.copyWith(color: Colors.white54, fontSize: 11),
                 ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -1153,31 +1125,19 @@ _currentSeason = widget.season ?? 1;
           Text(
             'This title isn\'t available on ${active.shortName}.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.outfit(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-            ),
+            style: AppTypography.outfitHeading.copyWith(color: Colors.white, fontSize: 15),
           ),
           const SizedBox(height: 6),
           Text(
             'The embed returned a 404 or didn\'t respond. Try a different source below.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.outfit(
-              color: Colors.white60,
-              fontSize: 12,
-            ),
+            style: AppTypography.outfitMuted.copyWith(color: Colors.white60, fontSize: 12),
           ),
           const SizedBox(height: 24),
           if (others.isNotEmpty) ...[
             Text(
               'Try another source',
-              style: GoogleFonts.outfit(
-                color: AppTheme.roseQuartz,
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.5,
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.5),
             ),
             const SizedBox(height: 10),
             Wrap(
@@ -1209,11 +1169,7 @@ _currentSeason = widget.season ?? 1;
                               const SizedBox(width: 6),
                               Text(
                                 p.name,
-                                style: GoogleFonts.outfit(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                                style: AppTypography.outfitHeading.copyWith(color: Colors.white, fontSize: 12),
                               ),
                             ],
                           ),
@@ -1247,11 +1203,7 @@ _currentSeason = widget.season ?? 1;
                   const SizedBox(width: 8),
                   Text(
                     'Open in browser',
-                    style: GoogleFonts.outfit(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: AppTypography.outfitHeading.copyWith(color: Colors.white, fontSize: 12),
                   ),
                 ],
               ),

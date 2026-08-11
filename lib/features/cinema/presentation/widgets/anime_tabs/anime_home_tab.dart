@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart' hide FilterChip;
-import 'package:google_fonts/google_fonts.dart';
-
 import 'package:everglow/core/theme/app_breakpoints.dart';
 import 'package:everglow/core/theme/app_colors.dart';
 import 'package:everglow/core/theme/app_theme.dart';
@@ -17,6 +15,7 @@ import 'package:everglow/shared/widgets/shelf/cinema_sections.dart';
 import 'package:everglow/features/ai/presentation/widgets/ai_recommendations.dart';
 
 import 'anime_models.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 // ── Anime palette (subset used by the Home tab) ─────────────────
 const _cCard           = AppColors.animeCard;
@@ -411,20 +410,11 @@ class AnimeHomeTab extends StatelessWidget {
               children: [
                 Text(
                   'Everglow Anime',
-                  style: GoogleFonts.cormorantGaramond(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: _cRose,
-                    height: 1.1,
-                  ),
+                  style: AppTypography.cormorantBold.copyWith(fontSize: 26, height: 1.1, color: _cRose),
                 ),
                 Text(
                   'Discover · Watch · Collect',
-                  style: GoogleFonts.outfit(
-                    fontSize: 11,
-                    color: _cCyan.withValues(alpha: 0.8),
-                    letterSpacing: 1.2,
-                  ),
+                  style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: _cCyan.withValues(alpha: 0.8), letterSpacing: 1.2),
                 ),
               ],
             ),
@@ -450,10 +440,7 @@ class AnimeHomeTab extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     'Search anime...',
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      color: _cMuted,
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: _cMuted),
                   ),
                 ],
               ),
@@ -515,10 +502,7 @@ class AnimeHomeTab extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'Couldn\'t load ${section.title.toLowerCase()}',
-                    style: GoogleFonts.outfit(
-                      color: _cMuted,
-                      fontSize: 13,
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 13),
                   ),
                 ),
                 GestureDetector(
@@ -535,11 +519,7 @@ class AnimeHomeTab extends StatelessWidget {
                     ),
                     child: Text(
                       'Retry',
-                      style: GoogleFonts.outfit(
-                        color: section.tint,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: AppTypography.outfitBold.copyWith(color: section.tint, fontSize: 12),
                     ),
                   ),
                 ),
@@ -561,10 +541,7 @@ class AnimeHomeTab extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: Text(
           'Nothing here yet. Search above to add your first anime!',
-          style: GoogleFonts.outfit(
-            color: _cMuted,
-            fontStyle: FontStyle.italic,
-          ),
+          style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontStyle: FontStyle.italic),
         ),
       );
     }
@@ -739,22 +716,13 @@ class AnimeHomeTab extends StatelessWidget {
                               item.title,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.cormorantGaramond(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.petalWhite,
-                                height: 1.15,
-                              ),
+                              style: AppTypography.cormorantBoldWhite.copyWith(fontSize: 16, height: 1.15),
                             ),
                             if (item.year.isNotEmpty) ...[
                               const SizedBox(height: 4),
                               Text(
                                 item.year,
-                                style: GoogleFonts.outfit(
-                                  color: AppTheme.warmAmber,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                                style: AppTypography.outfitBold.copyWith(color: AppTheme.warmAmber, fontSize: 10),
                               ),
                             ],
                             const SizedBox(height: 8),

@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'package:everglow/core/theme/app_motion.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/features/cinema/presentation/widgets/trailer_player.dart';
@@ -309,13 +309,12 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
             if (isDesktop)
               Row(
                 children: [
-                  Text(
-                    '$_matchPercent% Match',
-                    style: GoogleFonts.outfit(
-                      color: NetflixColors.match,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    Text(
+                      '$_matchPercent% Match',
+                      style: AppTypography.outfitHeading.copyWith(
+                        fontSize: 14,
+                        color: NetflixColors.match,
+                      ),
                   ),
                   if (_item.year.isNotEmpty) ...[
                     const SizedBox(width: 10),
@@ -340,16 +339,9 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
               _item.title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.cormorantGaramond(
-                fontSize: isDesktop ? 46 : 32,
-                fontWeight: FontWeight.w900,
-                color: NetflixColors.textPrimary,
-                height: 1.02,
-                letterSpacing: 0.2,
-                shadows: const [
-                  Shadow(color: Color(0xAA000000), blurRadius: 18),
-                ],
-              ),
+             style: AppTypography.cormorantBlack.copyWith(fontSize: isDesktop ? 46 : 32, height: 1.02, letterSpacing: 0.2, shadows: const [
+                 Shadow(color: Color(0xAA000000), blurRadius: 18),
+               ], color: NetflixColors.textPrimary),
             ),
             if (isDesktop && _synopsis.isNotEmpty) ...[
               const SizedBox(height: 14),
@@ -357,9 +349,9 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
                 _synopsis,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.outfit(
-                  color: NetflixColors.textSecondary,
+                style: AppTypography.outfitMuted.copyWith(
                   fontSize: 14.5,
+                  color: NetflixColors.textSecondary,
                   height: 1.4,
                   shadows: const [
                     Shadow(color: Color(0x99000000), blurRadius: 10),
@@ -399,10 +391,9 @@ class _MetaText extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: GoogleFonts.outfit(
-        color: Colors.white.withValues(alpha: 0.85),
+      style: AppTypography.outfitMedium.copyWith(
         fontSize: 13,
-        fontWeight: FontWeight.w500,
+        color: Colors.white.withValues(alpha: 0.85),
       ),
     );
   }
@@ -421,10 +412,8 @@ class _HdBadge extends StatelessWidget {
       ),
       child: Text(
         'HD',
-        style: GoogleFonts.outfit(
-          color: Colors.white,
+        style: AppTypography.outfitHeading.copyWith(
           fontSize: 10,
-          fontWeight: FontWeight.w700,
           letterSpacing: 0.5,
         ),
       ),
@@ -449,8 +438,7 @@ class _Top10Badge extends StatelessWidget {
         children: [
           Text(
             'TOP',
-            style: GoogleFonts.outfit(
-              color: Colors.white,
+            style: AppTypography.outfitHeading.copyWith(
               fontSize: 12,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.2,
@@ -459,10 +447,10 @@ class _Top10Badge extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             '10',
-            style: GoogleFonts.outfit(
-              color: NetflixColors.gold,
+            style: AppTypography.outfitHeading.copyWith(
               fontSize: 12,
               fontWeight: FontWeight.w900,
+              color: NetflixColors.gold,
               letterSpacing: 1.2,
             ),
           ),
@@ -542,10 +530,9 @@ class _BillboardButton extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               label,
-              style: GoogleFonts.outfit(
-                color: primary ? Colors.black : Colors.white,
+              style: AppTypography.outfitHeading.copyWith(
                 fontSize: isDesktop ? 15 : 13.5,
-                fontWeight: FontWeight.w700,
+                color: primary ? Colors.black : Colors.white,
               ),
             ),
           ],

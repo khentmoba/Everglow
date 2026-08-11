@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';import 'package:go_router/go_router.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/shared/widgets/gamified_background.dart';
 import 'package:everglow/services/auth_service.dart';
@@ -12,6 +10,7 @@ import '../../data/models/bucket_item.dart';
 import '../../data/services/bucket_list_service.dart';
 import '../widgets/bucket_item_card.dart';
 import '../widgets/add_bucket_item_dialog.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class BucketListScreen extends StatefulWidget {
   const BucketListScreen({super.key});
@@ -50,12 +49,7 @@ class _BucketListScreenState extends State<BucketListScreen> {
                   const Spacer(),
                   Text(
                     'Our Bucket List',
-                    style: GoogleFonts.cormorantGaramond(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.roseQuartz,
-                      letterSpacing: 1.5,
-                    ),
+                    style: AppTypography.cormorantBold.copyWith(fontSize: 22, letterSpacing: 1.5),
                   ),
                   const Spacer(),
                   const SizedBox(width: 48),
@@ -183,11 +177,7 @@ class _BucketListScreenState extends State<BucketListScreen> {
                       ),
                       Text(
                         '$completed',
-                        style: GoogleFonts.outfit(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.blushGold,
-                        ),
+                        style: AppTypography.outfitWhite.copyWith(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.blushGold),
                       ),
                     ],
                   ),
@@ -199,19 +189,12 @@ class _BucketListScreenState extends State<BucketListScreen> {
                     children: [
                       Text(
                         '$completed of $total dreams fulfilled ✨',
-                        style: GoogleFonts.outfit(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.petalWhite,
-                        ),
+                        style: AppTypography.outfitBold.copyWith(fontSize: 14, color: AppTheme.petalWhite),
                       ),
                       if (total > 0)
                         Text(
                           '${(progress * 100).round()}% complete',
-                          style: GoogleFonts.outfit(
-                            fontSize: 11,
-                            color: AppTheme.petalWhite.withValues(alpha: 0.6),
-                          ),
+                          style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: AppTheme.petalWhite.withValues(alpha: 0.6)),
                         ),
                     ],
                   ),
@@ -247,13 +230,9 @@ class _BucketListScreenState extends State<BucketListScreen> {
           ),
           child: Text(
             label,
-            style: GoogleFonts.outfit(
-              fontSize: 12,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-              color: isSelected
+            style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, color: isSelected
                   ? AppTheme.blushGold
-                  : AppTheme.petalWhite.withValues(alpha: 0.6),
-            ),
+                  : AppTheme.petalWhite.withValues(alpha: 0.6)),
           ),
         ),
       ),

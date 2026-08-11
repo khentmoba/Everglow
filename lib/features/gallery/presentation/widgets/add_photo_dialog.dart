@@ -1,11 +1,10 @@
 import 'dart:typed_data';
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker_web/image_picker_web.dart';
+import 'package:flutter/material.dart';import 'package:image_picker_web/image_picker_web.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'package:provider/provider.dart';
 import '../../data/services/gallery_service.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class AddPhotoDialog extends StatefulWidget {
   const AddPhotoDialog({super.key});
@@ -90,7 +89,7 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
         margin: const EdgeInsets.symmetric(horizontal: 32),
         padding: const EdgeInsets.all(24),
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.8,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.8,
         ),
         decoration: BoxDecoration(
           color: AppTheme.velvet,
@@ -113,11 +112,7 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
             children: [
               Text(
                 "Add Memory 📸",
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.roseQuartz,
-                ),
+                style: AppTypography.cormorantBold.copyWith(fontSize: 26),
               ),
               const SizedBox(height: 20),
 
@@ -153,11 +148,8 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                             const SizedBox(height: 12),
                             Text(
                               "Tap to choose a photo",
-                              style: GoogleFonts.outfit(
-                                color: AppTheme.petalWhite
-                                    .withValues(alpha: 0.5),
-                                fontSize: 14,
-                              ),
+                              style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite
+                                    .withValues(alpha: 0.5), fontSize: 14),
                             ),
                           ],
                         ),
@@ -168,12 +160,10 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
               // Caption Input
               TextField(
                 controller: _captionController,
-                style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
                 decoration: InputDecoration(
                   hintText: "Add a caption…",
-                  hintStyle: GoogleFonts.outfit(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.65),
-                  ),
+                  hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.65)),
                   filled: true,
                   fillColor: AppTheme.twilight,
                   border: OutlineInputBorder(
@@ -199,9 +189,7 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                     onPressed: () => Navigator.pop(context),
                     child: Text(
                       "Cancel",
-                      style: GoogleFonts.outfit(
-                        color: AppTheme.roseQuartz.withValues(alpha: 0.6),
-                      ),
+                      style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -233,9 +221,7 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                           )
                         : Text(
                             "Upload",
-                            style: GoogleFonts.outfit(
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: AppTypography.outfitWhite.copyWith(fontWeight: FontWeight.bold),
                           ),
                   ),
                 ],

@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
-import 'package:everglow/features/cinema/presentation/screens/anime_screen.dart';
 import 'package:everglow/features/cinema/presentation/widgets/episode_drawer.dart';
 import 'package:everglow/services/auth_service.dart';
 import '_partner_label.dart';
@@ -25,6 +24,7 @@ class AnimePreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tmdbService = TMDBService();
+
     final auth = context.watch<AuthService>();
     final userName = auth.currentUser ?? '';
     final isCouple = auth.isCoupleUser;

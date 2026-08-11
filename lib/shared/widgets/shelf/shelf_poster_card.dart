@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../core/theme/app_typography.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_breakpoints.dart';
@@ -243,10 +243,9 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                       widget.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.outfit(
+                      style: AppTypography.outfitHeading.copyWith(
                         color: Colors.white,
                         fontSize: 12,
-                        fontWeight: FontWeight.w700,
                         height: 1.15,
                         letterSpacing: 0.1,
                       ),
@@ -258,11 +257,10 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                         widget.subtitle!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.outfit(
+                        style: AppTypography.outfitBold.copyWith(
                           color: AppTheme.blushGold
                               .withValues(alpha: 0.9),
                           fontSize: 10,
-                          fontWeight: FontWeight.w600,
                           fontStyle: FontStyle.italic,
                         ),
                       ),
@@ -300,7 +298,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                       ],
                       Text(
                         widget.badge!,
-                        style: GoogleFonts.outfit(
+                        style: AppTypography.outfitHeading.copyWith(
                           color: Colors.white,
                           fontSize: 8,
                           fontWeight: FontWeight.w800,
@@ -353,13 +351,9 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                   alignment: Alignment.center,
                   child: Text(
                     '${widget.rankNumber}',
-                    style: GoogleFonts.cormorantGaramond(
-                      fontSize: widget.rankNumber! <= 3 ? 15 : 12,
-                      fontWeight: FontWeight.w900,
-                      color: widget.rankNumber! <= 3
+                    style: AppTypography.cormorantBlack.copyWith(fontSize: widget.rankNumber! <= 3 ? 15 : 12, color: widget.rankNumber! <= 3
                           ? AppTheme.velvet
-                          : AppTheme.blushGold,
-                    ),
+                          : AppTheme.blushGold),
                   ),
                 ),
               ),
@@ -436,10 +430,9 @@ class _Placeholder extends StatelessWidget {
             textAlign: TextAlign.center,
             maxLines: 4,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.outfit(
+            style: AppTypography.outfitBold.copyWith(
               color: accent.withValues(alpha: 0.7),
               fontSize: 10,
-              fontWeight: FontWeight.w600,
               height: 1.2,
             ),
           ),

@@ -61,7 +61,8 @@ class _EverglowSkeletonState extends State<EverglowSkeleton>
       );
     }
 
-    return AnimatedBuilder(
+    return RepaintBoundary(
+      child: AnimatedBuilder(
       animation: _controller!,
       builder: (_, __) => Container(
         width: widget.width,
@@ -79,6 +80,7 @@ class _EverglowSkeletonState extends State<EverglowSkeleton>
             stops: const [0.0, 0.5, 1.0],
           ),
         ),
+      ),
       ),
     );
   }

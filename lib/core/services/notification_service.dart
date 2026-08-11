@@ -1,13 +1,13 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/config/env_config.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/app_typography.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -29,6 +29,10 @@ String? routeFromNotification(Map<String, dynamic> data) {
       return '/dashboard';
     case 'mood_checkin':
       return '/dashboard';
+    case 'gallery_photo':
+      return '/gallery';
+    case 'watch_party_invite':
+      return '/dashboard';
     default:
       return null;
   }
@@ -36,7 +40,6 @@ String? routeFromNotification(Map<String, dynamic> data) {
 
 class NotificationService {
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   StreamSubscription<RemoteMessage>? _foregroundSub;
@@ -123,8 +126,7 @@ class NotificationService {
             if (title.isNotEmpty)
               Text(
                 title,
-                style: GoogleFonts.outfit(
-                  fontWeight: FontWeight.bold,
+                style: AppTypography.outfitHeading.copyWith(
                   fontSize: 13,
                   color: AppTheme.blushGold,
                 ),
@@ -132,7 +134,7 @@ class NotificationService {
             if (body.isNotEmpty)
               Text(
                 body,
-                style: GoogleFonts.outfit(
+                style: AppTypography.outfitWhite.copyWith(
                   fontSize: 12,
                   color: AppTheme.petalWhite.withValues(alpha: 0.85),
                 ),
@@ -173,9 +175,12 @@ class NotificationService {
   }
 
   Future<void> _saveToken(String token) async {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) return;
-    await _firestore.collection('fcm_tokens').doc(uid).set({
+    // Save under the current username so Cloud Functions can look
+    // up tokens using the same PARTNER_UID / username mapping.
+    final prefs = await SharedPreferences.getInstance();
+    final username = prefs.getString('current_user_name');
+    if (username == null || username.isEmpty) return;
+    await _firestore.collection('fcm_tokens').doc(username).set({
       'token': token,
       'updatedAt': FieldValue.serverTimestamp(),
       'platform': defaultTargetPlatform.toString(),

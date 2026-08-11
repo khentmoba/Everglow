@@ -3,7 +3,7 @@ import '../../data/models/music_status.dart';
 import 'package:intl/intl.dart';
 import 'listen_along_popup.dart';
 import 'package:everglow/core/theme/app_theme.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class MusicCard extends StatelessWidget {
   final MusicStatus status;
@@ -62,12 +62,7 @@ class MusicCard extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: GoogleFonts.outfit(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.blushGold,
-                  letterSpacing: 0.5,
-                ),
+                style: AppTypography.outfitBold.copyWith(fontSize: 14, color: AppTheme.blushGold, letterSpacing: 0.5),
               ),
               const SizedBox(height: 16),
               Row(
@@ -127,12 +122,7 @@ class MusicCard extends StatelessWidget {
                               const SizedBox(width: 8),
                               Text(
                                 'LIVE',
-                                style: GoogleFonts.outfit(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.warmAmber,
-                                  letterSpacing: 1.2,
-                                ),
+                                style: AppTypography.outfitWhite.copyWith(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.warmAmber, letterSpacing: 1.2),
                               ),
                             ],
                           ),
@@ -142,18 +132,11 @@ class MusicCard extends StatelessWidget {
                               status.trackName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.outfit(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.petalWhite,
-                              ),
+                              style: AppTypography.outfitWhite.copyWith(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.petalWhite),
                             ),
                         Text(
                           status.artistName,
-                          style: GoogleFonts.outfit(
-                            fontSize: 13,
-                            color: AppTheme.petalWhite.withValues(alpha: 0.75),
-                          ),
+                          style: AppTypography.outfitWhite.copyWith(fontSize: 13, color: AppTheme.petalWhite.withValues(alpha: 0.75)),
                         ),
                         if (!isLive) ...[
                           const SizedBox(height: 8),
@@ -161,11 +144,7 @@ class MusicCard extends StatelessWidget {
                             status.timestamp != null 
                               ? 'Last heard at ${_formatTime(status.timestamp!)}'
                               : 'Last heard',
-                            style: GoogleFonts.outfit(
-                              fontSize: 10,
-                              fontStyle: FontStyle.italic,
-                              color: AppTheme.petalWhite.withValues(alpha: 0.65),
-                            ),
+                            style: AppTypography.outfitWhite.copyWith(fontSize: 10, fontStyle: FontStyle.italic, color: AppTheme.petalWhite.withValues(alpha: 0.65)),
                           ),
                         ],
                       ],
@@ -212,7 +191,8 @@ class _PulsingIndicatorState extends State<_PulsingIndicator>
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
+    return RepaintBoundary(
+      child: FadeTransition(
       opacity: _controller,
       child: Container(
         width: 8,
@@ -221,6 +201,7 @@ class _PulsingIndicatorState extends State<_PulsingIndicator>
           color: AppTheme.warmAmber,
           shape: BoxShape.circle,
         ),
+      ),
       ),
     );
   }

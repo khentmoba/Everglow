@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../domain/models/hidden_note.dart';
 import '../../../../core/theme/app_theme.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class NoteDialog extends StatelessWidget {
   final HiddenNote note;
@@ -62,7 +62,7 @@ class NoteDialog extends StatelessWidget {
               Flexible(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.7,
+                    maxHeight: MediaQuery.sizeOf(context).height * 0.7,
                   ),
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(32, 24, 32, 40),
@@ -71,20 +71,12 @@ class NoteDialog extends StatelessWidget {
                       children: [
                         Text(
                           note.title,
-                          style: GoogleFonts.dancingScript(
-                            fontSize: 30,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.blushGold,
-                          ),
+                          style: AppTypography.handwrittenTitle().copyWith(color: AppTheme.blushGold),
                         ),
                         const SizedBox(height: 24),
                         Text(
                           note.content,
-                          style: GoogleFonts.caveat(
-                            fontSize: 24,
-                            color: AppTheme.petalWhite.withValues(alpha: 0.9),
-                            height: 1.4,
-                          ),
+                          style: AppTypography.handwrittenBody().copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.9), height: 1.4),
                         ),
                       ],
                     ),

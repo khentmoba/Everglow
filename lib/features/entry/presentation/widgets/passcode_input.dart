@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:everglow/shared/widgets/glass_container.dart';
 import 'package:everglow/shared/widgets/bouncy_button.dart';
 import 'package:everglow/core/theme/app_theme.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class PasscodeInput extends StatefulWidget {
   final String input;
@@ -57,7 +57,8 @@ class _PasscodeInputState extends State<PasscodeInput> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
+    return RepaintBoundary(
+      child: AnimatedBuilder(
       animation: _shakeAnimation,
       builder: (context, child) {
         return Transform.translate(
@@ -71,6 +72,7 @@ class _PasscodeInputState extends State<PasscodeInput> with SingleTickerProvider
           ),
         );
       },
+      ),
     );
   }
 
@@ -163,8 +165,7 @@ class _NumButton extends StatelessWidget {
             child: digit != null
                 ? Text(
                     digit!,
-                    style: GoogleFonts.outfit(
-                      color: Colors.white,
+                    style: AppTypography.outfitWhite.copyWith(
                       fontSize: 24,
                       fontWeight: FontWeight.w400,
                     ),

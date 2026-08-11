@@ -1,7 +1,6 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import 'package:flutter/material.dart';import 'package:everglow/core/theme/app_theme.dart';
 import '../../domain/models/calendar_event.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class CalendarGrid extends StatefulWidget {
   final DateTime initialMonth;
@@ -100,11 +99,7 @@ class _CalendarGridState extends State<CalendarGrid> {
               ),
               Text(
                 '${monthNames[_currentMonth.month]} ${_currentMonth.year}',
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.roseQuartz,
-                ),
+                style: AppTypography.cormorantBold.copyWith(fontSize: 22),
               ),
               IconButton(
                 onPressed: _nextMonth,
@@ -128,12 +123,7 @@ class _CalendarGridState extends State<CalendarGrid> {
                     child: Center(
                       child: Text(
                         d,
-                        style: GoogleFonts.outfit(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.petalWhite.withValues(alpha: 0.65),
-                          letterSpacing: 0.5,
-                        ),
+                        style: AppTypography.outfitBold.copyWith(fontSize: 11, color: AppTheme.petalWhite.withValues(alpha: 0.65), letterSpacing: 0.5),
                       ),
                     ),
                   ),
@@ -193,16 +183,12 @@ class _CalendarGridState extends State<CalendarGrid> {
                           children: [
                             Text(
                               '$dayNumber',
-                              style: GoogleFonts.outfit(
-                                fontSize: 14,
-                                fontWeight: isToday || isSelected
+                              style: AppTypography.outfitWhite.copyWith(fontSize: 14, fontWeight: isToday || isSelected
                                     ? FontWeight.bold
-                                    : FontWeight.w500,
-                                color: isToday || isSelected
+                                    : FontWeight.w500, color: isToday || isSelected
                                     ? AppTheme.petalWhite
                                     : AppTheme.petalWhite
-                                        .withValues(alpha: 0.7),
-                              ),
+                                        .withValues(alpha: 0.7)),
                             ),
                             if (events.isNotEmpty)
                               Row(

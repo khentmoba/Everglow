@@ -2,9 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:confetti/confetti.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:go_router/go_router.dart';
+import 'package:everglow/core/theme/app_theme.dart';import 'package:go_router/go_router.dart';
 import '../../../../services/auth_service.dart';
 import '../../data/services/starlight_service.dart';
 import '../../domain/models/star_note.dart';
@@ -12,6 +10,7 @@ import '../widgets/glass_jar.dart';
 import '../widgets/star_widget.dart';
 import '../widgets/drop_star_dialog.dart';
 import '../widgets/note_display_dialog.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class StarlightJarWidget extends StatefulWidget {
   const StarlightJarWidget({super.key});
@@ -119,7 +118,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
       duration: const Duration(milliseconds: 1000),
     );
 
-    final start = Offset(MediaQuery.of(context).size.width / 2, -50);
+    final start = Offset(MediaQuery.sizeOf(context).width / 2, -50);
     final end = Offset(
       120 + _random.nextDouble() * 160,
       300 + _random.nextDouble() * 60,
@@ -278,12 +277,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                       const Spacer(),
                       Text(
                         'Starlight Jar',
-                        style: GoogleFonts.cormorantGaramond(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.roseQuartz,
-                          letterSpacing: 1.5,
-                        ),
+                        style: AppTypography.cormorantBold.copyWith(fontSize: 22, letterSpacing: 1.5),
                       ),
                       const Spacer(),
                       const SizedBox(width: 48),
@@ -332,21 +326,14 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                               children: [
                                 Text(
                                   'On This Day',
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.blushGold,
-                                  ),
+                                  style: AppTypography.outfitWhite.copyWith(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.blushGold),
                                 ),
                                 Text(
                                   _onThisDayNotes.first.content,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 11,
-                                    color: AppTheme.petalWhite
-                                        .withValues(alpha: 0.6),
-                                  ),
+                                  style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: AppTheme.petalWhite
+                                        .withValues(alpha: 0.6)),
                                 ),
                               ],
                             ),
@@ -373,18 +360,12 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                       // Search field
                       TextField(
                         controller: _searchController,
-                        style: GoogleFonts.outfit(
-                          color: AppTheme.petalWhite,
-                          fontSize: 13,
-                        ),
+                        style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 13),
                         onChanged: (v) =>
                             setState(() => _searchQuery = v.trim()),
                         decoration: InputDecoration(
                           hintText: "Search stars…",
-                          hintStyle: GoogleFonts.outfit(
-                            color: AppTheme.petalWhite.withValues(alpha: 0.55),
-                            fontSize: 13,
-                          ),
+                          hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.55), fontSize: 13),
                           prefixIcon: const Icon(
                             Icons.search,
                             color: AppTheme.blushGold,
@@ -540,12 +521,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                                   ),
                                   child: Text(
                                     '$count ${count == 1 ? 'star' : 'stars'}',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.petalWhite,
-                                      letterSpacing: 0.5,
-                                    ),
+                                    style: AppTypography.outfitWhite.copyWith(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.petalWhite, letterSpacing: 0.5),
                                   ),
                                 );
                               },
@@ -773,13 +749,9 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
           ),
           child: Text(
             label,
-            style: GoogleFonts.outfit(
-              fontSize: 11,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-              color: isSelected
+            style: AppTypography.outfitWhite.copyWith(fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, color: isSelected
                   ? AppTheme.petalWhite
-                  : AppTheme.petalWhite.withValues(alpha: 0.7),
-            ),
+                  : AppTheme.petalWhite.withValues(alpha: 0.7)),
           ),
         ),
       ),

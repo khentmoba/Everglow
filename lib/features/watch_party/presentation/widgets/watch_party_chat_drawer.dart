@@ -1,7 +1,5 @@
 import 'package:animate_do/animate_do.dart';
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';import 'package:provider/provider.dart';
 
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/services/auth_service.dart';
@@ -9,6 +7,7 @@ import 'package:everglow/services/auth_service.dart';
 import '../../data/models/watch_party_chat_message.dart';
 import '../../data/services/watch_party_chat_service.dart';
 import 'watch_party_chat_bubble.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Toggleable right-side chat drawer for the Watch Party screen.
 ///
@@ -218,18 +217,11 @@ class _WatchPartyChatDrawerState extends State<WatchPartyChatDrawer> {
               children: [
                 Text(
                   'Chat with $partnerName',
-                  style: GoogleFonts.cormorantGaramond(
-                    color: AppTheme.roseQuartz,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: AppTypography.cormorantBold.copyWith(fontSize: 18),
                 ),
                 Text(
                   'Saved in this room',
-                  style: GoogleFonts.outfit(
-                    color: AppTheme.roseQuartz.withValues(alpha: 0.55),
-                    fontSize: 10,
-                  ),
+                  style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.55), fontSize: 10),
                 ),
               ],
             ),
@@ -270,10 +262,7 @@ class _WatchPartyChatDrawerState extends State<WatchPartyChatDrawer> {
               child: Text(
                 'Chat is unavailable. Check your connection.',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(
-                  color: AppTheme.roseQuartz.withValues(alpha: 0.7),
-                  fontSize: 12,
-                ),
+                style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.7), fontSize: 12),
               ),
             ),
           );
@@ -297,20 +286,13 @@ class _WatchPartyChatDrawerState extends State<WatchPartyChatDrawer> {
                   Text(
                     'Chat is empty',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.cormorantGaramond(
-                      color: AppTheme.roseQuartz,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: AppTypography.cormorantHeading.copyWith(color: AppTheme.roseQuartz, fontSize: 18),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Say hi to keep the vibes going',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.outfit(
-                      color: AppTheme.roseQuartz.withValues(alpha: 0.55),
-                      fontSize: 11,
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.55), fontSize: 11),
                   ),
                 ],
               ),
@@ -371,10 +353,7 @@ class _WatchPartyChatDrawerState extends State<WatchPartyChatDrawer> {
               padding: const EdgeInsets.only(bottom: 6, left: 4, right: 4),
               child: Text(
                 _sendError!,
-                style: GoogleFonts.outfit(
-                  color: Colors.redAccent,
-                  fontSize: 10,
-                ),
+                style: AppTypography.outfitWhite.copyWith(color: Colors.redAccent, fontSize: 10),
               ),
             ),
           Row(
@@ -391,20 +370,14 @@ class _WatchPartyChatDrawerState extends State<WatchPartyChatDrawer> {
                   ),
                   child: TextField(
                     controller: _inputController,
-                    style: GoogleFonts.outfit(
-                      color: AppTheme.petalWhite,
-                      fontSize: 13,
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 13),
                     minLines: 1,
                     maxLines: 3,
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) => _send(),
                     decoration: InputDecoration(
                       hintText: 'Type a message…',
-                      hintStyle: GoogleFonts.outfit(
-                        color: AppTheme.petalWhite.withValues(alpha: 0.65),
-                        fontSize: 13,
-                      ),
+                      hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.65), fontSize: 13),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 14,
@@ -459,11 +432,7 @@ class _WatchPartyChatDrawerState extends State<WatchPartyChatDrawer> {
             const SizedBox(width: 6),
             Text(
               'Chat',
-              style: GoogleFonts.outfit(
-                color: AppTheme.roseQuartz,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
+              style: AppTypography.outfitHeading.copyWith(color: AppTheme.roseQuartz, fontSize: 11),
             ),
           ],
         ),

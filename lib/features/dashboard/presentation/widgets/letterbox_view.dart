@@ -9,8 +9,7 @@ import 'package:everglow/features/daily_bloom/presentation/providers/garden_prov
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_error_state.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_empty_state.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_skeleton.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:everglow/shared/widgets/everglow/everglow_skeleton.dart';import 'package:everglow/core/theme/app_typography.dart';
 
 class LetterboxView extends StatefulWidget {
   const LetterboxView({super.key});
@@ -39,28 +38,19 @@ class _LetterboxViewState extends State<LetterboxView> {
         title: Text(
           'No peeking! 🤫',
           textAlign: TextAlign.center,
-          style: GoogleFonts.cormorantGaramond(
-            color: AppTheme.roseQuartz,
-            fontWeight: FontWeight.bold,
-            fontSize: 24,
-          ),
+          style: AppTypography.cormorantBold.copyWith(fontSize: 24),
         ),
         content: Text(
           'This letter is still sealed. It will unlock on ${_formatDate(note.unlockDate)}.',
           textAlign: TextAlign.center,
-          style: GoogleFonts.outfit(
-            color: AppTheme.petalWhite.withValues(alpha: 0.8),
-          ),
+          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.8)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Okay, I\'ll wait! 🌸',
-              style: GoogleFonts.outfit(
-                color: AppTheme.blushGold,
-                fontWeight: FontWeight.bold,
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: AppTheme.blushGold, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -111,7 +101,7 @@ class _LetterboxViewState extends State<LetterboxView> {
           SnackBar(
             content: Text(
               'Letterbox reset successfully! 🌸',
-              style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+              style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
             ),
             backgroundColor: AppTheme.deepRose,
             behavior: SnackBarBehavior.floating,
@@ -125,7 +115,7 @@ class _LetterboxViewState extends State<LetterboxView> {
           SnackBar(
             content: Text(
               'Failed to add notes: $e',
-              style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+              style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
             ),
             backgroundColor: Colors.red[900],
             behavior: SnackBarBehavior.floating,
@@ -148,11 +138,7 @@ class _LetterboxViewState extends State<LetterboxView> {
             children: [
               Text(
                 'Letterbox',
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.roseQuartz,
-                ),
+                style: AppTypography.cormorantBold.copyWith(fontSize: 24),
               ),
               Row(
                 mainAxisSize: MainAxisSize.min,
@@ -161,11 +147,7 @@ class _LetterboxViewState extends State<LetterboxView> {
                     onPressed: () => context.push('/letterbox'),
                     child: Text(
                       'View All',
-                      style: GoogleFonts.outfit(
-                        fontSize: 12,
-                        color: AppTheme.blushGold,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: AppTypography.outfitBold.copyWith(fontSize: 12, color: AppTheme.blushGold),
                     ),
                   ),
                   IconButton(

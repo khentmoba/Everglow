@@ -23,6 +23,7 @@ class CurrentlyWatchingPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tmdbService = TMDBService();
+
     final auth = context.watch<AuthService>();
     final userName = auth.currentUser ?? '';
     final isCouple = auth.isCoupleUser;

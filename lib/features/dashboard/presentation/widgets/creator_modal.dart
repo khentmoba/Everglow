@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker_web/image_picker_web.dart';
 import 'package:provider/provider.dart';
 import 'dart:typed_data';
@@ -7,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../data/services/creator_service.dart';
 import '../../../../services/auth_service.dart';
 import 'package:everglow/features/cinema/presentation/widgets/tmdb_search_modal.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class CreatorModal extends StatefulWidget {
   const CreatorModal({super.key});
@@ -159,8 +159,8 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      height: MediaQuery.sizeOf(context).height * 0.85,
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       decoration: const BoxDecoration(
         color: Color(0xFFFFF0F5),
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
@@ -182,7 +182,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
             indicatorColor: Colors.pinkAccent,
             labelColor: Colors.pinkAccent,
             unselectedLabelColor: Colors.pink.shade200,
-            labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+            labelStyle: AppTypography.outfitWhite.copyWith(fontWeight: FontWeight.bold),
             tabs: const [
               Tab(text: 'Add Memory'),
               Tab(text: 'Drop a Letter'),
@@ -267,11 +267,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
             // Template picker
             Text(
               'Start from a template (optional)',
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.pink.shade700,
-              ),
+              style: AppTypography.outfitBold.copyWith(fontSize: 14, color: Colors.pink.shade700),
             ),
             const SizedBox(height: 8),
             SingleChildScrollView(
@@ -284,11 +280,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
                     child: ChoiceChip(
                       selected: isSelected,
                       label: Text('${t['icon']} ${t['name']}'),
-                      labelStyle: GoogleFonts.outfit(
-                        fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                        color: isSelected ? Colors.white : Colors.pink.shade600,
-                      ),
+                      labelStyle: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, color: isSelected ? Colors.white : Colors.pink.shade600),
                       selectedColor: Colors.pinkAccent,
                       backgroundColor: Colors.pink.shade50,
                       onSelected: (_) {
@@ -362,17 +354,13 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
       children: [
         Text(
           label,
-          style: GoogleFonts.outfit(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.pink.shade700,
-          ),
+          style: AppTypography.outfitBold.copyWith(fontSize: 14, color: Colors.pink.shade700),
         ),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           maxLines: maxLines,
-          style: GoogleFonts.outfit(fontSize: 16),
+          style: AppTypography.outfitWhite.copyWith(fontSize: 16),
           decoration: InputDecoration(
             hintText: hint,
             prefixIcon: Icon(icon, color: Colors.pink.shade200),
@@ -400,11 +388,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
       children: [
         Text(
           label,
-          style: GoogleFonts.outfit(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.pink.shade700,
-          ),
+          style: AppTypography.outfitBold.copyWith(fontSize: 14, color: Colors.pink.shade700),
         ),
         const SizedBox(height: 8),
         InkWell(
@@ -421,7 +405,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
                 const SizedBox(width: 12),
                 Text(
                   DateFormat('MMMM dd, yyyy').format(currentDate),
-                  style: GoogleFonts.outfit(fontSize: 16),
+                  style: AppTypography.outfitWhite.copyWith(fontSize: 16),
                 ),
               ],
             ),
@@ -437,11 +421,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
       children: [
         Text(
           'Add a Photo',
-          style: GoogleFonts.outfit(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.pink.shade700,
-          ),
+          style: AppTypography.outfitBold.copyWith(fontSize: 14, color: Colors.pink.shade700),
         ),
         const SizedBox(height: 8),
         InkWell(
@@ -494,10 +474,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
                         const SizedBox(height: 4),
                         Text(
                           'Tap to pick an image',
-                          style: GoogleFonts.outfit(
-                            fontSize: 12,
-                            color: Colors.pink.shade200,
-                          ),
+                          style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: Colors.pink.shade200),
                         ),
                       ],
                     ),
@@ -535,10 +512,7 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
             )
           : Text(
               label,
-              style: GoogleFonts.outfit(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: AppTypography.outfitWhite.copyWith(fontSize: 16, fontWeight: FontWeight.bold),
             ),
     );
   }
@@ -555,20 +529,13 @@ class _CreatorModalState extends State<CreatorModal> with SingleTickerProviderSt
           Text(
             'Movie Night Planner',
             textAlign: TextAlign.center,
-            style: GoogleFonts.outfit(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.pink.shade700,
-            ),
+            style: AppTypography.outfitWhite.copyWith(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.pink.shade700),
           ),
           const SizedBox(height: 8),
           Text(
             'Search for movies and TV shows to add to our shared watch list.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.outfit(
-              fontSize: 14,
-              color: Colors.pink.shade300,
-            ),
+            style: AppTypography.outfitWhite.copyWith(fontSize: 14, color: Colors.pink.shade300),
           ),
           const SizedBox(height: 40),
           _buildSubmitButton(
