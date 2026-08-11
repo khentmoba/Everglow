@@ -1,13 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum CalendarEventType {
-  dateNight,
-  anniversary,
-  reminder,
-  custom,
-}
+enum CalendarEventType { dateNight, anniversary, reminder, custom }
 
-const Map<CalendarEventType, (String emoji, String label)> calendarEventTypeInfo = {
+const Map<CalendarEventType, (String emoji, String label)>
+calendarEventTypeInfo = {
   CalendarEventType.dateNight: ('💑', 'Date Night'),
   CalendarEventType.anniversary: ('💍', 'Anniversary'),
   CalendarEventType.reminder: ('⏰', 'Reminder'),
@@ -44,7 +40,9 @@ class CalendarEvent {
       title: data['title'] ?? '',
       description: data['description'] ?? '',
       date: _parseTimestamp(data['date']),
-      endDate: data['endDate'] != null ? _parseTimestamp(data['endDate']) : null,
+      endDate: data['endDate'] != null
+          ? _parseTimestamp(data['endDate'])
+          : null,
       type: _parseType(data['type']),
       createdBy: data['createdBy'] ?? '',
       color: data['color'],

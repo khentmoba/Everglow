@@ -1,7 +1,8 @@
 import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:web/web.dart' as web;
 import 'dart:ui_web' as ui_web;
 
@@ -23,7 +24,8 @@ class TTMultiplayerGameScreen extends StatefulWidget {
   });
 
   @override
-  State<TTMultiplayerGameScreen> createState() => _TTMultiplayerGameScreenState();
+  State<TTMultiplayerGameScreen> createState() =>
+      _TTMultiplayerGameScreenState();
 }
 
 class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
@@ -63,7 +65,9 @@ class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
     try {
       web.document.querySelector('iframe[data-everglow-tt="1"]')?.remove();
     } catch (e) {
-      debugPrint('[TTMultiplayerGameScreen] Failed to remove iframe on dispose: $e');
+      debugPrint(
+        '[TTMultiplayerGameScreen] Failed to remove iframe on dispose: $e',
+      );
     }
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
@@ -79,10 +83,7 @@ class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
     if (uid == null) return;
 
     _bridge = TTBridgeService(mpService: TTMultiplayerService());
-    _bridge!.connect(
-      roomId: widget.roomId,
-      isHost: widget.isHost,
-    );
+    _bridge!.connect(roomId: widget.roomId, isHost: widget.isHost);
   }
 
   bool _detectMobile() {
@@ -136,9 +137,7 @@ class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
         body: Stack(
           children: [
             if (kIsWeb)
-              Positioned.fill(
-                child: HtmlElementView(viewType: _viewType),
-              )
+              Positioned.fill(child: HtmlElementView(viewType: _viewType))
             else
               Positioned.fill(
                 child: Container(
@@ -146,7 +145,9 @@ class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
                   alignment: Alignment.center,
                   child: Text(
                     'Table Tennis is only available in the web build.',
-                    style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: AppTheme.petalWhite,
+                    ),
                   ),
                 ),
               ),
@@ -181,14 +182,18 @@ class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
                         const SizedBox(height: 16),
                         Text(
                           _finalScore > 0 ? 'You Win!' : 'Game Over',
-                          style: AppTypography.cormorantBold.copyWith(fontSize: 36),
+                          style: AppTypography.cormorantBold.copyWith(
+                            fontSize: 36,
+                          ),
                         ),
                         const SizedBox(height: 32),
                         TextButton(
                           onPressed: _close,
                           child: Text(
                             'Back to Hub',
-                            style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.7)),
+                            style: AppTypography.outfitWhite.copyWith(
+                              color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                            ),
                           ),
                         ),
                       ],
@@ -213,19 +218,25 @@ class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
                       const SizedBox(height: 12),
                       Text(
                         'Rotate your device',
-                        style: AppTypography.cormorantSemiBoldWhite.copyWith(fontSize: 28),
+                        style: AppTypography.cormorantSemiBoldWhite.copyWith(
+                          fontSize: 28,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Table Tennis runs in landscape.',
-                        style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.75)),
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: AppTheme.petalWhite.withValues(alpha: 0.75),
+                        ),
                       ),
                       const SizedBox(height: 24),
                       TextButton(
                         onPressed: _close,
                         child: Text(
                           'Back',
-                          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.7)),
+                          style: AppTypography.outfitWhite.copyWith(
+                            color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                          ),
                         ),
                       ),
                     ],

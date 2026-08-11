@@ -7,10 +7,7 @@ class CanvasPainter extends CustomPainter {
   final List<DoodleStroke> strokes;
   final DoodleStroke? activeStroke;
 
-  CanvasPainter({
-    required this.strokes,
-    this.activeStroke,
-  });
+  CanvasPainter({required this.strokes, this.activeStroke});
 
   // ── Grid cache ──────────────────────────────────────────────────
   Picture? _gridPicture;
@@ -39,7 +36,9 @@ class CanvasPainter extends CustomPainter {
 
     // Phase 3: Draw completed strokes from cache
     final strokesHash = _hashStrokes(strokes);
-    if (_strokesPicture == null || _lastStrokesHash != strokesHash || _lastStrokesSize != size) {
+    if (_strokesPicture == null ||
+        _lastStrokesHash != strokesHash ||
+        _lastStrokesSize != size) {
       _strokesPicture?.dispose();
       _strokesPicture = _createStrokesPicture(size, strokes);
       _lastStrokesHash = strokesHash;
@@ -57,7 +56,10 @@ class CanvasPainter extends CustomPainter {
   int _hashStrokes(List<DoodleStroke> strokes) {
     int hash = strokes.length;
     for (final s in strokes) {
-      hash = hash * 31 + s.points.length + (s.color.hashCode ^ s.strokeWidth.round());
+      hash =
+          hash * 31 +
+          s.points.length +
+          (s.color.hashCode ^ s.strokeWidth.round());
     }
     return hash;
   }
@@ -108,10 +110,7 @@ class CanvasPainter extends CustomPainter {
 
     final color = _parseColor(stroke.color);
     final List<Offset> offsets = stroke.points.map((p) {
-      return Offset(
-        p['x']! * size.width,
-        p['y']! * size.height,
-      );
+      return Offset(p['x']! * size.width, p['y']! * size.height);
     }).toList();
 
     // 1. Draw glowing background shadow
@@ -150,9 +149,7 @@ class CanvasPainter extends CustomPainter {
           color: color,
           fontSize: fontSize.clamp(12.0, 48.0),
           fontWeight: FontWeight.w600,
-          shadows: [
-            Shadow(color: color.withValues(alpha: 0.4), blurRadius: 4),
-          ],
+          shadows: [Shadow(color: color.withValues(alpha: 0.4), blurRadius: 4)],
         ),
       ),
       textDirection: TextDirection.ltr,
@@ -169,12 +166,14 @@ class CanvasPainter extends CustomPainter {
       }
       return Color(int.parse(colorStr, radix: 16));
     } catch (e) {
-      return AppTheme.roseQuartz; // Fallback to roseQuartz instead of basic pink
+      return AppTheme
+          .roseQuartz; // Fallback to roseQuartz instead of basic pink
     }
   }
 
   @override
   bool shouldRepaint(covariant CanvasPainter oldDelegate) {
-    return oldDelegate.strokes != strokes || oldDelegate.activeStroke != activeStroke;
+    return oldDelegate.strokes != strokes ||
+        oldDelegate.activeStroke != activeStroke;
   }
 }

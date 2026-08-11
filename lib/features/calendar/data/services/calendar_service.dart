@@ -17,9 +17,11 @@ class CalendarService {
         .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endOfMonth))
         .orderBy('date', descending: false)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => CalendarEvent.fromFirestore(doc))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => CalendarEvent.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   /// Get upcoming events within N days.
@@ -34,9 +36,11 @@ class CalendarService {
         .orderBy('date', descending: false)
         .limit(20)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => CalendarEvent.fromFirestore(doc))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => CalendarEvent.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   /// Add a new calendar event.
@@ -76,8 +80,7 @@ class CalendarService {
     try {
       final snapshot = await _db
           .collection(_collection)
-          .where('date',
-              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+          .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
           .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endOfDay))
           .orderBy('date', descending: false)
           .get();

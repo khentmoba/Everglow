@@ -9,7 +9,8 @@ import 'package:everglow/features/daily_bloom/presentation/providers/garden_prov
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_error_state.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_empty_state.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_skeleton.dart';import 'package:everglow/core/theme/app_typography.dart';
+import 'package:everglow/shared/widgets/everglow/everglow_skeleton.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class LetterboxView extends StatefulWidget {
   const LetterboxView({super.key});
@@ -43,14 +44,19 @@ class _LetterboxViewState extends State<LetterboxView> {
         content: Text(
           'This letter is still sealed. It will unlock on ${_formatDate(note.unlockDate)}.',
           textAlign: TextAlign.center,
-          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.8)),
+          style: AppTypography.outfitWhite.copyWith(
+            color: AppTheme.petalWhite.withValues(alpha: 0.8),
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Okay, I\'ll wait! 🌸',
-              style: AppTypography.outfitWhite.copyWith(color: AppTheme.blushGold, fontWeight: FontWeight.bold),
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppTheme.blushGold,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -80,14 +86,8 @@ class _LetterboxViewState extends State<LetterboxView> {
       },
       transitionBuilder: (context, animation, secondaryAnimation, child) {
         return ScaleTransition(
-          scale: CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutBack,
-          ),
-          child: FadeTransition(
-            opacity: animation,
-            child: child,
-          ),
+          scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+          child: FadeTransition(opacity: animation, child: child),
         );
       },
     );
@@ -101,11 +101,15 @@ class _LetterboxViewState extends State<LetterboxView> {
           SnackBar(
             content: Text(
               'Letterbox reset successfully! 🌸',
-              style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppTheme.petalWhite,
+              ),
             ),
             backgroundColor: AppTheme.deepRose,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
           ),
         );
       }
@@ -115,11 +119,15 @@ class _LetterboxViewState extends State<LetterboxView> {
           SnackBar(
             content: Text(
               'Failed to add notes: $e',
-              style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppTheme.petalWhite,
+              ),
             ),
             backgroundColor: Colors.red[900],
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
           ),
         );
       }
@@ -147,12 +155,19 @@ class _LetterboxViewState extends State<LetterboxView> {
                     onPressed: () => context.push('/letterbox'),
                     child: Text(
                       'View All',
-                      style: AppTypography.outfitBold.copyWith(fontSize: 12, color: AppTheme.blushGold),
+                      style: AppTypography.outfitBold.copyWith(
+                        fontSize: 12,
+                        color: AppTheme.blushGold,
+                      ),
                     ),
                   ),
                   IconButton(
                     onPressed: () => _seedSampleNotes(),
-                    icon: const Icon(Icons.refresh, color: AppTheme.blushGold, size: 20),
+                    icon: const Icon(
+                      Icons.refresh,
+                      color: AppTheme.blushGold,
+                      size: 20,
+                    ),
                     tooltip: 'Reset Seeds',
                   ),
                 ],
@@ -173,13 +188,10 @@ class _LetterboxViewState extends State<LetterboxView> {
                 );
               }
 
-              if (!snapshot.hasData && snapshot.connectionState == ConnectionState.waiting) {
+              if (!snapshot.hasData &&
+                  snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(
-                  child: EverglowSkeleton(
-                    width: 120,
-                    height: 160,
-                    radius: 16,
-                  ),
+                  child: EverglowSkeleton(width: 120, height: 160, radius: 16),
                 );
               }
 

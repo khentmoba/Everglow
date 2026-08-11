@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';import 'package:everglow/core/theme/app_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 import '../../domain/models/calendar_event.dart';
 import 'package:everglow/core/theme/app_typography.dart';
 
@@ -57,19 +58,27 @@ class _CalendarGridState extends State<CalendarGrid> {
 
   List<CalendarEvent> _eventsForDay(DateTime day) {
     return widget.events
-        .where((e) =>
-            e.date.year == day.year &&
-            e.date.month == day.month &&
-            e.date.day == day.day)
+        .where(
+          (e) =>
+              e.date.year == day.year &&
+              e.date.month == day.month &&
+              e.date.day == day.day,
+        )
         .toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    final daysInMonth =
-        DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
-    final firstDayWeekday =
-        DateTime(_currentMonth.year, _currentMonth.month, 1).weekday;
+    final daysInMonth = DateTime(
+      _currentMonth.year,
+      _currentMonth.month + 1,
+      0,
+    ).day;
+    final firstDayWeekday = DateTime(
+      _currentMonth.year,
+      _currentMonth.month,
+      1,
+    ).weekday;
     // Mon=1 ... Sun=7. We want Mon first: already correct.
     final leadingEmptyDays = firstDayWeekday - 1;
 
@@ -77,8 +86,19 @@ class _CalendarGridState extends State<CalendarGrid> {
     final rows = (totalCells / 7).ceil();
 
     final monthNames = [
-      '', 'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      '',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
 
     return Column(
@@ -123,7 +143,11 @@ class _CalendarGridState extends State<CalendarGrid> {
                     child: Center(
                       child: Text(
                         d,
-                        style: AppTypography.outfitBold.copyWith(fontSize: 11, color: AppTheme.petalWhite.withValues(alpha: 0.65), letterSpacing: 0.5),
+                        style: AppTypography.outfitBold.copyWith(
+                          fontSize: 11,
+                          color: AppTheme.petalWhite.withValues(alpha: 0.65),
+                          letterSpacing: 0.5,
+                        ),
                       ),
                     ),
                   ),
@@ -167,13 +191,14 @@ class _CalendarGridState extends State<CalendarGrid> {
                           color: isSelected
                               ? AppTheme.deepRose.withValues(alpha: 0.6)
                               : isToday
-                                  ? AppTheme.blushGold.withValues(alpha: 0.15)
-                                  : Colors.transparent,
+                              ? AppTheme.blushGold.withValues(alpha: 0.15)
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(10),
                           border: isToday && !isSelected
                               ? Border.all(
-                                  color:
-                                      AppTheme.blushGold.withValues(alpha: 0.6),
+                                  color: AppTheme.blushGold.withValues(
+                                    alpha: 0.6,
+                                  ),
                                   width: 1.5,
                                 )
                               : null,
@@ -183,12 +208,17 @@ class _CalendarGridState extends State<CalendarGrid> {
                           children: [
                             Text(
                               '$dayNumber',
-                              style: AppTypography.outfitWhite.copyWith(fontSize: 14, fontWeight: isToday || isSelected
+                              style: AppTypography.outfitWhite.copyWith(
+                                fontSize: 14,
+                                fontWeight: isToday || isSelected
                                     ? FontWeight.bold
-                                    : FontWeight.w500, color: isToday || isSelected
+                                    : FontWeight.w500,
+                                color: isToday || isSelected
                                     ? AppTheme.petalWhite
-                                    : AppTheme.petalWhite
-                                        .withValues(alpha: 0.7)),
+                                    : AppTheme.petalWhite.withValues(
+                                        alpha: 0.7,
+                                      ),
+                              ),
                             ),
                             if (events.isNotEmpty)
                               Row(
@@ -199,8 +229,9 @@ class _CalendarGridState extends State<CalendarGrid> {
                                       (e) => Container(
                                         width: 5,
                                         height: 5,
-                                        margin:
-                                            const EdgeInsets.symmetric(horizontal: 1),
+                                        margin: const EdgeInsets.symmetric(
+                                          horizontal: 1,
+                                        ),
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
                                           color: _eventColor(e.type),

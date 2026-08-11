@@ -1,7 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';import 'package:everglow/core/theme/app_theme.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/core/theme/app_typography.dart';
 
 /// Per-shelf visual identity. Each rail (Cinema, Anime, Books, Manga)
@@ -90,7 +91,11 @@ class ShelfHeader extends StatelessWidget {
                   Flexible(
                     child: Text(
                       title,
-                      style: AppTypography.cormorantBold.copyWith(fontSize: 26, height: 1.0, letterSpacing: 0.2),
+                      style: AppTypography.cormorantBold.copyWith(
+                        fontSize: 26,
+                        height: 1.0,
+                        letterSpacing: 0.2,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -105,7 +110,12 @@ class ShelfHeader extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   '$itemCount ${itemCount == 1 ? "title" : "titles"} shared',
-                  style: AppTypography.outfitWhite.copyWith(fontSize: 11, fontWeight: FontWeight.w500, color: AppTheme.petalWhite.withValues(alpha: 0.55), letterSpacing: 0.4),
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.petalWhite.withValues(alpha: 0.55),
+                    letterSpacing: 0.4,
+                  ),
                 ),
               ],
             ],
@@ -148,11 +158,7 @@ class _AccentIcon extends StatelessWidget {
           ),
         ],
       ),
-      child: Icon(
-        accent.icon,
-        color: accent.color,
-        size: 19,
-      ),
+      child: Icon(accent.icon, color: accent.color, size: 19),
     );
   }
 }
@@ -175,7 +181,12 @@ class _Badge extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: AppTypography.outfitWhite.copyWith(fontSize: 9, fontWeight: FontWeight.w800, color: AppTheme.deepRose, letterSpacing: 1.4),
+        style: AppTypography.outfitWhite.copyWith(
+          fontSize: 9,
+          fontWeight: FontWeight.w800,
+          color: AppTheme.deepRose,
+          letterSpacing: 1.4,
+        ),
       ),
     );
   }
@@ -211,7 +222,9 @@ class _ViewAllButtonState extends State<_ViewAllButton> {
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: widget.accent.color.withValues(alpha: _hovered ? 0.55 : 0.3),
+              color: widget.accent.color.withValues(
+                alpha: _hovered ? 0.55 : 0.3,
+              ),
               width: 1,
             ),
           ),
@@ -220,7 +233,11 @@ class _ViewAllButtonState extends State<_ViewAllButton> {
             children: [
               Text(
                 'View All',
-                style: AppTypography.outfitBold.copyWith(fontSize: 12, color: widget.accent.color, letterSpacing: 0.4),
+                style: AppTypography.outfitBold.copyWith(
+                  fontSize: 12,
+                  color: widget.accent.color,
+                  letterSpacing: 0.4,
+                ),
               ),
               const SizedBox(width: 2),
               Icon(
@@ -306,13 +323,19 @@ class _ShelfCardState extends State<ShelfCard> {
           curve: Curves.easeOut,
           transform: Matrix4.identity()
             ..translateByDouble(0.0, isHovered ? -4.0 : 0.0, 0.0, 1.0)
-            ..scaleByDouble(_pressed ? 0.95 : (isHovered ? 1.04 : 1.0), _pressed ? 0.95 : (isHovered ? 1.04 : 1.0), _pressed ? 0.95 : (isHovered ? 1.04 : 1.0), 1.0),
+            ..scaleByDouble(
+              _pressed ? 0.95 : (isHovered ? 1.04 : 1.0),
+              _pressed ? 0.95 : (isHovered ? 1.04 : 1.0),
+              _pressed ? 0.95 : (isHovered ? 1.04 : 1.0),
+              1.0,
+            ),
           width: 110,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: widget.accent.color
-                  .withValues(alpha: isHovered ? 0.45 : 0.22),
+              color: widget.accent.color.withValues(
+                alpha: isHovered ? 0.45 : 0.22,
+              ),
               width: 1,
             ),
             boxShadow: [
@@ -351,8 +374,10 @@ class _ShelfCardState extends State<ShelfCard> {
                     _resolvedImageUrl,
                     fit: BoxFit.cover,
                     cacheWidth: 400,
-                    errorBuilder: (_, _, _) =>
-                        _Placeholder(accent: widget.accent, title: widget.title),
+                    errorBuilder: (_, _, _) => _Placeholder(
+                      accent: widget.accent,
+                      title: widget.title,
+                    ),
                   )
                 else
                   _Placeholder(accent: widget.accent, title: widget.title),
@@ -381,12 +406,14 @@ class _ShelfCardState extends State<ShelfCard> {
                       children: [
                         Text(
                           widget.title,
-                          style: AppTypography.outfitHeading.copyWith(color: AppTheme.petalWhite, fontSize: 11, height: 1.15, shadows: const [
-                              Shadow(
-                                color: Color(0xCC000000),
-                                blurRadius: 4,
-                              ),
-                            ]),
+                          style: AppTypography.outfitHeading.copyWith(
+                            color: AppTheme.petalWhite,
+                            fontSize: 11,
+                            height: 1.15,
+                            shadows: const [
+                              Shadow(color: Color(0xCC000000), blurRadius: 4),
+                            ],
+                          ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -395,12 +422,14 @@ class _ShelfCardState extends State<ShelfCard> {
                           const SizedBox(height: 2),
                           Text(
                             widget.subtitle!,
-                            style: AppTypography.outfitBold.copyWith(color: widget.accent.color, fontSize: 9, letterSpacing: 0.3, shadows: const [
-                                Shadow(
-                                  color: Color(0xCC000000),
-                                  blurRadius: 4,
-                                ),
-                              ]),
+                            style: AppTypography.outfitBold.copyWith(
+                              color: widget.accent.color,
+                              fontSize: 9,
+                              letterSpacing: 0.3,
+                              shadows: const [
+                                Shadow(color: Color(0xCC000000), blurRadius: 4),
+                              ],
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -428,7 +457,12 @@ class _ShelfCardState extends State<ShelfCard> {
                       ),
                       child: Text(
                         widget.topBadge!,
-                        style: AppTypography.outfitWhite.copyWith(color: widget.accent.color, fontSize: 8, fontWeight: FontWeight.w800, letterSpacing: 0.6),
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: widget.accent.color,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.6,
+                        ),
                       ),
                     ),
                   ),
@@ -477,7 +511,11 @@ class _Placeholder extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: AppTypography.outfitBold.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.85), fontSize: 9, height: 1.2),
+                style: AppTypography.outfitBold.copyWith(
+                  color: AppTheme.petalWhite.withValues(alpha: 0.85),
+                  fontSize: 9,
+                  height: 1.2,
+                ),
               ),
             ],
           ),
@@ -544,7 +582,12 @@ class ShelfEmpty extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.75), fontStyle: FontStyle.italic, fontSize: 13, height: 1.35),
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppTheme.roseQuartz.withValues(alpha: 0.75),
+                fontStyle: FontStyle.italic,
+                fontSize: 13,
+                height: 1.35,
+              ),
             ),
           ),
         ],

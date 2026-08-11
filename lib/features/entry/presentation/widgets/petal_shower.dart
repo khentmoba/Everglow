@@ -12,7 +12,8 @@ class PetalShower extends StatefulWidget {
   State<PetalShower> createState() => _PetalShowerState();
 }
 
-class _PetalShowerState extends State<PetalShower> with SingleTickerProviderStateMixin {
+class _PetalShowerState extends State<PetalShower>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   final List<PetalData> _petals = [];
   late final Picture _petalShapePicture;
@@ -33,14 +34,16 @@ class _PetalShowerState extends State<PetalShower> with SingleTickerProviderStat
 
     final rng = math.Random();
     for (int i = 0; i < _petalCount; i++) {
-      _petals.add(PetalData(
-        x: rng.nextDouble(),
-        y: rng.nextDouble() * -1,
-        size: rng.nextDouble() * 15 + 10,
-        speed: rng.nextDouble() * 0.5 + 0.5,
-        angle: rng.nextDouble() * math.pi * 2,
-        drift: (rng.nextDouble() - 0.5) * 0.2,
-      ));
+      _petals.add(
+        PetalData(
+          x: rng.nextDouble(),
+          y: rng.nextDouble() * -1,
+          size: rng.nextDouble() * 15 + 10,
+          speed: rng.nextDouble() * 0.5 + 0.5,
+          angle: rng.nextDouble() * math.pi * 2,
+          drift: (rng.nextDouble() - 0.5) * 0.2,
+        ),
+      );
     }
   }
 
@@ -124,7 +127,10 @@ class PetalPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     for (final petal in petals) {
       final currentY = (petal.y + (progress * petal.speed)) % 1.5 - 0.2;
-      final currentX = (petal.x + math.sin(progress * math.pi * 2 + petal.angle) * petal.drift) % 1.0;
+      final currentX =
+          (petal.x +
+              math.sin(progress * math.pi * 2 + petal.angle) * petal.drift) %
+          1.0;
 
       final px = currentX * size.width;
       final py = currentY * size.height;

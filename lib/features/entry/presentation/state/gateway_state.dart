@@ -25,7 +25,8 @@ class GatewayNotifier extends ChangeNotifier {
   }
 
   void appendDigit(String digit) {
-    if (_currentInput.length < 4 && _currentState == GatewayState.awaitingInput) {
+    if (_currentInput.length < 4 &&
+        _currentState == GatewayState.awaitingInput) {
       _currentInput += digit;
       notifyListeners();
 
@@ -36,7 +37,8 @@ class GatewayNotifier extends ChangeNotifier {
   }
 
   void backspace() {
-    if (_currentInput.isNotEmpty && _currentState == GatewayState.awaitingInput) {
+    if (_currentInput.isNotEmpty &&
+        _currentState == GatewayState.awaitingInput) {
       _currentInput = _currentInput.substring(0, _currentInput.length - 1);
       notifyListeners();
     }

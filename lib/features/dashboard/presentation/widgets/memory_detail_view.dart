@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:animate_do/animate_do.dart';import 'package:everglow/core/theme/app_theme.dart';
+import 'package:animate_do/animate_do.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 import '../../domain/models/milestone.dart';
 import 'package:everglow/core/theme/app_typography.dart';
 
@@ -21,7 +22,10 @@ class MemoryDetailOverlay extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppTheme.velvet.withValues(alpha: 0.95),
             borderRadius: BorderRadius.circular(32),
-            border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.3), width: 1.5),
+            border: Border.all(
+              color: AppTheme.blushGold.withValues(alpha: 0.3),
+              width: 1.5,
+            ),
             boxShadow: [
               BoxShadow(
                 color: AppTheme.deepRose.withValues(alpha: 0.2),
@@ -44,11 +48,17 @@ class MemoryDetailOverlay extends StatelessWidget {
                         children: [
                           Text(
                             milestone.title,
-                            style: AppTypography.cormorantBold.copyWith(fontSize: 24),
+                            style: AppTypography.cormorantBold.copyWith(
+                              fontSize: 24,
+                            ),
                           ),
                           Text(
                             DateFormat('MMMM d, yyyy').format(milestone.date),
-                            style: AppTypography.outfitWhite.copyWith(fontSize: 14, color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontWeight: FontWeight.w500),
+                            style: AppTypography.outfitWhite.copyWith(
+                              fontSize: 14,
+                              color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ],
                       ),
@@ -60,7 +70,7 @@ class MemoryDetailOverlay extends StatelessWidget {
                   ],
                 ),
               ),
-              
+
               // Scrollable Content
               Expanded(
                 child: SingleChildScrollView(
@@ -72,43 +82,71 @@ class MemoryDetailOverlay extends StatelessWidget {
                       if (milestone.author != null)
                         Container(
                           margin: const EdgeInsets.only(bottom: 24),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
-                            color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
+                            color: AppTheme.moonlight.withValues(
+                              alpha: AppTheme.glassOpacity,
+                            ),
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: AppTheme.moonlight.withValues(alpha: 0.18), width: 1.0),
+                            border: Border.all(
+                              color: AppTheme.moonlight.withValues(alpha: 0.18),
+                              width: 1.0,
+                            ),
                           ),
                           child: Text(
                             "Memory by ${milestone.author} 🤍",
-                            style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontStyle: FontStyle.italic, color: AppTheme.blushGold),
+                            style: AppTypography.outfitWhite.copyWith(
+                              fontSize: 12,
+                              fontStyle: FontStyle.italic,
+                              color: AppTheme.blushGold,
+                            ),
                           ),
                         ),
-                      
+
                       // Full Description
                       Text(
                         milestone.description,
-                        style: AppTypography.outfitWhite.copyWith(fontSize: 16, height: 1.6, color: AppTheme.petalWhite),
+                        style: AppTypography.outfitWhite.copyWith(
+                          fontSize: 16,
+                          height: 1.6,
+                          color: AppTheme.petalWhite,
+                        ),
                       ),
                       const SizedBox(height: 40),
                     ],
                   ),
                 ),
               ),
-              
+
               // Bottom Accent
               Padding(
                 padding: const EdgeInsets.all(24.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.favorite, color: AppTheme.deepRose, size: 16),
+                    const Icon(
+                      Icons.favorite,
+                      color: AppTheme.deepRose,
+                      size: 16,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       "Living Archive",
-                      style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.roseQuartz.withValues(alpha: 0.5), letterSpacing: 2),
+                      style: AppTypography.outfitWhite.copyWith(
+                        fontSize: 12,
+                        color: AppTheme.roseQuartz.withValues(alpha: 0.5),
+                        letterSpacing: 2,
+                      ),
                     ),
                     const SizedBox(width: 8),
-                    const Icon(Icons.favorite, color: AppTheme.deepRose, size: 16),
+                    const Icon(
+                      Icons.favorite,
+                      color: AppTheme.deepRose,
+                      size: 16,
+                    ),
                   ],
                 ),
               ),

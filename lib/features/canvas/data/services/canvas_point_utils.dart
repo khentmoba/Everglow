@@ -21,7 +21,11 @@ List<Map<String, double>> simplifyCanvasPoints(
   final epsilonSq = epsilon * epsilon;
 
   for (int i = 1; i < points.length - 1; i++) {
-    double distSq = perpendicularDistanceSquared(points[i], points.first, points.last);
+    double distSq = perpendicularDistanceSquared(
+      points[i],
+      points.first,
+      points.last,
+    );
     if (distSq > maxDist) {
       index = i;
       maxDist = distSq;
@@ -29,7 +33,10 @@ List<Map<String, double>> simplifyCanvasPoints(
   }
 
   if (maxDist > epsilonSq) {
-    var left = simplifyCanvasPoints(points.sublist(0, index + 1), epsilon: epsilon);
+    var left = simplifyCanvasPoints(
+      points.sublist(0, index + 1),
+      epsilon: epsilon,
+    );
     var right = simplifyCanvasPoints(points.sublist(index), epsilon: epsilon);
     return [...left.sublist(0, left.length - 1), ...right];
   } else {

@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';import 'package:everglow/core/theme/app_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 import '../../domain/models/calendar_event.dart';
 import '../../data/services/calendar_service.dart';
 import 'add_event_dialog.dart';
@@ -72,9 +73,8 @@ class _DayDetailSheetState extends State<DayDetailSheet> {
                         final result = await showDialog<bool>(
                           context: context,
                           barrierColor: Colors.transparent,
-                          builder: (_) => AddEventDialog(
-                            selectedDay: widget.day,
-                          ),
+                          builder: (_) =>
+                              AddEventDialog(selectedDay: widget.day),
                         );
                         if (result == true) widget.onEventAdded();
                       },
@@ -104,10 +104,12 @@ class _DayDetailSheetState extends State<DayDetailSheet> {
                   builder: (context, snapshot) {
                     final allEvents = snapshot.data ?? [];
                     final dayEvents = allEvents
-                        .where((e) =>
-                            e.date.year == widget.day.year &&
-                            e.date.month == widget.day.month &&
-                            e.date.day == widget.day.day)
+                        .where(
+                          (e) =>
+                              e.date.year == widget.day.year &&
+                              e.date.month == widget.day.month &&
+                              e.date.day == widget.day.day,
+                        )
                         .toList();
 
                     if (dayEvents.isEmpty) {
@@ -118,14 +120,17 @@ class _DayDetailSheetState extends State<DayDetailSheet> {
                             Icon(
                               Icons.event_available_outlined,
                               size: 40,
-                              color:
-                                  AppTheme.blushGold.withValues(alpha: 0.65),
+                              color: AppTheme.blushGold.withValues(alpha: 0.65),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               "No events this day",
-                              style: AppTypography.outfitWhite.copyWith(fontSize: 14, color: AppTheme.petalWhite
-                                    .withValues(alpha: 0.4)),
+                              style: AppTypography.outfitWhite.copyWith(
+                                fontSize: 14,
+                                color: AppTheme.petalWhite.withValues(
+                                  alpha: 0.4,
+                                ),
+                              ),
                             ),
                             const SizedBox(height: 12),
                             TextButton(
@@ -134,15 +139,17 @@ class _DayDetailSheetState extends State<DayDetailSheet> {
                                 final result = await showDialog<bool>(
                                   context: context,
                                   barrierColor: Colors.transparent,
-                                  builder: (_) => AddEventDialog(
-                                    selectedDay: widget.day,
-                                  ),
+                                  builder: (_) =>
+                                      AddEventDialog(selectedDay: widget.day),
                                 );
                                 if (result == true) widget.onEventAdded();
                               },
                               child: Text(
                                 "Add one",
-                                style: AppTypography.outfitWhite.copyWith(color: AppTheme.blushGold, fontWeight: FontWeight.bold),
+                                style: AppTypography.outfitWhite.copyWith(
+                                  color: AppTheme.blushGold,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ],
@@ -158,8 +165,9 @@ class _DayDetailSheetState extends State<DayDetailSheet> {
                         return _EventTile(
                           event: dayEvents[index],
                           onDelete: () async {
-                            await _calendarService
-                                .deleteEvent(dayEvents[index].id);
+                            await _calendarService.deleteEvent(
+                              dayEvents[index].id,
+                            );
                             widget.onEventAdded(); // triggers refresh
                           },
                         );
@@ -176,8 +184,19 @@ class _DayDetailSheetState extends State<DayDetailSheet> {
   }
 
   static const _monthNames = [
-    '', 'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    '',
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
 }
 
@@ -189,8 +208,7 @@ class _EventTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final info = calendarEventTypeInfo[event.type] ??
-        ('📌', event.type.name);
+    final info = calendarEventTypeInfo[event.type] ?? ('📌', event.type.name);
 
     return Dismissible(
       key: ValueKey(event.id),
@@ -228,10 +246,7 @@ class _EventTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Center(
-                child: Text(
-                  info.$1,
-                  style: const TextStyle(fontSize: 18),
-                ),
+                child: Text(info.$1, style: const TextStyle(fontSize: 18)),
               ),
             ),
             const SizedBox(width: 12),
@@ -241,14 +256,21 @@ class _EventTile extends StatelessWidget {
                 children: [
                   Text(
                     event.title,
-                    style: AppTypography.outfitWhite.copyWith(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.petalWhite),
+                    style: AppTypography.outfitWhite.copyWith(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.petalWhite,
+                    ),
                   ),
                   if (event.description.isNotEmpty)
                     Text(
                       event.description,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: AppTheme.petalWhite.withValues(alpha: 0.7)),
+                      style: AppTypography.outfitWhite.copyWith(
+                        fontSize: 11,
+                        color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                      ),
                     ),
                 ],
               ),
@@ -262,7 +284,10 @@ class _EventTile extends StatelessWidget {
                 ),
                 child: Text(
                   event.recurring == 'yearly' ? '🔄 Yearly' : '🔄 Monthly',
-                  style: AppTypography.outfitWhite.copyWith(fontSize: 9, color: AppTheme.softLavender),
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 9,
+                    color: AppTheme.softLavender,
+                  ),
                 ),
               ),
           ],

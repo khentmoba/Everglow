@@ -19,8 +19,11 @@ class BucketListService {
           .collection(_collection)
           .orderBy('createdAt', descending: true)
           .snapshots()
-          .map((snapshot) =>
-              snapshot.docs.map((doc) => BucketItem.fromFirestore(doc)).toList()),
+          .map(
+            (snapshot) => snapshot.docs
+                .map((doc) => BucketItem.fromFirestore(doc))
+                .toList(),
+          ),
       label: 'bucket-list-all',
     );
   }
@@ -33,8 +36,11 @@ class BucketListService {
           .where('status', isEqualTo: status.name)
           .orderBy('createdAt', descending: true)
           .snapshots()
-          .map((snapshot) =>
-              snapshot.docs.map((doc) => BucketItem.fromFirestore(doc)).toList()),
+          .map(
+            (snapshot) => snapshot.docs
+                .map((doc) => BucketItem.fromFirestore(doc))
+                .toList(),
+          ),
       label: 'bucket-list-${status.name}',
     );
   }

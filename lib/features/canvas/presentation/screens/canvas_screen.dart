@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:provider/provider.dart';import 'package:everglow/core/theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_error_state.dart';
+import 'package:everglow/shared/widgets/everglow/everglow_background.dart';
+import 'package:everglow/core/theme/app_colors.dart';
 import '../../../../services/auth_service.dart';
 import '../../../../services/presence_service.dart';
 import '../../../../shared/widgets/partner_doodle_indicator.dart';
@@ -22,7 +25,8 @@ class _CanvasScreenState extends State<CanvasScreen> {
   final GlobalKey _canvasKey = GlobalKey();
   final CanvasService _canvasService = CanvasService();
   DoodleStroke? _activeStroke;
-  List<DoodleStroke> _liveStrokes = []; // Strokes currently being drawn by others
+  List<DoodleStroke> _liveStrokes =
+      []; // Strokes currently being drawn by others
   StreamSubscription? _liveSubscription;
   DateTime? _lastSyncTime;
   DateTime? _lastDoodlePresenceAt;
@@ -30,13 +34,13 @@ class _CanvasScreenState extends State<CanvasScreen> {
   DragStartDetails? _pendingPanStartDetails;
   String? _pendingPanUserId;
 
-  final List<DoodleStroke> _sessionStrokes = []; 
+  final List<DoodleStroke> _sessionStrokes = [];
   final List<DoodleStroke> _redoStack = [];
-  
+
   CanvasTool _activeTool = CanvasTool.pen;
-  String _currentColor = '#FFC0CB'; 
+  String _currentColor = '#FFC0CB';
   double _currentWidth = 3.0;
-  final double _eraserRadius = 15.0; 
+  final double _eraserRadius = 15.0;
 
   @override
   void initState() {
@@ -74,21 +78,44 @@ class _CanvasScreenState extends State<CanvasScreen> {
     final userId = authService.uid ?? 'unknown';
 
     return Scaffold(
-      backgroundColor: AppTheme.twilight, 
+      backgroundColor: AppColors.inkDeep,
       appBar: AppBar(
         title: Text(
-          'Everglow Canvas', 
+          'Everglow Canvas',
           style: AppTypography.cormorantBold.copyWith(fontSize: 24),
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.roseQuartz),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: AppTheme.roseQuartz,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
       body: Stack(
         children: [
+          // 0. Atmosphere
+          const Positioned.fill(
+            child: EverglowBackground(
+              baseColor: AppColors.inkDeep,
+              glows: [
+                RadialGlow(
+                  color: AppColors.softLavender,
+                  alignment: Alignment(-0.7, -0.9),
+                  size: 0.9,
+                  opacity: 0.14,
+                ),
+                RadialGlow(
+                  color: AppColors.auroraTeal,
+                  alignment: Alignment(0.9, 0.8),
+                  size: 0.7,
+                  opacity: 0.08,
+                ),
+              ],
+            ),
+          ),
           // 1. Combined Strokes
           Positioned.fill(
             child: StreamBuilder<List<DoodleStroke>>(
@@ -106,7 +133,9 @@ class _CanvasScreenState extends State<CanvasScreen> {
                 final historyStrokes = snapshot.data ?? [];
 
                 // Combine history with live strokes from others
-                final othersLiveStrokes = _liveStrokes.where((s) => s.userId != userId).toList();
+                final othersLiveStrokes = _liveStrokes
+                    .where((s) => s.userId != userId)
+                    .toList();
                 final allStrokes = [...historyStrokes, ...othersLiveStrokes];
 
                 return Stack(
@@ -130,11 +159,17 @@ class _CanvasScreenState extends State<CanvasScreen> {
                           strokeWidth: 2,
                         ),
                       ),
-                    if (!isLoading && allStrokes.isEmpty && _activeStroke == null)
+                    if (!isLoading &&
+                        allStrokes.isEmpty &&
+                        _activeStroke == null)
                       Center(
                         child: Text(
                           'Draw something together',
-                          style: AppTypography.cormorantRegular.copyWith(fontSize: 26, letterSpacing: 1.2, fontWeight: FontWeight.w500),
+                          style: AppTypography.cormorantRegular.copyWith(
+                            fontSize: 26,
+                            letterSpacing: 1.2,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                   ],
@@ -201,14 +236,18 @@ class _CanvasScreenState extends State<CanvasScreen> {
         ),
         content: Text(
           'This will permanently delete all doodles for everyone. Are you sure?',
-          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.8)),
+          style: AppTypography.outfitWhite.copyWith(
+            color: AppTheme.petalWhite.withValues(alpha: 0.8),
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
-              'Cancel', 
-              style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
+              'Cancel',
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+              ),
             ),
           ),
           TextButton(
@@ -217,8 +256,11 @@ class _CanvasScreenState extends State<CanvasScreen> {
               Navigator.pop(context);
             },
             child: Text(
-              'Clear', 
-              style: AppTypography.outfitWhite.copyWith(color: Colors.redAccent, fontWeight: FontWeight.bold),
+              'Clear',
+              style: AppTypography.outfitWhite.copyWith(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -232,7 +274,8 @@ class _CanvasScreenState extends State<CanvasScreen> {
     } else if (_activeTool == CanvasTool.text) {
       _handleTextToolTap(details.globalPosition, userId);
     } else {
-      final RenderBox? box = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
+      final RenderBox? box =
+          _canvasKey.currentContext?.findRenderObject() as RenderBox?;
       if (box == null) {
         _pendingPanStartDetails = details;
         _pendingPanUserId = userId;
@@ -250,7 +293,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
 
       setState(() {
         final localPosition = box.globalToLocal(details.globalPosition);
-        
+
         _activeStroke = DoodleStroke(
           id: '',
           userId: userId,
@@ -260,7 +303,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
             {
               'x': (localPosition.dx / box.size.width).clamp(0.0, 1.0),
               'y': (localPosition.dy / box.size.height).clamp(0.0, 1.0),
-            }
+            },
           ],
         );
 
@@ -278,11 +321,12 @@ class _CanvasScreenState extends State<CanvasScreen> {
       _handleEraserAction(details.globalPosition);
     } else if (_activeStroke != null) {
       setState(() {
-        final RenderBox? box = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
+        final RenderBox? box =
+            _canvasKey.currentContext?.findRenderObject() as RenderBox?;
         if (box == null) return;
-        
+
         final localPosition = box.globalToLocal(details.globalPosition);
-        
+
         final newPoint = {
           'x': (localPosition.dx / box.size.width).clamp(0.0, 1.0),
           'y': (localPosition.dy / box.size.height).clamp(0.0, 1.0),
@@ -291,14 +335,18 @@ class _CanvasScreenState extends State<CanvasScreen> {
         final lastPoint = _activeStroke!.points.last;
         final dx = newPoint['x']! - lastPoint['x']!;
         final dy = newPoint['y']! - lastPoint['y']!;
-        
+
         if ((dx * dx + dy * dy) > 0.000001) {
-          final updatedPoints = List<Map<String, double>>.from(_activeStroke!.points)..add(newPoint);
+          final updatedPoints = List<Map<String, double>>.from(
+            _activeStroke!.points,
+          )..add(newPoint);
           _activeStroke = _activeStroke!.copyWith(points: updatedPoints);
 
           // Real-time Throttled Sync
           final now = DateTime.now();
-          if (_lastSyncTime == null || now.difference(_lastSyncTime!) > const Duration(milliseconds: 100)) {
+          if (_lastSyncTime == null ||
+              now.difference(_lastSyncTime!) >
+                  const Duration(milliseconds: 100)) {
             _canvasService.updateActiveStroke(userId, _activeStroke!);
             _lastSyncTime = now;
           }
@@ -323,7 +371,8 @@ class _CanvasScreenState extends State<CanvasScreen> {
   }
 
   void _handleTextToolTap(Offset globalPosition, String userId) {
-    final RenderBox? box = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
+    final RenderBox? box =
+        _canvasKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
 
     final localPosition = box.globalToLocal(globalPosition);
@@ -336,17 +385,16 @@ class _CanvasScreenState extends State<CanvasScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: AppTheme.velvet,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text(
-          'Add Text',
-          style: AppTypography.cormorantBold,
-        ),
+        title: Text('Add Text', style: AppTypography.cormorantBold),
         content: TextField(
           controller: controller,
           autofocus: true,
           style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
           decoration: InputDecoration(
             hintText: 'Type something...',
-            hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.5)),
+            hintStyle: AppTypography.outfitWhite.copyWith(
+              color: AppTheme.roseQuartz.withValues(alpha: 0.5),
+            ),
             filled: true,
             fillColor: AppTheme.twilight,
             border: OutlineInputBorder(
@@ -362,28 +410,46 @@ class _CanvasScreenState extends State<CanvasScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz)),
+            child: Text(
+              'Cancel',
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppTheme.roseQuartz,
+              ),
+            ),
           ),
           TextButton(
             onPressed: () {
               _saveTextAnnotation(controller.text, normX, normY, userId);
               Navigator.pop(context);
             },
-            child: Text('Add', style: AppTypography.outfitWhite.copyWith(color: AppTheme.blushGold, fontWeight: FontWeight.bold)),
+            child: Text(
+              'Add',
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppTheme.blushGold,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _saveTextAnnotation(String text, double normX, double normY, String userId) {
+  void _saveTextAnnotation(
+    String text,
+    double normX,
+    double normY,
+    String userId,
+  ) {
     if (text.trim().isEmpty) return;
     final stroke = DoodleStroke(
       id: '',
       userId: userId,
       color: _currentColor,
       strokeWidth: _currentWidth,
-      points: [{'x': normX, 'y': normY}],
+      points: [
+        {'x': normX, 'y': normY},
+      ],
       text: text.trim(),
     );
     _canvasService.saveStroke(stroke).then((_) {
@@ -393,9 +459,10 @@ class _CanvasScreenState extends State<CanvasScreen> {
   }
 
   void _handleEraserAction(Offset globalPosition) {
-    final RenderBox? box = _canvasKey.currentContext?.findRenderObject() as RenderBox?;
+    final RenderBox? box =
+        _canvasKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
-    
+
     final localPosition = box.globalToLocal(globalPosition);
     final normX = localPosition.dx / box.size.width;
     final normY = localPosition.dy / box.size.height;
@@ -408,10 +475,12 @@ class _CanvasScreenState extends State<CanvasScreen> {
         for (var point in stroke.points) {
           final dx = point['x']! - normX;
           final dy = point['y']! - normY;
-          
-          if ((dx * dx) / (normRadiusX * normRadiusX) + (dy * dy) / (normRadiusY * normRadiusY) < 1.0) {
+
+          if ((dx * dx) / (normRadiusX * normRadiusX) +
+                  (dy * dy) / (normRadiusY * normRadiusY) <
+              1.0) {
             _canvasService.deleteStroke(stroke.id);
-            break; 
+            break;
           }
         }
       }
@@ -420,14 +489,16 @@ class _CanvasScreenState extends State<CanvasScreen> {
 
   void _onPanEnd(DragEndDetails details, String userId) async {
     if (_activeStroke == null) return;
-    
+
     // Clear live sync immediately
     _canvasService.clearActiveStroke(userId);
 
     if (_activeStroke!.points.length >= 2) {
-      final simplifiedPoints = _canvasService.simplifyPoints(_activeStroke!.points);
+      final simplifiedPoints = _canvasService.simplifyPoints(
+        _activeStroke!.points,
+      );
       final strokeToSave = _activeStroke!.copyWith(points: simplifiedPoints);
-      
+
       _canvasService.saveStroke(strokeToSave).then((_) {
         _sessionStrokes.add(strokeToSave);
         _redoStack.clear();
@@ -441,23 +512,24 @@ class _CanvasScreenState extends State<CanvasScreen> {
 
   void _undo() async {
     if (_sessionStrokes.isEmpty) return;
-    
+
     final lastStroke = _sessionStrokes.removeLast();
     _redoStack.add(lastStroke);
-    
+
     final strokes = await _canvasService.getStrokesStream().first;
     try {
       final actualStroke = strokes.lastWhere(
-        (s) => s.userId == lastStroke.userId && s.points.length == lastStroke.points.length
+        (s) =>
+            s.userId == lastStroke.userId &&
+            s.points.length == lastStroke.points.length,
       );
       _canvasService.deleteStroke(actualStroke.id);
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   void _redo() {
     if (_redoStack.isEmpty) return;
-    
+
     final strokeToRedo = _redoStack.removeLast();
     _sessionStrokes.add(strokeToRedo);
     _canvasService.saveStroke(strokeToRedo);

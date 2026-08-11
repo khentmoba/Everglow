@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';import 'package:go_router/go_router.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:everglow/shared/widgets/glass_container.dart';
 import 'package:everglow/shared/widgets/animated_emblem.dart';
 import 'package:everglow/shared/widgets/bouncy_button.dart';
@@ -15,7 +16,10 @@ class AcademyPortalCard extends StatelessWidget {
       child: GlassContainer(
         height: 220,
         borderRadius: BorderRadius.circular(24.0),
-        border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.25), width: 1.5),
+        border: Border.all(
+          color: AppTheme.blushGold.withValues(alpha: 0.25),
+          width: 1.5,
+        ),
         child: Stack(
           children: [
             // Shifting Aura
@@ -31,7 +35,7 @@ class AcademyPortalCard extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             // Content
             Center(
               child: Column(
@@ -45,12 +49,16 @@ class AcademyPortalCard extends StatelessWidget {
                   const SizedBox(height: 12),
                   Text(
                     'Everglow Academy',
-                    style: AppTypography.cormorantBold.copyWith(fontSize: 28, letterSpacing: 0.5, shadows: [
+                    style: AppTypography.cormorantBold.copyWith(
+                      fontSize: 28,
+                      letterSpacing: 0.5,
+                      shadows: [
                         BoxShadow(
                           color: AppTheme.deepRose.withValues(alpha: 0.4),
                           blurRadius: 15,
                         ),
-                      ]),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 20),
                   Semantics(
@@ -59,7 +67,10 @@ class AcademyPortalCard extends StatelessWidget {
                     child: BouncyButton(
                       onTap: () => context.push('/academy'),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 40,
+                          vertical: 14,
+                        ),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
                             colors: [AppTheme.deepRose, AppTheme.blushGold],
@@ -75,7 +86,11 @@ class AcademyPortalCard extends StatelessWidget {
                         ),
                         child: Text(
                           'ENTER PORTAL',
-                          style: AppTypography.outfitWhite.copyWith(fontWeight: FontWeight.w900, color: AppTheme.petalWhite, letterSpacing: 2.0),
+                          style: AppTypography.outfitWhite.copyWith(
+                            fontWeight: FontWeight.w900,
+                            color: AppTheme.petalWhite,
+                            letterSpacing: 2.0,
+                          ),
                         ),
                       ),
                     ),

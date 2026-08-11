@@ -8,12 +8,17 @@ import '../../../core/utils/logger.dart';
 class AcademyService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  CollectionReference get _questionsRef => _firestore.collection('academy_questions');
-  CollectionReference get _matchesRef => _firestore.collection('active_matches');
+  CollectionReference get _questionsRef =>
+      _firestore.collection('academy_questions');
+  CollectionReference get _matchesRef =>
+      _firestore.collection('active_matches');
   CollectionReference get _usersRef => _firestore.collection('users');
 
   // Fetch random questions for a category
-  Future<List<AcademyQuestion>> getQuestions(String category, {int limit = 10}) async {
+  Future<List<AcademyQuestion>> getQuestions(
+    String category, {
+    int limit = 10,
+  }) async {
     final query = await _questionsRef
         .where('category', isEqualTo: category)
         .get();
@@ -34,7 +39,9 @@ class AcademyService {
       if (!snapshot.exists) {
         transaction.set(userDoc, {'studyPoints': points});
       } else {
-        final currentPoints = snapshot.data() != null ? (snapshot.data() as Map<String, dynamic>)['studyPoints'] ?? 0 : 0;
+        final currentPoints = snapshot.data() != null
+            ? (snapshot.data() as Map<String, dynamic>)['studyPoints'] ?? 0
+            : 0;
         transaction.update(userDoc, {'studyPoints': currentPoints + points});
       }
     });
@@ -43,7 +50,9 @@ class AcademyService {
   // Seeding helper
   Future<void> seedQuestions() async {
     try {
-      final String jsonString = await rootBundle.loadString('assets/data/academy_questions_seed.json');
+      final String jsonString = await rootBundle.loadString(
+        'assets/data/academy_questions_seed.json',
+      );
       final List<dynamic> data = jsonDecode(jsonString);
 
       // Process in batches of 500 (Firestore limit)
@@ -130,7 +139,12 @@ class AcademyService {
   }
 
   // Submit Answer transactional logic
-  Future<bool> submitAnswer(String matchId, String userId, String questionId, bool isCorrect) async {
+  Future<bool> submitAnswer(
+    String matchId,
+    String userId,
+    String questionId,
+    bool isCorrect,
+  ) async {
     final matchRef = _matchesRef.doc(matchId);
 
     return await _firestore.runTransaction((transaction) async {
@@ -144,12 +158,12 @@ class AcademyService {
       if (isCorrect) {
         final isHost = match.hostId == userId;
         final nextIndex = match.questionIndex + 1;
-        
+
         // Fetch all questions for this match category to get the next one
         // Note: In a real app, we might store question IDs in the match document
         // For now, we'll fetch them again (cached ideally)
         final questions = await getQuestions(match.category);
-        
+
         final isFinished = nextIndex >= 10;
         final nextQuestionId = isFinished ? '' : questions[nextIndex].id;
 
@@ -173,7 +187,7 @@ class AcademyService {
     // Recalculate based on final scores
     int khent = match.khentScore + (isHostWinner ? 10 : 0);
     int clair = match.clairScore + (!isHostWinner ? 10 : 0);
-    
+
     if (khent > clair) return 'khent';
     if (clair > khent) return 'clair';
     return 'draw';
