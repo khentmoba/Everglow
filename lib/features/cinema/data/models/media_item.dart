@@ -130,6 +130,35 @@ class MediaItem {
       status == 'watching-both' ||
       status == 'watching-self';
 
+  /// Maps `watched-self` / `watching-self` to the partner-specific variant
+  /// based on the item's [userName]. Per-user Firestore docs store "self"
+  /// variants, but the couple drawer chips expect `watched-khent`,
+  /// `watched-clair`, `watched-both`, etc. This resolves the mismatch so
+  /// the correct chip is highlighted when the drawer opens.
+  ///
+  /// Returns the original [status] unchanged for non-"self" values and
+  /// for non-couple usernames (e.g. Breyan, Octagram).
+  String resolveCoupleStatus() {
+    switch (status) {
+      case 'watched-self':
+        return _resolveByUserName('watched');
+      case 'watching-self':
+        return _resolveByUserName('watching');
+      default:
+        return status;
+    }
+  }
+
+  String _resolveByUserName(String prefix) {
+    final partners = partnerUsernames;
+    final hasKhent = partners.contains('khentsgdz');
+    final hasClair = partners.contains('clairjassen');
+    if (hasKhent && hasClair) return '$prefix-both';
+    if (hasKhent) return '$prefix-khent';
+    if (hasClair) return '$prefix-clair';
+    return '$prefix-self';
+  }
+
   String get watchedDisplay {
     if (status == 'watched-khent') return 'Watched by Khent';
     if (status == 'watched-clair') return 'Watched by Clair';

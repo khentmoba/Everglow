@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/theme/app_typography.dart';
 import 'package:provider/provider.dart';
 import '../../data/services/ai_service.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -185,11 +185,11 @@ class _AIRecommendationsState extends State<AIRecommendations> {
         backgroundColor: AppTheme.twilight,
         title: Text(
           item.title,
-          style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+          style: AppTypography.outfitWhite,
         ),
         content: Text(
           item.year.isNotEmpty ? item.year : '',
-          style: GoogleFonts.outfit(color: AppTheme.roseQuartz),
+          style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz),
         ),
         actions: [
           TextButton(
@@ -233,10 +233,8 @@ class _AIRecommendationsState extends State<AIRecommendations> {
               Expanded(
                 child: Text(
                   widget.title,
-                  style: GoogleFonts.outfit(
+                  style: AppTypography.outfitBold.copyWith(
                     fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.petalWhite,
                   ),
                 ),
               ),
@@ -256,7 +254,7 @@ class _AIRecommendationsState extends State<AIRecommendations> {
                     ),
                     child: Text(
                       'Ask Mochi 🐱',
-                      style: GoogleFonts.outfit(
+                      style: AppTypography.outfitWhite.copyWith(
                         fontSize: 12,
                         color: AppTheme.blushGold,
                         fontWeight: FontWeight.w500,
@@ -325,7 +323,7 @@ class _AIRecommendationsState extends State<AIRecommendations> {
                   Expanded(
                     child: Text(
                       _aiText!,
-                      style: GoogleFonts.outfit(
+                      style: AppTypography.outfitWhite.copyWith(
                         fontSize: 12.5,
                         color: AppTheme.petalWhite.withValues(alpha: 0.75),
                         height: 1.5,

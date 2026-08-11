@@ -4,15 +4,14 @@ import 'dart:html' as html;
 import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_html/flutter_html.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_html/flutter_html.dart';import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/books/data/models/book_item.dart';
 import 'package:everglow/features/books/data/services/open_library_service.dart';
 import 'package:everglow/features/books/presentation/widgets/chapter_list.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// In-app book reader. Mirrors the cinema's `video_player_screen`
 /// — it's the fullscreen experience for a single media item.
@@ -264,8 +263,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                CircularProgressIndicator(color: AppTheme.deepRose),
-                SizedBox(height: 16),
+                const CircularProgressIndicator(color: AppTheme.deepRose),
+                const SizedBox(height: 16),
                 Text(
                   'Opening the pages…',
                   style: TextStyle(
@@ -299,11 +298,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   Text(
                     _loadError!,
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.outfit(
-                      color: AppTheme.roseQuartz.withValues(alpha: 0.8),
-                      fontSize: 14,
-                      height: 1.5,
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.8), fontSize: 14, height: 1.5),
                   ),
                   const SizedBox(height: 24),
                   if (widget.book.readSourceLabel.isNotEmpty)
@@ -320,7 +315,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                       },
                       icon: const Icon(Icons.open_in_new_rounded),
                       label: Text('Open on ${widget.book.readSourceLabel}',
-                          style: GoogleFonts.outfit()),
+                          style: AppTypography.outfitWhite),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.deepRose,
                         padding: const EdgeInsets.symmetric(
@@ -351,12 +346,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 // Chapter title
                 Text(
                   chapter.title,
-                  style: GoogleFonts.cormorantGaramond(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    color: _theme.fg,
-                    height: 1.15,
-                  ),
+                  style: AppTypography.cormorantBlack.copyWith(fontSize: 28, height: 1.15, color: _theme.fg),
                 ),
                 const SizedBox(height: 16),
                 // Chapter body — render plain text via flutter_html so we
@@ -408,20 +398,16 @@ class _ReaderScreenState extends State<ReaderScreen> {
           TextButton.icon(
             onPressed: hasPrev ? _prevChapter : null,
             icon: const Icon(Icons.chevron_left_rounded, size: 20),
-            label: Text('Previous', style: GoogleFonts.outfit()),
+            label: Text('Previous', style: AppTypography.outfitWhite),
           ),
           Text(
             '${_currentChapter + 1} of ${_chapters.length}',
-            style: GoogleFonts.outfit(
-              color: _theme.fg.withValues(alpha: 0.6),
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
+            style: AppTypography.outfitBold.copyWith(color: _theme.fg.withValues(alpha: 0.6), fontSize: 12),
           ),
           TextButton.icon(
             onPressed: hasNext ? _nextChapter : null,
             icon: const Icon(Icons.chevron_right_rounded, size: 20),
-            label: Text('Next', style: GoogleFonts.outfit()),
+            label: Text('Next', style: AppTypography.outfitWhite),
             // label after icon order swap
           ),
         ],
@@ -456,22 +442,14 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   widget.book.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
-                    color: _theme.fg,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
+                  style: AppTypography.outfitHeading.copyWith(color: _theme.fg, fontSize: 14),
                 ),
                 if (widget.book.author.isNotEmpty)
                   Text(
                     widget.book.author,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
-                      color: _theme.fg.withValues(alpha: 0.6),
-                      fontSize: 11,
-                      fontStyle: FontStyle.italic,
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(color: _theme.fg.withValues(alpha: 0.6), fontSize: 11, fontStyle: FontStyle.italic),
                   ),
               ],
             ),
@@ -525,11 +503,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
             children: [
               Text(
                 '${(progress * 100).toStringAsFixed(0)}% complete',
-                style: GoogleFonts.outfit(
-                  color: _theme.fg.withValues(alpha: 0.55),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: AppTypography.outfitWhite.copyWith(color: _theme.fg.withValues(alpha: 0.55), fontSize: 11, fontWeight: FontWeight.w500),
               ),
               Row(
                 children: [
@@ -588,11 +562,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         children: [
           Text(
             'Via Internet Archive',
-            style: GoogleFonts.outfit(
-              color: _theme.fg.withValues(alpha: 0.55),
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
+            style: AppTypography.outfitWhite.copyWith(color: _theme.fg.withValues(alpha: 0.55), fontSize: 11, fontWeight: FontWeight.w500),
           ),
           if (widget.book.readSourceUrl.isNotEmpty)
             TextButton.icon(
@@ -607,9 +577,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
               icon: const Icon(Icons.open_in_new_rounded, size: 16),
               label: Text(
                 'Full Screen',
-                style: GoogleFonts.outfit(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: AppTypography.outfitBold,
               ),
             ),
         ],
@@ -642,7 +610,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
         builder: (ctx, controller) => Container(
           decoration: const BoxDecoration(
             color: AppTheme.velvet,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
           ),
           child: Column(
             children: [
@@ -662,19 +630,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   children: [
                     Text(
                       'Chapters',
-                      style: GoogleFonts.cormorantGaramond(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.petalWhite,
-                      ),
+                      style: AppTypography.cormorantExtraBoldWhite.copyWith(fontSize: 22),
                     ),
                     const Spacer(),
                     Text(
                       '${_chapters.length} total',
-                      style: GoogleFonts.outfit(
-                        color: AppTheme.roseQuartz.withValues(alpha: 0.6),
-                        fontSize: 12,
-                      ),
+                      style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 12),
                     ),
                   ],
                 ),
@@ -713,27 +674,16 @@ class _ReaderScreenState extends State<ReaderScreen> {
                               width: 32,
                               child: Text(
                                 '${i + 1}',
-                                style: GoogleFonts.cormorantGaramond(
-                                  color: isCurrent
-                                      ? AppTheme.roseQuartz
-                                      : AppTheme.roseQuartz
-                                          .withValues(alpha: 0.5),
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 16,
-                                ),
+                                style: AppTypography.cormorantBlack.copyWith(fontSize: 16),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
                                 _chapters[i].title,
-                                style: GoogleFonts.outfit(
-                                  color: isCurrent
+                                style: AppTypography.outfitBold.copyWith(color: isCurrent
                                       ? AppTheme.petalWhite
-                                      : AppTheme.roseQuartz,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
-                                ),
+                                      : AppTheme.roseQuartz, fontSize: 13),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -762,7 +712,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       builder: (_) => Container(
         decoration: const BoxDecoration(
           color: AppTheme.velvet,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         ),
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         child: Column(
@@ -782,22 +732,13 @@ class _ReaderScreenState extends State<ReaderScreen> {
             ),
             Text(
               'Reading Settings',
-              style: GoogleFonts.cormorantGaramond(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: AppTheme.petalWhite,
-              ),
+              style: AppTypography.cormorantExtraBoldWhite.copyWith(fontSize: 22),
             ),
             const SizedBox(height: 20),
             if (_readerMode == ReaderMode.text) ...[
               Text(
                 'Font size',
-                style: GoogleFonts.outfit(
-                  color: AppTheme.roseQuartz,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                  letterSpacing: 1.2,
-                ),
+                style: AppTypography.outfitBold.copyWith(color: AppTheme.roseQuartz, fontSize: 12, letterSpacing: 1.2),
               ),
               const SizedBox(height: 8),
               Row(
@@ -824,12 +765,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
             ],
             Text(
               'Theme',
-              style: GoogleFonts.outfit(
-                color: AppTheme.roseQuartz,
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-                letterSpacing: 1.2,
-              ),
+              style: AppTypography.outfitBold.copyWith(color: AppTheme.roseQuartz, fontSize: 12, letterSpacing: 1.2),
             ),
             const SizedBox(height: 12),
             Row(
@@ -875,13 +811,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
                                   const SizedBox(height: 6),
                                   Text(
                                     t.label,
-                                    style: GoogleFonts.outfit(
-                                      color: _theme == t
+                                    style: AppTypography.outfitHeading.copyWith(color: _theme == t
                                           ? AppTheme.petalWhite
-                                          : AppTheme.roseQuartz,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 11,
-                                    ),
+                                          : AppTheme.roseQuartz, fontSize: 11),
                                   ),
                                 ],
                               ),
@@ -907,7 +839,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   icon: const Icon(Icons.open_in_new_rounded, size: 16),
                   label: Text(
                     'Open source on ${widget.book.readSourceLabel}',
-                    style: GoogleFonts.outfit(),
+                    style: AppTypography.outfitWhite,
                   ),
                 ),
               ),

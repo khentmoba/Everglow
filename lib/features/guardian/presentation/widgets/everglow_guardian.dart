@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/theme/app_typography.dart';
 import 'package:provider/provider.dart';
 import 'character/cat_visuals.dart';
 import 'thought_bubble.dart';
@@ -89,7 +89,7 @@ class _EverglowGuardianState extends State<EverglowGuardian>
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
           left: 20,
           right: 20,
           top: 20,
@@ -118,10 +118,8 @@ class _EverglowGuardianState extends State<EverglowGuardian>
                 const SizedBox(width: 8),
                 Text(
                   'Talk to Guardian',
-                  style: GoogleFonts.outfit(
+                  style: AppTypography.outfitBold.copyWith(
                     fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.petalWhite,
                   ),
                 ),
                 const Spacer(),
@@ -140,7 +138,7 @@ class _EverglowGuardianState extends State<EverglowGuardian>
                     ),
                     child: Text(
                       'Exit AI Mode',
-                      style: GoogleFonts.outfit(
+                      style: AppTypography.outfitWhite.copyWith(
                         fontSize: 12,
                         color: AppTheme.blushGold,
                       ),
@@ -156,9 +154,8 @@ class _EverglowGuardianState extends State<EverglowGuardian>
                   child: TextField(
                     controller: _chatController,
                     autofocus: true,
-                    style: GoogleFonts.outfit(
+                    style: AppTypography.outfitWhite.copyWith(
                       fontSize: 14,
-                      color: AppTheme.petalWhite,
                     ),
                     decoration: InputDecoration(
                       hintText: 'Tell Guardian something...',
@@ -238,7 +235,8 @@ class _EverglowGuardianState extends State<EverglowGuardian>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<GuardianController>(
+    return RepaintBoundary(
+      child: Consumer<GuardianController>(
       builder: (context, controller, child) {
         return GestureDetector(
           onLongPress: () {
@@ -335,11 +333,8 @@ class _EverglowGuardianState extends State<EverglowGuardian>
                       offset: Offset(0, _floatingAnimation.value),
                       child: Transform.scale(
                         scale: _bounceAnimation.value,
-                        child: CatVisuals(
+                        child: const CatVisuals(
                           size: 80,
-                          primaryColor: controller.isAIMode
-                              ? AppTheme.blushGold
-                              : const Color(0xFFFFD1DC),
                         ),
                       ),
                     );
@@ -350,6 +345,7 @@ class _EverglowGuardianState extends State<EverglowGuardian>
           ),
         );
       },
+      ),
     );
   }
 }

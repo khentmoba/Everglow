@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class MediaPosterCard extends StatelessWidget {
   final MediaItem item;
@@ -70,12 +70,7 @@ class MediaPosterCard extends StatelessWidget {
                     children: [
                       Text(
                         item.title,
-                        style: GoogleFonts.outfit(
-                          color: AppTheme.petalWhite,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.2,
-                        ),
+                        style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.2),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -95,22 +90,13 @@ class MediaPosterCard extends StatelessWidget {
                             ),
                             child: Text(
                               item.mediaType.toUpperCase(),
-                              style: GoogleFonts.outfit(
-                                color: AppTheme.roseQuartz,
-                                fontSize: 8,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                              ),
+                              style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                             ),
                           ),
                           if (item.year.isNotEmpty)
                             Text(
                               item.year,
-                              style: GoogleFonts.outfit(
-                                color: AppTheme.blushGold.withValues(alpha: 0.8),
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                              ),
+                              style: AppTypography.outfitWhite.copyWith(color: AppTheme.blushGold.withValues(alpha: 0.8), fontSize: 10, fontWeight: FontWeight.w500),
                             ),
                         ],
                       ),

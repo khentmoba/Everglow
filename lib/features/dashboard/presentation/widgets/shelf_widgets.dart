@@ -1,9 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import 'package:flutter/scheduler.dart';import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Per-shelf visual identity. Each rail (Cinema, Anime, Books, Manga)
 /// passes one of these accents to the shared shelf primitives so the
@@ -91,13 +90,7 @@ class ShelfHeader extends StatelessWidget {
                   Flexible(
                     child: Text(
                       title,
-                      style: GoogleFonts.cormorantGaramond(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.roseQuartz,
-                        height: 1.0,
-                        letterSpacing: 0.2,
-                      ),
+                      style: AppTypography.cormorantBold.copyWith(fontSize: 26, height: 1.0, letterSpacing: 0.2),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -112,12 +105,7 @@ class ShelfHeader extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   '$itemCount ${itemCount == 1 ? "title" : "titles"} shared',
-                  style: GoogleFonts.outfit(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.petalWhite.withValues(alpha: 0.55),
-                    letterSpacing: 0.4,
-                  ),
+                  style: AppTypography.outfitWhite.copyWith(fontSize: 11, fontWeight: FontWeight.w500, color: AppTheme.petalWhite.withValues(alpha: 0.55), letterSpacing: 0.4),
                 ),
               ],
             ],
@@ -187,12 +175,7 @@ class _Badge extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: GoogleFonts.outfit(
-          fontSize: 9,
-          fontWeight: FontWeight.w800,
-          color: AppTheme.deepRose,
-          letterSpacing: 1.4,
-        ),
+        style: AppTypography.outfitWhite.copyWith(fontSize: 9, fontWeight: FontWeight.w800, color: AppTheme.deepRose, letterSpacing: 1.4),
       ),
     );
   }
@@ -237,12 +220,7 @@ class _ViewAllButtonState extends State<_ViewAllButton> {
             children: [
               Text(
                 'View All',
-                style: GoogleFonts.outfit(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: widget.accent.color,
-                  letterSpacing: 0.4,
-                ),
+                style: AppTypography.outfitBold.copyWith(fontSize: 12, color: widget.accent.color, letterSpacing: 0.4),
               ),
               const SizedBox(width: 2),
               Icon(
@@ -403,18 +381,12 @@ class _ShelfCardState extends State<ShelfCard> {
                       children: [
                         Text(
                           widget.title,
-                          style: GoogleFonts.outfit(
-                            color: AppTheme.petalWhite,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            height: 1.15,
-                            shadows: const [
+                          style: AppTypography.outfitHeading.copyWith(color: AppTheme.petalWhite, fontSize: 11, height: 1.15, shadows: const [
                               Shadow(
                                 color: Color(0xCC000000),
                                 blurRadius: 4,
                               ),
-                            ],
-                          ),
+                            ]),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -423,18 +395,12 @@ class _ShelfCardState extends State<ShelfCard> {
                           const SizedBox(height: 2),
                           Text(
                             widget.subtitle!,
-                            style: GoogleFonts.outfit(
-                              color: widget.accent.color,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.3,
-                              shadows: const [
+                            style: AppTypography.outfitBold.copyWith(color: widget.accent.color, fontSize: 9, letterSpacing: 0.3, shadows: const [
                                 Shadow(
                                   color: Color(0xCC000000),
                                   blurRadius: 4,
                                 ),
-                              ],
-                            ),
+                              ]),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -462,12 +428,7 @@ class _ShelfCardState extends State<ShelfCard> {
                       ),
                       child: Text(
                         widget.topBadge!,
-                        style: GoogleFonts.outfit(
-                          color: widget.accent.color,
-                          fontSize: 8,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.6,
-                        ),
+                        style: AppTypography.outfitWhite.copyWith(color: widget.accent.color, fontSize: 8, fontWeight: FontWeight.w800, letterSpacing: 0.6),
                       ),
                     ),
                   ),
@@ -516,12 +477,7 @@ class _Placeholder extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.outfit(
-                  color: AppTheme.petalWhite.withValues(alpha: 0.85),
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
-                  height: 1.2,
-                ),
+                style: AppTypography.outfitBold.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.85), fontSize: 9, height: 1.2),
               ),
             ],
           ),
@@ -588,12 +544,7 @@ class ShelfEmpty extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: GoogleFonts.outfit(
-                color: AppTheme.roseQuartz.withValues(alpha: 0.75),
-                fontStyle: FontStyle.italic,
-                fontSize: 13,
-                height: 1.35,
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.75), fontStyle: FontStyle.italic, fontSize: 13, height: 1.35),
             ),
           ),
         ],

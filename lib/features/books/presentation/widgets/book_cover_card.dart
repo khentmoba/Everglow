@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:everglow/features/books/data/models/book_item.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Reusable book cover card. Designed for grid placement (search
 /// results, our-books list, etc.) — portrait orientation with a
@@ -80,12 +80,7 @@ class BookCoverCard extends StatelessWidget {
                     children: [
                       Text(
                         item.title,
-                        style: GoogleFonts.outfit(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          height: 1.2,
-                        ),
+                        style: AppTypography.outfitHeading.copyWith(color: Colors.white, fontSize: 12, height: 1.2),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -93,11 +88,7 @@ class BookCoverCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           item.author,
-                          style: GoogleFonts.outfit(
-                            color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 10,
-                            fontStyle: FontStyle.italic,
-                          ),
+                          style: AppTypography.outfitWhite.copyWith(color: Colors.white.withValues(alpha: 0.7), fontSize: 10, fontStyle: FontStyle.italic),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -127,12 +118,7 @@ class BookCoverCard extends StatelessWidget {
                     ),
                     child: Text(
                       statusBadge!,
-                      style: GoogleFonts.outfit(
-                        color: Colors.white,
-                        fontSize: 8,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.5,
-                      ),
+                      style: AppTypography.outfitWhite.copyWith(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w800, letterSpacing: 0.5),
                     ),
                   ),
                 ),
@@ -169,11 +155,7 @@ class BookCoverCard extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.outfit(
-                  color: const Color(0xFFFFF5F5),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: AppTypography.outfitBold.copyWith(color: const Color(0xFFFFF5F5), fontSize: 10),
               ),
             ],
           ),

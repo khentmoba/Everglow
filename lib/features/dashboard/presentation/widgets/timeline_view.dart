@@ -1,12 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:everglow/features/dashboard/domain/models/milestone.dart';
+import 'package:intl/intl.dart';import 'package:everglow/features/dashboard/domain/models/milestone.dart';
 import 'package:everglow/features/dashboard/data/services/milestone_service.dart';
 import 'package:everglow/features/dashboard/presentation/widgets/memory_detail_view.dart';
 import 'package:everglow/shared/widgets/glass_container.dart';
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class TimelineView extends StatefulWidget {
   const TimelineView({super.key});
@@ -28,6 +27,7 @@ class _TimelineViewState extends State<TimelineView> {
 
   void _startAutoScroll() {
     _autoScrollTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (!mounted) return;
       if (_pageController.hasClients) {
         _pageController.nextPage(
           duration: const Duration(milliseconds: 1500),
@@ -58,15 +58,9 @@ class _TimelineViewState extends State<TimelineView> {
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Text(
                   'LIVING ARCHIVE',
-                  style: GoogleFonts.cormorantGaramond(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 22,
-                    color: AppTheme.roseQuartz,
-                    letterSpacing: 2.0,
-                    shadows: [
+                  style: AppTypography.cormorantBlack.copyWith(fontSize: 22, letterSpacing: 2.0, shadows: [
                       BoxShadow(color: AppTheme.deepRose.withValues(alpha: 0.5), blurRadius: 10),
-                    ],
-                  ),
+                    ]),
                 ),
               ),
               Expanded(child: Divider(color: AppTheme.blushGold.withValues(alpha: 0.15), thickness: 1)),
@@ -89,7 +83,7 @@ class _TimelineViewState extends State<TimelineView> {
                       const SizedBox(height: 8),
                       Text(
                         'Could not load memories',
-                        style: GoogleFonts.outfit(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 13),
+                        style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 13),
                       ),
                     ],
                   ),
@@ -112,10 +106,7 @@ class _TimelineViewState extends State<TimelineView> {
                       const SizedBox(height: 8),
                       Text(
                         'Loading memories...',
-                        style: GoogleFonts.outfit(
-                          color: AppTheme.roseQuartz.withValues(alpha: 0.5),
-                          fontSize: 12,
-                        ),
+                        style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.5), fontSize: 12),
                       ),
                     ],
                   ),
@@ -185,6 +176,7 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
 
   void _startImgScroll() {
     _imgTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (!mounted) return;
       if (_imgController.hasClients && widget.milestone.imageUrls.length > 1) {
         int next = (_imgController.page?.round() ?? 0) + 1;
         if (next >= widget.milestone.imageUrls.length) {
@@ -250,30 +242,18 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
                           children: [
                             Text(
                               widget.milestone.title,
-                              style: GoogleFonts.cormorantGaramond(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 22,
-                                color: AppTheme.roseQuartz,
-                              ),
+                              style: AppTypography.cormorantBold.copyWith(fontSize: 22),
                             ),
                             Text(
                               DateFormat('MMMM d, yyyy').format(widget.milestone.date),
-                              style: GoogleFonts.outfit(
-                                fontSize: 13,
-                                color: AppTheme.blushGold,
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style: AppTypography.outfitBold.copyWith(fontSize: 13, color: AppTheme.blushGold),
                             ),
                             const SizedBox(height: 12),
                             Text(
                               widget.milestone.description,
                               maxLines: 3,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.outfit(
-                                color: AppTheme.petalWhite.withValues(alpha: 0.8),
-                                height: 1.4,
-                                fontSize: 13,
-                              ),
+                              style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.8), height: 1.4, fontSize: 13),
                             ),
                           ],
                         ),

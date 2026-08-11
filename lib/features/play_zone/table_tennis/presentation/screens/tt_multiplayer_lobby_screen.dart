@@ -1,12 +1,11 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';import 'package:provider/provider.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../services/auth_service.dart';
 import '../../services/tt_multiplayer_service.dart';
 import 'tt_multiplayer_game_screen.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class TTMultiplayerLobbyScreen extends StatefulWidget {
   const TTMultiplayerLobbyScreen({super.key});
@@ -43,19 +42,12 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
               const SizedBox(height: 16),
               Text(
                 'Table Tennis 1v1',
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.roseQuartz,
-                ),
+                style: AppTypography.cormorantBold.copyWith(fontSize: 32),
               ),
               const SizedBox(height: 8),
               Text(
                 'Play against your partner',
-                style: GoogleFonts.outfit(
-                  fontSize: 14,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.75),
-                ),
+                style: AppTypography.outfitWhite.copyWith(fontSize: 14, color: AppTheme.petalWhite.withValues(alpha: 0.75)),
               ),
               const SizedBox(height: 48),
               if (!_searching && _countdown == 0)
@@ -68,10 +60,7 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
               if (_roomId != null)
                 Text(
                   'Room: $_roomId',
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    color: AppTheme.petalWhite.withValues(alpha: 0.55),
-                  ),
+                  style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.petalWhite.withValues(alpha: 0.55)),
                 ),
             ],
           ),
@@ -100,12 +89,7 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
         ),
         child: Text(
           'Find Match',
-          style: GoogleFonts.outfit(
-            fontWeight: FontWeight.w900,
-            color: AppTheme.petalWhite,
-            letterSpacing: 2,
-            fontSize: 16,
-          ),
+          style: AppTypography.outfitWhite.copyWith(fontWeight: FontWeight.w900, color: AppTheme.petalWhite, letterSpacing: 2, fontSize: 16),
         ),
       ),
     );
@@ -125,10 +109,7 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
         const SizedBox(height: 16),
         Text(
           _statusText ?? 'Searching for opponent...',
-          style: GoogleFonts.outfit(
-            fontSize: 16,
-            color: AppTheme.petalWhite,
-          ),
+          style: AppTypography.outfitWhite.copyWith(fontSize: 16, color: AppTheme.petalWhite),
         ),
         const SizedBox(height: 8),
         Row(
@@ -158,9 +139,7 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
           onPressed: _cancelSearch,
           child: Text(
             'Cancel',
-            style: GoogleFonts.outfit(
-              color: AppTheme.petalWhite.withValues(alpha: 0.7),
-            ),
+            style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.7)),
           ),
         ),
       ],
@@ -172,20 +151,12 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
       children: [
         Text(
           'Match found!',
-          style: GoogleFonts.outfit(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.warmAmber,
-          ),
+          style: AppTypography.outfitBold.copyWith(fontSize: 20, color: AppTheme.warmAmber),
         ),
         const SizedBox(height: 16),
         Text(
           '$_countdown',
-          style: GoogleFonts.cormorantGaramond(
-            fontSize: 72,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.roseQuartz,
-          ),
+          style: AppTypography.cormorantBold.copyWith(fontSize: 72),
         ),
       ],
     );

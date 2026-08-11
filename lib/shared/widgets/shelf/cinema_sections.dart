@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../core/theme/app_typography.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
@@ -143,13 +143,13 @@ class _ForYouCardState extends State<_ForYouCard> {
                               children: [
                                 const Icon(Icons.auto_awesome, size: 10, color: Colors.white),
                                 const SizedBox(width: 3),
-                                Text(
-                                  '${widget.item.matchPercent}%',
-                                  style: GoogleFonts.outfit(
-                                    color: Colors.white,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                        Text(
+                          '${widget.item.matchPercent}%',
+                          style: AppTypography.outfitHeading.copyWith(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                          ),
                                 ),
                               ],
                             ),
@@ -164,10 +164,8 @@ class _ForYouCardState extends State<_ForYouCard> {
                   widget.item.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
+                  style: AppTypography.outfitHeading.copyWith(
                     fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.petalWhite,
                   ),
                 ),
                 if (widget.item.subtitle != null) ...[
@@ -176,10 +174,9 @@ class _ForYouCardState extends State<_ForYouCard> {
                     widget.item.subtitle!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
-                      fontSize: 10,
-                      color: AppColors.textMuted,
-                    ),
+                  style: AppTypography.outfitMuted.copyWith(
+                    fontSize: 10,
+                  ),
                   ),
                 ],
               ],
@@ -380,21 +377,16 @@ class _RankingTileState extends State<_RankingTile> {
                         alignment: Alignment.center,
                         child: Text(
                           '${widget.rank}',
-                          style: GoogleFonts.cormorantGaramond(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            color: _rankColor,
-                          ),
+                          style: AppTypography.cormorantBlack.copyWith(fontSize: 18, color: _rankColor),
                         ),
                       )
                     : Center(
                         child: Text(
                           '${widget.rank}',
-                          style: GoogleFonts.outfit(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textMuted,
-                          ),
+                            style: AppTypography.outfitMuted.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
                         ),
                       ),
               ),
@@ -424,9 +416,7 @@ class _RankingTileState extends State<_RankingTile> {
                       widget.item.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.outfit(
-                        color: AppTheme.petalWhite,
-                        fontWeight: FontWeight.w700,
+                      style: AppTypography.outfitHeading.copyWith(
                         fontSize: 13,
                       ),
                     ),
@@ -434,11 +424,10 @@ class _RankingTileState extends State<_RankingTile> {
                       const SizedBox(height: 3),
                       Text(
                         widget.item.subtitle!,
-                        style: GoogleFonts.outfit(
-                          color: AppTheme.warmAmber,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      style: AppTypography.outfitBold.copyWith(
+                        color: AppTheme.warmAmber,
+                        fontSize: 11,
+                      ),
                       ),
                     ],
                     if (widget.item.badge != null) ...[
@@ -452,10 +441,9 @@ class _RankingTileState extends State<_RankingTile> {
                         ),
                         child: Text(
                           widget.item.badge!,
-                          style: GoogleFonts.outfit(
+                          style: AppTypography.outfitHeading.copyWith(
                             color: AppTheme.deepRose,
                             fontSize: 8,
-                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -581,9 +569,8 @@ class _ProviderRowWidget extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               provider.name,
-              style: GoogleFonts.outfit(
+              style: AppTypography.outfitHeading.copyWith(
                 fontSize: 13,
-                fontWeight: FontWeight.w700,
                 color: provider.color,
                 letterSpacing: 0.3,
               ),
@@ -624,11 +611,10 @@ class _ProviderRowWidget extends StatelessWidget {
                         item.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.outfit(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textMuted,
-                        ),
+                      style: AppTypography.outfitMuted.copyWith(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
                       ),
                     ],
                   ),
@@ -829,21 +815,15 @@ class _ContinueCard extends StatelessWidget {
                       item.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.cormorantGaramond(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.petalWhite,
-                        height: 1.15,
-                      ),
+                      style: AppTypography.cormorantBoldWhite.copyWith(fontSize: 15, height: 1.15),
                     ),
                     if (item.year != null) ...[
                       const SizedBox(height: 4),
                       Text(
                         item.year!,
-                        style: GoogleFonts.outfit(
+                        style: AppTypography.outfitBold.copyWith(
                           color: AppTheme.warmAmber,
                           fontSize: 10,
-                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],

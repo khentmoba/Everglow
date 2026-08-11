@@ -1,5 +1,4 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/material.dart';import 'package:everglow/core/theme/app_typography.dart';
 
 /// A single "chapter" derived from a fetched book's plain text. The
 /// chapter splitter in the reader service produces a list of these.
@@ -48,11 +47,7 @@ class ChapterList extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Text(
           'No chapter structure detected. The full text will load as a single passage when you start reading.',
-          style: GoogleFonts.outfit(
-            color: const Color(0xFF8A7A92),
-            fontSize: 13,
-            height: 1.5,
-          ),
+          style: AppTypography.outfitWhite.copyWith(color: const Color(0xFF8A7A92), fontSize: 13, height: 1.5),
         ),
       );
     }
@@ -119,13 +114,9 @@ class _ChapterTile extends StatelessWidget {
               alignment: Alignment.center,
               child: Text(
                 '${index + 1}',
-                style: GoogleFonts.cormorantGaramond(
-                  color: isCurrent
+                style: AppTypography.cormorantBlack.copyWith(fontSize: 16, color: isCurrent
                       ? const Color(0xFFF4C2C2)
-                      : const Color(0xFF8A7A92),
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
-                ),
+                      : const Color(0xFF8A7A92)),
               ),
             ),
             const SizedBox(width: 12),
@@ -135,24 +126,16 @@ class _ChapterTile extends StatelessWidget {
                 children: [
                   Text(
                     chapter.title,
-                    style: GoogleFonts.outfit(
-                      color: isCurrent
+                    style: AppTypography.outfitHeading.copyWith(color: isCurrent
                           ? const Color(0xFFFFF5F5)
-                          : const Color(0xFFF4C2C2),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
+                          : const Color(0xFFF4C2C2), fontSize: 13),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
                   Text(
                     _preview(chapter.body),
-                    style: GoogleFonts.outfit(
-                      color: const Color(0xFF8A7A92),
-                      fontSize: 11,
-                      height: 1.4,
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(color: const Color(0xFF8A7A92), fontSize: 11, height: 1.4),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),

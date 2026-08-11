@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../core/theme/app_typography.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_colors.dart';
@@ -109,7 +109,7 @@ class _CinemaTopNavState extends State<_CinemaTopNav> {
       child: Container(
         padding: EdgeInsets.fromLTRB(
           isDesktop ? 48 : 24,
-          MediaQuery.of(context).padding.top + 4,
+          MediaQuery.paddingOf(context).top + 4,
           isDesktop ? 48 : 24,
           0,
         ),
@@ -177,12 +177,7 @@ class _CinemaTopNavState extends State<_CinemaTopNav> {
                   const SizedBox(width: 10),
                   Text(
                     widget.logoText,
-                    style: GoogleFonts.cormorantGaramond(
-                      fontSize: isDesktop ? 22 : 18,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.roseQuartz,
-                      letterSpacing: 0.5,
-                    ),
+                    style: AppTypography.cormorantExtraBold.copyWith(fontSize: isDesktop ? 22 : 18, letterSpacing: 0.5),
                   ),
                 ],
               ),
@@ -287,7 +282,7 @@ class _NavLinkState extends State<_NavLink> {
                 const SizedBox(width: 6),
                 Text(
                   widget.label,
-                  style: GoogleFonts.outfit(
+                  style: AppTypography.outfitWhite.copyWith(
                     fontSize: 14,
                     fontWeight:
                         widget.isActive ? FontWeight.w700 : FontWeight.w500,
@@ -308,7 +303,7 @@ class _NavLinkState extends State<_NavLink> {
                     ),
                     child: Text(
                       widget.badge!,
-                      style: GoogleFonts.outfit(
+                      style: AppTypography.outfitHeading.copyWith(
                         fontSize: 9,
                         fontWeight: FontWeight.w800,
                         color: AppTheme.deepRose,
@@ -360,10 +355,8 @@ class _ActionIconButtonState extends State<_ActionIconButton> {
       onShowHoverHighlight: (show) => setState(() => _hovered = show),
       child: Tooltip(
         message: widget.tooltip,
-        textStyle: GoogleFonts.outfit(
-          color: AppTheme.petalWhite,
+        textStyle: AppTypography.outfitBold.copyWith(
           fontSize: 11,
-          fontWeight: FontWeight.w600,
         ),
         decoration: BoxDecoration(
           color: AppTheme.velvet,
@@ -416,7 +409,7 @@ class _CinemaBottomNav extends StatelessWidget {
         20,
         0,
         20,
-        MediaQuery.of(context).padding.bottom + 12,
+        MediaQuery.paddingOf(context).bottom + 12,
       ),
       decoration: BoxDecoration(
         color: const Color(0xFF1C1228),
@@ -526,10 +519,8 @@ class _BottomNavItem extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   label,
-                  style: GoogleFonts.outfit(
+                  style: AppTypography.outfitHeading.copyWith(
                     fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.petalWhite,
                   ),
                 ),
               ],
@@ -542,13 +533,12 @@ class _BottomNavItem extends StatelessWidget {
                     color: AppTheme.deepRose,
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Text(
-                    badge!,
-                    style: GoogleFonts.outfit(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.petalWhite,
-                    ),
+                    child: Text(
+                      badge!,
+                      style: AppTypography.outfitHeading.copyWith(
+                        fontSize: 8,
+                        fontWeight: FontWeight.w800,
+                      ),
                   ),
                 ),
               ],

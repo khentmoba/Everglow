@@ -1,10 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';import 'package:provider/provider.dart';
 
-import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'start_watch_party_button.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 const _cDeepRose = Color(0xFFC2185B);
 const _cGold = Color(0xFFE8C97A);
@@ -91,13 +89,7 @@ class _WatchPartyHeader extends StatelessWidget {
                   Flexible(
                     child: Text(
                       'Watch Together',
-                      style: GoogleFonts.cormorantGaramond(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.roseQuartz,
-                        height: 1.0,
-                        letterSpacing: 0.2,
-                      ),
+                      style: AppTypography.cormorantBold.copyWith(fontSize: 24, height: 1.0, letterSpacing: 0.2),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -122,12 +114,7 @@ class _WatchPartyHeader extends StatelessWidget {
                         const SizedBox(width: 3),
                         Text(
                           'NEW',
-                          style: GoogleFonts.outfit(
-                            color: _cGold,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.2,
-                          ),
+                          style: AppTypography.outfitWhite.copyWith(color: _cGold, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1.2),
                         ),
                       ],
                     ),
@@ -137,12 +124,7 @@ class _WatchPartyHeader extends StatelessWidget {
               const SizedBox(height: 3),
               Text(
                 'MOVIE NIGHT IN REAL TIME',
-                style: GoogleFonts.outfit(
-                  color: _cMuted,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5,
-                ),
+                style: AppTypography.outfitHeading.copyWith(color: _cMuted, fontSize: 10, letterSpacing: 1.5),
               ),
             ],
           ),

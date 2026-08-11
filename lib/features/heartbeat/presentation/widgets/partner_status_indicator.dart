@@ -71,7 +71,8 @@ class _MoodHeartState extends State<_MoodHeart> with SingleTickerProviderStateMi
     final isStressed = widget.score <= 2;
     final isAmazing = widget.score == 5;
 
-    return ScaleTransition(
+    return RepaintBoundary(
+      child: ScaleTransition(
       scale: _pulseAnimation,
       child: Container(
         decoration: BoxDecoration(
@@ -97,6 +98,7 @@ class _MoodHeartState extends State<_MoodHeart> with SingleTickerProviderStateMi
             fontSize: isAmazing ? 28 : 20,
           ),
         ),
+      ),
       ),
     );
   }

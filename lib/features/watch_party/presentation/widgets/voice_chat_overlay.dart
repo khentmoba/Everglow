@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../../data/services/voice_chat_service.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 const _cCard = Color(0xFF1C1228);
 const _cDeepRose = Color(0xFFC2185B);
@@ -82,11 +81,7 @@ class VoiceChatOverlay extends StatelessWidget {
                   : muted
                       ? 'Muted'
                       : 'Live',
-                  style: GoogleFonts.outfit(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: AppTypography.outfitHeading.copyWith(color: Colors.white, fontSize: 11),
                 ),
               ],
             ),
@@ -119,19 +114,12 @@ class VoiceChatOverlay extends StatelessWidget {
             const SizedBox(height: 20),
             Text(
               'Voice Chat',
-              style: GoogleFonts.cormorantGaramond(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-              ),
+              style: AppTypography.cormorantBold.copyWith(fontSize: 20, color: Colors.white),
             ),
             const SizedBox(height: 8),
             Text(
               'Talking with $partnerName',
-              style: GoogleFonts.outfit(
-                color: _cMuted,
-                fontSize: 12,
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 12),
             ),
             const SizedBox(height: 24),
             ValueListenableBuilder<bool>(
@@ -197,11 +185,7 @@ class VoiceChatOverlay extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             label,
-            style: GoogleFonts.outfit(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
+            style: AppTypography.outfitBold.copyWith(color: Colors.white, fontSize: 11),
           ),
         ],
       ),

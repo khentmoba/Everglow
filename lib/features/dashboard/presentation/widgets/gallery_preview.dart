@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import '../../../gallery/domain/models/memory_photo.dart';
 import '../../../gallery/data/services/gallery_service.dart';
 import 'shelf_widgets.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class GalleryPreview extends StatelessWidget {
   const GalleryPreview({super.key});
@@ -39,10 +39,7 @@ class GalleryPreview extends StatelessWidget {
                   Expanded(
                     child: Text(
                       'Your gallery is empty — add your first photo!',
-                      style: GoogleFonts.outfit(
-                        fontSize: 12,
-                        color: AppTheme.petalWhite.withValues(alpha: 0.6),
-                      ),
+                      style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.petalWhite.withValues(alpha: 0.6)),
                     ),
                   ),
                   Icon(
@@ -84,19 +81,12 @@ class GalleryPreview extends StatelessWidget {
                       const SizedBox(width: 8),
                       Text(
                         'Memory Gallery',
-                        style: GoogleFonts.outfit(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.roseQuartz,
-                        ),
+                        style: AppTypography.outfitWhite.copyWith(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.roseQuartz),
                       ),
                       const Spacer(),
                       Text(
                         '${photos.length} photos',
-                        style: GoogleFonts.outfit(
-                          fontSize: 11,
-                          color: AppTheme.petalWhite.withValues(alpha: 0.65),
-                        ),
+                        style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: AppTheme.petalWhite.withValues(alpha: 0.65)),
                       ),
                       const SizedBox(width: 4),
                       Icon(

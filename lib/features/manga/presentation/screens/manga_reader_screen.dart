@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'package:everglow/core/theme/app_theme.dart';
@@ -13,6 +12,7 @@ import 'package:everglow/features/manga/data/services/mangakakalot_service.dart'
 import 'package:everglow/features/manga/data/services/mangakatana_service.dart';
 import 'package:everglow/features/manga/data/services/scanlation_service.dart';
 import 'package:everglow/services/auth_service.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Reader background — deep black, darker than the anime palette.
 const _readerBg = AppColors.animeBackground; // 0xFF080810
@@ -397,19 +397,12 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                 children: [
                   Text(
                     'Chapters',
-                    style: GoogleFonts.outfit(
-                      color: AppTheme.petalWhite,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const Spacer(),
                   Text(
                     '${widget.allChapters.length} total',
-                    style: GoogleFonts.outfit(
-                      color: AppTheme.roseQuartz.withValues(alpha: 0.5),
-                      fontSize: 12,
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.5), fontSize: 12),
                   ),
                 ],
               ),
@@ -432,22 +425,14 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                         : null,
                     title: Text(
                       c.displayTitle,
-                      style: GoogleFonts.outfit(
-                        color: isCurrent
+                      style: AppTypography.outfitWhite.copyWith(color: isCurrent
                             ? AppTheme.deepRose
-                            : AppTheme.petalWhite,
-                        fontSize: 13,
-                        fontWeight:
-                            isCurrent ? FontWeight.bold : FontWeight.w500,
-                      ),
+                            : AppTheme.petalWhite, fontSize: 13, fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500),
                     ),
                     subtitle: c.pages > 0
                         ? Text(
                             '${c.pages} pages',
-                            style: GoogleFonts.outfit(
-                              color: AppTheme.roseQuartz.withValues(alpha: 0.4),
-                              fontSize: 10,
-                            ),
+                            style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.4), fontSize: 10),
                           )
                         : null,
                     onTap: () {
@@ -503,7 +488,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
           // Page counter (always visible, small)
           if (!_isLoading && _loadError == null && _pages != null)
             Positioned(
-              top: MediaQuery.of(context).padding.top + 56 + 4,
+              top: MediaQuery.paddingOf(context).top + 56 + 4,
               right: 16,
               child: AnimatedOpacity(
                 opacity: _showUI ? 0.0 : 0.7,
@@ -517,11 +502,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                   ),
                   child: Text(
                     '${_currentPageEstimate + 1}/${_pages!.filenames.length}',
-                    style: GoogleFonts.outfit(
-                      color: Colors.white70,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: AppTypography.outfitBold.copyWith(color: Colors.white70, fontSize: 11),
                   ),
                 ),
               ),
@@ -532,7 +513,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
   }
 
   Widget _buildTopBar() {
-    final statusBar = MediaQuery.of(context).padding.top;
+    final statusBar = MediaQuery.paddingOf(context).top;
     return Container(
       padding: EdgeInsets.only(top: statusBar),
       decoration: BoxDecoration(
@@ -567,20 +548,13 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                     children: [
                       Text(
                         widget.manga.title,
-                        style: GoogleFonts.outfit(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: AppTypography.outfitWhite.copyWith(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         widget.chapter.displayTitle,
-                        style: GoogleFonts.outfit(
-                          color: Colors.white54,
-                          fontSize: 11,
-                        ),
+                        style: AppTypography.outfitMuted.copyWith(color: Colors.white54, fontSize: 11),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -605,7 +579,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
   Widget _buildBottomBar() {
     final prev = _previousChapter;
     final next = _nextChapter;
-    final bottomPad = MediaQuery.of(context).padding.bottom;
+    final bottomPad = MediaQuery.paddingOf(context).bottom;
 
     return Container(
       padding: EdgeInsets.only(bottom: bottomPad),
@@ -631,10 +605,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                 children: [
                   Text(
                     'Page ${_currentPageEstimate + 1}',
-                    style: GoogleFonts.outfit(
-                      color: Colors.white54,
-                      fontSize: 11,
-                    ),
+                    style: AppTypography.outfitMuted.copyWith(color: Colors.white54, fontSize: 11),
                   ),
                   Expanded(
                     child: Padding(
@@ -653,10 +624,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                   ),
                   Text(
                     '${_pages!.filenames.length}',
-                    style: GoogleFonts.outfit(
-                      color: Colors.white54,
-                      fontSize: 11,
-                    ),
+                    style: AppTypography.outfitMuted.copyWith(color: Colors.white54, fontSize: 11),
                   ),
                 ],
               ),
@@ -696,11 +664,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                         const SizedBox(width: 6),
                         Text(
                           'Ch. ${widget.chapter.chapter}',
-                          style: GoogleFonts.outfit(
-                            color: AppTheme.deepRose,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: AppTypography.outfitWhite.copyWith(color: AppTheme.deepRose, fontSize: 13, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -731,7 +695,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
           const SizedBox(height: 16),
           Text(
             'Loading pages...',
-            style: GoogleFonts.outfit(color: Colors.white54, fontSize: 14),
+            style: AppTypography.outfitMuted.copyWith(color: Colors.white54, fontSize: 14),
           ),
         ],
       ),
@@ -751,7 +715,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
             Text(
               _loadError!,
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(color: Colors.white),
+              style: AppTypography.outfitWhite.copyWith(color: Colors.white),
             ),
             const SizedBox(height: 16),
             ElevatedButton(
@@ -762,7 +726,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                     borderRadius: AppRadius.radiusSm),
               ),
               child: Text('Retry',
-                  style: GoogleFonts.outfit(color: Colors.white)),
+                  style: AppTypography.outfitWhite.copyWith(color: Colors.white)),
             ),
           ],
         ),
@@ -779,8 +743,8 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
     return ListView.builder(
       controller: _scrollController,
       padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + 56,
-        bottom: MediaQuery.of(context).padding.bottom + 120,
+        top: MediaQuery.paddingOf(context).top + 56,
+        bottom: MediaQuery.paddingOf(context).bottom + 120,
       ),
       itemCount: pageCount + 1, // +1 for "Next Chapter" card
       itemBuilder: (context, index) {
@@ -826,8 +790,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                       const SizedBox(height: 8),
                       Text(
                         'Page ${index + 1} failed to load',
-                        style: GoogleFonts.outfit(
-                            color: Colors.white38, fontSize: 12),
+                        style: AppTypography.outfitWhite.copyWith(color: Colors.white38, fontSize: 12),
                       ),
                       const SizedBox(height: 8),
                       GestureDetector(
@@ -841,10 +804,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                           ),
                           child: Text(
                             'Retry',
-                            style: GoogleFonts.outfit(
-                              color: AppTheme.deepRose,
-                              fontSize: 12,
-                            ),
+                            style: AppTypography.outfitWhite.copyWith(color: AppTheme.deepRose, fontSize: 12),
                           ),
                         ),
                       ),
@@ -870,10 +830,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
             const SizedBox(height: 12),
             Text(
               'You\'ve reached the end',
-              style: GoogleFonts.outfit(
-                color: Colors.white38,
-                fontSize: 14,
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: Colors.white38, fontSize: 14),
             ),
           ],
         ),
@@ -899,20 +856,12 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
         children: [
           Text(
             'End of Chapter',
-            style: GoogleFonts.outfit(
-              color: Colors.white38,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
+            style: AppTypography.outfitWhite.copyWith(color: Colors.white38, fontSize: 12, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 12),
           Text(
             next.displayTitle,
-            style: GoogleFonts.outfit(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-            ),
+            style: AppTypography.outfitWhite.copyWith(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
@@ -921,10 +870,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
             icon: const Icon(Icons.arrow_forward_rounded, size: 18),
             label: Text(
               'Next Chapter',
-              style: GoogleFonts.outfit(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
+              style: AppTypography.outfitWhite.copyWith(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.deepRose,
@@ -973,11 +919,7 @@ class _NavButton extends StatelessWidget {
         child: Text(
           label,
           textAlign: TextAlign.center,
-          style: GoogleFonts.outfit(
-            color: enabled ? Colors.white : Colors.white24,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
+          style: AppTypography.outfitBold.copyWith(color: enabled ? Colors.white : Colors.white24, fontSize: 13),
         ),
       ),
     );

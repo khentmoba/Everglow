@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:animate_do/animate_do.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:animate_do/animate_do.dart';import 'package:provider/provider.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
 import 'package:everglow/features/manga/data/services/comick_service.dart';
@@ -10,6 +8,7 @@ import 'package:everglow/features/manga/data/services/mangadex_service.dart';
 import 'package:everglow/features/manga/data/services/mangakakalot_service.dart';
 import 'package:everglow/features/manga/presentation/widgets/manga_cover_card.dart';
 import 'package:everglow/services/auth_service.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Search modal for finding manga / manhwa / manhua.
 /// Mirrors `TMDBSearchModal` from the cinema feature — same UX, same
@@ -52,6 +51,7 @@ class _MangaSearchModalState extends State<MangaSearchModal> {
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
       if (query.isNotEmpty) {
         _performSearch(query);
       } else {
@@ -147,11 +147,7 @@ class _MangaSearchModalState extends State<MangaSearchModal> {
           backgroundColor: AppTheme.velvet,
           title: Text(
             'Add to Library?',
-            style: GoogleFonts.cormorantGaramond(
-              color: AppTheme.roseQuartz,
-              fontWeight: FontWeight.bold,
-              fontSize: 22,
-            ),
+            style: AppTypography.cormorantBold.copyWith(fontSize: 22),
           ),
           content: SizedBox(
             width: 300,
@@ -171,18 +167,13 @@ class _MangaSearchModalState extends State<MangaSearchModal> {
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
-                      color: AppTheme.petalWhite,
-                      fontWeight: FontWeight.w600),
+                  style: AppTypography.outfitBold.copyWith(color: AppTheme.petalWhite),
                 ),
                 if (item.author.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
                     'by ${item.author}',
-                    style: GoogleFonts.outfit(
-                      color: AppTheme.roseQuartz.withValues(alpha: 0.6),
-                      fontSize: 12,
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 12),
                   ),
                 ],
                 const SizedBox(height: 16),
@@ -199,7 +190,7 @@ class _MangaSearchModalState extends State<MangaSearchModal> {
                   ].map((entry) {
                     return ChoiceChip(
                       label: Text(entry.label,
-                          style: GoogleFonts.outfit(fontSize: 12)),
+                          style: AppTypography.outfitWhite.copyWith(fontSize: 12)),
                       selected: status == entry.value,
                       onSelected: (selected) {
                         if (selected) {
@@ -224,8 +215,7 @@ class _MangaSearchModalState extends State<MangaSearchModal> {
               onPressed: () => Navigator.pop(context),
               child: Text(
                 'Cancel',
-                style: GoogleFonts.outfit(
-                    color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
+                style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
               ),
             ),
             ElevatedButton(
@@ -249,8 +239,7 @@ class _MangaSearchModalState extends State<MangaSearchModal> {
                     SnackBar(
                       content: Text(
                         '🌸 ${item.title} added to your library!',
-                        style: GoogleFonts.outfit(
-                            color: AppTheme.petalWhite),
+                        style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
                       ),
                       backgroundColor: AppTheme.deepRose,
                       behavior: SnackBarBehavior.floating,
@@ -268,8 +257,7 @@ class _MangaSearchModalState extends State<MangaSearchModal> {
               ),
               child: Text(
                 'Add',
-                style: GoogleFonts.outfit(
-                    color: AppTheme.petalWhite, fontWeight: FontWeight.bold),
+                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -281,7 +269,7 @@ class _MangaSearchModalState extends State<MangaSearchModal> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
+      height: MediaQuery.sizeOf(context).height * 0.85,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: const BoxDecoration(
         color: AppTheme.velvet,
@@ -303,11 +291,7 @@ class _MangaSearchModalState extends State<MangaSearchModal> {
           // Title
           Text(
             'Find Your Next Read 📖',
-            style: GoogleFonts.cormorantGaramond(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.roseQuartz,
-            ),
+            style: AppTypography.cormorantBold.copyWith(fontSize: 22),
           ),
           const SizedBox(height: 20),
 
@@ -315,11 +299,10 @@ class _MangaSearchModalState extends State<MangaSearchModal> {
           TextField(
             controller: _searchController,
             onChanged: _onSearchChanged,
-            style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+            style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
             decoration: InputDecoration(
               hintText: 'Search manga, manhwa, manhua...',
-              hintStyle: GoogleFonts.outfit(
-                  color: AppTheme.petalWhite.withValues(alpha: 0.65)),
+              hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.65)),
               prefixIcon:
                   const Icon(Icons.search, color: AppTheme.roseQuartz),
               filled: true,
@@ -403,9 +386,7 @@ class _MangaSearchModalState extends State<MangaSearchModal> {
             _searchController.text.isEmpty
                 ? 'Start typing to find your next read...'
                 : 'No results found.',
-            style: GoogleFonts.outfit(
-                color: AppTheme.roseQuartz.withValues(alpha: 0.6),
-                fontSize: 16),
+            style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 16),
           ),
         ],
       ),
@@ -448,7 +429,7 @@ class _LangChipWrapper extends StatelessWidget {
         children: [
           Icon(icon, size: 14, color: AppTheme.roseQuartz),
           const SizedBox(width: 4),
-          Text(label, style: GoogleFonts.outfit(fontSize: 12)),
+          Text(label, style: AppTypography.outfitWhite.copyWith(fontSize: 12)),
         ],
       ),
       selected: selected,

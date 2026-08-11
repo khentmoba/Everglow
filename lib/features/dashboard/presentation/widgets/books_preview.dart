@@ -8,7 +8,6 @@ import 'package:everglow/features/books/data/models/book_item.dart';
 import 'package:everglow/features/books/data/models/our_books_item.dart';
 import 'package:everglow/features/books/data/services/open_library_service.dart';
 import 'package:everglow/features/books/data/services/our_books_service.dart';
-import 'package:everglow/features/books/presentation/screens/books_screen.dart';
 import 'package:everglow/features/books/presentation/widgets/book_details_drawer.dart';
 import 'package:everglow/services/auth_service.dart';
 import '_partner_label.dart';
@@ -34,6 +33,7 @@ class BooksPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final ourBooksService = context.read<OurBooksService>();
     final openLibraryService = OpenLibraryService();
+
     final auth = context.watch<AuthService>();
     final userName = auth.currentUser ?? '';
     final isCouple = auth.isCoupleUser;

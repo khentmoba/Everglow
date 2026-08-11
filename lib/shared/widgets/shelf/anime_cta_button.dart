@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_typography.dart';
 import 'motion.dart';
 
 /// Anime-themed CTA button with gradient border and hover glow.
@@ -74,15 +73,14 @@ class _AnimeCtaButtonState extends State<AnimeCtaButton> {
             children: [
               Icon(widget.icon, color: AppColors.animeWhite, size: 18),
               const SizedBox(width: 10),
-              Text(
-                widget.label,
-                style: GoogleFonts.outfit(
-                  color: AppColors.animeWhite,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14,
-                  letterSpacing: 0.5,
+                Text(
+                  widget.label,
+                  style: AppTypography.outfitHeading.copyWith(
+                    color: AppColors.animeWhite,
+                    fontSize: 14,
+                    letterSpacing: 0.5,
+                  ),
                 ),
-              ),
             ],
           ),
         ),

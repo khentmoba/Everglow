@@ -113,7 +113,8 @@ class _AnimatedDoorState extends State<AnimatedDoor> with TickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
+    return RepaintBoundary(
+      child: AnimatedBuilder(
       animation: Listenable.merge([_entranceAnimation, _swingAnimation, _zoomAnimation]),
       builder: (context, child) {
         final zoomScale = 1.0 + (4.0 * _zoomAnimation.value);
@@ -150,6 +151,7 @@ class _AnimatedDoorState extends State<AnimatedDoor> with TickerProviderStateMix
           ),
         );
       },
+      ),
     );
   }
 

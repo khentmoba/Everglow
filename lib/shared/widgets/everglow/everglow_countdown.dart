@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../core/theme/app_typography.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 
 /// A reusable countdown timer widget that shows time remaining
@@ -68,6 +68,7 @@ class _EverglowCountdownState extends State<EverglowCountdown> {
 
   void _updateRemaining() {
     final now = DateTime.now();
+    if (!mounted) return;
     setState(() {
       _remaining = widget.target.isAfter(now)
           ? widget.target.difference(now)
@@ -82,11 +83,15 @@ class _EverglowCountdownState extends State<EverglowCountdown> {
         : const Duration(minutes: 1);
 
     _timer = Timer.periodic(interval, (_) {
+      if (!mounted) return;
       _updateRemaining();
       // Switch to per-second when we get close
       if (_remaining.inHours < 24 && _timer != null) {
         _timer?.cancel();
-        _timer = Timer.periodic(const Duration(seconds: 1), (_) => _updateRemaining());
+        _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+          if (!mounted) return;
+          _updateRemaining();
+        });
       }
     });
   }
@@ -119,9 +124,8 @@ class _EverglowCountdownState extends State<EverglowCountdown> {
           ],
           Text(
             widget.label ?? 'It\'s time! 🎉',
-            style: GoogleFonts.outfit(
+            style: AppTypography.outfitHeading.copyWith(
               fontSize: 14,
-              fontWeight: FontWeight.bold,
               color: AppTheme.blushGold,
             ),
           ),
@@ -163,7 +167,7 @@ class _EverglowCountdownState extends State<EverglowCountdown> {
           if (widget.label != null) ...[
             Text(
               widget.label!,
-              style: GoogleFonts.outfit(
+              style: AppTypography.outfitWhite.copyWith(
                 fontSize: 12,
                 color: AppTheme.roseQuartz.withValues(alpha: 0.7),
                 fontWeight: FontWeight.w500,
@@ -173,10 +177,8 @@ class _EverglowCountdownState extends State<EverglowCountdown> {
           ],
           Text(
             text,
-            style: GoogleFonts.outfit(
+            style: AppTypography.outfitHeading.copyWith(
               fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.petalWhite,
               letterSpacing: 0.5,
             ),
           ),
@@ -204,11 +206,7 @@ class _EverglowCountdownState extends State<EverglowCountdown> {
               ],
               Text(
                 widget.label!,
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.roseQuartz,
-                ),
+                style: AppTypography.cormorantBold.copyWith(fontSize: 18),
               ),
             ],
           ),
@@ -253,18 +251,15 @@ class _UnitBlock extends StatelessWidget {
         children: [
           Text(
             value.toString().padLeft(2, '0'),
-            style: GoogleFonts.outfit(
+            style: AppTypography.outfitHeading.copyWith(
               fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.petalWhite,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             unit,
-            style: GoogleFonts.outfit(
+            style: AppTypography.outfitBold.copyWith(
               fontSize: 9,
-              fontWeight: FontWeight.w600,
               color: AppTheme.roseQuartz.withValues(alpha: 0.6),
               letterSpacing: 1.5,
             ),
@@ -282,10 +277,9 @@ class _Separator extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 6),
       child: Text(
         ':',
-        style: GoogleFonts.outfit(
+        style: AppTypography.outfitHeading.copyWith(
           fontSize: 18,
           color: AppTheme.blushGold.withValues(alpha: 0.5),
-          fontWeight: FontWeight.bold,
         ),
       ),
     );

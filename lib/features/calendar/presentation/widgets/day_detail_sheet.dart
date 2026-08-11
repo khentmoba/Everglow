@@ -1,9 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import 'package:flutter/material.dart';import 'package:everglow/core/theme/app_theme.dart';
 import '../../domain/models/calendar_event.dart';
 import '../../data/services/calendar_service.dart';
 import 'add_event_dialog.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class DayDetailSheet extends StatefulWidget {
   final DateTime day;
@@ -64,11 +63,7 @@ class _DayDetailSheetState extends State<DayDetailSheet> {
                   children: [
                     Text(
                       dayLabel,
-                      style: GoogleFonts.cormorantGaramond(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.roseQuartz,
-                      ),
+                      style: AppTypography.cormorantBold.copyWith(fontSize: 20),
                     ),
                     const Spacer(),
                     IconButton(
@@ -129,11 +124,8 @@ class _DayDetailSheetState extends State<DayDetailSheet> {
                             const SizedBox(height: 8),
                             Text(
                               "No events this day",
-                              style: GoogleFonts.outfit(
-                                fontSize: 14,
-                                color: AppTheme.petalWhite
-                                    .withValues(alpha: 0.4),
-                              ),
+                              style: AppTypography.outfitWhite.copyWith(fontSize: 14, color: AppTheme.petalWhite
+                                    .withValues(alpha: 0.4)),
                             ),
                             const SizedBox(height: 12),
                             TextButton(
@@ -150,10 +142,7 @@ class _DayDetailSheetState extends State<DayDetailSheet> {
                               },
                               child: Text(
                                 "Add one",
-                                style: GoogleFonts.outfit(
-                                  color: AppTheme.blushGold,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: AppTypography.outfitWhite.copyWith(color: AppTheme.blushGold, fontWeight: FontWeight.bold),
                               ),
                             ),
                           ],
@@ -252,21 +241,14 @@ class _EventTile extends StatelessWidget {
                 children: [
                   Text(
                     event.title,
-                    style: GoogleFonts.outfit(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.petalWhite,
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.petalWhite),
                   ),
                   if (event.description.isNotEmpty)
                     Text(
                       event.description,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.outfit(
-                        fontSize: 11,
-                        color: AppTheme.petalWhite.withValues(alpha: 0.7),
-                      ),
+                      style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: AppTheme.petalWhite.withValues(alpha: 0.7)),
                     ),
                 ],
               ),
@@ -280,10 +262,7 @@ class _EventTile extends StatelessWidget {
                 ),
                 child: Text(
                   event.recurring == 'yearly' ? '🔄 Yearly' : '🔄 Monthly',
-                  style: GoogleFonts.outfit(
-                    fontSize: 9,
-                    color: AppTheme.softLavender,
-                  ),
+                  style: AppTypography.outfitWhite.copyWith(fontSize: 9, color: AppTheme.softLavender),
                 ),
               ),
           ],

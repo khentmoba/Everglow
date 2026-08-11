@@ -10,7 +10,8 @@ class GamifiedBackground extends StatefulWidget {
   State<GamifiedBackground> createState() => _GamifiedBackgroundState();
 }
 
-class _GamifiedBackgroundState extends State<GamifiedBackground> with SingleTickerProviderStateMixin {
+class _GamifiedBackgroundState extends State<GamifiedBackground>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _controller;
   late Animation<Alignment> _topAlignmentAnimation;
   late Animation<Alignment> _bottomAlignmentAnimation;
@@ -18,6 +19,7 @@ class _GamifiedBackgroundState extends State<GamifiedBackground> with SingleTick
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _controller = AnimationController(
       duration: const Duration(seconds: 20),
       vsync: this,
@@ -40,8 +42,20 @@ class _GamifiedBackgroundState extends State<GamifiedBackground> with SingleTick
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      _controller.stop();
+    } else if (state == AppLifecycleState.resumed) {
+      _controller.repeat(reverse: true);
+    }
   }
 
   @override
@@ -73,7 +87,7 @@ class _GamifiedBackgroundState extends State<GamifiedBackground> with SingleTick
                 size: Size.infinite,
                 painter: PetalFieldPainter(
                   color: AppTheme.roseQuartz,
-                  opacity: 0.08,
+                  opacity: AppTheme.petalFieldOpacity,
                 ),
               ),
             ),
@@ -84,4 +98,3 @@ class _GamifiedBackgroundState extends State<GamifiedBackground> with SingleTick
     );
   }
 }
-

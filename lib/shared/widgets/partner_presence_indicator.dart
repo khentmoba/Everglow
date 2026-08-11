@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/core/models/presence_status.dart';
 import 'package:everglow/core/theme/app_theme.dart';
+import '../../core/theme/app_typography.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'package:everglow/services/presence_service.dart';
 
@@ -103,7 +103,7 @@ class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator> {
     required bool dim,
   }) {
     final style = (widget.textStyle ??
-            GoogleFonts.outfit(
+            AppTypography.outfitWhite.copyWith(
               color: AppTheme.roseQuartz.withValues(alpha: 0.5),
               fontSize: 10,
             ))
@@ -130,7 +130,7 @@ class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator> {
     return Text(
       text,
       style: widget.textStyle ??
-          GoogleFonts.outfit(
+          AppTypography.outfitWhite.copyWith(
             color: AppTheme.roseQuartz.withValues(alpha: 0.5),
             fontSize: 10,
           ),
@@ -207,7 +207,8 @@ class _DotState extends State<_Dot> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
+    return RepaintBoundary(
+      child: AnimatedBuilder(
       animation: _ctrl,
       builder: (context, _) {
         final glow = widget.pulse ? 0.35 + (_ctrl.value * 0.55) : 0.0;
@@ -229,6 +230,7 @@ class _DotState extends State<_Dot> with SingleTickerProviderStateMixin {
           ),
         );
       },
+      ),
     );
   }
 }

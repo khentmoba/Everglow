@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/theme/app_typography.dart';
 import 'package:go_router/go_router.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/services/auth_service.dart';
@@ -60,12 +60,7 @@ class _SharedGardenViewState extends State<SharedGardenView> {
                   const Spacer(),
                   Text(
                     'Our Garden',
-                    style: GoogleFonts.cormorantGaramond(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.roseQuartz,
-                      letterSpacing: 1.5,
-                    ),
+                    style: AppTypography.cormorantBold.copyWith(fontSize: 22, letterSpacing: 1.5),
                   ),
                   const Spacer(),
                   const SizedBox(width: 48),
@@ -123,11 +118,7 @@ class _SharedGardenViewState extends State<SharedGardenView> {
         children: [
           Text(
             name,
-            style: GoogleFonts.cormorantGaramond(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.roseQuartz,
-            ),
+            style: AppTypography.cormorantBold.copyWith(fontSize: 18),
           ),
           const SizedBox(height: 4),
           if (plantType.isInSeason)
@@ -139,9 +130,8 @@ class _SharedGardenViewState extends State<SharedGardenView> {
               ),
               child: Text(
                 '${plantType.seasonalBonusName} ✨',
-                style: GoogleFonts.outfit(
+                style: AppTypography.outfitHeading.copyWith(
                   fontSize: 10,
-                  fontWeight: FontWeight.bold,
                   color: AppTheme.blushGold,
                 ),
               ),
@@ -159,7 +149,7 @@ class _SharedGardenViewState extends State<SharedGardenView> {
           if (stats != null)
             Text(
               '${stats.streakCount} day streak · ${stats.totalInteractions} visits',
-              style: GoogleFonts.outfit(
+              style: AppTypography.outfitWhite.copyWith(
                 fontSize: 11,
                 color: AppTheme.petalWhite.withValues(alpha: 0.6),
               ),

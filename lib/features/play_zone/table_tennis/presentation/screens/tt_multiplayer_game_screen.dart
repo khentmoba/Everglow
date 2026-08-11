@@ -1,9 +1,7 @@
 import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';import 'package:provider/provider.dart';
 import 'package:web/web.dart' as web;
 import 'dart:ui_web' as ui_web;
 
@@ -12,6 +10,7 @@ import '../../../../../services/auth_service.dart';
 import '../../../presentation/widgets/web_overlay_button.dart';
 import '../../services/tt_bridge_service.dart';
 import '../../services/tt_multiplayer_service.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class TTMultiplayerGameScreen extends StatefulWidget {
   final String roomId;
@@ -147,14 +146,14 @@ class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
                   alignment: Alignment.center,
                   child: Text(
                     'Table Tennis is only available in the web build.',
-                    style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+                    style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
                   ),
                 ),
               ),
 
             if (_booted)
               Positioned(
-                top: MediaQuery.of(context).padding.top + 8,
+                top: MediaQuery.paddingOf(context).top + 8,
                 left: 12,
                 child: WebOverlayButton(
                   icon: Icons.close_rounded,
@@ -182,20 +181,14 @@ class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
                         const SizedBox(height: 16),
                         Text(
                           _finalScore > 0 ? 'You Win!' : 'Game Over',
-                          style: GoogleFonts.cormorantGaramond(
-                            fontSize: 36,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.roseQuartz,
-                          ),
+                          style: AppTypography.cormorantBold.copyWith(fontSize: 36),
                         ),
                         const SizedBox(height: 32),
                         TextButton(
                           onPressed: _close,
                           child: Text(
                             'Back to Hub',
-                            style: GoogleFonts.outfit(
-                              color: AppTheme.petalWhite.withValues(alpha: 0.7),
-                            ),
+                            style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.7)),
                           ),
                         ),
                       ],
@@ -220,27 +213,19 @@ class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
                       const SizedBox(height: 12),
                       Text(
                         'Rotate your device',
-                        style: GoogleFonts.cormorantGaramond(
-                          color: AppTheme.petalWhite,
-                          fontSize: 28,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: AppTypography.cormorantSemiBoldWhite.copyWith(fontSize: 28),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Table Tennis runs in landscape.',
-                        style: GoogleFonts.outfit(
-                          color: AppTheme.petalWhite.withValues(alpha: 0.75),
-                        ),
+                        style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.75)),
                       ),
                       const SizedBox(height: 24),
                       TextButton(
                         onPressed: _close,
                         child: Text(
                           'Back',
-                          style: GoogleFonts.outfit(
-                            color: AppTheme.petalWhite.withValues(alpha: 0.7),
-                          ),
+                          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.7)),
                         ),
                       ),
                     ],

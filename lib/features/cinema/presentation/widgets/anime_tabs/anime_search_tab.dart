@@ -1,8 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';import 'package:provider/provider.dart';
 
 import 'package:everglow/core/theme/app_breakpoints.dart';
 import 'package:everglow/core/theme/app_colors.dart';
@@ -15,6 +13,7 @@ import 'package:everglow/services/auth_service.dart';
 import 'package:everglow/shared/widgets/shelf/shelf_icon_button.dart';
 import 'package:everglow/shared/widgets/shelf/shelf_poster_card.dart';
 import 'package:everglow/shared/widgets/shelf/shimmer_box.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 // ── Anime palette (subset used by the Search tab) ───────────────
 const _cCard           = AppColors.animeCard;
@@ -62,6 +61,7 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
   void _onSearchChanged(String query) {
     if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 600), () {
+      if (!mounted) return;
       if (query.trim().isNotEmpty) {
         _performSearch(query.trim());
       } else {
@@ -165,21 +165,12 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                       children: [
                         Text(
                           'Add to Everglow?',
-                          style: GoogleFonts.outfit(
-                            color: AppTheme.roseQuartz,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.5,
-                          ),
+                          style: AppTypography.outfitHeading.copyWith(color: AppTheme.roseQuartz, fontSize: 11, letterSpacing: 1.5),
                         ),
                         const SizedBox(height: 6),
                         Text(
                           item.title,
-                          style: GoogleFonts.cormorantGaramond(
-                            color: AppTheme.petalWhite,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20,
-                          ),
+                          style: AppTypography.cormorantBoldWhite.copyWith(fontSize: 20),
                         ),
                         if (item.studio.isNotEmpty) ...[
                           const SizedBox(height: 6),
@@ -192,11 +183,7 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                             ),
                             child: Text(
                               item.studio,
-                              style: GoogleFonts.outfit(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.deepRose,
-                              ),
+                              style: AppTypography.outfitBold.copyWith(fontSize: 10, color: AppTheme.deepRose),
                             ),
                           ),
                         ],
@@ -206,11 +193,7 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                             item.synopsis,
                             maxLines: 3,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.outfit(
-                              color: AppTheme.roseQuartz.withValues(alpha: 0.7),
-                              fontSize: 12,
-                              height: 1.4,
-                            ),
+                            style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.7), fontSize: 12, height: 1.4),
                           ),
                         ],
                       ],
@@ -262,10 +245,7 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                         alignment: Alignment.center,
                         child: Text(
                           'Cancel',
-                          style: GoogleFonts.outfit(
-                            color: AppTheme.roseQuartz,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: AppTypography.outfitBold.copyWith(color: AppTheme.roseQuartz),
                         ),
                       ),
                     ),
@@ -286,8 +266,7 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                               SnackBar(
                                 content: Text(
                                   'Failed to add — please try again',
-                                  style: GoogleFonts.outfit(
-                                      color: AppTheme.petalWhite),
+                                  style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
                                 ),
                                 backgroundColor: Colors.redAccent,
                                 behavior: SnackBarBehavior.floating,
@@ -303,8 +282,7 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                             SnackBar(
                               content: Text(
                                 '${item.title} added to Everglow!',
-                                style: GoogleFonts.outfit(
-                                    color: AppTheme.petalWhite),
+                                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
                               ),
                               backgroundColor: AppTheme.deepRose,
                               behavior: SnackBarBehavior.floating,
@@ -341,11 +319,7 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                             const SizedBox(width: 8),
                             Text(
                               'Add',
-                              style: GoogleFonts.outfit(
-                                color: _cWhite,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
+                              style: AppTypography.outfitWhite.copyWith(color: _cWhite, fontWeight: FontWeight.bold, fontSize: 15),
                             ),
                           ],
                         ),
@@ -394,11 +368,7 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
             const SizedBox(width: 8),
             Text(
               label,
-              style: GoogleFonts.outfit(
-                color: selected ? color : AppTheme.roseQuartz.withValues(alpha: 0.5),
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                fontSize: 13,
-              ),
+              style: AppTypography.outfitHeading.copyWith(color: selected ? color : AppTheme.roseQuartz.withValues(alpha: 0.5), fontSize: 13),
             ),
           ],
         ),
@@ -419,8 +389,7 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
           const SizedBox(height: 16),
           Text(
             'No anime found',
-            style: GoogleFonts.outfit(
-                color: _cMuted, fontSize: 16),
+            style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 16),
           ),
           if (_searchErrorMessage != null) ...[
             const SizedBox(height: 8),
@@ -429,10 +398,7 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
               child: Text(
                 _searchErrorMessage!,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(
-                  color: _cMagenta.withValues(alpha: 0.9),
-                  fontSize: 12,
-                ),
+                style: AppTypography.outfitWhite.copyWith(color: _cMagenta.withValues(alpha: 0.9), fontSize: 12),
               ),
             ),
           ],
@@ -452,16 +418,12 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
           const SizedBox(height: 16),
           Text(
             'Start typing to find magic\u2026',
-            style: GoogleFonts.outfit(
-                color: _cMuted, fontSize: 16),
+            style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 16),
           ),
           const SizedBox(height: 6),
           Text(
             'Search thousands of anime from MyAnimeList and AniList',
-            style: GoogleFonts.outfit(
-              color: _cMuted.withValues(alpha: 0.6),
-              fontSize: 12,
-            ),
+            style: AppTypography.outfitWhite.copyWith(color: _cMuted.withValues(alpha: 0.6), fontSize: 12),
           ),
           const SizedBox(height: 28),
           _buildQuickSearchChips(),
@@ -507,11 +469,7 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                   const SizedBox(width: 8),
                   Text(
                     s.$1,
-                    style: GoogleFonts.outfit(
-                      color: s.$3,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: AppTypography.outfitBold.copyWith(color: s.$3, fontSize: 13),
                   ),
                 ],
               ),
@@ -536,7 +494,7 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
           width: double.infinity,
           padding: EdgeInsets.fromLTRB(
             horizontalPad,
-            isDesktop ? 32 : (MediaQuery.of(context).padding.top + 14),
+            isDesktop ? 32 : (MediaQuery.paddingOf(context).top + 14),
             horizontalPad,
             8,
           ),
@@ -555,21 +513,12 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                 ),
               Text(
                 'Find Your Next Anime',
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: isDesktop ? 32 : 26,
-                  fontWeight: FontWeight.w800,
-                  color: _cWhite,
-                  height: 1.1,
-                ),
+                style: AppTypography.cormorantExtraBold.copyWith(fontSize: isDesktop ? 32 : 26, height: 1.1, color: _cWhite),
               ),
               const SizedBox(height: 4),
               Text(
                 'Search MyAnimeList or AniList by title. We auto-detect anime and add it to your library.',
-                style: GoogleFonts.outfit(
-                  fontSize: isDesktop ? 14 : 12,
-                  color: _cMuted,
-                  fontWeight: FontWeight.w400,
-                ),
+                style: AppTypography.outfitWhite.copyWith(fontSize: isDesktop ? 14 : 12, color: _cMuted, fontWeight: FontWeight.w400),
               ),
               const SizedBox(height: 20),
 
@@ -591,11 +540,11 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                 child: TextField(
                   controller: _searchController,
                   onChanged: _onSearchChanged,
-                  style: GoogleFonts.outfit(color: _cWhite, fontSize: 15),
+                  style: AppTypography.outfitWhite.copyWith(color: _cWhite, fontSize: 15),
                   decoration: InputDecoration(
                     hintText: 'Search anime titles, studios, anything\u2026',
                     hintStyle:
-                        GoogleFonts.outfit(color: _cMuted, fontSize: 15),
+                        AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 15),
                     prefixIcon: Padding(
                       padding: const EdgeInsets.all(14),
                       child: Icon(

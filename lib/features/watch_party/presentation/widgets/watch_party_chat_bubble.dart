@@ -1,9 +1,9 @@
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// A single chat bubble for the Watch Together chat. Reuses the
 /// rose-quartz / deep-rose palette from the dashboard's Sanctuary
@@ -45,12 +45,7 @@ class WatchPartyChatBubble extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 8, bottom: 2),
                 child: Text(
                   sender.toUpperCase(),
-                  style: GoogleFonts.outfit(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.blushGold.withValues(alpha: 0.85),
-                    letterSpacing: 1.2,
-                  ),
+                  style: AppTypography.outfitWhite.copyWith(fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.blushGold.withValues(alpha: 0.85), letterSpacing: 1.2),
                 ),
               ),
             Container(
@@ -80,22 +75,14 @@ class WatchPartyChatBubble extends StatelessWidget {
                 children: [
                   Text(
                     text,
-                    style: GoogleFonts.outfit(
-                      color: AppTheme.petalWhite,
-                      fontSize: 13,
-                      height: 1.35,
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 13, height: 1.35),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     isToday ? timeStr : DateFormat('MMM d, h:mm a').format(timestamp),
-                    style: GoogleFonts.outfit(
-                      color: isMe
+                    style: AppTypography.outfitWhite.copyWith(color: isMe
                           ? AppTheme.petalWhite.withValues(alpha: 0.7)
-                          : AppTheme.roseQuartz.withValues(alpha: 0.55),
-                      fontSize: 9,
-                      fontWeight: FontWeight.w500,
-                    ),
+                          : AppTheme.roseQuartz.withValues(alpha: 0.55), fontSize: 9, fontWeight: FontWeight.w500),
                   ),
                 ],
               ),

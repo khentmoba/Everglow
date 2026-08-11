@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';import 'package:provider/provider.dart';
 
 import 'package:everglow/features/books/data/models/book_item.dart';
 import 'package:go_router/go_router.dart';
@@ -20,6 +18,7 @@ import 'package:everglow/shared/widgets/shelf/shelf_pill_bottom_nav.dart';
 import 'package:everglow/shared/widgets/shelf/staggered_entrance.dart';
 import 'package:everglow/core/theme/app_breakpoints.dart';
 import 'package:everglow/core/theme/app_theme.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 const _cBlack = Color(0xFF080810);
 const _cCard = Color(0xFF1C1228);
@@ -40,8 +39,7 @@ class BooksScreen extends StatefulWidget {
   State<BooksScreen> createState() => _BooksScreenState();
 }
 
-class _BooksScreenState extends State<BooksScreen>
-    with TickerProviderStateMixin {
+class _BooksScreenState extends State<BooksScreen> {
   final OpenLibraryService _service = OpenLibraryService();
   int _currentIndex = 0;
 
@@ -182,7 +180,7 @@ class _BooksScreenState extends State<BooksScreen>
     }
   }
 
-  static const Duration _carouselHoldDuration = Duration(seconds: 12);
+  static const Duration _carouselHoldDuration = const Duration(seconds: 12);
 
   void _onCarouselPageChanged(int index) {
     setState(() => _carouselPage = index);
@@ -194,6 +192,7 @@ class _BooksScreenState extends State<BooksScreen>
   void _restartCarouselAutoPlay() {
     _carouselTimer?.cancel();
     _carouselTimer = Timer(_carouselHoldDuration, () {
+      if (!mounted) return;
       if (_trendingCarousel.isEmpty || !_carouselController.hasClients) return;
       final nextPage = (_carouselPage + 1) % _trendingCarousel.length;
       _carouselController.animateToPage(
@@ -207,6 +206,7 @@ class _BooksScreenState extends State<BooksScreen>
   void _onSearchChanged(String query) {
     if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
       if (query.trim().isNotEmpty) {
         _performSearch(query.trim());
       } else {
@@ -328,7 +328,7 @@ class _BooksScreenState extends State<BooksScreen>
             ),
           ),
           ..._buildSubjectRows(),
-          const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
+          const SliverPadding(padding: const EdgeInsets.only(bottom: 100)),
         ],
       ),
     );
@@ -437,12 +437,7 @@ class _BooksScreenState extends State<BooksScreen>
                                     item.title,
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.cormorantGaramond(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                      color: _cWhite,
-                                      height: 1.15,
-                                    ),
+                                    style: AppTypography.cormorantBold.copyWith(fontSize: 15, height: 1.15, color: _cWhite),
                                   ),
                                   if (item.author.isNotEmpty) ...[
                                     const SizedBox(height: 4),
@@ -450,12 +445,8 @@ class _BooksScreenState extends State<BooksScreen>
                                       'by ${item.author}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.outfit(
-                                        color: _cRose
-                                            .withValues(alpha: 0.85),
-                                        fontSize: 10,
-                                        fontStyle: FontStyle.italic,
-                                      ),
+                                      style: AppTypography.outfitWhite.copyWith(color: _cRose
+                                            .withValues(alpha: 0.85), fontSize: 10, fontStyle: FontStyle.italic),
                                     ),
                                   ],
                                 ],
@@ -499,7 +490,7 @@ class _BooksScreenState extends State<BooksScreen>
   }
 
   Widget _buildTopHeader() {
-    final top = MediaQuery.of(context).padding.top;
+    final top = MediaQuery.paddingOf(context).top;
     final canPop = Navigator.canPop(context);
     final isCouple = context.watch<AuthService>().isCoupleUser;
     return Container(
@@ -520,12 +511,7 @@ class _BooksScreenState extends State<BooksScreen>
             children: [
               Text(
                 'OUR BOOKS',
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  color: _cWhite,
-                  letterSpacing: 4,
-                ),
+                style: AppTypography.cormorantBlack.copyWith(fontSize: 20, letterSpacing: 4, color: _cWhite),
               ),
               const SizedBox(height: 2),
               Row(
@@ -548,12 +534,7 @@ class _BooksScreenState extends State<BooksScreen>
                   const SizedBox(width: 6),
                   Text(
                     'BY EVERGLOW',
-                    style: GoogleFonts.outfit(
-                      fontSize: 9,
-                      color: _cMuted,
-                      letterSpacing: 2.5,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: AppTypography.outfitBold.copyWith(fontSize: 9, color: _cMuted, letterSpacing: 2.5),
                   ),
                   const SizedBox(width: 6),
                   Container(
@@ -735,12 +716,7 @@ class _BooksScreenState extends State<BooksScreen>
                                 const SizedBox(width: 4),
                                 Text(
                                   '#${index + 1} TRENDING',
-                                  style: GoogleFonts.outfit(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 1,
-                                  ),
+                                  style: AppTypography.outfitWhite.copyWith(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1),
                                 ),
                               ],
                             ),
@@ -752,18 +728,12 @@ class _BooksScreenState extends State<BooksScreen>
                         item.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.cormorantGaramond(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w900,
-                          color: _cWhite,
-                          height: 1.1,
-                          shadows: [
+                        style: AppTypography.cormorantBlack.copyWith(fontSize: 26, height: 1.1, shadows: [
                             Shadow(
                               color: Colors.black.withValues(alpha: 0.6),
                               blurRadius: 12,
                             ),
-                          ],
-                        ),
+                          ], color: _cWhite),
                       ),
                       if (item.author.isNotEmpty) ...[
                         const SizedBox(height: 4),
@@ -771,11 +741,7 @@ class _BooksScreenState extends State<BooksScreen>
                           'by ${item.author}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.outfit(
-                            color: _cWhite.withValues(alpha: 0.85),
-                            fontSize: 13,
-                            fontStyle: FontStyle.italic,
-                          ),
+                          style: AppTypography.outfitWhite.copyWith(color: _cWhite.withValues(alpha: 0.85), fontSize: 13, fontStyle: FontStyle.italic),
                         ),
                       ],
                       const SizedBox(height: 6),
@@ -784,11 +750,7 @@ class _BooksScreenState extends State<BooksScreen>
                           if (item.year.isNotEmpty) ...[
                             Text(
                               item.year,
-                              style: GoogleFonts.outfit(
-                                color: _cGold,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style: AppTypography.outfitBold.copyWith(color: _cGold, fontSize: 12),
                             ),
                             Container(
                               margin: const EdgeInsets.symmetric(
@@ -803,10 +765,7 @@ class _BooksScreenState extends State<BooksScreen>
                           ],
                           Text(
                             'Tap to explore',
-                            style: GoogleFonts.outfit(
-                              color: _cMuted,
-                              fontSize: 12,
-                            ),
+                            style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 12),
                           ),
                         ],
                       ),
@@ -968,7 +927,7 @@ class _BooksScreenState extends State<BooksScreen>
       children: [
         Container(
           padding: EdgeInsets.fromLTRB(
-              20, MediaQuery.of(context).padding.top + 14, 20, 0),
+              20, MediaQuery.paddingOf(context).top + 14, 20, 0),
           child: Row(
             children: [
               ShelfIconButton(
@@ -984,20 +943,11 @@ class _BooksScreenState extends State<BooksScreen>
                   children: [
                     Text(
                       'Search',
-                      style: GoogleFonts.cormorantGaramond(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        color: _cWhite,
-                      ),
+                      style: AppTypography.cormorantExtraBold.copyWith(fontSize: 26, color: _cWhite),
                     ),
                     Text(
                       'FIND YOUR NEXT OBSESSION',
-                      style: GoogleFonts.outfit(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: _cMuted,
-                        letterSpacing: 2.0,
-                      ),
+                      style: AppTypography.outfitHeading.copyWith(fontSize: 9, color: _cMuted, letterSpacing: 2.0),
                     ),
                   ],
                 ),
@@ -1024,11 +974,11 @@ class _BooksScreenState extends State<BooksScreen>
             child: TextField(
               controller: _searchController,
               onChanged: _onSearchChanged,
-              style: GoogleFonts.outfit(color: _cWhite, fontSize: 15),
+              style: AppTypography.outfitWhite.copyWith(color: _cWhite, fontSize: 15),
               decoration: InputDecoration(
                 hintText: 'Books, authors, subjects...',
                 hintStyle:
-                    GoogleFonts.outfit(color: _cMuted, fontSize: 15),
+                    AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 15),
                 prefixIcon: Padding(
                   padding: const EdgeInsets.all(14),
                   child: Icon(Icons.search_rounded,
@@ -1121,7 +1071,7 @@ class _BooksScreenState extends State<BooksScreen>
       children: [
         Container(
           padding: EdgeInsets.fromLTRB(
-              20, MediaQuery.of(context).padding.top + 14, 20, 0),
+              20, MediaQuery.paddingOf(context).top + 14, 20, 0),
           child: Row(
             children: [
               ShelfIconButton(
@@ -1137,20 +1087,11 @@ class _BooksScreenState extends State<BooksScreen>
                   children: [
                     Text(
                       isReadTab ? 'Read' : 'To Read',
-                      style: GoogleFonts.cormorantGaramond(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        color: _cWhite,
-                      ),
+                      style: AppTypography.cormorantExtraBold.copyWith(fontSize: 26, color: _cWhite),
                     ),
                     Text(
                       isReadTab ? 'OUR LIBRARY' : 'THE BOOKSHELF',
-                      style: GoogleFonts.outfit(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: _cMuted,
-                        letterSpacing: 2.0,
-                      ),
+                      style: AppTypography.outfitHeading.copyWith(fontSize: 9, color: _cMuted, letterSpacing: 2.0),
                     ),
                   ],
                 ),
@@ -1166,11 +1107,7 @@ class _BooksScreenState extends State<BooksScreen>
                 ),
                 child: Text(
                   '${list.length}',
-                  style: GoogleFonts.outfit(
-                    color: _cDeepRose,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                  ),
+                  style: AppTypography.outfitWhite.copyWith(color: _cDeepRose, fontWeight: FontWeight.w800, fontSize: 14),
                 ),
               ),
             ],
@@ -1239,7 +1176,7 @@ class _BooksScreenState extends State<BooksScreen>
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.fromLTRB(
-                20, MediaQuery.of(context).padding.top + 14, 20, 20),
+                20, MediaQuery.paddingOf(context).top + 14, 20, 20),
             child: const ShimmerBox(height: 40, width: 160, radius: 8),
           ),
         ),
@@ -1366,21 +1303,13 @@ class _RankingTile extends StatelessWidget {
                       alignment: Alignment.center,
                       child: Text(
                         '$rank',
-                        style: GoogleFonts.cormorantGaramond(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: _rankColor,
-                        ),
+                        style: AppTypography.cormorantBlack.copyWith(fontSize: 18, color: _rankColor),
                       ),
                     )
                   : Center(
                       child: Text(
                         '$rank',
-                        style: GoogleFonts.outfit(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: _cMuted,
-                        ),
+                        style: AppTypography.outfitBold.copyWith(fontSize: 14, color: _cMuted),
                       ),
                     ),
             ),
@@ -1404,11 +1333,7 @@ class _RankingTile extends StatelessWidget {
                     item.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
-                      color: _cWhite,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
+                    style: AppTypography.outfitHeading.copyWith(color: _cWhite, fontSize: 13),
                   ),
                   if (item.author.isNotEmpty) ...[
                     const SizedBox(height: 2),
@@ -1416,11 +1341,7 @@ class _RankingTile extends StatelessWidget {
                       item.author,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.outfit(
-                        color: _cMuted,
-                        fontSize: 11,
-                        fontStyle: FontStyle.italic,
-                      ),
+                      style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 11, fontStyle: FontStyle.italic),
                     ),
                   ],
                   const SizedBox(height: 3),
@@ -1429,11 +1350,7 @@ class _RankingTile extends StatelessWidget {
                       if (item.year.isNotEmpty) ...[
                         Text(
                           item.year,
-                          style: GoogleFonts.outfit(
-                            color: _cGold,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: AppTypography.outfitBold.copyWith(color: _cGold, fontSize: 11),
                         ),
                         const SizedBox(width: 6),
                       ],
@@ -1446,11 +1363,7 @@ class _RankingTile extends StatelessWidget {
                         ),
                         child: Text(
                           'BOOK',
-                          style: GoogleFonts.outfit(
-                            color: _cDeepRose,
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: AppTypography.outfitWhite.copyWith(color: _cDeepRose, fontSize: 8, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],

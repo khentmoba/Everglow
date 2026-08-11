@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../core/theme/app_typography.dart';
 
 import '../../../core/theme/app_theme.dart';
 import 'motion.dart';
@@ -67,9 +67,8 @@ class ShelfSectionHeader extends StatelessWidget {
               children: [
                 Text(
                   eyebrow.toUpperCase(),
-                  style: GoogleFonts.outfit(
+                  style: AppTypography.outfitHeading.copyWith(
                     fontSize: 9,
-                    fontWeight: FontWeight.w700,
                     color: accent.withValues(alpha: 0.75),
                     letterSpacing: 2.0,
                   ),
@@ -77,24 +76,18 @@ class ShelfSectionHeader extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   title,
-                  style: GoogleFonts.cormorantGaramond(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.petalWhite,
-                    letterSpacing: 0.2,
-                    height: 1.0,
-                  ),
+                  style: AppTypography.cormorantExtraBoldWhite.copyWith(fontSize: 22, letterSpacing: 0.2, height: 1.0),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 if (subtitle != null && subtitle!.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
-                    subtitle!,
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      color: AppTheme.roseQuartz.withValues(alpha: 0.55),
-                    ),
+                  subtitle!,
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 12,
+                    color: AppTheme.roseQuartz.withValues(alpha: 0.55),
+                  ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -119,12 +112,12 @@ class ShelfSectionHeader extends StatelessWidget {
                 countLabel != null
                     ? '$count $countLabel'
                     : '$count',
-                style: GoogleFonts.outfit(
+                style: AppTypography.outfitHeading.copyWith(
                   fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: accent,
-                  letterSpacing: 0.4,
-                ),
+          fontWeight: FontWeight.w800,
+          color: accent,
+          letterSpacing: 0.4,
+        ),
               ),
             ),
           ],
@@ -160,10 +153,8 @@ class _SeeAllChipState extends State<_SeeAllChip> {
         onShowFocusHighlight: (show) => setState(() => _hovered = show),
         child: Tooltip(
           message: 'See all',
-          textStyle: GoogleFonts.outfit(
-            color: AppTheme.petalWhite,
+          textStyle: AppTypography.outfitBold.copyWith(
             fontSize: 11,
-            fontWeight: FontWeight.w600,
           ),
           decoration: BoxDecoration(
             color: AppTheme.velvet,
@@ -195,9 +186,8 @@ class _SeeAllChipState extends State<_SeeAllChip> {
                 children: [
                   Text(
                     'See all',
-                    style: GoogleFonts.outfit(
+                    style: AppTypography.outfitHeading.copyWith(
                       fontSize: 11,
-                      fontWeight: FontWeight.w700,
                       color: widget.accent,
                       letterSpacing: 0.3,
                     ),

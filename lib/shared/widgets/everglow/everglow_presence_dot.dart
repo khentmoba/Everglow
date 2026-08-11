@@ -76,7 +76,8 @@ class _EverglowPresenceDotState extends State<EverglowPresenceDot>
     );
 
     if (_controller != null) {
-      dot = AnimatedBuilder(
+      dot = RepaintBoundary(
+        child: AnimatedBuilder(
         animation: _controller!,
         builder: (_, child) {
           final scale = 0.8 + 0.2 * _controller!.value;
@@ -108,6 +109,7 @@ class _EverglowPresenceDotState extends State<EverglowPresenceDot>
             shape: BoxShape.circle,
             color: color,
           ),
+        ),
         ),
       );
     }

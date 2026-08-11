@@ -3,9 +3,7 @@ import 'dart:js_interop';
 import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:web/web.dart' as web;
 
@@ -19,6 +17,7 @@ import '../../data/services/voice_chat_service.dart';
 import '../../data/services/watch_party_service.dart';
 import '../widgets/voice_chat_overlay.dart';
 import '../widgets/watch_party_chat_drawer.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 // ─── Color tokens (mirror cinema_screen.dart / episode_drawer.dart) ──
 const _cRose = Color(0xFFF4C2C2);
@@ -178,16 +177,16 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
 
   /// How long we wait for the iframe to fire `load` before declaring
   /// the embed dead and trying the next provider.
-  static const Duration _loadTimeout = Duration(seconds: 15);
+  static const Duration _loadTimeout = const Duration(seconds: 15);
 
   /// How long to wait for VidLink to send a `MEDIA_DATA` postMessage
   /// event after the iframe loads. If the event never arrives the
   /// provider likely showed "content not available", so we fall back.
-  static const Duration _contentCheckTimeout = Duration(seconds: 8);
+  static const Duration _contentCheckTimeout = const Duration(seconds: 8);
 
   /// Heartbeat interval. 5s keeps the partner's local clock within
   /// ~5s of the host without thrashing Firestore.
-  static const Duration _heartbeatInterval = Duration(seconds: 5);
+  static const Duration _heartbeatInterval = const Duration(seconds: 5);
 
   /// Free embed providers. Shared via [VideoSourceService] which loads
   /// from Firestore with a hardcoded fallback. The watch-party player
@@ -767,7 +766,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
       SnackBar(
         content: Text(
           '$_partnerName ended the party.',
-          style: GoogleFonts.outfit(color: _cWhite),
+          style: AppTypography.outfitWhite.copyWith(color: _cWhite),
         ),
         backgroundColor: _cDeepRose,
         behavior: SnackBarBehavior.floating,
@@ -844,9 +843,9 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.arrow_back_ios_new_rounded,
+                  const Icon(Icons.arrow_back_ios_new_rounded,
                       color: Colors.white, size: 14),
-                  SizedBox(width: 6),
+                  const SizedBox(width: 6),
                   Text(widget.isHost ? 'Change' : 'Browse',
                       style: const TextStyle(
                           color: Colors.white,
@@ -867,11 +866,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
                   _room.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: AppTypography.outfitHeading.copyWith(color: Colors.white, fontSize: 14),
                 ),
                 Row(
                   mainAxisSize: MainAxisSize.min,
@@ -887,12 +882,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
                     const SizedBox(width: 6),
                     Text(
                       'WATCHING TOGETHER',
-                      style: GoogleFonts.outfit(
-                        color: _cRose,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.5,
-                      ),
+                      style: AppTypography.outfitHeading.copyWith(color: _cRose, fontSize: 9, letterSpacing: 1.5),
                     ),
                   ],
                 ),
@@ -914,9 +904,9 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.close_rounded, color: Colors.white, size: 14),
-                  SizedBox(width: 4),
-                  Text('End',
+                  const Icon(Icons.close_rounded, color: Colors.white, size: 14),
+                  const SizedBox(width: 4),
+                  const Text('End',
                       style: TextStyle(
                           color: Colors.white,
                           fontSize: 11,
@@ -970,11 +960,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
               const SizedBox(width: 8),
               Text(
                 label,
-                style: GoogleFonts.outfit(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: AppTypography.outfitHeading.copyWith(color: Colors.white, fontSize: 11),
               ),
             ],
           ),
@@ -995,7 +981,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
             Expanded(
               child: Text(
                 'Following $_partnerName · you\'re ${_formatT(_displayedTime)} in',
-                style: GoogleFonts.outfit(color: _cWhite.withValues(alpha: 0.7), fontSize: 12),
+                style: AppTypography.outfitWhite.copyWith(color: _cWhite.withValues(alpha: 0.7), fontSize: 12),
               ),
             ),
           ],
@@ -1041,12 +1027,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
                   const SizedBox(width: 8),
                   Text(
                     _hostExplicitlyPaused ? 'RESUME' : 'PAUSE',
-                    style: GoogleFonts.outfit(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13,
-                      letterSpacing: 1.2,
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 1.2),
                   ),
                 ],
               ),
@@ -1078,18 +1059,13 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
               children: [
                 Text(
                   'End the night?',
-                  style: GoogleFonts.cormorantGaramond(
-                    color: _cWhite,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 22,
-                  ),
+                  style: AppTypography.cormorantBold.copyWith(fontSize: 22, color: _cWhite),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   'Your partner will be sent back to the cinema.',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.outfit(
-                      color: _cWhite.withValues(alpha: 0.7), fontSize: 13),
+                  style: AppTypography.outfitWhite.copyWith(color: _cWhite.withValues(alpha: 0.7), fontSize: 13),
                 ),
                 const SizedBox(height: 24),
                 Row(
@@ -1101,8 +1077,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
                         setState(() => _showEndDialog = false);
                       },
                       child: Text('Stay',
-                          style: GoogleFonts.outfit(
-                              color: _cRose, fontWeight: FontWeight.w600)),
+                          style: AppTypography.outfitBold.copyWith(color: _cRose)),
                     ),
                     const SizedBox(width: 8),
                     TextButton(
@@ -1111,8 +1086,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
                         setState(() => _showEndDialog = false);
                       },
                       child: Text('End',
-                          style: GoogleFonts.outfit(
-                              color: _cDeepRose, fontWeight: FontWeight.w700)),
+                          style: AppTypography.outfitHeading.copyWith(color: _cDeepRose)),
                     ),
                   ],
                 ),
@@ -1141,31 +1115,19 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
             Text(
               'This title isn\'t available on ${active.shortName}.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
+              style: AppTypography.outfitHeading.copyWith(color: Colors.white, fontSize: 15),
             ),
             const SizedBox(height: 6),
             Text(
               'The embed returned a 404 or didn\'t respond. Try a different source below.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                color: Colors.white60,
-                fontSize: 12,
-              ),
+              style: AppTypography.outfitMuted.copyWith(color: Colors.white60, fontSize: 12),
             ),
             const SizedBox(height: 24),
             if (others.isNotEmpty) ...[
               Text(
                 'Try another source',
-                style: GoogleFonts.outfit(
-                  color: _cMuted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.5,
-                ),
+                style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.5),
               ),
               const SizedBox(height: 10),
               Wrap(
@@ -1196,11 +1158,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
                                 const SizedBox(width: 6),
                                 Text(
                                   p.name,
-                                  style: GoogleFonts.outfit(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                                  style: AppTypography.outfitHeading.copyWith(color: Colors.white, fontSize: 12),
                                 ),
                               ],
                             ),
@@ -1234,11 +1192,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
                     const SizedBox(width: 8),
                     Text(
                       'Open in browser',
-                      style: GoogleFonts.outfit(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: AppTypography.outfitHeading.copyWith(color: Colors.white, fontSize: 12),
                     ),
                   ],
                 ),

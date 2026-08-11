@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'shelf_widgets.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// One labeled horizontal rail inside a dashboard shelf, used to render
 /// the per-partner sub-rows that split each shelf into "Me" and the
@@ -95,12 +95,7 @@ class _SubrowLabel extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           '$label:',
-          style: GoogleFonts.outfit(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            color: accent.color,
-            letterSpacing: 1.8,
-          ),
+          style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: FontWeight.w800, color: accent.color, letterSpacing: 1.8),
         ),
       ],
     );
@@ -127,12 +122,7 @@ class _SubrowEmptyLine extends StatelessWidget {
       ),
       child: Text(
         message,
-        style: GoogleFonts.outfit(
-          color: AppTheme.roseQuartz.withValues(alpha: 0.65),
-          fontStyle: FontStyle.italic,
-          fontSize: 12,
-          height: 1.3,
-        ),
+        style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.65), fontStyle: FontStyle.italic, fontSize: 12, height: 1.3),
       ),
     );
   }

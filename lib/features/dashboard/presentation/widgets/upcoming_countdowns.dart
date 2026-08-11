@@ -1,10 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter/material.dart';import 'package:go_router/go_router.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_countdown.dart';
 import '../../../calendar/data/services/calendar_service.dart';
 import '../../../calendar/domain/models/calendar_event.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 /// Dashboard section showing upcoming calendar events as countdown cards.
 class UpcomingCountdowns extends StatelessWidget {
@@ -26,19 +25,12 @@ class UpcomingCountdowns extends StatelessWidget {
                 children: [
                   Text(
                     'Coming Up',
-                    style: GoogleFonts.cormorantGaramond(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.roseQuartz,
-                    ),
+                    style: AppTypography.cormorantBold.copyWith(fontSize: 20),
                   ),
                   const Spacer(),
                   Text(
                     'Add dates →',
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      color: AppTheme.blushGold.withValues(alpha: 0.6),
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.blushGold.withValues(alpha: 0.6)),
                   ),
                 ],
               ),
@@ -60,21 +52,13 @@ class UpcomingCountdowns extends StatelessWidget {
                 children: [
                   Text(
                     'Coming Up',
-                    style: GoogleFonts.cormorantGaramond(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.roseQuartz,
-                    ),
+                    style: AppTypography.cormorantBold.copyWith(fontSize: 20),
                   ),
                   TextButton(
                     onPressed: () => context.push('/calendar'),
                     child: Text(
                       'Calendar',
-                      style: GoogleFonts.outfit(
-                        fontSize: 12,
-                        color: AppTheme.blushGold,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: AppTypography.outfitBold.copyWith(fontSize: 12, color: AppTheme.blushGold),
                     ),
                   ),
                 ],
@@ -136,11 +120,7 @@ class _CountdownEventCard extends StatelessWidget {
                     event.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.petalWhite,
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.petalWhite),
                   ),
                 ),
               ],

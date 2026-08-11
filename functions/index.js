@@ -1,4 +1,4 @@
-const functions = require('firebase-functions/v1');
+﻿const functions = require('firebase-functions/v1');
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
@@ -2845,17 +2845,18 @@ exports.onNewChatMessage = functions.firestore
   .document('sanctuary_messages/{messageId}')
   .onCreate(async (snap) => {
     const data = snap.data();
-    const senderUid = data.senderUid;
-    if (!senderUid || !PARTNER_UID[senderUid]) return;
+    // Use sender (username) not senderUid (Auth UID) for partner lookup
+    const sender = (data.sender || '').toLowerCase();
+    if (!sender || !PARTNER_UID[sender]) return;
 
-    const partnerUid = PARTNER_UID[senderUid];
-    const senderName = USER_DISPLAY[senderUid] || 'Someone';
+    const partnerUid = PARTNER_UID[sender];
+    const senderName = USER_DISPLAY[sender] || 'Someone';
     const preview = (data.text || '').slice(0, 120);
 
     await sendFCMToUser(partnerUid, {
       title: `💌 New message from ${senderName}`,
       body: preview || 'Sent you a message',
-      data: { type: 'chat_message', sender: senderUid },
+      data: { type: 'chat_message', sender },
     });
   });
 
@@ -2902,6 +2903,69 @@ exports.onNewStarDrop = functions.firestore
       title: `✨ ${authorName} dropped a star`,
       body: 'Check the Starlight Jar for a surprise!',
       data: { type: 'starlight_drop', author },
+    });
+  });
+
+
+/**
+ * Gallery photo uploaded → notify the partner.
+ * Runs on every new document in gallery.
+ */
+exports.onNewGalleryPhoto = functions.firestore
+  .document('gallery/{photoId}')
+  .onCreate(async (snap) => {
+    const data = snap.data();
+    const uploader = (data.uploadedBy || '').toLowerCase();
+    if (!uploader || !PARTNER_UID[uploader]) return;
+
+    const partnerUid = PARTNER_UID[uploader];
+    const uploaderName = USER_DISPLAY[uploader] || 'Someone';
+    const caption = data.caption || '';
+
+    await sendFCMToUser(partnerUid, {
+      title: `📸 ${uploaderName} added a photo`,
+      body: caption || 'Check the Gallery for a new memory!',
+      data: { type: 'gallery_photo', uploader },
+    });
+  });
+
+/**
+ * Watch party room created → notify the partner.
+ * Runs on every new document in watch_party_rooms.
+ * The room stores Auth UIDs (hostUid/partnerUid), so we resolve
+ * the host's username from the /users collection first.
+ */
+exports.onWatchPartyInvite = functions.firestore
+  .document('watch_party_rooms/{roomId}')
+  .onCreate(async (snap) => {
+    const data = snap.data();
+    if (!data.active) return;
+
+    const hostUid = data.hostUid;
+    const partnerUidAuth = data.partnerUid;
+    if (!hostUid || !partnerUidAuth) return;
+
+    // Resolve host username from /users collection
+    const db = getDb();
+    let hostUsername = null;
+    try {
+      const hostDoc = await db.collection('users').doc(hostUid).get();
+      if (hostDoc.exists) {
+        hostUsername = (hostDoc.data()?.username || '').toLowerCase();
+      }
+    } catch (e) {
+      console.warn('onWatchPartyInvite: failed to resolve host username:', e.message);
+    }
+    if (!hostUsername || !PARTNER_UID[hostUsername]) return;
+
+    const partnerUsername = PARTNER_UID[hostUsername];
+    const hostName = USER_DISPLAY[hostUsername] || data.hostName || 'Someone';
+    const mediaTitle = data.title || 'something';
+
+    await sendFCMToUser(partnerUsername, {
+      title: `🎬 ${hostName} started a watch party`,
+      body: `Watch "${mediaTitle}" together!`,
+      data: { type: 'watch_party_invite', roomId: data.id || '' },
     });
   });
 

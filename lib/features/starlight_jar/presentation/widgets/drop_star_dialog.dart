@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../../domain/models/star_note.dart';
+import 'package:everglow/core/theme/app_theme.dart';import '../../domain/models/star_note.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 class DropStarDialog extends StatefulWidget {
   const DropStarDialog({super.key});
@@ -54,7 +53,7 @@ class _DropStarDialogState extends State<DropStarDialog> {
         margin: const EdgeInsets.symmetric(horizontal: 32),
         padding: const EdgeInsets.all(24),
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.85,
         ),
         decoration: BoxDecoration(
           color: AppTheme.velvet,
@@ -77,23 +76,14 @@ class _DropStarDialogState extends State<DropStarDialog> {
             children: [
               Text(
                 "Drop a Star ✨",
-                style: GoogleFonts.cormorantGaramond(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.roseQuartz,
-                ),
+                style: AppTypography.cormorantBold.copyWith(fontSize: 26),
               ),
               const SizedBox(height: 16),
 
               // ── Category Chips ──
               Text(
                 "Category",
-                style: GoogleFonts.outfit(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.75),
-                  letterSpacing: 1.0,
-                ),
+                style: AppTypography.outfitBold.copyWith(fontSize: 12, color: AppTheme.petalWhite.withValues(alpha: 0.75), letterSpacing: 1.0),
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -125,15 +115,11 @@ class _DropStarDialogState extends State<DropStarDialog> {
                       ),
                       child: Text(
                         "${info.$1} ${info.$2}",
-                        style: GoogleFonts.outfit(
-                          fontSize: 12,
-                          fontWeight: isSelected
+                        style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: isSelected
                               ? FontWeight.bold
-                              : FontWeight.w500,
-                          color: isSelected
+                              : FontWeight.w500, color: isSelected
                               ? AppTheme.petalWhite
-                              : AppTheme.petalWhite.withValues(alpha: 0.7),
-                        ),
+                              : AppTheme.petalWhite.withValues(alpha: 0.7)),
                       ),
                     ),
                   );
@@ -146,12 +132,10 @@ class _DropStarDialogState extends State<DropStarDialog> {
               TextField(
                 controller: _controller,
                 maxLines: 3,
-                style: GoogleFonts.outfit(color: AppTheme.petalWhite),
+                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
                 decoration: InputDecoration(
                   hintText: "What are you grateful for today?",
-                  hintStyle: GoogleFonts.outfit(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.65),
-                  ),
+                  hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.65)),
                   filled: true,
                   fillColor: AppTheme.twilight,
                   border: OutlineInputBorder(
@@ -176,17 +160,11 @@ class _DropStarDialogState extends State<DropStarDialog> {
                   Expanded(
                     child: TextField(
                       controller: _tagController,
-                      style: GoogleFonts.outfit(
-                        color: AppTheme.petalWhite,
-                        fontSize: 12,
-                      ),
+                      style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 12),
                       onSubmitted: (_) => _addTag(),
                       decoration: InputDecoration(
                         hintText: "Add a tag…",
-                        hintStyle: GoogleFonts.outfit(
-                          color: AppTheme.petalWhite.withValues(alpha: 0.55),
-                          fontSize: 12,
-                        ),
+                        hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.55), fontSize: 12),
                         isDense: true,
                         filled: true,
                         fillColor: AppTheme.twilight,
@@ -237,10 +215,7 @@ class _DropStarDialogState extends State<DropStarDialog> {
                         (tag) => Chip(
                           label: Text(
                             tag,
-                            style: GoogleFonts.outfit(
-                              fontSize: 10,
-                              color: AppTheme.petalWhite,
-                            ),
+                            style: AppTypography.outfitWhite.copyWith(fontSize: 10, color: AppTheme.petalWhite),
                           ),
                           backgroundColor: AppTheme.softLavender.withValues(alpha: 0.3),
                           deleteIconColor: AppTheme.petalWhite.withValues(alpha: 0.75),
@@ -263,9 +238,7 @@ class _DropStarDialogState extends State<DropStarDialog> {
                     onPressed: () => Navigator.pop(context),
                     child: Text(
                       "Cancel",
-                      style: GoogleFonts.outfit(
-                        color: AppTheme.roseQuartz.withValues(alpha: 0.6),
-                      ),
+                      style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -295,7 +268,7 @@ class _DropStarDialogState extends State<DropStarDialog> {
                     ),
                     child: Text(
                       "Drop it!",
-                      style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                      style: AppTypography.outfitWhite.copyWith(fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:everglow/features/xp/domain/models/user_progress.dart';
 import 'package:everglow/core/theme/app_theme.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class XPProgressBar extends StatelessWidget {
   final UserProgress progress;
@@ -22,18 +22,17 @@ class XPProgressBar extends StatelessWidget {
           children: [
             Text(
               'LEVEL ${progress.level}',
-              style: GoogleFonts.outfit(
+              style: AppTypography.outfitHeading.copyWith(
                 color: AppTheme.blushGold,
-                fontWeight: FontWeight.w900,
                 fontSize: 14,
+                fontWeight: FontWeight.w900,
                 letterSpacing: 2,
               ),
             ),
             Text(
               '$currentLevelXp / 1000 XP',
-              style: GoogleFonts.outfit(
+              style: AppTypography.outfitHeading.copyWith(
                 color: AppTheme.roseQuartz.withValues(alpha: 0.8),
-                fontWeight: FontWeight.bold,
                 fontSize: 12,
               ),
             ),

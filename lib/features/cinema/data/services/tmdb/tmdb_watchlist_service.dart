@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:everglow/core/utils/connectivity_aware.dart';
 import 'package:everglow/core/utils/error_aware.dart';
@@ -624,8 +624,16 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       // Determine which partner-specific statuses to clear.
       // If newStatus is "watched-clair", clear any "watching-clair" from
       // the current user's doc (since Clair is no longer "just watching").
+      //
+      // Also clear "watched-self" / "watching-self" — these are the
+      // standard stored variants, and leaving them behind when routing
+      // a status to the partner would make the couple merge think both
+      // partners have the item (causing it to appear in both shelves).
       final stalePartner = _companionPartnerStatus(newStatus);
-      if (stalePartner != null && currentStatus == stalePartner) {
+      final isSelfStatus = currentStatus == 'watched-self' ||
+          currentStatus == 'watching-self';
+      if ((stalePartner != null && currentStatus == stalePartner) ||
+          isSelfStatus) {
         Logger.d("[WatchList] Cleaning stale '$currentStatus' from $userName's doc");
         await collection.doc(existing.docs.first.id).update({'status': 'to-watch'});
       }
@@ -748,6 +756,38 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     }
   }
 
+
+  /// "On This Day" — watch list items added on the same month+day in
+  /// previous years, for both partners.
+  Future<List<MediaItem>> getWatchListFromThisDay() async {
+    final now = DateTime.now();
+    final month = now.month;
+    final day = now.day;
+
+    try {
+      final snapshot = await firestore
+          .collection('watch_list')
+          .get();
+
+      final seen = <int>{};
+      final results = <MediaItem>[];
+      for (final doc in snapshot.docs) {
+        final item = MediaItem.fromFirestore(doc.data(), doc.id);
+        if (item.addedAt.month == month &&
+            item.addedAt.day == day &&
+            item.addedAt.year != now.year &&
+            !seen.contains(item.tmdbId)) {
+          seen.add(item.tmdbId);
+          results.add(item);
+        }
+      }
+      return results;
+    } catch (e) {
+      Logger.e("Error getting on-this-day watchlist items", error: e);
+      return [];
+    }
+  }
+
   // ─── Couple merge helpers ──────────────────────────────────────────────
 
   /// Merges the two partners' watch lists into a single list. Items are
@@ -771,7 +811,15 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     }
 
     final merged = byId.values.map((entry) {
-      if (entry.partner == null) return entry.primary;
+      if (entry.partner == null) {
+        // Single-user item: resolve "watched-self" / "watching-self" to
+        // the partner-specific variant so the drawer chips match.
+        final item = entry.primary;
+        final resolved = item.resolveCoupleStatus();
+        return resolved != item.status
+            ? item.copyWith(status: resolved)
+            : item;
+      }
       final a = entry.primary;
       final b = entry.partner!;
       final userName = '${a.userName},${b.userName}';

@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import 'package:everglow/core/theme/app_breakpoints.dart';
 import 'package:everglow/core/theme/app_colors.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/shared/widgets/shelf/shelf_poster_card.dart';
 import 'package:everglow/shared/widgets/shelf/shelf_section_header.dart';
 import 'package:everglow/shared/widgets/shelf/anime_cta_button.dart';
+import 'package:everglow/core/theme/app_typography.dart';
 
 // ── Anime palette (subset used by the Library tab) ──────────────
 const _cWhite          = AppColors.animeWhite;
@@ -44,12 +43,11 @@ class AnimeLibraryTab extends StatelessWidget {
       return _buildEmptyState(context);
     }
 
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 100),
-      children: [
-        Padding(
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-          child: Column(
+          sliver: SliverToBoxAdapter(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -69,12 +67,7 @@ class AnimeLibraryTab extends StatelessWidget {
                   const SizedBox(width: 12),
                   Text(
                     'OUR ANIME',
-                    style: GoogleFonts.cormorantGaramond(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      color: _cWhite,
-                      letterSpacing: 3,
-                    ),
+                    style: AppTypography.cormorantBlack.copyWith(fontSize: 24, letterSpacing: 3, color: _cWhite),
                   ),
                 ],
               ),
@@ -83,12 +76,7 @@ class AnimeLibraryTab extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 16),
                 child: Text(
                   'JAPANESE ANIMATION',
-                  style: GoogleFonts.outfit(
-                    fontSize: 9,
-                    color: _cMuted,
-                    letterSpacing: 2.5,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: AppTypography.outfitHeading.copyWith(fontSize: 9, color: _cMuted, letterSpacing: 2.5),
                 ),
               ),
               const SizedBox(height: 16),
@@ -121,12 +109,13 @@ class AnimeLibraryTab extends StatelessWidget {
               ),
             ],
           ),
+          ),
         ),
-        _buildLibrarySection(context, 'Currently Watching', currentlyWatching,
+        ..._buildLibrarySectionSlivers(context, 'Currently Watching', currentlyWatching,
             Icons.play_circle_filled_rounded, const Color(0xFFFF6D00)),
-        _buildLibrarySection(
+        ..._buildLibrarySectionSlivers(
             context, 'Want to Watch', wantToWatch, Icons.bookmark_rounded, _cCyan),
-        _buildLibrarySection(context, 'Watched', watched,
+        ..._buildLibrarySectionSlivers(context, 'Watched', watched,
             Icons.remove_red_eye_rounded, const Color(0xFF8BC34A)),
       ],
     );
@@ -170,21 +159,13 @@ class AnimeLibraryTab extends StatelessWidget {
             const SizedBox(height: 24),
             Text(
               'Your anime library is empty',
-              style: GoogleFonts.cormorantGaramond(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: _cWhite,
-              ),
+              style: AppTypography.cormorantBold.copyWith(fontSize: 24, color: _cWhite),
             ),
             const SizedBox(height: 8),
             Text(
               'Search for any series and add it to your watchlist.\nItems you mark as watched will live here too.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                color: _cMuted,
-                fontSize: 13,
-                height: 1.5,
-              ),
+              style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 13, height: 1.5),
             ),
             const SizedBox(height: 28),
             AnimeCtaButton(
@@ -198,19 +179,18 @@ class AnimeLibraryTab extends StatelessWidget {
     );
   }
 
-  Widget _buildLibrarySection(
+  List<Widget> _buildLibrarySectionSlivers(
     BuildContext context,
     String title,
     List<MediaItem> items,
     IconData icon,
     Color accent,
   ) {
-    if (items.isEmpty) return const SizedBox.shrink();
+    if (items.isEmpty) return const [];
     final isDesktop = AppBreakpoint.isDesktop(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
+    return [
+      SliverToBoxAdapter(
+        child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
           child: ShelfSectionHeader(
             eyebrow: 'COLLECTION',
@@ -221,10 +201,10 @@ class AnimeLibraryTab extends StatelessWidget {
             countLabel: 'titles',
           ),
         ),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+      ),
+      SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        sliver: SliverGrid.builder(
           itemCount: items.length,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount:
@@ -257,8 +237,8 @@ class AnimeLibraryTab extends StatelessWidget {
             );
           },
         ),
-      ],
-    );
+      ),
+    ];
   }
 }
 
@@ -294,21 +274,12 @@ class _LibraryStat extends StatelessWidget {
           children: [
             Text(
               '$count',
-              style: GoogleFonts.cormorantGaramond(
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                color: color,
-              ),
+              style: AppTypography.cormorantBlack.copyWith(fontSize: 20, color: color),
             ),
             const SizedBox(height: 2),
             Text(
               label,
-              style: GoogleFonts.outfit(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: color.withValues(alpha: 0.8),
-                letterSpacing: 0.5,
-              ),
+              style: AppTypography.outfitHeading.copyWith(fontSize: 10, color: color.withValues(alpha: 0.8), letterSpacing: 0.5),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
