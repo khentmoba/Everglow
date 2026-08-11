@@ -906,7 +906,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
                 children: [
                   Icon(Icons.close_rounded, color: Colors.white, size: 14),
                   SizedBox(width: 4),
-                  const Text('End',
+                  Text('End',
                       style: TextStyle(
                           color: Colors.white,
                           fontSize: 11,

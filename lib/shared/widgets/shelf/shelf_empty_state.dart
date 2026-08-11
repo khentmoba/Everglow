@@ -139,7 +139,7 @@ class _CtaButtonState extends State<_CtaButton> {
             duration: ShelfMotion.orZero(ShelfMotion.medium),
             curve: ShelfMotion.easeOutStrong,
             transform: Matrix4.identity()
-              ..translateByDouble(0.0, _hovered || _focused ? -1.5 : 0.0, 0.0),
+              ..translateByDouble(0.0, _hovered || _focused ? -1.5 : 0.0, 0.0, 1.0),
             padding: const EdgeInsets.symmetric(
                 horizontal: 22, vertical: 14),
             decoration: BoxDecoration(
