@@ -90,8 +90,8 @@ class _EverglowButtonState extends State<EverglowButton>
       duration: AppMotion.orZero(AppMotion.fast),
       curve: AppMotion.easeOutStrong,
       transform: Matrix4.identity()
-        ..translateByDouble(0.0, effectiveTranslateY, 0.0)
-        ..scaleByDouble(effectiveScale),
+        ..translateByDouble(0.0, effectiveTranslateY, 0.0, 1.0)
+        ..scaleByDouble(effectiveScale, effectiveScale, effectiveScale, 1.0),
       padding: _buildPadding(),
       decoration: _buildDecoration(),
       child: _buildContent(),
