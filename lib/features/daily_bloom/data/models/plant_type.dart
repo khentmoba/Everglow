@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 /// Represents a plant type in the garden with its visual characteristics.
 class PlantType {
   final String id;

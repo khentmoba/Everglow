@@ -50,7 +50,6 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   /// Season navigation entries for anime (built from AniList SEQUEL/PREQUEL
   /// relations). Empty for TMDB-sourced items and for anime with no related
   /// seasons. Rendered as a horizontal pill strip below the meta section.
-  List<SeasonNavItem> _animeSeasons = [];
 
   List<Map<String, dynamic>> _cast = [];
   List<Map<String, dynamic>> _reviews = [];
@@ -322,53 +321,6 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       _selectedSeasonNumber = 1;
       _fetchSeasonEpisodes(1);
     });
-  }
-
-  /// Builds the season navigation list from AniList SEQUEL/PREQUEL relations.
-  /// Includes the current anime as the "Current" entry and all related seasons
-  /// (SEQUEL = next, PREQUEL = previous). Sorted so PREQUELs appear first,
-  /// then Current, then SEQUELs. Empty list when there's only 1 season.
-  List<SeasonNavItem> _buildAnimeSeasons(AniListDetail detail) {
-    final list = <SeasonNavItem>[];
-    for (final r in detail.relations) {}
-    list.add(
-      SeasonNavItem(
-        id: detail.id,
-        malId: detail.malId ?? widget.item.tmdbId,
-        title: detail.titleEnglish.isNotEmpty
-            ? detail.titleEnglish
-            : detail.titleRomaji,
-        coverImageUrl: detail.coverImageUrl,
-        isCurrent: true,
-        relationType: 'CURRENT',
-      ),
-    );
-
-    for (final r in detail.relations) {
-      if (r.relationType != 'SEQUEL' && r.relationType != 'PREQUEL') continue;
-      list.add(
-        SeasonNavItem(
-          id: r.id,
-          malId: r.malId ?? r.id,
-          title: r.title,
-          coverImageUrl: r.coverImageUrl,
-          isCurrent: false,
-          relationType: r.relationType,
-        ),
-      );
-    }
-
-    // Only show navigation if there are other seasons to navigate to
-    if (list.length <= 1) return const [];
-
-    // Sort: PREQUELs first, CURRENT, SEQUELs last
-    const order = {'PREQUEL': 0, 'CURRENT': 1, 'SEQUEL': 2};
-    list.sort(
-      (a, b) =>
-          (order[a.relationType] ?? 3).compareTo(order[b.relationType] ?? 3),
-    );
-
-    return list;
   }
 
   /// TMDB path (unchanged). Kept as its own method so the source
@@ -1159,35 +1111,6 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     );
   }
 
-  /// Navigates to a different season of the same anime series. Closes the
-  /// current drawer and opens a new [EpisodeDrawer] for the target season
-  /// entry. No-op when the target is the current season.
-  void _switchAnimeSeason(SeasonNavItem season) {
-    if (season.isCurrent) return;
-    Navigator.pop(context);
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => EpisodeDrawer(
-        item: MediaItem(
-          id: '',
-          tmdbId: season.malId ?? season.id,
-          anilistId: season.id,
-          title: season.title,
-          mediaType: 'tv',
-          posterPath: season.coverImageUrl ?? '',
-          backdropPath: '',
-          year: '',
-          status: 'to-watch',
-          isAnime: true,
-          addedAt: DateTime.now(),
-          source: 'jikan',
-        ),
-      ),
-    );
-  }
-
   // ═══════════════════════════════════════════════════════════════
   // BUILD
   // ═══════════════════════════════════════════════════════════════
@@ -1228,7 +1151,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     // prefix with the image CDN. The MediaItem itself also carries a
     // pre-built URL from discover/search which we use as a final
     // fallback so the hero never renders as a flat gray rectangle.
-    String? backdropUrl;
+    String backdropUrl;
     if (_isAnimeSourced) {
       final aniBackdrop = _details?['_backdropUrl'] as String?;
       backdropUrl = (aniBackdrop != null && aniBackdrop.isNotEmpty)
@@ -1259,7 +1182,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
               // ── HERO BACKDROP ──
               SliverToBoxAdapter(
                 child: TrailerSection(
-                  backdropUrl: backdropUrl ?? '',
+                  backdropUrl: backdropUrl,
                   trailerKey: _trailerKey,
                   isLoadingTrailer: _isLoadingTrailer,
                   isPlayingTrailer: _isPlayingTrailer,
@@ -1305,9 +1228,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                         if (context.watch<AuthService>().isCoupleUser)
                           StartWatchPartyButton(
                             media: MediaRef(
-                              tmdbId: _isAnimeSourced
-                                  ? _effectiveMalId
-                                  : widget.item.tmdbId,
+                              tmdbId: widget.item.tmdbId,
                               malId: _isAnimeSourced ? _effectiveMalId : null,
                               mediaType: 'movie',
                               isAnime: _isAnimeSourced,
@@ -1607,131 +1528,6 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   // ═══════════════════════════════════════════════════════════════
   // ANIME SEASON NAV
   // ═══════════════════════════════════════════════════════════════
-
-  /// Horizontal pill strip showing all available seasons for this anime.
-  /// The current season is highlighted in rose; tapping another season
-  /// navigates to its episode drawer. Only rendered when there are 2+
-  /// seasons (current + at least one related).
-  Widget _buildAnimeSeasonNav() {
-    if (!_isAnimeSourced || _animeSeasons.length <= 1) {
-      return const SizedBox.shrink();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 3,
-                height: 14,
-                decoration: BoxDecoration(
-                  color: AppColors.deepRose,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'SEASONS',
-                style: AppTypography.outfitHeading.copyWith(color: AppColors.mutedPurple, fontSize: 10, letterSpacing: 2),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 36,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              itemCount: _animeSeasons.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final s = _animeSeasons[index];
-                final isCurrent = s.isCurrent;
-                return GestureDetector(
-                  onTap: () => _switchAnimeSeason(s),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isCurrent
-                          ? AppColors.deepRose.withValues(alpha: 0.2)
-                          : AppColors.shimmerBase,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: isCurrent
-                            ? AppColors.deepRose
-                            : AppColors.roseQuartz.withValues(alpha: 0.15),
-                        width: isCurrent ? 1.5 : 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (s.coverImageUrl != null &&
-                            s.coverImageUrl!.isNotEmpty &&
-                            !isCurrent)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: Image.network(
-                                s.coverImageUrl!,
-                                width: 20,
-                                height: 20,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) =>
-                                    const SizedBox.shrink(),
-                              ),
-                            ),
-                          ),
-                        if (isCurrent)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: Icon(
-                              Icons.play_arrow_rounded,
-                              color: AppColors.deepRose,
-                              size: 14,
-                            ),
-                          ),
-                        Flexible(
-                          child: Text(
-                            // Shorten long titles to fit the pill
-                            s.title.length > 28
-                                ? '${s.title.substring(0, 26)}…'
-                                : s.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.outfitHeading.copyWith(color: isCurrent
-                                  ? AppColors.deepRose
-                                  : AppColors.petalWhite.withValues(alpha: 0.8), fontSize: 12),
-                          ),
-                        ),
-                        if (!isCurrent)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4),
-                            child: Icon(
-                              Icons.chevron_right_rounded,
-                              color: AppColors.mutedPurple,
-                              size: 14,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   // ═══════════════════════════════════════════════════════════════
   // HELPERS
