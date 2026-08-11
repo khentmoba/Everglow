@@ -208,15 +208,15 @@ class DashboardOverlays extends StatelessWidget {
         ),
 
         // Mood Picker prompt
-        Consumer<GuardianController>(
-          builder: (context, controller, child) {
-            if (!controller.isMoodPromptVisible) return const SizedBox.shrink();
-            return const Positioned(
-              top: 100,
-              right: 24,
-              child: MoodPicker(),
-            );
-          },
+        Positioned(
+          top: 100,
+          right: 24,
+          child: Consumer<GuardianController>(
+            builder: (context, controller, child) {
+              if (!controller.isMoodPromptVisible) return const SizedBox.shrink();
+              return const MoodPicker();
+            },
+          ),
         ),
       ],
     );
