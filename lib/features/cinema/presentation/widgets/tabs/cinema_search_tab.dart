@@ -289,7 +289,7 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
             }, childCount: widget.trendingGlobal.length),
           ),
         ),
-        const SliverPadding(padding: const EdgeInsets.only(bottom: 120)),
+        const SliverPadding(padding: EdgeInsets.only(bottom: 120)),
       ],
     );
   }

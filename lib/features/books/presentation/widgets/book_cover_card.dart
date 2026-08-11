@@ -14,14 +14,14 @@ class BookCoverCard extends StatelessWidget {
   final Color? badgeColor;
 
   const BookCoverCard({
-    Key? key,
+    super.key,
     required this.item,
     required this.onTap,
     this.width,
     this.height,
     this.statusBadge,
     this.badgeColor,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

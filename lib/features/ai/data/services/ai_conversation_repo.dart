@@ -21,7 +21,9 @@ class AIConversationRepository implements IAIConversationRepository {
       : _db = db ?? FirebaseFirestore.instance,
         _user = user;
 
+  @override
   AIConversation? get assistant => _assistantConversation;
+  @override
   AIConversation? get guardian => _guardianConversation;
 
   AIConversation? _get(String feature) {
@@ -43,9 +45,11 @@ class AIConversationRepository implements IAIConversationRepository {
     }
   }
 
+  @override
   void setConversation(String feature, AIConversation? conv) => _set(feature, conv);
 
   /// Get or create a conversation for a feature, with Firestore fallback.
+  @override
   Future<AIConversation> getOrCreate(String feature) async {
     final cached = _get(feature);
     if (cached != null) return cached;
@@ -83,6 +87,7 @@ class AIConversationRepository implements IAIConversationRepository {
   }
 
   /// Persist a conversation to Firestore.
+  @override
   Future<void> save(AIConversation conversation) async {
     final uid = _user?.uid ?? '';
     if (uid.isEmpty) return;
@@ -99,6 +104,7 @@ class AIConversationRepository implements IAIConversationRepository {
   }
 
   /// Archive a conversation as a session snapshot.
+  @override
   Future<void> archiveSession(AIConversation conversation) async {
     try {
       final messagesJson = conversation.messages
@@ -299,6 +305,7 @@ class AIConversationRepository implements IAIConversationRepository {
   }
 
   /// Load the last 5 full sessions' messages into a conversation.
+  @override
   Future<void> loadSessionIntoConversation(AIConversation conversation) async {
     try {
       final snapshot = await _db
@@ -332,6 +339,7 @@ class AIConversationRepository implements IAIConversationRepository {
   }
 
   /// Clear a feature's conversation and delete from Firestore.
+  @override
   Future<void> clear(String feature) async {
     final conv = _get(feature);
     if (conv != null && conv.messages.length >= 2) {
@@ -356,6 +364,7 @@ class AIConversationRepository implements IAIConversationRepository {
   }
 
   /// Load assistant conversation from cache or Firestore.
+  @override
   Future<void> loadAssistant() async {
     if (_assistantConversation != null) return;
     final conv = await getOrCreate('assistant');
@@ -365,6 +374,7 @@ class AIConversationRepository implements IAIConversationRepository {
   }
 
   /// Clear all cached conversations (start fresh).
+  @override
   void startFresh() {
     _assistantConversation = null;
     _guardianConversation = null;

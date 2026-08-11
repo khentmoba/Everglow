@@ -43,6 +43,8 @@ class _RandomizerCardState extends State<RandomizerCard>
   Future<void> _handleSpin() async {
     if (_isSpinning) return;
 
+    final aiService = context.read<AIService>();
+
     setState(() => _isSpinning = true);
     _controller.repeat();
 
@@ -54,7 +56,6 @@ class _RandomizerCardState extends State<RandomizerCard>
 
     if (_useAI) {
       // Try AI-generated idea first
-      final aiService = context.read<AIService>();
       final generator = AIDateIdeaGenerator(aiService);
       idea = await generator.generatePersonalizedIdea();
     }

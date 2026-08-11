@@ -402,7 +402,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
             Image.network(
               _mangaDexService.proxiedImageUrl(_item.coverUrl),
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) =>
+              errorBuilder: (_, _, _) =>
                   Container(color: AppColors.velvet),
             )
           else

@@ -1,3 +1,6 @@
+// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
+// Web-only SSE streaming via browser XHR; this file is never compiled
+// outside Flutter web (see sse_streamer_io.dart for the VM variant).
 // Web-platform implementation: uses dart:html HttpRequest
 // with a polling timer on responseText to receive SSE chunks
 // incrementally. XHR onProgress may not fire per-byte in Flutter web.

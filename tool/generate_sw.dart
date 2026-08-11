@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+// Build tool: prints the generated build stamp for CI logs.
 import 'dart:io';
 
 void main() {

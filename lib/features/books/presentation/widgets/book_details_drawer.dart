@@ -27,7 +27,7 @@ BookItem _resolveReaderBook(BookItem item) {
 /// The full chapter list is rendered inside the reader screen.
 class BookDetailsDrawer extends StatefulWidget {
   final BookItem item;
-  const BookDetailsDrawer({Key? key, required this.item}) : super(key: key);
+  const BookDetailsDrawer({super.key, required this.item});
 
   @override
   State<BookDetailsDrawer> createState() => _BookDetailsDrawerState();

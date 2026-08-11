@@ -12,7 +12,7 @@ import 'shelf_section_header.dart';
 /// that suggests content based on watch history. Uses a horizontal
 /// scroll of poster cards with a custom header.
 class ForYouSection extends StatelessWidget {
-  final List<_ForYouItem> items;
+  final List<ForYouItem> items;
   final String eyebrow;
   final String title;
   final IconData icon;
@@ -73,7 +73,7 @@ class ForYouSection extends StatelessWidget {
 }
 
 class _ForYouCard extends StatefulWidget {
-  final _ForYouItem item;
+  final ForYouItem item;
   final double width;
 
   const _ForYouCard({required this.item, required this.width});
@@ -189,7 +189,7 @@ class _ForYouCardState extends State<_ForYouCard> {
 }
 
 /// Data model for a "For You" recommendation item.
-class _ForYouItem {
+class ForYouItem {
   final String id;
   final String title;
   final String? subtitle;
@@ -198,7 +198,7 @@ class _ForYouItem {
   final Color matchColor;
   final VoidCallback? onTap;
 
-  const _ForYouItem({
+  const ForYouItem({
     required this.id,
     required this.title,
     this.subtitle,
@@ -209,9 +209,9 @@ class _ForYouItem {
   });
 }
 
-/// Creates a list of [_ForYouItem] from a generic list of items
+/// Creates a list of [ForYouItem] from a generic list of items
 /// that have id, title, posterUrl, and year properties.
-List<_ForYouItem> buildForYouItems<T>({
+List<ForYouItem> buildForYouItems<T>({
   required List<T> items,
   required String Function(T) getId,
   required String Function(T) getTitle,
@@ -221,7 +221,7 @@ List<_ForYouItem> buildForYouItems<T>({
   void Function(T)? onTap,
 }) {
   return items.map((item) {
-    return _ForYouItem(
+    return ForYouItem(
       id: getId(item),
       title: getTitle(item),
       subtitle: getSubtitle?.call(item),
@@ -238,7 +238,7 @@ List<_ForYouItem> buildForYouItems<T>({
 /// "TOP 10 Today" ranking section — a vertical list of ranked items,
 /// inspired by cineby's popular ranking display.
 class TopTenRankingSection extends StatelessWidget {
-  final List<_RankingItem> items;
+  final List<RankingItem> items;
   final String eyebrow;
   final String title;
   final IconData icon;
@@ -287,14 +287,14 @@ class TopTenRankingSection extends StatelessWidget {
   }
 }
 
-class _RankingItem {
+class RankingItem {
   final String title;
   final String? subtitle;
   final String imageUrl;
   final String? badge;
   final VoidCallback? onTap;
 
-  const _RankingItem({
+  const RankingItem({
     required this.title,
     this.subtitle,
     required this.imageUrl,
@@ -305,7 +305,7 @@ class _RankingItem {
 
 class _RankingTile extends StatefulWidget {
   final int rank;
-  final _RankingItem item;
+  final RankingItem item;
 
   const _RankingTile({required this.rank, required this.item});
 
@@ -462,7 +462,7 @@ class _RankingTileState extends State<_RankingTile> {
 }
 
 /// Build ranking items from generic data.
-List<_RankingItem> buildRankingItems<T>({
+List<RankingItem> buildRankingItems<T>({
   required List<T> items,
   required String Function(T) getTitle,
   required String Function(T) getImageUrl,
@@ -471,7 +471,7 @@ List<_RankingItem> buildRankingItems<T>({
   void Function(T)? onTap,
 }) {
   return items.map((item) {
-    return _RankingItem(
+    return RankingItem(
       title: getTitle(item),
       subtitle: getSubtitle?.call(item),
       imageUrl: getImageUrl(item),
@@ -487,7 +487,7 @@ List<_RankingItem> buildRankingItems<T>({
 /// streaming services (Netflix, Amazon, Disney, HBO, etc.), matching
 /// cineby's "Only on" display.
 class OnlyOnSection extends StatelessWidget {
-  final List<_ProviderRow> providers;
+  final List<ProviderRow> providers;
 
   const OnlyOnSection({super.key, required this.providers});
 
@@ -521,13 +521,13 @@ class OnlyOnSection extends StatelessWidget {
   }
 }
 
-class _ProviderRow {
+class ProviderRow {
   final String name;
   final IconData icon;
   final Color color;
   final List<_ProviderItem> items;
 
-  const _ProviderRow({
+  const ProviderRow({
     required this.name,
     required this.icon,
     required this.color,
@@ -550,7 +550,7 @@ class _ProviderItem {
 }
 
 class _ProviderRowWidget extends StatelessWidget {
-  final _ProviderRow provider;
+  final ProviderRow provider;
   final bool isDesktop;
 
   const _ProviderRowWidget({
@@ -629,7 +629,7 @@ class _ProviderRowWidget extends StatelessWidget {
 }
 
 /// Build provider row from generic data.
-_ProviderRow buildProviderRow<T>({
+ProviderRow buildProviderRow<T>({
   required String name,
   required IconData icon,
   required Color color,
@@ -639,7 +639,7 @@ _ProviderRow buildProviderRow<T>({
   required String Function(T) getImageUrl,
   void Function(T)? onTap,
 }) {
-  return _ProviderRow(
+  return ProviderRow(
     name: name,
     icon: icon,
     color: color,
@@ -660,7 +660,7 @@ _ProviderRow buildProviderRow<T>({
 /// with backdrop images and a gradient overlay, like cineby's
 /// continue-watching rail.
 class ContinueWatchingRow extends StatelessWidget {
-  final List<_ContinueItem> items;
+  final List<ContinueItem> items;
   final String eyebrow;
   final String title;
   final Color accent;
@@ -714,7 +714,7 @@ class ContinueWatchingRow extends StatelessWidget {
   }
 }
 
-class _ContinueItem {
+class ContinueItem {
   final String id;
   final String title;
   final String? year;
@@ -722,7 +722,7 @@ class _ContinueItem {
   final String? progressLabel;
   final VoidCallback? onTap;
 
-  const _ContinueItem({
+  const ContinueItem({
     required this.id,
     required this.title,
     this.year,
@@ -733,7 +733,7 @@ class _ContinueItem {
 }
 
 class _ContinueCard extends StatelessWidget {
-  final _ContinueItem item;
+  final ContinueItem item;
   final Color accent;
 
   const _ContinueCard({required this.item, required this.accent});
@@ -887,7 +887,7 @@ class _ContinueCard extends StatelessWidget {
 }
 
 /// Build continue-watching items from generic data.
-List<_ContinueItem> buildContinueItems<T>({
+List<ContinueItem> buildContinueItems<T>({
   required List<T> items,
   required String Function(T) getId,
   required String Function(T) getTitle,
@@ -897,7 +897,7 @@ List<_ContinueItem> buildContinueItems<T>({
   void Function(T)? onTap,
 }) {
   return items.map((item) {
-    return _ContinueItem(
+    return ContinueItem(
       id: getId(item),
       title: getTitle(item),
       year: getYear?.call(item),

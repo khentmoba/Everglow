@@ -8,10 +8,10 @@ class MediaPosterCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const MediaPosterCard({
-    Key? key,
+    super.key,
     required this.item,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

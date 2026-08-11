@@ -18,7 +18,7 @@ class CalendarScreen extends StatefulWidget {
 class _CalendarScreenState extends State<CalendarScreen> {
   final CalendarService _calendarService = CalendarService();
   DateTime _selectedDay = DateTime.now();
-  DateTime _currentMonth = DateTime.now();
+  final DateTime _currentMonth = DateTime.now();
   bool _showDayDetail = false;
 
   @override

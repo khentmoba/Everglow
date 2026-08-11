@@ -2,6 +2,7 @@
 ///
 /// Used by [CanvasService] to reduce stroke point count while preserving
 /// visual fidelity. Extracted here so it can be unit-tested without Firebase.
+library;
 
 /// Simplifies a list of normalized canvas points (each `x`/`y` in [0,1])
 /// using the Ramer-Douglas-Peucker algorithm.
