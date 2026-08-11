@@ -4,7 +4,6 @@ import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:web/web.dart' as web;
@@ -272,13 +271,6 @@ _currentSeason = widget.season ?? 1;
     }
     _externalTmdbId = tmdbId;
     _iframe.src = _buildPlayerUrl(_selectedProvider);
-  }
-
-  Future<void> _fetchDetails() async {
-    final tmdb = TMDBService();
-    final details = await tmdb.fetchMediaDetails(widget.tmdbId, widget.mediaType);
-    if (!mounted) return;
-    setState(() => _details = details);
   }
 
   /// Called when the iframe fires `error` or the [_loadTimeout] fires

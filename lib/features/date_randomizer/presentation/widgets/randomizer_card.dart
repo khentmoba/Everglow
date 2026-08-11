@@ -203,10 +203,6 @@ class _RoulettePainter extends CustomPainter {
 
     for (int i = 0; i < 12; i++) {
       final angle = (i * 30) * (3.14159 / 180);
-      final start = Offset(
-        center.dx + (radius - 10) * (angle), // simplified for brevity
-        center.dy + (radius - 10) * (angle),
-      );
       // Actually draw proper spokes
       canvas.drawLine(
         Offset(center.dx + (radius - 15) * (angle), center.dy + (radius - 15) * (angle)), // This logic is wrong but illustrative

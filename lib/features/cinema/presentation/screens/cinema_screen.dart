@@ -286,27 +286,20 @@ class _CinemaScreenState extends State<CinemaScreen>
 
     if (!mounted) return;
     setState(() {
-      _discoveryRows['korean_dramas'] = (languageRows[0] as List<MediaItem>)
-          .where((m) => !m.isAnime)
-          .toList();
-      _discoveryRows['bollywood'] = (languageRows[1] as List<MediaItem>)
-          .where((m) => !m.isAnime)
-          .toList();
-      _discoveryRows['spanish_cinema'] = (languageRows[2] as List<MediaItem>)
-          .where((m) => !m.isAnime)
-          .toList();
-      _discoveryRows['french_cinema'] = (languageRows[3] as List<MediaItem>)
-          .where((m) => !m.isAnime)
-          .toList();
-      _discoveryRows['decade_2010s'] = (decadeRows[0] as List<MediaItem>)
-          .where((m) => !m.isAnime)
-          .toList();
-      _discoveryRows['decade_2000s'] = (decadeRows[1] as List<MediaItem>)
-          .where((m) => !m.isAnime)
-          .toList();
-      _discoveryRows['classic_films'] = (decadeRows[2] as List<MediaItem>)
-          .where((m) => !m.isAnime)
-          .toList();
+      _discoveryRows['korean_dramas'] =
+          languageRows[0].where((m) => !m.isAnime).toList();
+      _discoveryRows['bollywood'] =
+          languageRows[1].where((m) => !m.isAnime).toList();
+      _discoveryRows['spanish_cinema'] =
+          languageRows[2].where((m) => !m.isAnime).toList();
+      _discoveryRows['french_cinema'] =
+          languageRows[3].where((m) => !m.isAnime).toList();
+      _discoveryRows['decade_2010s'] =
+          decadeRows[0].where((m) => !m.isAnime).toList();
+      _discoveryRows['decade_2000s'] =
+          decadeRows[1].where((m) => !m.isAnime).toList();
+      _discoveryRows['classic_films'] =
+          decadeRows[2].where((m) => !m.isAnime).toList();
     });
   }
 

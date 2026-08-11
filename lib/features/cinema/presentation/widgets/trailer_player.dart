@@ -27,8 +27,6 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
   late final String _viewType;
   late final web.HTMLIFrameElement _iframe;
   JSFunction? _onLoadListener;
-  bool _isLoaded = false;
-
   @override
   void initState() {
     super.initState();
@@ -109,7 +107,6 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
 
     _onLoadListener = ((web.Event _) {
       if (mounted) {
-        setState(() => _isLoaded = true);
         widget.onLoaded?.call();
       }
     }).toJS;
