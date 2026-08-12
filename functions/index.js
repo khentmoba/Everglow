@@ -1,6 +1,14 @@
 ﻿const functions = require('firebase-functions/v1');
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const {
+  parseFactStructure,
+  rankMemories,
+  selectContextBlocks,
+  generateTrivia,
+  computeInsights,
+  composeTodayRecap,
+} = require('./mochi_core.js');
 
 /** Lazy require+init so Firebase deploy analysis doesn't time out */
 let _admin;
@@ -1259,9 +1267,12 @@ function getDb() {
 // ─── Context cache (30s TTL) — avoids redundant Firestore reads on rapid messages ────
 const _contextCache = new Map();
 
-async function buildContextForFeature(feature, callerUid) {
+async function buildContextForFeature(feature, callerUid, userMessage = '') {
   try {
-    const cacheKey = `${feature}:${callerUid || 'anon'}`;
+    const queryHint = feature === 'assistant'
+      ? `:${Buffer.from(userMessage || '').toString('base64').slice(0, 48)}`
+      : '';
+    const cacheKey = `${feature}:${callerUid || 'anon'}${queryHint}`;
     const cached = _contextCache.get(cacheKey);
     if (cached && (Date.now() - cached.ts) < 300000) {
       return cached.value;
@@ -1269,25 +1280,33 @@ async function buildContextForFeature(feature, callerUid) {
 
     let result;
     switch (feature) {
-      case 'assistant':
-        const ctxParts = await Promise.all([
-          getProactiveContext(),
-          getDailyDigest(),
-          getMoodContext(),
-          getWatchContext(),
-          getBooksContext(),
-          getStarlightContext(),
-          getRecentChatContext(),
-          getMusicContext(),
-          getGardenContext(),
-          getCanvasContext(),
-          getPlayZoneContext(),
-          getRelationshipStats(),
-          getRecentActivity(),
-          getSessionHistoryContext(),
-        ]);
-        result = ctxParts.filter(p => p).join('\n\n');
+      case 'assistant': {
+        const ctxPromises = [
+          ['proactive', getProactiveContext()],
+          ['daily', getDailyDigest()],
+          ['mood', getMoodContext()],
+          ['watchlist', getWatchContext()],
+          ['books', getBooksContext()],
+          ['starlight', getStarlightContext()],
+          ['chat', getRecentChatContext()],
+          ['music', getMusicContext()],
+          ['garden', getGardenContext()],
+          ['canvas', getCanvasContext()],
+          ['play_zone', getPlayZoneContext()],
+          ['relationship', getRelationshipStats()],
+          ['activity', getRecentActivity()],
+          ['sessions', getSessionHistoryContext()],
+        ];
+        const resolved = await Promise.all(
+          ctxPromises.map(async ([key, promise]) => ({
+            key,
+            value: await promise,
+          }))
+        );
+        const selected = selectContextBlocks(resolved, userMessage || '', 6);
+        result = selected.map(b => b.value).filter(Boolean).join('\n\n');
         break;
+      }
       case 'guardian':
         const mood = await getMoodContext();
         result = mood;
@@ -1700,7 +1719,7 @@ function estimateTokens(text) {
   return Math.ceil(nonCjk / 4) + Math.ceil(cjk * 1.5);
 }
 
-// Agnes 2.0 Flash: 512K context window, generous token budget.
+// Agnes 2.5 Flash: 512K context window, generous token budget.
 // Use ~25% of context for input safety; reserve rest for output + tool loops.
 const AGNES_INPUT_TOKEN_BUDGET = 120000;
 
@@ -1741,19 +1760,19 @@ function memoryRelevanceScore(fact, queryKeywords) {
 }
 
 async function selectRelevantMemories(clientMemories, userMessage, maxResults = 30) {
-  // If client sent memories (backward compat), use them with server-side filtering
+  // Client-provided memories are plain strings in older clients; treat
+  // them as unstructured facts and let the shared scorer rank them.
   if (Array.isArray(clientMemories) && clientMemories.length > 0) {
-    const keywords = extractKeywords(userMessage || '');
-    if (keywords.length === 0) return clientMemories.slice(0, maxResults);
-    const scored = clientMemories.map(fact => ({
-      fact,
-      score: memoryRelevanceScore(fact, keywords),
-    }));
-    scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, maxResults).map(m => m.fact);
+    const ranked = rankMemories(
+      clientMemories.map(fact => ({ fact })),
+      userMessage || '',
+      maxResults
+    );
+    return ranked.map(m => m.fact);
   }
 
-  // Otherwise fetch from Firestore with confidence decay
+  // Otherwise fetch structured facts from Firestore with confidence
+  // decay and rank with the same pure scorer used by tests.
   try {
     const db = getDb();
     const snapshot = await db.collection('ai_memories/shared/facts')
@@ -1765,7 +1784,15 @@ async function selectRelevantMemories(clientMemories, userMessage, maxResults = 
     snapshot.forEach(doc => {
       const data = doc.data();
       memories.push({
+        id: doc.id,
         fact: data.fact || '',
+        category: data.category || 'fact',
+        subject: data.subject || null,
+        relation: data.relation || null,
+        object: data.object || null,
+        occurredAt: data.occurredAt?.toDate?.() || null,
+        createdAt: data.createdAt?.toDate?.() || null,
+        pinned: data.pinned === true,
         confidence: data.confidence ?? 1.0,
         lastAccessed: data.lastAccessed?.toDate?.() || null,
       });
@@ -1783,18 +1810,8 @@ async function selectRelevantMemories(clientMemories, userMessage, maxResults = 
       return m;
     }).filter(m => m.confidence >= 0.15);
 
-    // TF-IDF keyword matching
-    const keywords = extractKeywords(userMessage || '');
-    if (keywords.length === 0) {
-      return decayed.slice(0, maxResults).map(m => m.fact);
-    }
-
-    const scored = decayed.map(m => ({
-      fact: m.fact,
-      score: memoryRelevanceScore(m.fact, keywords) * m.confidence,
-    }));
-    scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, maxResults).map(m => m.fact);
+    const ranked = rankMemories(decayed, userMessage || '', maxResults);
+    return ranked.map(m => m.fact);
   } catch (e) {
     console.warn('selectRelevantMemories error:', e.message);
     return Array.isArray(clientMemories) ? clientMemories.slice(0, maxResults) : [];
@@ -1921,8 +1938,9 @@ async function handleProxyAI(req, res) {
   const identityContext = caller
     ? `The one talking to you now is **${callerLabel}** (${caller}). ${isKhent ? 'You belong to Dada (Khent).' : 'You belong to Mama (Clair).'}`
     : '';
+  const lastUserMessage = getMessageText(messages.filter(m => m.role === 'user').pop()?.content);
   const serverContext = (feature && !context)
-    ? await buildContextForFeature(feature, caller)
+    ? await buildContextForFeature(feature, caller, lastUserMessage)
     : '';
   const resolvedContext = context || serverContext || '';
 
@@ -1991,6 +2009,15 @@ You have access to custom tools:
 - get_xp_stats — Get XP and leveling information
 - search_anime — Search for anime titles
 - remember_fact — Save a personal fact about Khent or Clair to long-term memory
+- read_memories — Browse or search Mochi's long-term memory book
+- mark_watchlist_item_watched — Mark watchlist items as watched
+- update_book_progress — Update reading progress in Our Books
+- add_xp — Award XP for completed activities
+- send_note_to_partner — Pass a private note to the other partner
+- get_relationship_insights — Find gentle patterns in moods and activities
+- get_memory_trivia — Make a mini memory game from real facts
+- get_today_recap — Compile today's recap of Everglow
+- plan_date_night — Plan a full date night with ideas, weather, and watchlist
 
 ## Image Understanding
 You can analyze images sent by the user. When you receive images:
@@ -2008,10 +2035,9 @@ You can analyze images sent by the user. When you receive images:
 ${identityContext ? `\n${identityContext}` : ''}
 ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
 
-  // Server-side memory filtering: select top 30 relevant memories
-  // Multimodal messages carry content as [{type:'text',text}, {type:'image_url',...}];
-  // reduce it to the plain text so downstream string functions never crash.
-  const lastUserMessage = getMessageText(messages.filter(m => m.role === 'user').pop()?.content);
+  // Server-side memory filtering: select top 30 relevant memories.
+  // `lastUserMessage` is plain text, so downstream scoring never crashes
+  // on multimodal content blocks.
   const relevantMemories = await selectRelevantMemories(memories, lastUserMessage);
   if (relevantMemories.length > 0) {
     systemPrompt += `\n## Remembered Facts\n${relevantMemories.map(m => `- ${m}`).join('\n')}`;
@@ -2136,8 +2162,8 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
     return;
   }
 
-  // Model: Agnes 2.0 Flash — 512K context, tool calling, thinking mode, image understanding
-  const model = 'agnes-2.0-flash';
+  // Model: Agnes 2.5 Flash — 512K context, tool calling, thinking mode, image understanding
+  const model = 'agnes-2.5-flash';
 
   // ── Custom Mochi Tools (OpenAI function calling format) ──
   const MOCHI_TOOLS = [
@@ -2365,6 +2391,127 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
             category: { type: 'string', enum: ['fact', 'preference', 'dislike', 'goal', 'date', 'habit'], description: 'Category of the fact (default: fact)' },
           },
           required: ['fact'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'read_memories',
+        description: 'Browse or search Mochi\'s long-term memory book. Use when they want to see what you remember, search a memory, or review facts.',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Optional search text' },
+            category: { type: 'string', description: 'Optional category filter (fact, preference, dislike, goal, date, habit)' },
+            limit: { type: 'number', description: 'Max memories to return (default 20, max 50)' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'mark_watchlist_item_watched',
+        description: 'Mark a movie or show on the shared cinema watchlist as watched. Use when they finish something or ask to update their list.',
+        parameters: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'Movie or show title to mark as watched' },
+          },
+          required: ['title'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'update_book_progress',
+        description: 'Update progress (0-100) for a book in the shared "Our Books" list. Progress 100 also marks it read for the caller.',
+        parameters: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'Book title to update' },
+            progress: { type: 'number', description: 'Progress percentage 0-100' },
+          },
+          required: ['title', 'progress'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'add_xp',
+        description: 'Award XP to the caller for a completed activity or achievement inside Everglow. Use sparingly and only when an action clearly deserves it.',
+        parameters: {
+          type: 'object',
+          properties: {
+            amount: { type: 'number', description: 'XP amount (1-100, default 10)' },
+            reason: { type: 'string', description: 'Short reason for the XP' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'send_note_to_partner',
+        description: 'Send a private note from one partner to the other through Mochi. Use when they ask you to pass a message, note, or reminder to their partner.',
+        parameters: {
+          type: 'object',
+          properties: {
+            note: { type: 'string', description: 'The note content' },
+          },
+          required: ['note'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_relationship_insights',
+        description: 'Find gentle patterns in their moods and activities, like shared rhythms or recurring date-night habits.',
+        parameters: {
+          type: 'object',
+          properties: {},
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_memory_trivia',
+        description: 'Generate a mini memory-trivia game from real facts Mochi remembers about Khent and Clair.',
+        parameters: {
+          type: 'object',
+          properties: {
+            count: { type: 'number', description: 'Number of questions (default 5, max 10)' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_today_recap',
+        description: 'Compile a short, warm recap of today in Everglow: moods, activities, watchlist, starlight notes, and on-this-day memories.',
+        parameters: {
+          type: 'object',
+          properties: {},
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'plan_date_night',
+        description: 'Plan a complete date night by combining date ideas, weather for a location, and watchlist suggestions. Use when they ask to plan a date or a night together.',
+        parameters: {
+          type: 'object',
+          properties: {
+            location: { type: 'string', description: 'City for weather (default Cabadbaran)' },
+            count: { type: 'number', description: 'Number of date ideas (default 3, max 5)' },
+          },
         },
       },
     },
@@ -2682,16 +2829,249 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
             case 'remember_fact': {
               const fact = (args.fact || '').trim();
               if (!fact) return JSON.stringify({ error: 'No fact provided' });
+              const parsed = parseFactStructure(fact);
               await db.collection('ai_memories').doc('shared').collection('facts').add({
                 fact,
                 category: args.category || 'fact',
+                subject: args.subject || parsed.subject || null,
+                relation: args.relation || parsed.relation || null,
+                object: args.object || parsed.object || null,
+                occurredAt: args.occurred_at || args.occurredAt || null,
                 addedBy: callerUid || 'mochi',
                 createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
                 confidence: 1.0,
                 accessCount: 0,
                 lastAccessed: null,
+                pinned: false,
+                source: callerUid || 'mochi',
               });
-              return JSON.stringify({ success: true, fact });
+              return JSON.stringify({
+                success: true,
+                fact,
+                subject: args.subject || parsed.subject,
+                relation: args.relation || parsed.relation,
+                object: args.object || parsed.object,
+              });
+            }
+            case 'read_memories': {
+              const limit = Math.min(args.limit || 20, 50);
+              let query = db.collection('ai_memories').doc('shared').collection('facts')
+                .orderBy('createdAt', 'desc')
+                .limit(300);
+              const snapshot = await query.get();
+              let facts = snapshot.docs.map(d => {
+                const data = d.data();
+                return {
+                  id: d.id,
+                  fact: data.fact || '',
+                  category: data.category || 'fact',
+                  subject: data.subject || null,
+                  relation: data.relation || null,
+                  object: data.object || null,
+                  occurredAt: data.occurredAt?.toDate?.()?.toISOString() || null,
+                  pinned: data.pinned === true,
+                };
+              }).filter(f => f.fact);
+              if (args.category) {
+                facts = facts.filter(f => f.category === args.category);
+              }
+              if (args.query) {
+                const queryLower = String(args.query).toLowerCase();
+                facts = rankMemories(facts, queryLower, limit);
+              } else {
+                facts = facts.slice(0, limit);
+              }
+              return JSON.stringify({ memories: facts, count: facts.length });
+            }
+            case 'mark_watchlist_item_watched': {
+              const title = (args.title || '').trim();
+              if (!title) return JSON.stringify({ error: 'No title provided' });
+              const snapshot = await db.collection('our_cinema').get();
+              const matches = snapshot.docs.filter(d => {
+                const t = (d.data().title || '').toLowerCase();
+                return t.includes(title.toLowerCase()) || title.toLowerCase().includes(t);
+              });
+              if (matches.length === 0) {
+                return JSON.stringify({ error: `No watchlist item found for "${title}"` });
+              }
+              const batch = db.batch();
+              for (const doc of matches) {
+                batch.update(doc.ref, {
+                  status: 'watched',
+                  watchedBy: callerUid,
+                  watchedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+                });
+              }
+              await batch.commit();
+              return JSON.stringify({
+                success: true,
+                title: matches[0].data().title || title,
+                updated: matches.length,
+              });
+            }
+            case 'update_book_progress': {
+              const title = (args.title || '').trim();
+              const progress = Math.min(Math.max(Number(args.progress) || 0, 0), 100);
+              if (!title) return JSON.stringify({ error: 'No title provided' });
+              const snapshot = await db.collection('our_books').get();
+              const matches = snapshot.docs.filter(d => {
+                const t = (d.data().title || '').toLowerCase();
+                return t.includes(title.toLowerCase()) || title.toLowerCase().includes(t);
+              });
+              if (matches.length === 0) {
+                return JSON.stringify({ error: `No book found for "${title}"` });
+              }
+              const field = callerUid === 'khentsgdz' ? 'khentReadAt' : 'clairReadAt';
+              const readFlag = progress >= 100
+                ? getAdmin().firestore.FieldValue.serverTimestamp()
+                : null;
+              const batch = db.batch();
+              for (const doc of matches.slice(0, 3)) {
+                batch.update(doc.ref, {
+                  progress: progress,
+                  [field]: readFlag,
+                  lastUpdatedBy: callerUid,
+                  lastUpdatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+                });
+              }
+              await batch.commit();
+              return JSON.stringify({
+                success: true,
+                title: matches[0].data().title || title,
+                progress,
+                read: progress >= 100,
+              });
+            }
+            case 'add_xp': {
+              const amount = Math.min(Math.max(Number(args.amount) || 10, 1), 100);
+              const uid = callerUid || 'khentsgdz';
+              const ref = db.collection('users').doc(uid).collection('progress').doc('main');
+              const doc = await ref.get();
+              const current = (doc.exists && doc.data()?.xpTotal) || 0;
+              const xpTotal = current + amount;
+              const level = Math.floor(xpTotal / 1000) + 1;
+              await ref.set({
+                xpTotal,
+                level,
+                streak: doc.exists ? (doc.data()?.streak || 0) : 0,
+                lastAwardReason: args.reason || 'Mochi award',
+                lastAwardedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+              }, { merge: true });
+              return JSON.stringify({ success: true, uid, amount, xpTotal, level });
+            }
+            case 'send_note_to_partner': {
+              const note = (args.note || '').trim();
+              if (!note) return JSON.stringify({ error: 'No note provided' });
+              const partnerUid = PARTNER_UID[callerUid];
+              if (!partnerUid) return JSON.stringify({ error: 'Unknown partner for this user' });
+              await db.collection('mochi_notes').add({
+                from: callerUid,
+                to: partnerUid,
+                content: note,
+                read: false,
+                createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+                writtenBy: 'Mochi 🍡',
+              });
+              await sendFCMToUser(partnerUid, {
+                title: '💌 Mochi has a note for you',
+                body: note.slice(0, 120),
+                data: { type: 'mochi_note', from: callerUid },
+              });
+              return JSON.stringify({ success: true, to: partnerUid });
+            }
+            case 'get_relationship_insights': {
+              const [moodSnap, activitySnap] = await Promise.all([
+                db.collection('moods').orderBy('timestamp', 'desc').limit(100).get(),
+                db.collection('recent_activity').orderBy('timestamp', 'desc').limit(20).get(),
+              ]);
+              const moods = moodSnap.docs.map(d => d.data().mood || d.data().moodEmoji || '');
+              const activities = activitySnap.docs.map(
+                d => d.data().activity || d.data().description || ''
+              );
+              const insights = computeInsights({ moods, activities });
+              return JSON.stringify({ insights });
+            }
+            case 'get_memory_trivia': {
+              const count = Math.min(args.count || 5, 10);
+              const snapshot = await db.collection('ai_memories').doc('shared').collection('facts')
+                .orderBy('createdAt', 'desc')
+                .limit(150)
+                .get();
+              const facts = snapshot.docs.map(d => {
+                const data = d.data();
+                return {
+                  fact: data.fact || '',
+                  subject: data.subject || null,
+                  relation: data.relation || null,
+                  object: data.object || null,
+                  occurredAt: data.occurredAt?.toDate?.() || null,
+                };
+              });
+              const questions = generateTrivia(facts, count);
+              return JSON.stringify({ questions });
+            }
+            case 'get_today_recap': {
+              const today = new Date().toISOString().slice(0, 10);
+              const [moodSnap, activitySnap, watchSnap, starSnap, memorySnap] = await Promise.all([
+                db.collection('moods').where('date', '==', today).get(),
+                db.collection('recent_activity').orderBy('timestamp', 'desc').limit(5).get(),
+                db.collection('our_cinema').limit(5).get(),
+                db.collection('starlight_jar').orderBy('timestamp', 'desc').limit(3).get(),
+                db.collection('ai_memories').doc('shared').collection('facts')
+                  .orderBy('createdAt', 'desc').limit(300).get(),
+              ]);
+              const recap = composeTodayRecap({
+                dateLabel: today,
+                moods: moodSnap.docs.map(d => ({
+                  uid: d.data().uid || 'someone',
+                  mood: d.data().mood || 'okay',
+                })),
+                activities: activitySnap.docs.map(
+                  d => d.data().activity || d.data().description || ''
+                ),
+                watchlist: watchSnap.docs.map(d => d.data().title || '').filter(Boolean),
+                starlight: starSnap.docs.map(d => d.data().content || '').filter(Boolean),
+                memories: memorySnap.docs.map(d => {
+                  const data = d.data();
+                  return {
+                    fact: data.fact || '',
+                    occurredAt: data.occurredAt?.toDate?.() || null,
+                  };
+                }),
+              });
+              return JSON.stringify({ recap, date: today });
+            }
+            case 'plan_date_night': {
+              const location = (args.location || 'Cabadbaran').trim();
+              const count = Math.min(args.count || 3, 5);
+              const [ideaSnap, watchSnap, weatherRes] = await Promise.all([
+                db.collection('date_ideas').limit(100).get(),
+                db.collection('our_cinema').limit(5).get(),
+                fetch(`https://wttr.in/${encodeURIComponent(location)}?format=%C+%t+%h+%w`, {
+                  headers: { 'User-Agent': 'curl/8.5.0' },
+                }),
+              ]);
+              const weatherText = (await weatherRes.text()).trim();
+              const allIdeas = ideaSnap.docs
+                .map(d => d.data().title || d.data().name || '')
+                .filter(Boolean);
+              const shuffled = [...allIdeas].sort(() => Math.random() - 0.5);
+              const watchlist = watchSnap.docs
+                .map(d => d.data().title || '')
+                .filter(Boolean)
+                .slice(0, 2);
+              return JSON.stringify({
+                location,
+                weather: weatherText || 'Weather unavailable',
+                ideas: shuffled.slice(0, count),
+                watchlist,
+                suggestion: [
+                  `Start with ${shuffled[0] || 'a cozy evening'}`,
+                  watchlist.length
+                    ? `then finish the night with "${watchlist[0]}"`
+                    : 'then just talk until late',
+                ].join(', '),
+              });
             }
             default:
               return JSON.stringify({ error: `Unknown tool: ${toolName}` });
@@ -2877,7 +3257,9 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
           try { fnArgs = JSON.parse(tc.function.arguments); } catch { fnArgs = {}; }
 
           sendEvent({ tool_status: fnName });
+          const toolStartedAt = Date.now();
           const result = await executeTool(fnName, fnArgs, caller);
+          logToolCall(fnName, caller, result, Date.now() - toolStartedAt);
 
           currentMessages.push({
             role: 'tool',
@@ -2991,6 +3373,36 @@ async function sendFCMToBoth(payload) {
   ]);
 }
 
+/**
+ * Fire-and-forget observability: every Mochi tool call lands in
+ * mochi_stats/tool_calls so failures and latency are reviewable.
+ */
+async function logToolCall(toolName, caller, result, elapsedMs) {
+  try {
+    let ok = true;
+    let error = '';
+    try {
+      const parsed = JSON.parse(result);
+      if (parsed && parsed.error) {
+        ok = false;
+        error = String(parsed.error).slice(0, 300);
+      }
+    } catch (_) {
+      // Result is not JSON or was empty; leave ok as true.
+    }
+    await getDb().collection('mochi_stats').doc('tool_calls').collection('calls').add({
+      tool: toolName,
+      caller: caller || 'unknown',
+      ok,
+      error,
+      elapsedMs,
+      createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (e) {
+    console.warn('logToolCall failed:', e.message);
+  }
+}
+
 // ── Firestore Triggers: Partner Notifications ─────────────────────
 // UID ↔ display-name lookup. Keys are the Firebase Auth UIDs.
 const USER_DISPLAY = {
@@ -3069,6 +3481,28 @@ exports.onNewStarDrop = functions.firestore
       title: `✨ ${authorName} dropped a star`,
       body: 'Check the Starlight Jar for a surprise!',
       data: { type: 'starlight_drop', author },
+    });
+  });
+
+/**
+ * New watchlist item → notify the partner who didn't add it.
+ * Runs on every new document in our_cinema.
+ */
+exports.onNewWatchlistItem = functions.firestore
+  .document('our_cinema/{itemId}')
+  .onCreate(async (snap) => {
+    const data = snap.data();
+    const addedBy = (data.addedBy || data.userId || '').toLowerCase();
+    if (!addedBy || !PARTNER_UID[addedBy]) return;
+
+    const partnerUid = PARTNER_UID[addedBy];
+    const addedByName = USER_DISPLAY[addedBy] || 'Someone';
+    const title = data.title || 'something';
+
+    await sendFCMToUser(partnerUid, {
+      title: `🎬 ${addedByName} added to the watchlist`,
+      body: `"${title}" is now waiting for you two`,
+      data: { type: 'watchlist_update', addedBy, title },
     });
   });
 
@@ -3161,27 +3595,121 @@ exports.mochiDailyDigest = onSchedule({
   const db = getDb();
   const today = new Date().toISOString().slice(0, 10);
 
-  const [moodsSnap, activitySnap] = await Promise.all([
+  const [moodsSnap, activitySnap, starSnap, watchSnap, memorySnap] = await Promise.all([
     db.collection('moods').where('date', '==', today).get(),
     db.collection('recent_activity').orderBy('timestamp', 'desc').limit(5).get(),
+    db.collection('starlight_jar').orderBy('timestamp', 'desc').limit(3).get(),
+    db.collection('our_cinema').limit(5).get(),
+    db.collection('ai_memories').doc('shared').collection('facts')
+      .orderBy('createdAt', 'desc').limit(300).get(),
   ]);
 
-  const moodCount = moodsSnap.size;
-  const activities = activitySnap.docs.map(d => d.data().activity || d.data().description || '').filter(Boolean);
+  const recapData = {
+    dateLabel: today,
+    moods: moodsSnap.docs.map(d => ({
+      uid: d.data().uid || 'someone',
+      mood: d.data().mood || 'okay',
+    })),
+    activities: activitySnap.docs.map(
+      d => d.data().activity || d.data().description || ''
+    ),
+    starlight: starSnap.docs.map(d => d.data().content || '').filter(Boolean),
+    watchlist: watchSnap.docs.map(d => d.data().title || '').filter(Boolean),
+    memories: memorySnap.docs.map(d => {
+      const data = d.data();
+      return {
+        fact: data.fact || '',
+        occurredAt: data.occurredAt?.toDate?.() || null,
+      };
+    }),
+  };
 
-  let digest = `Good morning! 🌅 It's ${today}. `;
-  if (moodCount > 0) {
-    digest += `${moodCount} mood(s) logged today. `;
+  // Try a real Mochi voice first; fall back to the deterministic recap.
+  let digest = composeTodayRecap(recapData);
+  try {
+    const apiKey = process.env.AGNES_API_KEY;
+    if (apiKey) {
+      const dataBlob = JSON.stringify(recapData).slice(0, 6000);
+      const resp = await fetch('https://apihub.agnes-ai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'agnes-2.5-flash',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are Mochi 🍡, a warm white cat companion for Khent and Clair. Write a short 2-3 sentence morning digest in their voice: reference real details from the data, stay warm, and do not list raw fields.',
+            },
+            {
+              role: 'user',
+              content: `Morning data for ${today}:\n${dataBlob}`,
+            },
+          ],
+          max_tokens: 300,
+          temperature: 0.7,
+          stream: false,
+        }),
+        timeout: 30000,
+      });
+      if (resp.ok) {
+        const body = await resp.json();
+        const text = (body.choices?.[0]?.message?.content || '').trim();
+        if (text) digest = text;
+      }
+    }
+  } catch (e) {
+    console.warn('mochiDailyDigest LLM failed, using fallback:', e.message);
   }
-  if (activities.length > 0) {
-    digest += `Recent: ${activities.slice(0, 3).join(', ')}. `;
-  }
-  digest += 'Have a wonderful day together! 💕';
 
   await sendFCMToBoth({
     title: '🍡 Mochi\'s Morning Digest',
-    body: digest,
+    body: digest.slice(0, 240),
     data: { type: 'daily_digest' },
+  });
+});
+
+// ── Scheduled: Night Recap (9:00 PM PHT = 13:00 UTC) ──────────────
+exports.mochiNightRecap = onSchedule({
+  schedule: '0 13 * * *',
+  timeZone: 'Asia/Manila',
+  region: 'us-central1',
+}, async () => {
+  const db = getDb();
+  const today = new Date().toISOString().slice(0, 10);
+  const [moodSnap, activitySnap, starSnap, memorySnap] = await Promise.all([
+    db.collection('moods').where('date', '==', today).get(),
+    db.collection('recent_activity').orderBy('timestamp', 'desc').limit(5).get(),
+    db.collection('starlight_jar').orderBy('timestamp', 'desc').limit(3).get(),
+    db.collection('ai_memories').doc('shared').collection('facts')
+      .orderBy('createdAt', 'desc').limit(300).get(),
+  ]);
+
+  const recap = composeTodayRecap({
+    dateLabel: today,
+    moods: moodSnap.docs.map(d => ({
+      uid: d.data().uid || 'someone',
+      mood: d.data().mood || 'okay',
+    })),
+    activities: activitySnap.docs.map(
+      d => d.data().activity || d.data().description || ''
+    ),
+    starlight: starSnap.docs.map(d => d.data().content || '').filter(Boolean),
+    memories: memorySnap.docs.map(d => {
+      const data = d.data();
+      return {
+        fact: data.fact || '',
+        occurredAt: data.occurredAt?.toDate?.() || null,
+      };
+    }),
+  });
+
+  await sendFCMToBoth({
+    title: '🌙 Mochi\'s Night Recap',
+    body: recap.slice(0, 240),
+    data: { type: 'night_recap' },
   });
 });
 

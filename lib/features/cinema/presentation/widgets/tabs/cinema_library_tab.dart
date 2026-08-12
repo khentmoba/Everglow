@@ -3,6 +3,7 @@
 import 'package:everglow/core/theme/app_breakpoints.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_colors.dart';
+import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_nav_bar.dart';
 import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_poster_card.dart';
 import 'package:everglow/core/theme/app_typography.dart';
 
@@ -62,7 +63,7 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
         SliverPadding(
           padding: EdgeInsets.fromLTRB(
             isDesktop ? 48 : 16,
-            isDesktop ? 24 : (MediaQuery.paddingOf(context).top + 12),
+            cinemaTopContentInset(context),
             isDesktop ? 48 : 16,
             2,
           ),

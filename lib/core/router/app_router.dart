@@ -38,6 +38,9 @@ import '../../features/chat/presentation/screens/sanctuary_chat_screen.dart';
 import '../../features/starlight_jar/presentation/screens/starlight_jar_widget.dart';
 import '../../features/watch_party/presentation/screens/watch_party_screen.dart';
 import '../../features/ai/presentation/widgets/mochi_screen.dart';
+import '../../features/ai/presentation/screens/memory_book_screen.dart';
+import '../../features/ai/presentation/screens/memory_trivia_screen.dart';
+import '../../features/ai/presentation/screens/mochi_today_screen.dart';
 import '../../features/gallery/presentation/screens/gallery_screen.dart';
 import '../../features/calendar/presentation/screens/calendar_screen.dart';
 
@@ -191,6 +194,11 @@ final GoRouter appRouter = GoRouter(
 
     // ── Mochi AI assistant ────────────────────────────────
     GoRoute(path: '/mochi', builder: (_, _) => const MochiScreen()),
+
+    // Mochi Memory Book, trivia, and daily recap
+    GoRoute(path: '/mochi-memory', builder: (_, _) => const MemoryBookScreen()),
+    GoRoute(path: '/mochi-trivia', builder: (_, _) => const MemoryTriviaScreen()),
+    GoRoute(path: '/mochi-today', builder: (_, _) => const MochiTodayScreen()),
 
     // ── Starlight Jar ─────────────────────────────────────
     GoRoute(path: '/starlight', builder: (_, _) => const _StarlightPage()),

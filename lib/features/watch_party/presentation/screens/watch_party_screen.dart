@@ -310,6 +310,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (!_room.active && _room.updatedBy != _myUid) {
+        unawaited(_voiceChat.endCall());
         Navigator.of(context).pop();
       }
     });
@@ -331,6 +332,7 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
   Future<void> _initVoiceChat() async {
     final partnerUid = _auth.partnerUid;
     if (partnerUid == null) return;
+    if (!_room.active) return;
     // We're on the watch party screen now, so suppress the
     // app-wide "incoming call" banner — otherwise it would float
     // on top of the active call UI.
@@ -757,11 +759,13 @@ class _WatchPartyScreenState extends State<WatchPartyScreen>
     final result = await completer.future;
     if (result != true) return;
     await _service.endRoom(_room.id);
+    await _voiceChat.endCall();
     if (mounted) Navigator.of(context).pop();
   }
 
   void _showEndedAndPop() {
     if (!mounted) return;
+    unawaited(_voiceChat.endCall());
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(

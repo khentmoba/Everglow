@@ -21,6 +21,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../shared/utils/text_utils.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../domain/mochi_quality.dart';
 import 'mochi_sidebar.dart';
 
 /// Full-screen Mochi AI assistant, inspired by Vercel's chatbot interface.
@@ -42,6 +43,7 @@ class _MochiScreenState extends State<MochiScreen> {
   // Deep thinking on by default so Mochi reasons before answering; the
   // header toggle turns it off for fast replies.
   bool _deepThink = true;
+  bool _deepThinkTouched = false;
   String? _lastSentMessage;
   bool _isSidebarOpen = false;
   final List<String> _attachedImages = []; // base64 data URIs for preview
@@ -174,7 +176,9 @@ class _MochiScreenState extends State<MochiScreen> {
         message: text,
         callerName: authService.currentUser,
         stream: true,
-        enableThinking: _deepThink,
+        enableThinking: _deepThinkTouched
+            ? _deepThink
+            : _deepThink || const MochiQuality().shouldAutoThink(text),
         imageUrls: imagesToSend,
       );
       _scrollToBottom();
@@ -336,8 +340,10 @@ class _MochiScreenState extends State<MochiScreen> {
                       setState(() => _isSidebarOpen = !_isSidebarOpen),
                   onNewChat: _newChat,
                   deepThink: _deepThink,
-                  onToggleDeepThink: () =>
-                      setState(() => _deepThink = !_deepThink),
+                  onToggleDeepThink: () => setState(() {
+                    _deepThinkTouched = true;
+                    _deepThink = !_deepThink;
+                  }),
                 ),
                 Divider(
                   height: 1,
@@ -528,6 +534,36 @@ class _MochiHeader extends StatelessWidget {
             style: AppTypography.titleLarge().copyWith(fontSize: 18),
           ),
           const Spacer(),
+          // Memory Book / Trivia / Today quick links
+          if (MediaQuery.sizeOf(context).width >= 520) ...[
+            IconButton(
+              onPressed: () => context.push('/mochi-memory'),
+              icon: Icon(
+                Icons.menu_book_rounded,
+                color: AppColors.textMuted,
+                size: 20,
+              ),
+              tooltip: 'Memory Book',
+            ),
+            IconButton(
+              onPressed: () => context.push('/mochi-trivia'),
+              icon: Icon(
+                Icons.quiz_rounded,
+                color: AppColors.textMuted,
+                size: 20,
+              ),
+              tooltip: 'Memory Trivia',
+            ),
+            IconButton(
+              onPressed: () => context.push('/mochi-today'),
+              icon: Icon(
+                Icons.wb_twilight_rounded,
+                color: AppColors.textMuted,
+                size: 20,
+              ),
+              tooltip: 'Mochi Today',
+            ),
+          ],
           // New chat button
           IconButton(
             onPressed: onNewChat,
@@ -633,6 +669,21 @@ class _SuggestedGrid extends StatelessWidget {
       'How are we doing today?',
       Icons.favorite_outline_rounded,
     ),
+    _Suggestion(
+      'Mochi Today',
+      Icons.wb_twilight_rounded,
+      route: '/mochi-today',
+    ),
+    _Suggestion(
+      'Memory Trivia',
+      Icons.quiz_rounded,
+      route: '/mochi-trivia',
+    ),
+    _Suggestion(
+      'Memory Book',
+      Icons.menu_book_rounded,
+      route: '/mochi-memory',
+    ),
   ];
 
   @override
@@ -651,7 +702,14 @@ class _SuggestedGrid extends StatelessWidget {
         return _DelayedFadeIn(
           delay: Duration(milliseconds: 200 + i * 80),
           child: GestureDetector(
-            onTap: () => onTap(_suggestions[i].text),
+            onTap: () {
+              final route = _suggestions[i].route;
+              if (route != null) {
+                context.push(route);
+              } else {
+                onTap(_suggestions[i].text);
+              }
+            },
             child: AnimatedContainer(
               duration: AppMotion.fast,
               padding: const EdgeInsets.all(14),
@@ -692,8 +750,9 @@ class _SuggestedGrid extends StatelessWidget {
 class _Suggestion {
   final String text;
   final IconData icon;
+  final String? route;
 
-  const _Suggestion(this.text, this.icon);
+  const _Suggestion(this.text, this.icon, {this.route});
 }
 
 // ─── Delayed fade-in wrapper ────────────────────────────────────
@@ -1249,6 +1308,15 @@ String _formatToolStatus(String status) {
     'get_xp_stats': 'Checking XP stats',
     'search_anime': 'Searching anime',
     'remember_fact': 'Remembering that',
+    'read_memories': 'Opening the Memory Book',
+    'mark_watchlist_item_watched': 'Marking as watched',
+    'update_book_progress': 'Updating book progress',
+    'add_xp': 'Awarding XP',
+    'send_note_to_partner': 'Sending a note',
+    'get_relationship_insights': 'Finding patterns',
+    'get_memory_trivia': 'Making memory trivia',
+    'get_today_recap': 'Compiling today',
+    'plan_date_night': 'Planning date night',
   };
   return toolNames[status] ?? 'Mochi is thinking';
 }
@@ -1287,6 +1355,24 @@ IconData _toolIcon(String status) {
       return Icons.animation_rounded;
     case 'remember_fact':
       return Icons.bookmark_add_outlined;
+    case 'read_memories':
+      return Icons.menu_book_outlined;
+    case 'mark_watchlist_item_watched':
+      return Icons.check_circle_outline_rounded;
+    case 'update_book_progress':
+      return Icons.trending_up_rounded;
+    case 'add_xp':
+      return Icons.military_tech_rounded;
+    case 'send_note_to_partner':
+      return Icons.favorite_border_rounded;
+    case 'get_relationship_insights':
+      return Icons.psychology_rounded;
+    case 'get_memory_trivia':
+      return Icons.quiz_outlined;
+    case 'get_today_recap':
+      return Icons.wb_twilight_rounded;
+    case 'plan_date_night':
+      return Icons.event_available_rounded;
     default:
       return Icons.auto_fix_high_rounded;
   }
@@ -1307,7 +1393,18 @@ Color _toolAccent(String status) {
       return AppColors.auroraTeal;
     case 'get_date_ideas':
     case 'remember_fact':
+    case 'read_memories':
+    case 'get_memory_trivia':
+    case 'get_today_recap':
+    case 'plan_date_night':
       return AppColors.roseQuartz;
+    case 'mark_watchlist_item_watched':
+    case 'update_book_progress':
+    case 'add_xp':
+      return AppColors.auroraTeal;
+    case 'send_note_to_partner':
+    case 'get_relationship_insights':
+      return AppColors.auroraLilac;
     default:
       return AppColors.blushGold;
   }

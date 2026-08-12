@@ -14,6 +14,7 @@ import 'package:everglow/core/theme/app_radius.dart';
 import 'package:everglow/features/cinema/data/services/ani_zip_service.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/features/cinema/data/services/video_source_service.dart';
+import 'package:everglow/features/cinema/data/services/cinema_video_sources.dart';
 import 'package:everglow/features/cinema/data/models/video_source_config.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/presentation/widgets/episode_navigator.dart';
@@ -130,15 +131,23 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   VideoSourceConfig get _activeProvider => _selectedProvider;
 
-  /// Providers offered for the active item. For anime playback the VidEasy
-  /// embed is kept as server one even if a Firestore config reorders the
-  /// list; movies and TV keep the configured order untouched.
-  List<VideoSourceConfig> get _selectableProviders {
-    final list = _sourceService.providers;
-    if (!widget.isAnime) return list;
-    final videasy = list.where((p) => p.id == 'videasy').toList();
-    final rest = list.where((p) => p.id != 'videasy').toList();
-    return [...videasy, ...rest];
+  /// Providers offered for the active item. Cinema content promotes the
+  /// ad-free FluxTV server first and keeps every existing source; anime
+  /// playback keeps its existing Videasy-first list without FluxTV servers.
+  List<VideoSourceConfig> get _selectableProviders =>
+      CinemaVideoSources.selectable(
+        _sourceService.providers,
+        isAnime: widget.isAnime,
+      );
+
+  /// Looks up a provider in the list actually offered to this player,
+  /// including cinema-only FluxTV servers that are not in the shared
+  /// [VideoSourceService] registry.
+  VideoSourceConfig? _providerById(String id) {
+    for (final provider in _selectableProviders) {
+      if (provider.id == id) return provider;
+    }
+    return null;
   }
 
   @override
@@ -433,7 +442,7 @@ _currentSeason = widget.season ?? 1;
   /// Returns the expected postMessage origin for a given provider.
   /// Derives the origin from the provider's movie URL (the host portion).
   String _originForProvider(String providerId) {
-    final cfg = _sourceService.byId(providerId);
+    final cfg = _providerById(providerId);
     if (cfg == null) return '';
     try {
       final uri = Uri.parse(cfg.movieUrl);
@@ -450,7 +459,7 @@ _currentSeason = widget.season ?? 1;
     if (widget.isAnime) return;
     final savedId = await _sourceService.loadDefaultSourceId();
     if (savedId != null && mounted) {
-      final match = _sourceService.byId(savedId);
+      final match = _providerById(savedId);
       if (match != null) {
         setState(() => _selectedProvider = match);
       }
@@ -649,6 +658,15 @@ _currentSeason = widget.season ?? 1;
         movieBase.contains('videasy') || tvBase.contains('videasy');
     final isAnime = widget.isAnime;
     final id = isAnime ? (_activeTmdbId ?? _externalId) : _externalId;
+
+    final cinemaUrl = CinemaVideoSources.buildUrl(
+      provider,
+      mediaType: widget.mediaType,
+      id: id.toString(),
+      season: _currentSeason,
+      episode: _currentEpisode,
+    );
+    if (cinemaUrl != null) return cinemaUrl;
 
     if (widget.mediaType == 'tv') {
       final seasonNum = _currentSeason;
