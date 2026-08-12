@@ -201,10 +201,16 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
 
   String? _subtitleFor(MediaItem item) {
     final parts = <String>[];
-    if (item.currentEpisode != null) {
-      parts.add('S${item.currentSeason ?? 1}E${item.currentEpisode}');
+    if (item.isMovie) {
+      // Movies have no episode progress - identify them as films.
+      if (item.year.isNotEmpty) parts.add(item.year);
+      parts.add('Movie');
+    } else {
+      if (item.currentEpisode != null) {
+        parts.add('S${item.currentSeason ?? 1}E${item.currentEpisode}');
+      }
+      if (item.year.isNotEmpty) parts.add(item.year);
     }
-    if (item.year.isNotEmpty) parts.add(item.year);
     return parts.isNotEmpty ? parts.join(' • ') : null;
   }
 
@@ -218,7 +224,7 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
               imageUrl: item.posterPath,
               title: _sanitizeTitle(item.title),
               subtitle: _subtitleFor(item),
-              topBadge: item.currentEpisode != null
+              topBadge: !item.isMovie && item.currentEpisode != null
                   ? 'S${item.currentSeason ?? 1}E${item.currentEpisode}'
                   : null,
               onTap: () => _openDetails(item),

@@ -605,7 +605,9 @@ class AnimeHomeTab extends StatelessWidget {
           final season = item.currentSeason;
           final episode = item.currentEpisode;
           String? progressLabel;
-          if (season != null && episode != null) {
+          if (item.isMovie) {
+            progressLabel = 'Movie';
+          } else if (season != null && episode != null) {
             progressLabel = 'S$season E$episode';
           } else if (episode != null) {
             progressLabel = 'Ep $episode';
