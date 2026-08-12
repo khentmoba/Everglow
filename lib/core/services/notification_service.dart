@@ -23,12 +23,19 @@ String? routeFromNotification(Map<String, dynamic> data) {
       return '/dashboard';
     case 'starlight_drop':
       return '/starlight';
+    case 'watchlist_update':
+      return '/cinema';
     case 'milestone':
     case 'special_day':
     case 'special_day_upcoming':
       return '/dashboard';
     case 'mood_checkin':
       return '/dashboard';
+    case 'mochi_note':
+      return '/mochi';
+    case 'daily_digest':
+    case 'night_recap':
+      return '/mochi-today';
     case 'gallery_photo':
       return '/gallery';
     case 'watch_party_invite':

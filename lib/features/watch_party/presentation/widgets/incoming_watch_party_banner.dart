@@ -238,6 +238,13 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
       final partySnap = await WatchPartyService().getRoom(roomId);
       if (!mounted) return;
 
+      if (partySnap != null && !partySnap.active) {
+        // The party ended while the banner was visible. Don't
+        // navigate into (or re-create) a dead room.
+        VoiceChatService.clearIncomingWatcher();
+        return;
+      }
+
       WatchPartyRoom toOpen;
       bool isHost = false;
       if (partySnap != null && partySnap.active) {

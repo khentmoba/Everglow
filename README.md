@@ -108,7 +108,7 @@ _Previous releases: [v5.3.0](https://github.com/khentmoba/Everglow/releases/tag/
 | **External APIs** | TMDB, Open Library, OpenTDB, Last.fm, Jikan (MyAnimeList), AniList GraphQL |
 | **Real-Time** | Firestore snapshots (chat, canvas, presence, watchlist, multiplayer) |
 | **Voice Chat** | WebRTC via ac-relay signaling server |
-| **AI** | Groq (qwen/qwen3.6-27b) via SSE streaming with 11 function-calling tools |
+| **AI** | Agnes 2.5 Flash via SSE streaming with 11 function-calling tools |
 | **Cloud Functions** | CORS proxies for MangaDex, MangaKakalot, MangaKatana, Comick, anime CDNs, Open Library |
 | **Notifications** | Firebase Cloud Messaging (FCM) with topic subscriptions |
 
@@ -223,7 +223,7 @@ The workflow:
 | `proxyMangaDex` | CORS proxy for MangaDex catalog API |
 | `proxyComick` | CORS proxy for Comick catalog API |
 | `proxyAnimeImage` | CORS proxy for anime CDN thumbnails (Crunchyroll, Funimation) |
-| `proxyAI` | Mochi AI proxy with Groq backend + 11 function-calling tools |
+| `proxyAI` | Mochi AI proxy with Agnes 2.5 Flash backend + 11 function-calling tools |
 
 ## Release History
 
