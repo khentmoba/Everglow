@@ -21,10 +21,21 @@ class MusicStatus {
 
   factory MusicStatus.fromJson(Map<String, dynamic> json, String username) {
     final track = json['recenttracks']['track'][0];
+    return MusicStatus.fromTrackJson(track, username);
+  }
+
+  /// Parses a single Last.fm recent-track entry into a [MusicStatus].
+  ///
+  /// Shared by `user.getrecenttracks` responses of any limit (1 for the
+  /// "vibing" card, 5 for the dashboard's recent-listen list).
+  factory MusicStatus.fromTrackJson(
+    Map<String, dynamic> track,
+    String username,
+  ) {
     final name = track['name'] as String;
     final artist = track['artist']['#text'] as String;
     final album = track['album']['#text'] as String;
-    
+
     final images = track['image'] as List<dynamic>?;
     String? imgUrl;
     if (images != null && images.isNotEmpty) {

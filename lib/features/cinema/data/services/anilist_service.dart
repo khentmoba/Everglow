@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:everglow/core/utils/connectivity_aware.dart';
 import 'package:everglow/core/utils/logger.dart';
 import 'package:everglow/features/cinema/data/models/anilist_detail.dart';
+import 'package:everglow/features/cinema/data/models/animex_models.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/data/services/jikan_service.dart';
 
@@ -234,6 +235,7 @@ class AniListService with ConnectivityAware {
           (cover?['medium'] as String?) ??
           '',
       bannerImageUrl: (m['bannerImage'] as String?) ?? '',
+      siteUrl: (m['siteUrl'] as String?) ?? '',
       episodeCount: (m['episodes'] is num)
           ? (m['episodes'] as num).toInt()
           : null,
@@ -530,6 +532,178 @@ class AniListService with ConnectivityAware {
       studio: studioName,
     );
   }
+
+  /// Rich media page for the anime section (browse grid, home rows,
+  /// seasonal). Supports the same filters the reference UI exposes:
+  /// sort, status, season/year, format, single genre and free text.
+  /// Returns items with synopsis, genres, banner and scores populated so
+  /// cards and hover popovers render full detail without extra fetches.
+  Future<AnimexMediaPage> fetchAnimexPage({
+    String? search,
+    String? sort,
+    String? status,
+    String? season,
+    int? seasonYear,
+    String? format,
+    String? genre,
+    int page = 1,
+    int perPage = 24,
+  }) async {
+    final variables = <String, dynamic>{
+      if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+      if (sort != null && sort.isNotEmpty) 'sort': [sort],
+      if (status != null && status.isNotEmpty) 'status': status,
+      if (season != null && season.isNotEmpty) 'season': season,
+      if (seasonYear != null) 'seasonYear': seasonYear,
+      if (format != null && format.isNotEmpty) 'format': format,
+      if (genre != null && genre.isNotEmpty) 'genre': genre,
+      'page': page,
+      'perPage': perPage,
+    };
+    final data = await _postGraphQL(_animexPageQuery, variables);
+    final pageData = data?['Page'] as Map<String, dynamic>?;
+    if (pageData == null) {
+      return const AnimexMediaPage(
+        items: [],
+        scores: [],
+        currentPage: 1,
+        hasNextPage: false,
+      );
+    }
+    final pageInfo = pageData['pageInfo'] as Map<String, dynamic>?;
+    final media = (pageData['media'] as List?) ?? const [];
+    final items = <MediaItem>[];
+    final scores = <double>[];
+    for (final m in media.whereType<Map<String, dynamic>>()) {
+      final mapped = _mapAnimexMedia(m);
+      if (mapped != null) {
+        items.add(mapped.item);
+        scores.add(mapped.score);
+      }
+    }
+    return AnimexMediaPage(
+      items: items,
+      scores: scores,
+      currentPage: (pageInfo?['currentPage'] as num?)?.toInt() ?? page,
+      lastPage: (pageInfo?['lastPage'] as num?)?.toInt(),
+      hasNextPage: pageInfo?['hasNextPage'] == true,
+    );
+  }
+
+  /// Weekly airing schedule via AniList's `airingSchedules`. AniList has
+  /// no weekday filter, so we query the window covering the current week
+  /// (starting at the most recent occurrence of [weekday]) and filter the
+  /// results client-side. Weekday is 0 = Monday .. 6 = Sunday.
+  Future<List<AnimexScheduleEntry>> fetchAiringSchedule({
+    int weekday = 0,
+    int perPage = 100,
+  }) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final todayIndex = now.weekday - 1; // 0 = Monday
+    final daysBack = (todayIndex - weekday + 7) % 7;
+    final start = today.subtract(Duration(days: daysBack));
+    final end = start.add(const Duration(days: 7));
+    final data = await _postGraphQL(
+      _airingScheduleQuery,
+      {
+        'airingAtGreater': start.millisecondsSinceEpoch ~/ 1000,
+        'airingAtLesser': end.millisecondsSinceEpoch ~/ 1000,
+        'perPage': perPage,
+      },
+    );
+    final pageData = data?['Page'] as Map<String, dynamic>?;
+    final schedule =
+        (pageData?['airingSchedules'] as List?) ?? const [];
+    final out = <AnimexScheduleEntry>[];
+    for (final s in schedule.whereType<Map<String, dynamic>>()) {
+      final airingAt = s['airingAt'];
+      if (airingAt is! num) continue;
+      final airingTime = DateTime.fromMillisecondsSinceEpoch(
+        airingAt.toInt() * 1000,
+      );
+      if (airingTime.weekday - 1 != weekday) continue;
+      final media = s['media'] as Map<String, dynamic>?;
+      if (media == null) continue;
+      final mapped = _mapAnimexMedia(media);
+      if (mapped == null) continue;
+      out.add(AnimexScheduleEntry(
+        media: mapped.item,
+        episode: (s['episode'] as num?)?.toInt() ?? 1,
+        airingAt: airingTime,
+      ));
+    }
+    return out;
+  }
+
+  ({MediaItem item, double score})? _mapAnimexMedia(
+    Map<String, dynamic> m,
+  ) {
+    final id = (m['id'] as num?)?.toInt() ?? 0;
+    if (id == 0) return null;
+    final malId = (m['idMal'] as num?)?.toInt() ?? 0;
+    final title = m['title'] as Map<String, dynamic>?;
+    final titleEn = (title?['english'] as String?)?.trim();
+    final titleRom = (title?['romaji'] as String?)?.trim();
+    final displayTitle =
+        (titleEn?.isNotEmpty == true ? titleEn : titleRom) ?? 'Unknown Title';
+
+    final cover = m['coverImage'] as Map<String, dynamic>?;
+    final poster = (cover?['extraLarge'] as String?) ??
+        (cover?['large'] as String?) ??
+        (cover?['medium'] as String?) ??
+        '';
+    final banner = (m['bannerImage'] as String?) ?? '';
+    final format = (m['format'] as String?) ?? '';
+    final mediaType = format == 'MOVIE' ? 'movie' : 'tv';
+    final yearVal = m['seasonYear'];
+    final year = yearVal is num ? yearVal.toString() : '';
+
+    final studios = m['studios'] as Map<String, dynamic>?;
+    String studioName = '';
+    for (final s
+        in ((studios?['nodes'] as List?) ?? const []).whereType<Map<String, dynamic>>()) {
+      final name = s['name'] as String?;
+      if (name != null && name.isNotEmpty) {
+        studioName = name;
+        break;
+      }
+    }
+
+    final episodes = (m['episodes'] is num)
+        ? (m['episodes'] as num).toInt()
+        : null;
+    final status = (m['status'] as String?) ?? '';
+    final scoreVal = (m['averageScore'] is num)
+        ? (m['averageScore'] as num).toDouble() / 10
+        : 0.0;
+    final genres = ((m['genres'] as List?) ?? const [])
+        .whereType<String>()
+        .toList();
+    final synopsis = _stripHtml((m['description'] as String?) ?? '');
+
+    final item = MediaItem(
+      id: '',
+      tmdbId: malId,
+      title: displayTitle,
+      mediaType: mediaType,
+      posterPath: poster,
+      backdropPath: banner,
+      year: year,
+      status: '',
+      isAnime: true,
+      addedAt: DateTime.now(),
+      source: 'jikan',
+      anilistId: id,
+      synopsis: synopsis,
+      episodeCount: episodes,
+      airingStatus: status,
+      format: format,
+      studio: studioName,
+      genres: genres,
+    );
+    return (item: item, score: scoreVal);
+  }
 }
 
 /// Minimal HTML entity unescaper; we don't pull in `html_unescape` here
@@ -659,6 +833,96 @@ query ($id: Int, $idMal: Int, $type: MediaType) {
     nextAiringEpisode {
       airingAt
       episode
+    }
+  }
+}
+''';
+
+/// Filterable browse/seasonal/search query for the anime section.
+const String _animexPageQuery = r'''
+query (
+  $search: String
+  $sort: [MediaSort]
+  $status: MediaStatus
+  $season: MediaSeason
+  $seasonYear: Int
+  $format: MediaFormat
+  $genre: String
+  $page: Int
+  $perPage: Int
+) {
+  Page(page: $page, perPage: $perPage) {
+    pageInfo {
+      currentPage
+      lastPage
+      hasNextPage
+    }
+    media(
+      search: $search
+      type: ANIME
+      sort: $sort
+      status: $status
+      season: $season
+      seasonYear: $seasonYear
+      format: $format
+      genre: $genre
+    ) {
+      id
+      idMal
+      title { romaji english native }
+      coverImage { extraLarge large medium }
+      bannerImage
+      description(asHtml: false)
+      episodes
+      duration
+      status
+      format
+      season
+      seasonYear
+      averageScore
+      genres
+      studios(isMain: true) { nodes { id name } }
+      nextAiringEpisode { airingAt episode }
+    }
+  }
+}
+''';
+
+/// Weekly airing schedule query over a unix-timestamp window.
+const String _airingScheduleQuery = r'''
+query ($airingAtGreater: Int, $airingAtLesser: Int, $perPage: Int) {
+  Page(page: 1, perPage: $perPage) {
+    pageInfo {
+      currentPage
+      lastPage
+      hasNextPage
+    }
+    airingSchedules(
+      airingAt_greater: $airingAtGreater
+      airingAt_lesser: $airingAtLesser
+      notYetAired: false
+      sort: TIME
+    ) {
+      id
+      airingAt
+      episode
+      media {
+        id
+        idMal
+        title { romaji english native }
+        coverImage { extraLarge large medium }
+        bannerImage
+        description(asHtml: false)
+        episodes
+        duration
+        status
+        format
+        season
+        seasonYear
+        averageScore
+        genres
+        studios(isMain: true) { nodes { id name } }
+      }
     }
   }
 }

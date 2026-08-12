@@ -1169,11 +1169,11 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     final ratingVal = double.tryParse(rating) ?? 0;
     final ratingFraction = (ratingVal / 10).clamp(0.0, 1.0);
 
-    return SizedBox(
-      width: double.infinity,
-      height: MediaQuery.sizeOf(context).height,
-      child: Container(
-        decoration: const BoxDecoration(color: AppColors.deepBlack),
+    return Material(
+      color: AppColors.deepBlack,
+      child: SizedBox(
+        width: double.infinity,
+        height: MediaQuery.sizeOf(context).height,
         child: ClipRRect(
           borderRadius: BorderRadius.zero,
           child: CustomScrollView(
