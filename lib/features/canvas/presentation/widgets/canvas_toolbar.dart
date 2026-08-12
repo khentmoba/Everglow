@@ -134,6 +134,9 @@ class CanvasToolbar extends StatelessWidget {
                     label: 'Stroke width: ${strokeWidth.round()}',
                     child: SizedBox(
                       width: 80,
+                      // Slider fills its bounded max height in newer Flutter
+                      // versions; pin the height so the toolbar stays compact.
+                      height: 48,
                       child: SliderTheme(
                         data: SliderTheme.of(context).copyWith(
                           trackHeight: 3,

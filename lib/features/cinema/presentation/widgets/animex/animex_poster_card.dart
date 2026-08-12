@@ -102,23 +102,11 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
               children: [
               CompositedTransformTarget(
                 link: _link,
-                child: AnimatedScale(
-                  scale: _hover ? 1.04 : 1.0,
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOut,
-                  child: AnimatedContainer(
+                child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(AnimeXTokens.radiusLg),
-                      boxShadow: _hover
-                          ? [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.55),
-                                blurRadius: 24,
-                                offset: const Offset(0, 10),
-                              ),
-                            ]
-                          : const [],
+                      boxShadow: const [],
                     ),
                     child: AspectRatio(
                       aspectRatio: 2 / 3,
@@ -221,7 +209,6 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
                         ),
                       ),
                     ),
-                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -308,25 +295,27 @@ class _CardPopover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 210,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: AnimeXTokens.surfaceRaised,
-        border: Border.all(color: AnimeXTokens.border),
-        borderRadius: BorderRadius.circular(AnimeXTokens.radiusXl),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x8C000000),
-            blurRadius: 40,
-            offset: Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 190, maxHeight: 220),
+      child: Container(
+        width: 190,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AnimeXTokens.surfaceRaised,
+          border: Border.all(color: AnimeXTokens.border),
+          borderRadius: BorderRadius.circular(AnimeXTokens.radiusXl),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x8C000000),
+              blurRadius: 24,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
           if (score != null) ...[
             Row(
               children: [
@@ -365,14 +354,14 @@ class _CardPopover extends StatelessWidget {
           if (item.synopsis.isNotEmpty) ...[
             Text(
               item.synopsis,
-              maxLines: 4,
+              maxLines: 3,
               overflow: TextOverflow.ellipsis,
               style: interBodyStyle(size: 11.5, height: 1.5),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
           ],
           Container(
-            padding: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.only(top: 6),
             decoration: const BoxDecoration(
               border: Border(top: BorderSide(color: AnimeXTokens.border)),
             ),
@@ -385,7 +374,8 @@ class _CardPopover extends StatelessWidget {
               ),
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }

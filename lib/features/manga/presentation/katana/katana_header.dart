@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'package:everglow/core/theme/app_typography.dart';
@@ -68,9 +69,20 @@ class _KatanaHeaderState extends State<KatanaHeader> {
     pushSearchResults(context, query, searchBy: _searchBy);
   }
 
+  void _handleBack() {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+    } else {
+      context.go('/dashboard');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final user = context.read<AuthService>().currentUser ?? '';
+    final auth = context.watch<AuthService>();
+    final user = auth.currentUser ?? '';
+    final showBack = auth.isCoupleUser;
     final width = MediaQuery.sizeOf(context).width;
     final desktop = width >= 900;
 
@@ -81,19 +93,54 @@ class _KatanaHeaderState extends State<KatanaHeader> {
       ),
       child: Column(
         children: [
-          // Top row: logo + search + user
+          // Top row: back (couple users) + logo + centered search +
+          // bookmarks + user. Left and right clusters mirror each
+          // other so the search stays visually centered.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Row(
               children: [
+                if (showBack) ...[
+                  Tooltip(
+                    message: 'Back to Everglow',
+                    child: IconButton(
+                      onPressed: _handleBack,
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                          size: 18, color: KatanaColors.textMuted),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                ],
                 _buildLogo(),
                 const SizedBox(width: 16),
-                Expanded(child: _buildSearchField()),
+                Expanded(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 620),
+                      child: _buildSearchField(),
+                    ),
+                  ),
+                ),
                 if (desktop) ...[
-                  const SizedBox(width: 12),
-                  _buildBookmarksButton(),
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    width: 210,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        _buildBookmarksButton(),
+                        const SizedBox(width: 8),
+                        _buildUserChip(user),
+                      ],
+                    ),
+                  ),
+                ] else if (showBack) ...[
+                  // Mirror the back button's width on mobile so the
+                  // search field stays centered.
+                  const SizedBox(width: 54),
+                ] else ...[
                   const SizedBox(width: 8),
-                  _buildUserChip(user),
                 ],
               ],
             ),

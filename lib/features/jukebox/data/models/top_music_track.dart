@@ -1,3 +1,5 @@
+import 'lastfm_image_utils.dart';
+
 /// A single entry from Last.fm's `user.gettoptracks` response.
 ///
 /// Unlike [MusicStatus], top tracks carry a play count and rank instead of
@@ -9,6 +11,7 @@ class TopMusicTrack {
   final int playCount;
   final String? imageUrl;
   final String spotifyUrl;
+  final String? mbid;
 
   const TopMusicTrack({
     required this.rank,
@@ -17,6 +20,7 @@ class TopMusicTrack {
     required this.playCount,
     this.imageUrl,
     required this.spotifyUrl,
+    this.mbid,
   });
 
   factory TopMusicTrack.fromJson(Map<String, dynamic> json) {
@@ -46,15 +50,17 @@ class TopMusicTrack {
       attr is Map ? (attr['rank']?.toString() ?? '') : '',
     ) ?? 0;
     final playCount = int.tryParse(json['playcount']?.toString() ?? '') ?? 0;
+    final mbidValue = json['mbid'] as String?;
 
     return TopMusicTrack(
       rank: rank,
       trackName: trackName,
       artistName: artistName,
       playCount: playCount,
-      imageUrl: imgUrl,
+      imageUrl: cleanLastfmImageUrl(imgUrl),
       spotifyUrl:
           'https://open.spotify.com/search/${Uri.encodeComponent('$artistName $trackName')}',
+      mbid: mbidValue?.isNotEmpty == true ? mbidValue : null,
     );
   }
 }

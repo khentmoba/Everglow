@@ -1,23 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:everglow/core/theme/app_colors.dart';
 import 'package:everglow/core/theme/app_typography.dart';
 
-/// Light "Manga Katana" palette used across the manga/manhwa/manhua
-/// section. Mirrors the look of mangakatana.com (white surfaces, red
-/// accents, blue links) while keeping the app's Outfit type family.
+/// Everglow "MangaCelestia" dark palette used across the
+/// manga/manhwa/manhua section. Keeps the Manga Katana layout and
+/// structure but on the app's own identity: deep plum-night surfaces
+/// with rose accents (aurora rose + rose quartz).
 abstract final class KatanaColors {
-  static const Color background = Color(0xFFF3F4F6);
-  static const Color surface = Color(0xFFFFFFFF);
-  static const Color surfaceAlt = Color(0xFFFAFAFA);
-  static const Color border = Color(0xFFE3E5E9);
-  static const Color text = Color(0xFF22252B);
-  static const Color textMuted = Color(0xFF5A606B);
-  static const Color textLight = Color(0xFF9AA0AA);
-  static const Color accent = Color(0xFFDF242F);
-  static const Color accentDark = Color(0xFFB91D27);
-  static const Color link = Color(0xFF0088CC);
-  static const Color green = Color(0xFF16A34A);
-  static const Color orange = Color(0xFFFA9008);
-  static const Color headerDark = Color(0xFF2A2F3A);
+  static const Color background = Color(0xFF0F0B14); // deepest plum night
+  static const Color surface = Color(0xFF1B1424); // elevated night card
+  static const Color surfaceAlt = Color(0xFF241B2E); // hover / alternate
+  static const Color border = Color(0xFF362A3D); // soft plum line
+  static const Color text = Color(0xFFFFF5F5); // petal white
+  static const Color textMuted = Color(0xFFCDB8CE); // rose-tinted secondary
+  static const Color textLight = Color(0xFF8E7A94); // quiet text
+  static const Color accent = AppColors.auroraRose; // vivid Everglow rose
+  static const Color accentDark = Color(0xFFD14D70); // deeper rose
+  static const Color link = AppColors.roseQuartz; // soft pink links
+  static const Color green = AppColors.success;
+  static const Color orange = AppColors.warmAmber;
+  static const Color headerDark = Color(0xFF151019); // header base
 }
 
 abstract final class KatanaType {
@@ -87,9 +89,9 @@ class KatanaCard extends StatelessWidget {
         border: Border.all(color: KatanaColors.border),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0A000000),
-            blurRadius: 8,
-            offset: Offset(0, 2),
+            color: Color(0x40000000),
+            blurRadius: 14,
+            offset: Offset(0, 4),
           ),
         ],
       ),
