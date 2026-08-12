@@ -14,6 +14,7 @@ class AniListDetail {
   final String synopsis;
   final String coverImageUrl;
   final String bannerImageUrl;
+  final String siteUrl;
   final int? episodeCount;
   final int? duration;
   final String airingStatus;
@@ -47,6 +48,7 @@ class AniListDetail {
     required this.synopsis,
     required this.coverImageUrl,
     required this.bannerImageUrl,
+    this.siteUrl = '',
     this.episodeCount,
     this.duration,
     required this.airingStatus,

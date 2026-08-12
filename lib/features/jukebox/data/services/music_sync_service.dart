@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:everglow/core/config/env_config.dart';
 import '../models/music_status.dart';
+import '../models/top_music_track.dart';
 import '../../../../core/utils/logger.dart';
 
 class MusicSyncService {
@@ -21,28 +22,47 @@ class MusicSyncService {
   static void resetInvalidUsers() => _invalidUsers.clear();
 
   Future<MusicStatus?> fetchRecentTrack(String username) async {
+    final tracks = await fetchRecentTracks(username, limit: 1);
+    return tracks.isEmpty ? null : tracks.first;
+  }
+
+  /// Fetches the [limit] most recent scrobbles for [username].
+  ///
+  /// The first entry may carry a `nowplaying` flag instead of a timestamp
+  /// when the user is currently listening. Returns an empty list when the
+  /// user is unknown, the API key is missing, or the request fails.
+  Future<List<MusicStatus>> fetchRecentTracks(
+    String username, {
+    int limit = 5,
+  }) async {
     if (_apiKey.isEmpty) {
       Logger.w('Jukebox Service: API Key is missing!');
-      return null;
+      return [];
     }
 
     if (username.isEmpty || _invalidUsers.contains(username)) {
-      return null;
+      return [];
     }
 
     try {
       final url = Uri.parse(
-        '$_baseUrl?method=user.getrecenttracks&user=$username&api_key=$_apiKey&format=json&limit=1',
+        '$_baseUrl?method=user.getrecenttracks&user=$username&api_key=$_apiKey&format=json&limit=$limit',
       );
 
       final response = await http.get(url).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (data['recenttracks'] != null &&
-            data['recenttracks']['track'] != null &&
-            (data['recenttracks']['track'] as List).isNotEmpty) {
-          return MusicStatus.fromJson(data, username);
+        final tracks = data['recenttracks']?['track'];
+        if (tracks is List && tracks.isNotEmpty) {
+          return tracks
+              .map(
+                (track) => MusicStatus.fromTrackJson(
+                  track as Map<String, dynamic>,
+                  username,
+                ),
+              )
+              .toList();
         } else {
           Logger.d('Jukebox Service: No tracks found for $username in response.');
         }
@@ -61,6 +81,74 @@ class MusicSyncService {
     } catch (e) {
       Logger.e('Jukebox Service Exception ($username)', error: e);
     }
-    return null;
+    return [];
+  }
+
+  /// Fetches the user's most-played tracks from Last.fm.
+  ///
+  /// [period] defaults to `overall` (all-time stats). Returns an empty list
+  /// when the user is unknown, the API key is missing, or the request fails.
+  Future<List<TopMusicTrack>> fetchTopTracks(
+    String username, {
+    int limit = 10,
+    String period = 'overall',
+  }) async {
+    if (_apiKey.isEmpty) {
+      Logger.w('Jukebox Service: API Key is missing!');
+      return [];
+    }
+
+    if (username.isEmpty || _invalidUsers.contains(username)) {
+      return [];
+    }
+
+    try {
+      final url = Uri.parse(
+        '$_baseUrl?method=user.gettoptracks&user=$username&period=$period'
+        '&limit=$limit&api_key=$_apiKey&format=json',
+      );
+
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final tracks = data['toptracks']?['track'];
+        if (tracks is List && tracks.isNotEmpty) {
+          final parsed = <TopMusicTrack>[];
+          for (var i = 0; i < tracks.length; i++) {
+            final track = TopMusicTrack.fromJson(
+              tracks[i] as Map<String, dynamic>,
+            );
+            // Last.fm includes a rank, but fall back to the list order so
+            // the leaderboard always renders 1..10.
+            parsed.add(
+              track.rank > 0
+                  ? track
+                  : TopMusicTrack(
+                      rank: i + 1,
+                      trackName: track.trackName,
+                      artistName: track.artistName,
+                      playCount: track.playCount,
+                      imageUrl: track.imageUrl,
+                      spotifyUrl: track.spotifyUrl,
+                    ),
+            );
+          }
+          return parsed;
+        } else {
+          Logger.d('Jukebox Service: No top tracks found for $username in response.');
+        }
+      } else if (response.statusCode == 404) {
+        _invalidUsers.add(username);
+        Logger.w('Jukebox Service: Last.fm user "$username" not found. Skipping future polls this session.');
+      } else {
+        Logger.e('Jukebox Service Error (top tracks, $username): Status ${response.statusCode} - ${response.body}');
+      }
+    } on TimeoutException {
+      Logger.e('Jukebox Service Timeout: Top tracks API call for $username timed out after 10s.');
+    } catch (e) {
+      Logger.e('Jukebox Service Exception (top tracks, $username)', error: e);
+    }
+    return [];
   }
 }

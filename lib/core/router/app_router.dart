@@ -10,6 +10,7 @@ import '../../features/academy/models/game_match.dart';
 
 import '../../features/watch_party/data/models/watch_party_room.dart';
 import '../../features/books/data/models/book_item.dart';
+import '../../features/books/data/models/book_search_result.dart';
 import '../../features/daily_bloom/presentation/widgets/shared_garden_view.dart';
 import '../../features/bucket_list/presentation/screens/bucket_list_screen.dart';
 
@@ -19,9 +20,10 @@ import '../../features/cinema/presentation/screens/cinema_screen.dart';
 import '../../features/cinema/presentation/screens/video_player_screen.dart';
 import '../../features/cinema/presentation/screens/anime_screen.dart';
 import '../../features/books/presentation/screens/books_screen.dart';
+import '../../features/books/presentation/screens/book_detail_screen.dart';
 import '../../features/books/presentation/screens/our_books_screen.dart';
 import '../../features/books/presentation/screens/reader_screen.dart';
-import '../../features/manga/presentation/screens/manga_library_screen.dart';
+import '../../features/manga/presentation/screens/katana_home_screen.dart';
 import '../../features/manga/presentation/screens/manga_reader_screen.dart';
 import '../../features/academy/screens/academy_hub_screen.dart';
 import '../../features/academy/screens/game_board_screen.dart';
@@ -91,6 +93,19 @@ final GoRouter appRouter = GoRouter(
           path: 'reader',
           builder: (_, state) => ReaderScreen(book: state.extra! as BookItem),
         ),
+        GoRoute(
+          path: 'detail',
+          builder: (_, state) => BookDetailScreen(
+            args: state.extra! as BookDetailArgs,
+          ),
+        ),
+        GoRoute(
+          path: 'listen',
+          builder: (_, state) => ReaderScreen(
+            book: state.extra! as BookItem,
+            startListening: true,
+          ),
+        ),
       ],
     ),
 
@@ -100,7 +115,7 @@ final GoRouter appRouter = GoRouter(
     // ── Manga ─────────────────────────────────────────────
     GoRoute(
       path: '/manga',
-      builder: (_, _) => const MangaLibraryScreen(),
+      builder: (_, _) => const KatanaHomeScreen(),
       routes: [
         GoRoute(
           path: 'reader',

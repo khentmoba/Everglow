@@ -1,17 +1,23 @@
 // ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
-// Web-only SSE streaming via browser XHR; this file is never compiled
-// outside Flutter web (see sse_streamer_io.dart for the VM variant).
-// Web-platform implementation: uses dart:html HttpRequest
-// with a polling timer on responseText to receive SSE chunks
-// incrementally. XHR onProgress may not fire per-byte in Flutter web.
+// Web-only SSE streaming client.
+//
+// Primary path: `fetch` + `ReadableStream` (incremental chunks in every
+// modern browser). Fallback path: XHR responseText polling, which keeps
+// streaming working in older browsers and embedded webviews where fetch
+// body streams are buffered until the response completes. The XHR path uses
+// dart:html, so this file must only be compiled for dart2js web builds.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:html' as html;
+import 'dart:js_interop';
+
+import 'package:web/web.dart' as web;
 
 /// Parses SSE lines from a streaming HTTP response.
 ///
-/// Uses [html.HttpRequest] with a 30ms polling timer on responseText
-/// to detect new data as it arrives, independent of onProgress timing.
+/// Same event shape as the native streamer: JSON `data:` lines carrying
+/// `content`, `reasoning`, `tool_status`, or `error` fields, terminated by
+/// a bare `data: [DONE]`.
 Future<String> streamSseResponse({
   required String url,
   required Map<String, String> headers,
@@ -24,82 +30,216 @@ Future<String> streamSseResponse({
 }) async {
   final fullResponse = StringBuffer();
   final completer = Completer<String>();
-  String lineBuffer = '';
+  var lineBuffer = '';
+
+  void processText(String text) {
+    lineBuffer += text;
+    final lines = lineBuffer.split('\n');
+    lineBuffer = lines.removeLast();
+    for (final line in lines) {
+      _processSseLine(
+        line,
+        fullResponse,
+        onChunk,
+        onReasoning: onReasoning,
+        onToolStatus: onToolStatus,
+        onError: onError,
+      );
+    }
+  }
+
+  void finish() {
+    if (lineBuffer.isEmpty) return;
+    final lines = lineBuffer.split('\n');
+    lineBuffer = '';
+    for (final line in lines) {
+      _processSseLine(
+        line,
+        fullResponse,
+        onChunk,
+        onReasoning: onReasoning,
+        onToolStatus: onToolStatus,
+        onError: onError,
+      );
+    }
+  }
+
+  Timer? timeoutTimer;
+  void armTimeout(web.AbortController? ac, web.XMLHttpRequest? xhr) {
+    timeoutTimer = Timer(timeout, () {
+      ac?.abort();
+      xhr?.abort();
+      if (!completer.isCompleted) {
+        completer.completeError(TimeoutException('AI request timed out', timeout));
+      }
+    });
+  }
 
   try {
-    final request = html.HttpRequest();
-    request.open('POST', url);
-    request.timeout = timeout.inMilliseconds;
+    final ac = web.AbortController();
+    final requestHeaders = web.Headers();
+    headers.forEach((key, value) => requestHeaders.append(key, value));
 
-    headers.forEach((key, value) {
-      request.setRequestHeader(key, value);
-    });
+    final response = await web.window
+        .fetch(
+          url.toJS,
+          web.RequestInit(
+            method: 'POST',
+            headers: requestHeaders,
+            body: body.toJS,
+            signal: ac.signal,
+          ),
+        )
+        .toDart
+        .timeout(timeout);
+    armTimeout(ac, null);
 
-    String previousText = '';
-    Timer? pollTimer;
-
-    pollTimer = Timer.periodic(const Duration(milliseconds: 30), (timer) {
-      final currentText = request.responseText ?? '';
-      if (currentText.length > previousText.length) {
-        final newData = currentText.substring(previousText.length);
-        lineBuffer += newData;
-        previousText = currentText;
-
-        // Process complete lines; keep incomplete tail in buffer
-        final lines = lineBuffer.split('\n');
-        lineBuffer = lines.removeLast();
-        for (final line in lines) {
-            _processSseLine(line, fullResponse, onChunk, onReasoning: onReasoning, onToolStatus: onToolStatus, onError: onError);
-          }
+    if (!response.ok) {
+      final errText = (await response.text().toDart).toDart;
+      String errorMsg;
+      try {
+        final errorData = jsonDecode(errText) as Map<String, dynamic>;
+        errorMsg = errorData['error'] as String? ?? 'Unknown error';
+      } catch (_) {
+        errorMsg = 'AI service returned ${response.status}';
       }
-      if (request.readyState == 4) {
-        timer.cancel();
-        // Flush any remaining incomplete line
-        if (lineBuffer.isNotEmpty) {
-          final remaining = lineBuffer.split('\n');
-          for (final line in remaining) {
-            _processSseLine(line, fullResponse, onChunk, onReasoning: onReasoning, onToolStatus: onToolStatus, onError: onError);
-          }
+      throw Exception(errorMsg);
+    }
+
+    final stream = response.body;
+    if (stream == null) {
+      // fetch body streaming unavailable: fall back to XHR polling.
+      _streamViaXhr(
+        url,
+        headers,
+        body,
+        timeout,
+        processText,
+        finish,
+        fullResponse,
+        completer,
+      );
+      return completer.future;
+    }
+
+    final reader = stream.getReader() as web.ReadableStreamDefaultReader;
+    // The reply accumulator is written only by [_processSseLine]; decoded
+    // chunk text goes through a separate buffer so it can be cleared without
+    // ever touching the accumulated reply.
+    final decodedBuffer = StringBuffer();
+    final decoderSink = const Utf8Decoder(allowMalformed: true)
+        .startChunkedConversion(_StringBufferSink(decodedBuffer));
+    try {
+      while (true) {
+        final chunk = await reader.read().toDart;
+        // The final chunk can carry `done: true` together with a value, so
+        // process the value before checking the completion flag.
+        final value = chunk.value;
+        if (value != null) {
+          final bytes = (value as JSUint8Array).toDart;
+          decoderSink.add(bytes);
+          final text = decodedBuffer.toString();
+          decodedBuffer.clear();
+          processText(text);
         }
-
-        if (request.status == 200) {
-          completer.complete(fullResponse.toString());
-        } else {
-          String errorMsg;
-          try {
-            final errorData =
-                jsonDecode(request.responseText ?? '{}') as Map<String, dynamic>;
-            errorMsg = errorData['error'] ?? 'Unknown error';
-          } catch (_) {
-            errorMsg = 'AI service returned ${request.status}';
-          }
-          completer.completeError(Exception(errorMsg));
-        }
+        if (chunk.done) break;
       }
-    });
-
-    request.onError.listen((_) {
-      pollTimer?.cancel();
-      if (!completer.isCompleted) {
-        completer.completeError(
-            Exception('Network error: ${request.statusText}'));
-      }
-    });
-
-    request.send(body);
-
+      decoderSink.close();
+    } finally {
+      reader.releaseLock();
+    }
+    finish();
+    timeoutTimer?.cancel();
+    if (!completer.isCompleted) {
+      completer.complete(fullResponse.toString());
+    }
     return completer.future;
   } catch (e) {
+    timeoutTimer?.cancel();
+    if (!completer.isCompleted) {
+      completer.completeError(e);
+    }
+    return completer.future;
+  }
+}
+
+/// XHR polling fallback: reads `responseText` on a timer so chunks surface
+/// incrementally even where `ReadableStream` is unavailable or buffered.
+void _streamViaXhr(
+  String url,
+  Map<String, String> headers,
+  String body,
+  Duration timeout,
+  void Function(String text) processText,
+  void Function() finish,
+  StringBuffer fullResponse,
+  Completer<String> completer,
+) {
+  final xhr = html.HttpRequest();
+  xhr.open('POST', url);
+  headers.forEach((key, value) => xhr.setRequestHeader(key, value));
+
+  var previousText = '';
+  var finished = false;
+  final poll = Timer.periodic(const Duration(milliseconds: 40), (timer) {
+    if (finished) {
+      timer.cancel();
+      return;
+    }
+    final currentText = xhr.responseText ?? '';
+    if (currentText.length > previousText.length) {
+      processText(currentText.substring(previousText.length));
+      previousText = currentText;
+    }
+    if (xhr.readyState != 4) return;
+    finished = true;
+    timer.cancel();
+    finish();
+    if (xhr.status == 200) {
+      if (!completer.isCompleted) {
+        completer.complete(fullResponse.toString());
+      }
+      return;
+    }
+    String errorMsg;
+    try {
+      final errorData =
+          jsonDecode(xhr.responseText ?? '{}') as Map<String, dynamic>;
+      errorMsg = errorData['error'] as String? ?? 'Unknown error';
+    } catch (_) {
+      errorMsg = 'AI service returned ${xhr.status}';
+    }
+    if (!completer.isCompleted) {
+      completer.completeError(Exception(errorMsg));
+    }
+  });
+
+  try {
+    xhr.send(body);
+  } catch (e) {
+    poll.cancel();
+    finished = true;
     if (!completer.isCompleted) {
       completer.completeError(e);
     }
   }
-
-  return completer.future;
 }
 
-/// Process a single complete SSE line (already split on \n, without the
-/// trailing newline character).
+/// Sink used to decode UTF-8 across chunk boundaries (emoji-safe).
+class _StringBufferSink implements ChunkedConversionSink<String> {
+  final StringBuffer buffer;
+
+  _StringBufferSink(this.buffer);
+
+  @override
+  void add(String chunk) => buffer.write(chunk);
+
+  @override
+  void close() {}
+}
+
+/// Process a single complete SSE line (split on `\n`, without the trailing
+/// newline). Throws on `error` events so callers surface them like errors.
 void _processSseLine(
   String line,
   StringBuffer fullResponse,
@@ -133,6 +273,6 @@ void _processSseLine(
       onError(error);
     }
   } catch (_) {
-    // Skip malformed JSON chunks
+    // Skip malformed JSON chunks.
   }
 }

@@ -284,7 +284,9 @@ exports.proxyMangaKatana = functions.https.onRequest(async (req, res) => {
     '.mkklcdnv6temp.com',
     '.catmanga.org',
   ];
-  const hostAllowed = allowedSuffixes.some((s) => parsed.hostname.endsWith(s));
+  const hostAllowed =
+    parsed.hostname === 'mangakatana.com' ||
+    allowedSuffixes.some((s) => parsed.hostname.endsWith(s));
   if (parsed.protocol !== 'https:' || !hostAllowed) {
     res.status(400).json({ error: 'Host not allowed' });
     return;
@@ -1960,10 +1962,14 @@ You have access to custom tools:
 - create_reminder — Set reminders
 - log_activity — Log notable activities
 - search_books — Search Open Library for books
+- add_book_to_our_books — Add books to the shared Our Books list
 - get_date_ideas — Get date ideas from a curated list
 - read_chat_messages — Read recent Sanctuary chat messages
+- read_starlight_jar — Read recent Starlight Jar notes
+- get_watchlist — Read the shared cinema watchlist
 - get_xp_stats — Get XP and leveling information
 - search_anime — Search for anime titles
+- remember_fact — Save a personal fact about Khent or Clair to long-term memory
 
 ## Image Understanding
 You can analyze images sent by the user. When you receive images:
@@ -2284,6 +2290,61 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
         },
       },
     },
+    {
+      type: 'function',
+      function: {
+        name: 'add_book_to_our_books',
+        description: 'Search Open Library for a book and add it to Khent & Clair\'s shared "Our Books" list. Use when they want to add a book to their shared reading list.',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Book search query (title, author name, or ISBN)' },
+          },
+          required: ['query'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'read_starlight_jar',
+        description: 'Read the most recent notes saved in the Starlight Jar. Use when they ask what is in the jar or want to revisit saved notes and memories.',
+        parameters: {
+          type: 'object',
+          properties: {
+            limit: { type: 'number', description: 'Number of recent notes to read (default 10, max 25)' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_watchlist',
+        description: 'Read Khent & Clair\'s current shared cinema watchlist. Use when they ask what is on their list or what they have been planning to watch.',
+        parameters: {
+          type: 'object',
+          properties: {
+            limit: { type: 'number', description: 'Number of items per person to read (default 15, max 40)' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'remember_fact',
+        description: 'Save a personal fact about Khent or Clair to Mochi\'s long-term memory. Use when they explicitly tell you something to remember about themselves, each other, or their relationship.',
+        parameters: {
+          type: 'object',
+          properties: {
+            fact: { type: 'string', description: 'The fact to remember, phrased naturally (e.g., "Khent prefers black coffee")' },
+            category: { type: 'string', enum: ['fact', 'preference', 'dislike', 'goal', 'date', 'habit'], description: 'Category of the fact (default: fact)' },
+          },
+          required: ['fact'],
+        },
+      },
+    },
   ];
 
   // Tools: custom Mochi tools only (Agnes uses standard OpenAI function calling format)
@@ -2434,7 +2495,8 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
             }
             case 'get_weather': {
               const weatherRes = await fetch(
-                `https://wttr.in/${encodeURIComponent(args.location)}?format=%C+%t+%h+%w`
+                `https://wttr.in/${encodeURIComponent(args.location)}?format=%C+%t+%h+%w`,
+                { headers: { 'User-Agent': 'curl/8.5.0' } }
               );
               const weatherText = await weatherRes.text();
               return JSON.stringify({ location: args.location, weather: weatherText.trim() });
@@ -2473,12 +2535,62 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
               }));
               return JSON.stringify({ results: books });
             }
+            case 'add_book_to_our_books': {
+              const searchRes = await fetch(
+                `https://openlibrary.org/search.json?q=${encodeURIComponent(args.query)}&limit=3&fields=key,title,author_name,first_publish_year,isbn,cover_i`
+              );
+              const searchData = await searchRes.json();
+              const book = (searchData.docs || [])[0];
+              if (!book) return JSON.stringify({ error: `No book found for "${args.query}"` });
+              const title = book.title || 'Unknown';
+              const author = (book.author_name || []).slice(0, 2).join(', ');
+              await db.collection('our_books').add({
+                title,
+                author,
+                coverUrl: book.cover_i ? `https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg` : '',
+                year: book.first_publish_year ? String(book.first_publish_year) : '',
+                workKey: book.key || '',
+                addedBy: callerUid,
+                addedAt: new Date().toISOString(),
+              });
+              return JSON.stringify({ success: true, title, author });
+            }
+            case 'read_starlight_jar': {
+              const limit = Math.min(args.limit || 10, 25);
+              const snapshot = await db.collection('starlight_jar')
+                .orderBy('timestamp', 'desc')
+                .limit(limit)
+                .get();
+              const notes = snapshot.docs.map(d => {
+                const data = d.data();
+                return {
+                  content: (data.content || '').slice(0, 300),
+                  author: data.author || 'mochi',
+                  time: data.timestamp?.toDate?.()?.toISOString() || null,
+                };
+              });
+              return JSON.stringify({ notes, count: notes.length });
+            }
+            case 'get_watchlist': {
+              const limit = Math.min(args.limit || 15, 40);
+              const parts = [];
+              for (const username of ['khentsgdz', 'clairjassen']) {
+                const snapshot = await db.collection('our_cinema')
+                  .where('userId', '==', username)
+                  .orderBy('addedAt', 'desc')
+                  .limit(limit)
+                  .get();
+                const items = snapshot.docs.map(d => {
+                  const x = d.data();
+                  return `${x.title || 'Unknown'} (${x.mediaType || 'movie'}) - ${x.status || 'plan to watch'}`;
+                });
+                if (items.length) parts.push(`${username}'s watchlist:\n${items.join('\n')}`);
+              }
+              return JSON.stringify({ watchlist: parts.length ? parts.join('\n\n') : 'Watchlist is empty' });
+            }
             case 'get_date_ideas': {
               const count = Math.min(args.count || 3, 10);
-              const snapshot = await db.collection('date_ideas')
-                .orderBy(getAdmin().firestore.FieldValue.serverTimestamp())
-                .limit(100)
-                .get();
+              const snapshot = await db.collection('date_ideas').limit(100).get();
               const allIdeas = snapshot.docs.map(d => d.data().title || d.data().name || '').filter(Boolean);
               // Random selection
               const shuffled = allIdeas.sort(() => Math.random() - 0.5);
@@ -2543,6 +2655,20 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
                 malId: a.mal_id || null,
               }));
               return JSON.stringify({ results: anime });
+            }
+            case 'remember_fact': {
+              const fact = (args.fact || '').trim();
+              if (!fact) return JSON.stringify({ error: 'No fact provided' });
+              await db.collection('ai_memories').doc('shared').collection('facts').add({
+                fact,
+                category: args.category || 'fact',
+                addedBy: callerUid || 'mochi',
+                createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+                confidence: 1.0,
+                accessCount: 0,
+                lastAccessed: null,
+              });
+              return JSON.stringify({ success: true, fact });
             }
             default:
               return JSON.stringify({ error: `Unknown tool: ${toolName}` });

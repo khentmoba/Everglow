@@ -92,3 +92,17 @@ flutter:
       fonts:
         - asset: assets/google_fonts/Caveat-Regular.ttf
           weight: 400
+    - family: Bebas Neue
+      fonts:
+        - asset: assets/google_fonts/BebasNeue-Regular.ttf
+          weight: 400
+    - family: DM Sans
+      fonts:
+        - asset: assets/google_fonts/DMSans-Regular.ttf
+          weight: 400
+        - asset: assets/google_fonts/DMSans-Medium.ttf
+          weight: 500
+        - asset: assets/google_fonts/DMSans-SemiBold.ttf
+          weight: 600
+        - asset: assets/google_fonts/DMSans-Bold.ttf
+          weight: 700

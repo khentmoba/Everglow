@@ -1,0 +1,8 @@
+{
+  "url": "https://everglow-1c6db.web.app/",
+  "emulateMobile": true,
+  "steps": [
+    { "type": "wait", "ms": 16000 },
+    { "type": "eval", "js": "(() => { const v = document.querySelector('flutter-view'); const g = v.querySelector('flt-glass-pane'); const r = (el) => { const b = el.getBoundingClientRect(); const cs = getComputedStyle(el); return { x: b.x, y: b.y, w: b.width, h: b.height, transform: cs.transform, width: cs.width, height: cs.height, position: cs.position, overflow: cs.overflow }; }; return { view: r(v), glass: r(g), bodyScroll: { sw: document.body.scrollWidth, sh: document.body.scrollHeight, cw: document.documentElement.clientWidth, ch: document.documentElement.clientHeight } }; })()", "out": "rects.json" }
+  ]
+}

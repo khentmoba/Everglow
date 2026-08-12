@@ -32,6 +32,7 @@ import 'package:everglow/features/heartbeat/presentation/controllers/mood_contro
 import '../../../academy/widgets/academy_portal_card.dart';
 import '../../../../features/play_zone/presentation/widgets/play_zone_portal_card.dart';
 import '../../../../features/jukebox/presentation/widgets/jukebox_widget.dart';
+import '../../../../features/jukebox/presentation/widgets/music_stats_section.dart';
 import '../../../../features/watch_party/presentation/widgets/watch_party_card.dart';
 import '../widgets/gallery_preview.dart';
 import '../widgets/calendar_preview.dart';
@@ -373,6 +374,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                             child: JukeboxWidget(),
                           ),
                           delayMs: 950,
+                        ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 32)),
+                        _animatedSliver(
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: const MusicStatsSection(),
+                          ),
+                          delayMs: 1000,
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 32)),
                         _animatedSliver(

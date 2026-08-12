@@ -20,6 +20,7 @@ import 'features/daily_bloom/presentation/providers/garden_provider.dart';
 import 'features/heartbeat/data/services/mood_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'features/jukebox/presentation/providers/jukebox_provider.dart';
+import 'features/jukebox/presentation/providers/music_stats_provider.dart';
 import 'features/heartbeat/presentation/controllers/mood_controller.dart';
 import 'features/guardian/presentation/controllers/guardian_controller.dart';
 import 'features/watch_party/data/services/voice_chat_service.dart';
@@ -115,6 +116,7 @@ class EverglowApp extends StatelessWidget {
           )..setAIService(context.read<AIService>()),
         ),
         ChangeNotifierProvider(create: (_) => JukeboxProvider()),
+        ChangeNotifierProvider(create: (_) => MusicStatsProvider()),
       ],
       child: MaterialApp.router(
         title: 'Everglow v6.0.0',

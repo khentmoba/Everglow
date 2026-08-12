@@ -44,6 +44,10 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
   AnimationController? _floatController;
   Animation<double>? _floatAnimation;
 
+  // Single-flight guard so taps during an ongoing open/reveal flow can't
+  // start a second, racing fetch + animation.
+  bool _jarBusy = false;
+
   // Tap scale feedback
   double _tapScale = 1.0;
 
@@ -148,22 +152,26 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
   // ── Jar Tap → Random Note ──
 
   Future<void> _onJarTap() async {
-    if (_shakeController.isAnimating || _floatController?.isAnimating == true) {
+    if (_jarBusy || _shakeController.isAnimating) {
       return;
     }
+    _jarBusy = true;
+    try {
+      setState(() => _tapScale = 0.95);
+      await _shakeController.forward(from: 0);
+      if (mounted) setState(() => _tapScale = 1.0);
+      if (!mounted) return;
 
-    setState(() => _tapScale = 0.95);
-    await _shakeController.forward(from: 0);
-    if (mounted) setState(() => _tapScale = 1.0);
-    if (!mounted) return;
+      final randomNote = await _service.getRandomStarNote();
+      if (!mounted) return;
 
-    final randomNote = await _service.getRandomStarNote();
-    if (!mounted) return;
-
-    if (randomNote != null) {
-      _startFloatAnimation(randomNote);
-    } else {
-      _showEmptyJarMessage();
+      if (randomNote != null) {
+        await _playFloatAndReveal(randomNote);
+      } else {
+        _showEmptyJarMessage();
+      }
+    } finally {
+      _jarBusy = false;
     }
   }
 
@@ -178,7 +186,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
     );
   }
 
-  void _startFloatAnimation(StarNote note) {
+  Future<void> _playFloatAndReveal(StarNote note) async {
     _floatController?.dispose();
     _floatController = AnimationController(
       vsync: this,
@@ -194,9 +202,9 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
       _floatingStar = note;
     });
 
-    _floatController!.forward().then((_) {
-      _showNoteDialog(note);
-    });
+    await _floatController!.forward();
+    if (!mounted) return;
+    await _showNoteDialog(note);
   }
 
   Future<void> _showNoteDialog(StarNote note) async {
@@ -208,7 +216,9 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
     );
 
     if (!mounted) return;
-    await _floatController!.reverse();
+    if (_floatController != null) {
+      await _floatController!.reverse();
+    }
     if (!mounted) return;
     setState(() {
       _floatingStar = null;
@@ -218,7 +228,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
   // ── Surprise Reveal ──
 
   Future<void> _surpriseReveal() async {
-    if (_floatController?.isAnimating == true || _shakeController.isAnimating) {
+    if (_jarBusy || _shakeController.isAnimating) {
       return;
     }
 
@@ -230,8 +240,13 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
       return;
     }
 
-    _surpriseConfetti.play();
-    _startFloatAnimation(randomNote);
+    _jarBusy = true;
+    try {
+      _surpriseConfetti.play();
+      await _playFloatAndReveal(randomNote);
+    } finally {
+      _jarBusy = false;
+    }
   }
 
   @override
@@ -477,43 +492,46 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                         // Star Count Badge
                         Positioned(
                           top: 22,
-                          child: StreamBuilder<List<StarNote>>(
-                            stream: _starNotesStream,
-                            builder: (context, snapshot) {
-                              final count = snapshot.data?.length ?? 0;
-                              if (count == 0) {
-                                return const SizedBox.shrink();
-                              }
-                              return Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.deepRose.withValues(
-                                    alpha: 0.8,
+                          // IgnorePointer so taps on the badge still reach the jar.
+                          child: IgnorePointer(
+                            child: StreamBuilder<List<StarNote>>(
+                              stream: _starNotesStream,
+                              builder: (context, snapshot) {
+                                final count = snapshot.data?.length ?? 0;
+                                if (count == 0) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 4,
                                   ),
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppTheme.deepRose.withValues(
-                                        alpha: 0.3,
-                                      ),
-                                      blurRadius: 8,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.deepRose.withValues(
+                                      alpha: 0.8,
                                     ),
-                                  ],
-                                ),
-                                child: Text(
-                                  '$count ${count == 1 ? 'star' : 'stars'}',
-                                  style: AppTypography.outfitWhite.copyWith(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.petalWhite,
-                                    letterSpacing: 0.5,
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppTheme.deepRose.withValues(
+                                          alpha: 0.3,
+                                        ),
+                                        blurRadius: 8,
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              );
-                            },
+                                  child: Text(
+                                    '$count ${count == 1 ? 'star' : 'stars'}',
+                                    style: AppTypography.outfitWhite.copyWith(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.petalWhite,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                           ),
                         ),
 
@@ -623,11 +641,15 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                                   child: AnimatedBuilder(
                                     animation: _dropAnimation!,
                                     builder: (context, child) {
-                                      return StarWidget(
-                                        color: AppTheme.blushGold,
-                                        position: _dropAnimation!.value,
-                                        rotation:
-                                            _dropController!.value * pi * 2,
+                                      return Stack(
+                                        children: [
+                                          StarWidget(
+                                            color: AppTheme.blushGold,
+                                            position: _dropAnimation!.value,
+                                            rotation:
+                                                _dropController!.value * pi * 2,
+                                          ),
+                                        ],
                                       );
                                     },
                                   ),
@@ -648,12 +670,18 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                                         _floatAnimation!.value,
                                       )!;
 
-                                      return StarWidget(
-                                        color: AppTheme.deepRose,
-                                        position: currentPos,
-                                        size:
-                                            24 + (16 * _floatAnimation!.value),
-                                        rotation: _floatController!.value * pi,
+                                      return Stack(
+                                        children: [
+                                          StarWidget(
+                                            color: AppTheme.deepRose,
+                                            position: currentPos,
+                                            size:
+                                                24 +
+                                                (16 * _floatAnimation!.value),
+                                            rotation:
+                                                _floatController!.value * pi,
+                                          ),
+                                        ],
                                       );
                                     },
                                   ),

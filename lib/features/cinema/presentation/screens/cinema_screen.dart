@@ -114,7 +114,12 @@ class _CinemaScreenState extends State<CinemaScreen>
       items,
     ) async {
       if (mounted) {
-        final refreshed = await _tmdbService.refreshAnimePosters(items);
+        // Same healing the dashboard's currently-watching shelf does:
+        // items created by the player (played before being added to the
+        // watchlist) can land in Firestore with an empty posterPath, so
+        // backfill them before splitting into the continue-watching row.
+        var refreshed = await _tmdbService.backfillMissingPosters(items);
+        refreshed = await _tmdbService.refreshAnimePosters(refreshed);
         setState(() {
           _watchlist = refreshed;
           _splitWatchlists();

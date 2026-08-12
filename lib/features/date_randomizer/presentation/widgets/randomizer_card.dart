@@ -122,6 +122,7 @@ class _RandomizerCardState extends State<RandomizerCard>
             ],
           ),
           child: Stack(
+            alignment: Alignment.center,
             children: [
               Positioned(
                 top: 0,

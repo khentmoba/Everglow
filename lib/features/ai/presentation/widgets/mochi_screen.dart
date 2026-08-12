@@ -36,6 +36,10 @@ class _MochiScreenState extends State<MochiScreen> {
   final GlobalKey _inputKey = GlobalKey();
   bool _showScrollButton = false;
   bool _isSending = false;
+  bool _userScrolledUp = false;
+  // Deep thinking on by default so Mochi reasons before answering; the
+  // header toggle turns it off for fast replies.
+  bool _deepThink = true;
   String? _lastSentMessage;
   bool _isSidebarOpen = false;
   final List<String> _attachedImages = []; // base64 data URIs for preview
@@ -51,6 +55,7 @@ class _MochiScreenState extends State<MochiScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final ai = context.read<AIService>();
+      ai.addListener(_onAiChanged);
       await ai.loadAssistantConversation();
       if (mounted && (ai.assistantConversation?.messages.isNotEmpty ?? false)) {
         _scrollToBottom(animated: false);
@@ -64,6 +69,7 @@ class _MochiScreenState extends State<MochiScreen> {
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
     _focusNode.dispose();
+    context.read<AIService>().removeListener(_onAiChanged);
     if (_pasteListener != null) {
       html.window.removeEventListener('paste', _pasteListener);
     }
@@ -106,11 +112,22 @@ class _MochiScreenState extends State<MochiScreen> {
   }
 
   void _onScroll() {
+    _userScrolledUp =
+        _scroll.hasClients &&
+        _scroll.position.maxScrollExtent - _scroll.position.pixels > 120;
     final show =
         _scroll.hasClients &&
         _scroll.position.maxScrollExtent - _scroll.position.pixels > 300;
     if (show != _showScrollButton) {
       setState(() => _showScrollButton = show);
+    }
+  }
+
+  void _onAiChanged() {
+    if (!mounted) return;
+    final ai = context.read<AIService>();
+    if (ai.isLoading && !_userScrolledUp) {
+      _scrollToBottom(animated: false);
     }
   }
 
@@ -130,10 +147,10 @@ class _MochiScreenState extends State<MochiScreen> {
     });
   }
 
-  Future<void> _send() async {
+  Future<void> _send({bool retry = false}) async {
     if (_isSending) return;
-    final text = _input.text.trim();
-    final hasImages = _attachedImageUrls.isNotEmpty;
+    final text = retry ? (_lastSentMessage ?? '').trim() : _input.text.trim();
+    final hasImages = !retry && _attachedImageUrls.isNotEmpty;
     if (text.isEmpty && !hasImages) return;
     _isSending = true;
     _lastSentMessage = text;
@@ -155,6 +172,7 @@ class _MochiScreenState extends State<MochiScreen> {
         message: text,
         callerName: authService.currentUser,
         stream: true,
+        enableThinking: _deepThink,
         imageUrls: imagesToSend,
       );
       _scrollToBottom();
@@ -258,6 +276,9 @@ class _MochiScreenState extends State<MochiScreen> {
                   onSidebarToggle: () =>
                       setState(() => _isSidebarOpen = !_isSidebarOpen),
                   onNewChat: _newChat,
+                  deepThink: _deepThink,
+                  onToggleDeepThink: () =>
+                      setState(() => _deepThink = !_deepThink),
                 ),
                 Divider(
                   height: 1,
@@ -279,11 +300,18 @@ class _MochiScreenState extends State<MochiScreen> {
                             return _GreetingEmptyState(onTap: _sendQuick);
                           }
 
-                          final streamBubble = 1;
+                          // While the reply streams we show one live bubble;
+                          // before any stream data arrives we show the
+                          // thinking indicator instead.
+                          final hasStream =
+                              loading &&
+                              (hasDraft ||
+                                  draftReasoning.isNotEmpty ||
+                                  toolStatus.isNotEmpty);
                           final itemCount =
                               allMsgs.length +
-                              (loading && !hasDraft ? 1 : 0) +
-                              (hasDraft ? streamBubble : 0);
+                              (loading && !hasStream ? 1 : 0) +
+                              (hasStream ? 1 : 0);
 
                           return ListView.builder(
                             controller: _scroll,
@@ -293,27 +321,23 @@ class _MochiScreenState extends State<MochiScreen> {
                             ),
                             itemCount: itemCount,
                             itemBuilder: (_, i) {
-                              int idx = 0;
-
-                              final hasStream =
-                                  hasDraft || draftReasoning.isNotEmpty;
-                              if (hasStream && i == allMsgs.length + idx) {
-                                return _MessageBubble(
-                                  text: ai.draftResponse,
-                                  isUser: false,
-                                  isStreaming: true,
-                                  reasoning: draftReasoning.isNotEmpty
-                                      ? draftReasoning
-                                      : null,
-                                  toolStatus: toolStatus,
-                                );
-                              }
-                              if (!hasStream && i == allMsgs.length + idx) {
+                              if (i == allMsgs.length) {
+                                if (hasStream) {
+                                  return _MessageBubble(
+                                    text: ai.draftResponse,
+                                    isUser: false,
+                                    isStreaming: true,
+                                    reasoning: draftReasoning.isNotEmpty
+                                        ? draftReasoning
+                                        : null,
+                                    toolStatus: toolStatus,
+                                  );
+                                }
                                 return _ThinkingIndicator(
                                   toolStatus: toolStatus,
                                 );
                               }
-                              final msg = allMsgs[i - idx];
+                              final msg = allMsgs[i];
                               return _MessageBubble(
                                 key: ValueKey(
                                   'msg_${msg.timestamp.millisecondsSinceEpoch}_$i',
@@ -360,7 +384,10 @@ class _MochiScreenState extends State<MochiScreen> {
                     ],
                   ),
                 ),
-                _ErrorBanner(lastSentMessage: _lastSentMessage, onRetry: _send),
+                _ErrorBanner(
+                  lastSentMessage: _lastSentMessage,
+                  onRetry: () => _send(retry: true),
+                ),
                 _ComposerInput(
                   inputKey: _inputKey,
                   controller: _input,
@@ -399,11 +426,15 @@ class _MochiHeader extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onSidebarToggle;
   final VoidCallback onNewChat;
+  final bool deepThink;
+  final VoidCallback onToggleDeepThink;
 
   const _MochiHeader({
     required this.onBack,
     required this.onSidebarToggle,
     required this.onNewChat,
+    required this.deepThink,
+    required this.onToggleDeepThink,
   });
 
   @override
@@ -442,6 +473,20 @@ class _MochiHeader extends StatelessWidget {
             onPressed: onNewChat,
             icon: Icon(Icons.add_rounded, color: AppColors.textMuted, size: 20),
             tooltip: 'New chat',
+          ),
+          // Deep thinking toggle: slower but more thoughtful replies.
+          IconButton(
+            onPressed: onToggleDeepThink,
+            icon: Icon(
+              deepThink
+                  ? Icons.psychology_rounded
+                  : Icons.psychology_outlined,
+              color: deepThink
+                  ? AppColors.blushGold
+                  : AppColors.textMuted,
+              size: 20,
+            ),
+            tooltip: deepThink ? 'Deep thinking: on' : 'Deep thinking: off',
           ),
           // Sidebar toggle
           IconButton(
@@ -512,10 +557,22 @@ class _SuggestedGrid extends StatelessWidget {
   const _SuggestedGrid({required this.onTap});
 
   static const _suggestions = [
-    'What should we watch tonight?',
-    'Suggest a date idea',
-    'What have we been up to?',
-    'How are our moods today?',
+    _Suggestion(
+      'Add a movie to our watchlist',
+      Icons.movie_filter_outlined,
+    ),
+    _Suggestion(
+      'Save a note to the Starlight Jar',
+      Icons.auto_awesome_outlined,
+    ),
+    _Suggestion(
+      'Plan a date for us',
+      Icons.calendar_month_outlined,
+    ),
+    _Suggestion(
+      'How are we doing today?',
+      Icons.favorite_outline_rounded,
+    ),
   ];
 
   @override
@@ -527,14 +584,14 @@ class _SuggestedGrid extends StatelessWidget {
         crossAxisCount: 2,
         crossAxisSpacing: 10,
         mainAxisSpacing: 10,
-        childAspectRatio: 2.2,
+        childAspectRatio: 1.9,
       ),
       itemCount: _suggestions.length,
       itemBuilder: (_, i) {
         return _DelayedFadeIn(
           delay: Duration(milliseconds: 200 + i * 80),
           child: GestureDetector(
-            onTap: () => onTap(_suggestions[i]),
+            onTap: () => onTap(_suggestions[i].text),
             child: AnimatedContainer(
               duration: AppMotion.fast,
               padding: const EdgeInsets.all(14),
@@ -545,12 +602,24 @@ class _SuggestedGrid extends StatelessWidget {
                   color: AppColors.blushGold.withValues(alpha: 0.1),
                 ),
               ),
-              child: Text(
-                _suggestions[i],
-                style: AppTypography.bodySmall().copyWith(
-                  color: AppColors.textMedium,
-                  height: 1.35,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    _suggestions[i].icon,
+                    size: 18,
+                    color: AppColors.blushGold.withValues(alpha: 0.8),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _suggestions[i].text,
+                    style: AppTypography.bodySmall().copyWith(
+                      color: AppColors.textMedium,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -558,6 +627,13 @@ class _SuggestedGrid extends StatelessWidget {
       },
     );
   }
+}
+
+class _Suggestion {
+  final String text;
+  final IconData icon;
+
+  const _Suggestion(this.text, this.icon);
 }
 
 // ─── Delayed fade-in wrapper ────────────────────────────────────
@@ -644,6 +720,26 @@ class _MessageBubble extends StatefulWidget {
 
 class _MessageBubbleState extends State<_MessageBubble> {
   bool _showReasoning = true;
+
+  @override
+  void didUpdateWidget(covariant _MessageBubble oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A new stream is starting: show thinking notes again.
+    if (oldWidget.isStreaming &&
+        oldWidget.text.isNotEmpty &&
+        widget.isStreaming &&
+        widget.text.isEmpty) {
+      _showReasoning = true;
+      return;
+    }
+    // Once the visible answer starts arriving, collapse the thinking notes
+    // so the reply stays front and center.
+    if (oldWidget.text.isEmpty &&
+        widget.text.isNotEmpty &&
+        widget.isStreaming) {
+      _showReasoning = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -817,26 +913,30 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           height: 1.45,
                         ),
                       )
+                    else if (widget.isStreaming && widget.text.isEmpty)
+                      _StreamingPlaceholder(
+                        toolStatus: widget.toolStatus ?? '',
+                      )
                     else
-                      widget.text.isEmpty &&
-                              widget.isStreaming &&
-                              widget.toolStatus != null &&
-                              widget.toolStatus!.isNotEmpty
-                          ? Text(
-                              _formatToolStatus(widget.toolStatus!),
-                              style: AppTypography.bodyMedium().copyWith(
-                                color: AppColors.textMuted,
-                                fontStyle: FontStyle.italic,
-                                height: 1.45,
-                              ),
-                            )
-                          : _MarkdownText(
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _MarkdownText(
                               text: widget.text,
                               baseStyle: AppTypography.bodyMedium().copyWith(
                                 color: AppColors.textHigh,
                                 height: 1.45,
                               ),
                             ),
+                          ),
+                          if (widget.isStreaming && widget.text.isNotEmpty)
+                            const Padding(
+                              padding: EdgeInsets.only(left: 4, top: 3),
+                              child: _StreamingCaret(),
+                            ),
+                        ],
+                      ),
                     if (widget.timestamp != null || widget.isStreaming)
                       Padding(
                         padding: const EdgeInsets.only(top: 5),
@@ -1002,39 +1102,175 @@ String _formatToolStatus(String status) {
   const toolNames = {
     'add_to_watchlist': 'Adding to watchlist',
     'save_to_starlight_jar': 'Saving to Starlight Jar',
+    'read_starlight_jar': 'Reading the Starlight Jar',
     'set_mood': 'Logging mood',
     'search_movies': 'Searching movies',
+    'get_watchlist': 'Reading the watchlist',
     'get_weather': 'Checking weather',
     'create_reminder': 'Creating reminder',
     'log_activity': 'Logging activity',
     'search_books': 'Searching books',
+    'add_book_to_our_books': 'Adding book to Our Books',
     'get_date_ideas': 'Getting date ideas',
     'read_chat_messages': 'Reading chat messages',
     'get_xp_stats': 'Checking XP stats',
     'search_anime': 'Searching anime',
+    'remember_fact': 'Remembering that',
   };
   return toolNames[status] ?? 'Mochi is thinking';
 }
 
-// ─── Thinking indicator ─────────────────────────────────────────
-
-class _ThinkingIndicator extends StatefulWidget {
-  final String toolStatus;
-  const _ThinkingIndicator({this.toolStatus = ''});
-  @override
-  State<_ThinkingIndicator> createState() => _ThinkingIndicatorState();
+IconData _toolIcon(String status) {
+  switch (status) {
+    case 'add_to_watchlist':
+      return Icons.playlist_add_rounded;
+    case 'save_to_starlight_jar':
+      return Icons.auto_awesome_rounded;
+    case 'read_starlight_jar':
+      return Icons.auto_awesome_outlined;
+    case 'set_mood':
+      return Icons.mood_rounded;
+    case 'search_movies':
+      return Icons.movie_outlined;
+    case 'get_watchlist':
+      return Icons.video_library_outlined;
+    case 'get_weather':
+      return Icons.cloud_outlined;
+    case 'create_reminder':
+      return Icons.alarm_add_rounded;
+    case 'log_activity':
+      return Icons.bolt_rounded;
+    case 'search_books':
+      return Icons.menu_book_outlined;
+    case 'add_book_to_our_books':
+      return Icons.library_add_outlined;
+    case 'get_date_ideas':
+      return Icons.calendar_month_outlined;
+    case 'read_chat_messages':
+      return Icons.forum_outlined;
+    case 'get_xp_stats':
+      return Icons.military_tech_rounded;
+    case 'search_anime':
+      return Icons.animation_rounded;
+    case 'remember_fact':
+      return Icons.bookmark_add_outlined;
+    default:
+      return Icons.auto_fix_high_rounded;
+  }
 }
 
-class _ThinkingIndicatorState extends State<_ThinkingIndicator>
+Color _toolAccent(String status) {
+  switch (status) {
+    case 'add_to_watchlist':
+    case 'search_movies':
+    case 'get_watchlist':
+    case 'search_anime':
+      return AppColors.blushGold;
+    case 'save_to_starlight_jar':
+    case 'read_starlight_jar':
+      return AppColors.auroraLilac;
+    case 'set_mood':
+    case 'get_weather':
+      return AppColors.auroraTeal;
+    case 'get_date_ideas':
+    case 'remember_fact':
+      return AppColors.roseQuartz;
+    default:
+      return AppColors.blushGold;
+  }
+}
+
+bool _isToolAction(String status) {
+  return status.isNotEmpty &&
+      status != 'generating' &&
+      status != 'executing' &&
+      status != 'done' &&
+      !status.startsWith('round_');
+}
+
+/// Compact pill showing which agent action Mochi is performing.
+class _ToolStatusChip extends StatelessWidget {
+  final String status;
+
+  const _ToolStatusChip({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = _toolAccent(status);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.12),
+        borderRadius: AppRadius.radiusFull,
+        border: Border.all(color: accent.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_toolIcon(status), size: 13, color: accent),
+          const SizedBox(width: 6),
+          Text(
+            _formatToolStatus(status),
+            style: AppTypography.bodySmall().copyWith(
+              fontSize: 11,
+              color: accent,
+              fontWeight: FontWeight.w500,
+              height: 1.0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Animated placeholder shown while Mochi is thinking before any text or
+/// tool activity has streamed in.
+class _StreamingPlaceholder extends StatelessWidget {
+  final String toolStatus;
+
+  const _StreamingPlaceholder({required this.toolStatus});
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isToolAction(toolStatus)) {
+      return _ToolStatusChip(status: toolStatus);
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Mochi is thinking',
+          style: AppTypography.bodyMedium().copyWith(
+            color: AppColors.textMuted,
+            height: 1.45,
+          ),
+        ),
+        const SizedBox(width: 8),
+        _ThreeDots(),
+      ],
+    );
+  }
+}
+
+/// Three animated dots, reused by the thinking states.
+class _ThreeDots extends StatefulWidget {
+  const _ThreeDots();
+
+  @override
+  State<_ThreeDots> createState() => _ThreeDotsState();
+}
+
+class _ThreeDotsState extends State<_ThreeDots>
     with SingleTickerProviderStateMixin {
-  late AnimationController _c;
+  late final AnimationController _c;
 
   @override
   void initState() {
     super.initState();
     _c = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1200),
     )..repeat();
   }
 
@@ -1043,6 +1279,89 @@ class _ThinkingIndicatorState extends State<_ThinkingIndicator>
     _c.dispose();
     super.dispose();
   }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (_, _) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (i) {
+            final t = (_c.value - i * 0.18).clamp(0.0, 1.0);
+            final opacity = (t < 0.5 ? t * 2 : (1 - t) * 2).clamp(0.3, 1.0);
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 1.5),
+              child: Opacity(
+                opacity: opacity,
+                child: Container(
+                  width: 5,
+                  height: 5,
+                  decoration: const BoxDecoration(
+                    color: AppColors.roseQuartz,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            );
+          }),
+        );
+      },
+    );
+  }
+}
+
+/// Blinking caret shown at the end of a live-streaming reply.
+class _StreamingCaret extends StatefulWidget {
+  const _StreamingCaret();
+
+  @override
+  State<_StreamingCaret> createState() => _StreamingCaretState();
+}
+
+class _StreamingCaretState extends State<_StreamingCaret>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 640),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (_, _) => Opacity(
+        opacity: 0.25 + 0.75 * _c.value,
+        child: Container(
+          width: 2.5,
+          height: 15,
+          decoration: BoxDecoration(
+            color: AppColors.blushGold,
+            borderRadius: BorderRadius.circular(1.5),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Thinking indicator ─────────────────────────────────────────
+
+class _ThinkingIndicator extends StatelessWidget {
+  final String toolStatus;
+  const _ThinkingIndicator({this.toolStatus = ''});
 
   @override
   Widget build(BuildContext context) {
@@ -1077,8 +1396,8 @@ class _ThinkingIndicatorState extends State<_ThinkingIndicator>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  widget.toolStatus.isNotEmpty
-                      ? _formatToolStatus(widget.toolStatus)
+                  toolStatus.isNotEmpty
+                      ? _formatToolStatus(toolStatus)
                       : 'Mochi is thinking',
                   style: AppTypography.bodyMedium().copyWith(
                     color: AppColors.textMuted,
@@ -1086,28 +1405,7 @@ class _ThinkingIndicatorState extends State<_ThinkingIndicator>
                   ),
                 ),
                 const SizedBox(width: 8),
-                ...List.generate(3, (i) {
-                  final delay = i * 0.2;
-                  final t = (_c.value - delay).clamp(0.0, 1.0);
-                  final opacity = (t < 0.5 ? t * 2 : (1 - t) * 2).clamp(
-                    0.3,
-                    1.0,
-                  );
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 1.5),
-                    child: Opacity(
-                      opacity: opacity,
-                      child: Container(
-                        width: 5,
-                        height: 5,
-                        decoration: const BoxDecoration(
-                          color: AppColors.roseQuartz,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  );
-                }),
+                const _ThreeDots(),
               ],
             ),
           ),
