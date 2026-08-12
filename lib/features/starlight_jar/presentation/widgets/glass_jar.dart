@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 
@@ -31,25 +30,24 @@ class GlassJar extends StatelessWidget {
           alignment: Alignment.center,
           children: [
             // The Frosty Glass Body
+            // No BackdropFilter here: on Flutter Web the blur renders as an
+            // opaque gray/white rectangle instead of a frosted panel.
             ClipPath(
               clipper: JarClipper(),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Container(
-                  width: width,
-                  height: height,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      width: 2,
-                    ),
-                    borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(80),
-                      bottomRight: Radius.circular(80),
-                      topLeft: Radius.circular(40),
-                      topRight: Radius.circular(40),
-                    ),
+              child: Container(
+                width: width,
+                height: height,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.22),
+                    width: 2,
+                  ),
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(80),
+                    bottomRight: Radius.circular(80),
+                    topLeft: Radius.circular(40),
+                    topRight: Radius.circular(40),
                   ),
                 ),
               ),

@@ -1,13 +1,16 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide FilterChip;
 import 'package:flutter/services.dart';import 'package:provider/provider.dart';
 
 import 'package:everglow/features/books/data/models/book_item.dart';
+import 'package:everglow/features/books/data/models/book_search_result.dart';
+import 'package:everglow/features/books/data/services/book_catalog_service.dart';
+import 'package:everglow/features/books/data/services/book_download_helper.dart';
 import 'package:go_router/go_router.dart';
 import 'package:everglow/features/books/data/services/open_library_service.dart';
-import 'package:everglow/features/books/presentation/widgets/book_details_drawer.dart';
 import 'package:everglow/services/auth_service.dart';
 import 'package:everglow/shared/widgets/shelf/atmospheric_backdrop.dart';
+import 'package:everglow/shared/widgets/shelf/filter_chip.dart';
 import 'package:everglow/shared/widgets/shelf/scroll_edge_fade.dart';
 import 'package:everglow/shared/widgets/shelf/shelf_icon_button.dart';
 import 'package:everglow/shared/widgets/shelf/shelf_poster_card.dart';
@@ -41,6 +44,7 @@ class BooksScreen extends StatefulWidget {
 
 class _BooksScreenState extends State<BooksScreen> {
   final OpenLibraryService _service = OpenLibraryService();
+  final BookCatalogService _catalog = BookCatalogService();
   int _currentIndex = 0;
 
   StreamSubscription<List<BookItem>>? _readlistSub;
@@ -58,9 +62,14 @@ class _BooksScreenState extends State<BooksScreen> {
   Timer? _carouselTimer;
 
   final TextEditingController _searchController = TextEditingController();
-  List<BookItem> _searchResults = [];
+  final FocusNode _searchFocusNode = FocusNode();
+  List<BookSearchResult> _searchResults = [];
   bool _isSearching = false;
   Timer? _searchDebounce;
+  BookSort _searchSort = BookSort.relevant;
+  String? _searchFiletype;
+  String? _searchLanguage;
+  bool _searchRan = false;
 
   static final List<Map<String, dynamic>> _featuredSubjects = [
     {
@@ -122,6 +131,7 @@ class _BooksScreenState extends State<BooksScreen> {
   void dispose() {
     _readlistSub?.cancel();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     _searchDebounce?.cancel();
     _carouselController.dispose();
     _carouselTimer?.cancel();
@@ -213,6 +223,7 @@ class _BooksScreenState extends State<BooksScreen> {
         setState(() {
           _searchResults = [];
           _isSearching = false;
+          _searchRan = false;
         });
       }
     });
@@ -220,28 +231,40 @@ class _BooksScreenState extends State<BooksScreen> {
 
   Future<void> _performSearch(String query) async {
     setState(() => _isSearching = true);
-    final results = await _service.searchBooks(query);
+    final results = await _catalog.search(
+      query,
+      filetype: _searchFiletype,
+      language: _searchLanguage,
+      sort: _searchSort,
+      limit: 30,
+    );
     if (mounted) {
       setState(() {
         _searchResults = results;
         _isSearching = false;
+        _searchRan = true;
       });
     }
   }
 
   void _showBookDetails(BookItem item) {
     HapticFeedback.lightImpact();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => BookDetailsDrawer(item: item),
+    context.push(
+      '/books/detail',
+      extra: BookDetailArgs(item: item),
     );
   }
 
   void _switchTab(int index) {
     HapticFeedback.selectionClick();
     setState(() => _currentIndex = index);
+  }
+
+  void _openFullDatabaseSearch() {
+    _switchTab(1);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _searchFocusNode.requestFocus();
+    });
   }
 
   @override
@@ -310,20 +333,26 @@ class _BooksScreenState extends State<BooksScreen> {
           SliverToBoxAdapter(
             child: StaggeredEntrance(
               index: 1,
+              child: _buildHomeSearch(),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: StaggeredEntrance(
+              index: 2,
               child: _buildHeroBanner(),
             ),
           ),
           if (_readHistoryList.isNotEmpty) ...[
             SliverToBoxAdapter(
               child: StaggeredEntrance(
-                index: 2,
+                index: 3,
                 child: _buildContinueReading(),
               ),
             ),
           ],
           SliverToBoxAdapter(
             child: StaggeredEntrance(
-              index: 3,
+              index: 4,
               child: _buildTrendingRankings(),
             ),
           ),
@@ -573,6 +602,63 @@ class _BooksScreenState extends State<BooksScreen> {
             onTap: () => _switchTab(1),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHomeSearch() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+      child: GestureDetector(
+        onTap: _openFullDatabaseSearch,
+        child: Container(
+          height: 52,
+          decoration: BoxDecoration(
+            color: _cCard,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _cRose.withValues(alpha: 0.15)),
+            boxShadow: [
+              BoxShadow(
+                color: _cDeepRose.withValues(alpha: 0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              const Icon(Icons.travel_explore_rounded,
+                  color: _cDeepRose, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Search the full database...',
+                  style: AppTypography.outfitWhite.copyWith(
+                    color: _cMuted,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _cDeepRose.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'FULL DATABASE',
+                  style: AppTypography.outfitBold.copyWith(
+                    color: _cDeepRose,
+                    fontSize: 8.5,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -973,10 +1059,11 @@ class _BooksScreenState extends State<BooksScreen> {
             ),
             child: TextField(
               controller: _searchController,
+              focusNode: _searchFocusNode,
               onChanged: _onSearchChanged,
               style: AppTypography.outfitWhite.copyWith(color: _cWhite, fontSize: 15),
               decoration: InputDecoration(
-                hintText: 'Books, authors, subjects...',
+                hintText: 'Title, author, subject...',
                 hintStyle:
                     AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 15),
                 prefixIcon: Padding(
@@ -1000,51 +1087,538 @@ class _BooksScreenState extends State<BooksScreen> {
                     strokeWidth: 2.5,
                   ),
                 )
-              : _searchResults.isEmpty
-                  ? _buildSearchEmptyState()
-                  : GridView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      physics: const BouncingScrollPhysics(),
-                      gridDelegate:
-                          SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: AppBreakpoint.isDesktop(context)
-                            ? 6
-                            : (AppBreakpoint.isTablet(context) ? 4 : 2),
-                        childAspectRatio: 0.62,
-                        crossAxisSpacing: 14,
-                        mainAxisSpacing: 14,
+              : Column(
+                  children: [
+                    _buildSearchFilters(),
+                    if (!_searchRan && _searchResults.isEmpty)
+                      Expanded(child: _buildSearchEmptyState())
+                    else if (_searchResults.isEmpty)
+                      Expanded(
+                        child: _buildSearchEmptyState(
+                          title: 'No results found',
+                          subtitle:
+                              'Try a different title, author, or subject. The full database covers Open Library, Project Gutenberg, and the Internet Archive.',
+                          icon: Icons.search_off_rounded,
+                        ),
+                      )
+                    else ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 6),
+                        child: Row(
+                          children: [
+                            Text(
+                              '${_searchResults.length} RESULTS',
+                              style: AppTypography.outfitHeading.copyWith(
+                                fontSize: 9,
+                                color: _cMuted,
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              'FULL DATABASE',
+                              style: AppTypography.outfitWhite.copyWith(
+                                fontSize: 10,
+                                color: _cDeepRose,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      itemCount: _searchResults.length,
-                      itemBuilder: (context, index) {
-                        final book = _searchResults[index];
-                        return ShelfPosterCard(
-                          imageUrl: book.coverUrl,
-                          title: book.title,
-                          subtitle: book.author.isNotEmpty
-                              ? 'by ${book.author}'
-                              : (book.year.isNotEmpty ? book.year : null),
-                          badge: 'BOOK',
-                          badgeIcon: Icons.menu_book_rounded,
-                          onTap: () => _showBookDetails(book),
-                        );
-                      },
-                    ),
+                      Expanded(
+                        child: ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: _searchResults.length,
+                          itemBuilder: (context, index) =>
+                              _buildResultRow(_searchResults[index]),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
         ),
       ],
     );
   }
 
-  Widget _buildSearchEmptyState() {
+  Widget _buildSearchFilters() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _cCard,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                        color: _cRose.withValues(alpha: 0.12)),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<BookSort>(
+                      value: _searchSort,
+                      dropdownColor: _cCard,
+                      style: AppTypography.outfitWhite.copyWith(
+                        color: _cWhite,
+                        fontSize: 11.5,
+                      ),
+                      icon: const Icon(Icons.expand_more_rounded,
+                          color: _cMuted, size: 16),
+                      items: const [
+                        DropdownMenuItem(
+                          value: BookSort.relevant,
+                          child: Text('Order: relevant'),
+                        ),
+                        DropdownMenuItem(
+                          value: BookSort.popular,
+                          child: Text('Order: most popular'),
+                        ),
+                        DropdownMenuItem(
+                          value: BookSort.newest,
+                          child: Text('Order: newest'),
+                        ),
+                        DropdownMenuItem(
+                          value: BookSort.oldest,
+                          child: Text('Order: oldest'),
+                        ),
+                        DropdownMenuItem(
+                          value: BookSort.largest,
+                          child: Text('Order: largest'),
+                        ),
+                        DropdownMenuItem(
+                          value: BookSort.smallest,
+                          child: Text('Order: smallest'),
+                        ),
+                        DropdownMenuItem(
+                          value: BookSort.random,
+                          child: Text('Order: random'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) return;
+                        HapticFeedback.selectionClick();
+                        setState(() => _searchSort = value);
+                        if (_searchController.text.trim().isNotEmpty) {
+                          _performSearch(_searchController.text.trim());
+                        }
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                for (final ft in BookCatalogService.supportedFiletypes)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: FilterChip(
+                      icon: _filetypeIcon(ft),
+                      label: ft.toUpperCase(),
+                      color: _cDeepRose,
+                      selected: _searchFiletype == ft,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() {
+                          _searchFiletype =
+                              _searchFiletype == ft ? null : ft;
+                        });
+                        if (_searchController.text.trim().isNotEmpty) {
+                          _performSearch(_searchController.text.trim());
+                        }
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: [
+                for (final lang in [
+                  'All',
+                  ...BookCatalogService.supportedLanguages.take(6),
+                ])
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: FilterChip(
+                      icon: Icons.language_rounded,
+                      label: lang,
+                      color: _cAmber,
+                      selected:
+                          (lang == 'All' && _searchLanguage == null) ||
+                              _searchLanguage == lang,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() {
+                          _searchLanguage = lang == 'All' ? null : lang;
+                        });
+                        if (_searchController.text.trim().isNotEmpty) {
+                          _performSearch(_searchController.text.trim());
+                        }
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _filetypeIcon(String ft) {
+    switch (ft) {
+      case 'pdf':
+        return Icons.picture_as_pdf_rounded;
+      case 'epub':
+        return Icons.menu_book_rounded;
+      case 'mobi':
+        return Icons.phone_iphone_rounded;
+      case 'txt':
+        return Icons.article_rounded;
+      case 'html':
+        return Icons.language_rounded;
+      default:
+        return Icons.insert_drive_file_rounded;
+    }
+  }
+
+  Widget _buildResultRow(BookSearchResult result) {
+    final book = result.toBookItem();
+    final canRead = result.readCandidates.isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          context.push(
+            '/books/detail',
+            extra: BookDetailArgs(item: book, result: result),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: _cCard.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _cRose.withValues(alpha: 0.08)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: SizedBox(
+                  width: 58,
+                  height: 82,
+                  child: result.coverUrl.isNotEmpty
+                      ? Image.network(
+                          result.coverUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) =>
+                              Container(color: _cBlack),
+                        )
+                      : Container(
+                          color: _cBlack,
+                          child: const Icon(
+                            Icons.menu_book_rounded,
+                            color: _cMuted,
+                            size: 22,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      result.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.outfitBold.copyWith(
+                        color: _cWhite,
+                        fontSize: 13.5,
+                        height: 1.2,
+                      ),
+                    ),
+                    if (result.author.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        result.author,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: _cMuted,
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                    if (result.metaLine.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        result.metaLine,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: _cGold.withValues(alpha: 0.85),
+                          fontSize: 10.5,
+                        ),
+                      ),
+                    ],
+                    if (result.hasRating) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          for (var i = 1; i <= 5; i++)
+                            Icon(
+                              i <= result.rating!.round()
+                                  ? Icons.star_rounded
+                                  : Icons.star_border_rounded,
+                              color: _cGold,
+                              size: 13,
+                            ),
+                          const SizedBox(width: 4),
+                          Text(
+                            result.rating!.toStringAsFixed(1),
+                            style: AppTypography.outfitBold.copyWith(
+                              color: _cMuted,
+                              fontSize: 10.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else if (result.ratingCount != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '${_compactCount(result.ratingCount!)} downloads',
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: _cMuted,
+                          fontSize: 10.5,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        _RowAction(
+                          icon: Icons.headphones_rounded,
+                          tooltip: 'Listen',
+                          color: _cAmber,
+                          onTap: canRead
+                              ? () => context.push('/books/listen',
+                                  extra: book)
+                              : null,
+                        ),
+                        _RowAction(
+                          icon: Icons.auto_stories_rounded,
+                          tooltip: 'Read',
+                          color: _cDeepRose,
+                          onTap: canRead
+                              ? () => context.push('/books/reader',
+                                  extra: book)
+                              : null,
+                        ),
+                        _RowAction(
+                          icon: Icons.download_rounded,
+                          tooltip: 'Download',
+                          color: const Color(0xFF2E7D32),
+                          onTap: result.downloadUrls.isNotEmpty
+                              ? () => _showRowDownload(result)
+                              : null,
+                        ),
+                        _RowAction(
+                          icon: Icons.share_rounded,
+                          tooltip: 'Share',
+                          color: const Color(0xFF1976D2),
+                          onTap: () => _shareResult(result),
+                        ),
+                        _RowAction(
+                          icon: Icons.bookmark_border_rounded,
+                          tooltip: 'Save',
+                          color: const Color(0xFF7B1FA2),
+                          onTap: () => _saveResult(result),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _compactCount(int n) {
+    if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
+    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K';
+    return '$n';
+  }
+
+  void _showRowDownload(BookSearchResult result) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: _cCard,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: _cRose.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Text(
+              'Download',
+              style: AppTypography.cormorantBlack.copyWith(
+                fontSize: 24,
+                color: _cWhite,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Public-domain formats from ${result.sourceLabel}',
+              style: AppTypography.outfitWhite.copyWith(
+                color: _cMuted,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 16),
+            for (final entry in result.downloadUrls.entries)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: _cDeepRose.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        entry.key.toUpperCase(),
+                        style: AppTypography.outfitBold.copyWith(
+                          color: _cDeepRose,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        '${entry.key.toUpperCase()} file',
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: _cWhite,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => downloadUrl(entry.value),
+                      style: TextButton.styleFrom(
+                        backgroundColor: _cDeepRose,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Download'),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _shareResult(BookSearchResult result) async {
+    HapticFeedback.selectionClick();
+    String url = '';
+    if (result.gutenbergId > 0) {
+      url = 'https://www.gutenberg.org/ebooks/${result.gutenbergId}';
+    } else if (result.iaId.isNotEmpty) {
+      url = 'https://archive.org/details/${result.iaId}';
+    } else if (result.workKey.isNotEmpty) {
+      url = 'https://openlibrary.org${result.workKey}';
+    }
+    await Clipboard.setData(
+        ClipboardData(text: '$url\n${result.title}'));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Link copied'),
+        backgroundColor: _cDeepRose,
+        behavior: SnackBarBehavior.floating,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _saveResult(BookSearchResult result) async {
+    HapticFeedback.selectionClick();
+    final userName = context.read<AuthService>().currentUser ?? '';
+    if (userName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please sign in to save books'),
+          backgroundColor: _cDeepRose,
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+    await _service.saveToReadList(
+        result.toBookItem(), 'to-read', userName);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Saved to your reading list'),
+        backgroundColor: _cDeepRose,
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Widget _buildSearchEmptyState({
+    String title = 'Type to discover magic',
+    String subtitle =
+        'Search any book, author, or subject across the full database.',
+    IconData icon = Icons.travel_explore_rounded,
+  }) {
     return ShelfEmptyState(
-      icon: _searchController.text.isEmpty
-          ? Icons.travel_explore_rounded
-          : Icons.search_off_rounded,
-      title: _searchController.text.isEmpty
-          ? 'Type to discover magic'
-          : 'No results found',
-      subtitle: _searchController.text.isEmpty
-          ? 'Search any book, author, or subject to add it to your shelf or mark it as read.'
-          : 'Try a different keyword — Open Library is vast.',
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
       accent: _cDeepRose,
     );
   }
@@ -1374,6 +1948,50 @@ class _RankingTile extends StatelessWidget {
             const Icon(Icons.chevron_right_rounded,
                 color: _cMuted, size: 18),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RowAction extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final Color color;
+  final VoidCallback? onTap;
+
+  const _RowAction({
+    required this.icon,
+    required this.tooltip,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Tooltip(
+          message: tooltip,
+          child: Opacity(
+            opacity: enabled ? 1.0 : 0.3,
+            child: Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(
+                  color: color.withValues(alpha: 0.3),
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Icon(icon, color: color, size: 15),
+            ),
+          ),
         ),
       ),
     );

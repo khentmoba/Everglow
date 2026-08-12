@@ -346,7 +346,7 @@ class _AnimatedDoorState extends State<AnimatedDoor>
                 left: 0,
                 right: 0,
                 child: Text(
-                  'Khent & Clair  |  Feb 14, 2026',
+                  'Khent & Clair',
                   textAlign: TextAlign.center,
                   style: AppTypography.handwrittenBody().copyWith(
                     fontSize: 15,

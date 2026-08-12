@@ -51,6 +51,7 @@ class AIService extends ChangeNotifier {
     required String message,
     String? contextOverride,
     bool stream = false,
+    bool enableThinking = true,
     String? callerName, // 'khentsgdz' or 'clairjassen'
     void Function(String toolStatus)? onToolStatus,
     List<String> imageUrls = const [],
@@ -59,13 +60,15 @@ class AIService extends ChangeNotifier {
     _lastError = null;
     _draftResponse = '';
     _draftReasoning = '';
+    _toolStatus = '';
 
+    AIConversation? conversation;
 
     // Determine who's chatting
     final caller = callerName ?? _auth.currentUser?.uid ?? 'unknown';
 
     try {
-      final conversation = await _getOrCreateConversation(feature);
+      conversation = await _getOrCreateConversation(feature);
 
       // For assistant: on first message of fresh session, load last session's history
       if (feature == 'assistant' && conversation.messages.isEmpty) {
@@ -113,7 +116,7 @@ class AIService extends ChangeNotifier {
         }, onError: (error) {
           _lastError = error;
           notifyListeners();
-        });
+        }, enableThinking: enableThinking);
         _draftResponse = '';
         _draftReasoning = '';
         _toolStatus = '';
@@ -122,8 +125,11 @@ class AIService extends ChangeNotifier {
         reply = await _callProxyAI(recentMessages, context, _memoryRepo.all, feature, caller);
       }
 
-      // Add assistant reply
-      conversation.messages.add(AIMessage(role: 'assistant', content: reply));
+      // Add assistant reply (skip empty replies, e.g. tool-only rounds that
+      // produced no visible text).
+      if (reply.trim().isNotEmpty) {
+        conversation.messages.add(AIMessage(role: 'assistant', content: reply));
+      }
 
       // Persist to Firestore (keep last 50 messages max)
       if (conversation.messages.length > 50) {
@@ -155,7 +161,17 @@ class AIService extends ChangeNotifier {
       _isLoading = false;
       _draftResponse = '';
       _draftReasoning = '';
+      _toolStatus = '';
       _lastError = e.toString();
+      // Roll back the optimistic user message so a retry doesn't duplicate it.
+      if (conversation != null &&
+          conversation.messages.isNotEmpty &&
+          conversation.messages.last.role == 'user' &&
+          conversation.messages.last.content == message &&
+          conversation.messages.last.imageUrls.length == imageUrls.length) {
+        conversation.messages.removeLast();
+        _setConversation(feature, conversation);
+      }
       notifyListeners();
       rethrow;
     }
@@ -411,12 +427,23 @@ class AIService extends ChangeNotifier {
     void Function(String chunk)? onReasoning,
     void Function(String toolStatus)? onToolStatus,
     void Function(String error)? onError,
+    bool enableThinking = true,
   }) async {
     const maxRetries = 2;
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         return await _callProxyAIStreamOnce(
-            messages, context, memories, feature, caller, onChunk, onReasoning, onToolStatus, onError);
+          messages,
+          context,
+          memories,
+          feature,
+          caller,
+          onChunk,
+          onReasoning,
+          onToolStatus,
+          onError,
+          enableThinking: enableThinking,
+        );
       } catch (e) {
         final isTransient = e is SocketException ||
             e is TimeoutException ||
@@ -443,6 +470,9 @@ class AIService extends ChangeNotifier {
     void Function(String chunk)? onReasoning,
     void Function(String toolStatus)? onToolStatus,
     void Function(String error)? onError,
+    {
+    bool enableThinking = true,
+    }
   ) async {
     final idToken = await _auth.currentUser?.getIdToken() ?? '';
     final body = jsonEncode({
@@ -452,7 +482,7 @@ class AIService extends ChangeNotifier {
       'feature': feature,
       'caller': caller,
       'stream': true, // enables real SSE streaming from the backend
-      'enableThinking': true, // enable Agnes thinking mode for better reasoning
+      'enableThinking': enableThinking,
     });
 
     return streamSseResponse(
