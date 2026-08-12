@@ -118,6 +118,7 @@ Future<String> streamSseResponse({
     });
   }
 
+  Future<String> responseFuture = completer.future;
   try {
     final ac = web.AbortController();
     final requestHeaders = web.Headers();
@@ -161,45 +162,45 @@ Future<String> streamSseResponse({
         finish,
         completer,
       );
-      return completer.future;
-    }
-
-    final reader = stream.getReader() as web.ReadableStreamDefaultReader;
-    // The reply accumulator is written only by [_processSseData]; decoded
-    // chunk text goes through a separate buffer so it can be cleared without
-    // ever touching the accumulated reply.
-    final decodedBuffer = StringBuffer();
-    final decoderSink = const Utf8Decoder(allowMalformed: true)
-        .startChunkedConversion(_StringBufferSink(decodedBuffer));
-    try {
-      while (true) {
-        final chunk = await reader.read().toDart;
-        // The final chunk can carry `done: true` together with a value, so
-        // process the value before checking the completion flag.
-        final value = chunk.value;
-        if (value != null) {
-          final bytes = (value as JSUint8Array).toDart;
-          decoderSink.add(bytes);
-          final text = decodedBuffer.toString();
-          decodedBuffer.clear();
-          processText(text);
+      responseFuture = completer.future;
+    } else {
+      final reader = stream.getReader() as web.ReadableStreamDefaultReader;
+      // The reply accumulator is written only by [_processSseData]; decoded
+      // chunk text goes through a separate buffer so it can be cleared without
+      // ever touching the accumulated reply.
+      final decodedBuffer = StringBuffer();
+      final decoderSink = const Utf8Decoder(allowMalformed: true)
+          .startChunkedConversion(_StringBufferSink(decodedBuffer));
+      try {
+        while (true) {
+          final chunk = await reader.read().toDart;
+          // The final chunk can carry `done: true` together with a value, so
+          // process the value before checking the completion flag.
+          final value = chunk.value;
+          if (value != null) {
+            final bytes = (value as JSUint8Array).toDart;
+            decoderSink.add(bytes);
+            final text = decodedBuffer.toString();
+            decodedBuffer.clear();
+            processText(text);
+          }
+          if (chunk.done) break;
         }
-        if (chunk.done) break;
+        decoderSink.close();
+      } finally {
+        reader.releaseLock();
       }
-      decoderSink.close();
-    } finally {
-      reader.releaseLock();
+      finish();
+      timeoutTimer?.cancel();
+      responseFuture = completer.future;
     }
-    finish();
-    timeoutTimer?.cancel();
-    return completer.future;
   } catch (e) {
     timeoutTimer?.cancel();
     if (!completer.isCompleted) {
       completer.completeError(e);
     }
-    return completer.future;
   }
+  return responseFuture;
 }
 
 /// XHR polling fallback: reads `responseText` on a timer so chunks surface
