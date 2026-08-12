@@ -251,9 +251,9 @@ class _MochiScreenState extends State<MochiScreen> {
       {int maxDim = 1280}) async {
     final blob = html.Blob([bytes]);
     final objectUrl = html.Url.createObjectUrlFromBlob(blob);
+    final completer = Completer<String>();
     try {
       final img = html.ImageElement();
-      final completer = Completer<String>();
       img.onLoad.listen((_) async {
         try {
           final scale = math.min(
@@ -290,11 +290,14 @@ class _MochiScreenState extends State<MochiScreen> {
         }
       });
       img.src = objectUrl;
-      return completer.future;
+      await completer.future;
     } catch (e) {
       html.Url.revokeObjectUrl(objectUrl);
-      rethrow;
+      if (!completer.isCompleted) {
+        completer.completeError(e);
+      }
     }
+    return completer.future;
   }
 
   void _removeImage(int index) {
