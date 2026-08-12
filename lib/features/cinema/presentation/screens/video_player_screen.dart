@@ -367,8 +367,10 @@ _currentSeason = widget.season ?? 1;
         source: widget.isAnime ? 'jikan' : 'tmdb',
       ),
       userName,
-      season: _currentSeason,
-      episode: _currentEpisode,
+      // Movies don't have episode progress - write null so existing
+      // movie docs get their stale season/episode fields cleared.
+      season: widget.mediaType == 'tv' ? _currentSeason : null,
+      episode: widget.mediaType == 'tv' ? _currentEpisode : null,
       timestamp: 0,
       status: status,
     );

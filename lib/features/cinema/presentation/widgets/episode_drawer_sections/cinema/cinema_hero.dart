@@ -16,6 +16,9 @@ class CinemaHero extends StatelessWidget {
   final bool isLoadingTrailer;
   final bool isPlayingTrailer;
   final bool isMobile;
+  /// True when the trailer started from a tap on the Watch Trailer button.
+  /// Auto-play stays muted so browser autoplay policies don't block it.
+  final bool trailerUserInitiated;
   final bool isWide;
   final String year;
   final String rating;
@@ -35,6 +38,7 @@ class CinemaHero extends StatelessWidget {
     required this.isLoadingTrailer,
     required this.isPlayingTrailer,
     required this.isMobile,
+    required this.trailerUserInitiated,
     required this.isWide,
     required this.year,
     required this.rating,
@@ -77,7 +81,9 @@ class CinemaHero extends StatelessWidget {
       children: [
         TrailerPlayer(
           videoKey: trailerKey!,
-          muted: isMobile,
+          // Mobile is always muted; desktop is muted only when the trailer
+          // auto-played (tap-to-play is a user gesture, so sound is fine).
+          muted: isMobile || !trailerUserInitiated,
           autoplay: true,
           loop: true,
         ),

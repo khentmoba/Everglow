@@ -21,7 +21,6 @@ import '../../../../features/guardian/presentation/controllers/guardian_controll
 import 'package:everglow/features/guardian/presentation/widgets/roaming/roaming_guardian_controller.dart';
 import 'package:everglow/features/guardian/presentation/widgets/roaming/roaming_guardian_layer.dart';
 import 'package:everglow/features/guardian/presentation/widgets/roaming/roaming_cat_visual_web.dart';
-import 'package:everglow/features/guardian/presentation/widgets/roaming/roaming_cat_sprite.dart';
 import 'package:everglow/features/daily_bloom/presentation/widgets/daily_bloom.dart';
 import 'package:everglow/features/daily_bloom/presentation/providers/garden_provider.dart';
 import 'package:everglow/services/auth_service.dart';
@@ -301,9 +300,9 @@ class _DashboardScreenState extends State<DashboardScreen>
             child: RoamingGuardianLayer(
               controller: _roamingGuardian,
               depth: CatDepth.behind,
-              // Platform views can't be occluded by CanvasKit content, so the
-              // behind layer uses the painted sprite (true z-order).
-              visualBuilder: buildRoamingCatSprite,
+              // Both layers render the real 3D model into the canvas, so it
+              // keeps its 3D look even when walking behind widgets.
+              visualBuilder: buildRoamingCatVisual,
             ),
           ),
           SafeArea(

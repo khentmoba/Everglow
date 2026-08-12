@@ -115,6 +115,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   String? _trailerKey;
   bool _isLoadingTrailer = false;
   bool _isPlayingTrailer = false;
+  /// True when playback started from a tap on the Watch Trailer button.
+  /// Auto-play (drawer open) stays muted so browsers don't block it.
+  bool _trailerUserInitiated = false;
   bool _isMobile = false;
 
   /// Controller for the horizontal status chip scroll area. On web,
@@ -191,10 +194,12 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         setState(() {
           _trailerKey = key;
           _isLoadingTrailer = false;
-          // On mobile, auto-play the trailer as soon as the key is ready so
-          // the user immediately sees it when they open the info sheet.
-          // Desktop keeps the existing tap-to-play behavior.
-          if (_isMobile && key != null) {
+          // The cinema variant auto-plays the trailer as soon as the key is
+          // ready, on every screen size, so the hero opens playing instead of
+          // asking the user to tap Watch Trailer. Dashboard previews keep
+          // their existing behavior: mobile auto-plays, desktop tap-to-play.
+          if ((widget.cinemaVariant || _isMobile) && key != null) {
+            _trailerUserInitiated = false;
             _isPlayingTrailer = true;
           }
         });
@@ -1225,8 +1230,10 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                   runtime: runtime,
                   title: widget.item.title,
                   isDetailsLoading: _details == null,
-                  onToggleTrailer: () =>
-                      setState(() => _isPlayingTrailer = true),
+                  onToggleTrailer: () => setState(() {
+                    _trailerUserInitiated = true;
+                    _isPlayingTrailer = true;
+                  }),
                   onCloseTrailer: () =>
                       setState(() => _isPlayingTrailer = false),
                   onClose: () => Navigator.pop(context),
@@ -1638,7 +1645,11 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                 runtime: runtime,
                 title: widget.item.title,
                 isDetailsLoading: _details == null,
-                onToggleTrailer: () => setState(() => _isPlayingTrailer = true),
+                trailerUserInitiated: _trailerUserInitiated,
+                onToggleTrailer: () => setState(() {
+                  _trailerUserInitiated = true;
+                  _isPlayingTrailer = true;
+                }),
                 onCloseTrailer: () => setState(() => _isPlayingTrailer = false),
                 onClose: () => Navigator.pop(context),
               ),

@@ -100,6 +100,12 @@ class MediaItem {
       status == 'watched-both' ||
       status == 'watched-self';
 
+  /// True when this title is a film rather than an episodic series.
+  /// Anything that is not a TV series (`mediaType != 'tv'`, e.g. movies
+  /// and anime films) is treated as a movie so episode progress labels
+  /// are never rendered for it.
+  bool get isMovie => mediaType != 'tv';
+
   /// Always returns a full image URL. If [posterPath] is already absolute
   /// (starts with `http`), it is returned as-is.  When it is a relative
   /// TMDB path like `/abc.jpg`, the w500 base URL is prepended.
