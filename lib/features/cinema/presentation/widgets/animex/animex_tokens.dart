@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Design tokens for the Everglow anime section, modeled on the reference
-/// anime streaming UI: near-black blue-tinted surfaces, a warm orange
+/// anime streaming UI: near-black blue-tinted surfaces, the Everglow rose
 /// accent, Bebas Neue display type and DM Sans interface type.
 abstract final class AnimeXTokens {
   static const Color bg = Color(0xFF0A0A0F);
@@ -9,9 +9,10 @@ abstract final class AnimeXTokens {
   static const Color surfaceRaised = Color(0xFF1A1A26);
   static const Color border = Color(0x1FFFFFFF);
   static const Color borderStrong = Color(0x33FFFFFF);
-  static const Color accent = Color(0xFFEA580C);
-  static const Color accentHover = Color(0xFFD94A08);
-  static const Color accentWarm = Color(0xFFF59E0B);
+  static const Color accent = Color(0xFFC2185B); // Everglow deepRose
+  static const Color accentHover = Color(0xFFA0154A); // darker rose hover
+  static const Color accentWarm = Color(0xFFFF6F91); // Everglow auroraRose
+  static const Color accentGlow = Color(0xFFFF6F91); // glow / highlights
   static const Color textPrimary = Color(0xFFF8F8F8);
   static const Color textSecondary = Color(0xFF8B8B9E);
   static const Color textMuted = Color(0xFF4A4A5E);

@@ -131,6 +131,16 @@ class AIService extends ChangeNotifier {
         conversation.messages.add(AIMessage(role: 'assistant', content: reply));
       }
 
+      // Publish the finished reply to the UI immediately so the loading
+      // state ends as soon as the stream does; Firestore writes below can
+      // take seconds and must not hold the chat in "thinking".
+      _isLoading = false;
+      _draftResponse = '';
+      _draftReasoning = '';
+      _toolStatus = '';
+      _setConversation(feature, conversation);
+      notifyListeners();
+
       // Persist to Firestore (keep last 50 messages max)
       if (conversation.messages.length > 50) {
         conversation.messages.removeRange(0, conversation.messages.length - 50);
@@ -148,14 +158,9 @@ class AIService extends ChangeNotifier {
         }
       }
 
-      // Update cache
-      _setConversation(feature, conversation);
-
       // After every exchange, try to extract and save new memories (fire-and-forget)
       unawaited(_extractAndSaveMemories(message, reply));
 
-      _isLoading = false;
-      notifyListeners();
       return reply;
     } catch (e) {
       _isLoading = false;

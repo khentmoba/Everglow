@@ -394,15 +394,15 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
   }
 
   /// Cloud Function URL for proxying book text requests.
-  /// Defaults to the deployed `proxyBookText` function. When the
-  /// app is built with `--dart-define=USE_FIREBASE_EMULATOR=true`
-  /// (e.g. `flutter run -d chrome --dart-define=USE_FIREBASE_EMULATOR=true`
-  /// against `firebase emulators:start --only functions`), it
+  /// Defaults to the Firebase Hosting rewrite for the deployed
+  /// `proxyBookText` function (same-origin, so it works even when
+  /// the raw Cloud Functions URL is IAM-restricted). When the app
+  /// is built with `--dart-define=USE_FIREBASE_EMULATOR=true` it
   /// points at the local Functions emulator instead.
   static const String _proxyUrl = String.fromEnvironment(
     'BOOK_PROXY_URL',
     defaultValue:
-        'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyBookText',
+        'https://everglow-1c6db.web.app/api/proxyBookText',
   );
 
   static const bool _useFunctionsEmulator = bool.fromEnvironment(
@@ -429,11 +429,13 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
       return FetchResult.empty('No read source URLs available.');
     }
     try {
-      final response = await http.post(
-        Uri.parse(_proxyEndpoint),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'urls': candidates}),
-      );
+      final response = await http
+          .post(
+            Uri.parse(_proxyEndpoint),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({'urls': candidates}),
+          )
+          .timeout(const Duration(seconds: 20));
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
         final text = data['text'] as String? ?? '';
@@ -461,10 +463,18 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
     for (var i = 0; i < candidates.length; i++) {
       final url = candidates[i];
       try {
-        final response = await http.get(Uri.parse(url));
-        if (response.statusCode == 200 && response.body.trim().isNotEmpty) {
+        final response = await http
+            .get(
+              Uri.parse(url),
+              headers: const {'Accept': 'text/plain'},
+            )
+            .timeout(const Duration(seconds: 20));
+        final body = response.body;
+        if (response.statusCode == 200 &&
+            body.trim().isNotEmpty &&
+            !_looksLikeHtml(body)) {
           return FetchResult(
-            text: response.body,
+            text: body,
             usedUrl: url,
             attempted: candidates.take(i + 1).toList(),
           );
@@ -502,6 +512,19 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
   bool _looksLikePlainText(String url) {
     final lower = url.toLowerCase();
     return lower.endsWith('.txt') || lower.contains('gutenberg.org');
+  }
+
+  /// Heuristic guard against proxied/redirected HTML pages being
+  /// mistaken for book text (e.g. Internet Archive borrow pages).
+  bool _looksLikeHtml(String text) {
+    final trimmed = text.trimLeft();
+    if (trimmed.isEmpty) return false;
+    if (trimmed.toLowerCase().startsWith('<!doctype') ||
+        trimmed.toLowerCase().startsWith('<html')) {
+      return true;
+    }
+    // Borrow/error pages are typically short HTML or contain a title.
+    return trimmed.startsWith('<') && trimmed.length < 4096;
   }
 }
 

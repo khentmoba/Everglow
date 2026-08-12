@@ -31,14 +31,28 @@ Future<String> streamSseResponse({
   final fullResponse = StringBuffer();
   final completer = Completer<String>();
   var lineBuffer = '';
+  // SSE data payloads waiting to be rendered. Network chunks can contain
+  // dozens of events at once (especially after a thinking phase), so we
+  // drain them frame-by-frame at a visible pace instead of letting a burst
+  // paint the whole reply in a single frame.
+  final pending = <String>[];
+  var drainScheduled = false;
+  var streamDone = false;
 
-  void processText(String text) {
-    lineBuffer += text;
-    final lines = lineBuffer.split('\n');
-    lineBuffer = lines.removeLast();
-    for (final line in lines) {
-      _processSseLine(
-        line,
+  void completeRequest() {
+    if (!completer.isCompleted) {
+      completer.complete(fullResponse.toString());
+    }
+  }
+
+  void drain() {
+    if (pending.isEmpty) return;
+    var budget = 4;
+    while (pending.isNotEmpty && budget > 0) {
+      budget--;
+      final data = pending.removeAt(0);
+      _processSseData(
+        data,
         fullResponse,
         onChunk,
         onReasoning: onReasoning,
@@ -46,21 +60,50 @@ Future<String> streamSseResponse({
         onError: onError,
       );
     }
+    if (pending.isEmpty && streamDone) {
+      completeRequest();
+    }
+  }
+
+  void startDrain() {
+    if (drainScheduled) return;
+    drainScheduled = true;
+    // Drive pacing with requestAnimationFrame: browser timers get throttled
+    // hard while the app's animations run, which made reply bursts appear
+    // all at once. Frame callbacks run on the same clock as the app's own
+    // animations, so the queue drains at a steady visible pace.
+    html.window.requestAnimationFrame((_) {
+      drainScheduled = false;
+      drain();
+      if (pending.isNotEmpty) startDrain();
+    });
+  }
+
+  void processText(String text) {
+    lineBuffer += text;
+    final lines = lineBuffer.split('\n');
+    lineBuffer = lines.removeLast();
+    for (final line in lines) {
+      final trimmed = line.trimRight();
+      if (!trimmed.startsWith('data: ')) continue;
+      pending.add(trimmed.substring(6).trim());
+    }
+    startDrain();
   }
 
   void finish() {
-    if (lineBuffer.isEmpty) return;
-    final lines = lineBuffer.split('\n');
+    streamDone = true;
+    if (lineBuffer.isNotEmpty) {
+      final trimmed = lineBuffer.trimRight();
+      if (trimmed.startsWith('data: ')) {
+        pending.add(trimmed.substring(6).trim());
+      }
+    }
     lineBuffer = '';
-    for (final line in lines) {
-      _processSseLine(
-        line,
-        fullResponse,
-        onChunk,
-        onReasoning: onReasoning,
-        onToolStatus: onToolStatus,
-        onError: onError,
-      );
+    if (pending.isEmpty) {
+      completeRequest();
+    } else {
+      startDrain();
     }
   }
 
@@ -116,14 +159,13 @@ Future<String> streamSseResponse({
         timeout,
         processText,
         finish,
-        fullResponse,
         completer,
       );
       return completer.future;
     }
 
     final reader = stream.getReader() as web.ReadableStreamDefaultReader;
-    // The reply accumulator is written only by [_processSseLine]; decoded
+    // The reply accumulator is written only by [_processSseData]; decoded
     // chunk text goes through a separate buffer so it can be cleared without
     // ever touching the accumulated reply.
     final decodedBuffer = StringBuffer();
@@ -150,9 +192,6 @@ Future<String> streamSseResponse({
     }
     finish();
     timeoutTimer?.cancel();
-    if (!completer.isCompleted) {
-      completer.complete(fullResponse.toString());
-    }
     return completer.future;
   } catch (e) {
     timeoutTimer?.cancel();
@@ -172,7 +211,6 @@ void _streamViaXhr(
   Duration timeout,
   void Function(String text) processText,
   void Function() finish,
-  StringBuffer fullResponse,
   Completer<String> completer,
 ) {
   final xhr = html.HttpRequest();
@@ -194,11 +232,8 @@ void _streamViaXhr(
     if (xhr.readyState != 4) return;
     finished = true;
     timer.cancel();
-    finish();
     if (xhr.status == 200) {
-      if (!completer.isCompleted) {
-        completer.complete(fullResponse.toString());
-      }
+      finish();
       return;
     }
     String errorMsg;
@@ -238,20 +273,16 @@ class _StringBufferSink implements ChunkedConversionSink<String> {
   void close() {}
 }
 
-/// Process a single complete SSE line (split on `\n`, without the trailing
-/// newline). Throws on `error` events so callers surface them like errors.
-void _processSseLine(
-  String line,
+/// Process a single SSE `data:` payload (already stripped of the `data: `
+/// prefix and trailing newline).
+void _processSseData(
+  String data,
   StringBuffer fullResponse,
   void Function(String chunk) onChunk, {
   void Function(String chunk)? onReasoning,
   void Function(String toolStatus)? onToolStatus,
   void Function(String error)? onError,
 }) {
-  final trimmed = line.trimRight();
-  if (trimmed.isEmpty) return;
-  if (!trimmed.startsWith('data: ')) return;
-  final data = trimmed.substring(6).trim();
   if (data == '[DONE]') return;
   try {
     final parsed = jsonDecode(data) as Map<String, dynamic>;

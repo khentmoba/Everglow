@@ -3,10 +3,12 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../data/models/music_status.dart';
 import '../../data/models/top_music_track.dart';
+import '../../data/models/lastfm_image_utils.dart';
 import '../providers/music_stats_provider.dart';
 import 'listen_along_popup.dart';
 import 'package:everglow/core/theme/app_colors.dart';
 import 'package:everglow/core/theme/app_radius.dart';
+import 'package:everglow/core/theme/app_spacing.dart';
 import 'package:everglow/core/theme/app_typography.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_skeleton.dart';
 
@@ -27,23 +29,23 @@ class MusicStatsSection extends StatelessWidget {
         }
 
         return Container(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(AppSpacing.xl),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                AppColors.velvet.withValues(alpha: 0.72),
-                AppColors.inkDeep.withValues(alpha: 0.72),
+                AppColors.velvet.withValues(alpha: 0.86),
+                AppColors.inkDeep.withValues(alpha: 0.88),
               ],
             ),
             borderRadius: AppRadius.radiusX2,
             border: Border.all(
-              color: AppColors.moonlight.withValues(alpha: 0.14),
+              color: AppColors.moonlight.withValues(alpha: 0.18),
             ),
             boxShadow: [
               BoxShadow(
-                color: AppColors.inkDeep.withValues(alpha: 0.45),
+                color: AppColors.inkDeep.withValues(alpha: 0.5),
                 blurRadius: 20,
                 offset: const Offset(0, 8),
               ),
@@ -57,7 +59,7 @@ class MusicStatsSection extends StatelessWidget {
                 title: "Khent's Top 10",
                 subtitle: 'Most listened all-time',
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpacing.lg),
               if (provider.topTracks.isEmpty)
                 const _EmptyStats()
               else
@@ -69,23 +71,20 @@ class MusicStatsSection extends StatelessWidget {
                   if (i != provider.topTracks.length - 1)
                     const _Hairline(),
                 ],
-              const SizedBox(height: 20),
-              const _Hairline(),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.x2),
+              const _SectionDivider(),
+              const SizedBox(height: AppSpacing.x2),
               const _SectionHeader(
                 icon: Icons.history_rounded,
                 title: 'Recently Heard',
                 subtitle: "Khent's latest scrobbles",
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpacing.lg),
               if (provider.recentTracks.isEmpty)
                 const _EmptyStats()
               else
                 for (var i = 0; i < provider.recentTracks.length; i++) ...[
-                  _RecentTrackRow(
-                    status: provider.recentTracks[i],
-                    isLatest: i == 0,
-                  ),
+                  _RecentTrackRow(status: provider.recentTracks[i]),
                   if (i != provider.recentTracks.length - 1)
                     const _Hairline(),
                 ],
@@ -113,19 +112,26 @@ class _SectionHeader extends StatelessWidget {
     return Row(
       children: [
         Container(
-          width: 34,
-          height: 34,
+          width: 38,
+          height: 38,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: AppColors.moonlight.withValues(alpha: 0.10),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.blushGold.withValues(alpha: 0.18),
+                AppColors.blushGold.withValues(alpha: 0.05),
+              ],
+            ),
             border: Border.all(
-              color: AppColors.blushGold.withValues(alpha: 0.35),
+              color: AppColors.blushGold.withValues(alpha: 0.45),
               width: 1,
             ),
           ),
-          child: Icon(icon, size: 17, color: AppColors.blushGold),
+          child: Icon(icon, size: 18, color: AppColors.blushGold),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: AppSpacing.md),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -134,20 +140,21 @@ class _SectionHeader extends StatelessWidget {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTypography.outfitBold.copyWith(
-                  fontSize: 15,
-                  color: AppColors.blushGold,
-                  letterSpacing: 0.5,
+                style: AppTypography.cormorantBoldWhite.copyWith(
+                  fontSize: 21,
+                  height: 1.05,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
-                subtitle,
+                subtitle.toUpperCase(),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AppTypography.outfitWhite.copyWith(
-                  fontSize: 11,
-                  color: AppColors.petalWhite.withValues(alpha: 0.6),
+                style: AppTypography.outfitMedium.copyWith(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.blushGold,
+                  letterSpacing: 1.6,
                 ),
               ),
             ],
@@ -170,13 +177,13 @@ class _TopTrackRow extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: () => _openTrack(context),
       child: SizedBox(
-        height: 56,
+        height: 62,
         child: Row(
           children: [
             _RankBadge(rank: track.rank),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.md),
             _TrackArtwork(imageUrl: track.imageUrl),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -186,43 +193,47 @@ class _TopTrackRow extends StatelessWidget {
                     track.trackName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTypography.outfitWhite.copyWith(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                    style: AppTypography.outfitHeading.copyWith(
+                      fontSize: 15,
+                      height: 1.15,
                       color: AppColors.petalWhite,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     track.artistName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTypography.outfitWhite.copyWith(
-                      fontSize: 12,
-                      color: AppColors.petalWhite.withValues(alpha: 0.65),
+                    style: AppTypography.outfitMedium.copyWith(
+                      fontSize: 12.5,
+                      height: 1.15,
+                      color: AppColors.textMedium,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.md),
             Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
                   NumberFormat.decimalPattern().format(track.playCount),
-                  style: AppTypography.outfitBold.copyWith(
-                    fontSize: 13,
+                  style: AppTypography.cormorantHeading.copyWith(
+                    fontSize: 18,
+                    height: 1.0,
                     color: AppColors.blushGold,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
                   track.playCount == 1 ? 'play' : 'plays',
-                  style: AppTypography.outfitWhite.copyWith(
-                    fontSize: 10,
-                    color: AppColors.petalWhite.withValues(alpha: 0.5),
+                  style: AppTypography.outfitMedium.copyWith(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textMuted,
+                    letterSpacing: 1.3,
                   ),
                 ),
               ],
@@ -253,9 +264,8 @@ class _TopTrackRow extends StatelessWidget {
 
 class _RecentTrackRow extends StatelessWidget {
   final MusicStatus status;
-  final bool isLatest;
 
-  const _RecentTrackRow({required this.status, required this.isLatest});
+  const _RecentTrackRow({required this.status});
 
   @override
   Widget build(BuildContext context) {
@@ -267,11 +277,11 @@ class _RecentTrackRow extends StatelessWidget {
         builder: (context) => ListenAlongPopup(status: status),
       ),
       child: SizedBox(
-        height: 56,
+        height: 62,
         child: Row(
           children: [
             _TrackArtwork(imageUrl: status.imageUrl),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -284,41 +294,55 @@ class _RecentTrackRow extends StatelessWidget {
                           status.trackName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppTypography.outfitWhite.copyWith(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                          style: AppTypography.outfitHeading.copyWith(
+                            fontSize: 15,
+                            height: 1.15,
                             color: AppColors.petalWhite,
                           ),
                         ),
                       ),
                       if (isLive) ...[
-                        const SizedBox(width: 8),
+                        const SizedBox(width: AppSpacing.sm),
                         const _LiveBadge(),
                       ],
                     ],
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 3),
                   Text(
                     status.artistName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTypography.outfitWhite.copyWith(
-                      fontSize: 12,
-                      color: AppColors.petalWhite.withValues(alpha: 0.65),
+                    style: AppTypography.outfitMedium.copyWith(
+                      fontSize: 12.5,
+                      height: 1.15,
+                      color: AppColors.textMedium,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 12),
-            Text(
-              _timeLabel(),
-              style: AppTypography.outfitWhite.copyWith(
-                fontSize: 11,
-                color: isLive
-                    ? AppColors.warmAmber
-                    : AppColors.petalWhite.withValues(alpha: 0.55),
-              ),
+            const SizedBox(width: AppSpacing.md),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.schedule_rounded,
+                  size: 13,
+                  color: isLive ? AppColors.warmAmber : AppColors.textMuted,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _timeLabel(),
+                  style: AppTypography.outfitMedium.copyWith(
+                    fontSize: 11.5,
+                    height: 1.0,
+                    fontWeight: isLive ? FontWeight.w700 : FontWeight.w500,
+                    color: isLive
+                        ? AppColors.warmAmber
+                        : AppColors.textMedium,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -349,38 +373,39 @@ class _RankBadge extends StatelessWidget {
     final (Color color, Color background) = switch (rank) {
       1 => (
         AppColors.auroraGold,
-        AppColors.auroraGold.withValues(alpha: 0.16),
+        AppColors.auroraGold.withValues(alpha: 0.18),
       ),
       2 => (
         AppColors.auroraRose,
-        AppColors.auroraRose.withValues(alpha: 0.14),
+        AppColors.auroraRose.withValues(alpha: 0.16),
       ),
       3 => (
         AppColors.softLavender,
-        AppColors.softLavender.withValues(alpha: 0.14),
+        AppColors.softLavender.withValues(alpha: 0.16),
       ),
       _ => (
-        AppColors.petalWhite.withValues(alpha: 0.55),
+        AppColors.textMuted,
         AppColors.moonlight.withValues(alpha: 0.08),
       ),
     };
 
     return Container(
-      width: 30,
-      height: 30,
+      width: 32,
+      height: 32,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: background,
         border: Border.all(
-          color: color.withValues(alpha: 0.45),
+          color: color.withValues(alpha: 0.5),
           width: 1,
         ),
       ),
       child: Text(
         '$rank',
-        style: AppTypography.outfitBold.copyWith(
-          fontSize: 12,
+        style: AppTypography.cormorantHeading.copyWith(
+          fontSize: 16,
+          height: 1.0,
           color: color,
         ),
       ),
@@ -395,20 +420,26 @@ class _TrackArtwork extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final url = cleanLastfmImageUrl(imageUrl);
     return Container(
-      width: 44,
-      height: 44,
+      width: 46,
+      height: 46,
       decoration: BoxDecoration(
         borderRadius: AppRadius.radiusMd,
         color: AppColors.velvet,
+        border: Border.all(
+          color: AppColors.moonlight.withValues(alpha: 0.14),
+          width: 1,
+        ),
       ),
       child: ClipRRect(
         borderRadius: AppRadius.radiusMd,
-        child: imageUrl != null
+        child: url != null
             ? Image.network(
-                imageUrl!,
+                url,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stack) => const _ArtworkFallback(),
+                errorBuilder: (context, error, stack) =>
+                    const _ArtworkFallback(),
               )
             : const _ArtworkFallback(),
       ),
@@ -425,7 +456,7 @@ class _ArtworkFallback extends StatelessWidget {
       color: AppColors.velvet,
       child: const Icon(
         Icons.music_note_rounded,
-        size: 20,
+        size: 21,
         color: AppColors.roseQuartz,
       ),
     );
@@ -438,12 +469,12 @@ class _LiveBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: AppColors.warmAmber.withValues(alpha: 0.14),
+        color: AppColors.warmAmber.withValues(alpha: 0.16),
         borderRadius: AppRadius.radiusXs,
         border: Border.all(
-          color: AppColors.warmAmber.withValues(alpha: 0.5),
+          color: AppColors.warmAmber.withValues(alpha: 0.55),
           width: 1,
         ),
       ),
@@ -458,13 +489,13 @@ class _LiveBadge extends StatelessWidget {
               shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 5),
           Text(
             'LIVE',
             style: AppTypography.outfitBold.copyWith(
-              fontSize: 8,
+              fontSize: 8.5,
               color: AppColors.warmAmber,
-              letterSpacing: 1.0,
+              letterSpacing: 1.2,
             ),
           ),
         ],
@@ -480,7 +511,27 @@ class _Hairline extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 1,
-      color: AppColors.moonlight.withValues(alpha: 0.12),
+      color: AppColors.moonlight.withValues(alpha: 0.14),
+    );
+  }
+}
+
+class _SectionDivider extends StatelessWidget {
+  const _SectionDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 1,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.transparent,
+            AppColors.blushGold.withValues(alpha: 0.28),
+            Colors.transparent,
+          ],
+        ),
+      ),
     );
   }
 }
@@ -492,7 +543,7 @@ class _EmptyStats extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 20),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
       decoration: BoxDecoration(
         color: AppColors.moonlight.withValues(alpha: 0.06),
         borderRadius: AppRadius.radiusMd,
@@ -507,12 +558,12 @@ class _EmptyStats extends StatelessWidget {
             size: 26,
             color: AppColors.roseQuartz,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             'No music stats yet',
-            style: AppTypography.outfitWhite.copyWith(
+            style: AppTypography.outfitMedium.copyWith(
               fontSize: 13,
-              color: AppColors.petalWhite.withValues(alpha: 0.6),
+              color: AppColors.textMedium,
             ),
           ),
         ],
@@ -527,50 +578,50 @@ class _MusicStatsSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AppColors.velvet.withValues(alpha: 0.72),
-            AppColors.inkDeep.withValues(alpha: 0.72),
+            AppColors.velvet.withValues(alpha: 0.86),
+            AppColors.inkDeep.withValues(alpha: 0.88),
           ],
         ),
         borderRadius: AppRadius.radiusX2,
         border: Border.all(
-          color: AppColors.moonlight.withValues(alpha: 0.14),
+          color: AppColors.moonlight.withValues(alpha: 0.18),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const EverglowSkeleton(width: 170, height: 18, radius: 8),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           for (var i = 0; i < 4; i++) ...[
             Row(
               children: [
-                const EverglowSkeleton(width: 44, height: 44, radius: 14),
-                const SizedBox(width: 12),
+                const EverglowSkeleton(width: 46, height: 46, radius: 14),
+                const SizedBox(width: AppSpacing.md),
                 const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       EverglowSkeleton(
                         width: double.infinity,
-                        height: 12,
+                        height: 13,
                         radius: 6,
                       ),
                       SizedBox(height: 8),
-                      EverglowSkeleton(width: 120, height: 10, radius: 5),
+                      EverglowSkeleton(width: 120, height: 11, radius: 5),
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
-                const EverglowSkeleton(width: 46, height: 10, radius: 5),
+                const SizedBox(width: AppSpacing.md),
+                const EverglowSkeleton(width: 46, height: 11, radius: 5),
               ],
             ),
-            if (i != 3) const SizedBox(height: 14),
+            if (i != 3) const SizedBox(height: 15),
           ],
         ],
       ),

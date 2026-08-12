@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -54,6 +57,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   String _audio = 'sub';
   int _serverIndex = 0;
   List<_ServerOption> _servers = [];
+  final Set<int> _failedServerIndices = {};
+  bool _showErrorCard = false;
+  bool _probingServer = false;
 
   static const _episodesPerPage = 24;
 
@@ -94,6 +100,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       _servers = _buildServers(tmdbId);
     });
     _recordHistory(_selectedEpisode);
+    _probeCurrentServer();
   }
 
   @override
@@ -116,27 +123,27 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       _ServerOption(
         name: 'Server 1',
         urlBuilder: (ep, audio) =>
-            'https://megaplay.buzz/stream/ani/$anilistId/$ep/$audio',
-        available: anilistId != null,
+            'https://player.videasy.net/tv/$tmdbId?season=1&episode=$ep',
+        available: tmdbId > 0,
       ),
       _ServerOption(
         name: 'Server 2',
         urlBuilder: (ep, audio) =>
-            'https://vidnest.fun/anime/$anilistId/$ep/$audio',
+            'https://megaplay.buzz/stream/ani/$anilistId/$ep/$audio',
         available: anilistId != null,
       ),
       _ServerOption(
         name: 'Server 3',
         urlBuilder: (ep, audio) =>
-            'https://tryembed.us.cc/embed/anime/$anilistId/$ep/'
-            '${audio == 'sub' ? '1' : '2'}',
+            'https://vidnest.fun/anime/$anilistId/$ep/$audio',
         available: anilistId != null,
       ),
       _ServerOption(
         name: 'Server 4',
         urlBuilder: (ep, audio) =>
-            'https://player.videasy.net/tv/$tmdbId?season=1&episode=$ep',
-        available: tmdbId > 0,
+            'https://tryembed.us.cc/embed/anime/$anilistId/$ep/'
+            '${audio == 'sub' ? '1' : '2'}',
+        available: anilistId != null,
       ),
     ];
   }
@@ -144,6 +151,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   void _selectEpisode(int episode) {
     if (_selectedEpisode == episode) return;
     setState(() => _selectedEpisode = episode);
+    _resetForNewEpisode();
     _recordHistory(episode);
   }
 
@@ -170,6 +178,74 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     if (servers.isEmpty) return '';
     final index = _serverIndex.clamp(0, servers.length - 1);
     return servers[index].urlBuilder(_selectedEpisode, _audio);
+  }
+
+  void _handleContentError() {
+    if (!mounted) return;
+    final available = <int>[];
+    for (var i = 0; i < _servers.length; i++) {
+      if (_servers[i].available) available.add(i);
+    }
+    if (available.isEmpty) return;
+    _failedServerIndices.add(_serverIndex);
+    final next = available
+        .where((i) => !_failedServerIndices.contains(i))
+        .toList();
+    if (next.isEmpty) {
+      setState(() => _showErrorCard = true);
+      return;
+    }
+    setState(() {
+      _serverIndex = next.first;
+      _showErrorCard = false;
+    });
+    _probeCurrentServer();
+  }
+
+  void _selectServer(int index) {
+    setState(() {
+      _serverIndex = index;
+      _failedServerIndices.remove(index);
+      _showErrorCard = false;
+    });
+    _probeCurrentServer();
+  }
+
+  /// Fetches the embed URL from our origin (the providers send permissive
+  /// CORS headers) and scans the HTML for their "content unavailable"
+  /// error page. When found, advances to the next available server so the
+  /// user never stares at a dead "We're Sorry / 410" iframe.
+  Future<void> _probeCurrentServer() async {
+    final url = _playerUrl;
+    if (url.isEmpty || _probingServer) return;
+    setState(() => _probingServer = true);
+    try {
+      final response = await http
+          .get(Uri.parse(url))
+          .timeout(const Duration(seconds: 10));
+      final body = utf8.decode(response.bodyBytes);
+      if (_isProviderErrorPage(body) && mounted) {
+        _handleContentError();
+      }
+    } catch (_) {
+      // Network errors are ambiguous; leave the iframe up so the user can
+      // still try the current server manually.
+    } finally {
+      if (mounted) setState(() => _probingServer = false);
+    }
+  }
+
+  bool _isProviderErrorPage(String body) {
+    final lower = body.toLowerCase();
+    return lower.contains("we're sorry") ||
+        lower.contains('error code: <span>410</span>') ||
+        lower.contains('error - megaplay') ||
+        (lower.contains('410') && lower.contains('copyright violation'));
+  }
+
+  void _resetForNewEpisode() {
+    _failedServerIndices.clear();
+    _showErrorCard = false;
   }
 
   String get _displayTitle {
@@ -413,10 +489,14 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AnimeXPlayerFrame(
-              key: ValueKey('player-$_playerUrl'),
-              url: _playerUrl,
-            ),
+            if (_showErrorCard)
+              _buildErrorCard(context)
+            else
+              AnimeXPlayerFrame(
+                key: ValueKey('player-$_playerUrl'),
+                url: _playerUrl,
+                onContentError: _handleContentError,
+              ),
             const SizedBox(height: 16),
             Wrap(
               spacing: 10,
@@ -426,7 +506,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                 for (var i = 0; i < _servers.length; i++)
                   if (_servers[i].available)
                     GestureDetector(
-                      onTap: () => setState(() => _serverIndex = i),
+                      onTap: () => _selectServer(i),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 14,
@@ -450,7 +530,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                           style: dmSansStyle(
                             size: 12,
                             color: _serverIndex == i
-                                ? const Color(0xFFFB923C)
+                                ? AnimeXTokens.accentWarm
                                 : AnimeXTokens.textSecondary,
                             weight: FontWeight.w600,
                           ),
@@ -460,7 +540,12 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                 const SizedBox(width: 6),
                 _AudioToggle(
                   audio: _audio,
-                  onChanged: (a) => setState(() => _audio = a),
+                  onChanged: (a) {
+                    setState(() => _audio = a);
+                    _failedServerIndices.clear();
+                    _showErrorCard = false;
+                    _probeCurrentServer();
+                  },
                 ),
               ],
             ),
@@ -610,6 +695,52 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                   onTap: () => _stepEpisode(1),
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorCard(BuildContext context) {
+    return AspectRatio(
+      aspectRatio: 16 / 9,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AnimeXTokens.surface,
+          borderRadius: BorderRadius.circular(AnimeXTokens.radiusLg),
+          border: Border.all(color: AnimeXTokens.border),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.warning_amber_rounded,
+              color: AnimeXTokens.accent,
+              size: 42,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              "We're Sorry!",
+              style: dmSansStyle(
+                size: 20,
+                color: AnimeXTokens.textPrimary,
+                weight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                'This episode is not available on the current server. '
+                'Try another server below.',
+                textAlign: TextAlign.center,
+                style: dmSansStyle(
+                  size: 13.5,
+                  color: AnimeXTokens.textSecondary,
+                  height: 1.5,
+                ),
+              ),
             ),
           ],
         ),

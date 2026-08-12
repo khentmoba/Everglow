@@ -1,3 +1,5 @@
+import 'lastfm_image_utils.dart';
+
 class MusicStatus {
   final String username;
   final String trackName;
@@ -46,7 +48,7 @@ class MusicStatus {
           break;
         }
       }
-      imgUrl = selectedImage['#text'] as String?;
+      imgUrl = cleanLastfmImageUrl(selectedImage['#text'] as String?);
     }
 
     final attr = track['@attr'];

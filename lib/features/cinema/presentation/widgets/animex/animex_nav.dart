@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'package:everglow/features/cinema/data/services/animex_stores.dart';
@@ -21,7 +22,9 @@ class AnimeXTopHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userName = context.watch<AuthService>().currentUser ?? '';
+    final auth = context.watch<AuthService>();
+    final userName = auth.currentUser ?? '';
+    final isCoupleUser = auth.isCoupleUser;
     final isDesktop = MediaQuery.sizeOf(context).width >= 768;
     final items = const [
       (AnimexPage.home, 'Home', Icons.house_outlined),
@@ -44,6 +47,14 @@ class AnimeXTopHeader extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
+                if (isCoupleUser) ...[
+                  AnimeXIconButton(
+                    icon: Icons.arrow_back_rounded,
+                    tooltip: 'Dashboard',
+                    onTap: () => context.go('/dashboard'),
+                  ),
+                  const SizedBox(width: 4),
+                ],
                 _Logo(onTap: () => controller.goTo(AnimexPage.home)),
                 if (isDesktop) ...[
                   const SizedBox(width: 8),
