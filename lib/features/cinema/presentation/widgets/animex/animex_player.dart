@@ -20,11 +20,17 @@ class AnimeXPlayerFrame extends StatefulWidget {
   /// auto-advance to the next server.
   final VoidCallback? onContentError;
 
+  /// The page scroll view behind the player. The embed iframe swallows
+  /// wheel events, so without forwarding them the page can't be scrolled
+  /// on desktop while the cursor is over the player.
+  final ScrollController? scrollController;
+
   const AnimeXPlayerFrame({
     super.key,
     required this.url,
     this.aspectRatio = 16 / 9,
     this.onContentError,
+    this.scrollController,
   });
 
   @override
@@ -36,6 +42,7 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
   late final web.HTMLIFrameElement _iframe;
   JSFunction? _onLoad;
   JSFunction? _onMessage;
+  JSFunction? _onWheel;
   bool _loaded = false;
   bool _contentError = false;
 
@@ -59,6 +66,35 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
       if (mounted) setState(() => _loaded = true);
     }).toJS;
     _iframe.addEventListener('load', _onLoad);
+
+    // Forward wheel events over the iframe to the page scroll view. The
+    // embed swallows them, so without this the page freezes under the
+    // cursor on desktop (mobile touch events are unaffected).
+    final scrollController = widget.scrollController;
+    if (scrollController != null) {
+      _onWheel = ((web.Event e) {
+        if (!scrollController.hasClients) return;
+        final wheel = e as web.WheelEvent;
+        if (wheel.ctrlKey) return; // Leave pinch-zoom gestures alone.
+        wheel.preventDefault();
+        var delta = wheel.deltaY;
+        switch (wheel.deltaMode) {
+          case 1: // DOM_DELTA_LINE
+            delta *= 20;
+            break;
+          case 2: // DOM_DELTA_PAGE
+            delta *= 600;
+            break;
+        }
+        if (delta == 0) return;
+        final position = scrollController.position;
+        final target = (position.pixels + delta)
+            .clamp(position.minScrollExtent, position.maxScrollExtent)
+            .toDouble();
+        if (target != position.pixels) position.jumpTo(target);
+      }).toJS;
+      _iframe.addEventListener('wheel', _onWheel, true.toJS);
+    }
 
     // Listen for a content-availability signal from the embed. The embed
     // pages (e.g. MegaPlay) render a "We're Sorry / 410" page inside their
@@ -86,6 +122,9 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     }
     if (_onMessage != null) {
       web.window.removeEventListener('message', _onMessage!);
+    }
+    if (_onWheel != null) {
+      _iframe.removeEventListener('wheel', _onWheel!);
     }
     super.dispose();
   }

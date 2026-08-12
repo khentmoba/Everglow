@@ -128,6 +128,7 @@ class EverglowSkeletonRow extends StatelessWidget {
 class EverglowSkeletonGrid extends StatelessWidget {
   final int count;
   final int crossAxisCount;
+  final double? maxCrossAxisExtent;
   final double itemHeight;
   final double spacing;
   final double childAspectRatio;
@@ -136,6 +137,7 @@ class EverglowSkeletonGrid extends StatelessWidget {
     super.key,
     this.count = 6,
     this.crossAxisCount = 3,
+    this.maxCrossAxisExtent,
     this.itemHeight = 200,
     this.spacing = 12,
     this.childAspectRatio = 0.65,
@@ -147,12 +149,19 @@ class EverglowSkeletonGrid extends StatelessWidget {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: crossAxisCount,
-        crossAxisSpacing: spacing,
-        mainAxisSpacing: spacing,
-        childAspectRatio: childAspectRatio,
-      ),
+      gridDelegate: maxCrossAxisExtent != null
+          ? SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: maxCrossAxisExtent!,
+              crossAxisSpacing: spacing,
+              mainAxisSpacing: spacing,
+              childAspectRatio: childAspectRatio,
+            )
+          : SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: spacing,
+              mainAxisSpacing: spacing,
+              childAspectRatio: childAspectRatio,
+            ),
       itemCount: count,
       itemBuilder: (_, _) => const EverglowSkeleton(
         radius: 14,

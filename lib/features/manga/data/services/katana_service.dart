@@ -146,8 +146,11 @@ class KatanaService {
     if (mode == 'directory' || mode == 'genre' || mode == 'author') {
       uri = uri.replace(queryParameters: {
         'filter': '1',
+        // The site's filter JS joins checked include genres with ','
+        // but exclude genres with '_' — the server only honors the
+        // underscore form for multiple excludes.
         'include': include.join(','),
-        'exclude': exclude.join(','),
+        'exclude': exclude.join('_'),
         'genre_mode': genreMode,
         'chapters': chapters,
         'order_by': orderBy,
@@ -170,6 +173,55 @@ class KatanaService {
       hasNext: html.contains('class="next page-numbers"'),
       hasPrev: page > 1 && html.contains('class="prev page-numbers"'),
     );
+  }
+
+  /// Fetches the catalog filtered by content type.
+  ///
+  /// Manga Katana tags Korean titles with the `manhwa` genre and
+  /// Chinese titles with `manhua`, so:
+  ///   * `all`     – the full directory
+  ///   * `manga`   – directory excluding `manhwa` + `manhua`
+  ///   * `manhwa`  – directory including `manhwa`
+  ///   * `manhua`  – directory including `manhua`
+  Future<KatanaPageResult> fetchByType(
+    String type, {
+    int page = 1,
+    String orderBy = 'latest',
+    String chapters = '1',
+  }) async {
+    switch (type) {
+      case 'manga':
+        return fetchCatalog(
+          mode: 'directory',
+          page: page,
+          exclude: const ['manhwa', 'manhua'],
+          orderBy: orderBy,
+          chapters: chapters,
+        );
+      case 'manhwa':
+        return fetchCatalog(
+          mode: 'directory',
+          page: page,
+          include: const ['manhwa'],
+          orderBy: orderBy,
+          chapters: chapters,
+        );
+      case 'manhua':
+        return fetchCatalog(
+          mode: 'directory',
+          page: page,
+          include: const ['manhua'],
+          orderBy: orderBy,
+          chapters: chapters,
+        );
+      default:
+        return fetchCatalog(
+          mode: 'directory',
+          page: page,
+          orderBy: orderBy,
+          chapters: chapters,
+        );
+    }
   }
 
   /// Live suggestions for the header search box. Mirrors the site's
@@ -315,6 +367,85 @@ class KatanaService {
       }, SetOptions(merge: true));
     } catch (e) {
       Logger.e('saveReadingProgress error', error: e);
+    }
+  }
+
+  // ── Reading list (manga_library, shared with the dashboard's "Reading" shelf) ──
+  //
+  // The dashboard's "Reading" section streams `manga_library` entries whose
+  // `libraryStatus == 'reading'`, split into "ME" / partner sub-rows. Katana
+  // titles are keyed with a `katana|` prefix so they never collide with the
+  // Comick-sourced manga ids used by the rest of the library.
+
+  CollectionReference<Map<String, dynamic>> get _library =>
+      _firestore.collection('manga_library');
+
+  static String _katanaMangaId(String slug) => 'katana|$slug';
+
+  Future<bool> isReading(String slug, String userName) async {
+    if (userName.isEmpty || slug.isEmpty) return false;
+    try {
+      final docs = await _library
+          .where('mangaId', isEqualTo: _katanaMangaId(slug))
+          .where('userName', isEqualTo: userName)
+          .limit(1)
+          .get();
+      return docs.docs.isNotEmpty;
+    } catch (e) {
+      Logger.e('isReading error', error: e);
+      return false;
+    }
+  }
+
+  Future<void> setReading(
+    KatanaManga manga,
+    String userName, {
+    bool reading = true,
+  }) async {
+    if (userName.isEmpty || manga.slug.isEmpty) return;
+    try {
+      final mangaId = _katanaMangaId(manga.slug);
+      final existing = await _library
+          .where('mangaId', isEqualTo: mangaId)
+          .where('userName', isEqualTo: userName)
+          .limit(1)
+          .get();
+      if (!reading) {
+        for (final doc in existing.docs) {
+          await doc.reference.delete();
+        }
+        return;
+      }
+      final data = <String, dynamic>{
+        'mangaId': mangaId,
+        'title': manga.title,
+        'author': manga.authors.isNotEmpty ? manga.authors.first : '',
+        'artist': manga.artists.isNotEmpty ? manga.artists.first : '',
+        'description': manga.summary,
+        'coverUrl': proxiedImageUrl(manga.coverUrl),
+        'status': manga.status,
+        'originalLanguage': 'jp',
+        'contentRating': 'safe',
+        'tags': [for (final genre in manga.genres) genre.name],
+        'userName': userName,
+        'addedAt': Timestamp.now(),
+        'libraryStatus': 'reading',
+        'lastReadChapterId': '',
+        'lastReadPage': 0,
+        'comickId': 0,
+        'comickSlug': '',
+        'mangaKakalotId': manga.slug,
+        'rating': 0.0,
+        'followCount': 0,
+        'altTitles': manga.altNames,
+      };
+      if (existing.docs.isNotEmpty) {
+        await existing.docs.first.reference.set(data, SetOptions(merge: true));
+      } else {
+        await _library.doc('$userName|$mangaId').set(data);
+      }
+    } catch (e) {
+      Logger.e('setReading error', error: e);
     }
   }
 

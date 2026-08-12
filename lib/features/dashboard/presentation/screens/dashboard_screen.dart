@@ -18,6 +18,10 @@ import '../../../date_randomizer/presentation/widgets/randomizer_card.dart';
 import '../../../date_randomizer/data/services/date_idea_service.dart';
 import '../../../../features/guardian/data/services/guardian_service.dart';
 import '../../../../features/guardian/presentation/controllers/guardian_controller.dart';
+import 'package:everglow/features/guardian/presentation/widgets/roaming/roaming_guardian_controller.dart';
+import 'package:everglow/features/guardian/presentation/widgets/roaming/roaming_guardian_layer.dart';
+import 'package:everglow/features/guardian/presentation/widgets/roaming/roaming_cat_visual_web.dart';
+import 'package:everglow/features/guardian/presentation/widgets/roaming/roaming_cat_sprite.dart';
 import 'package:everglow/features/daily_bloom/presentation/widgets/daily_bloom.dart';
 import 'package:everglow/features/daily_bloom/presentation/providers/garden_provider.dart';
 import 'package:everglow/services/auth_service.dart';
@@ -49,6 +53,7 @@ import '../widgets/anniversary_metrics.dart';
 import '../widgets/dashboard_overlays.dart';
 import 'package:everglow/core/theme/app_typography.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_background.dart';
+import '../widgets/dashboard_motion.dart';
 
 class DashboardScreen extends StatefulWidget {
   final bool animate;
@@ -64,6 +69,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   PresenceService? _presenceService;
   String? _lastHeartbeatUid;
   String? _lastHeartbeatUsername;
+  late final RoamingGuardianController _roamingGuardian;
 
   Timer? _heartbeatRetryTimer;
   int _heartbeatRetryCount = 0;
@@ -73,6 +79,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _roamingGuardian = RoamingGuardianController();
     if (kIsWeb) _registerUnloadHandlers();
 
     Future.microtask(() {
@@ -126,6 +133,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _roamingGuardian.dispose();
     _heartbeatRetryTimer?.cancel();
     final presence = _presenceService;
     final uid = _lastHeartbeatUid;
@@ -283,7 +291,19 @@ class _DashboardScreenState extends State<DashboardScreen>
                   opacity: 0.05,
                 ),
               ],
-              showPetals: true,
+              showPetals: false,
+            ),
+          ),
+          // Ambient dusk-bloom layer (dashboard only).
+          const Positioned.fill(child: DashboardAmbience()),
+          // Roaming Guardian behind the page content.
+          Positioned.fill(
+            child: RoamingGuardianLayer(
+              controller: _roamingGuardian,
+              depth: CatDepth.behind,
+              // Platform views can't be occluded by CanvasKit content, so the
+              // behind layer uses the painted sprite (true z-order).
+              visualBuilder: buildRoamingCatSprite,
             ),
           ),
           SafeArea(
@@ -436,9 +456,20 @@ class _DashboardScreenState extends State<DashboardScreen>
                   ),
                 ),
 
+                // Soft ember trail that follows the mouse.
+                const Positioned.fill(child: DashboardCursorGlow()),
+
                 // Floating overlays
                 const DashboardOverlays(),
               ],
+            ),
+          ),
+          // Roaming Guardian in front of every overlay.
+          Positioned.fill(
+            child: RoamingGuardianLayer(
+              controller: _roamingGuardian,
+              depth: CatDepth.front,
+              visualBuilder: buildRoamingCatVisual,
             ),
           ),
         ],
@@ -453,34 +484,36 @@ class _DashboardScreenState extends State<DashboardScreen>
       child: Column(
         children: [
           // Emblem in a soft glass ring.
-          Container(
-            width: 104,
-            height: 104,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppColors.moonlight.withValues(alpha: 0.16),
-                  AppColors.deepRose.withValues(alpha: 0.10),
+          BreathingEmblem(
+            child: Container(
+              width: 104,
+              height: 104,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppColors.moonlight.withValues(alpha: 0.16),
+                    AppColors.deepRose.withValues(alpha: 0.10),
+                  ],
+                ),
+                border: Border.all(
+                  color: AppColors.blushGold.withValues(alpha: 0.5),
+                  width: 1.4,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.deepRose.withValues(alpha: 0.28),
+                    blurRadius: 34,
+                    spreadRadius: -4,
+                  ),
                 ],
               ),
-              border: Border.all(
-                color: AppColors.blushGold.withValues(alpha: 0.5),
-                width: 1.4,
+              padding: const EdgeInsets.all(14),
+              child: ClipOval(
+                child: Image.asset('assets/images/logo.png', fit: BoxFit.cover),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.deepRose.withValues(alpha: 0.28),
-                  blurRadius: 34,
-                  spreadRadius: -4,
-                ),
-              ],
-            ),
-            padding: const EdgeInsets.all(14),
-            child: ClipOval(
-              child: Image.asset('assets/images/logo.png', fit: BoxFit.cover),
             ),
           ),
           const SizedBox(height: 18),
@@ -493,21 +526,23 @@ class _DashboardScreenState extends State<DashboardScreen>
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            'Forever In Bloom',
-            style: AppTypography.cormorantBlack.copyWith(
-              fontSize: titleSize,
-              letterSpacing: -0.5,
-              shadows: [
-                BoxShadow(
-                  color: AppColors.deepRose.withValues(alpha: 0.5),
-                  blurRadius: 24,
-                ),
-                BoxShadow(
-                  color: AppColors.blushGold.withValues(alpha: 0.35),
-                  blurRadius: 10,
-                ),
-              ],
+          ShimmerTitle(
+            child: Text(
+              'Forever In Bloom',
+              style: AppTypography.cormorantBlack.copyWith(
+                fontSize: titleSize,
+                letterSpacing: -0.5,
+                shadows: [
+                  BoxShadow(
+                    color: AppColors.deepRose.withValues(alpha: 0.5),
+                    blurRadius: 24,
+                  ),
+                  BoxShadow(
+                    color: AppColors.blushGold.withValues(alpha: 0.35),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 6),
@@ -539,10 +574,12 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 10),
-                child: Icon(
-                  Icons.favorite_rounded,
-                  color: AppColors.auroraRose,
-                  size: 15,
+                child: PulseHeart(
+                  child: Icon(
+                    Icons.favorite_rounded,
+                    color: AppColors.auroraRose,
+                    size: 15,
+                  ),
                 ),
               ),
               Container(

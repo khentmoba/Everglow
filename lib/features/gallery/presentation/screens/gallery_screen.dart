@@ -77,7 +77,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const EverglowSkeletonGrid(
                           count: 6,
-                          crossAxisCount: 3,
+                          maxCrossAxisExtent: 220,
                           itemHeight: 200,
                           spacing: 10,
                           childAspectRatio: 0.75,
@@ -101,8 +101,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           vertical: 6,
                         ),
                         gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 220,
                               mainAxisSpacing: 10,
                               crossAxisSpacing: 10,
                               childAspectRatio: 0.82,

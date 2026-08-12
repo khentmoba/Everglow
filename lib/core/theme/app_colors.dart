@@ -46,6 +46,14 @@ class AppColors {
   static const Color deepBlack = Color(0xFF12091A); // episode drawer bg
   static const Color mutedPurple = Color(0xFF8A7A92); // muted secondary text
 
+  // Cinema detail (enhanced drawer) accents
+  static const Color cinemaMatch = Color(0xFF7ED69A); // match-score green
+  static const Color cinemaOrange = Color(0xFFFF6D00); // watching accent
+  static const Color cinemaPink = Color(0xFFE91E8C); // Clair accent
+  static const Color cinemaGreen = Color(0xFF2E7D32); // watched accent
+  static const Color cinemaAmber = Color(0xFFFF9800); // both-watching accent
+  static const Color cinemaBlue = Color(0xFF1976D2); // Khent watched accent
+
   // ── Semantic colors ────────────────────────────────────────
   static const Color success = Color(0xFF4ADE80); // online presence
   static const Color error = Color(0xFFE5739B); // on-palette rose-red

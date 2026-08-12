@@ -5,6 +5,7 @@ import 'package:everglow/features/manga/data/services/katana_service.dart';
 import 'package:everglow/features/manga/presentation/katana/katana_header.dart';
 import 'package:everglow/features/manga/presentation/katana/katana_item_card.dart';
 import 'package:everglow/features/manga/presentation/katana/katana_nav.dart';
+import 'package:everglow/features/manga/presentation/katana/katana_pagination.dart';
 import 'package:everglow/features/manga/presentation/katana/katana_theme.dart';
 
 /// Manga Katana home: Latest Updates list, Hot Manga rail and the
@@ -22,6 +23,15 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
   KatanaHomeData? _data;
   bool _loading = true;
   String? _error;
+
+  // Content-type browsing: 'all' shows the live Latest Updates feed;
+  // 'manga' / 'manhwa' / 'manhua' show that type's full catalog.
+  String _type = 'all';
+  List<KatanaManga> _typeItems = const [];
+  int _typePage = 1;
+  bool _typeHasNext = false;
+  bool _typeLoading = false;
+  String? _typeError;
 
   @override
   void initState() {
@@ -52,6 +62,51 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
     }
   }
 
+  void _selectType(String type) {
+    if (_type == type) return;
+    setState(() {
+      _type = type;
+      _typePage = 1;
+      _typeItems = const [];
+      _typeError = null;
+    });
+    if (type != 'all') _loadType();
+  }
+
+  Future<void> _loadType() async {
+    setState(() {
+      _typeLoading = true;
+      _typeError = null;
+    });
+    try {
+      final result = await _service.fetchByType(
+        _type,
+        page: _typePage,
+        orderBy: 'latest',
+      );
+      if (mounted) {
+        setState(() {
+          _typeItems = result.items;
+          _typeHasNext = result.hasNext;
+          _typeLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _typeLoading = false;
+          _typeError = 'Could not load ${_typeLabel(_type)} titles.';
+        });
+      }
+    }
+  }
+
+  void _changeTypePage(int page) {
+    if (page < 1) return;
+    setState(() => _typePage = page);
+    _loadType();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -62,7 +117,9 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
           Expanded(
             child: RefreshIndicator(
               color: KatanaColors.accent,
-              onRefresh: _load,
+              onRefresh: () async {
+                await Future.wait([_load(), if (_type != 'all') _loadType()]);
+              },
               child: _buildBody(),
             ),
           ),
@@ -87,19 +144,33 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
         Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1240),
+            child: _buildTypeChips(),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1240),
             child: desktop
                 ? Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(flex: 7, child: _buildLatest(data.latest)),
+                      Expanded(
+                        flex: 7,
+                        child: _type == 'all'
+                            ? _buildLatest(data.latest)
+                            : _buildTypeList(),
+                      ),
                       const SizedBox(width: 16),
                       SizedBox(
                         width: 330,
                         child: Column(
                           children: [
                             _buildGenresWidget(data.genres),
-                            const SizedBox(height: 16),
-                            _buildHotWidget(data.hot),
+                            if (_type == 'all') ...[
+                              const SizedBox(height: 16),
+                              _buildHotWidget(data.hot),
+                            ],
                           ],
                         ),
                       ),
@@ -108,9 +179,11 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildLatest(data.latest),
-                      const SizedBox(height: 20),
-                      _buildHotWidget(data.hot),
+                      _type == 'all' ? _buildLatest(data.latest) : _buildTypeList(),
+                      if (_type == 'all') ...[
+                        const SizedBox(height: 20),
+                        _buildHotWidget(data.hot),
+                      ],
                       const SizedBox(height: 20),
                       _buildGenresWidget(data.genres),
                     ],
@@ -120,6 +193,112 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
       ],
     );
     return content;
+  }
+
+  Widget _buildTypeChips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        children: [
+          for (final type in const ['all', 'manga', 'manhwa', 'manhua']) ...[
+            _TypeChip(
+              label: type == 'all'
+                  ? 'All'
+                  : '${type[0].toUpperCase()}${type.substring(1)}',
+              icon: type == 'all'
+                  ? Icons.all_inclusive_rounded
+                  : Icons.menu_book_rounded,
+              selected: _type == type,
+              onTap: () => _selectType(type),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTypeList() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        KatanaSectionHeader(
+          title: _typeLabel(_type),
+          trailing: Text(
+            _typeEyebrow(_type),
+            style: KatanaType.small,
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_typeLoading && _typeItems.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 48),
+            child: Center(
+              child: CircularProgressIndicator(color: KatanaColors.accent),
+            ),
+          )
+        else if (_typeError != null)
+          KatanaCard(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                Text(_typeError!, textAlign: TextAlign.center, style: KatanaType.body),
+                const SizedBox(height: 12),
+                KatanaButton(
+                  label: 'Retry',
+                  icon: Icons.refresh_rounded,
+                  onTap: _loadType,
+                ),
+              ],
+            ),
+          )
+        else if (_typeItems.isEmpty)
+          KatanaCard(
+            padding: const EdgeInsets.all(20),
+            child: Text('No ${_typeLabel(_type)} titles yet.', style: KatanaType.small),
+          )
+        else ...[
+          for (final manga in _typeItems) ...[
+            KatanaItemCard(manga: manga),
+            const SizedBox(height: 10),
+          ],
+          const SizedBox(height: 14),
+          KatanaPagination(
+            page: _typePage,
+            hasPrev: _typePage > 1,
+            hasNext: _typeHasNext,
+            onPageChanged: _changeTypePage,
+          ),
+        ],
+      ],
+    );
+  }
+
+  String _typeLabel(String type) {
+    switch (type) {
+      case 'manga':
+        return 'Manga';
+      case 'manhwa':
+        return 'Manhwa';
+      case 'manhua':
+        return 'Manhua';
+      default:
+        return 'All Manga';
+    }
+  }
+
+  String _typeEyebrow(String type) {
+    switch (type) {
+      case 'manga':
+        return 'Japanese';
+      case 'manhwa':
+        return 'Korean';
+      case 'manhua':
+        return 'Chinese';
+      default:
+        return '';
+    }
   }
 
   Widget _buildLoading() {
@@ -304,6 +483,57 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TypeChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _TypeChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? KatanaColors.accent.withValues(alpha: 0.18)
+              : KatanaColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? KatanaColors.accent : KatanaColors.border,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 15,
+              color: selected ? KatanaColors.accent : KatanaColors.textMuted,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: AppTypography.outfitBold.copyWith(
+                color: selected ? KatanaColors.accent : KatanaColors.text,
+                fontSize: 12.5,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -21,11 +21,25 @@ import 'episode_drawer_sections/reviews_section.dart';
 import 'episode_drawer_sections/similar_section.dart';
 import 'episode_drawer_sections/trailer_section.dart';
 import 'package:everglow/core/theme/app_typography.dart';
+import 'episode_drawer_sections/cinema/cinema_hero.dart';
+import 'episode_drawer_sections/cinema/cinema_cast_section.dart';
+import 'episode_drawer_sections/cinema/cinema_reviews_section.dart';
+import 'episode_drawer_sections/cinema/cinema_section_header.dart';
+import 'episode_drawer_sections/cinema/cinema_similar_section.dart';
 
 class EpisodeDrawer extends StatefulWidget {
   final MediaItem item;
 
-  const EpisodeDrawer({super.key, required this.item});
+  /// When true, the drawer renders the cinematic Everglow Cinema variant
+  /// (hero poster, glass meta panel, large cast cards). Dashboard previews
+  /// keep the classic layout by leaving this false.
+  final bool cinemaVariant;
+
+  const EpisodeDrawer({
+    super.key,
+    required this.item,
+    this.cinemaVariant = false,
+  });
 
   @override
   State<EpisodeDrawer> createState() => _EpisodeDrawerState();
@@ -911,10 +925,14 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         if (previousStatus == 'watched-both' ||
             previousStatus == 'watching-both') {
           if (partnerUsername != null && partnerUsername.isNotEmpty) {
-            Logger.d("[Status] Both status — also removing from partner $partnerUsername");
+            Logger.d(
+              "[Status] Both status — also removing from partner $partnerUsername",
+            );
             try {
               await _tmdbService.removeFromWatchList(
-                  widget.item.tmdbId, partnerUsername);
+                widget.item.tmdbId,
+                partnerUsername,
+              );
             } catch (e) {
               Logger.e("[Status] Failed to remove from partner", error: e);
             }
@@ -983,8 +1001,9 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
         if (newStatus == 'watched-both' || newStatus == 'watching-both') {
           final partner = partnerUsername;
           if (partner != null && partner.isNotEmpty) {
-            final selfStatus =
-                newStatus == 'watched-both' ? 'watched-self' : 'watching-self';
+            final selfStatus = newStatus == 'watched-both'
+                ? 'watched-self'
+                : 'watching-self';
             Logger.d(
               "[Status] Both status â€” also saving $selfStatus to partner $partner",
             );
@@ -996,7 +1015,10 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                 isAnimeOverride: detectedAnime,
               );
             } catch (e) {
-              Logger.e("[Status] Failed to save Both status to partner", error: e);
+              Logger.e(
+                "[Status] Failed to save Both status to partner",
+                error: e,
+              );
               // Non-critical â€” the current user's save already succeeded.
             }
           }
@@ -1070,10 +1092,7 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          msg,
-          style: AppTypography.outfitWhite,
-        ),
+        content: Text(msg, style: AppTypography.outfitWhite),
         backgroundColor: AppColors.deepRose,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1107,7 +1126,8 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => EpisodeDrawer(item: item),
+      builder: (context) =>
+          EpisodeDrawer(item: item, cinemaVariant: widget.cinemaVariant),
     );
   }
 
@@ -1168,6 +1188,18 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
     }
     final ratingVal = double.tryParse(rating) ?? 0;
     final ratingFraction = (ratingVal / 10).clamp(0.0, 1.0);
+
+    // The Everglow Cinema variant gets its own cinematic layout; the
+    // dashboard previews keep the classic drawer below.
+    if (widget.cinemaVariant) {
+      return _buildCinemaEnhanced(
+        year: year,
+        rating: rating,
+        ratingFraction: ratingFraction,
+        runtime: runtime,
+        backdropUrl: backdropUrl,
+      );
+    }
 
     return Material(
       color: AppColors.deepBlack,
@@ -1481,7 +1513,11 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
               (_details!['overview'] as String).isNotEmpty) ...[
             Text(
               _details!['overview'],
-              style: AppTypography.outfitWhite.copyWith(color: AppColors.petalWhite.withValues(alpha: 0.75), fontSize: 13.5, height: 1.55),
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppColors.petalWhite.withValues(alpha: 0.75),
+                fontSize: 13.5,
+                height: 1.55,
+              ),
             ),
             const SizedBox(height: 20),
           ],
@@ -1517,7 +1553,10 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
             const SizedBox(width: 8),
             Text(
               'Play',
-              style: AppTypography.outfitHeading.copyWith(color: Colors.black, fontSize: 15),
+              style: AppTypography.outfitHeading.copyWith(
+                color: Colors.black,
+                fontSize: 15,
+              ),
             ),
           ],
         ),
@@ -1546,7 +1585,525 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       ),
       child: Text(
         name,
-        style: AppTypography.outfitBold.copyWith(color: AppColors.textMedium, fontSize: 11),
+        style: AppTypography.outfitBold.copyWith(
+          color: AppColors.textMedium,
+          fontSize: 11,
+        ),
+      ),
+    );
+  }
+
+  // ──────────────────────────────────────────────────────────────
+  // CINEMA ENHANCED VARIANT
+  // ──────────────────────────────────────────────────────────────
+
+  Widget _buildCinemaEnhanced({
+    required String year,
+    required String rating,
+    required double ratingFraction,
+    required dynamic runtime,
+    required String backdropUrl,
+  }) {
+    String posterUrl;
+    if (_isAnimeSourced) {
+      posterUrl = _details?['_posterUrl'] as String? ?? widget.item.posterPath;
+    } else {
+      final pp = _details?['poster_path'] as String?;
+      posterUrl = pp != null && pp.isNotEmpty
+          ? 'https://image.tmdb.org/t/p/w342$pp'
+          : widget.item.posterPath;
+    }
+    final isWide = MediaQuery.sizeOf(context).width >= 900;
+
+    return Material(
+      color: AppColors.inkDeep,
+      child: SizedBox(
+        width: double.infinity,
+        height: MediaQuery.sizeOf(context).height,
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: CinemaHero(
+                backdropUrl: backdropUrl,
+                posterUrl: posterUrl,
+                trailerKey: _trailerKey,
+                isLoadingTrailer: _isLoadingTrailer,
+                isPlayingTrailer: _isPlayingTrailer,
+                isMobile: _isMobile,
+                isWide: isWide,
+                year: year,
+                rating: rating,
+                ratingFraction: ratingFraction,
+                runtime: runtime,
+                title: widget.item.title,
+                isDetailsLoading: _details == null,
+                onToggleTrailer: () => setState(() => _isPlayingTrailer = true),
+                onCloseTrailer: () => setState(() => _isPlayingTrailer = false),
+                onClose: () => Navigator.pop(context),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: FadeTransition(
+                opacity: _fadeAnim,
+                child: _buildCinemaMetaPanel(),
+              ),
+            ),
+            if (widget.item.mediaType == 'movie')
+              SliverToBoxAdapter(child: _buildCinemaActions())
+            else
+              SliverToBoxAdapter(
+                child: EpisodeListSection(
+                  episodes: _episodes,
+                  seasons: _seasons,
+                  selectedSeasonNumber: _selectedSeasonNumber,
+                  isLoadingEpisodes: _isLoadingEpisodes,
+                  tmdbMatchedSeason: _tmdbMatchedSeason,
+                  isAnimeSourced: _isAnimeSourced,
+                  effectiveMalId: _effectiveMalId,
+                  item: widget.item,
+                  isCouple: context.watch<AuthService>().isCoupleUser,
+                  onPlayEpisode: _playEpisode,
+                  onSeasonChanged: (sn) {
+                    setState(() => _selectedSeasonNumber = sn);
+                    _fetchSeasonEpisodes(sn);
+                  },
+                ),
+              ),
+            SliverToBoxAdapter(
+              child: CinemaSectionHeader(
+                eyebrow: _isAnimeSourced ? 'CHARACTERS & VOICES' : 'STAR CAST',
+                title: _isAnimeSourced ? 'Voice Cast' : 'Cast',
+                trailing: _cast.isNotEmpty ? '${_cast.length}' : null,
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: CinemaCastSection(
+                cast: _cast,
+                isLoading: _isLoadingCast,
+                isAnimeSourced: _isAnimeSourced,
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: CinemaSectionHeader(
+                eyebrow: 'WORD OF MOUTH',
+                title: 'Reviews',
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: CinemaReviewsSection(
+                reviews: _reviews,
+                isLoading: _isLoadingReviews,
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: CinemaSectionHeader(
+                eyebrow: 'DISCOVER MORE',
+                title: 'Mochi says\u2026 \u{1F431}',
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: CinemaSimilarSection(
+                similar: _similar,
+                isLoading: _isLoadingSimilar,
+                onItemTap: _showSimilarItem,
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 72)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCinemaMetaPanel() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppColors.roseQuartz.withValues(alpha: 0.28),
+              AppColors.roseQuartz.withValues(alpha: 0.05),
+            ],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.35),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(1.2),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.panelGlass,
+            borderRadius: BorderRadius.circular(21),
+          ),
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_genreNames.isNotEmpty) ...[
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _genreNames
+                      .map((g) => _buildEnhancedGenreChip(g))
+                      .toList(),
+                ),
+                const SizedBox(height: 16),
+              ],
+              if (_isAnimeSourced &&
+                  (_studio.isNotEmpty ||
+                      _format.isNotEmpty ||
+                      _airingStatus.isNotEmpty)) ...[
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (_studio.isNotEmpty)
+                      _buildEnhancedAnimeFactChip(
+                        _studio,
+                        Icons.movie_creation_outlined,
+                      ),
+                    if (_format.isNotEmpty)
+                      _buildEnhancedAnimeFactChip(_format, Icons.tv_rounded),
+                    if (_airingStatus.isNotEmpty)
+                      _buildEnhancedAnimeFactChip(
+                        _airingStatus,
+                        Icons.fiber_manual_record_rounded,
+                      ),
+                    if (_aniListDetail?.nextAiringAt != null)
+                      _buildAiringCountdownChip(
+                        _aniListDetail!.nextAiringAt!,
+                        _aniListDetail!.nextAiringEpisode,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
+              Text(
+                'Status',
+                style: AppTypography.outfitHeading.copyWith(
+                  fontSize: 12,
+                  letterSpacing: 1.2,
+                  color: AppColors.roseQuartz.withValues(alpha: 0.9),
+                ),
+              ),
+              const SizedBox(height: 10),
+              _buildCinemaStatusArea(),
+              const SizedBox(height: 18),
+              if (_details?['overview'] != null &&
+                  (_details!['overview'] as String).isNotEmpty) ...[
+                Text(
+                  'STORY',
+                  style: AppTypography.outfitHeading.copyWith(
+                    fontSize: 10,
+                    letterSpacing: 2.4,
+                    color: AppColors.blushGold.withValues(alpha: 0.85),
+                  ),
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  _details!['overview'],
+                  style: AppTypography.outfitWhite.copyWith(
+                    color: AppColors.petalWhite.withValues(alpha: 0.8),
+                    fontSize: 14,
+                    height: 1.6,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCinemaStatusArea() {
+    return Builder(
+      builder: (context) {
+        final isCinemaOnly = context.watch<AuthService>().isCinemaOnlyUser;
+        final chips = isCinemaOnly
+            ? Row(
+                children: [
+                  _buildEnhancedStatusChip(
+                    'Want to Watch',
+                    'to-watch',
+                    icon: Icons.bookmark_rounded,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildEnhancedStatusChip(
+                    'Currently Watching',
+                    'watching-self',
+                    icon: Icons.play_circle_filled_rounded,
+                    activeColor: AppColors.cinemaOrange,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildEnhancedStatusChip(
+                    'Watched',
+                    'watched-self',
+                    icon: Icons.check_circle_rounded,
+                    activeColor: AppColors.cinemaGreen,
+                  ),
+                ],
+              )
+            : Row(
+                children: [
+                  _buildEnhancedStatusChip(
+                    'Want to Watch',
+                    'to-watch',
+                    icon: Icons.bookmark_rounded,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildEnhancedStatusChip(
+                    'Khent Watching',
+                    'watching-khent',
+                    icon: Icons.play_circle_filled_rounded,
+                    activeColor: AppColors.cinemaOrange,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildEnhancedStatusChip(
+                    'Clair Watching',
+                    'watching-clair',
+                    icon: Icons.play_circle_filled_rounded,
+                    activeColor: AppColors.cinemaPink,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildEnhancedStatusChip(
+                    'Both Watching',
+                    'watching-both',
+                    icon: Icons.people_rounded,
+                    activeColor: AppColors.cinemaAmber,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildEnhancedStatusChip(
+                    'Khent Watched',
+                    'watched-khent',
+                    icon: Icons.person_rounded,
+                    activeColor: AppColors.cinemaBlue,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildEnhancedStatusChip(
+                    'Clair Watched',
+                    'watched-clair',
+                    icon: Icons.favorite_rounded,
+                    activeColor: AppColors.cinemaPink,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildEnhancedStatusChip(
+                    'Both Watched',
+                    'watched-both',
+                    icon: Icons.people_rounded,
+                    activeColor: AppColors.cinemaGreen,
+                  ),
+                ],
+              );
+        return Scrollbar(
+          thumbVisibility: true,
+          controller: _statusScrollCtrl,
+          scrollbarOrientation: ScrollbarOrientation.bottom,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            controller: _statusScrollCtrl,
+            child: Listener(
+              onPointerSignal: (event) {
+                if (event is PointerScrollEvent && event.scrollDelta.dy != 0) {
+                  final ctrl = _statusScrollCtrl;
+                  final clamped = (ctrl.offset + event.scrollDelta.dy).clamp(
+                    ctrl.position.minScrollExtent,
+                    ctrl.position.maxScrollExtent,
+                  );
+                  ctrl.jumpTo(clamped);
+                }
+              },
+              child: chips,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildEnhancedStatusChip(
+    String label,
+    String status, {
+    IconData icon = Icons.check_circle_rounded,
+    Color activeColor = AppColors.deepRose,
+  }) {
+    final isSelected = _currentStatus == status;
+    return GestureDetector(
+      onTap: () => _updateStatus(status),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+        decoration: BoxDecoration(
+          gradient: isSelected
+              ? LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    activeColor.withValues(alpha: 0.3),
+                    activeColor.withValues(alpha: 0.08),
+                  ],
+                )
+              : null,
+          color: isSelected ? null : AppColors.surfaceGlass,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: isSelected
+                ? activeColor.withValues(alpha: 0.9)
+                : AppColors.moonlight.withValues(alpha: 0.16),
+            width: 1.2,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: activeColor.withValues(alpha: 0.35),
+                    blurRadius: 16,
+                    spreadRadius: -2,
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 15,
+              color: isSelected ? activeColor : AppColors.mutedPurple,
+            ),
+            const SizedBox(width: 7),
+            Text(
+              label,
+              style: AppTypography.outfitHeading.copyWith(
+                color: isSelected ? Colors.white : AppColors.mutedPurple,
+                fontSize: 12.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEnhancedGenreChip(String name) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceGlass,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColors.roseQuartz.withValues(alpha: 0.25)),
+      ),
+      child: Text(
+        name,
+        style: AppTypography.outfitBold.copyWith(
+          color: AppColors.roseQuartz.withValues(alpha: 0.95),
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEnhancedAnimeFactChip(String label, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.blushGold.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColors.blushGold.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: AppColors.blushGold, size: 12),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: AppTypography.outfitHeading.copyWith(
+              color: AppColors.blushGold,
+              fontSize: 10.5,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCinemaActions() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 6),
+      child: Column(
+        children: [
+          _buildCinemaPlayButton(),
+          const SizedBox(height: 12),
+          if (context.watch<AuthService>().isCoupleUser)
+            StartWatchPartyButton(
+              media: MediaRef(
+                tmdbId: widget.item.tmdbId,
+                malId: _isAnimeSourced ? _effectiveMalId : null,
+                mediaType: 'movie',
+                isAnime: _isAnimeSourced,
+                title: widget.item.title,
+                posterPath: widget.item.posterPath,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCinemaPlayButton() {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: _playMovie,
+        child: Container(
+          height: 58,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppColors.auroraRose, AppColors.deepRose],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.deepRose.withValues(alpha: 0.5),
+                blurRadius: 22,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.play_arrow_rounded,
+                color: Colors.white,
+                size: 30,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Play Now',
+                style: AppTypography.outfitHeading.copyWith(
+                  color: Colors.white,
+                  fontSize: 16,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1572,7 +2129,11 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
           const SizedBox(width: 5),
           Text(
             label,
-            style: AppTypography.outfitHeading.copyWith(color: AppColors.blushGold, fontSize: 10, letterSpacing: 0.4),
+            style: AppTypography.outfitHeading.copyWith(
+              color: AppColors.blushGold,
+              fontSize: 10,
+              letterSpacing: 0.4,
+            ),
           ),
         ],
       ),
@@ -1624,7 +2185,10 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
             const SizedBox(width: 6),
             Text(
               label,
-              style: AppTypography.outfitHeading.copyWith(color: isSelected ? Colors.black : AppColors.mutedPurple, fontSize: 12),
+              style: AppTypography.outfitHeading.copyWith(
+                color: isSelected ? Colors.black : AppColors.mutedPurple,
+                fontSize: 12,
+              ),
             ),
           ],
         ),
@@ -1701,7 +2265,11 @@ class _AiringCountdownChipState extends State<_AiringCountdownChip> {
           const SizedBox(width: 5),
           Text(
             label,
-            style: AppTypography.outfitHeading.copyWith(color: AppColors.deepRose, fontSize: 10, letterSpacing: 0.4),
+            style: AppTypography.outfitHeading.copyWith(
+              color: AppColors.deepRose,
+              fontSize: 10,
+              letterSpacing: 0.4,
+            ),
           ),
         ],
       ),

@@ -496,6 +496,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                 key: ValueKey('player-$_playerUrl'),
                 url: _playerUrl,
                 onContentError: _handleContentError,
+                scrollController: _scrollCtrl,
               ),
             const SizedBox(height: 16),
             Wrap(

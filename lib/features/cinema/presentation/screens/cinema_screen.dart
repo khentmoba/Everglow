@@ -291,20 +291,27 @@ class _CinemaScreenState extends State<CinemaScreen>
 
     if (!mounted) return;
     setState(() {
-      _discoveryRows['korean_dramas'] =
-          languageRows[0].where((m) => !m.isAnime).toList();
-      _discoveryRows['bollywood'] =
-          languageRows[1].where((m) => !m.isAnime).toList();
-      _discoveryRows['spanish_cinema'] =
-          languageRows[2].where((m) => !m.isAnime).toList();
-      _discoveryRows['french_cinema'] =
-          languageRows[3].where((m) => !m.isAnime).toList();
-      _discoveryRows['decade_2010s'] =
-          decadeRows[0].where((m) => !m.isAnime).toList();
-      _discoveryRows['decade_2000s'] =
-          decadeRows[1].where((m) => !m.isAnime).toList();
-      _discoveryRows['classic_films'] =
-          decadeRows[2].where((m) => !m.isAnime).toList();
+      _discoveryRows['korean_dramas'] = languageRows[0]
+          .where((m) => !m.isAnime)
+          .toList();
+      _discoveryRows['bollywood'] = languageRows[1]
+          .where((m) => !m.isAnime)
+          .toList();
+      _discoveryRows['spanish_cinema'] = languageRows[2]
+          .where((m) => !m.isAnime)
+          .toList();
+      _discoveryRows['french_cinema'] = languageRows[3]
+          .where((m) => !m.isAnime)
+          .toList();
+      _discoveryRows['decade_2010s'] = decadeRows[0]
+          .where((m) => !m.isAnime)
+          .toList();
+      _discoveryRows['decade_2000s'] = decadeRows[1]
+          .where((m) => !m.isAnime)
+          .toList();
+      _discoveryRows['classic_films'] = decadeRows[2]
+          .where((m) => !m.isAnime)
+          .toList();
     });
   }
 
@@ -316,14 +323,16 @@ class _CinemaScreenState extends State<CinemaScreen>
       barrierLabel: 'Close details',
       barrierColor: Colors.black.withValues(alpha: 0.65),
       transitionDuration: const Duration(milliseconds: 320),
-      pageBuilder: (context, _, _) => EpisodeDrawer(item: item),
+      pageBuilder: (context, _, _) =>
+          EpisodeDrawer(item: item, cinemaVariant: true),
       transitionBuilder: (context, animation, _, child) {
-        final offset = Tween<Offset>(
-          begin: const Offset(0, 0.06),
-          end: Offset.zero,
-        ).animate(
-          CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-        );
+        final offset =
+            Tween<Offset>(
+              begin: const Offset(0, 0.06),
+              end: Offset.zero,
+            ).animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+            );
         return SlideTransition(position: offset, child: child);
       },
     );

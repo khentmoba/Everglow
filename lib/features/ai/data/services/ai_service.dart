@@ -128,7 +128,10 @@ class AIService extends ChangeNotifier {
       // Add assistant reply (skip empty replies, e.g. tool-only rounds that
       // produced no visible text).
       if (reply.trim().isNotEmpty) {
-        conversation.messages.add(AIMessage(role: 'assistant', content: reply));
+        // Strip the model's leading blank lines/whitespace so the reply
+        // starts right at the first real line instead of a visible gap.
+        final cleaned = reply.trimLeft();
+        conversation.messages.add(AIMessage(role: 'assistant', content: cleaned));
       }
 
       // Publish the finished reply to the UI immediately so the loading
