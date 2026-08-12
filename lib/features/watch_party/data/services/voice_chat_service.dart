@@ -9,6 +9,9 @@ import 'package:everglow/core/utils/firestore_stream_utils.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:web/web.dart' as web;
 
+import '../models/watch_party_room.dart';
+import 'incoming_call_validator.dart';
+
 enum VoiceChatState { idle, calling, connected, ended }
 
 /// One persistent in-app notification. Emitted by
@@ -524,8 +527,16 @@ class VoiceChatService {
     final sorted = [myUid, partnerUid]..sort();
     final roomId = '${sorted[0]}_${sorted[1]}';
 
-    // Cancel any previous watcher before installing a new one.
+    // Drop any cached invitation from a previous session until the
+    // fresh snapshots confirm the party is still live.
+    _clearIncoming();
+    _incomingVoiceSnapshot = null;
+    _incomingPartySnapshot = null;
+
+    // Cancel any previous watchers before installing new ones.
     _incomingWatcherSub?.cancel();
+    _incomingPartySub?.cancel();
+
     _incomingWatcherSub = withFirestoreTimeout(
         _incomingDb
             .collection(_collection)
@@ -533,52 +544,91 @@ class VoiceChatService {
             .snapshots(),
         label: 'voice_chat_incoming',
       ).listen((snap) {
-      if (!snap.exists) {
-        _clearIncoming();
-        return;
-      }
-      final data = snap.data()!;
-      final state = data['state'] as String?;
-      final callerUid = data['callerUid'] as String?;
-      final calleeUid = data['calleeUid'] as String?;
-
-      // We only surface the banner on the callee's side, and only
-      // while the call is in a non-terminal state. "connected"
-      // and "ended" should not show a "tap to join" banner.
-      if (callerUid == myUid) {
-        // We're the caller — we don't need our own banner.
-        _clearIncoming();
-        return;
-      }
-      if (calleeUid != myUid) {
-        _clearIncoming();
-        return;
-      }
-      if (state == 'ended' || state == 'connected') {
-        _clearIncoming();
-        return;
-      }
-
-      // surface the latest media metadata
-      final incoming = IncomingCall(
-        roomId: roomId,
-        callerUid: callerUid ?? '',
-        callerName: (data['callerName'] as String?) ?? 'Partner',
-        mediaTitle: (data['mediaTitle'] as String?) ?? '',
-        mediaPosterPath: (data['mediaPosterPath'] as String?) ?? '',
-        mediaType: (data['mediaType'] as String?) ?? 'movie',
-        tmdbId: (data['tmdbId'] is num) ? (data['tmdbId'] as num).toInt() : null,
-        malId: (data['malId'] is num) ? (data['malId'] as num).toInt() : null,
-        isAnime: data['isAnime'] == true,
-        season: (data['season'] is num) ? (data['season'] as num).toInt() : null,
-        episode: (data['episode'] is num) ? (data['episode'] as num).toInt() : null,
-        seenAt: DateTime.now(),
-      );
-      _latestIncoming = incoming;
-      if (!_incomingController.isClosed) {
-        _incomingController.add(incoming);
-      }
+      _incomingVoiceSnapshot = snap.exists ? snap : null;
+      _evaluateIncoming(myUid: myUid, roomId: roomId);
     });
+
+    // The voice room is only meaningful while the matching watch
+    // party room is still live. A room left in `calling` by a closed
+    // tab or an old session must never re-surface as an invitation.
+    _incomingPartySub = withFirestoreTimeout(
+        _incomingDb
+            .collection(_watchPartyCollection)
+            .doc(roomId)
+            .snapshots(),
+        label: 'watch_party_room_incoming',
+      ).listen((snap) {
+      _incomingPartySnapshot = snap.exists ? snap : null;
+      _evaluateIncoming(myUid: myUid, roomId: roomId);
+    });
+  }
+
+  static void _evaluateIncoming({
+    required String myUid,
+    required String roomId,
+  }) {
+    final snap = _incomingVoiceSnapshot;
+    if (snap == null || !snap.exists) {
+      _clearIncoming();
+      return;
+    }
+    final data = snap.data();
+    if (data == null) {
+      _clearIncoming();
+      return;
+    }
+
+    WatchPartyRoom? partyRoom;
+    final partySnap = _incomingPartySnapshot;
+    if (partySnap != null && partySnap.exists) {
+      try {
+        partyRoom = WatchPartyRoom.fromFirestore(partySnap);
+      } catch (e) {
+        debugPrint(
+            'VoiceChatService: failed to parse watch party room $roomId: $e');
+      }
+    }
+
+    if (!isLiveIncomingCall(
+      myUid: myUid,
+      voiceData: data,
+      partyActive: partyRoom?.active ?? false,
+      partyUpdatedAt: partyRoom?.updatedAt,
+      now: DateTime.now(),
+    )) {
+      _clearIncoming();
+      return;
+    }
+
+    // surface the latest media metadata
+    final incoming = IncomingCall(
+      roomId: roomId,
+      callerUid: (data['callerUid'] as String?) ?? '',
+      callerName: (data['callerName'] as String?) ?? 'Partner',
+      mediaTitle: (data['mediaTitle'] as String?) ?? '',
+      mediaPosterPath: (data['mediaPosterPath'] as String?) ?? '',
+      mediaType: (data['mediaType'] as String?) ?? 'movie',
+      tmdbId: (data['tmdbId'] is num) ? (data['tmdbId'] as num).toInt() : null,
+      malId: (data['malId'] is num) ? (data['malId'] as num).toInt() : null,
+      isAnime: data['isAnime'] == true,
+      season: (data['season'] is num) ? (data['season'] as num).toInt() : null,
+      episode: (data['episode'] is num) ? (data['episode'] as num).toInt() : null,
+      seenAt: DateTime.now(),
+    );
+
+    final previous = _latestIncoming;
+    if (previous != null &&
+        previous.roomId == incoming.roomId &&
+        previous.callerUid == incoming.callerUid &&
+        previous.mediaTitle == incoming.mediaTitle) {
+      // The party-room heartbeat refreshes every few seconds; don't
+      // churn the banner unless the invitation itself changed.
+      return;
+    }
+    _latestIncoming = incoming;
+    if (!_incomingController.isClosed) {
+      _incomingController.add(incoming);
+    }
   }
 
   /// Stop watching. Called from the watch party screen on entry
@@ -586,6 +636,11 @@ class VoiceChatService {
   static void clearIncomingWatcher() {
     _incomingWatcherSub?.cancel();
     _incomingWatcherSub = null;
+    _incomingPartySub?.cancel();
+    _incomingPartySub = null;
+    _incomingVoiceSnapshot = null;
+    _incomingPartySnapshot = null;
+    _clearIncoming();
   }
 
   static void _clearIncoming() {
@@ -597,7 +652,13 @@ class VoiceChatService {
   }
 
   static final FirebaseFirestore _incomingDb = FirebaseFirestore.instance;
-  static StreamSubscription<DocumentSnapshot>? _incomingWatcherSub;
+  static StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+      _incomingWatcherSub;
+  static StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+      _incomingPartySub;
+  static DocumentSnapshot<Map<String, dynamic>>? _incomingVoiceSnapshot;
+  static DocumentSnapshot<Map<String, dynamic>>? _incomingPartySnapshot;
+  static const String _watchPartyCollection = 'watch_party_rooms';
 
   // ─────────────────────────────────────────────────────────────────
   // Web tab-close cleanup

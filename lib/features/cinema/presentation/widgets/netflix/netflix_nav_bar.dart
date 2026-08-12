@@ -2,6 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:everglow/core/theme/app_typography.dart';
 import 'package:everglow/core/theme/app_motion.dart';
 import 'netflix_colors.dart';
+
+/// Height of the floating desktop/tablet top navbar, excluding the system
+/// status inset.
+const double kNetflixNavBarHeight = 68;
+
+/// Top inset that page content needs to clear the floating navbar.
+///
+/// Desktop/tablet uses a top-docked transparent navbar, so headers must
+/// start below it. Mobile docks the navbar to the bottom, so only the
+/// status-bar inset plus a small breathing gap is needed.
+double cinemaTopContentInset(BuildContext context) {
+  final topPad = MediaQuery.paddingOf(context).top;
+  if (MediaQuery.sizeOf(context).width < 600) return topPad + 12;
+  return topPad + kNetflixNavBarHeight + 16;
+}
+
 /// A navigation link for the cinema top/bottom bars.
 class NetflixNavLink {
   final String label;
@@ -137,7 +153,7 @@ class _NetflixTopNav extends StatelessWidget {
     return AnimatedContainer(
       duration: AppMotion.orZero(const Duration(milliseconds: 260)),
       curve: Curves.easeOut,
-      height: 68 + topPad,
+      height: kNetflixNavBarHeight + topPad,
       padding: EdgeInsets.fromLTRB(
         isDesktop ? 48 : 24,
         topPad,
