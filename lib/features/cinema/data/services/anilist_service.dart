@@ -554,7 +554,7 @@ class AniListService with ConnectivityAware {
       if (sort != null && sort.isNotEmpty) 'sort': [sort],
       if (status != null && status.isNotEmpty) 'status': status,
       if (season != null && season.isNotEmpty) 'season': season,
-      if (seasonYear != null) 'seasonYear': seasonYear,
+      'seasonYear': ?seasonYear,
       if (format != null && format.isNotEmpty) 'format': format,
       if (genre != null && genre.isNotEmpty) 'genre': genre,
       'page': page,
