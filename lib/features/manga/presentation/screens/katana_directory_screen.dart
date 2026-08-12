@@ -136,6 +136,35 @@ class _KatanaDirectoryScreenState extends State<KatanaDirectoryScreen> {
     _load();
   }
 
+  String get _activeType {
+    if (_include.contains('manhwa')) return 'manhwa';
+    if (_include.contains('manhua')) return 'manhua';
+    if (_exclude.contains('manhwa') && _exclude.contains('manhua')) {
+      return 'manga';
+    }
+    return 'all';
+  }
+
+  void _selectType(String type) {
+    setState(() {
+      if (type == 'manga') {
+        _include = {};
+        _exclude = {'manhwa', 'manhua'};
+      } else if (type == 'manhwa') {
+        _include = {'manhwa'};
+        _exclude = {};
+      } else if (type == 'manhua') {
+        _include = {'manhua'};
+        _exclude = {};
+      } else {
+        _include = {};
+        _exclude = {};
+      }
+      _page = 1;
+    });
+    _load();
+  }
+
   void _openFilterSheet() {
     showModalBottomSheet(
       context: context,
@@ -224,6 +253,7 @@ class _KatanaDirectoryScreenState extends State<KatanaDirectoryScreen> {
     return Column(
       children: [
         _buildBreadcrumb(),
+        if (widget.mode == 'directory') _buildTypeTabs(),
         Expanded(child: _buildList()),
         Padding(
           padding: const EdgeInsets.all(16),
@@ -235,6 +265,30 @@ class _KatanaDirectoryScreenState extends State<KatanaDirectoryScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTypeTabs() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          children: [
+            for (final type in const ['all', 'manga', 'manhwa', 'manhua']) ...[
+              _TypeTab(
+                label: type == 'all'
+                    ? 'All'
+                    : '${type[0].toUpperCase()}${type.substring(1)}',
+                selected: _activeType == type,
+                onTap: () => _selectType(type),
+              ),
+              const SizedBox(width: 8),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -320,6 +374,44 @@ class _KatanaDirectoryScreenState extends State<KatanaDirectoryScreen> {
           child: KatanaItemCard(manga: _items[index]),
         );
       },
+    );
+  }
+}
+
+class _TypeTab extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _TypeTab({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? KatanaColors.accent.withValues(alpha: 0.16)
+              : KatanaColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? KatanaColors.accent : KatanaColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: AppTypography.outfitBold.copyWith(
+            color: selected ? KatanaColors.accent : KatanaColors.text,
+            fontSize: 12.5,
+          ),
+        ),
+      ),
     );
   }
 }

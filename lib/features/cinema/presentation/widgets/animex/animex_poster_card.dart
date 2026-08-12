@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:everglow/features/cinema/data/models/media_item.dart';
@@ -46,6 +48,8 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
   final OverlayPortalController _portal = OverlayPortalController();
   bool _hover = false;
   bool _popoverLeft = false;
+  bool _pointerInPopover = false;
+  Timer? _hideTimer;
 
   void _enter() {
     if (!_hover) {
@@ -56,10 +60,25 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
   }
 
   void _exit() {
+    _hideTimer?.cancel();
+    _pointerInPopover = false;
     if (_hover) {
       setState(() => _hover = false);
       _portal.hide();
     }
+  }
+
+  void _onCardExit() {
+    // Give the pointer a moment to reach the popover before dismissing it.
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(milliseconds: 200), () {
+      if (!_pointerInPopover) _exit();
+    });
+  }
+
+  void _onPopoverEnter() {
+    _pointerInPopover = true;
+    _hideTimer?.cancel();
   }
 
   bool _isNearRightEdge() {
@@ -67,7 +86,13 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
     if (box == null || !box.hasSize) return false;
     final screenWidth = MediaQuery.sizeOf(context).width;
     final globalX = box.localToGlobal(Offset.zero).dx;
-    return globalX + widget.width + 230 > screenWidth;
+    return globalX + widget.width + _CardPopover.width + 12 > screenWidth;
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -76,21 +101,32 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
     final episodeCount = item.episodeCount;
 
     // The overlay portal renders the popover in the app overlay so it never
-    // gets clipped by the horizontal scrollable it lives inside.
+    // gets clipped by the horizontal scrollable it lives inside. The overlay
+    // hands its children tight full-screen constraints, so the popover is
+    // wrapped in an Align: Align keeps its own full-size box (for positioning)
+    // but lays out the popover with loose constraints, letting the panel keep
+    // its compact 190px size instead of stretching across the screen.
     return OverlayPortal(
       controller: _portal,
       overlayChildBuilder: (_) => CompositedTransformFollower(
         link: _link,
         showWhenUnlinked: false,
         offset: Offset(
-          _popoverLeft ? -(210 + 12.0) : widget.width + 12.0,
+          _popoverLeft ? -(_CardPopover.width + 12.0) : widget.width + 12.0,
           0,
         ),
-        child: _CardPopover(item: item, score: widget.score),
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: MouseRegion(
+            onEnter: (_) => _onPopoverEnter(),
+            onExit: (_) => _exit(),
+            child: _CardPopover(item: item, score: widget.score),
+          ),
+        ),
       ),
       child: MouseRegion(
         onEnter: (_) => _enter(),
-        onExit: (_) => _exit(),
+        onExit: (_) => _onCardExit(),
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
           onTap: widget.onTap,
@@ -288,6 +324,8 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
 
 /// The hover detail panel anchored beside the card.
 class _CardPopover extends StatelessWidget {
+  static const double width = 190;
+
   final MediaItem item;
   final double? score;
 
@@ -296,9 +334,9 @@ class _CardPopover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 190, maxHeight: 220),
+      constraints: const BoxConstraints(maxWidth: width, maxHeight: 220),
       child: Container(
-        width: 190,
+        width: width,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: AnimeXTokens.surfaceRaised,
@@ -316,6 +354,18 @@ class _CardPopover extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+          Text(
+            item.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: dmSansStyle(
+              size: 13,
+              color: AnimeXTokens.textPrimary,
+              weight: FontWeight.w700,
+              height: 1.25,
+            ),
+          ),
+          const SizedBox(height: 8),
           if (score != null) ...[
             Row(
               children: [

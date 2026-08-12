@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
 import 'package:everglow/features/manga/data/services/mangadex_service.dart';
 import 'package:everglow/features/manga/data/services/mangakakalot_service.dart';
+import 'package:everglow/features/manga/presentation/katana/katana_nav.dart';
 import 'package:everglow/features/manga/presentation/widgets/manga_details_drawer.dart';
 import 'package:everglow/services/auth_service.dart';
 import '_partner_label.dart';
@@ -146,6 +147,12 @@ class _MangaShelfState extends State<_MangaShelf> {
   }
 
   void _openDetails(MangaItem item) {
+    // Katana-sourced entries (added via "Khent Reading" / "Claire Reading")
+    // open the Katana detail page so the reading button stays reachable.
+    if (item.mangaId.startsWith('katana|')) {
+      pushDetail(context, item.mangaKakalotId);
+      return;
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

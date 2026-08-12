@@ -10,9 +10,10 @@ import 'package:everglow/features/manga/presentation/katana/katana_nav.dart';
 import 'package:everglow/features/manga/presentation/katana/katana_theme.dart';
 import 'package:everglow/services/auth_service.dart';
 
-/// The manga detail page: cover and meta, bookmark / first chapter /
-/// read offline actions, description and the full chapter table with
-/// a reverse-order toggle, exactly like Manga Katana.
+/// The manga detail page: cover and meta, first chapter / read offline
+/// actions plus a per-couple "Khent Reading" / "Claire Reading" button,
+/// description and the full chapter table with a reverse-order toggle,
+/// exactly like Manga Katana.
 class KatanaDetailScreen extends StatefulWidget {
   final String slug;
   final KatanaManga? preview;
@@ -28,7 +29,7 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
   KatanaManga? _manga;
   bool _loading = true;
   String? _error;
-  bool _bookmarked = false;
+  bool _isReading = false;
   bool _reversed = true; // site shows newest first
 
   String get _user => context.read<AuthService>().currentUser ?? '';
@@ -38,7 +39,7 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
     super.initState();
     _manga = widget.preview;
     _load();
-    _loadBookmark();
+    _loadReading();
   }
 
   Future<void> _load() async {
@@ -64,25 +65,39 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
     }
   }
 
-  Future<void> _loadBookmark() async {
-    final bookmarked = await _service.isBookmarked(widget.slug, _user);
+  Future<void> _loadReading() async {
+    final reading = await _service.isReading(widget.slug, _user);
     if (mounted) {
       setState(() {
-        _bookmarked = bookmarked;
+        _isReading = reading;
       });
     }
   }
 
-  Future<void> _toggleBookmark() async {
-    final manga = _manga;
-    if (manga == null || _user.isEmpty) {
-      _showSnack('Sign in to bookmark manga.');
-      return;
+  /// "Khent Reading" for Khent, "Claire Reading" for Clair, and nothing
+  /// for Breyan / Octagram so the couple-only feature stays private.
+  String? get _readingButtonLabel {
+    switch (_user) {
+      case 'khentsgdz':
+        return 'Khent Reading';
+      case 'clairjassen':
+        return 'Claire Reading';
+      default:
+        return null;
     }
-    final next = !_bookmarked;
-    setState(() => _bookmarked = next);
-    await _service.setBookmark(manga, _user, bookmarked: next);
-    _showSnack(next ? 'Bookmarked ${manga.title}' : 'Removed bookmark');
+  }
+
+  Future<void> _toggleReading() async {
+    final manga = _manga;
+    if (manga == null || _readingButtonLabel == null || _user.isEmpty) return;
+    final next = !_isReading;
+    setState(() => _isReading = next);
+    await _service.setReading(manga, _user, reading: next);
+    _showSnack(
+      next
+          ? 'Added "${manga.title}" to Reading'
+          : 'Removed "${manga.title}" from Reading',
+    );
   }
 
   void _showSnack(String message) {
@@ -124,16 +139,6 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
 
   Future<void> _openDownload() async {
     final uri = Uri.parse('https://mangakatana.com/manga/${widget.slug}/download');
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-
-  Future<void> _share(String network) async {
-    final manga = _manga;
-    final uri = Uri.parse(
-      network == 'twitter'
-          ? 'https://twitter.com/intent/tweet?url=https://mangakatana.com/manga/${widget.slug}&text=${Uri.encodeComponent(manga?.title ?? widget.slug)}'
-          : 'https://www.facebook.com/sharer/sharer.php?u=https://mangakatana.com/manga/${widget.slug}&t=${Uri.encodeComponent(manga?.title ?? widget.slug)}',
-    );
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
@@ -298,22 +303,21 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
               onTap: _openFirstChapter,
             ),
             KatanaButton(
-              label: _bookmarked ? 'Bookmarked' : 'Bookmark',
-              icon: _bookmarked
-                  ? Icons.bookmark_rounded
-                  : Icons.bookmark_border_rounded,
-              filled: _bookmarked,
-              color: _bookmarked ? KatanaColors.green : KatanaColors.accent,
-              onTap: _toggleBookmark,
-            ),
-            KatanaButton(
               label: 'Read offline',
               icon: Icons.download_rounded,
               filled: false,
               onTap: _openDownload,
             ),
-            _shareButton('f'),
-            _shareButton('t'),
+            if (_user == 'khentsgdz' || _user == 'clairjassen')
+              KatanaButton(
+                label: _isReading ? 'Reading' : _readingButtonLabel!,
+                icon: _isReading
+                    ? Icons.check_rounded
+                    : Icons.auto_stories_rounded,
+                filled: _isReading,
+                color: _isReading ? KatanaColors.green : KatanaColors.accent,
+                onTap: _toggleReading,
+              ),
           ],
         ),
       ],
@@ -383,14 +387,22 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
                       onTap: _openFirstChapter,
                     ),
                     KatanaButton(
-                      label: _bookmarked ? 'Bookmarked' : 'Bookmark',
-                      icon: _bookmarked
-                          ? Icons.bookmark_rounded
-                          : Icons.bookmark_border_rounded,
-                      filled: _bookmarked,
-                      color: _bookmarked ? KatanaColors.green : KatanaColors.accent,
-                      onTap: _toggleBookmark,
+                      label: 'Read offline',
+                      icon: Icons.download_rounded,
+                      filled: false,
+                      onTap: _openDownload,
                     ),
+                    if (_user == 'khentsgdz' || _user == 'clairjassen')
+                      KatanaButton(
+                        label: _isReading ? 'Reading' : _readingButtonLabel!,
+                        icon: _isReading
+                            ? Icons.check_rounded
+                            : Icons.auto_stories_rounded,
+                        filled: _isReading,
+                        color:
+                            _isReading ? KatanaColors.green : KatanaColors.accent,
+                        onTap: _toggleReading,
+                      ),
                   ],
                 ),
               ],
@@ -403,30 +415,6 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
                 Expanded(child: info),
               ],
             ),
-    );
-  }
-
-  Widget _shareButton(String network) {
-    return GestureDetector(
-      onTap: () => _share(network),
-      child: Container(
-        width: 38,
-        height: 38,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: network == 'f'
-              ? const Color(0xFF1877F2)
-              : const Color(0xFF1DA1F2),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(
-          network == 'f' ? 'f' : 'X',
-          style: AppTypography.outfitBold.copyWith(
-            color: Colors.white,
-            fontSize: 15,
-          ),
-        ),
-      ),
     );
   }
 

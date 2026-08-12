@@ -8,6 +8,10 @@ import '../models/lastfm_image_utils.dart';
 import '../../../../core/utils/logger.dart';
 
 class MusicSyncService {
+  MusicSyncService({http.Client? client}) : _client = client ?? http.Client();
+
+  final http.Client _client;
+
   String get _apiKey => EnvConfig.lastfmApiKey;
   final String _baseUrl = 'https://ws.audioscrobbler.com/2.0/';
 
@@ -50,7 +54,7 @@ class MusicSyncService {
         '$_baseUrl?method=user.getrecenttracks&user=$username&api_key=$_apiKey&format=json&limit=$limit',
       );
 
-      final response = await http.get(url).timeout(const Duration(seconds: 10));
+      final response = await _client.get(url).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -109,7 +113,7 @@ class MusicSyncService {
         '&limit=$limit&api_key=$_apiKey&format=json',
       );
 
-      final response = await http.get(url).timeout(const Duration(seconds: 10));
+      final response = await _client.get(url).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -158,9 +162,25 @@ class MusicSyncService {
   /// `user.gettoptracks` frequently returns Last.fm's default placeholder
   /// image (or no image at all), so the dashboard enriches missing covers
   /// with the track's actual album art. Prefers the MusicBrainz [mbid] when
-  /// available, otherwise falls back to artist + track lookup. Returns null
-  /// when the lookup fails or still yields a placeholder.
+  /// available, otherwise falls back to artist + track lookup. When Last.fm
+  /// still has no usable cover, the iTunes Search API is queried as a final
+  /// fallback (it reliably carries artwork for independent and mainstream
+  /// releases alike). Returns null when every lookup fails.
   Future<String?> fetchTrackArtwork({
+    required String artist,
+    required String track,
+    String? mbid,
+  }) async {
+    final lastfmArtwork = await _fetchLastfmTrackArtwork(
+      artist: artist,
+      track: track,
+      mbid: mbid,
+    );
+    if (lastfmArtwork != null) return lastfmArtwork;
+    return _fetchItunesArtwork(artist: artist, track: track);
+  }
+
+  Future<String?> _fetchLastfmTrackArtwork({
     required String artist,
     required String track,
     String? mbid,
@@ -183,7 +203,7 @@ class MusicSyncService {
         );
       }
 
-      final response = await http
+      final response = await _client
           .get(Uri.parse(buffer.toString()))
           .timeout(const Duration(seconds: 10));
 
@@ -223,5 +243,88 @@ class MusicSyncService {
       );
     }
     return null;
+  }
+
+  /// Fallback artwork lookup via the iTunes Search API (no key required).
+  ///
+  /// Queries `artist + track` first. Last.fm sometimes stores mangled names
+  /// (UTF-8 mojibake of accented names), which can make
+  /// the combined query return nothing, so the search is retried with just
+  /// the track name. Prefers the result whose track name matches exactly
+  /// (ignoring case and punctuation) so a cover is never paired with the
+  /// wrong song.
+  Future<String?> _fetchItunesArtwork({
+    required String artist,
+    required String track,
+  }) async {
+    try {
+      var results = await _searchItunes('$artist $track');
+      if (results.isEmpty) {
+        results = await _searchItunes(track);
+      }
+      if (results.isEmpty) return null;
+
+      final selected = _selectItunesResult(results, track);
+      if (selected == null) return null;
+      final artwork = selected['artworkUrl100'];
+      if (artwork is! String || artwork.isEmpty) return null;
+
+      // artworkUrl100 is 100x100; bump it to 600x600 so covers stay crisp in
+      // the large listen-along dialog and the dashboard rows.
+      return artwork.replaceFirst('/100x100bb.jpg', '/600x600bb.jpg');
+    } on TimeoutException {
+      Logger.e(
+        'Jukebox Service Timeout: iTunes artwork lookup timed out for '
+        '"$artist - $track".',
+      );
+    } catch (e) {
+      Logger.e(
+        'Jukebox Service Exception (iTunes artwork, $artist - $track)',
+        error: e,
+      );
+    }
+    return null;
+  }
+
+  Future<List<Map<String, dynamic>>> _searchItunes(String term) async {
+    final uri = Uri.parse('https://itunes.apple.com/search').replace(
+      queryParameters: {
+        'term': term,
+        'entity': 'song',
+        'media': 'music',
+        'limit': '10',
+      },
+    );
+    final response = await _client
+        .get(uri)
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode != 200) return const [];
+    final data = json.decode(response.body);
+    final results = data is Map<String, dynamic> ? data['results'] : null;
+    if (results is! List) return const [];
+    return results.whereType<Map<String, dynamic>>().toList();
+  }
+
+  Map<String, dynamic>? _selectItunesResult(
+    List<Map<String, dynamic>> results,
+    String track,
+  ) {
+    if (results.isEmpty) return null;
+    final normalizedTrack = _normalizeForMatch(track);
+    for (final result in results) {
+      final resultTrack = result['trackName'];
+      if (resultTrack is String &&
+          _normalizeForMatch(resultTrack) == normalizedTrack) {
+        return result;
+      }
+    }
+    return results.first;
+  }
+
+  /// Lowercases and strips punctuation for forgiving title comparisons.
+  static String _normalizeForMatch(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^\p{L}\p{N}]', unicode: true), '');
   }
 }

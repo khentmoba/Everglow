@@ -404,6 +404,7 @@ class _MochiScreenState extends State<MochiScreen> {
                                 text: msg.content,
                                 isUser: msg.role == 'user',
                                 timestamp: msg.timestamp,
+                                imageUrls: msg.imageUrls,
                               );
                             },
                           );
@@ -762,6 +763,7 @@ class _MessageBubble extends StatefulWidget {
   final bool isStreaming;
   final String? reasoning;
   final String? toolStatus;
+  final List<String> imageUrls;
 
   const _MessageBubble({
     super.key,
@@ -771,10 +773,68 @@ class _MessageBubble extends StatefulWidget {
     this.isStreaming = false,
     this.reasoning,
     this.toolStatus,
+    this.imageUrls = const [],
   });
 
   @override
   State<_MessageBubble> createState() => _MessageBubbleState();
+}
+
+/// Renders attached images inside a message bubble. The URLs are base64
+/// data URIs (sent to the vision API), so they are decoded and shown with
+/// [Image.memory].
+class _MessageImages extends StatelessWidget {
+  final List<String> imageUrls;
+
+  const _MessageImages({required this.imageUrls});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: imageUrls.map((url) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: ClipRRect(
+            borderRadius: AppRadius.radiusMd,
+            child: url.startsWith('data:image')
+                ? Image.memory(
+                    _decodeBase64(url),
+                    width: 180,
+                    height: 180,
+                    fit: BoxFit.cover,
+                    gaplessPlayback: true,
+                    errorBuilder: (_, _, _) => _BrokenImageTile(),
+                  )
+                : Image.network(
+                    url,
+                    width: 180,
+                    height: 180,
+                    fit: BoxFit.cover,
+                    gaplessPlayback: true,
+                    errorBuilder: (_, _, _) => _BrokenImageTile(),
+                  ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _BrokenImageTile extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 180,
+      height: 180,
+      color: AppColors.velvet.withValues(alpha: 0.6),
+      child: Icon(
+        Icons.broken_image_outlined,
+        color: AppColors.textDisabled,
+        size: 28,
+      ),
+    );
+  }
 }
 
 class _MessageBubbleState extends State<_MessageBubble> {
@@ -802,9 +862,12 @@ class _MessageBubbleState extends State<_MessageBubble> {
 
   @override
   Widget build(BuildContext context) {
+    // The model often starts replies with blank lines; trim them for a
+    // clean first line in the bubble (both while streaming and after).
+    final bubbleText = widget.isUser ? widget.text : widget.text.trimLeft();
     final displayText = widget.isUser
         ? widget.text
-        : stripMarkdown(widget.text);
+        : stripMarkdown(bubbleText);
     final hasReasoning =
         widget.reasoning != null && widget.reasoning!.isNotEmpty;
 
@@ -964,6 +1027,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           ),
                         ),
                       ),
+                    if (widget.imageUrls.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      _MessageImages(imageUrls: widget.imageUrls),
+                      if (widget.text.isNotEmpty) const SizedBox(height: 8),
+                    ],
                     if (widget.isUser)
                       Text(
                         widget.text,
@@ -972,7 +1040,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           height: 1.45,
                         ),
                       )
-                    else if (widget.isStreaming && widget.text.isEmpty)
+                    else if (widget.isStreaming && bubbleText.isEmpty)
                       _StreamingPlaceholder(
                         toolStatus: widget.toolStatus ?? '',
                       )
@@ -982,14 +1050,14 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         children: [
                           Expanded(
                             child: _MarkdownText(
-                              text: widget.text,
+                              text: bubbleText,
                               baseStyle: AppTypography.bodyMedium().copyWith(
                                 color: AppColors.textHigh,
                                 height: 1.45,
                               ),
                             ),
                           ),
-                          if (widget.isStreaming && widget.text.isNotEmpty)
+                          if (widget.isStreaming && bubbleText.isNotEmpty)
                             const Padding(
                               padding: EdgeInsets.only(left: 4, top: 3),
                               child: _StreamingCaret(),
