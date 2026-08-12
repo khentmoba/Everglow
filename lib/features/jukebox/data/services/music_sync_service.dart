@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:everglow/core/config/env_config.dart';
 import '../models/music_status.dart';
 import '../models/top_music_track.dart';
+import '../models/lastfm_image_utils.dart';
 import '../../../../core/utils/logger.dart';
 
 class MusicSyncService {
@@ -150,5 +151,77 @@ class MusicSyncService {
       Logger.e('Jukebox Service Exception (top tracks, $username)', error: e);
     }
     return [];
+  }
+
+  /// Looks up real album artwork for a single track via `track.getinfo`.
+  ///
+  /// `user.gettoptracks` frequently returns Last.fm's default placeholder
+  /// image (or no image at all), so the dashboard enriches missing covers
+  /// with the track's actual album art. Prefers the MusicBrainz [mbid] when
+  /// available, otherwise falls back to artist + track lookup. Returns null
+  /// when the lookup fails or still yields a placeholder.
+  Future<String?> fetchTrackArtwork({
+    required String artist,
+    required String track,
+    String? mbid,
+  }) async {
+    if (_apiKey.isEmpty) {
+      Logger.w('Jukebox Service: API Key is missing!');
+      return null;
+    }
+
+    try {
+      final buffer = StringBuffer(
+        '$_baseUrl?method=track.getinfo&api_key=$_apiKey&format=json',
+      );
+      if (mbid != null && mbid.isNotEmpty) {
+        buffer.write('&mbid=${Uri.encodeComponent(mbid)}');
+      } else {
+        buffer.write(
+          '&artist=${Uri.encodeComponent(artist)}'
+          '&track=${Uri.encodeComponent(track)}',
+        );
+      }
+
+      final response = await http
+          .get(Uri.parse(buffer.toString()))
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final album = data['track']?['album'];
+        if (album is Map) {
+          final images = album['image'] as List<dynamic>?;
+          if (images != null && images.isNotEmpty) {
+            dynamic selectedImage = images.last;
+            for (final img in images) {
+              if (img is Map && img['size'] == 'extralarge') {
+                selectedImage = img;
+                break;
+              }
+            }
+            if (selectedImage is Map) {
+              return cleanLastfmImageUrl(selectedImage['#text'] as String?);
+            }
+          }
+        }
+        return null;
+      } else {
+        Logger.d(
+          'Jukebox Service: track.getinfo returned ${response.statusCode} '
+          'for "$artist - $track"',
+        );
+      }
+    } on TimeoutException {
+      Logger.e(
+        'Jukebox Service Timeout: track.getinfo timed out for "$artist - $track".',
+      );
+    } catch (e) {
+      Logger.e(
+        'Jukebox Service Exception (track.getinfo, $artist - $track)',
+        error: e,
+      );
+    }
+    return null;
   }
 }

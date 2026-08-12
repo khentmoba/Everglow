@@ -59,21 +59,32 @@ exports.proxyBookText = functions.https.onRequest(async (req, res) => {
 
   for (let i = 0; i < urls.length; i++) {
     const url = urls[i];
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
     try {
       const response = await fetch(url, {
         method: 'GET',
-        headers: { 'Accept': 'text/plain, text/html' },
-        timeout: 15000,
+        headers: { 'Accept': 'text/plain' },
+        redirect: 'follow',
+        signal: controller.signal,
       });
+      const contentType = response.headers.get('content-type') || '';
+      const isPlainText = contentType.toLowerCase().includes('text/plain');
       if (response.ok) {
         const text = await response.text();
-        if (text.trim().length > 0) {
+        const looksLikeHtml =
+          text.trimLeft().toLowerCase().startsWith('<!doctype') ||
+          text.trimLeft().toLowerCase().startsWith('<html') ||
+          (text.trimLeft().startsWith('<') && text.trim().length < 4096);
+        if (text.trim().length > 0 && isPlainText && !looksLikeHtml) {
           res.json({ text, usedUrl: url, attempted: urls.slice(0, i + 1) });
           return;
         }
       }
     } catch (e) {
       console.warn(`proxyBookText attempt ${i} failed (${url}):`, e.message);
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -1671,6 +1682,16 @@ exports.keepWarm = functions.pubsub.schedule('every 10 minutes').onRun(async (co
 // ── Rough token estimator ──────────────────────────────
 // ~4 chars/token for English, ~3 for mixed CJK/emoji content.
 // Good enough for budget enforcement; not a substitute for tiktoken.
+function getMessageText(content) {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => (typeof part === 'string' ? part : (part?.text || '')))
+      .join(' ');
+  }
+  return '';
+}
+
 function estimateTokens(text) {
   if (!text) return 0;
   // Count CJK characters (roughly 1.5 tokens each) and emoji (1 token each)
@@ -1988,7 +2009,9 @@ ${identityContext ? `\n${identityContext}` : ''}
 ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
 
   // Server-side memory filtering: select top 30 relevant memories
-  const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content || '';
+  // Multimodal messages carry content as [{type:'text',text}, {type:'image_url',...}];
+  // reduce it to the plain text so downstream string functions never crash.
+  const lastUserMessage = getMessageText(messages.filter(m => m.role === 'user').pop()?.content);
   const relevantMemories = await selectRelevantMemories(memories, lastUserMessage);
   if (relevantMemories.length > 0) {
     systemPrompt += `\n## Remembered Facts\n${relevantMemories.map(m => `- ${m}`).join('\n')}`;
@@ -2045,14 +2068,14 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   // Work directly on systemPrompt + messages before nimMessages is built.
   {
     let inputTokens = estimateTokens(systemPrompt);
-    for (const m of messages) inputTokens += estimateTokens(m.content || '');
+    for (const m of messages) inputTokens += estimateTokens(getMessageText(m.content));
     console.log('[proxyAI] Estimated input tokens:', inputTokens, '/ budget:', AGNES_INPUT_TOKEN_BUDGET);
 
     // Phase 1: Drop oldest conversation message pairs
     const msgs = [...messages]; // mutable copy
     while (inputTokens > AGNES_INPUT_TOKEN_BUDGET && msgs.length > 2) {
       const removed = msgs.splice(0, 2); // remove oldest user + assistant pair
-      inputTokens -= estimateTokens(removed[0]?.content || '') + estimateTokens(removed[1]?.content || '');
+      inputTokens -= estimateTokens(getMessageText(removed[0]?.content)) + estimateTokens(getMessageText(removed[1]?.content));
     }
     if (msgs.length < messages.length) {
       console.log('[proxyAI] Dropped', messages.length - msgs.length, 'oldest messages to fit TPM budget. Remaining tokens:', inputTokens);
@@ -2090,7 +2113,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
         sys = sys.substring(0, 30000) + '\n… [context trimmed for token limit]';
       }
       systemPrompt = sys;
-      inputTokens = estimateTokens(sys) + msgs.reduce((sum, m) => sum + estimateTokens(m.content || ''), 0);
+      inputTokens = estimateTokens(sys) + msgs.reduce((sum, m) => sum + estimateTokens(getMessageText(m.content)), 0);
       console.log('[proxyAI] After system prompt trim, estimated input tokens:', inputTokens);
     }
 
@@ -2708,10 +2731,23 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
       if (keepaliveInterval) { clearInterval(keepaliveInterval); keepaliveInterval = null; }
     };
 
+    // Thinking heartbeat: while the model is still silently reasoning, send
+    // a tick every 3s so the client can keep its "thinking" state alive.
+    let heartbeatInterval = null;
+    const startHeartbeat = () => {
+      heartbeatInterval = setInterval(() => {
+        try { sendEvent({ tool_status: 'thinking' }); } catch (_) {}
+      }, 3000);
+    };
+    const stopHeartbeat = () => {
+      if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
+    };
+
     try {
       // ── Stream directly — no blocking tool-detection round ──
       sendEvent({ tool_status: 'generating' });
       startKeepalive();
+      startHeartbeat();
 
       let currentMessages = [...nimMessages];
       let toolRound = 0;
@@ -2785,9 +2821,11 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
 
               // Stream content tokens to client immediately
               if (delta.reasoning) sendEvent({ reasoning: delta.reasoning });
+              if (delta.reasoning_content) sendEvent({ reasoning: delta.reasoning_content });
               if (delta.content) {
                 fullContent += delta.content;
                 sendEvent({ content: delta.content });
+                stopHeartbeat();
               }
 
               // Collect tool calls from stream deltas
@@ -2855,6 +2893,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
       }
 
       stopKeepalive();
+      stopHeartbeat();
       sendEvent({ tool_status: 'done' });
       sendEvent('[DONE]');
     } catch (e) {
@@ -2863,6 +2902,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
       sendEvent('[DONE]');
     } finally {
       stopKeepalive();
+      stopHeartbeat();
       res.end();
     }
     return;

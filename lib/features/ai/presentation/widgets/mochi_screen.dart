@@ -1,8 +1,10 @@
 // ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 // Mochi runs on Flutter web only; dart:html powers image attachments and
 // browser clipboard integration that has no non-web equivalent here.
+import 'dart:async';
 import 'dart:convert';
 import 'dart:html' as html;
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -207,14 +209,19 @@ class _MochiScreenState extends State<MochiScreen> {
       if (images.isNotEmpty) {
         for (final image in images) {
           final bytes = await image.readAsBytes();
-          final base64Data =
-              'data:image/${image.name.split('.').last};base64,${base64Encode(bytes)}';
+          // Resize large photos to a compact JPEG so the AI proxy request
+          // stays well under Cloud Run's size limit. Without this, full-size
+          // phone photos (multi-MB base64) get rejected with HTTP 500.
+          // Small images pass through unchanged (canvas re-encode could
+          // actually grow tiny PNGs).
+          final base64Data = bytes.length > 300 * 1024
+              ? await _resizeImageToDataUri(bytes)
+              : 'data:image/${image.name.split('.').last};base64,${base64Encode(bytes)}';
           if (!mounted) return;
           setState(() {
             _attachedImages.add(base64Data);
-            // For Agnes API, we need a publicly accessible URL.
-            // Since we can't upload to a public URL in Flutter web directly,
-            // we'll use base64 data URIs which Agnes supports via image_url.
+            // Agnes supports base64 data URIs via image_url, so we send the
+            // same compact data URI to the API.
             _attachedImageUrls.add(base64Data);
           });
         }
@@ -231,6 +238,58 @@ class _MochiScreenState extends State<MochiScreen> {
           ),
         );
       }
+    }
+  }
+
+  /// Draws the image bytes onto a canvas, scales it down to at most
+  /// [maxDim] on the long edge, and returns a compact JPEG data URI.
+  Future<String> _resizeImageToDataUri(Uint8List bytes,
+      {int maxDim = 1280}) async {
+    final blob = html.Blob([bytes]);
+    final objectUrl = html.Url.createObjectUrlFromBlob(blob);
+    try {
+      final img = html.ImageElement();
+      final completer = Completer<String>();
+      img.onLoad.listen((_) async {
+        try {
+          final scale = math.min(
+            1.0,
+            maxDim / math.max(img.naturalWidth, img.naturalHeight),
+          );
+          final w = (img.naturalWidth * scale).round().clamp(1, 4096);
+          final h = (img.naturalHeight * scale).round().clamp(1, 4096);
+          final canvas = html.CanvasElement(width: w, height: h);
+          final ctx = canvas.context2D;
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'medium';
+          ctx.drawImage(img, 0, 0);
+          // JPEG keeps photos small; PNG stays lossless for screenshots.
+          final isPng = bytes.length > 8 &&
+              bytes[0] == 0x89 &&
+              bytes[1] == 0x50 &&
+              bytes[2] == 0x4E &&
+              bytes[3] == 0x47;
+          final mime = isPng ? 'image/png' : 'image/jpeg';
+          final quality = isPng ? null : 0.82;
+          final dataUri = canvas.toDataUrl(mime, quality);
+          completer.complete(dataUri);
+        } catch (e) {
+          completer.completeError(e);
+        } finally {
+          html.Url.revokeObjectUrl(objectUrl);
+        }
+      });
+      img.onError.listen((_) {
+        html.Url.revokeObjectUrl(objectUrl);
+        if (!completer.isCompleted) {
+          completer.completeError(Exception('Image could not be loaded'));
+        }
+      });
+      img.src = objectUrl;
+      return completer.future;
+    } catch (e) {
+      html.Url.revokeObjectUrl(objectUrl);
+      rethrow;
     }
   }
 
@@ -937,6 +996,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
                             ),
                         ],
                       ),
+                    if (widget.isStreaming)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 7),
+                        child: _StreamingProgressBar(),
+                      ),
                     if (widget.timestamp != null || widget.isStreaming)
                       Padding(
                         padding: const EdgeInsets.only(top: 5),
@@ -1095,6 +1159,7 @@ class _MarkdownText extends StatelessWidget {
 
 String _formatToolStatus(String status) {
   if (status == 'generating') return 'Mochi is thinking';
+  if (status == 'thinking') return 'Mochi is thinking';
   if (status == 'executing') return 'Mochi is working on it';
   if (status == 'done') return 'Mochi is done';
   if (status.startsWith('round_')) return 'Mochi is thinking';
@@ -1183,6 +1248,7 @@ Color _toolAccent(String status) {
 bool _isToolAction(String status) {
   return status.isNotEmpty &&
       status != 'generating' &&
+      status != 'thinking' &&
       status != 'executing' &&
       status != 'done' &&
       !status.startsWith('round_');
@@ -1239,16 +1305,63 @@ class _StreamingPlaceholder extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          'Mochi is thinking',
-          style: AppTypography.bodyMedium().copyWith(
-            color: AppColors.textMuted,
-            height: 1.45,
-          ),
-        ),
+        const _RotatingThinkingText(),
         const SizedBox(width: 8),
         _ThreeDots(),
       ],
+    );
+  }
+}
+
+/// Rotates through short "thinking" phrases so the pre-answer wait feels
+/// alive instead of a frozen gap (the model can stay silent for seconds
+/// while it reasons).
+class _RotatingThinkingText extends StatefulWidget {
+  const _RotatingThinkingText();
+
+  @override
+  State<_RotatingThinkingText> createState() => _RotatingThinkingTextState();
+}
+
+class _RotatingThinkingTextState extends State<_RotatingThinkingText> {
+  static const _phrases = [
+    'Mochi is thinking',
+    'Mochi is weaving her thoughts',
+    'Mochi is remembering your little things',
+    'Mochi is finding the right words',
+    'Mochi is dreaming up something nice',
+  ];
+
+  int _index = 0;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: 2200), (_) {
+      if (!mounted) return;
+      setState(() => _index = (_index + 1) % _phrases.length);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 350),
+      child: Text(
+        _phrases[_index],
+        key: ValueKey(_index),
+        style: AppTypography.bodyMedium().copyWith(
+          color: AppColors.textMuted,
+          height: 1.45,
+        ),
+      ),
     );
   }
 }
@@ -1357,6 +1470,24 @@ class _StreamingCaretState extends State<_StreamingCaret>
   }
 }
 
+/// Thin indeterminate bar that keeps the streaming state visibly "in
+/// motion" while Mochi works on a reply.
+class _StreamingProgressBar extends StatelessWidget {
+  const _StreamingProgressBar();
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(2),
+      child: LinearProgressIndicator(
+        minHeight: 2,
+        backgroundColor: AppColors.moonlight.withValues(alpha: 0.14),
+        valueColor: const AlwaysStoppedAnimation(AppColors.blushGold),
+      ),
+    );
+  }
+}
+
 // ─── Thinking indicator ─────────────────────────────────────────
 
 class _ThinkingIndicator extends StatelessWidget {
@@ -1395,15 +1526,16 @@ class _ThinkingIndicator extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  toolStatus.isNotEmpty
-                      ? _formatToolStatus(toolStatus)
-                      : 'Mochi is thinking',
-                  style: AppTypography.bodyMedium().copyWith(
-                    color: AppColors.textMuted,
-                    height: 1.0,
-                  ),
-                ),
+                if (_isToolAction(toolStatus))
+                  Text(
+                    _formatToolStatus(toolStatus),
+                    style: AppTypography.bodyMedium().copyWith(
+                      color: AppColors.textMuted,
+                      height: 1.0,
+                    ),
+                  )
+                else
+                  const _RotatingThinkingText(),
                 const SizedBox(width: 8),
                 const _ThreeDots(),
               ],

@@ -15,10 +15,16 @@ class AnimeXPlayerFrame extends StatefulWidget {
   final String url;
   final double aspectRatio;
 
+  /// Called when the embedded page signals that content is unavailable
+  /// (e.g. a provider "We're Sorry / 410" error page). Lets the caller
+  /// auto-advance to the next server.
+  final VoidCallback? onContentError;
+
   const AnimeXPlayerFrame({
     super.key,
     required this.url,
     this.aspectRatio = 16 / 9,
+    this.onContentError,
   });
 
   @override
@@ -29,7 +35,9 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
   late final String _viewType;
   late final web.HTMLIFrameElement _iframe;
   JSFunction? _onLoad;
+  JSFunction? _onMessage;
   bool _loaded = false;
+  bool _contentError = false;
 
   @override
   void initState() {
@@ -51,6 +59,22 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
       if (mounted) setState(() => _loaded = true);
     }).toJS;
     _iframe.addEventListener('load', _onLoad);
+
+    // Listen for a content-availability signal from the embed. The embed
+    // pages (e.g. MegaPlay) render a "We're Sorry / 410" page inside their
+    // own document when an episode is missing; a small script injected by
+    // the provider posts `animex-content-error` to the parent so we can
+    // skip dead servers automatically.
+    _onMessage = ((web.MessageEvent event) {
+      final raw = event.data;
+      final data = raw == null ? '' : raw.toString();
+      if (data == 'animex-content-error' && mounted && !_contentError) {
+        setState(() => _contentError = true);
+        widget.onContentError?.call();
+      }
+    }).toJS;
+    web.window.addEventListener('message', _onMessage);
+
     ui_web.platformViewRegistry
         .registerViewFactory(_viewType, (int viewId) => _iframe);
   }
@@ -59,6 +83,9 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
   void dispose() {
     if (_onLoad != null) {
       _iframe.removeEventListener('load', _onLoad!);
+    }
+    if (_onMessage != null) {
+      web.window.removeEventListener('message', _onMessage!);
     }
     super.dispose();
   }

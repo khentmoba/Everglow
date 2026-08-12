@@ -248,7 +248,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
         navigator.pop();
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F7F8),
+        backgroundColor: KatanaColors.background,
         body: Column(
           children: [
             _buildTopBar(),

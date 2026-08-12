@@ -12,6 +12,7 @@ import 'package:everglow/features/books/data/services/book_download_helper.dart'
 import 'package:everglow/features/books/data/services/open_library_service.dart';
 import 'package:everglow/features/books/data/services/web_tts_service.dart';
 import 'package:everglow/features/books/presentation/widgets/chapter_list.dart';
+import 'package:everglow/core/utils/logger.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:everglow/core/theme/app_typography.dart';
 
@@ -83,22 +84,22 @@ class _ReaderScreenState extends State<ReaderScreen> {
     // way a CORS block or 404 on the Internet Archive fallback
     // still leaves us with a working Gutenberg or Open Library URL.
     final candidates = _service.buildReadSourceCandidates(widget.book);
-    // Prefer the in-app text reader whenever a public-domain
-    // Gutenberg plain-text copy exists. Only borrow-only Internet
-    // Archive items (no plain text on disk) fall back to the IA
-    // embedded viewer.
+    // Gutenberg books and public-domain Internet Archive books get
+    // the in-app text reader; borrow-only Internet Archive books
+    // (no plain text on disk) fall back to the IA embedded viewer.
     final iaId = widget.book.iaId;
-    final hasGutenbergText = candidates
-        .any((c) => c.contains('gutenberg.org') || c.endsWith('.txt'));
-    if (iaId.isNotEmpty &&
-        !iaId.startsWith('pg') &&
-        !hasGutenbergText) {
-      _registerIframe(iaId);
-      setState(() {
-        _readerMode = ReaderMode.embed;
-        _isLoading = false;
-      });
-      return;
+    String? resolvedIaId = iaId;
+    if (candidates.isEmpty && iaId.isEmpty && widget.book.workKey.isNotEmpty) {
+      resolvedIaId = await _findIaEdition(widget.book.workKey);
+      if (resolvedIaId != null) {
+        _registerIframe(resolvedIaId);
+        if (!mounted) return;
+        setState(() {
+          _readerMode = ReaderMode.embed;
+          _isLoading = false;
+        });
+        return;
+      }
     }
     if (candidates.isEmpty) {
       setState(() {
@@ -112,12 +113,39 @@ class _ReaderScreenState extends State<ReaderScreen> {
       final result = await _service.fetchBookTextFromCandidates(candidates);
       if (!mounted) return;
       if (!result.isSuccess) {
-        setState(() {
-          _isLoading = false;
-          _loadError = result.error ??
-              'Could not load the book text from any available source.';
-        });
+        // Public-domain IA items can still lose the text race (proxy
+        // down, mirror 404, redirect to a borrow page). Show the
+        // embedded viewer instead of the "no readable text" error.
+        final embedIa = resolvedIaId ?? iaId;
+        if (embedIa.isNotEmpty && !embedIa.startsWith('pg')) {
+          _registerIframe(embedIa);
+          if (!mounted) return;
+          setState(() {
+            _readerMode = ReaderMode.embed;
+            _isLoading = false;
+          });
+          return;
+        }
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _loadError = result.error ??
+                'Could not load the book text from any available source.';
+          });
+        }
         return;
+      }
+      if (_looksLikeHtml(result.text)) {
+        final embedIa = resolvedIaId ?? iaId;
+        if (embedIa.isNotEmpty && !embedIa.startsWith('pg')) {
+          _registerIframe(embedIa);
+          if (!mounted) return;
+          setState(() {
+            _readerMode = ReaderMode.embed;
+            _isLoading = false;
+          });
+          return;
+        }
       }
       final cleaned = _stripGutenbergBoilerplate(result.text);
       final chapters = _splitChapters(cleaned);
@@ -141,6 +169,39 @@ class _ReaderScreenState extends State<ReaderScreen> {
         _loadError = 'Error: $e';
       });
     }
+  }
+
+  /// Find an Internet Archive copy for a work when the search result
+  /// didn't carry one. Open Library's editions list includes `ia`
+  /// identifiers for borrowable editions.
+  Future<String?> _findIaEdition(String workKey) async {
+    try {
+      final editions = await _service.fetchEditions(workKey);
+      for (final edition in editions) {
+        final iaRaw = edition['ia'];
+        if (iaRaw is List && iaRaw.isNotEmpty) {
+          final id = iaRaw.first.toString();
+          if (id.isNotEmpty && !id.startsWith('pg')) return id;
+        } else if (iaRaw is String && iaRaw.isNotEmpty) {
+          return iaRaw;
+        }
+      }
+    } catch (e) {
+      Logger.e('Reader IA edition lookup failed ($workKey)', error: e);
+    }
+    return null;
+  }
+
+  /// Guard against a proxied/redirected HTML page (e.g. an Internet
+  /// Archive borrow page) being mistaken for book text.
+  bool _looksLikeHtml(String text) {
+    final trimmed = text.trimLeft();
+    if (trimmed.isEmpty) return false;
+    if (trimmed.toLowerCase().startsWith('<!doctype') ||
+        trimmed.toLowerCase().startsWith('<html')) {
+      return true;
+    }
+    return trimmed.startsWith('<') && trimmed.length < 4096;
   }
 
   Future<void> _saveProgress(int chapter) async {
