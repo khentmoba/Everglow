@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:everglow/core/theme/app_colors.dart';
-import '../character/cat_visuals.dart';
+import 'roaming_cat_3d_engine.dart';
 import 'roaming_guardian_cat.dart';
-import 'roaming_guardian_controller.dart';
 
-/// Default 3D visual for the roaming Guardian (a `<model-viewer>` platform
-/// view), plus its ground shadow, held glow and directional mirror.
+/// Default visual for the roaming Guardian on web: the real 3D model rendered
+/// offscreen by three.js and composited into the Flutter canvas.
 ///
-/// Lives in a web-only file so the interaction layer in
-/// [RoamingGuardianCat] stays testable on the VM.
+/// Because it is painted as canvas content (not a DOM platform view), the same
+/// 3D model can sit both in front of and behind dashboard widgets.
 Widget buildRoamingCatVisual(BuildContext context, RoamingCatFrame frame) {
   return Stack(
     alignment: Alignment.center,
@@ -46,23 +45,71 @@ Widget buildRoamingCatVisual(BuildContext context, RoamingCatFrame frame) {
             ),
           ),
         ),
-      Transform(
-        alignment: Alignment.center,
-        transform: Matrix4.diagonal3Values(
-          frame.scale * (frame.turning ? 1 : frame.facing),
-          frame.scale * frame.breath,
-          1,
-        ),
-        child: Transform.translate(
-          offset: Offset(0, frame.bob),
-          child: CatVisuals(
-            size: frame.catSize,
-            clip: false,
-            autoRotate: frame.activity == RoamingActivity.idle,
-            orientation: frame.turning ? '0deg 180deg 0deg' : null,
-          ),
-        ),
-      ),
+      Positioned.fill(child: RoamingCat3DView(frame: frame)),
     ],
   );
+}
+
+/// Displays the latest 3D frame from the shared offscreen renderer.
+class RoamingCat3DView extends StatefulWidget {
+  const RoamingCat3DView({super.key, required this.frame});
+
+  final RoamingCatFrame frame;
+
+  @override
+  State<RoamingCat3DView> createState() => _RoamingCat3DViewState();
+}
+
+class _RoamingCat3DViewState extends State<RoamingCat3DView> {
+  @override
+  void initState() {
+    super.initState();
+    final engine = RoamingCat3DEngine.instance;
+    engine.ensureRunning();
+    engine.setParams(widget.frame);
+    engine.addListener(_onFrame);
+  }
+
+  @override
+  void didUpdateWidget(covariant RoamingCat3DView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    RoamingCat3DEngine.instance.setParams(widget.frame);
+  }
+
+  @override
+  void dispose() {
+    RoamingCat3DEngine.instance.removeListener(_onFrame);
+    super.dispose();
+  }
+
+  void _onFrame() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final image = RoamingCat3DEngine.instance.image;
+    if (image == null) {
+      // Soft placeholder while the GLB is loading.
+      return Center(
+        child: Container(
+          width: widget.frame.catSize * 0.5,
+          height: widget.frame.catSize * 0.5,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.deepRose.withValues(alpha: 0.18),
+            border: Border.all(
+              color: AppColors.blushGold.withValues(alpha: 0.5),
+              width: 1.2,
+            ),
+          ),
+        ),
+      );
+    }
+    return RawImage(
+      image: image,
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.medium,
+    );
+  }
 }
