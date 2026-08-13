@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/features/cinema/data/models/media_item.dart';
-import 'package:everglow/features/watch_party/presentation/widgets/start_watch_party_button.dart';
 import 'drawer_helpers.dart';
 import 'package:everglow/core/theme/app_typography.dart';
 
@@ -33,10 +31,6 @@ class EpisodeListSection extends StatelessWidget {
   final int? selectedSeasonNumber;
   final bool isLoadingEpisodes;
   final int? tmdbMatchedSeason;
-  final bool isAnimeSourced;
-  final int effectiveMalId;
-  final MediaItem item;
-  final bool isCouple;
   final void Function(int season, int episode, String title) onPlayEpisode;
   final void Function(int seasonNumber) onSeasonChanged;
 
@@ -47,10 +41,6 @@ class EpisodeListSection extends StatelessWidget {
     this.selectedSeasonNumber,
     required this.isLoadingEpisodes,
     this.tmdbMatchedSeason,
-    required this.isAnimeSourced,
-    required this.effectiveMalId,
-    required this.item,
-    required this.isCouple,
     required this.onPlayEpisode,
     required this.onSeasonChanged,
   });
@@ -163,24 +153,6 @@ class EpisodeListSection extends StatelessWidget {
       epOverview: epOverview,
       stillUrl: epStillUrl,
       onTap: () => onPlayEpisode(epSeason, epNum, epName),
-      watchTogether: isCouple
-          ? Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: StartWatchPartyButton(
-                variant: WatchPartyButtonVariant.icon,
-                media: MediaRef(
-                  tmdbId: isAnimeSourced ? effectiveMalId : item.tmdbId,
-                  malId: isAnimeSourced ? effectiveMalId : null,
-                  mediaType: 'tv',
-                  isAnime: isAnimeSourced,
-                  season: epSeason,
-                  episode: epNum,
-                  title: '${cleanTitle(item.title)}: $epName',
-                  posterPath: item.posterPath,
-                ),
-              ),
-            )
-          : null,
     );
   }
 
@@ -212,13 +184,6 @@ class EpisodeTile extends StatefulWidget {
   final String? stillUrl;
   final VoidCallback onTap;
 
-  /// Optional "Watch Together" action widget. When non-null, it's
-  /// rendered as a small chip beneath the play icon so the couple
-  /// can open a synchronized party directly from the episode row
-  /// without scrolling up to the meta section. Cinema-only profiles
-  /// (Breyan / Octagram) pass `null` to hide the affordance.
-  final Widget? watchTogether;
-
   const EpisodeTile({
     super.key,
     required this.epNum,
@@ -226,7 +191,6 @@ class EpisodeTile extends StatefulWidget {
     required this.epOverview,
     this.stillUrl,
     required this.onTap,
-    this.watchTogether,
   });
 
   @override
@@ -328,10 +292,6 @@ class _EpisodeTileState extends State<EpisodeTile> {
                       child: const Icon(Icons.play_arrow_rounded,
                           color: AppColors.deepRose, size: 18),
                     ),
-                    if (widget.watchTogether != null) ...[
-                      const SizedBox(height: 6),
-                      widget.watchTogether!,
-                    ],
                   ],
                 ),
               ),

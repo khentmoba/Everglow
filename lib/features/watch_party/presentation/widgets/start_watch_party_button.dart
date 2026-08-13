@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';import 'package:provider/provider.dart';
 import 'package:everglow/services/auth_service.dart';
 import '../../data/models/watch_party_room.dart';
 import '../../data/services/watch_party_service.dart';
+import '../../data/services/watch_party_chat_service.dart';
+import '../../data/services/temporary_chat_service.dart';
 import '../screens/watch_party_screen.dart';
 import 'package:everglow/core/theme/app_typography.dart';
 
@@ -332,6 +334,7 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
 
     WatchPartyRoom toOpen;
     bool isHost;
+    bool freshChat = false;
     debugPrint('SWP _onTap: hasParty=$hasParty, media.tmdbId=${widget.media.tmdbId}, room.tmdbId=${room?.tmdbId}');
     if (hasParty && room != null) {
       // Check if user is picking a different movie/episode.
@@ -343,6 +346,7 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
               room.season != widget.media.season ||
               room.episode != widget.media.episode);
       if (mediaChanged) {
+        freshChat = true;
         await _service.updateMedia(
           roomId: room.id,
           mediaType: widget.media.mediaType,
@@ -411,6 +415,29 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
         posterPath: widget.media.posterPath,
       );
       isHost = true;
+      freshChat = true;
+    }
+
+    if (freshChat) {
+      // Each movie night starts with a clean conversation. Both the
+      // in-player chat and the Watch Together temporary chat share the
+      // couple's room id, so clearing here refreshes both surfaces.
+      try {
+        await WatchPartyChatService().clearMessages(toOpen.id);
+      } catch (e) {
+        debugPrint('SWP clear party chat failed: $e');
+      }
+      try {
+        final tempService = TemporaryChatService();
+        await tempService.ensureRoom(
+          roomId: toOpen.id,
+          myUid: myUid,
+          partnerUid: partnerUid,
+        );
+        await tempService.clearMessages(toOpen.id);
+      } catch (e) {
+        debugPrint('SWP clear temporary chat failed: $e');
+      }
     }
 
     if (!context.mounted) return;

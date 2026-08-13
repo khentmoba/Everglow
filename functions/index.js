@@ -1224,6 +1224,106 @@ exports.proxyVideoStream = functions.https.onRequest(async (req, res) => {
 
 // ─── WASM-based ID encoding ──────────────────────────────────────────
 
+/**
+ * Proxies self-hosted watch-party streams (HLS playlists, segments, and
+ * subtitles) so Flutter web can load them without CORS or hotlink
+ * blocks. This mirrors AniChan's `/api/watch/m3u8` + `/api/watch/vtt`
+ * pattern: the client passes a normalized upstream URL and this
+ * function streams it back with permissive CORS headers.
+ *
+ * Accepts:
+ *   GET /proxyWatchStream?url=<encoded upstream url>[&referer=<encoded>]
+ */
+exports.proxyWatchStream = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  if (req.method !== 'GET') {
+    res.status(405).json({ error: 'Only GET is accepted' });
+    return;
+  }
+
+  const targetUrl = req.query.url;
+  if (typeof targetUrl !== 'string' || targetUrl.length === 0) {
+    res.status(400).json({ error: 'Missing ?url=<stream url> query param' });
+    return;
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(targetUrl);
+  } catch (_) {
+    res.status(400).json({ error: 'Invalid url' });
+    return;
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    res.status(400).json({ error: 'Only http(s) urls are allowed' });
+    return;
+  }
+  const hostname = parsed.hostname.toLowerCase();
+  const blocked = [
+    'localhost',
+    '127.0.0.1',
+    '::1',
+    '169.254.169.254',
+    'metadata.google.internal',
+    'metadata',
+  ];
+  if (blocked.includes(hostname)) {
+    res.status(400).json({ error: 'Host not allowed' });
+    return;
+  }
+
+  const referer = req.query.referer;
+  try {
+    const upstream = await fetch(targetUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': '*/*',
+        ...(referer ? { 'Referer': String(referer) } : {}),
+      },
+      redirect: 'follow',
+      timeout: 30000,
+    });
+    if (!upstream.ok) {
+      res
+        .status(upstream.status)
+        .json({ error: `Upstream returned ${upstream.status}` });
+      return;
+    }
+
+    const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', 'public, max-age=300');
+
+    // Stream large segment files instead of buffering them fully.
+    if (upstream.body && typeof upstream.body.getReader === 'function') {
+      const reader = upstream.body.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        res.write(Buffer.from(value));
+      }
+      res.end();
+      return;
+    }
+
+    const buffer = Buffer.from(await upstream.arrayBuffer());
+    res.status(200).send(buffer);
+  } catch (e) {
+    console.warn(`proxyWatchStream failed (${targetUrl}):`, e.message);
+    res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
+  }
+});
+
 let _wasmReady = null;
 let _wasmGetAdv = null;
 
