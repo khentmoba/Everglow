@@ -36,7 +36,7 @@ final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   usePathUrlStrategy();
-  
+
   try {
     await dotenv.load(fileName: "assets/env.txt");
     Logger.i("Environment variables loaded successfully");
@@ -44,15 +44,14 @@ void main() async {
     Logger.w("Could not load env.txt file: $e. Using fallbacks.");
   }
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // Enable Firestore persistence for all platforms (including Web)
   // This fixes the "always buffering" issue and makes data "always there"
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
-    cacheSizeBytes: 100 * 1024 * 1024, // 100 MB cap to prevent unbounded browser memory
+    cacheSizeBytes:
+        100 * 1024 * 1024, // 100 MB cap to prevent unbounded browser memory
   );
   Logger.i("Firestore persistence enabled for robust real-time experience");
 
@@ -67,24 +66,27 @@ void main() async {
   NotificationService.setScaffoldMessengerKey(_scaffoldMessengerKey);
 
   // Initialize push notifications (FCM) — non-critical, never block runApp
-  try {
-    final notificationService = NotificationService();
-    await notificationService.initialize();
-  } catch (e) {
-    Logger.w("Push notification init failed: $e. Continuing without notifications.");
-  }
-
-  runZonedGuarded(
-    () => runApp(const EverglowApp()),
-    (error, stack) {
-      final msg = error.toString();
-      if (msg.contains('onSnapshotUnsubscribe') || msg.contains('FIRESTORE INTERNAL ASSERTION')) {
-        if (kDebugMode) debugPrint('[Firestore] Known race condition (suppressed): $error');
-      } else {
-        if (kDebugMode) debugPrint('[Unhandled] $error\n$stack');
-      }
-    },
+  unawaited(
+    NotificationService().initialize().catchError((Object e) {
+      Logger.w(
+        "Push notification init failed: $e. Continuing without notifications.",
+      );
+    }),
   );
+
+  runZonedGuarded(() => runApp(const EverglowApp()), (error, stack) {
+    final msg = error.toString();
+    if (msg.contains('onSnapshotUnsubscribe') ||
+        msg.contains('FIRESTORE INTERNAL ASSERTION')) {
+      if (kDebugMode) {
+        debugPrint('[Firestore] Known race condition (suppressed): $error');
+      }
+    } else {
+      if (kDebugMode) {
+        debugPrint('[Unhandled] $error\n$stack');
+      }
+    }
+  });
 }
 
 class EverglowApp extends StatelessWidget {
@@ -170,10 +172,7 @@ class _AppRootState extends State<_AppRoot> {
     final myUid = auth.uid;
     final partnerUid = auth.partnerUid;
     if (auth.isCoupleUser && myUid != null && myUid.isNotEmpty) {
-      VoiceChatService.watchIncoming(
-        myUid: myUid,
-        partnerUid: partnerUid,
-      );
+      VoiceChatService.watchIncoming(myUid: myUid, partnerUid: partnerUid);
       // Expose context to NotificationService for push → navigation
       NotificationService.setNavContext(context);
     } else {

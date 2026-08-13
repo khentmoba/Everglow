@@ -20,13 +20,16 @@ import 'package:everglow/features/cinema/presentation/widgets/tabs/cinema_browse
     show CinemaBrowseTab;
 import 'package:everglow/features/cinema/presentation/widgets/tabs/cinema_library_tab.dart'
     show CinemaLibraryTab;
+import 'package:everglow/features/watch_party/presentation/widgets/cinema_watch_together_tab.dart';
 
 // ─────────────────────────────────────────────────────────────────────
 // Cinema Color Tokens
 // ─────────────────────────────────────────────────────────────────────
 
 class CinemaScreen extends StatefulWidget {
-  const CinemaScreen({super.key});
+  final int initialTab;
+
+  const CinemaScreen({super.key, this.initialTab = 0});
 
   @override
   State<CinemaScreen> createState() => _CinemaScreenState();
@@ -76,6 +79,7 @@ class _CinemaScreenState extends State<CinemaScreen>
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialTab.clamp(0, 4);
     _navController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -434,6 +438,11 @@ class _CinemaScreenState extends State<CinemaScreen>
                   onMediaTap: _showMediaDetails,
                   onSwitchTab: _switchTab,
                 ),
+                CinemaWatchTogetherTab(
+                  watchlist: _watchlist,
+                  onMediaTap: _showMediaDetails,
+                  onSwitchTab: _switchTab,
+                ),
               ],
             ),
             // Floating top navbar (desktop/tablet only — overlays hero)
@@ -451,6 +460,7 @@ class _CinemaScreenState extends State<CinemaScreen>
                     NetflixNavLink('TV Shows', 2, 'collection-tv'),
                     NetflixNavLink('New & Popular', 2, 'collection-new'),
                     NetflixNavLink('My List', 3),
+                    NetflixNavLink('Watch Together', 4),
                   ],
                   onSelect: _onNavSelect,
                   onSearchTap: () => _switchTab(1),
@@ -497,6 +507,12 @@ class _CinemaScreenState extends State<CinemaScreen>
                   icon: Icons.search_rounded,
                   activeIcon: Icons.search_rounded,
                   tab: 1,
+                ),
+                NetflixMobileItem(
+                  label: 'Together',
+                  icon: Icons.favorite_outline_rounded,
+                  activeIcon: Icons.favorite_rounded,
+                  tab: 4,
                 ),
               ],
               onSelect: _onNavSelect,

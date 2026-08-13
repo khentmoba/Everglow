@@ -117,4 +117,25 @@ class WatchPartyChatService {
       rethrow;
     }
   }
+
+  /// Deletes every message in the room's chat. Used when a new movie
+  /// starts so the conversation begins fresh instead of carrying over
+  /// the previous title's thread.
+  Future<void> clearMessages(String roomId) async {
+    if (roomId.isEmpty) return;
+    try {
+      final snap = await _db
+          .collection(_collection)
+          .doc(roomId)
+          .collection(_messagesSubcollection)
+          .get();
+      final batch = _db.batch();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    } catch (e) {
+      debugPrint('WatchPartyChatService.clearMessages failed: $e');
+    }
+  }
 }

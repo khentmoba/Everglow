@@ -58,6 +58,29 @@ class WatchPartyRoom {
   final String title;
   final String posterPath;
 
+  // ── Self-hosted playback server ────────────────────────────────────
+  // Mirrors the AniChan server model: the room carries the active
+  // server's identity and normalized stream URL so the partner can
+  // replay the exact same host without needing their own config.
+
+  /// 'hls' | 'embed' | null. Null means the legacy embed-provider list.
+  final String? serverType;
+
+  /// Display label of the active server (e.g. "★ Jellyfin").
+  final String? serverName;
+
+  /// Host identity reported for the active server.
+  final String? serverHost;
+
+  /// Normalized stream URL (m3u8 for hls, page URL for embed).
+  final String? streamUrl;
+
+  /// Optional subtitle track for the active HLS server.
+  final String? subtitleUrl;
+
+  /// Whether the stream should be routed through `proxyWatchStream`.
+  final bool proxyEnabled;
+
   // ─── Playback state ────────────────────────────────────────────────
   // This is the heart of the real-time sync. Every time the host (or
   // the partner) changes state, we rewrite this document with the new
@@ -109,6 +132,12 @@ class WatchPartyRoom {
     this.episode,
     required this.title,
     required this.posterPath,
+    this.serverType,
+    this.serverName,
+    this.serverHost,
+    this.streamUrl,
+    this.subtitleUrl,
+    this.proxyEnabled = false,
     required this.state,
     required this.currentTime,
     required this.updatedAt,
@@ -117,15 +146,15 @@ class WatchPartyRoom {
     required this.active,
   });
 
-  bool get isHost => updatedBy.isNotEmpty; // not used as a getter; see isUserHost helper
+  bool get isHost =>
+      updatedBy.isNotEmpty; // not used as a getter; see isUserHost helper
   bool get isPlaying => state == 'playing';
   bool get isPaused => state == 'paused';
   bool get isBuffering => state == 'buffering';
 
   /// Pretty "0:23" / "1:02:45" rendering for the sync overlay.
-  String get formattedCurrentTime => _formatDuration(
-        Duration(milliseconds: (currentTime * 1000).round()),
-      );
+  String get formattedCurrentTime =>
+      _formatDuration(Duration(milliseconds: (currentTime * 1000).round()));
 
   static String _formatDuration(Duration d) {
     final h = d.inHours;
@@ -145,7 +174,9 @@ class WatchPartyRoom {
     return '${sorted[0]}_${sorted[1]}';
   }
 
-  factory WatchPartyRoom.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+  factory WatchPartyRoom.fromFirestore(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final data = doc.data() ?? const <String, dynamic>{};
     return WatchPartyRoom(
       id: doc.id,
@@ -158,9 +189,17 @@ class WatchPartyRoom {
       malId: (data['malId'] is num) ? (data['malId'] as num).toInt() : null,
       isAnime: data['isAnime'] == true,
       season: (data['season'] is num) ? (data['season'] as num).toInt() : null,
-      episode: (data['episode'] is num) ? (data['episode'] as num).toInt() : null,
+      episode: (data['episode'] is num)
+          ? (data['episode'] as num).toInt()
+          : null,
       title: (data['title'] as String?) ?? '',
       posterPath: (data['posterPath'] as String?) ?? '',
+      serverType: data['serverType'] as String?,
+      serverName: data['serverName'] as String?,
+      serverHost: data['serverHost'] as String?,
+      streamUrl: data['streamUrl'] as String?,
+      subtitleUrl: data['subtitleUrl'] as String?,
+      proxyEnabled: data['proxyEnabled'] == true,
       state: (data['state'] as String?) ?? 'paused',
       currentTime: (data['currentTime'] as num?)?.toDouble() ?? 0.0,
       updatedAt: _parseDateTime(data['updatedAt']) ?? DateTime.now(),
@@ -184,6 +223,12 @@ class WatchPartyRoom {
       if (episode != null) 'episode': episode,
       'title': title,
       'posterPath': posterPath,
+      if (serverType != null) 'serverType': serverType,
+      if (serverName != null) 'serverName': serverName,
+      if (serverHost != null) 'serverHost': serverHost,
+      if (streamUrl != null) 'streamUrl': streamUrl,
+      if (subtitleUrl != null) 'subtitleUrl': subtitleUrl,
+      'proxyEnabled': proxyEnabled,
       'state': state,
       'currentTime': currentTime,
       'updatedAt': Timestamp.fromDate(updatedAt),
@@ -214,12 +259,57 @@ class WatchPartyRoom {
       episode: episode,
       title: title,
       posterPath: posterPath,
+      serverType: serverType,
+      serverName: serverName,
+      serverHost: serverHost,
+      streamUrl: streamUrl,
+      subtitleUrl: subtitleUrl,
+      proxyEnabled: proxyEnabled,
       state: state ?? this.state,
       currentTime: currentTime ?? this.currentTime,
       updatedAt: updatedAt ?? this.updatedAt,
       updatedBy: updatedBy ?? this.updatedBy,
       createdAt: createdAt,
       active: active ?? this.active,
+    );
+  }
+
+  /// Copy with a new active server. Passing null fields clears the
+  /// server selection and returns to the default embed providers.
+  WatchPartyRoom copyWithServer({
+    String? serverType,
+    String? serverName,
+    String? serverHost,
+    String? streamUrl,
+    String? subtitleUrl,
+    bool? proxyEnabled,
+  }) {
+    return WatchPartyRoom(
+      id: id,
+      hostUid: hostUid,
+      hostName: hostName,
+      partnerUid: partnerUid,
+      partnerName: partnerName,
+      mediaType: mediaType,
+      tmdbId: tmdbId,
+      malId: malId,
+      isAnime: isAnime,
+      season: season,
+      episode: episode,
+      title: title,
+      posterPath: posterPath,
+      serverType: serverType,
+      serverName: serverName,
+      serverHost: serverHost,
+      streamUrl: streamUrl,
+      subtitleUrl: subtitleUrl,
+      proxyEnabled: proxyEnabled ?? false,
+      state: state,
+      currentTime: currentTime,
+      updatedAt: updatedAt,
+      updatedBy: updatedBy,
+      createdAt: createdAt,
+      active: active,
     );
   }
 

@@ -37,6 +37,7 @@ import '../../features/dashboard/presentation/screens/letterbox_archive_screen.d
 import '../../features/chat/presentation/screens/sanctuary_chat_screen.dart';
 import '../../features/starlight_jar/presentation/screens/starlight_jar_widget.dart';
 import '../../features/watch_party/presentation/screens/watch_party_screen.dart';
+import '../../features/jellyfin/presentation/screens/party_downloads_screen.dart';
 import '../../features/ai/presentation/widgets/mochi_screen.dart';
 import '../../features/ai/presentation/screens/memory_book_screen.dart';
 import '../../features/ai/presentation/screens/memory_trivia_screen.dart';
@@ -67,7 +68,9 @@ final GoRouter appRouter = GoRouter(
     // ── Cinema ────────────────────────────────────────────
     GoRoute(
       path: '/cinema',
-      builder: (_, _) => const CinemaScreen(),
+      builder: (_, state) => CinemaScreen(
+        initialTab: int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0,
+      ),
       routes: [
         GoRoute(
           path: 'video/:id',
@@ -222,6 +225,12 @@ final GoRouter appRouter = GoRouter(
         final args = state.extra! as WatchPartyArgs;
         return WatchPartyScreen(initialRoom: args.room, isHost: args.isHost);
       },
+    ),
+
+    // Jellyfin party library: search and download a movie to host.
+    GoRoute(
+      path: '/party-downloads',
+      builder: (_, _) => const PartyDownloadsScreen(),
     ),
   ],
 

@@ -1,12 +1,14 @@
-import 'package:flutter/material.dart';import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import 'package:everglow/services/auth_service.dart';
-import 'start_watch_party_button.dart';
 import 'package:everglow/core/theme/app_typography.dart';
 
 const _cDeepRose = Color(0xFFC2185B);
 const _cGold = Color(0xFFE8C97A);
 const _cMuted = Color(0xFF8A7A92);
+const _cWhite = Color(0xFFFFF5F5);
 
 /// Dashboard tile for the Watch Together feature. Mirrors the
 /// shelf-card visual language of the Cinema / Anime / Books rails
@@ -34,12 +36,71 @@ class WatchPartyCard extends StatelessWidget {
         children: [
           const _WatchPartyHeader(),
           const SizedBox(height: 14),
-          StartWatchPartyButton(
-            variant: WatchPartyButtonVariant.card,
-            media: MediaRef(
-              tmdbId: 0,
-              mediaType: 'movie',
-              title: 'A new adventure together',
+          GestureDetector(
+            onTap: () => context.go('/cinema?tab=4'),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [_cDeepRose, Color(0xFF8E1444)],
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: _cDeepRose.withValues(alpha: 0.35),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(
+                      Icons.favorite_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Open Watch Together',
+                          style: AppTypography.cormorantExtraBold.copyWith(
+                            fontSize: 18,
+                            color: _cWhite,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Movie night in real time, right from the dashboard.',
+                          style: AppTypography.outfitWhite.copyWith(
+                            color: _cWhite.withValues(alpha: 0.75),
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ],
+              ),
             ),
           ),
         ],
