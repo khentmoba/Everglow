@@ -91,8 +91,17 @@ class _DashboardScreenState extends State<DashboardScreen>
           gardenProvider.recordInteraction();
         }
 
-        context.read<DateIdeaService>().initialize();
-        context.read<GuardianService>().initialize();
+        // These Firestore reads need a signed-in session. Guarding them
+        // prevents permission-denied errors when the dashboard is opened
+        // as a deep link before the gateway has authenticated the user.
+        if (authService.isReady) {
+          context.read<DateIdeaService>().initialize().catchError((Object e) {
+            Logger.e('Date ideas init failed', error: e);
+          });
+          context.read<GuardianService>().initialize().catchError((Object e) {
+            Logger.e('Guardian init failed', error: e);
+          });
+        }
 
         final moodController = context.read<MoodController>();
         final currentUsername = authService.currentUser;

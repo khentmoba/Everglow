@@ -12,7 +12,6 @@ import 'package:everglow/features/cinema/data/services/anilist_service.dart';
 import 'package:everglow/features/cinema/data/services/jikan_service.dart';
 import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
 import 'package:everglow/services/auth_service.dart';
-import 'package:everglow/features/watch_party/presentation/widgets/start_watch_party_button.dart';
 import 'package:go_router/go_router.dart';
 import 'episode_drawer_sections/drawer_helpers.dart';
 import 'episode_drawer_sections/episode_list_section.dart';
@@ -1263,18 +1262,6 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                     child: Column(
                       children: [
                         _buildPlayButton(),
-                        const SizedBox(height: 10),
-                        if (context.watch<AuthService>().isCoupleUser)
-                          StartWatchPartyButton(
-                            media: MediaRef(
-                              tmdbId: widget.item.tmdbId,
-                              malId: _isAnimeSourced ? _effectiveMalId : null,
-                              mediaType: 'movie',
-                              isAnime: _isAnimeSourced,
-                              title: widget.item.title,
-                              posterPath: widget.item.posterPath,
-                            ),
-                          ),
                       ],
                     ),
                   ),
@@ -1287,10 +1274,6 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                     selectedSeasonNumber: _selectedSeasonNumber,
                     isLoadingEpisodes: _isLoadingEpisodes,
                     tmdbMatchedSeason: _tmdbMatchedSeason,
-                    isAnimeSourced: _isAnimeSourced,
-                    effectiveMalId: _effectiveMalId,
-                    item: widget.item,
-                    isCouple: context.watch<AuthService>().isCoupleUser,
                     onPlayEpisode: _playEpisode,
                     onSeasonChanged: (sn) {
                       setState(() => _selectedSeasonNumber = sn);
@@ -1670,10 +1653,6 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
                   selectedSeasonNumber: _selectedSeasonNumber,
                   isLoadingEpisodes: _isLoadingEpisodes,
                   tmdbMatchedSeason: _tmdbMatchedSeason,
-                  isAnimeSourced: _isAnimeSourced,
-                  effectiveMalId: _effectiveMalId,
-                  item: widget.item,
-                  isCouple: context.watch<AuthService>().isCoupleUser,
                   onPlayEpisode: _playEpisode,
                   onSeasonChanged: (sn) {
                     setState(() => _selectedSeasonNumber = sn);
@@ -2056,18 +2035,6 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
       child: Column(
         children: [
           _buildCinemaPlayButton(),
-          const SizedBox(height: 12),
-          if (context.watch<AuthService>().isCoupleUser)
-            StartWatchPartyButton(
-              media: MediaRef(
-                tmdbId: widget.item.tmdbId,
-                malId: _isAnimeSourced ? _effectiveMalId : null,
-                mediaType: 'movie',
-                isAnime: _isAnimeSourced,
-                title: widget.item.title,
-                posterPath: widget.item.posterPath,
-              ),
-            ),
         ],
       ),
     );

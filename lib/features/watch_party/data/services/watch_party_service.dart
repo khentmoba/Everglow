@@ -88,11 +88,7 @@ class WatchPartyService {
   /// (e.g. the partner hasn't opened the sheet yet), otherwise the
   /// parsed [WatchPartyRoom].
   Stream<WatchPartyRoom?> getRoomStream(String roomId) {
-    return _db
-        .collection(_collection)
-        .doc(roomId)
-        .snapshots()
-        .map((snap) {
+    return _db.collection(_collection).doc(roomId).snapshots().map((snap) {
       if (!snap.exists) return null;
       try {
         return WatchPartyRoom.fromFirestore(snap);
@@ -196,6 +192,67 @@ class WatchPartyService {
     }
   }
 
+  /// Switch the room to a different playback server without ending the
+  /// party. Resets playback so both clients start the new stream at the
+  /// same position. Mirror of the AniChan player's server switcher:
+  /// the active server travels on the room document.
+  Future<void> updateServer({
+    required String roomId,
+    String? serverType,
+    String? serverName,
+    String? serverHost,
+    String? streamUrl,
+    String? subtitleUrl,
+    bool proxyEnabled = false,
+    required String updatedBy,
+  }) async {
+    try {
+      await _db.collection(_collection).doc(roomId).update({
+        // ignore: use_null_aware_elements
+        if (serverType != null) 'serverType': serverType,
+        // ignore: use_null_aware_elements
+        if (serverName != null) 'serverName': serverName,
+        // ignore: use_null_aware_elements
+        if (serverHost != null) 'serverHost': serverHost,
+        // ignore: use_null_aware_elements
+        if (streamUrl != null) 'streamUrl': streamUrl,
+        // ignore: use_null_aware_elements
+        if (subtitleUrl != null) 'subtitleUrl': subtitleUrl,
+        'proxyEnabled': proxyEnabled,
+        'state': 'paused',
+        'currentTime': 0.0,
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+        'updatedBy': updatedBy,
+      });
+    } catch (e) {
+      debugPrint('WatchPartyService.updateServer failed: $e');
+    }
+  }
+
+  /// Return the room to the default embed-provider list by deleting the
+  /// server fields from the room document.
+  Future<void> clearServer({
+    required String roomId,
+    required String updatedBy,
+  }) async {
+    try {
+      await _db.collection(_collection).doc(roomId).update({
+        'serverType': FieldValue.delete(),
+        'serverName': FieldValue.delete(),
+        'serverHost': FieldValue.delete(),
+        'streamUrl': FieldValue.delete(),
+        'subtitleUrl': FieldValue.delete(),
+        'proxyEnabled': false,
+        'state': 'paused',
+        'currentTime': 0.0,
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+        'updatedBy': updatedBy,
+      });
+    } catch (e) {
+      debugPrint('WatchPartyService.clearServer failed: $e');
+    }
+  }
+
   /// End the party. Sets `active=false` and leaves the document in
   /// place (so the dashboard can show "Party ended 5m ago" for a
   /// brief grace period) but flips it so the partner's listener
@@ -232,13 +289,13 @@ class WatchPartyService {
         .where('active', isEqualTo: true)
         .snapshots()
         .map((snap) {
-      for (final doc in snap.docs) {
-        final data = doc.data();
-        if (data['hostUid'] == uid || data['partnerUid'] == uid) {
-          return WatchPartyRoom.fromFirestore(doc);
-        }
-      }
-      return null;
-    });
+          for (final doc in snap.docs) {
+            final data = doc.data();
+            if (data['hostUid'] == uid || data['partnerUid'] == uid) {
+              return WatchPartyRoom.fromFirestore(doc);
+            }
+          }
+          return null;
+        });
   }
 }

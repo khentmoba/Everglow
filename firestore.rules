@@ -64,6 +64,30 @@ service cloud.firestore {
       );
     }
 
+    // Temporary Watch Together chat. Scoped to the couple and cleared
+    // whenever a new movie night starts.
+    match /temporary_chats/{roomId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.hostUid ||
+        request.auth.uid == resource.data.partnerUid
+      );
+      allow create: if isAuthenticated() && (
+        request.auth.uid == request.resource.data.hostUid ||
+        request.auth.uid == request.resource.data.partnerUid
+      );
+      allow update, delete: if isAuthenticated() && (
+        request.auth.uid == resource.data.hostUid ||
+        request.auth.uid == resource.data.partnerUid
+      );
+
+      match /messages/{messageId} {
+        allow read, write: if isAuthenticated() && (
+          request.auth.uid == get(/databases/$(database)/documents/temporary_chats/$(roomId)).data.hostUid ||
+          request.auth.uid == get(/databases/$(database)/documents/temporary_chats/$(roomId)).data.partnerUid
+        );
+      }
+    }
+
     // ─── Voice rooms (WebRTC signaling) ───────────────────────────
     // One document per active call between the couple. Carries the
     // SDP offer/answer. The candidates subcollection carries trickle
@@ -171,6 +195,11 @@ service cloud.firestore {
       allow read, write: if isAuthenticated() && request.auth.uid == userId;
     }
     match /watch_list/{docId} { allow read, write: if isAuthenticated(); }
+
+    // App configuration (video sources, watch party servers, etc.).
+    // Readable by any signed-in user so the client can load the shared
+    // server list without a separate deploy step.
+    match /config/{docId} { allow read: if isAuthenticated(); }
   }
 }
 
