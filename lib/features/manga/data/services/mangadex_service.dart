@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:everglow/core/utils/connectivity_aware.dart';
-import 'package:everglow/features/manga/data/models/manga_item.dart';
+import '../../../../core/utils/connectivity_aware.dart';
+import '../models/manga_item.dart';
 import '../../../../core/utils/logger.dart';
 
 /// Talks to the MangaDex API for chapter listing and page-image

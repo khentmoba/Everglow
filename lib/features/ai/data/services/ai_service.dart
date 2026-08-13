@@ -38,11 +38,38 @@ class AIService extends ChangeNotifier {
   String _draftReasoning = '';
   String _toolStatus = '';
 
+  /// Per-token notifiers so the streaming bubble can repaint without
+  /// rebuilding the whole conversation list on every SSE chunk.
+  final ValueNotifier<int> draftRevisionNotifier = ValueNotifier<int>(0);
+  final ValueNotifier<String> draftResponseNotifier = ValueNotifier<String>('');
+  final ValueNotifier<String> draftReasoningNotifier =
+      ValueNotifier<String>('');
+  final ValueNotifier<String> toolStatusNotifier = ValueNotifier<String>('');
+
   bool get isLoading => _isLoading;
   String? get lastError => _lastError;
   String get draftResponse => _draftResponse;
   String get draftReasoning => _draftReasoning;
   String get toolStatus => _toolStatus;
+
+  void _resetDraftState() {
+    _draftResponse = '';
+    _draftReasoning = '';
+    _toolStatus = '';
+    draftResponseNotifier.value = '';
+    draftReasoningNotifier.value = '';
+    toolStatusNotifier.value = '';
+    draftRevisionNotifier.value++;
+  }
+
+  @override
+  void dispose() {
+    draftRevisionNotifier.dispose();
+    draftResponseNotifier.dispose();
+    draftReasoningNotifier.dispose();
+    toolStatusNotifier.dispose();
+    super.dispose();
+  }
 
   // ─── Core: Send a message to the AI ────────────────────────────
 
@@ -58,9 +85,7 @@ class AIService extends ChangeNotifier {
   }) async {
     _isLoading = true;
     _lastError = null;
-    _draftResponse = '';
-    _draftReasoning = '';
-    _toolStatus = '';
+    _resetDraftState();
 
     AIConversation? conversation;
 
@@ -106,20 +131,22 @@ class AIService extends ChangeNotifier {
           chunk,
         ) {
           _draftResponse += chunk;
-          notifyListeners();
+          draftResponseNotifier.value = _draftResponse;
+          draftRevisionNotifier.value++;
         }, onReasoning: (reasoning) {
           _draftReasoning += reasoning;
-          notifyListeners();
+          draftReasoningNotifier.value = _draftReasoning;
+          draftRevisionNotifier.value++;
         }, onToolStatus: (status) {
           _toolStatus = status;
-          notifyListeners();
+          toolStatusNotifier.value = status;
+          draftRevisionNotifier.value++;
         }, onError: (error) {
           _lastError = error;
+          _resetDraftState();
           notifyListeners();
         }, enableThinking: enableThinking);
-        _draftResponse = '';
-        _draftReasoning = '';
-        _toolStatus = '';
+        _resetDraftState();
       } else {
         // ── Non-streaming mode ─────────────────────────
         reply = await _callProxyAI(recentMessages, context, _memoryRepo.all, feature, caller);
@@ -138,9 +165,7 @@ class AIService extends ChangeNotifier {
       // state ends as soon as the stream does; Firestore writes below can
       // take seconds and must not hold the chat in "thinking".
       _isLoading = false;
-      _draftResponse = '';
-      _draftReasoning = '';
-      _toolStatus = '';
+      _resetDraftState();
       _setConversation(feature, conversation);
       notifyListeners();
 
@@ -167,9 +192,7 @@ class AIService extends ChangeNotifier {
       return reply;
     } catch (e) {
       _isLoading = false;
-      _draftResponse = '';
-      _draftReasoning = '';
-      _toolStatus = '';
+      _resetDraftState();
       _lastError = e.toString();
       // Roll back the optimistic user message so a retry doesn't duplicate it.
       if (conversation != null &&

@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:everglow/core/models/presence_status.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import '../../core/models/presence_status.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
-import 'package:everglow/services/auth_service.dart';
-import 'package:everglow/services/presence_service.dart';
+import '../../core/services/auth_service.dart';
+import '../../core/services/presence_service.dart';
+import 'everglow/everglow_presence_dot.dart';
 
 class PartnerDoodleIndicator extends StatefulWidget {
   const PartnerDoodleIndicator({super.key});
@@ -116,7 +117,10 @@ class _DoodleBanner extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _PulsingDot(active: isActive, color: accent),
+          EverglowPresenceDot(
+            state: isActive ? PresenceState.doodle : PresenceState.online,
+            size: 10,
+          ),
           const SizedBox(width: 8),
           Column(
             mainAxisSize: MainAxisSize.min,
@@ -177,75 +181,5 @@ class _DoodleBanner extends StatelessWidget {
     final m = d.inMinutes;
     final s = d.inSeconds % 60;
     return s == 0 ? '${m}m' : '${m}m ${s}s';
-  }
-}
-
-class _PulsingDot extends StatefulWidget {
-  final bool active;
-  final Color color;
-  const _PulsingDot({required this.active, required this.color});
-
-  @override
-  State<_PulsingDot> createState() => _PulsingDotState();
-}
-
-class _PulsingDotState extends State<_PulsingDot>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    );
-    if (widget.active) _ctrl.repeat(reverse: true);
-  }
-
-  @override
-  void didUpdateWidget(covariant _PulsingDot oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.active && !_ctrl.isAnimating) {
-      _ctrl.repeat(reverse: true);
-    } else if (!widget.active && _ctrl.isAnimating) {
-      _ctrl.stop();
-      _ctrl.value = 0;
-    }
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: AnimatedBuilder(
-      animation: _ctrl,
-      builder: (context, _) {
-        final t = widget.active ? _ctrl.value : 0.0;
-        return Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(
-            color: widget.color,
-            shape: BoxShape.circle,
-            boxShadow: widget.active
-                ? [
-                    BoxShadow(
-                      color: widget.color.withValues(alpha: 0.5 + t * 0.4),
-                      blurRadius: 6 + t * 6,
-                      spreadRadius: 1 + t * 1.5,
-                    ),
-                  ]
-                : null,
-          ),
-        );
-      },
-      ),
-    );
   }
 }

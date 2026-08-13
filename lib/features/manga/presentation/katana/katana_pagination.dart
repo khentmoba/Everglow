@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_typography.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_theme.dart';
+import '../../../../core/theme/app_typography.dart';
+import './katana_theme.dart';
 
 /// Manga Katana style pagination: prev / page number / next.
 class KatanaPagination extends StatelessWidget {

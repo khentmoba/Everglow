@@ -6,6 +6,12 @@ class StarlightService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final String _collection = 'starlight_jar';
 
+  static String _monthDay(DateTime date) {
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return '$m-$d';
+  }
+
   /// All stars, newest first (for the jar visualization).
   Stream<List<StarNote>> getStarNotes() {
     return _db
@@ -49,6 +55,7 @@ class StarlightService {
         'timestamp': FieldValue.serverTimestamp(),
         'category': category,
         'tags': tags,
+        'monthDay': _monthDay(DateTime.now()),
       });
       Logger.i("Dropped star into jar successfully");
     } catch (e) {
@@ -59,7 +66,11 @@ class StarlightService {
   /// Get a random star from the jar.
   Future<StarNote?> getRandomStarNote() async {
     try {
-      final snapshot = await _db.collection(_collection).get();
+      final snapshot = await _db
+          .collection(_collection)
+          .orderBy('timestamp', descending: true)
+          .limit(200)
+          .get();
       if (snapshot.docs.isEmpty) return null;
 
       final docs = snapshot.docs;
@@ -78,12 +89,21 @@ class StarlightService {
     final day = now.day;
 
     try {
-      // Fetch all stars and filter client-side by month+day.
-      // Firestore doesn't support month/day queries natively.
-      final snapshot = await _db
+      final monthDay = _monthDay(now);
+      var snapshot = await _db
           .collection(_collection)
-          .orderBy('timestamp', descending: true)
+          .where('monthDay', isEqualTo: monthDay)
+          .limit(100)
           .get();
+
+      // Legacy stars predate the monthDay field; bound the fallback.
+      if (snapshot.docs.isEmpty) {
+        snapshot = await _db
+            .collection(_collection)
+            .orderBy('timestamp', descending: true)
+            .limit(500)
+            .get();
+      }
 
       final results = <StarNote>[];
       for (final doc in snapshot.docs) {

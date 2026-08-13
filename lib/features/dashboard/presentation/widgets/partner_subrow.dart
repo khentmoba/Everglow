@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import '../../../../core/theme/app_theme.dart';
 import 'shelf_widgets.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_typography.dart';
 
 /// One labeled horizontal rail inside a dashboard shelf, used to render
 /// the per-partner sub-rows that split each shelf into "Me" and the

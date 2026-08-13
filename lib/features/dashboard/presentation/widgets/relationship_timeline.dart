@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../domain/models/milestone.dart';
 import '../../data/services/milestone_service.dart';
 import 'memory_detail_view.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_typography.dart';
 
 /// A scroll-driven horizontal timeline visualization of relationship milestones.
 class RelationshipTimeline extends StatefulWidget {

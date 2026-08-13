@@ -1,162 +1,1 @@
-import 'package:flutter/material.dart';import 'package:everglow/core/theme/app_typography.dart';
-
-/// A single "chapter" derived from a fetched book's plain text. The
-/// chapter splitter in the reader service produces a list of these.
-class BookChapter {
-  final String title;
-  final String body;
-  const BookChapter({required this.title, required this.body});
-}
-
-/// Vertical chapter list shown in the book details drawer. Mirrors
-/// the role of `episode_drawer.dart`'s episode list — except we
-/// don't navigate by tapping a row, we just show the structure.
-class ChapterList extends StatelessWidget {
-  final List<BookChapter> chapters;
-  final bool isLoading;
-  final int currentChapterIndex;
-  final ValueChanged<int> onChapterTap;
-
-  const ChapterList({
-    super.key,
-    required this.chapters,
-    required this.isLoading,
-    required this.currentChapterIndex,
-    required this.onChapterTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (isLoading) {
-      return const Padding(
-        padding: EdgeInsets.all(24),
-        child: Center(
-          child: SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(
-              color: Color(0xFFC2185B),
-              strokeWidth: 2,
-            ),
-          ),
-        ),
-      );
-    }
-    if (chapters.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(20),
-        child: Text(
-          'No chapter structure detected. The full text will load as a single passage when you start reading.',
-          style: AppTypography.outfitWhite.copyWith(color: const Color(0xFF8A7A92), fontSize: 13, height: 1.5),
-        ),
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < chapters.length; i++)
-          _ChapterTile(
-            index: i,
-            chapter: chapters[i],
-            isCurrent: i == currentChapterIndex,
-            onTap: () => onChapterTap(i),
-          ),
-      ],
-    );
-  }
-}
-
-class _ChapterTile extends StatelessWidget {
-  final int index;
-  final BookChapter chapter;
-  final bool isCurrent;
-  final VoidCallback onTap;
-
-  const _ChapterTile({
-    required this.index,
-    required this.chapter,
-    required this.isCurrent,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: isCurrent
-              ? const Color(0xFFC2185B).withValues(alpha: 0.15)
-              : Colors.white.withValues(alpha: 0.02),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isCurrent
-                ? const Color(0xFFC2185B).withValues(alpha: 0.6)
-                : const Color(0xFFF4C2C2).withValues(alpha: 0.07),
-            width: 1.0,
-          ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: isCurrent
-                    ? const Color(0xFFC2185B).withValues(alpha: 0.25)
-                    : Colors.white.withValues(alpha: 0.04),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                '${index + 1}',
-                style: AppTypography.cormorantBlack.copyWith(fontSize: 16, color: isCurrent
-                      ? const Color(0xFFF4C2C2)
-                      : const Color(0xFF8A7A92)),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    chapter.title,
-                    style: AppTypography.outfitHeading.copyWith(color: isCurrent
-                          ? const Color(0xFFFFF5F5)
-                          : const Color(0xFFF4C2C2), fontSize: 13),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _preview(chapter.body),
-                    style: AppTypography.outfitWhite.copyWith(color: const Color(0xFF8A7A92), fontSize: 11, height: 1.4),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            if (isCurrent)
-              const Icon(
-                Icons.play_arrow_rounded,
-                color: Color(0xFFF4C2C2),
-                size: 18,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _preview(String body) {
-    final clean = body.replaceAll(RegExp(r'\s+'), ' ').trim();
-    if (clean.length <= 140) return clean;
-    return '${clean.substring(0, 140)}…';
-  }
-}
+import 'package:flutter/material.dart';import '../../../../core/theme/app_typography.dart';/// A single "chapter" derived from a fetched book's plain text. The/// chapter splitter in the reader service produces a list of these.class BookChapter {  final String title;  final String body;  const BookChapter({required this.title, required this.body});}/// Vertical chapter list shown in the book details drawer. Mirrors/// the role of `episode_drawer.dart`'s episode list — except we/// don't navigate by tapping a row, we just show the structure.class ChapterList extends StatelessWidget {  final List<BookChapter> chapters;  final bool isLoading;  final int currentChapterIndex;  final ValueChanged<int> onChapterTap;  const ChapterList({    super.key,    required this.chapters,    required this.isLoading,    required this.currentChapterIndex,    required this.onChapterTap,  });  @override  Widget build(BuildContext context) {    if (isLoading) {      return const Padding(        padding: EdgeInsets.all(24),        child: Center(          child: SizedBox(            width: 24,            height: 24,            child: CircularProgressIndicator(              color: Color(0xFFC2185B),              strokeWidth: 2,            ),          ),        ),      );    }    if (chapters.isEmpty) {      return Padding(        padding: const EdgeInsets.all(20),        child: Text(          'No chapter structure detected. The full text will load as a single passage when you start reading.',          style: AppTypography.outfitWhite.copyWith(color: const Color(0xFF8A7A92), fontSize: 13, height: 1.5),        ),      );    }    return Column(      crossAxisAlignment: CrossAxisAlignment.start,      children: [        for (var i = 0; i < chapters.length; i++)          _ChapterTile(            index: i,            chapter: chapters[i],            isCurrent: i == currentChapterIndex,            onTap: () => onChapterTap(i),          ),      ],    );  }}class _ChapterTile extends StatelessWidget {  final int index;  final BookChapter chapter;  final bool isCurrent;  final VoidCallback onTap;  const _ChapterTile({    required this.index,    required this.chapter,    required this.isCurrent,    required this.onTap,  });  @override  Widget build(BuildContext context) {    return GestureDetector(      onTap: onTap,      behavior: HitTestBehavior.opaque,      child: Container(        margin: const EdgeInsets.only(bottom: 8),        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),        decoration: BoxDecoration(          color: isCurrent              ? const Color(0xFFC2185B).withValues(alpha: 0.15)              : Colors.white.withValues(alpha: 0.02),          borderRadius: BorderRadius.circular(12),          border: Border.all(            color: isCurrent                ? const Color(0xFFC2185B).withValues(alpha: 0.6)                : const Color(0xFFF4C2C2).withValues(alpha: 0.07),            width: 1.0,          ),        ),        child: Row(          crossAxisAlignment: CrossAxisAlignment.start,          children: [            Container(              width: 32,              height: 32,              decoration: BoxDecoration(                color: isCurrent                    ? const Color(0xFFC2185B).withValues(alpha: 0.25)                    : Colors.white.withValues(alpha: 0.04),                borderRadius: BorderRadius.circular(8),              ),              alignment: Alignment.center,              child: Text(                '${index + 1}',                style: AppTypography.cormorantBlack.copyWith(fontSize: 16, color: isCurrent                      ? const Color(0xFFF4C2C2)                      : const Color(0xFF8A7A92)),              ),            ),            const SizedBox(width: 12),            Expanded(              child: Column(                crossAxisAlignment: CrossAxisAlignment.start,                children: [                  Text(                    chapter.title,                    style: AppTypography.outfitHeading.copyWith(color: isCurrent                          ? const Color(0xFFFFF5F5)                          : const Color(0xFFF4C2C2), fontSize: 13),                    maxLines: 2,                    overflow: TextOverflow.ellipsis,                  ),                  const SizedBox(height: 4),                  Text(                    _preview(chapter.body),                    style: AppTypography.outfitWhite.copyWith(color: const Color(0xFF8A7A92), fontSize: 11, height: 1.4),                    maxLines: 2,                    overflow: TextOverflow.ellipsis,                  ),                ],              ),            ),            if (isCurrent)              const Icon(                Icons.play_arrow_rounded,                color: Color(0xFFF4C2C2),                size: 18,              ),          ],        ),      ),    );  }  String _preview(String body) {    final clean = body.replaceAll(RegExp(r'\s+'), ' ').trim();    if (clean.length <= 140) return clean;    return '${clean.substring(0, 140)}…';  }}

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:everglow/services/auth_service.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/services/auth_service.dart';
 import 'package:provider/provider.dart';
 import '../../domain/models/memory_photo.dart';
 import '../../data/services/gallery_service.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class PhotoViewerScreen extends StatefulWidget {
   final List<MemoryPhoto> photos;
@@ -141,6 +141,10 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
               onPageChanged: (i) => setState(() => _currentIndex = i),
               itemBuilder: (context, index) {
                 final photo = widget.photos[index];
+                final decodeWidth = (MediaQuery.sizeOf(context).width *
+                        MediaQuery.devicePixelRatioOf(context))
+                    .round()
+                    .clamp(800, 2400);
                 return InteractiveViewer(
                   minScale: 0.5,
                   maxScale: 4.0,
@@ -148,6 +152,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                     child: Image.network(
                       GalleryService.displayUrl(photo.imageUrl),
                       fit: BoxFit.contain,
+                      cacheWidth: decodeWidth,
                       loadingBuilder: (context, child, progress) {
                         if (progress == null) return child;
                         return Center(

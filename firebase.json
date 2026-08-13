@@ -76,6 +76,10 @@
         "function": "proxyAI"
       },
       {
+        "source": "/api/health",
+        "function": "health"
+      },
+      {
         "source": "/api/proxyBookText",
         "function": "proxyBookText"
       },

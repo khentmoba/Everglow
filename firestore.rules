@@ -1,218 +1,226 @@
 rules_version = '2';
 
-// Everglow Firestore security rules. The companion to storage.rules
-// in this repo. This file is now the single source of truth for
-// ALL Firestore collections — deploying it won't break anything.
+// Everglow Firestore security rules.
 //
-// Couple-only collections (watch_party_rooms, watch_party_chats,
-// voice_rooms, sanctuary_messages) are restricted to Khent and
-// Clair. All other collections allow any authenticated user.
-//
-// Watch Together collections are keyed on a deterministic
-// `${lowerUid}_${higherUid}` document id (see
-// WatchPartyRoom.buildRoomId). Both members of the couple need
-// read/write access; no one else is allowed to read or mutate them.
+// Access model:
+//   * Anonymous auth is not allowed for app data.
+//   * A registered user must have a /users/{uid} document whose username is
+//     one of the four known profiles.
+//   * Khent and Clair are the "couple" and own the shared scrapbook data.
+//   * Breyan and Octagram are cinema-only profiles; they can use their own
+//     watch list, games, and academy data, but not couple-only collections.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ─── Watch Together rooms ──────────────────────────────────────
-    // The room that mirrors playback state between the host and the
-    // partner. Document id is the sorted-joined uids, so both halves
-    // of the couple compute the same id without coordination.
+    // ---------- Helpers ----------
+
+    function isAuthenticated() {
+      return request.auth != null && request.auth.uid != null;
+    }
+
+    function isNotAnonymous() {
+      return request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    function isRegistered() {
+      return isAuthenticated() && isNotAnonymous() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function username() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username;
+    }
+
+    function isCouple() {
+      return isRegistered() &&
+        username() in ['khentsgdz', 'clairjassen'];
+    }
+
+    function isCinemaProfile() {
+      return isRegistered() &&
+        username() in ['breyan', 'octagram'];
+    }
+
+    function isAppUser() {
+      return isCouple() || isCinemaProfile();
+    }
+
+    function isCouplePair(uidA, uidB) {
+      return uidA != null && uidB != null && uidA != uidB &&
+        get(/databases/$(database)/documents/users/$(uidA)).data.username in ['khentsgdz', 'clairjassen'] &&
+        get(/databases/$(database)/documents/users/$(uidB)).data.username in ['khentsgdz', 'clairjassen'];
+    }
+
+    function ownerOf(userId) {
+      return isRegistered() && request.auth.uid == userId;
+    }
+
+    // ---------- User profile and per-user subcollections ----------
+
+    match /users/{userId} {
+      allow create: if isAuthenticated() && isNotAnonymous() &&
+        request.auth.uid == userId &&
+        request.resource.data.username in ['khentsgdz', 'clairjassen', 'breyan', 'octagram'];
+      allow read: if isRegistered();
+      allow update: if ownerOf(userId) &&
+        resource.data.username == request.resource.data.username;
+      allow delete: if ownerOf(userId);
+    }
+
+    match /users/{userId}/progress/{docId} {
+      allow read, write: if ownerOf(userId);
+    }
+
+    match /users/{userId}/ai_conversations/{docId} {
+      allow read, write: if ownerOf(userId);
+    }
+
+    match /users/{userId}/garden_stats/{docId} {
+      allow read, write: if ownerOf(userId);
+    }
+
+    // ---------- Couple-only shared data ----------
+
+    match /sanctuary_messages/{messageId} {
+      allow read, write: if isCouple();
+    }
+
     match /watch_party_rooms/{roomId} {
-      // Read: either the host or the partner (the document id is
-      // the joined, sorted uids, so we check against both fields).
-      allow read: if isAuthenticated() && (
+      allow read: if isCouple() && (
         request.auth.uid == resource.data.hostUid ||
         request.auth.uid == resource.data.partnerUid
       );
-
-      // Create: the caller must be either the host or the partner
-      // (we let the host write the first version of the room — the
-      // host is whichever uid the client writes into `hostUid`).
-      allow create: if isAuthenticated() && (
-        request.auth.uid == request.resource.data.hostUid ||
-        request.auth.uid == request.resource.data.partnerUid
-      ) && isValidRoomShape(request.resource.data);
-
-      // Update: same access rule, plus a constraint that the
-      // hostUid / partnerUid pair can never be reassigned. The
-      // couple is fixed for the lifetime of the room; only state
-      // and timestamps change.
-      allow update: if isAuthenticated() && (
-        request.auth.uid == resource.data.hostUid ||
-        request.auth.uid == resource.data.partnerUid
-      ) && isValidRoomShape(request.resource.data) && (
+      allow create: if isCouple() &&
+        (request.auth.uid == request.resource.data.hostUid ||
+         request.auth.uid == request.resource.data.partnerUid) &&
+        isCouplePair(request.resource.data.hostUid, request.resource.data.partnerUid) &&
+        isValidRoomShape(request.resource.data);
+      allow update: if isCouple() &&
+        (request.auth.uid == resource.data.hostUid ||
+         request.auth.uid == resource.data.partnerUid) &&
+        isValidRoomShape(request.resource.data) &&
         request.resource.data.hostUid == resource.data.hostUid &&
-        request.resource.data.partnerUid == resource.data.partnerUid
-      );
-
-      allow delete: if isAuthenticated() && (
-        request.auth.uid == resource.data.hostUid ||
-        request.auth.uid == resource.data.partnerUid
-      );
+        request.resource.data.partnerUid == resource.data.partnerUid;
+      allow delete: if isCouple() &&
+        (request.auth.uid == resource.data.hostUid ||
+         request.auth.uid == resource.data.partnerUid);
     }
 
-    // ─── Watch Together chat ───────────────────────────────────────
-    // Persistent chat history scoped to a watch party room. Tied to
-    // the couple (roomId is the sorted uids), not to the media — so
-    // switching movies keeps the chat history alive.
     match /watch_party_chats/{roomId}/messages/{messageId} {
-      allow read, write: if isAuthenticated() && (
-        request.auth.uid == get(/databases/$(database)/documents/watch_party_rooms/$(roomId)).data.hostUid ||
-        request.auth.uid == get(/databases/$(database)/documents/watch_party_rooms/$(roomId)).data.partnerUid
-      );
+      allow read, write: if isCouple() &&
+        (request.auth.uid == get(/databases/$(database)/documents/watch_party_rooms/$(roomId)).data.hostUid ||
+         request.auth.uid == get(/databases/$(database)/documents/watch_party_rooms/$(roomId)).data.partnerUid);
     }
 
-    // Temporary Watch Together chat. Scoped to the couple and cleared
-    // whenever a new movie night starts.
     match /temporary_chats/{roomId} {
-      allow read: if isAuthenticated() && (
-        request.auth.uid == resource.data.hostUid ||
-        request.auth.uid == resource.data.partnerUid
-      );
-      allow create: if isAuthenticated() && (
-        request.auth.uid == request.resource.data.hostUid ||
-        request.auth.uid == request.resource.data.partnerUid
-      );
-      allow update, delete: if isAuthenticated() && (
-        request.auth.uid == resource.data.hostUid ||
-        request.auth.uid == resource.data.partnerUid
-      );
+      allow read: if isCouple() &&
+        (request.auth.uid == resource.data.hostUid ||
+         request.auth.uid == resource.data.partnerUid);
+      allow create: if isCouple() &&
+        (request.auth.uid == request.resource.data.hostUid ||
+         request.auth.uid == request.resource.data.partnerUid) &&
+        isCouplePair(request.resource.data.hostUid, request.resource.data.partnerUid);
+      allow update, delete: if isCouple() &&
+        (request.auth.uid == resource.data.hostUid ||
+         request.auth.uid == resource.data.partnerUid);
 
       match /messages/{messageId} {
-        allow read, write: if isAuthenticated() && (
-          request.auth.uid == get(/databases/$(database)/documents/temporary_chats/$(roomId)).data.hostUid ||
-          request.auth.uid == get(/databases/$(database)/documents/temporary_chats/$(roomId)).data.partnerUid
-        );
+        allow read, write: if isCouple() &&
+          (request.auth.uid == get(/databases/$(database)/documents/temporary_chats/$(roomId)).data.hostUid ||
+           request.auth.uid == get(/databases/$(database)/documents/temporary_chats/$(roomId)).data.partnerUid);
       }
     }
 
-    // ─── Voice rooms (WebRTC signaling) ───────────────────────────
-    // One document per active call between the couple. Carries the
-    // SDP offer/answer. The candidates subcollection carries trickle
-    // ICE candidates. Restricted to the two uids named in the room
-    // document so a third party cannot snoop on the call.
-    //
-    // The room is created by the caller (callerUid == auth.uid) and
-    // updated by either side. We explicitly forbid reassigning the
-    // caller/callee pair — once a call is up, the two ends are
-    // fixed for its lifetime.
     match /voice_rooms/{roomId} {
-      allow read: if isAuthenticated() && (
-        request.auth.uid == resource.data.callerUid ||
-        request.auth.uid == resource.data.calleeUid
-      );
-
-      allow create: if isAuthenticated() && (
-        request.auth.uid == request.resource.data.callerUid ||
-        request.auth.uid == request.resource.data.calleeUid
-      ) && isValidVoiceRoomShape(request.resource.data);
-
-      allow update: if isAuthenticated() && (
-        request.auth.uid == resource.data.callerUid ||
-        request.auth.uid == resource.data.calleeUid
-      ) && isValidVoiceRoomShape(request.resource.data) && (
+      allow read: if isCouple() &&
+        (request.auth.uid == resource.data.callerUid ||
+         request.auth.uid == resource.data.calleeUid);
+      allow create: if isCouple() &&
+        (request.auth.uid == request.resource.data.callerUid ||
+         request.auth.uid == request.resource.data.calleeUid) &&
+        isCouplePair(request.resource.data.callerUid, request.resource.data.calleeUid) &&
+        isValidVoiceRoomShape(request.resource.data);
+      allow update: if isCouple() &&
+        (request.auth.uid == resource.data.callerUid ||
+         request.auth.uid == resource.data.calleeUid) &&
+        isValidVoiceRoomShape(request.resource.data) &&
         request.resource.data.callerUid == resource.data.callerUid &&
-        request.resource.data.calleeUid == resource.data.calleeUid
-      );
-
-      allow delete: if isAuthenticated() && (
-        request.auth.uid == resource.data.callerUid ||
-        request.auth.uid == resource.data.calleeUid
-      );
+        request.resource.data.calleeUid == resource.data.calleeUid;
+      allow delete: if isCouple() &&
+        (request.auth.uid == resource.data.callerUid ||
+         request.auth.uid == resource.data.calleeUid);
 
       match /candidates/{candidateId} {
-        allow read, write: if isAuthenticated() && (
-          request.auth.uid == get(/databases/$(database)/documents/voice_rooms/$(roomId)).data.callerUid ||
-          request.auth.uid == get(/databases/$(database)/documents/voice_rooms/$(roomId)).data.calleeUid
-        );
+        allow read, write: if isCouple() &&
+          (request.auth.uid == get(/databases/$(database)/documents/voice_rooms/$(roomId)).data.callerUid ||
+           request.auth.uid == get(/databases/$(database)/documents/voice_rooms/$(roomId)).data.calleeUid);
       }
     }
 
-    // ─── Sanctuary Chat (dashboard) ────────────────────────────────
-    // Dynamic couple-based access. A user is considered a "couple
-    // user" if a document exists in /users/{uid}. This is resilient
-    // to Firebase Auth account recreations — the user just needs to
-    // re-login and their new UID will be written to the users
-    // collection automatically.
-    match /sanctuary_messages/{messageId} {
-      allow read, write: if isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
-    }
+    match /gallery/{docId} { allow read, write: if isCouple(); }
+    match /memories/{docId} { allow read, write: if isCouple(); }
+    match /notes/{docId} { allow read, write: if isCouple(); }
+    match /milestones/{docId} { allow read, write: if isCouple(); }
+    match /moods/{docId} { allow read, write: if isCouple(); }
+    match /music_status/{docId} { allow read, write: if isCouple(); }
+    match /presence/{docId} { allow read, write: if isCouple(); }
+    match /starlight_jar/{docId} { allow read, write: if isCouple(); }
+    match /calendar_events/{docId} { allow read, write: if isCouple(); }
+    match /bucket_list/{docId} { allow read, write: if isCouple(); }
+    match /our_cinema/{docId} { allow read, write: if isCouple(); }
+    match /our_books/{docId} { allow read, write: if isCouple(); }
+    match /read_list/{docId} { allow read, write: if isCouple(); }
+    match /date_ideas/{docId} { allow read, write: if isCouple(); }
+    match /guardian_messages/{docId} { allow read, write: if isCouple(); }
+    match /canvas_strokes/{docId} { allow read, write: if isCouple(); }
+    match /live_canvas/{docId} { allow read, write: if isCouple(); }
+    match /manga_library/{docId} { allow read, write: if isCouple(); }
+    match /manga_library/{docId}/bookmarks/{bookmarkId} { allow read, write: if isCouple(); }
+    match /katana_bookmarks/{docId} { allow read, write: if isCouple(); }
+    match /ai_memories/{docId} { allow read, write: if isCouple(); }
+    match /ai_memories/{docId}/facts/{factId} { allow read, write: if isCouple(); }
+    match /ai_memories/{docId}/sessions/{sessionId} { allow read, write: if isCouple(); }
+    match /recent_activity/{docId} { allow read, write: if isCouple(); }
 
-    // ─── General app collections (authenticated access only) ──────
-    // These were previously managed in the Firebase console. We
-    // redeclare them here so the repo is the single source of
-    // truth and a `firebase deploy --only firestore:rules` does
-    // not break existing features.
-    //
-    // For a private 4-user app, any authenticated user (Khent,
-    // Clair, Breyan, Octagram, or anonymous) can read and write
-    // their own data in these collections.
-    // �?�?�? Table Tennis 1v1 rooms �?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?�?
-    // Auto-detect rooms for Table Tennis 1v1. Host creates a waiting room,
-    // guest detects it and joins. Host is authoritative for ball state.
+    // ---------- Shared app data for all four profiles ----------
+
+    match /academy_questions/{docId} {
+      allow read, write: if isAppUser();
+    }
+    match /active_matches/{docId} {
+      allow read, write: if isAppUser();
+    }
     match /tt_rooms/{roomId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated()
-        && request.resource.data.hostUid == request.auth.uid
-        && request.resource.data.status == 'waiting';
-      allow update: if isAuthenticated()
-        && (request.auth.uid == resource.data.hostUid
-            || request.auth.uid == resource.data.guestUid);
-      allow delete: if isAuthenticated()
-        && request.auth.uid == resource.data.hostUid;
+      allow read: if isAppUser();
+      allow create: if isAppUser() &&
+        request.resource.data.hostUid == request.auth.uid &&
+        request.resource.data.status == 'waiting';
+      allow update: if isAppUser() &&
+        (request.auth.uid == resource.data.hostUid ||
+         request.auth.uid == resource.data.guestUid);
+      allow delete: if isAppUser() &&
+        request.auth.uid == resource.data.hostUid;
     }
-
-    match /academy_questions/{docId} { allow read, write: if isAuthenticated(); }
-    match /active_matches/{docId} { allow read, write: if isAuthenticated(); }
-    match /date_ideas/{docId} { allow read, write: if isAuthenticated(); }
-    match /garden_stats/{docId} { allow read, write: if isAuthenticated(); }
-    match /guardian_messages/{docId} { allow read, write: if isAuthenticated(); }
-    match /canvas_strokes/{docId} { allow read, write: if isAuthenticated(); }
-    match /live_canvas/{docId} { allow read, write: if isAuthenticated(); }
-    match /manga_library/{docId} { allow read, write: if isAuthenticated(); }
-    match /memories/{docId} { allow read, write: if isAuthenticated(); }
-    match /milestones/{docId} { allow read, write: if isAuthenticated(); }
-    match /moods/{docId} { allow read, write: if isAuthenticated(); }
-    match /music_status/{docId} { allow read, write: if isAuthenticated(); }
-    match /notes/{docId} { allow read, write: if isAuthenticated(); }
-    match /presence/{docId} { allow read, write: if isAuthenticated(); }
-    match /progress/{docId} { allow read, write: if isAuthenticated(); }
-    match /read_list/{docId} { allow read, write: if isAuthenticated(); }
-    match /starlight_jar/{docId} { allow read, write: if isAuthenticated(); }
-    match /gallery/{docId} { allow read, write: if isAuthenticated(); }
-    match /calendar_events/{docId} { allow read, write: if isAuthenticated(); }
-    match /bucket_list/{docId} { allow read, write: if isAuthenticated(); }
-    match /our_cinema/{docId} { allow read, write: if isAuthenticated(); }
-    match /ai_memories/{docId} { allow read, write: if isAuthenticated(); }
-    match /ai_memories/{docId}/facts/{factId} { allow read, write: if isAuthenticated(); }
-    match /users/{userId}/ai_conversations/{docId} {
-      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    match /watch_list/{docId} {
+      allow read: if isCouple() ||
+        (isCinemaProfile() && resource.data.userName == username());
+      allow create: if isCouple() ||
+        (isCinemaProfile() && request.resource.data.userName == username());
+      allow update, delete: if isCouple() ||
+        (isCinemaProfile() && resource.data.userName == username());
     }
-    match /users/{docId} { allow read, write: if isAuthenticated(); }
-    match /users/{userId}/progress/{docId} {
-      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    match /fcm_tokens/{docId} {
+      allow read: if isAppUser() && docId == username();
+      allow write: if isAppUser() && docId == username();
     }
-    match /watch_list/{docId} { allow read, write: if isAuthenticated(); }
-
-    // App configuration (video sources, watch party servers, etc.).
-    // Readable by any signed-in user so the client can load the shared
-    // server list without a separate deploy step.
-    match /config/{docId} { allow read: if isAuthenticated(); }
+    match /config/{docId} {
+      allow read: if isRegistered();
+    }
   }
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────
+// ---------- Shape validators ----------
 
-function isAuthenticated() {
-  return request.auth != null && request.auth.uid != null;
-}
-
-// Shape validation. We only require a few critical fields; the rest
-// are app-defined and may grow over time. The `mediaType` enum
-// protects against arbitrary writes (someone could otherwise create
-// a doc with a 10MB string and burn our bandwidth).
 function isValidRoomShape(data) {
   return data.keys().hasAll([
         'hostUid',
@@ -230,12 +238,6 @@ function isValidRoomShape(data) {
       data.active is bool;
 }
 
-// Shape validation for voice_rooms. Keeps the SDP payloads bounded
-// and forbids arbitrary state strings. State is one of the WebRTC
-// call phases the client writes: 'ringing' (host has published an
-// offer and is waiting for the partner), 'calling' (partner has
-// answered and the call is connecting), 'connected' (peer
-// connection open), or 'ended' (graceful hangup).
 function isValidVoiceRoomShape(data) {
   return data.keys().hasAll(['callerUid', 'calleeUid', 'state', 'updatedAt']) &&
       data.callerUid is string &&
@@ -244,11 +246,3 @@ function isValidVoiceRoomShape(data) {
       (!('offer' in data) || data.offer is string) &&
       (!('answer' in data) || data.answer is string);
 }
-
-// Returns true if a document exists at /users/{uid}. This replaces
-// the previous hard-coded UID check and is resilient to account
-// recreations — the app writes the user doc on every login.
-//
-// NOTE: $(database) template variables only resolve inside match/rule
-// scope, NOT inside helper functions. The exists() call must be
-// inlined at the call site.

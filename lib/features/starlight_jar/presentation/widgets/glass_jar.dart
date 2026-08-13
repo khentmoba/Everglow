@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import '../../../../core/theme/app_theme.dart';
 
 class GlassJar extends StatelessWidget {
   final double width;

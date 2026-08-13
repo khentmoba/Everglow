@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:everglow/core/theme/app_typography.dart';
-import 'package:everglow/features/manga/data/models/katana_models.dart';
-import 'package:everglow/features/manga/data/services/katana_service.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_header.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_nav.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_theme.dart';
-import 'package:everglow/services/auth_service.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../data/models/katana_models.dart';
+import '../../data/services/katana_service.dart';
+import '../katana/katana_header.dart';
+import '../katana/katana_nav.dart';
+import '../katana/katana_theme.dart';
+import '../../../../core/services/auth_service.dart';
 
 /// The manga detail page: cover and meta, first chapter / read offline
 /// actions plus a per-couple "Khent Reading" / "Claire Reading" button,

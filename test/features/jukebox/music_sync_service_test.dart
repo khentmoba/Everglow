@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
@@ -41,6 +42,10 @@ Map<String, dynamic> _itunesResult({
 }
 
 void main() {
+  setUp(() {
+    dotenv.loadFromString(envString: 'LASTFM_API_KEY=test-key\n');
+  });
+
   group('MusicSyncService.fetchTrackArtwork', () {
     test('falls back to iTunes when Last.fm has no artwork', () async {
       final requestedTerms = <String>[];

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_typography.dart';
-import 'package:everglow/core/theme/app_motion.dart';
+import '../../../../../core/theme/app_typography.dart';
+import '../../../../../core/theme/app_motion.dart';
 import 'netflix_colors.dart';
 
 /// Height of the floating desktop/tablet top navbar, excluding the system

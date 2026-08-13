@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:everglow/features/cinema/data/models/media_item.dart';
+import '../../../data/models/media_item.dart';
 
 /// Lightweight wrapper around a list of [MediaItem]s with loading / error
 /// flags. Used by the Home and Browse tabs to track per-row fetch state.

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:everglow/features/cinema/data/models/media_item.dart';
+import '../../../data/models/media_item.dart';
 
 import 'animex_poster_card.dart';
 import 'animex_skeleton.dart';

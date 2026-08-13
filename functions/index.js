@@ -1,6 +1,8 @@
-﻿const functions = require('firebase-functions/v1');
+const functions = require('firebase-functions/v1');
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const net = require('net');
+const dns = require('dns').promises;
 const {
   parseFactStructure,
   rankMemories,
@@ -9,6 +11,13 @@ const {
   computeInsights,
   composeTodayRecap,
 } = require('./mochi_core.js');
+const {
+  STALE_PRESENCE_MS,
+  isStalePresence,
+} = require('./system_core.js');
+
+/** Mirrors `pubspec.yaml` / `lib/core/system/app_version.dart`. */
+const APP_VERSION = '6.0.0+1';
 
 /** Lazy require+init so Firebase deploy analysis doesn't time out */
 let _admin;
@@ -18,6 +27,78 @@ function getAdmin() {
     _admin.initializeApp();
   }
   return _admin;
+}
+
+/**
+ * Requires a valid Firebase ID token on a request. Returns the decoded
+ * token, or writes a 401 and returns null.
+ */
+async function requireAuth(req, res) {
+  const header = req.get('Authorization') || req.headers.authorization || '';
+  const idToken = String(header).replace(/^Bearer\s+/i, '');
+  if (!idToken) {
+    res.status(401).json({ error: 'Authentication required' });
+    return null;
+  }
+  try {
+    return await getAdmin().auth().verifyIdToken(idToken);
+  } catch (e) {
+    console.warn('Auth verification failed:', e.message);
+    res.status(401).json({ error: 'Invalid or expired auth token' });
+    return null;
+  }
+}
+
+function isPrivateIpv4(ip) {
+  const parts = ip.split('.').map(Number);
+  if (parts.length !== 4 || parts.some((p) => Number.isNaN(p))) return true;
+  const [a, b] = parts;
+  if (a === 0 || a === 10 || a === 127 || a >= 224) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  return false;
+}
+
+function isPrivateIp(ip) {
+  if (net.isIPv4(ip)) return isPrivateIpv4(ip);
+  if (!net.isIPv6(ip)) return true;
+  const lower = ip.toLowerCase();
+  if (lower === '::1') return true;
+  if (lower.startsWith('fe80') || lower.startsWith('fc') || lower.startsWith('fd')) {
+    return true;
+  }
+  if (lower.startsWith('::ffff:')) {
+    return isPrivateIpv4(lower.slice('::ffff:'.length));
+  }
+  return false;
+}
+
+async function isPublicDnsHost(hostname) {
+  try {
+    const records = await dns.lookup(hostname, { all: true });
+    return records.length > 0 && records.every((r) => !isPrivateIp(r.address));
+  } catch {
+    return false;
+  }
+}
+
+function isAllowedBookTextUrl(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== 'https:') return false;
+  const host = parsed.hostname.toLowerCase();
+  const allowed =
+    host === 'gutenberg.org' ||
+    host.endsWith('.gutenberg.org') ||
+    host === 'archive.org' ||
+    host.endsWith('.archive.org');
+  return allowed;
 }
 
 /** In-memory cache for Mochi's persona document. */
@@ -31,8 +112,9 @@ let _personaCache = null;
  * Tries each URL server-side in order and returns the body of the
  * first one that responds with a 2xx and non-empty body.
  *
- * If the caller provides a Firebase ID token in the Authorization
- * header, we verify it (optional — useful in dev without a token).
+ * Requires a valid Firebase ID token and restricts upstream URLs to
+ * known public book hosts so the function cannot be used as an open
+ * SSRF proxy.
  */
 exports.proxyBookText = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
@@ -49,15 +131,8 @@ exports.proxyBookText = functions.https.onRequest(async (req, res) => {
     return;
   }
 
-  const idToken = req.get('Authorization')?.replace('Bearer ', '');
-  if (idToken) {
-    try {
-      await getAdmin().auth().verifyIdToken(idToken);
-    } catch {
-      res.status(401).json({ error: 'Invalid or expired auth token' });
-      return;
-    }
-  }
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
 
   const { urls } = req.body;
   if (!Array.isArray(urls) || urls.length === 0) {
@@ -67,6 +142,14 @@ exports.proxyBookText = functions.https.onRequest(async (req, res) => {
 
   for (let i = 0; i < urls.length; i++) {
     const url = urls[i];
+    if (typeof url !== 'string' || !isAllowedBookTextUrl(url)) {
+      console.warn(`proxyBookText rejected URL ${url}`);
+      continue;
+    }
+    if (!(await isPublicDnsHost(new URL(url).hostname))) {
+      console.warn(`proxyBookText rejected non-public host ${url}`);
+      continue;
+    }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 12000);
     try {
@@ -132,15 +215,7 @@ exports.proxyMangaImage = functions.https.onRequest(async (req, res) => {
     return;
   }
 
-  const idToken = req.get('Authorization')?.replace('Bearer ', '');
-  if (idToken) {
-    try {
-      await getAdmin().auth().verifyIdToken(idToken);
-    } catch {
-      res.status(401).json({ error: 'Invalid or expired auth token' });
-      return;
-    }
-  }
+
 
   const targetUrl = req.query.url;
   if (typeof targetUrl !== 'string' || targetUrl.length === 0) {
@@ -171,7 +246,7 @@ exports.proxyMangaImage = functions.https.onRequest(async (req, res) => {
     const upstream = await fetch(targetUrl, {
       method: 'GET',
       headers: { 'Accept': 'image/*,*/*;q=0.8' },
-      timeout: 20000,
+      signal: AbortSignal.timeout(20000),
     });
     if (!upstream.ok) {
       res
@@ -213,6 +288,8 @@ exports.proxyMangaKakalotImage = functions.https.onRequest(async (req, res) => {
     return;
   }
 
+
+
   const targetUrl = req.query.url;
   if (typeof targetUrl !== 'string' || targetUrl.length === 0) {
     res.status(400).json({ error: 'Missing ?url=<image url> query param' });
@@ -241,7 +318,7 @@ exports.proxyMangaKakalotImage = functions.https.onRequest(async (req, res) => {
     const upstream = await fetch(targetUrl, {
       method: 'GET',
       headers: { 'Accept': 'image/*,*/*;q=0.8', 'Referer': 'https://mangakakalot.com/' },
-      timeout: 20000,
+      signal: AbortSignal.timeout(20000),
     });
     if (!upstream.ok) {
       res
@@ -283,6 +360,8 @@ exports.proxyMangaKatana = functions.https.onRequest(async (req, res) => {
     return;
   }
 
+
+
   const targetUrl = req.query.url;
   if (typeof targetUrl !== 'string' || targetUrl.length === 0) {
     res.status(400).json({ error: 'Missing ?url=<image url> query param' });
@@ -315,7 +394,7 @@ exports.proxyMangaKatana = functions.https.onRequest(async (req, res) => {
     const upstream = await fetch(targetUrl, {
       method: 'GET',
       headers: { 'Accept': 'image/*,*/*;q=0.8', 'Referer': 'https://mangakatana.com/' },
-      timeout: 20000,
+      signal: AbortSignal.timeout(20000),
     });
     if (!upstream.ok) {
       res
@@ -373,6 +452,8 @@ exports.proxyComick = functions.https.onRequest(async (req, res) => {
     return;
   }
 
+
+
   const pathParam = req.query.path;
   if (typeof pathParam !== 'string' || pathParam.length === 0) {
     res.status(400).json({ error: 'Missing ?path=<api path> query param' });
@@ -393,7 +474,7 @@ exports.proxyComick = functions.https.onRequest(async (req, res) => {
         'User-Agent': 'Everglow/1.0 (https://github.com/everglow)',
         'Accept': 'application/json',
       },
-      timeout: 20000,
+      signal: AbortSignal.timeout(20000),
     });
     const body = await upstream.text();
     res.status(upstream.status);
@@ -439,6 +520,8 @@ exports.proxyAnimeImage = functions.https.onRequest(async (req, res) => {
     return;
   }
 
+
+
   const targetUrl = req.query.url;
   if (typeof targetUrl !== 'string' || targetUrl.length === 0) {
     res.status(400).json({ error: 'Missing ?url=<image url> query param' });
@@ -467,7 +550,7 @@ exports.proxyAnimeImage = functions.https.onRequest(async (req, res) => {
     const upstream = await fetch(targetUrl, {
       method: 'GET',
       headers: { 'Accept': 'image/*,*/*;q=0.8' },
-      timeout: 20000,
+      signal: AbortSignal.timeout(20000),
     });
     if (!upstream.ok) {
       res
@@ -512,6 +595,8 @@ exports.proxyGalleryImage = functions.https.onRequest(async (req, res) => {
     return;
   }
 
+
+
   const targetUrl = req.query.url;
   if (typeof targetUrl !== 'string' || targetUrl.length === 0) {
     res.status(400).json({ error: 'Missing ?url=<image url> query param' });
@@ -529,7 +614,7 @@ exports.proxyGalleryImage = functions.https.onRequest(async (req, res) => {
     const upstream = await fetch(targetUrl, {
       method: 'GET',
       headers: { 'Accept': 'image/*,*/*;q=0.8' },
-      timeout: 20000,
+      signal: AbortSignal.timeout(20000),
     });
     if (!upstream.ok) {
       res
@@ -547,67 +632,6 @@ exports.proxyGalleryImage = functions.https.onRequest(async (req, res) => {
     console.warn(`proxyGalleryImage failed (${targetUrl}):`, e.message);
     res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
   }
-});
-
-/**
- * Diagnostic endpoint: lists gallery Firestore docs and checks if
- * their Storage files exist. Auth required. Remove after debugging.
- */
-exports.debugGallery = functions.https.onRequest(async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    res.status(204).send('');
-    return;
-  }
-
-  const admin = getAdmin();
-  const db = admin.firestore();
-  const bucket = admin.storage().bucket();
-
-  const snap = await db.collection('gallery').orderBy('uploadedAt', 'desc').get();
-  const results = [];
-
-  for (const doc of snap.docs) {
-    const d = doc.data();
-    const entry = {
-      id: doc.id,
-      imageUrl: d.imageUrl || 'MISSING',
-      uploadedBy: d.uploadedBy,
-      caption: d.caption || '',
-    };
-
-    if (d.imageUrl) {
-      try {
-        const file = bucket.file('gallery/' + d.imageUrl.split('/o/')[1]?.split('?')[0]?.replace(/%2F/g, '/') || '');
-        const [exists] = await file.exists();
-        entry.storageExists = exists;
-        if (exists) {
-          const [meta] = await file.getMetadata();
-          entry.contentType = meta.contentType;
-          entry.size = meta.size;
-        }
-      } catch (e) {
-        entry.storageError = e.message;
-      }
-    }
-
-    // Try fetching the URL
-    try {
-      const resp = await fetch(d.imageUrl, { method: 'HEAD', redirect: 'follow' });
-      entry.httpStatus = resp.status;
-      entry.responseContentType = resp.headers.get('content-type');
-      entry.responseContentLength = resp.headers.get('content-length');
-    } catch (e) {
-      entry.fetchError = e.message;
-    }
-
-    results.push(entry);
-  }
-
-  res.json({ totalDocs: snap.size, docs: results });
 });
 
 /**
@@ -642,8 +666,8 @@ exports.cleanupGallery = functions.https.onRequest(async (req, res) => {
   }
   const admin = getAdmin();
   const decoded = await admin.auth().verifyIdToken(idToken);
-  if (decoded.uid !== 'Khentsgdz' && decoded.email !== 'khentplaysmoba@gmail.com') {
-    // Try looking up by username
+  if (decoded.uid !== 'Khentsgdz') {
+    // Fall back to the user document so recreated accounts keep working.
     const userDoc = await admin.firestore().collection('users').doc(decoded.uid).get();
     if (!userDoc.exists || userDoc.data()?.username !== 'khentsgdz') {
       res.status(403).json({ error: 'Only khentsgdz can run cleanup' });
@@ -658,22 +682,30 @@ exports.cleanupGallery = functions.https.onRequest(async (req, res) => {
 
   const db = admin.firestore();
   const bucket = admin.storage().bucket();
-  const snap = await db.collection('gallery').get();
+  const snap = await db.collection('gallery').limit(2000).get();
   let deleted = 0;
 
-  for (const doc of snap.docs) {
-    const d = doc.data();
-    // Delete Storage file
-    if (d.imageUrl && d.imageUrl.includes('firebasestorage.googleapis.com')) {
-      try {
-        const path = decodeURIComponent(d.imageUrl.split('/o/')[1]?.split('?')[0] || '');
-        if (path) await bucket.file(path).delete();
-      } catch (_) { /* best effort */ }
+  // Bounded concurrency keeps this from exhausting memory/CPU when the
+  // gallery grows; each worker handles storage + Firestore deletion.
+  const workerCount = 20;
+  let cursor = 0;
+  async function worker() {
+    while (cursor < snap.docs.length) {
+      const doc = snap.docs[cursor++];
+      const d = doc.data();
+      // Delete Storage file
+      if (d.imageUrl && d.imageUrl.includes('firebasestorage.googleapis.com')) {
+        try {
+          const path = decodeURIComponent(d.imageUrl.split('/o/')[1]?.split('?')[0] || '');
+          if (path) await bucket.file(path).delete();
+        } catch (_) { /* best effort */ }
+      }
+      // Delete Firestore doc
+      await doc.ref.delete();
+      deleted++;
     }
-    // Delete Firestore doc
-    await doc.ref.delete();
-    deleted++;
   }
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
   res.json({ deleted });
 });
@@ -703,6 +735,8 @@ exports.proxyScanlation = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+
+
 
   const targetUrl = req.query.url;
   if (typeof targetUrl !== 'string' || targetUrl.length === 0) {
@@ -761,7 +795,7 @@ exports.proxyScanlation = functions.https.onRequest(async (req, res) => {
         'Accept': 'image/*,*/*;q=0.8',
         'Referer': parsed.origin + '/',
       },
-      timeout: 20000,
+      signal: AbortSignal.timeout(20000),
     });
     if (!upstream.ok) {
       res
@@ -812,6 +846,8 @@ exports.proxyFetchHtml = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+
+
 
   const targetUrl = req.query.url;
   if (typeof targetUrl !== 'string' || targetUrl.length === 0) {
@@ -866,7 +902,7 @@ exports.proxyFetchHtml = functions.https.onRequest(async (req, res) => {
         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         Referer: parsed.origin + '/',
       },
-      timeout: 20000,
+      signal: AbortSignal.timeout(20000),
     });
     const body = await upstream.text();
     res.status(upstream.status);
@@ -907,6 +943,8 @@ exports.proxyEmbed = functions.https.onRequest(async (req, res) => {
 
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (req.method !== 'GET') { res.status(405).json({ error: 'GET only' }); return; }
+
+
 
   const targetUrl = req.query.url;
   if (typeof targetUrl !== 'string' || targetUrl.length === 0) {
@@ -951,7 +989,7 @@ exports.proxyEmbed = functions.https.onRequest(async (req, res) => {
         'Referer': `${baseOrigin}/`,
         'Accept-Language': 'en-US,en;q=0.9',
       },
-      timeout: 15000,
+      signal: AbortSignal.timeout(15000),
     });
 
     if (!upstream.ok) {
@@ -1116,15 +1154,7 @@ exports.proxyMangaDex = functions.https.onRequest(async (req, res) => {
     return;
   }
 
-  const idToken = req.get('Authorization')?.replace('Bearer ', '');
-  if (idToken) {
-    try {
-      await getAdmin().auth().verifyIdToken(idToken);
-    } catch {
-      res.status(401).json({ error: 'Invalid or expired auth token' });
-      return;
-    }
-  }
+
 
   const pathParam = req.query.path;
   if (typeof pathParam !== 'string' || pathParam.length === 0) {
@@ -1146,7 +1176,7 @@ exports.proxyMangaDex = functions.https.onRequest(async (req, res) => {
         'User-Agent': 'Everglow/1.0 (https://github.com/everglow)',
         'Accept': 'application/json',
       },
-      timeout: 20000,
+      signal: AbortSignal.timeout(20000),
     });
     const body = await upstream.text();
     res.status(upstream.status);
@@ -1175,6 +1205,8 @@ exports.proxyVideoStream = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
+
+
 
   const { type, id, season, episode } = req.body || {};
   if (!type || !id) { res.status(400).json({ error: 'type and id required' }); return; }
@@ -1249,6 +1281,8 @@ exports.proxyWatchStream = functions.https.onRequest(async (req, res) => {
     return;
   }
 
+
+
   const targetUrl = req.query.url;
   if (typeof targetUrl !== 'string' || targetUrl.length === 0) {
     res.status(400).json({ error: 'Missing ?url=<stream url> query param' });
@@ -1291,7 +1325,7 @@ exports.proxyWatchStream = functions.https.onRequest(async (req, res) => {
         ...(referer ? { 'Referer': String(referer) } : {}),
       },
       redirect: 'follow',
-      timeout: 30000,
+      signal: AbortSignal.timeout(30000),
     });
     if (!upstream.ok) {
       res
@@ -1534,7 +1568,7 @@ async function getWatchContext() {
 
 // TMDB API key — uses Firebase env config, falls back to client-side key for dev
 function getTmdbKey() {
-  return process.env.TMDB_API_KEY || 'b41bd33efc365bbdbbad2e31dae8f573';
+  return process.env.TMDB_API_KEY || '';
 }
 
 async function getTrendingMovies() {
@@ -1798,6 +1832,94 @@ exports.keepWarm = functions.pubsub.schedule('every 10 minutes').onRun(async (co
   }
 });
 
+/**
+ * Liveness + dependency check for uptime monitoring.
+ *
+ * Accepts:
+ *   GET /api/health
+ *
+ * Public by design: it only reveals service identity and Firestore
+ * reachability, never user data.
+ */
+exports.health = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.set('Cache-Control', 'no-store');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'GET') {
+    res.status(405).json({ error: 'Only GET is accepted' });
+    return;
+  }
+
+  const checks = { firestore: 'pending' };
+  let status = 'ok';
+  try {
+    await getDb().collection('config').doc('health').get();
+    checks.firestore = 'ok';
+  } catch (e) {
+    checks.firestore = 'error';
+    status = 'degraded';
+    console.error('[health] Firestore check failed:', e.message);
+  }
+
+  res.status(status === 'ok' ? 200 : 503).json({
+    status,
+    service: 'everglow-api',
+    version: APP_VERSION,
+    time: new Date().toISOString(),
+    uptimeSeconds: Math.round(process.uptime()),
+    checks,
+  });
+});
+
+/**
+ * Presence TTL sweeper.
+ *
+ * Clients heartbeat every 60 seconds but a closed tab can leave
+ * `isOnline: true` forever. This scheduled job marks stale online
+ * presence documents offline so the partner UI never shows a ghost.
+ */
+exports.sweepStalePresence = onSchedule({
+  schedule: 'every 2 minutes',
+  timeZone: 'UTC',
+  region: 'us-central1',
+}, async () => {
+  const db = getDb();
+  const cutoff = new Date(Date.now() - STALE_PRESENCE_MS);
+  const snapshot = await db
+    .collection('presence')
+    .where('isOnline', '==', true)
+    .where('lastSeen', '<', cutoff)
+    .limit(500)
+    .get();
+
+  let updated = 0;
+  const results = await Promise.allSettled(snapshot.docs.map(async (doc) => {
+    const data = doc.data();
+    if (!isStalePresence(data, Date.now(), STALE_PRESENCE_MS)) return;
+    await doc.ref.update({
+      isOnline: false,
+      isDoodling: false,
+      updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+      sweptAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+    });
+    updated += 1;
+  }));
+
+  const failures = results.filter((r) => r.status === 'rejected').length;
+  console.log(
+    `[sweepStalePresence] scanned=${snapshot.size} updated=${updated} failures=${failures}`,
+  );
+  if (failures > 0) {
+    throw new Error(`${failures} presence sweeps failed`);
+  }
+});
+
 // ── Rough token estimator ──────────────────────────────
 // ~4 chars/token for English, ~3 for mixed CJK/emoji content.
 // Good enough for budget enforcement; not a substitute for tiktoken.
@@ -1938,7 +2060,10 @@ exports.agnesImage = functions.https.onRequest(async (req, res) => {
     return;
   }
 
-  const apiKey = process.env.AGNES_API_KEY || 'sk-NXAjQJFpdzVDsAppXG1O2Y91FluFM6iOWTlILoLDH6dsRW7i';
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
+
+  const apiKey = process.env.AGNES_API_KEY;
   if (!apiKey) {
     res.status(500).json({ error: 'Agnes API key not configured' });
     return;
@@ -1967,7 +2092,7 @@ exports.agnesImage = functions.https.onRequest(async (req, res) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
-      timeout: 60000,
+      signal: AbortSignal.timeout(60000),
     });
 
     if (!resp.ok) {
@@ -2010,16 +2135,9 @@ async function handleProxyAI(req, res) {
     return;
   }
 
-  // Validate Firebase Auth token (optional — function is protected by
-  // CORS and server-side API key; auth is a bonus, not required).
-  const idToken = req.get('Authorization')?.replace('Bearer ', '');
-  if (idToken) {
-    try {
-      await getAdmin().auth().verifyIdToken(idToken);
-    } catch {
-      // Token invalid — continue without auth (not fatal)
-    }
-  }
+  // Validate Firebase Auth token before spending any LLM credits.
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
 
   const { messages, context, systemPrompt: customSystemPrompt, memories, feature, caller, enableThinking } = req.body;
 
@@ -2255,7 +2373,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   ];
 
   // Get API key from environment variables (loaded from .env or Cloud Run env)
-  const apiKey = process.env.AGNES_API_KEY || 'sk-NXAjQJFpdzVDsAppXG1O2Y91FluFM6iOWTlILoLDH6dsRW7i';
+  const apiKey = process.env.AGNES_API_KEY;
 
   if (!apiKey) {
     res.status(500).json({ error: 'Agnes API key not configured' });
@@ -3257,7 +3375,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
                 stream: true,
                 ...(enableThinking ? { chat_template_kwargs: { enable_thinking: true } } : {}),
               }),
-              timeout: 120000,
+              signal: AbortSignal.timeout(120000),
             });
 
             if (streamResp.ok) break; // success
@@ -3410,7 +3528,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
           stream: false,
           ...(enableThinking ? { chat_template_kwargs: { enable_thinking: true } } : {}),
         }),
-        timeout: 60000,
+        signal: AbortSignal.timeout(60000),
       },
     );
     return resp;
@@ -3752,7 +3870,7 @@ exports.mochiDailyDigest = onSchedule({
           temperature: 0.7,
           stream: false,
         }),
-        timeout: 30000,
+        signal: AbortSignal.timeout(30000),
       });
       if (resp.ok) {
         const body = await resp.json();

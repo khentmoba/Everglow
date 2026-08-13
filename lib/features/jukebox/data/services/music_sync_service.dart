@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:everglow/core/config/env_config.dart';
+import '../../../../core/config/env_config.dart';
 import '../models/music_status.dart';
 import '../models/top_music_track.dart';
 import '../models/lastfm_image_utils.dart';

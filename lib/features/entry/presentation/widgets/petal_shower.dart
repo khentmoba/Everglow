@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' show Picture, PictureRecorder;
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import '../../../../core/theme/app_theme.dart';
 
 class PetalShower extends StatefulWidget {
   final bool isVisible;

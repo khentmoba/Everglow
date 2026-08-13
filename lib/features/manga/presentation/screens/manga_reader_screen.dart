@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/core/theme/app_radius.dart';
-import 'package:everglow/features/manga/data/models/manga_item.dart';
-import 'package:everglow/features/manga/data/services/bato_service.dart';
-import 'package:everglow/features/manga/data/services/mangadex_service.dart';
-import 'package:everglow/features/manga/data/services/mangakakalot_service.dart';
-import 'package:everglow/features/manga/data/services/mangakatana_service.dart';
-import 'package:everglow/features/manga/data/services/scanlation_service.dart';
-import 'package:everglow/services/auth_service.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../data/models/manga_item.dart';
+import '../../data/services/bato_service.dart';
+import '../../data/services/mangadex_service.dart';
+import '../../data/services/mangakakalot_service.dart';
+import '../../data/services/mangakatana_service.dart';
+import '../../data/services/scanlation_service.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../../core/theme/app_typography.dart';
 
 /// Reader background — deep black, darker than the anime palette.
 const _readerBg = AppColors.animeBackground; // 0xFF080810

@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/core/theme/app_radius.dart';
-import 'package:everglow/core/theme/app_spacing.dart';
-import 'package:everglow/core/theme/app_typography.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_app_bar.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_scaffold.dart';
-import 'package:everglow/features/jellyfin/data/models/archive_movie.dart';
-import 'package:everglow/features/jellyfin/data/models/archive_video_file.dart';
-import 'package:everglow/features/jellyfin/data/services/archive_search_service.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/everglow/everglow_app_bar.dart';
+import '../../../../shared/widgets/everglow/everglow_scaffold.dart';
+import '../../data/models/archive_movie.dart';
+import '../../data/models/archive_video_file.dart';
+import '../../data/services/archive_search_service.dart';
 
 /// Search-and-download screen for the Jellyfin watch-party library.
 ///

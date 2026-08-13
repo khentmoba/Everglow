@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:everglow/features/cinema/data/models/media_item.dart';
-import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
-import 'package:everglow/features/cinema/presentation/widgets/episode_drawer.dart';
-import 'package:everglow/services/auth_service.dart';
+import '../../../cinema/data/models/media_item.dart';
+import '../../../cinema/data/services/tmdb_service.dart';
+import '../../../cinema/presentation/widgets/episode_drawer.dart';
+import '../../../../core/services/auth_service.dart';
 import '_partner_label.dart';
 import 'partner_subrow.dart';
 import 'shelf_widgets.dart';
@@ -22,8 +22,6 @@ class CurrentlyWatchingPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tmdbService = TMDBService();
-
     final auth = context.watch<AuthService>();
     final userName = auth.currentUser ?? '';
     final isCouple = auth.isCoupleUser;
@@ -35,23 +33,21 @@ class CurrentlyWatchingPreview extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _CurrentlyWatchingHeader(
-            stream: tmdbService.getCurrentlyWatchingStream(userName),
-          ),
+          _CurrentlyWatchingHeader(userName: userName),
           if (isCouple && partner != null && partner.isNotEmpty) ...[
             _CurrentlyWatchingShelf(
-              stream: tmdbService.getCurrentlyWatchingStream(userName),
+              userName: userName,
               label: 'ME',
               isSelf: true,
             ),
             _CurrentlyWatchingShelf(
-              stream: tmdbService.getCurrentlyWatchingStream(partner),
+              userName: partner,
               label: partnerLabel,
               isSelf: false,
             ),
           ] else
             _CurrentlyWatchingShelf(
-              stream: tmdbService.getCurrentlyWatchingStream(userName),
+              userName: userName,
               label: null,
               isSelf: true,
             ),
@@ -62,8 +58,8 @@ class CurrentlyWatchingPreview extends StatelessWidget {
 }
 
 class _CurrentlyWatchingHeader extends StatefulWidget {
-  final Stream<List<MediaItem>> stream;
-  const _CurrentlyWatchingHeader({required this.stream});
+  final String userName;
+  const _CurrentlyWatchingHeader({required this.userName});
 
   @override
   State<_CurrentlyWatchingHeader> createState() =>
@@ -71,6 +67,7 @@ class _CurrentlyWatchingHeader extends StatefulWidget {
 }
 
 class _CurrentlyWatchingHeaderState extends State<_CurrentlyWatchingHeader> {
+  final TMDBService _service = TMDBService();
   List<MediaItem> _items = [];
   StreamSubscription<List<MediaItem>>? _streamSub;
 
@@ -83,14 +80,16 @@ class _CurrentlyWatchingHeaderState extends State<_CurrentlyWatchingHeader> {
   @override
   void didUpdateWidget(covariant _CurrentlyWatchingHeader oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.stream != widget.stream) {
+    if (oldWidget.userName != widget.userName) {
       _streamSub?.cancel();
+      _items = [];
       _subscribe();
     }
   }
 
   void _subscribe() {
-    _streamSub = widget.stream.listen((items) {
+    _streamSub =
+        _service.getCurrentlyWatchingStream(widget.userName).listen((items) {
       if (!mounted) return;
       setState(() => _items = items);
     });
@@ -114,11 +113,11 @@ class _CurrentlyWatchingHeaderState extends State<_CurrentlyWatchingHeader> {
 }
 
 class _CurrentlyWatchingShelf extends StatefulWidget {
-  final Stream<List<MediaItem>> stream;
+  final String userName;
   final String? label;
   final bool isSelf;
   const _CurrentlyWatchingShelf({
-    required this.stream,
+    required this.userName,
     required this.label,
     required this.isSelf,
   });
@@ -129,6 +128,7 @@ class _CurrentlyWatchingShelf extends StatefulWidget {
 }
 
 class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
+  final TMDBService _service = TMDBService();
   List<MediaItem> _items = [];
   bool _hasLoaded = false;
   StreamSubscription<List<MediaItem>>? _streamSub;
@@ -142,7 +142,7 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
   @override
   void didUpdateWidget(covariant _CurrentlyWatchingShelf oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.stream != widget.stream) {
+    if (oldWidget.userName != widget.userName) {
       _streamSub?.cancel();
       setState(() {
         _items = [];
@@ -153,7 +153,8 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
   }
 
   void _subscribe() {
-    _streamSub = widget.stream.listen((items) {
+    _streamSub =
+        _service.getCurrentlyWatchingStream(widget.userName).listen((items) {
       if (!mounted) return;
       setState(() {
         _items = items;
@@ -165,9 +166,8 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
 
   Future<void> _backfillPosters(List<MediaItem> items) async {
     try {
-      final tmdbService = TMDBService();
-      var updated = await tmdbService.backfillMissingPosters(items);
-      updated = await tmdbService.refreshAnimePosters(updated);
+      var updated = await _service.backfillMissingPosters(items);
+      updated = await _service.refreshAnimePosters(updated);
       if (mounted) setState(() => _items = updated);
     } catch (e) {
       // Silently fail — placeholder will show

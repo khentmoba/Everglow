@@ -5,12 +5,12 @@ import '../../data/services/letterbox_service.dart';
 import 'note_card.dart';
 import 'note_dialog.dart';
 import 'package:provider/provider.dart';
-import 'package:everglow/features/daily_bloom/presentation/providers/garden_provider.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_error_state.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_empty_state.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_skeleton.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../daily_bloom/presentation/providers/garden_provider.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/everglow/everglow_error_state.dart';
+import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
+import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class LetterboxView extends StatefulWidget {
   const LetterboxView({super.key});

@@ -5,12 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web/web.dart' as web;
-import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/core/theme/app_motion.dart';
-import 'package:everglow/core/theme/app_radius.dart';
-import 'package:everglow/core/theme/app_breakpoints.dart';
-import 'package:everglow/core/utils/logger.dart';
-import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_motion.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_breakpoints.dart';
+import '../../../../core/utils/logger.dart';
+import '../../../cinema/data/services/tmdb_service.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:provider/provider.dart';
 
@@ -18,20 +18,20 @@ import '../../../date_randomizer/presentation/widgets/randomizer_card.dart';
 import '../../../date_randomizer/data/services/date_idea_service.dart';
 import '../../../../features/guardian/data/services/guardian_service.dart';
 import '../../../../features/guardian/presentation/controllers/guardian_controller.dart';
-import 'package:everglow/features/guardian/presentation/widgets/roaming/roaming_guardian_controller.dart';
-import 'package:everglow/features/guardian/presentation/widgets/roaming/roaming_guardian_layer.dart';
-import 'package:everglow/features/guardian/presentation/widgets/roaming/roaming_cat_visual_web.dart';
-import 'package:everglow/features/daily_bloom/presentation/widgets/daily_bloom.dart';
-import 'package:everglow/features/daily_bloom/presentation/providers/garden_provider.dart';
-import 'package:everglow/services/auth_service.dart';
-import 'package:everglow/services/presence_service.dart';
+import '../../../guardian/presentation/widgets/roaming/roaming_guardian_controller.dart';
+import '../../../guardian/presentation/widgets/roaming/roaming_guardian_layer.dart';
+import '../../../guardian/presentation/widgets/roaming/roaming_cat_visual_web.dart';
+import '../../../daily_bloom/presentation/widgets/daily_bloom.dart';
+import '../../../daily_bloom/presentation/providers/garden_provider.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/presence_service.dart';
 import '../widgets/cinema_preview.dart';
 import '../widgets/anime_preview.dart';
 import '../widgets/books_preview.dart';
 import '../widgets/manga_preview.dart';
 import '../widgets/currently_watching_preview.dart';
-import 'package:everglow/features/starlight_jar/presentation/screens/starlight_jar_widget.dart';
-import 'package:everglow/features/heartbeat/presentation/controllers/mood_controller.dart';
+import '../../../starlight_jar/presentation/screens/starlight_jar_widget.dart';
+import '../../../heartbeat/presentation/controllers/mood_controller.dart';
 import '../../../academy/widgets/academy_portal_card.dart';
 import '../../../../features/play_zone/presentation/widgets/play_zone_portal_card.dart';
 import '../../../../features/jukebox/presentation/widgets/jukebox_widget.dart';
@@ -45,13 +45,13 @@ import '../widgets/upcoming_countdowns.dart';
 import '../widgets/timeline_view.dart';
 import '../widgets/on_this_day_card.dart';
 
-import 'package:everglow/features/xp/data/services/xp_service.dart';
-import 'package:everglow/features/xp/domain/models/user_progress.dart';
-import 'package:everglow/features/xp/presentation/widgets/xp_progress_bar.dart';
+import '../../../xp/data/services/xp_service.dart';
+import '../../../xp/domain/models/user_progress.dart';
+import '../../../xp/presentation/widgets/xp_progress_bar.dart';
 import '../widgets/anniversary_metrics.dart';
 import '../widgets/dashboard_overlays.dart';
-import 'package:everglow/core/theme/app_typography.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_background.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../widgets/dashboard_motion.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -231,6 +231,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     Widget child, {
     int delayMs = 900,
     double heightAfter = 32,
+    double placeholderHeight = 220,
   }) {
     final animated = widget.animate
         ? FadeInUp(
@@ -238,7 +239,12 @@ class _DashboardScreenState extends State<DashboardScreen>
             child: child,
           )
         : child;
-    return SliverToBoxAdapter(child: animated);
+    return SliverToBoxAdapter(
+      child: _DeferredSection(
+        placeholderHeight: placeholderHeight,
+        child: animated,
+      ),
+    );
   }
 
   @override
@@ -342,25 +348,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                               horizontal: 24,
                               vertical: 8,
                             ),
-                            child: Consumer<AuthService>(
-                              builder: (context, auth, _) {
-                                final uid = auth.user?.uid;
-                                if (uid == null || uid.isEmpty) {
-                                  return const SizedBox.shrink();
-                                }
-                                return StreamBuilder<UserProgress?>(
-                                  stream: XPService().watchProgress(uid),
-                                  builder: (context, snapshot) {
-                                    if (!snapshot.hasData ||
-                                        snapshot.data == null) {
-                                      return const SizedBox.shrink();
-                                    }
-                                    return XPProgressBar(
-                                      progress: snapshot.data!,
-                                    );
-                                  },
-                                );
-                              },
+                            child: Selector<AuthService, String?>(
+                              selector: (_, auth) => auth.user?.uid,
+                              builder: (context, uid, _) =>
+                                  _XpProgressSection(uid: uid),
                             ),
                           ),
                         ),
@@ -384,7 +375,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                         const SliverToBoxAdapter(child: SizedBox(height: 40)),
 
                         // On This Day
-                        _animatedSliver(const OnThisDayCard(), delayMs: 800),
+                        _animatedSliver(
+                          const OnThisDayCard(),
+                          delayMs: 800,
+                          placeholderHeight: 190,
+                        ),
                         const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
                         // Feature content sections
@@ -392,9 +387,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                           UpcomingCountdowns(),
                           delayMs: 850,
                           heightAfter: 16,
+                          placeholderHeight: 300,
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                        _animatedSliver(const LetterboxView(), delayMs: 900),
+                        _animatedSliver(
+                          const LetterboxView(),
+                          delayMs: 900,
+                          placeholderHeight: 210,
+                        ),
                         const SliverToBoxAdapter(child: SizedBox(height: 32)),
                         _animatedSliver(
                           Padding(
@@ -402,6 +402,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             child: JukeboxWidget(),
                           ),
                           delayMs: 950,
+                          placeholderHeight: 320,
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 32)),
                         _animatedSliver(
@@ -410,6 +411,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             child: const MusicStatsSection(),
                           ),
                           delayMs: 1000,
+                          placeholderHeight: 420,
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 32)),
                         _animatedSliver(
@@ -417,46 +419,88 @@ class _DashboardScreenState extends State<DashboardScreen>
                             service: context.read<DateIdeaService>(),
                           ),
                           delayMs: 1050,
+                          placeholderHeight: 280,
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 32)),
                         _animatedSliver(
                           const CurrentlyWatchingPreview(),
                           delayMs: 1080,
+                          placeholderHeight: 260,
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                        _animatedSliver(const WatchPartyCard(), delayMs: 1100),
+                        _animatedSliver(
+                          const WatchPartyCard(),
+                          delayMs: 1100,
+                          placeholderHeight: 190,
+                        ),
                         const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                        _animatedSliver(const CinemaPreview(), delayMs: 1100),
+                        _animatedSliver(
+                          const CinemaPreview(),
+                          delayMs: 1100,
+                          placeholderHeight: 300,
+                        ),
                         const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                        _animatedSliver(const AnimePreview(), delayMs: 1130),
+                        _animatedSliver(
+                          const AnimePreview(),
+                          delayMs: 1130,
+                          placeholderHeight: 300,
+                        ),
                         const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                        _animatedSliver(const BooksPreview(), delayMs: 1150),
+                        _animatedSliver(
+                          const BooksPreview(),
+                          delayMs: 1150,
+                          placeholderHeight: 300,
+                        ),
                         const SliverToBoxAdapter(child: SizedBox(height: 12)),
-                        _animatedSliver(const GalleryPreview(), delayMs: 1170),
+                        _animatedSliver(
+                          const GalleryPreview(),
+                          delayMs: 1170,
+                          placeholderHeight: 200,
+                        ),
                         const SliverToBoxAdapter(child: SizedBox(height: 12)),
-                        _animatedSliver(const CalendarPreview(), delayMs: 1175),
+                        _animatedSliver(
+                          const CalendarPreview(),
+                          delayMs: 1175,
+                          placeholderHeight: 220,
+                        ),
                         const SliverToBoxAdapter(child: SizedBox(height: 12)),
-                        _animatedSliver(const MangaPreview(), delayMs: 1180),
+                        _animatedSliver(
+                          const MangaPreview(),
+                          delayMs: 1180,
+                          placeholderHeight: 300,
+                        ),
                         const SliverToBoxAdapter(child: SizedBox(height: 32)),
-                        _animatedSliver(const TimelineView(), delayMs: 1200),
+                        _animatedSliver(
+                          const TimelineView(),
+                          delayMs: 1200,
+                          placeholderHeight: 620,
+                        ),
                         const SliverToBoxAdapter(child: SizedBox(height: 32)),
                         _animatedSliver(
                           const StarlightJarWidget(),
                           delayMs: 1300,
+                          placeholderHeight: 640,
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 32)),
-                        _animatedSliver(const DailyBloom(), delayMs: 1350),
+                        _animatedSliver(
+                          const DailyBloom(),
+                          delayMs: 1350,
+                          placeholderHeight: 320,
+                        ),
                         _animatedSliver(
                           const AcademyPortalCard(),
                           delayMs: 1400,
+                          placeholderHeight: 200,
                         ),
                         _animatedSliver(
                           const PlayZonePortalCard(),
                           delayMs: 1450,
+                          placeholderHeight: 200,
                         ),
                         _animatedSliver(
                           const BucketListPreview(),
                           delayMs: 1500,
+                          placeholderHeight: 280,
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 110)),
                       ],
@@ -677,6 +721,133 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
           ],
         );
+      },
+    );
+  }
+}
+
+/// Keeps a heavy dashboard section out of the tree until the scroll view
+/// brings it near the viewport, so its Firestore streams and image loads only
+/// start when the user actually approaches it.
+class _DeferredSection extends StatefulWidget {
+  final Widget child;
+  final double placeholderHeight;
+
+  const _DeferredSection({
+    required this.child,
+    this.placeholderHeight = 220,
+  });
+
+  @override
+  State<_DeferredSection> createState() => _DeferredSectionState();
+}
+
+class _DeferredSectionState extends State<_DeferredSection> {
+  final GlobalKey _key = GlobalKey();
+  ScrollableState? _scrollable;
+  bool _visible = false;
+  bool _checkScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleCheck();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final scrollable = Scrollable.maybeOf(context);
+    if (scrollable != _scrollable) {
+      _scrollable?.position.removeListener(_onScroll);
+      _scrollable = scrollable;
+      scrollable?.position.addListener(_onScroll);
+    }
+    _scheduleCheck();
+  }
+
+  @override
+  void dispose() {
+    _scrollable?.position.removeListener(_onScroll);
+    super.dispose();
+  }
+
+  void _onScroll() => _scheduleCheck();
+
+  void _scheduleCheck() {
+    if (_visible || _checkScheduled) return;
+    _checkScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkScheduled = false;
+      if (mounted) _check();
+    });
+  }
+
+  void _check() {
+    final box = _key.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached || !mounted) return;
+    final top = box.localToGlobal(Offset.zero).dy;
+    final bottom = top + box.size.height;
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    if (top < viewportHeight + 500 && bottom > -500) {
+      _scrollable?.position.removeListener(_onScroll);
+      setState(() => _visible = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return KeyedSubtree(
+      key: _key,
+      child: _visible
+          ? widget.child
+          : SizedBox(height: widget.placeholderHeight),
+    );
+  }
+}
+
+/// Binds the XP progress stream to the current uid without re-creating the
+/// Firestore listener on every unrelated auth notification.
+class _XpProgressSection extends StatefulWidget {
+  final String? uid;
+  const _XpProgressSection({required this.uid});
+
+  @override
+  State<_XpProgressSection> createState() => _XpProgressSectionState();
+}
+
+class _XpProgressSectionState extends State<_XpProgressSection> {
+  final XPService _service = XPService();
+  Stream<UserProgress?>? _stream;
+
+  @override
+  void initState() {
+    super.initState();
+    _bind();
+  }
+
+  @override
+  void didUpdateWidget(covariant _XpProgressSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.uid != widget.uid) _bind();
+  }
+
+  void _bind() {
+    final uid = widget.uid;
+    _stream = (uid == null || uid.isEmpty) ? null : _service.watchProgress(uid);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final stream = _stream;
+    if (stream == null) return const SizedBox.shrink();
+    return StreamBuilder<UserProgress?>(
+      stream: stream,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data == null) {
+          return const SizedBox.shrink();
+        }
+        return XPProgressBar(progress: snapshot.data!);
       },
     );
   }

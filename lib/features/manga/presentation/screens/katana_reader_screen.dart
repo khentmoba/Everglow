@@ -5,11 +5,11 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:everglow/core/theme/app_typography.dart';
-import 'package:everglow/features/manga/data/models/katana_models.dart';
-import 'package:everglow/features/manga/data/services/katana_service.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_theme.dart';
-import 'package:everglow/services/auth_service.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../data/models/katana_models.dart';
+import '../../data/services/katana_service.dart';
+import '../katana/katana_theme.dart';
+import '../../../../core/services/auth_service.dart';
 
 /// Manga Katana reader: long-strip pages with server switching,
 /// two-page view, fit-height + tap-edge navigation, darken control,
@@ -534,11 +534,16 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   Widget _buildPageImage(int index) {
     final url = _service.proxiedImageUrl(_pages[index]);
     final viewportHeight = MediaQuery.sizeOf(context).height - 210;
+    final decodeWidth = (MediaQuery.sizeOf(context).width *
+            MediaQuery.devicePixelRatioOf(context))
+        .round()
+        .clamp(800, 2400);
 
     Widget image = Image.network(
       url,
       fit: _fitHeight ? BoxFit.contain : BoxFit.fitWidth,
       width: double.infinity,
+      cacheWidth: decodeWidth,
       errorBuilder: (_, _, _) => Container(
         height: 220,
         color: KatanaColors.border,

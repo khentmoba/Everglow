@@ -246,6 +246,8 @@ class MediaItem {
   }
 
   Map<String, dynamic> toFirestore() {
+    final m = addedAt.month.toString().padLeft(2, '0');
+    final d = addedAt.day.toString().padLeft(2, '0');
     return {
       'tmdbId': tmdbId,
       'title': title,
@@ -257,6 +259,7 @@ class MediaItem {
       'isAnime': isAnime,
       'userName': userName,
       'addedAt': Timestamp.fromDate(addedAt),
+      'monthDay': '$m-$d',
       'source': source,
       if (anilistId != null) 'anilistId': anilistId,
       'synopsis': synopsis,

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/services/tmdb_service.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_typography.dart';
 
 /// Horizontal scrollable season selector + episode grid for TV content.
 /// Fetches season/episode data from TMDB and lets the user pick an episode
