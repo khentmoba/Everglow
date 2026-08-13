@@ -62,7 +62,13 @@ class EnvConfig {
   static String get tmdbApiKey => _from('TMDB_API_KEY');
   static String get lastfmApiKey => _from('LASTFM_API_KEY');
   static String get jellyfinApiKey => _from('JELLYFIN_API_KEY');
-  static String get fcmVapidKey => _from('FCM_VAPID_KEY');
+
+  /// Public FCM VAPID key. This is a public identifier, not a credential;
+  /// browsers need it to register for web push notifications.
+  static const String _kFcmVapidKey =
+      'BL2l-ngjWKYYXNK5QKHRcLt4zUyHq-3wTgY5NO0MOcGEoI03Eh3A3Kk2us_hQdN4tXyOO4A6ldQ1T5L7DLTSrT0';
+  static String get fcmVapidKey =>
+      _from('FCM_VAPID_KEY', fallback: _kFcmVapidKey);
 
   static bool get hasClairCreds => clairEmail.isNotEmpty && clairPassword.isNotEmpty;
   static bool get hasKhentCreds => khentEmail.isNotEmpty && khentPassword.isNotEmpty;
