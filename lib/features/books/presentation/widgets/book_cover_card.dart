@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/features/books/data/models/book_item.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../data/models/book_item.dart';
+import '../../../../core/theme/app_typography.dart';
 
 /// Reusable book cover card. Designed for grid placement (search
 /// results, our-books list, etc.) — portrait orientation with a

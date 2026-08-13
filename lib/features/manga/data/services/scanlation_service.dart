@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:everglow/core/utils/connectivity_aware.dart';
-import 'package:everglow/features/manga/data/models/manga_item.dart';
+import '../../../../core/utils/connectivity_aware.dart';
+import '../models/manga_item.dart';
 
 /// Scrapes scanlation-group websites for chapter lists and page images.
 /// Each supported site is defined as a [_ScanSite] with URL patterns

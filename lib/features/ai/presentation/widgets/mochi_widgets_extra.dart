@@ -1,0 +1,617 @@
+part of 'mochi_screen.dart';
+
+class _MessageImages extends StatelessWidget {
+  final List<String> imageUrls;
+
+  const _MessageImages({required this.imageUrls});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: imageUrls.map((url) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: ClipRRect(
+            borderRadius: AppRadius.radiusMd,
+            child: url.startsWith('data:image')
+                ? Image.memory(
+                    _decodeBase64(url),
+                    width: 180,
+                    height: 180,
+                    fit: BoxFit.cover,
+                    gaplessPlayback: true,
+                    errorBuilder: (_, _, _) => _BrokenImageTile(),
+                  )
+                : Image.network(
+                    url,
+                    width: 180,
+                    height: 180,
+                    fit: BoxFit.cover,
+                    gaplessPlayback: true,
+                    errorBuilder: (_, _, _) => _BrokenImageTile(),
+                  ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _BrokenImageTile extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 180,
+      height: 180,
+      color: AppColors.velvet.withValues(alpha: 0.6),
+      child: Icon(
+        Icons.broken_image_outlined,
+        color: AppColors.textDisabled,
+        size: 28,
+      ),
+    );
+  }
+}
+
+class _MessageBubbleState extends State<_MessageBubble> {
+  bool _showReasoning = true;
+
+  @override
+  void didUpdateWidget(covariant _MessageBubble oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A new stream is starting: show thinking notes again.
+    if (oldWidget.isStreaming &&
+        oldWidget.text.isNotEmpty &&
+        widget.isStreaming &&
+        widget.text.isEmpty) {
+      _showReasoning = true;
+      return;
+    }
+    // Once the visible answer starts arriving, collapse the thinking notes
+    // so the reply stays front and center.
+    if (oldWidget.text.isEmpty &&
+        widget.text.isNotEmpty &&
+        widget.isStreaming) {
+      _showReasoning = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // The model often starts replies with blank lines; trim them for a
+    // clean first line in the bubble (both while streaming and after).
+    final bubbleText = widget.isUser ? widget.text : widget.text.trimLeft();
+    final displayText = widget.isUser
+        ? widget.text
+        : stripMarkdown(bubbleText);
+    final hasReasoning =
+        widget.reasoning != null && widget.reasoning!.isNotEmpty;
+
+    final timeStr = widget.timestamp != null
+        ? DateFormat('h:mm a').format(widget.timestamp!)
+        : '';
+    final isToday =
+        widget.timestamp != null &&
+        DateTime.now().day == widget.timestamp!.day &&
+        DateTime.now().month == widget.timestamp!.month &&
+        DateTime.now().year == widget.timestamp!.year;
+    final fullDateStr = widget.timestamp != null
+        ? DateFormat('MMM d, h:mm a').format(widget.timestamp!)
+        : '';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        mainAxisAlignment: widget.isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!widget.isUser) ...[
+            ClipRRect(
+              borderRadius: AppRadius.radiusSm,
+              child: Image.asset(
+                'assets/images/mochi_avatar.png',
+                width: 28,
+                height: 28,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(width: 10),
+          ],
+          Flexible(
+            child: GestureDetector(
+              onLongPress: () {
+                HapticFeedback.selectionClick();
+                Clipboard.setData(ClipboardData(text: displayText));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Copied', style: AppTypography.bodySmall()),
+                    duration: const Duration(seconds: 1),
+                    backgroundColor: AppColors.velvet,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: AppRadius.radiusLg,
+                    ),
+                    margin: const EdgeInsets.all(AppSpacing.lg),
+                  ),
+                );
+              },
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.sizeOf(context).width * 0.75,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  gradient: widget.isUser
+                      ? LinearGradient(
+                          colors: [
+                            AppColors.deepRose.withValues(alpha: 0.55),
+                            AppColors.deepRose.withValues(alpha: 0.3),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null,
+                  color: widget.isUser ? null : AppColors.surfaceGlass,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(widget.isUser ? AppRadius.lg : 4),
+                    topRight: Radius.circular(widget.isUser ? 4 : AppRadius.lg),
+                    bottomLeft: Radius.circular(AppRadius.lg),
+                    bottomRight: Radius.circular(AppRadius.lg),
+                  ),
+                  border: widget.isUser
+                      ? null
+                      : Border.all(color: AppColors.border, width: 0.5),
+                ),
+                child: Column(
+                  crossAxisAlignment: widget.isUser
+                      ? CrossAxisAlignment.end
+                      : CrossAxisAlignment.start,
+                  children: [
+                    if (hasReasoning)
+                      GestureDetector(
+                        onTap: () =>
+                            setState(() => _showReasoning = !_showReasoning),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.velvet.withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: AppColors.blushGold.withValues(
+                                alpha: 0.15,
+                              ),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.psychology_rounded,
+                                    size: 14,
+                                    color: AppColors.blushGold.withValues(
+                                      alpha: 0.7,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Thinking${widget.isStreaming ? '...' : ''}',
+                                    style: AppTypography.bodySmall().copyWith(
+                                      fontSize: 10,
+                                      color: AppColors.textMuted.withValues(
+                                        alpha: 0.8,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Icon(
+                                    _showReasoning
+                                        ? Icons.keyboard_arrow_up_rounded
+                                        : Icons.keyboard_arrow_down_rounded,
+                                    size: 14,
+                                    color: AppColors.textDisabled,
+                                  ),
+                                ],
+                              ),
+                              if (_showReasoning) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  widget.reasoning!,
+                                  style: AppTypography.bodySmall().copyWith(
+                                    fontSize: 10,
+                                    color: AppColors.textMuted.withValues(
+                                      alpha: 0.6,
+                                    ),
+                                    height: 1.4,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    if (widget.imageUrls.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      _MessageImages(imageUrls: widget.imageUrls),
+                      if (widget.text.isNotEmpty) const SizedBox(height: 8),
+                    ],
+                    if (widget.isUser)
+                      Text(
+                        widget.text,
+                        style: AppTypography.bodyMedium().copyWith(
+                          color: AppColors.petalWhite,
+                          height: 1.45,
+                        ),
+                      )
+                    else if (widget.isStreaming && bubbleText.isEmpty)
+                      _StreamingPlaceholder(
+                        toolStatus: widget.toolStatus ?? '',
+                      )
+                    else
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _MarkdownText(
+                              text: bubbleText,
+                              baseStyle: AppTypography.bodyMedium().copyWith(
+                                color: AppColors.textHigh,
+                                height: 1.45,
+                              ),
+                            ),
+                          ),
+                          if (widget.isStreaming && bubbleText.isNotEmpty)
+                            const Padding(
+                              padding: EdgeInsets.only(left: 4, top: 3),
+                              child: _StreamingCaret(),
+                            ),
+                        ],
+                      ),
+                    if (widget.isStreaming)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 7),
+                        child: _StreamingProgressBar(),
+                      ),
+                    if (widget.timestamp != null || widget.isStreaming)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 5),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (widget.isStreaming) ...[
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: AppColors.blushGold,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Container(
+                                    width: 2,
+                                    height: 2,
+                                    decoration: const BoxDecoration(
+                                      color: AppColors.twilight,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                            ],
+                            Text(
+                              widget.isStreaming
+                                  ? 'replying...'
+                                  : isToday
+                                  ? timeStr
+                                  : fullDateStr,
+                              style: AppTypography.bodySmall().copyWith(
+                                fontSize: 10,
+                                color: widget.isUser
+                                    ? AppColors.petalWhite.withValues(
+                                        alpha: 0.5,
+                                      )
+                                    : AppColors.textMuted.withValues(
+                                        alpha: 0.6,
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (widget.isUser) ...[
+            const SizedBox(width: 10),
+            ClipRRect(
+              borderRadius: AppRadius.radiusSm,
+              child: Image.asset(
+                'assets/images/mochi_avatar.png',
+                width: 28,
+                height: 28,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Markdown renderer ───────────────────────────────────────────
+
+class _MarkdownText extends StatelessWidget {
+  final String text;
+  final TextStyle? baseStyle;
+
+  const _MarkdownText({required this.text, this.baseStyle});
+
+  @override
+  Widget build(BuildContext context) {
+    final style =
+        baseStyle ??
+        AppTypography.bodyMedium().copyWith(
+          color: AppColors.textHigh,
+          height: 1.5,
+        );
+
+    return RichText(
+      text: TextSpan(style: style, children: _parseInline(text, style)),
+    );
+  }
+
+  List<TextSpan> _parseInline(String input, TextStyle base) {
+    final spans = <TextSpan>[];
+    final regex = RegExp(
+      r'(\*\*(.+?)\*\*|__(.+?)__|\*(.+?)\*|_(.+?)_|`(.+?)`|```[\s\S]*?```)',
+    );
+
+    int lastEnd = 0;
+    for (final match in regex.allMatches(input)) {
+      if (match.start > lastEnd) {
+        spans.add(TextSpan(text: input.substring(lastEnd, match.start)));
+      }
+
+      final full = match.group(0)!;
+      if (full.startsWith('**')) {
+        spans.add(
+          TextSpan(
+            text: match.group(2),
+            style: base.copyWith(fontWeight: FontWeight.w700),
+          ),
+        );
+      } else if (full.startsWith('__')) {
+        spans.add(
+          TextSpan(
+            text: match.group(3),
+            style: base.copyWith(fontWeight: FontWeight.w700),
+          ),
+        );
+      } else if (full.startsWith('*')) {
+        spans.add(
+          TextSpan(
+            text: match.group(4),
+            style: base.copyWith(fontStyle: FontStyle.italic),
+          ),
+        );
+      } else if (full.startsWith('_')) {
+        spans.add(
+          TextSpan(
+            text: match.group(5),
+            style: base.copyWith(fontStyle: FontStyle.italic),
+          ),
+        );
+      } else if (full.startsWith('`')) {
+        spans.add(
+          TextSpan(
+            text: match.group(6),
+            style: base.copyWith(
+              fontFamily: 'monospace',
+              backgroundColor: AppColors.velvet.withValues(alpha: 0.5),
+            ),
+          ),
+        );
+      }
+
+      lastEnd = match.end;
+    }
+
+    if (lastEnd < input.length) {
+      spans.add(TextSpan(text: input.substring(lastEnd)));
+    }
+
+    return spans.isNotEmpty ? spans : [TextSpan(text: input)];
+  }
+}
+
+String _formatToolStatus(String status) {
+  if (status == 'generating') return 'Mochi is thinking';
+  if (status == 'thinking') return 'Mochi is thinking';
+  if (status == 'executing') return 'Mochi is working on it';
+  if (status == 'done') return 'Mochi is done';
+  if (status.startsWith('round_')) return 'Mochi is thinking';
+  // Tool names
+  const toolNames = {
+    'add_to_watchlist': 'Adding to watchlist',
+    'save_to_starlight_jar': 'Saving to Starlight Jar',
+    'read_starlight_jar': 'Reading the Starlight Jar',
+    'set_mood': 'Logging mood',
+    'search_movies': 'Searching movies',
+    'get_watchlist': 'Reading the watchlist',
+    'get_weather': 'Checking weather',
+    'create_reminder': 'Creating reminder',
+    'log_activity': 'Logging activity',
+    'search_books': 'Searching books',
+    'add_book_to_our_books': 'Adding book to Our Books',
+    'get_date_ideas': 'Getting date ideas',
+    'read_chat_messages': 'Reading chat messages',
+    'get_xp_stats': 'Checking XP stats',
+    'search_anime': 'Searching anime',
+    'remember_fact': 'Remembering that',
+    'read_memories': 'Opening the Memory Book',
+    'mark_watchlist_item_watched': 'Marking as watched',
+    'update_book_progress': 'Updating book progress',
+    'add_xp': 'Awarding XP',
+    'send_note_to_partner': 'Sending a note',
+    'get_relationship_insights': 'Finding patterns',
+    'get_memory_trivia': 'Making memory trivia',
+    'get_today_recap': 'Compiling today',
+    'plan_date_night': 'Planning date night',
+  };
+  return toolNames[status] ?? 'Mochi is thinking';
+}
+
+IconData _toolIcon(String status) {
+  switch (status) {
+    case 'add_to_watchlist':
+      return Icons.playlist_add_rounded;
+    case 'save_to_starlight_jar':
+      return Icons.auto_awesome_rounded;
+    case 'read_starlight_jar':
+      return Icons.auto_awesome_outlined;
+    case 'set_mood':
+      return Icons.mood_rounded;
+    case 'search_movies':
+      return Icons.movie_outlined;
+    case 'get_watchlist':
+      return Icons.video_library_outlined;
+    case 'get_weather':
+      return Icons.cloud_outlined;
+    case 'create_reminder':
+      return Icons.alarm_add_rounded;
+    case 'log_activity':
+      return Icons.bolt_rounded;
+    case 'search_books':
+      return Icons.menu_book_outlined;
+    case 'add_book_to_our_books':
+      return Icons.library_add_outlined;
+    case 'get_date_ideas':
+      return Icons.calendar_month_outlined;
+    case 'read_chat_messages':
+      return Icons.forum_outlined;
+    case 'get_xp_stats':
+      return Icons.military_tech_rounded;
+    case 'search_anime':
+      return Icons.animation_rounded;
+    case 'remember_fact':
+      return Icons.bookmark_add_outlined;
+    case 'read_memories':
+      return Icons.menu_book_outlined;
+    case 'mark_watchlist_item_watched':
+      return Icons.check_circle_outline_rounded;
+    case 'update_book_progress':
+      return Icons.trending_up_rounded;
+    case 'add_xp':
+      return Icons.military_tech_rounded;
+    case 'send_note_to_partner':
+      return Icons.favorite_border_rounded;
+    case 'get_relationship_insights':
+      return Icons.psychology_rounded;
+    case 'get_memory_trivia':
+      return Icons.quiz_outlined;
+    case 'get_today_recap':
+      return Icons.wb_twilight_rounded;
+    case 'plan_date_night':
+      return Icons.event_available_rounded;
+    default:
+      return Icons.auto_fix_high_rounded;
+  }
+}
+
+Color _toolAccent(String status) {
+  switch (status) {
+    case 'add_to_watchlist':
+    case 'search_movies':
+    case 'get_watchlist':
+    case 'search_anime':
+      return AppColors.blushGold;
+    case 'save_to_starlight_jar':
+    case 'read_starlight_jar':
+      return AppColors.auroraLilac;
+    case 'set_mood':
+    case 'get_weather':
+      return AppColors.auroraTeal;
+    case 'get_date_ideas':
+    case 'remember_fact':
+    case 'read_memories':
+    case 'get_memory_trivia':
+    case 'get_today_recap':
+    case 'plan_date_night':
+      return AppColors.roseQuartz;
+    case 'mark_watchlist_item_watched':
+    case 'update_book_progress':
+    case 'add_xp':
+      return AppColors.auroraTeal;
+    case 'send_note_to_partner':
+    case 'get_relationship_insights':
+      return AppColors.auroraLilac;
+    default:
+      return AppColors.blushGold;
+  }
+}
+
+bool _isToolAction(String status) {
+  return status.isNotEmpty &&
+      status != 'generating' &&
+      status != 'thinking' &&
+      status != 'executing' &&
+      status != 'done' &&
+      !status.startsWith('round_');
+}
+
+/// Compact pill showing which agent action Mochi is performing.
+class _ToolStatusChip extends StatelessWidget {
+  final String status;
+
+  const _ToolStatusChip({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = _toolAccent(status);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.12),
+        borderRadius: AppRadius.radiusFull,
+        border: Border.all(color: accent.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_toolIcon(status), size: 13, color: accent),
+          const SizedBox(width: 6),
+          Text(
+            _formatToolStatus(status),
+            style: AppTypography.bodySmall().copyWith(
+              fontSize: 11,
+              color: accent,
+              fontWeight: FontWeight.w500,
+              height: 1.0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Animated placeholder shown while Mochi is thinking before any text or
+/// tool activity has streamed in.

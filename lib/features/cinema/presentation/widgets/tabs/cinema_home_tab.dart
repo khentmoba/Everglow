@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart' hide FilterChip;
 
-import 'package:everglow/core/theme/app_breakpoints.dart';
-import 'package:everglow/features/ai/presentation/widgets/ai_recommendations.dart';
-import 'package:everglow/features/cinema/data/models/media_item.dart';
-import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_billboard.dart';
-import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_colors.dart';
-import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_row.dart';
-import 'package:everglow/shared/widgets/shelf/shimmer_box.dart';
+import '../../../../../core/theme/app_breakpoints.dart';
+import '../../../../ai/presentation/widgets/ai_recommendations.dart';
+import '../../../data/models/media_item.dart';
+import '../netflix/netflix_billboard.dart';
+import '../netflix/netflix_colors.dart';
+import '../netflix/netflix_row.dart';
+import '../../../../../shared/widgets/shelf/shimmer_box.dart';
 
 /// Featured genre definitions used for both data fetching (in the parent
 /// screen) and display (in this tab). Made public so the parent can import.

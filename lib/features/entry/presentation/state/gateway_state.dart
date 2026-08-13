@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/config/env_config.dart';
 
 enum GatewayState {
   initialLoad,
@@ -55,10 +56,14 @@ class GatewayNotifier extends ChangeNotifier {
     // Small delay to feel intentional
     await Future.delayed(const Duration(milliseconds: 500));
 
-    if (_currentInput == '0221' ||
-        _currentInput == '0938' ||
-        _currentInput == '9132' ||
-        _currentInput == '8080') {
+    final passcodes = <String>{
+      if (EnvConfig.clairPasscode.isNotEmpty) EnvConfig.clairPasscode,
+      if (EnvConfig.khentPasscode.isNotEmpty) EnvConfig.khentPasscode,
+      if (EnvConfig.breyanPasscode.isNotEmpty) EnvConfig.breyanPasscode,
+      if (EnvConfig.octagramPasscode.isNotEmpty) EnvConfig.octagramPasscode,
+    };
+
+    if (passcodes.contains(_currentInput)) {
       _lastEnteredPasscode = _currentInput;
       updateState(GatewayState.unlocking);
     } else {

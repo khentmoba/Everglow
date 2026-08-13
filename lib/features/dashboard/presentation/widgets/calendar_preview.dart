@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:everglow/core/theme/app_colors.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../calendar/domain/models/calendar_event.dart';
 import '../../../calendar/data/services/calendar_service.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_typography.dart';
 import 'feature_section.dart';
 
 class CalendarPreview extends StatelessWidget {

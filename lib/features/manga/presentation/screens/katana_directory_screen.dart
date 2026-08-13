@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_typography.dart';
-import 'package:everglow/features/manga/data/models/katana_models.dart';
-import 'package:everglow/features/manga/data/services/katana_service.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_filter_panel.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_genres_sidebar.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_header.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_item_card.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_nav.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_pagination.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_theme.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../data/models/katana_models.dart';
+import '../../data/services/katana_service.dart';
+import '../katana/katana_filter_panel.dart';
+import '../katana/katana_genres_sidebar.dart';
+import '../katana/katana_header.dart';
+import '../katana/katana_item_card.dart';
+import '../katana/katana_nav.dart';
+import '../katana/katana_pagination.dart';
+import '../katana/katana_theme.dart';
 
 /// Manga Directory and its sibling list pages (Latest update, New
 /// Manga, genre and author pages). Mirrors Manga Katana: expanded

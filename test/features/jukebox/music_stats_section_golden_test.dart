@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'package:everglow/features/jukebox/presentation/providers/music_stats_provider.dart';
 import 'package:everglow/features/jukebox/presentation/widgets/music_stats_section.dart';
@@ -16,6 +17,14 @@ import 'package:everglow/features/jukebox/presentation/widgets/music_stats_secti
 void main() {
   testWidgets('MusicStatsSection renders the leaderboard and recent list',
       (tester) async {
+    dotenv.loadFromString(
+      envString: '''
+LASTFM_API_KEY=test-key
+LASTFM_USER_KHENT=khentsgdz
+LASTFM_USER_CLAIR=clairjassen
+''',
+    );
+
     HttpOverrides.global = _FakeHttpOverrides();
 
     tester.view.physicalSize = const Size(560, 1320);

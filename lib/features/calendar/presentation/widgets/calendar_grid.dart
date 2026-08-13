@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/core/theme/app_motion.dart';
-import 'package:everglow/core/theme/app_radius.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_motion.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_typography.dart';
 
 import '../../domain/models/calendar_event.dart';
 import 'calendar_event_style.dart';

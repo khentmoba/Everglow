@@ -48,12 +48,31 @@ class CanvasService {
   }
 
   Future<void> clearAllStrokes() async {
-    final snapshot = await _db.collection(_collection).get();
-    final batch = _db.batch();
-    for (var doc in snapshot.docs) {
-      batch.delete(doc.reference);
+    await _deleteInBatches(
+      (await _db.collection(_collection).get())
+          .docs
+          .map((doc) => doc.reference)
+          .toList(),
+    );
+    await _deleteInBatches(
+      (await _db.collection('live_canvas').get())
+          .docs
+          .map((doc) => doc.reference)
+          .toList(),
+    );
+  }
+
+  Future<void> _deleteInBatches(
+    List<DocumentReference<Map<String, dynamic>>> refs,
+  ) async {
+    const batchSize = 500;
+    for (var i = 0; i < refs.length; i += batchSize) {
+      final batch = _db.batch();
+      for (final ref in refs.skip(i).take(batchSize)) {
+        batch.delete(ref);
+      }
+      await batch.commit();
     }
-    await batch.commit();
   }
 
   /// Delegates to [simplifyCanvasPoints] from canvas_point_utils.dart.

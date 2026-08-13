@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:collection';
 import 'package:http/http.dart' as http;
-import 'package:everglow/core/utils/connectivity_aware.dart';
-import 'package:everglow/core/utils/error_aware.dart';
-import 'package:everglow/core/utils/logger.dart';
-import 'package:everglow/features/cinema/data/models/media_item.dart';
+import '../../../../core/utils/connectivity_aware.dart';
+import '../../../../core/utils/error_aware.dart';
+import '../../../../core/utils/logger.dart';
+import '../models/media_item.dart';
 
 /// REST client for the Jikan v4 API (an unofficial MyAnimeList mirror).
 ///

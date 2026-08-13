@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/core/theme/app_radius.dart';
-import 'package:everglow/core/theme/app_spacing.dart';
-import 'package:everglow/core/theme/app_typography.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_background.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_feature_header.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 
 import '../../data/services/mochi_today_service.dart';
 import '../../domain/memory/memory_retrieval.dart';

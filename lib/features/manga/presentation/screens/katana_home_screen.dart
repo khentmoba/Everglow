@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_typography.dart';
-import 'package:everglow/features/manga/data/models/katana_models.dart';
-import 'package:everglow/features/manga/data/services/katana_service.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_header.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_item_card.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_nav.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_pagination.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_theme.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../data/models/katana_models.dart';
+import '../../data/services/katana_service.dart';
+import '../katana/katana_header.dart';
+import '../katana/katana_item_card.dart';
+import '../katana/katana_nav.dart';
+import '../katana/katana_pagination.dart';
+import '../katana/katana_theme.dart';
 
 /// Manga Katana home: Latest Updates list, Hot Manga rail and the
 /// Genres widget, laid out like the site (content left, widgets right

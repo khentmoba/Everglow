@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:everglow/core/utils/firestore_stream_utils.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:everglow/core/utils/connectivity_aware.dart';
-import 'package:everglow/core/utils/error_aware.dart';
-import 'package:everglow/features/books/data/models/book_item.dart';
+import '../../../../core/utils/connectivity_aware.dart';
+import '../../../../core/utils/error_aware.dart';
+import '../models/book_item.dart';
 import '../../../../core/utils/logger.dart';
 
 /// Talks to the public Open Library REST APIs (no key required) and
@@ -429,10 +430,15 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
       return FetchResult.empty('No read source URLs available.');
     }
     try {
+      final idToken =
+          await FirebaseAuth.instance.currentUser?.getIdToken() ?? '';
       final response = await http
           .post(
             Uri.parse(_proxyEndpoint),
-            headers: {'Content-Type': 'application/json'},
+            headers: {
+              'Content-Type': 'application/json',
+              if (idToken.isNotEmpty) 'Authorization': 'Bearer $idToken',
+            },
             body: json.encode({'urls': candidates}),
           )
           .timeout(const Duration(seconds: 20));

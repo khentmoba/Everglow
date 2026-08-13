@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:everglow/core/utils/firestore_stream_utils.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../domain/models/chat_message.dart';
 import '../../../../core/utils/logger.dart';
 
@@ -10,11 +10,18 @@ class ChatService {
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  static String _monthDay(DateTime date) {
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return '$m-$d';
+  }
+
   Stream<List<ChatMessage>> getMessagesStream() {
     return withFirestoreTimeout(
       _db
           .collection('sanctuary_messages')
-          .orderBy('timestamp', descending: false)
+          .orderBy('timestamp', descending: true)
+          .limit(200)
           .snapshots()
           .map((snapshot) {
             final messages = <ChatMessage>[];
@@ -25,7 +32,7 @@ class ChatService {
                 Logger.e("Error parsing message document ${doc.id}", error: e);
               }
             }
-            return messages;
+            return messages.reversed.toList();
           }),
       label: 'sanctuary-chat',
       duration: const Duration(seconds: 10),
@@ -44,7 +51,11 @@ class ChatService {
         timestamp: DateTime.now(),
       );
 
-      await _db.collection('sanctuary_messages').add(message.toMap());
+      final now = DateTime.now();
+      await _db.collection('sanctuary_messages').add({
+        ...message.toMap(),
+        'monthDay': _monthDay(now),
+      });
     } catch (e) {
       if (e.toString().contains("permission-denied")) {
         // Surface as a user-visible error in the chat screen instead of print.
@@ -61,10 +72,21 @@ class ChatService {
     final day = now.day;
 
     try {
-      final snapshot = await _db
+      final monthDay = _monthDay(now);
+      var snapshot = await _db
           .collection('sanctuary_messages')
-          .orderBy('timestamp', descending: true)
+          .where('monthDay', isEqualTo: monthDay)
+          .limit(100)
           .get();
+
+      // Legacy messages predate the monthDay field; bound the fallback.
+      if (snapshot.docs.isEmpty) {
+        snapshot = await _db
+            .collection('sanctuary_messages')
+            .orderBy('timestamp', descending: true)
+            .limit(500)
+            .get();
+      }
 
       final results = <ChatMessage>[];
       for (final doc in snapshot.docs) {

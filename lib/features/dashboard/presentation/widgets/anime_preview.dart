@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
-import 'package:everglow/features/cinema/data/models/media_item.dart';
-import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
-import 'package:everglow/features/cinema/presentation/widgets/episode_drawer.dart';
-import 'package:everglow/services/auth_service.dart';
+import '../../../cinema/data/models/media_item.dart';
+import '../../../cinema/data/services/tmdb_service.dart';
+import '../../../cinema/presentation/widgets/episode_drawer.dart';
+import '../../../../core/services/auth_service.dart';
 import '_partner_label.dart';
 import 'partner_subrow.dart';
 import 'shelf_widgets.dart';
@@ -23,8 +23,6 @@ class AnimePreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tmdbService = TMDBService();
-
     final auth = context.watch<AuthService>();
     final userName = auth.currentUser ?? '';
     final isCouple = auth.isCoupleUser;
@@ -36,21 +34,21 @@ class AnimePreview extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _AnimeHeader(stream: tmdbService.getAnimeWatchListStream(userName)),
+          _AnimeHeader(userName: userName),
           if (isCouple && partner != null && partner.isNotEmpty) ...[
             _AnimeShelf(
-              stream: tmdbService.getAnimeWatchListStream(userName),
+              userName: userName,
               label: 'ME',
               isSelf: true,
             ),
             _AnimeShelf(
-              stream: tmdbService.getAnimeWatchListStream(partner),
+              userName: partner,
               label: partnerLabel,
               isSelf: false,
             ),
           ] else
             _AnimeShelf(
-              stream: tmdbService.getAnimeWatchListStream(userName),
+              userName: userName,
               label: null,
               isSelf: true,
             ),
@@ -61,21 +59,37 @@ class AnimePreview extends StatelessWidget {
 }
 
 class _AnimeHeader extends StatefulWidget {
-  final Stream<List<MediaItem>> stream;
-  const _AnimeHeader({required this.stream});
+  final String userName;
+  const _AnimeHeader({required this.userName});
 
   @override
   State<_AnimeHeader> createState() => _AnimeHeaderState();
 }
 
 class _AnimeHeaderState extends State<_AnimeHeader> {
+  final TMDBService _service = TMDBService();
   List<MediaItem> _items = [];
   StreamSubscription<List<MediaItem>>? _streamSub;
 
   @override
   void initState() {
     super.initState();
-    _streamSub = widget.stream.listen((items) {
+    _subscribe();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimeHeader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userName != widget.userName) {
+      _streamSub?.cancel();
+      _items = [];
+      _subscribe();
+    }
+  }
+
+  void _subscribe() {
+    _streamSub =
+        _service.getAnimeWatchListStream(widget.userName).listen((items) {
       final watched = items.where((i) => i.isWatched).toList();
       watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
       if (!mounted) return;
@@ -102,11 +116,11 @@ class _AnimeHeaderState extends State<_AnimeHeader> {
 }
 
 class _AnimeShelf extends StatefulWidget {
-  final Stream<List<MediaItem>> stream;
+  final String userName;
   final String? label;
   final bool isSelf;
   const _AnimeShelf({
-    required this.stream,
+    required this.userName,
     required this.label,
     required this.isSelf,
   });
@@ -116,6 +130,7 @@ class _AnimeShelf extends StatefulWidget {
 }
 
 class _AnimeShelfState extends State<_AnimeShelf> {
+  final TMDBService _service = TMDBService();
   List<MediaItem> _items = [];
   bool _hasLoaded = false;
   StreamSubscription<List<MediaItem>>? _streamSub;
@@ -123,7 +138,23 @@ class _AnimeShelfState extends State<_AnimeShelf> {
   @override
   void initState() {
     super.initState();
-    _streamSub = widget.stream.listen((items) {
+    _subscribe();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimeShelf oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userName != widget.userName) {
+      _streamSub?.cancel();
+      _items = [];
+      _hasLoaded = false;
+      _subscribe();
+    }
+  }
+
+  void _subscribe() {
+    _streamSub =
+        _service.getAnimeWatchListStream(widget.userName).listen((items) {
       final watched = items.where((i) => i.isWatched).toList();
       watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
       if (!mounted) return;

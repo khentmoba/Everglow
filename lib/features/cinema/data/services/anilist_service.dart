@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:everglow/core/utils/connectivity_aware.dart';
-import 'package:everglow/core/utils/logger.dart';
-import 'package:everglow/features/cinema/data/models/anilist_detail.dart';
-import 'package:everglow/features/cinema/data/models/animex_models.dart';
-import 'package:everglow/features/cinema/data/models/media_item.dart';
-import 'package:everglow/features/cinema/data/services/jikan_service.dart';
+import '../../../../core/utils/connectivity_aware.dart';
+import '../../../../core/utils/logger.dart';
+import '../models/anilist_detail.dart';
+import '../models/animex_models.dart';
+import '../models/media_item.dart';
+import './jikan_service.dart';
 
 /// GraphQL client for AniList (https://anilist.co).
 ///

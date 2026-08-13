@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:http/http.dart' as http;
-import 'package:everglow/core/utils/connectivity_aware.dart';
-import 'package:everglow/features/manga/data/models/manga_item.dart';
+import '../../../../core/utils/connectivity_aware.dart';
+import '../models/manga_item.dart';
 import '../../../../core/utils/logger.dart';
 
 /// Scrapes mangakatana.com for chapter data and page images.

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/core/theme/app_radius.dart';
-import 'package:everglow/core/theme/app_motion.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_motion.dart';
+import '../../../../core/theme/app_typography.dart';
 
 /// Shared dashboard panel: gradient glass body, accent icon chip,
 /// title/subtitle header and an optional trailing affordance.

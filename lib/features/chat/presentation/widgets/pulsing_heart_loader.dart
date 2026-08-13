@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import '../../../../core/theme/app_typography.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import '../../../../core/theme/app_theme.dart';
 
 class PulsingHeartLoader extends StatelessWidget {
   const PulsingHeartLoader({super.key});

@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:everglow/core/utils/logger.dart';
+import '../../../../core/utils/logger.dart';
 import '../models/book_search_result.dart';
 
 /// Searches the Internet Archive's public text collection via the

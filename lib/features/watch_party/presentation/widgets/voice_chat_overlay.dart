@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../data/services/voice_chat_service.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_typography.dart';
 
 const _cCard = Color(0xFF1C1228);
 const _cDeepRose = Color(0xFFC2185B);

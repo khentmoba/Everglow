@@ -6,7 +6,7 @@ import '../../data/models/plant_type.dart';
 import 'garden_plant_view.dart';
 import 'garden_weather_overlay.dart';
 import 'plant_picker_sheet.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 
 class DailyBloom extends StatefulWidget {

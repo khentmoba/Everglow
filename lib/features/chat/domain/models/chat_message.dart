@@ -22,11 +22,11 @@ class ChatMessage {
       sender: data['sender'] ?? '',
       senderUid: data['senderUid'] ?? '',
       text: data['text'] ?? '',
-      timestamp: _parseTimestamp(data['timestamp']),
+      timestamp: parseTimestamp(data['timestamp']),
     );
   }
 
-  static DateTime _parseTimestamp(dynamic value) {
+  static DateTime parseTimestamp(dynamic value) {
     if (value is Timestamp) return value.toDate();
     if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
     if (value is String) {
@@ -40,11 +40,14 @@ class ChatMessage {
   }
 
   Map<String, dynamic> toMap() {
+    final m = timestamp.month.toString().padLeft(2, '0');
+    final d = timestamp.day.toString().padLeft(2, '0');
     return {
       'sender': sender,
       'senderUid': senderUid,
       'text': text,
       'timestamp': FieldValue.serverTimestamp(),
+      'monthDay': '$m-$d',
     };
   }
 }

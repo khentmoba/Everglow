@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:everglow/shared/widgets/glass_container.dart';
-import 'package:everglow/shared/widgets/animated_emblem.dart';
-import 'package:everglow/shared/widgets/bouncy_button.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../shared/widgets/glass_container.dart';
+import '../../../../shared/widgets/animated_emblem.dart';
+import '../../../../shared/widgets/bouncy_button.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class PlayZonePortalCard extends StatelessWidget {
   const PlayZonePortalCard({super.key});

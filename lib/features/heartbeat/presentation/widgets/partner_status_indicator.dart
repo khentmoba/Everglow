@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../data/models/user_mood.dart';
 import '../../data/services/mood_service.dart';
-import '../../../../services/auth_service.dart';
+import '../../../../core/services/auth_service.dart';
 
 class PartnerStatusIndicator extends StatelessWidget {
   const PartnerStatusIndicator({super.key});

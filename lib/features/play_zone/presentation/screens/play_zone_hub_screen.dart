@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:everglow/shared/widgets/glass_container.dart';
-import 'package:everglow/shared/widgets/animated_emblem.dart';
-import 'package:everglow/shared/widgets/bouncy_button.dart';
-import 'package:everglow/shared/widgets/gamified_background.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_feature_header.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../shared/widgets/glass_container.dart';
+import '../../../../shared/widgets/animated_emblem.dart';
+import '../../../../shared/widgets/bouncy_button.dart';
+import '../../../../shared/widgets/gamified_background.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class PlayZoneHubScreen extends StatefulWidget {
   const PlayZoneHubScreen({super.key});

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../domain/models/calendar_event.dart';
 import '../../data/services/calendar_service.dart';
 import 'add_event_dialog.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class DayDetailSheet extends StatefulWidget {
   final DateTime day;

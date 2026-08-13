@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:everglow/core/theme/app_colors.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../gallery/domain/models/memory_photo.dart';
 import '../../../gallery/data/services/gallery_service.dart';
 import 'shelf_widgets.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_typography.dart';
 import 'feature_section.dart';
 
 class GalleryPreview extends StatelessWidget {

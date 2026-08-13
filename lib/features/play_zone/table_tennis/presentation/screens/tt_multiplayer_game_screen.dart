@@ -7,11 +7,11 @@ import 'package:web/web.dart' as web;
 import 'dart:ui_web' as ui_web;
 
 import '../../../../../core/theme/app_theme.dart';
-import '../../../../../services/auth_service.dart';
+import '../../../../../core/services/auth_service.dart';
 import '../../../presentation/widgets/web_overlay_button.dart';
 import '../../services/tt_bridge_service.dart';
 import '../../services/tt_multiplayer_service.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../../core/theme/app_typography.dart';
 
 class TTMultiplayerGameScreen extends StatefulWidget {
   final String roomId;

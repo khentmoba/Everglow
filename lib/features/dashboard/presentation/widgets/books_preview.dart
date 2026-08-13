@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:everglow/features/books/data/models/book_item.dart';
-import 'package:everglow/features/books/data/models/our_books_item.dart';
-import 'package:everglow/features/books/data/services/open_library_service.dart';
-import 'package:everglow/features/books/data/services/our_books_service.dart';
-import 'package:everglow/features/books/presentation/widgets/book_details_drawer.dart';
-import 'package:everglow/services/auth_service.dart';
+import '../../../books/data/models/book_item.dart';
+import '../../../books/data/models/our_books_item.dart';
+import '../../../books/data/services/open_library_service.dart';
+import '../../../books/data/services/our_books_service.dart';
+import '../../../books/presentation/widgets/book_details_drawer.dart';
+import '../../../../core/services/auth_service.dart';
 import '_partner_label.dart';
 import 'partner_subrow.dart';
 import 'shelf_widgets.dart';
@@ -32,7 +32,6 @@ class BooksPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ourBooksService = context.read<OurBooksService>();
-    final openLibraryService = OpenLibraryService();
 
     final auth = context.watch<AuthService>();
     final userName = auth.currentUser ?? '';
@@ -60,10 +59,7 @@ class BooksPreview extends StatelessWidget {
               isSelf: false,
             ),
           ] else
-            _PersonalBooksShelf(
-              openLibraryService: openLibraryService,
-              userName: userName,
-            ),
+            _PersonalBooksShelf(userName: userName),
         ],
       ),
     );
@@ -225,13 +221,35 @@ class _OurBooksSubrowState extends State<_OurBooksSubrow> {
   }
 }
 
-class _PersonalBooksShelf extends StatelessWidget {
-  final OpenLibraryService openLibraryService;
+class _PersonalBooksShelf extends StatefulWidget {
   final String userName;
-  const _PersonalBooksShelf({
-    required this.openLibraryService,
-    required this.userName,
-  });
+  const _PersonalBooksShelf({required this.userName});
+
+  @override
+  State<_PersonalBooksShelf> createState() => _PersonalBooksShelfState();
+}
+
+class _PersonalBooksShelfState extends State<_PersonalBooksShelf> {
+  final OpenLibraryService _openLibraryService = OpenLibraryService();
+  Stream<List<BookItem>>? _stream;
+
+  @override
+  void initState() {
+    super.initState();
+    _bind();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PersonalBooksShelf oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userName != widget.userName) _bind();
+  }
+
+  void _bind() {
+    _stream = widget.userName.isEmpty
+        ? null
+        : _openLibraryService.getReadListStream(widget.userName);
+  }
 
   void _openDetails(BuildContext context, BookItem item) {
     showModalBottomSheet(
@@ -250,15 +268,16 @@ class _PersonalBooksShelf extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final stream = _stream;
     return SizedBox(
       height: 168,
-      child: userName.isEmpty
+      child: stream == null
           ? const ShelfEmpty(
               accent: ShelfAccent.books,
               message: 'No books yet. Find your next read!',
             )
           : StreamBuilder<List<BookItem>>(
-              stream: openLibraryService.getReadListStream(userName),
+              stream: stream,
               builder: (context, snapshot) {
                 if (snapshot.hasError ||
                     (!snapshot.hasData &&

@@ -1,9 +1,9 @@
 ﻿import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:everglow/core/utils/connectivity_aware.dart';
-import 'package:everglow/core/utils/error_aware.dart';
-import 'package:everglow/core/utils/logger.dart';
-import 'package:everglow/features/cinema/data/models/media_item.dart';
+import '../../../../../core/utils/connectivity_aware.dart';
+import '../../../../../core/utils/error_aware.dart';
+import '../../../../../core/utils/logger.dart';
+import '../../models/media_item.dart';
 import 'tmdb_base.dart';
 import 'tmdb_cache_service.dart';
 
@@ -765,9 +765,22 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     final day = now.day;
 
     try {
-      final snapshot = await firestore
+      final m = month.toString().padLeft(2, '0');
+      final d = day.toString().padLeft(2, '0');
+      var snapshot = await firestore
           .collection('watch_list')
+          .where('monthDay', isEqualTo: '$m-$d')
+          .limit(200)
           .get();
+
+      // Legacy entries predate the monthDay field; bound the fallback.
+      if (snapshot.docs.isEmpty) {
+        snapshot = await firestore
+            .collection('watch_list')
+            .orderBy('addedAt', descending: true)
+            .limit(500)
+            .get();
+      }
 
       final seen = <int>{};
       final results = <MediaItem>[];

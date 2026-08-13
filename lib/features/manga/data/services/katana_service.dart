@@ -4,8 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'package:html_unescape/html_unescape.dart';
 
-import 'package:everglow/core/utils/logger.dart';
-import 'package:everglow/features/manga/data/models/katana_models.dart';
+import '../../../../core/utils/logger.dart';
+import '../models/katana_models.dart';
 
 /// Scrapes mangakatana.com exactly the way the site presents it:
 /// the home page (Latest Updates / Hot Manga / Genres), the Manga

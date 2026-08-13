@@ -9,6 +9,12 @@ class GalleryService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final String _collection = 'gallery';
 
+  static String _monthDay(DateTime date) {
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return '$m-$d';
+  }
+
   /// Returns the URL used for displaying gallery images.
   /// Routes Firebase Storage URLs through a Cloud Function proxy
   /// on web to avoid CORS / auth issues.
@@ -45,6 +51,7 @@ class GalleryService {
       'uploadedBy': uploadedBy,
       'uploadedAt': FieldValue.serverTimestamp(),
       'tags': tags,
+      'monthDay': _monthDay(DateTime.now()),
     });
 
     Logger.i("Photo uploaded successfully: ${docRef.id}");
@@ -74,6 +81,7 @@ class GalleryService {
     return _db
         .collection(_collection)
         .orderBy('uploadedAt', descending: true)
+        .limit(200)
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
@@ -143,10 +151,22 @@ class GalleryService {
     final day = now.day;
 
     try {
-      final snapshot = await _db
+      final monthDay = _monthDay(now);
+      var snapshot = await _db
           .collection(_collection)
-          .orderBy('uploadedAt', descending: true)
+          .where('monthDay', isEqualTo: monthDay)
+          .limit(100)
           .get();
+
+      // Legacy photos predate the monthDay field; bound the fallback so it
+      // never grows with the full album.
+      if (snapshot.docs.isEmpty) {
+        snapshot = await _db
+            .collection(_collection)
+            .orderBy('uploadedAt', descending: true)
+            .limit(500)
+            .get();
+      }
 
       final results = <MemoryPhoto>[];
       for (final doc in snapshot.docs) {

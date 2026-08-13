@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_typography.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../data/models/plant_type.dart';
 
 /// Bottom sheet for selecting a garden plant type.

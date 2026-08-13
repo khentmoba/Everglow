@@ -4,8 +4,8 @@ import 'dart:js_interop';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-import 'package:everglow/core/utils/logger.dart';
-import 'package:everglow/core/utils/firestore_stream_utils.dart';
+import '../../../../core/utils/logger.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:web/web.dart' as web;
 

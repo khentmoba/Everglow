@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../data/models/watch_party_server.dart';
 import '../../data/services/watch_party_server_service.dart';
 

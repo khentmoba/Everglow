@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class TriviaLoadingOverlay extends StatelessWidget {
   final String message;

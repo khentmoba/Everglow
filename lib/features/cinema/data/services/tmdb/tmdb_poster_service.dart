@@ -1,9 +1,9 @@
-import 'package:everglow/core/utils/connectivity_aware.dart';
-import 'package:everglow/core/utils/error_aware.dart';
-import 'package:everglow/core/utils/logger.dart';
-import 'package:everglow/features/cinema/data/models/media_item.dart';
-import 'package:everglow/features/cinema/data/services/ani_zip_service.dart';
-import 'package:everglow/features/cinema/data/services/anilist_service.dart';
+import '../../../../../core/utils/connectivity_aware.dart';
+import '../../../../../core/utils/error_aware.dart';
+import '../../../../../core/utils/logger.dart';
+import '../../models/media_item.dart';
+import '../ani_zip_service.dart';
+import '../anilist_service.dart';
 import 'tmdb_base.dart';
 import 'tmdb_details_service.dart';
 

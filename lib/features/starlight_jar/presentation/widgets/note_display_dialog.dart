@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
 import '../../domain/models/star_note.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class NoteDisplayDialog extends StatefulWidget {
   final StarNote note;

@@ -1,4 +1,4 @@
-import 'package:everglow/features/cinema/data/models/video_source_config.dart';
+import '../models/video_source_config.dart';
 
 /// Cinema-only embed servers verified as playable in live testing.
 ///

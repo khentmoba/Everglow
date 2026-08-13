@@ -8,10 +8,10 @@ import '../widgets/score_tracker.dart';
 import '../widgets/answer_button.dart';
 import '../presentation/widgets/trivia_loading_overlay.dart';
 import 'package:go_router/go_router.dart';
-import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/core/theme/app_radius.dart';
-import 'package:everglow/core/theme/app_typography.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_background.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_radius.dart';
+import '../../../core/theme/app_typography.dart';
+import '../../../shared/widgets/everglow/everglow_background.dart';
 
 class GameBoardScreen extends StatefulWidget {
   final String matchId;

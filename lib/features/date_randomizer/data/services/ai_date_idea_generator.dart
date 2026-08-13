@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:everglow/features/ai/data/services/ai_service.dart';
+import '../../../ai/data/services/ai_service.dart';
 import '../models/date_idea.dart';
 
 /// Extension on DateIdeaService that adds AI-powered date ideas.

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/core/theme/app_motion.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_motion.dart';
 import '../../../guardian/presentation/controllers/guardian_controller.dart';
 import '../../../heartbeat/presentation/controllers/mood_controller.dart';
 

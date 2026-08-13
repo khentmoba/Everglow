@@ -1,19 +1,20 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:everglow/features/dashboard/presentation/screens/dashboard_screen.dart';
-import 'package:everglow/features/dashboard/domain/models/milestone.dart';
-import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
+import '../../../dashboard/presentation/screens/dashboard_screen.dart';
+import '../../../dashboard/domain/models/milestone.dart';
+import '../../../cinema/data/services/tmdb_service.dart';
+import '../../../../core/config/env_config.dart';
 import 'package:provider/provider.dart';
-import 'package:everglow/services/auth_service.dart';
+import '../../../../core/services/auth_service.dart';
 import 'package:go_router/go_router.dart';
 import '../state/gateway_state.dart';
 import '../../../../core/utils/logger.dart';
 import '../widgets/animated_door.dart';
 import '../widgets/passcode_input.dart';
 import '../widgets/petal_shower.dart';
-import 'package:everglow/core/theme/app_motion.dart';
-import 'package:everglow/core/theme/app_colors.dart';
+import '../../../../core/theme/app_motion.dart';
+import '../../../../core/theme/app_colors.dart';
 
 class GatewayPage extends StatefulWidget {
   const GatewayPage({super.key});
@@ -166,21 +167,21 @@ class _GatewayPageState extends State<GatewayPage> {
     if (newState == GatewayState.unlocking) {
       final passcode = _notifier.lastEnteredPasscode;
       final authService = context.read<AuthService>();
-      // Cinema-only profiles (Breyan, Octagram) skip the dashboard reveal
-      // and land directly on the cinema with their own isolated data.
-      const cinemaOnlyPasscodes = {'9132', '8080'};
+      final cinemaOnlyPasscodes = {
+        if (EnvConfig.breyanPasscode.isNotEmpty) EnvConfig.breyanPasscode,
+        if (EnvConfig.octagramPasscode.isNotEmpty) EnvConfig.octagramPasscode,
+      };
       final isCinemaOnlyAccess = cinemaOnlyPasscodes.contains(passcode);
 
       try {
-        // Use real authenticated accounts for better persistence and rules compatibility
-        if (passcode == '0221') {
+        if (passcode == EnvConfig.clairPasscode) {
           await authService.loginWithPasscode('clairjassen');
-        } else if (passcode == '0938') {
+        } else if (passcode == EnvConfig.khentPasscode) {
           await authService.loginWithPasscode('khentsgdz');
-        } else if (passcode == '9132') {
+        } else if (passcode == EnvConfig.breyanPasscode) {
           // Breyan's cinema-only access: own user, isolated data
           await authService.loginWithPasscode('breyan');
-        } else if (passcode == '8080') {
+        } else if (passcode == EnvConfig.octagramPasscode) {
           // Octagram's cinema-only access: own user, isolated data
           await authService.loginWithPasscode('octagram');
         } else {

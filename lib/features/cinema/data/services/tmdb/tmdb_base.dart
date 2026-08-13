@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:everglow/features/cinema/data/models/media_item.dart';
+import '../../models/media_item.dart';
 
 /// Shared constants, Firestore access, and mapping helpers for all TMDB
 /// sub-services. Mix this into each sub-service alongside [ConnectivityAware]

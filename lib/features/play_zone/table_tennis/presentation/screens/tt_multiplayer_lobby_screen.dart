@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../../core/theme/app_theme.dart';
-import '../../../../../services/auth_service.dart';
+import '../../../../../core/services/auth_service.dart';
 import '../../services/tt_multiplayer_service.dart';
 import 'tt_multiplayer_game_screen.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../../core/theme/app_typography.dart';
 
 class TTMultiplayerLobbyScreen extends StatefulWidget {
   const TTMultiplayerLobbyScreen({super.key});

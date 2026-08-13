@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:everglow/features/cinema/data/models/animex_models.dart';
-import 'package:everglow/features/cinema/data/services/anilist_service.dart';
+import '../../../data/models/animex_models.dart';
+import '../../../data/services/anilist_service.dart';
 
 import 'animex_controller.dart';
 import 'animex_footer.dart';

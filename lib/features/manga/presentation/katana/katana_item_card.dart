@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_typography.dart';
-import 'package:everglow/features/manga/data/models/katana_models.dart';
-import 'package:everglow/features/manga/data/services/katana_service.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_nav.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_theme.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../data/models/katana_models.dart';
+import '../../data/services/katana_service.dart';
+import './katana_nav.dart';
+import './katana_theme.dart';
 
 /// The expanded list item used on the home page and every directory
 /// page: cover + status badge on the left, title, update time, first
