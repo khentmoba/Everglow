@@ -42,20 +42,12 @@ jobs:
           CLAIR_PASSWORD: ${{ secrets.CLAIR_PASSWORD }}
           KHENT_EMAIL: ${{ secrets.KHENT_EMAIL }}
           KHENT_PASSWORD: ${{ secrets.KHENT_PASSWORD }}
-          BREYAN_EMAIL: ${{ secrets.BREYAN_EMAIL }}
-          BREYAN_PASSWORD: ${{ secrets.BREYAN_PASSWORD }}
-          OCTAGRAM_EMAIL: ${{ secrets.OCTAGRAM_EMAIL }}
-          OCTAGRAM_PASSWORD: ${{ secrets.OCTAGRAM_PASSWORD }}
-          CLAIR_PASSCODE: ${{ secrets.CLAIR_PASSCODE }}
-          KHENT_PASSCODE: ${{ secrets.KHENT_PASSCODE }}
-          BREYAN_PASSCODE: ${{ secrets.BREYAN_PASSCODE }}
-          OCTAGRAM_PASSCODE: ${{ secrets.OCTAGRAM_PASSCODE }}
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
           JELLYFIN_API_KEY: ${{ secrets.JELLYFIN_API_KEY }}
           FCM_VAPID_KEY: ${{ secrets.FCM_VAPID_KEY }}
         run: |
-          REQUIRED=(CLAIR_EMAIL CLAIR_PASSWORD KHENT_EMAIL KHENT_PASSWORD BREYAN_EMAIL BREYAN_PASSWORD OCTAGRAM_EMAIL OCTAGRAM_PASSWORD CLAIR_PASSCODE KHENT_PASSCODE BREYAN_PASSCODE OCTAGRAM_PASSCODE TMDB_API_KEY LASTFM_API_KEY)
+          REQUIRED=(CLAIR_EMAIL CLAIR_PASSWORD KHENT_EMAIL KHENT_PASSWORD TMDB_API_KEY LASTFM_API_KEY)
           MISSING=()
           for KEY in "${REQUIRED[@]}"; do
             if [ -z "${!KEY}" ]; then
@@ -68,7 +60,7 @@ jobs:
             exit 1
           fi
           ARGS=(flutter build web --release)
-          for KEY in CLAIR_EMAIL CLAIR_PASSWORD KHENT_EMAIL KHENT_PASSWORD BREYAN_EMAIL BREYAN_PASSWORD OCTAGRAM_EMAIL OCTAGRAM_PASSWORD CLAIR_PASSCODE KHENT_PASSCODE BREYAN_PASSCODE OCTAGRAM_PASSCODE TMDB_API_KEY LASTFM_API_KEY JELLYFIN_API_KEY FCM_VAPID_KEY; do
+          for KEY in CLAIR_EMAIL CLAIR_PASSWORD KHENT_EMAIL KHENT_PASSWORD TMDB_API_KEY LASTFM_API_KEY JELLYFIN_API_KEY FCM_VAPID_KEY; do
             VAL="${!KEY}"
             if [ -n "$VAL" ]; then
               ARGS+=(--dart-define="$KEY=$VAL")
@@ -94,14 +86,12 @@ jobs:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
         run: |
           echo "$FIREBASE_SERVICE_ACCOUNT" > "$HOME"/firebase-sa.json
-          if [ -z "$AGNES_API_KEY" ] || [ -z "$TMDB_API_KEY" ]; then
-            echo "Missing required GitHub secrets: AGNES_API_KEY and/or TMDB_API_KEY"
-            exit 1
+          if [ -n "$AGNES_API_KEY" ]; then
+            echo "AGNES_API_KEY=${AGNES_API_KEY}" > functions/.env
           fi
-          cat > functions/.env <<EOF
-          AGNES_API_KEY=${AGNES_API_KEY}
-          TMDB_API_KEY=${TMDB_API_KEY}
-          EOF
+          if [ -n "$TMDB_API_KEY" ]; then
+            echo "TMDB_API_KEY=${TMDB_API_KEY}" >> functions/.env
+          fi
           GOOGLE_APPLICATION_CREDENTIALS="$HOME"/firebase-sa.json \
           firebase deploy --only functions,firestore:rules,storage --project everglow-1c6db
 

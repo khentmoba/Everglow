@@ -3,9 +3,10 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 /// Runtime configuration for Everglow.
 ///
 /// Values are supplied at build time via `--dart-define`, or at run time via
-/// a locally provided `.env` file. No real credentials, passcodes, or API
-/// keys are committed as source-level fallbacks: a missing value resolves to
-/// an empty string and callers decide how to handle it.
+/// a locally provided `.env` file. Khent and Clair use real private
+/// credentials supplied by CI. Breyan and Octagram are intentionally public
+/// cinema-only profiles, so their credentials and the four fixed passcodes
+/// are committed as source-level fallbacks.
 class EnvConfig {
   static const Map<String, String> _compileTimeEnv = {
     'CLAIR_EMAIL': String.fromEnvironment('CLAIR_EMAIL'),
@@ -43,15 +44,20 @@ class EnvConfig {
   static String get clairPassword => _from('CLAIR_PASSWORD');
   static String get khentEmail => _from('KHENT_EMAIL');
   static String get khentPassword => _from('KHENT_PASSWORD');
-  static String get breyanEmail => _from('BREYAN_EMAIL');
-  static String get breyanPassword => _from('BREYAN_PASSWORD');
-  static String get octagramEmail => _from('OCTAGRAM_EMAIL');
-  static String get octagramPassword => _from('OCTAGRAM_PASSWORD');
+  static String get breyanEmail =>
+      _from('BREYAN_EMAIL', fallback: 'breyan@scrapbook.local');
+  static String get breyanPassword =>
+      _from('BREYAN_PASSWORD', fallback: '91329132');
+  static String get octagramEmail =>
+      _from('OCTAGRAM_EMAIL', fallback: 'octagram@scrapbook.local');
+  static String get octagramPassword =>
+      _from('OCTAGRAM_PASSWORD', fallback: '80808080');
 
-  static String get clairPasscode => _from('CLAIR_PASSCODE');
-  static String get khentPasscode => _from('KHENT_PASSCODE');
-  static String get breyanPasscode => _from('BREYAN_PASSCODE');
-  static String get octagramPasscode => _from('OCTAGRAM_PASSCODE');
+  static String get clairPasscode => _from('CLAIR_PASSCODE', fallback: '0221');
+  static String get khentPasscode => _from('KHENT_PASSCODE', fallback: '0938');
+  static String get breyanPasscode => _from('BREYAN_PASSCODE', fallback: '9132');
+  static String get octagramPasscode =>
+      _from('OCTAGRAM_PASSCODE', fallback: '8080');
 
   static String get tmdbApiKey => _from('TMDB_API_KEY');
   static String get lastfmApiKey => _from('LASTFM_API_KEY');

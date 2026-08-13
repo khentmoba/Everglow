@@ -2,31 +2,25 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Couple users share the gallery; writes are scoped to the path's
-    // username segment matching the authenticated user's username.
-    match /gallery/{username}/{allPaths=**} {
-      allow read: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username in ['khentsgdz', 'clairjassen'] ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username == username
-      );
-      allow write: if request.auth != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username == username;
-    }
-
-    // Per-user memory uploads are scoped to the owner uid; the couple
-    // can read each other's files.
-    match /memories/{userId}/{allPaths=**} {
-      allow read: if request.auth != null && (
-        request.auth.uid == userId ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username in ['khentsgdz', 'clairjassen']
-      );
+    // Gallery uploads are scoped to the authenticated user's UID. The app
+    // reads through download URLs / the proxy, so reads are owner-scoped
+    // here and the couple sharing is enforced by Firestore + the proxy.
+    match /gallery/{userId}/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.uid == userId;
       allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Shared couple milestones are private to Khent and Clair.
-    match /milestones/{allPaths=**} {
-      allow read, write: if request.auth != null &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username in ['khentsgdz', 'clairjassen'];
+    // Per-user memory uploads are scoped to the owner UID.
+    match /memories/{userId}/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Milestone uploads are scoped to the uploading user's UID. Download
+    // URLs carry their own read tokens for the couple's shared viewing.
+    match /milestones/{userId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
 
     // Everything else is denied until a path-specific rule exists.

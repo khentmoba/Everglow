@@ -217,6 +217,8 @@ exports.proxyMangaImage = functions.https.onRequest(async (req, res) => {
 
 
 
+
+
   const targetUrl = req.query.url;
   if (typeof targetUrl !== 'string' || targetUrl.length === 0) {
     res.status(400).json({ error: 'Missing ?url=<image url> query param' });
@@ -290,6 +292,8 @@ exports.proxyMangaKakalotImage = functions.https.onRequest(async (req, res) => {
 
 
 
+
+
   const targetUrl = req.query.url;
   if (typeof targetUrl !== 'string' || targetUrl.length === 0) {
     res.status(400).json({ error: 'Missing ?url=<image url> query param' });
@@ -359,6 +363,8 @@ exports.proxyMangaKatana = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+
+
 
 
 
@@ -454,6 +460,8 @@ exports.proxyComick = functions.https.onRequest(async (req, res) => {
 
 
 
+
+
   const pathParam = req.query.path;
   if (typeof pathParam !== 'string' || pathParam.length === 0) {
     res.status(400).json({ error: 'Missing ?path=<api path> query param' });
@@ -519,6 +527,8 @@ exports.proxyAnimeImage = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+
+
 
 
 
@@ -594,6 +604,8 @@ exports.proxyGalleryImage = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+
+
 
 
 
@@ -738,6 +750,8 @@ exports.proxyScanlation = functions.https.onRequest(async (req, res) => {
 
 
 
+
+
   const targetUrl = req.query.url;
   if (typeof targetUrl !== 'string' || targetUrl.length === 0) {
     res.status(400).json({ error: 'Missing ?url=<image url> query param' });
@@ -849,6 +863,8 @@ exports.proxyFetchHtml = functions.https.onRequest(async (req, res) => {
 
 
 
+
+
   const targetUrl = req.query.url;
   if (typeof targetUrl !== 'string' || targetUrl.length === 0) {
     res.status(400).json({ error: 'Missing ?url=<page url> query param' });
@@ -943,6 +959,8 @@ exports.proxyEmbed = functions.https.onRequest(async (req, res) => {
 
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (req.method !== 'GET') { res.status(405).json({ error: 'GET only' }); return; }
+
+
 
 
 
@@ -1156,6 +1174,8 @@ exports.proxyMangaDex = functions.https.onRequest(async (req, res) => {
 
 
 
+
+
   const pathParam = req.query.path;
   if (typeof pathParam !== 'string' || pathParam.length === 0) {
     res.status(400).json({ error: 'Missing ?path=<api path> query param' });
@@ -1205,6 +1225,8 @@ exports.proxyVideoStream = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
+
+
 
 
 
@@ -1280,6 +1302,8 @@ exports.proxyWatchStream = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+
+
 
 
 
@@ -2065,7 +2089,7 @@ exports.agnesImage = functions.https.onRequest(async (req, res) => {
 
   const apiKey = process.env.AGNES_API_KEY;
   if (!apiKey) {
-    res.status(500).json({ error: 'Agnes API key not configured' });
+    res.status(503).json({ error: 'AI image generation is not configured' });
     return;
   }
 
@@ -2376,7 +2400,9 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   const apiKey = process.env.AGNES_API_KEY;
 
   if (!apiKey) {
-    res.status(500).json({ error: 'Agnes API key not configured' });
+    // No LLM key configured: return the deterministic fallback instead of
+    // failing the request. Mochi stays usable for basic replies.
+    res.json({ reply: 'Mochi is resting right now - try again in a bit!' });
     return;
   }
 
