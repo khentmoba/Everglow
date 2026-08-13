@@ -9,9 +9,13 @@ class CreatorService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
   /// Uploads an image to Firebase Storage and returns the download URL.
-  Future<String?> uploadImage(Uint8List fileBytes, String fileName) async {
+  Future<String?> uploadImage(
+    Uint8List fileBytes,
+    String fileName,
+    String userId,
+  ) async {
     try {
-      final ref = _storage.ref().child('milestones/$fileName');
+      final ref = _storage.ref().child('milestones/$userId/$fileName');
       final metadata = SettableMetadata(contentType: 'image/jpeg');
       final uploadTask = ref.putData(fileBytes, metadata);
       final snapshot = await uploadTask;

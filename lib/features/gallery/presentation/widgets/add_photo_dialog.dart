@@ -58,6 +58,7 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
         fileName: _fileName,
         caption: _captionController.text.trim(),
         uploadedBy: username,
+        userId: auth.uid ?? '',
       );
 
       if (mounted) {

@@ -106,9 +106,11 @@ class _CreatorModalState extends State<CreatorModal>
     try {
       List<String> imageUrls = [];
       if (_memoryImageBytes != null && _memoryImageName != null) {
+        final auth = context.read<AuthService>();
         final url = await _creatorService.uploadImage(
           _memoryImageBytes!,
           _memoryImageName!,
+          auth.uid ?? '',
         );
         if (url != null) imageUrls.add(url);
       }
