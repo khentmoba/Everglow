@@ -2,12 +2,20 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Gallery uploads are scoped to the authenticated user's UID. The app
-    // reads through download URLs / the proxy, so reads are owner-scoped
-    // here and the couple sharing is enforced by Firestore + the proxy.
+    // Gallery uploads are scoped to the authenticated user's UID.
     match /gallery/{userId}/{allPaths=**} {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Legacy username-scoped gallery blobs from before the UID migration.
+    // They remain reachable through their stored download URLs; these rules
+    // keep them viewable and deletable for authenticated app users.
+    match /gallery/khentsgdz/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+    match /gallery/clairjassen/{allPaths=**} {
+      allow read, write: if request.auth != null;
     }
 
     // Per-user memory uploads are scoped to the owner UID.
@@ -21,6 +29,11 @@ service firebase.storage {
     match /milestones/{userId}/{allPaths=**} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Legacy pre-UID milestone files that live directly under /milestones/.
+    match /milestones/{legacyFile} {
+      allow read, write: if request.auth != null;
     }
 
     // Everything else is denied until a path-specific rule exists.
