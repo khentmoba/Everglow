@@ -8,9 +8,9 @@ import '../../data/models/music_status.dart';
 import 'package:marquee/marquee.dart';
 import 'package:confetti/confetti.dart';
 import 'vinyl_record.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/core/theme/app_radius.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
 
 class JukeboxWidget extends StatefulWidget {
   const JukeboxWidget({super.key});

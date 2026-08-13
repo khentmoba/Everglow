@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import 'package:everglow/services/auth_service.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../../core/theme/app_typography.dart';
 
 const _cDeepRose = Color(0xFFC2185B);
 const _cGold = Color(0xFFE8C97A);

@@ -1,17 +1,18 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:confetti/confetti.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import '../../../../services/auth_service.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/services/auth_service.dart';
 import '../../data/services/starlight_service.dart';
 import '../../domain/models/star_note.dart';
 import '../widgets/glass_jar.dart';
 import '../widgets/star_widget.dart';
 import '../widgets/drop_star_dialog.dart';
 import '../widgets/note_display_dialog.dart';
-import 'package:everglow/core/theme/app_typography.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_feature_header.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 
 class StarlightJarWidget extends StatefulWidget {
   const StarlightJarWidget({super.key});
@@ -24,6 +25,8 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
     with TickerProviderStateMixin {
   final StarlightService _service = StarlightService();
   late final Stream<List<StarNote>> _starNotesStream;
+  StreamSubscription<List<StarNote>>? _starNotesSub;
+  List<StarNote> _notes = const [];
   late AnimationController _shakeController;
   late AnimationController _idleController;
   final Random _random = Random();
@@ -58,6 +61,10 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
   void initState() {
     super.initState();
     _starNotesStream = _service.getStarNotes();
+    _starNotesSub = _starNotesStream.listen((notes) {
+      if (!mounted) return;
+      setState(() => _notes = notes);
+    });
     _shakeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -84,6 +91,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
 
   @override
   void dispose() {
+    _starNotesSub?.cancel();
     _shakeController.dispose();
     _idleController.dispose();
     _dropController?.dispose();
@@ -494,44 +502,37 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                           top: 22,
                           // IgnorePointer so taps on the badge still reach the jar.
                           child: IgnorePointer(
-                            child: StreamBuilder<List<StarNote>>(
-                              stream: _starNotesStream,
-                              builder: (context, snapshot) {
-                                final count = snapshot.data?.length ?? 0;
-                                if (count == 0) {
-                                  return const SizedBox.shrink();
-                                }
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.deepRose.withValues(
-                                      alpha: 0.8,
+                            child: _notes.isEmpty
+                                ? const SizedBox.shrink()
+                                : Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 4,
                                     ),
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: AppTheme.deepRose.withValues(
-                                          alpha: 0.3,
-                                        ),
-                                        blurRadius: 8,
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.deepRose.withValues(
+                                        alpha: 0.8,
                                       ),
-                                    ],
-                                  ),
-                                  child: Text(
-                                    '$count ${count == 1 ? 'star' : 'stars'}',
-                                    style: AppTypography.outfitWhite.copyWith(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.petalWhite,
-                                      letterSpacing: 0.5,
+                                      borderRadius: BorderRadius.circular(12),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: AppTheme.deepRose.withValues(
+                                            alpha: 0.3,
+                                          ),
+                                          blurRadius: 8,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Text(
+                                      '${_notes.length} ${_notes.length == 1 ? 'star' : 'stars'}',
+                                      style: AppTypography.outfitWhite.copyWith(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.petalWhite,
+                                        letterSpacing: 0.5,
+                                      ),
                                     ),
                                   ),
-                                );
-                              },
-                            ),
                           ),
                         ),
 
@@ -544,93 +545,18 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                           child: Stack(
                             children: [
                               // Idle floating stars
-                              IgnorePointer(
-                                child: AnimatedBuilder(
-                                  animation: _idleController,
-                                  builder: (context, _) {
-                                    return StreamBuilder<List<StarNote>>(
-                                      stream: _starNotesStream,
-                                      builder: (context, snapshot) {
-                                        if (!snapshot.hasData) {
-                                          return const SizedBox.shrink();
-                                        }
-
-                                        final notes = _filterNotes(
-                                          snapshot.data!,
-                                        );
-                                        final t = _idleController.value;
-                                        return Stack(
-                                          children: notes.map((note) {
-                                            final m = _getMotion(
-                                              note.id.hashCode,
-                                            );
-                                            final tX = t * m.speedX;
-                                            final tY = t * m.speedY;
-
-                                            final rawDx =
-                                                m.baseX +
-                                                sin(tX * 2 * pi + m.phaseX) *
-                                                    m.ampX +
-                                                sin(
-                                                      tX * 2 * pi * 0.37 +
-                                                          m.phaseX * 1.7,
-                                                    ) *
-                                                    m.ampX *
-                                                    0.3;
-                                            final rawDy =
-                                                m.baseY +
-                                                cos(tY * 2 * pi + m.phaseY) *
-                                                    m.ampY +
-                                                cos(
-                                                      tY * 2 * pi * 0.43 +
-                                                          m.phaseY * 1.3,
-                                                    ) *
-                                                    m.ampY *
-                                                    0.25;
-                                            const jarLeft = 60.0;
-                                            const jarTop = 56.0;
-                                            const jarRight = 340.0;
-                                            const jarBottom = 406.0;
-                                            const maxSize = 24.0;
-                                            final dx = rawDx.clamp(
-                                              jarLeft,
-                                              jarRight - maxSize,
-                                            );
-                                            final dy = rawDy.clamp(
-                                              jarTop,
-                                              jarBottom - maxSize,
-                                            );
-                                            final rotation =
-                                                m.baseRotation +
-                                                sin(t * 2 * pi * m.rotSpeed) *
-                                                    0.5;
-                                            final opacity =
-                                                0.55 +
-                                                sin(
-                                                      t * 2 * pi * 2.3 +
-                                                          m.twinklePhase,
-                                                    ) *
-                                                    0.35;
-                                            final scale =
-                                                0.85 +
-                                                sin(
-                                                      t * 2 * pi * 1.2 +
-                                                          m.phaseX,
-                                                    ) *
-                                                    0.15;
-
-                                            return StarWidget(
-                                              color: m.color,
-                                              position: Offset(dx, dy),
-                                              rotation: rotation,
-                                              size: 24 * scale,
-                                              opacity: opacity.clamp(0.0, 1.0),
-                                            );
-                                          }).toList(),
-                                        );
-                                      },
-                                    );
-                                  },
+                              Positioned.fill(
+                                child: IgnorePointer(
+                                  child: AnimatedBuilder(
+                                    animation: _idleController,
+                                    builder: (context, _) => CustomPaint(
+                                      painter: _JarStarFieldPainter(
+                                        notes: _filterNotes(_notes),
+                                        t: _idleController.value,
+                                        motionCache: _motionCache,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
 
@@ -789,9 +715,6 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
     );
   }
 
-  _StarMotion _getMotion(int seed) {
-    return _motionCache.putIfAbsent(seed, () => _StarMotion.fromSeed(seed));
-  }
 }
 
 class _StarMotion {
@@ -833,4 +756,86 @@ class _StarMotion {
     final base = _colors[r.nextInt(_colors.length)];
     color = base.withValues(alpha: 0.7);
   }
+}
+
+/// Paints the floating star field in a single CustomPainter pass. Motion
+/// parameters are cached per star, so each frame only evaluates a handful of
+/// trig expressions instead of rebuilding 200 Positioned/Icon widgets.
+class _JarStarFieldPainter extends CustomPainter {
+  final List<StarNote> notes;
+  final double t;
+  final Map<int, _StarMotion> motionCache;
+
+  const _JarStarFieldPainter({
+    required this.notes,
+    required this.t,
+    required this.motionCache,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const jarLeft = 60.0;
+    const jarTop = 56.0;
+    const jarRight = 340.0;
+    const jarBottom = 406.0;
+    const maxSize = 24.0;
+
+    for (final note in notes) {
+      final m = motionCache.putIfAbsent(
+        note.id.hashCode,
+        () => _StarMotion.fromSeed(note.id.hashCode),
+      );
+      final tX = t * m.speedX;
+      final tY = t * m.speedY;
+
+      final rawDx =
+          m.baseX +
+          sin(tX * 2 * pi + m.phaseX) * m.ampX +
+          sin(tX * 2 * pi * 0.37 + m.phaseX * 1.7) * m.ampX * 0.3;
+      final rawDy =
+          m.baseY +
+          cos(tY * 2 * pi + m.phaseY) * m.ampY +
+          cos(tY * 2 * pi * 0.43 + m.phaseY * 1.3) * m.ampY * 0.25;
+      final dx = rawDx.clamp(jarLeft, jarRight - maxSize);
+      final dy = rawDy.clamp(jarTop, jarBottom - maxSize);
+      final rotation =
+          m.baseRotation + sin(t * 2 * pi * m.rotSpeed) * 0.5;
+      final opacity =
+          (0.55 + sin(t * 2 * pi * 2.3 + m.twinklePhase) * 0.35)
+              .clamp(0.0, 1.0);
+      final scale = 0.85 + sin(t * 2 * pi * 1.2 + m.phaseX) * 0.15;
+
+      final paint = Paint()
+        ..color = m.color.withValues(alpha: opacity)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+
+      canvas.save();
+      canvas.translate(dx, dy);
+      canvas.rotate(rotation);
+      canvas.drawPath(_starPath(24 * scale), paint);
+      canvas.restore();
+    }
+  }
+
+  Path _starPath(double size) {
+    final path = Path();
+    const points = 5;
+    for (var i = 0; i < points * 2; i++) {
+      final radius = i.isEven ? size * 0.5 : size * 0.22;
+      final angle = -pi / 2 + i * pi / points;
+      final x = cos(angle) * radius;
+      final y = sin(angle) * radius;
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldRepaint(covariant _JarStarFieldPainter oldDelegate) =>
+      oldDelegate.t != t || !identical(oldDelegate.notes, notes);
 }

@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_typography.dart';
 
 /// Per-shelf visual identity. Each rail (Cinema, Anime, Books, Manga)
 /// passes one of these accents to the shared shelf primitives so the
@@ -624,6 +624,7 @@ class _ShelfMarqueeState extends State<ShelfMarquee>
     with SingleTickerProviderStateMixin {
   late final ScrollController _scrollController;
   late final Ticker _ticker;
+  late List<Widget> _children;
   Duration _lastTick = Duration.zero;
   bool _showShimmer = true;
   bool _paused = false;
@@ -633,6 +634,7 @@ class _ShelfMarqueeState extends State<ShelfMarquee>
     super.initState();
     _scrollController = ScrollController();
     _ticker = createTicker(_onTick)..start();
+    _children = widget.children.take(12).toList();
     if (widget.hasLoaded) {
       _showShimmer = false;
     } else {
@@ -645,6 +647,7 @@ class _ShelfMarqueeState extends State<ShelfMarquee>
   @override
   void didUpdateWidget(covariant ShelfMarquee oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _children = widget.children.take(12).toList();
     if (oldWidget.children.length != widget.children.length) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients) {
@@ -658,7 +661,7 @@ class _ShelfMarqueeState extends State<ShelfMarquee>
   }
 
   void _onTick(Duration elapsed) {
-    if (!_scrollController.hasClients || widget.children.isEmpty) {
+    if (!_scrollController.hasClients || _children.isEmpty) {
       _lastTick = elapsed;
       return;
     }
@@ -673,7 +676,7 @@ class _ShelfMarqueeState extends State<ShelfMarquee>
     _lastTick = elapsed;
 
     final viewport = _scrollController.position.viewportDimension;
-    final singleSetWidth = widget.children.length * widget.itemStride;
+    final singleSetWidth = _children.length * widget.itemStride;
     final needsLoop = singleSetWidth >= viewport;
     if (!needsLoop) return;
 
@@ -698,13 +701,13 @@ class _ShelfMarqueeState extends State<ShelfMarquee>
     if (_showShimmer) {
       return _ShimmerRow(count: widget.skeletonCount);
     }
-    if (widget.children.isEmpty) {
+    if (_children.isEmpty) {
       return const SizedBox.shrink();
     }
     return RepaintBoundary(
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final singleSetWidth = widget.children.length * widget.itemStride;
+          final singleSetWidth = _children.length * widget.itemStride;
           final needsLoop = singleSetWidth >= constraints.maxWidth;
           return MouseRegion(
             onEnter: (_) => setState(() => _paused = true),
@@ -716,8 +719,11 @@ class _ShelfMarqueeState extends State<ShelfMarquee>
                 physics: const NeverScrollableScrollPhysics(),
                 child: Row(
                   children: [
-                    ...widget.children,
-                    if (needsLoop) ...widget.children,
+                    for (final child in _children)
+                      RepaintBoundary(child: child),
+                    if (needsLoop)
+                      for (final child in _children)
+                        RepaintBoundary(child: child),
                   ],
                 ),
               ),

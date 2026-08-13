@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_typography.dart';
-import 'package:everglow/features/cinema/data/models/media_item.dart';
-import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
+import '../../../../../core/theme/app_typography.dart';
+import '../../../data/models/media_item.dart';
+import '../../../data/services/tmdb_service.dart';
 import 'netflix_colors.dart';
 
 /// In-memory cache of TMDB detail maps keyed by `tmdbId:mediaType` so the

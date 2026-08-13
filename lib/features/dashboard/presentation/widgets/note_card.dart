@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/features/dashboard/domain/models/hidden_note.dart';
-import 'package:everglow/shared/widgets/glass_container.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../domain/models/hidden_note.dart';
+import '../../../../shared/widgets/glass_container.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class NoteCard extends StatelessWidget {
   final HiddenNote note;

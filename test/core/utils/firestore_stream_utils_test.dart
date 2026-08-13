@@ -56,5 +56,30 @@ void main() {
 
       expect(results, isEmpty);
     });
+
+    test('stays live after first event and keeps delivering later events',
+        () async {
+      final source = StreamController<int>();
+      final received = <int>[];
+
+      final subscription = withFirestoreTimeout(
+        source.stream,
+        duration: const Duration(milliseconds: 100),
+        label: 'live-stream',
+      ).listen(received.add);
+
+      source.add(1);
+      // Wait longer than the timeout. Firestore snapshot streams are
+      // allowed to be quiet after the first emission, so this must not
+      // close the wrapped stream.
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      source.add(2);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      await subscription.cancel();
+      await source.close();
+
+      expect(received, equals([1, 2]));
+    });
   });
 }

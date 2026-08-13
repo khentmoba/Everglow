@@ -1,13 +1,13 @@
-import 'package:everglow/core/utils/connectivity_aware.dart';
-import 'package:everglow/core/utils/error_aware.dart';
-import 'package:everglow/features/cinema/data/models/media_item.dart';
-import 'package:everglow/features/cinema/data/services/tmdb/tmdb_cache_service.dart';
-import 'package:everglow/features/cinema/data/services/tmdb/tmdb_details_service.dart';
-import 'package:everglow/features/cinema/data/services/tmdb/tmdb_discovery_service.dart';
-import 'package:everglow/features/cinema/data/services/tmdb/tmdb_poster_service.dart';
-import 'package:everglow/features/cinema/data/services/tmdb/tmdb_search_service.dart';
-import 'package:everglow/features/cinema/data/services/tmdb/tmdb_trailer_service.dart';
-import 'package:everglow/features/cinema/data/services/tmdb/tmdb_watchlist_service.dart';
+import '../../../../core/utils/connectivity_aware.dart';
+import '../../../../core/utils/error_aware.dart';
+import '../models/media_item.dart';
+import './tmdb/tmdb_cache_service.dart';
+import './tmdb/tmdb_details_service.dart';
+import './tmdb/tmdb_discovery_service.dart';
+import './tmdb/tmdb_poster_service.dart';
+import './tmdb/tmdb_search_service.dart';
+import './tmdb/tmdb_trailer_service.dart';
+import './tmdb/tmdb_watchlist_service.dart';
 
 /// Public facade over the focused TMDB sub-services.
 ///

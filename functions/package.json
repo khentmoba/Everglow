@@ -7,7 +7,7 @@
   "scripts": {
     "serve": "firebase emulators:start --only functions",
     "deploy": "firebase deploy --only functions",
-    "test": "node --test test/mochi_core.test.js"
+    "test": "node --test"
   },
   "engines": {
     "node": "22"

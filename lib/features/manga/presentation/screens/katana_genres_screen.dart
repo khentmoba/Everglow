@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_typography.dart';
-import 'package:everglow/features/manga/data/models/katana_models.dart';
-import 'package:everglow/features/manga/data/services/katana_service.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_header.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_nav.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_theme.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../data/models/katana_models.dart';
+import '../../data/services/katana_service.dart';
+import '../katana/katana_header.dart';
+import '../katana/katana_nav.dart';
+import '../katana/katana_theme.dart';
 
 /// The Genres page: every genre as a card with its count and
 /// description, mirroring the site's genre directory.

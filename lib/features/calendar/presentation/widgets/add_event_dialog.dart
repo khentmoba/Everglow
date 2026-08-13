@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:everglow/services/auth_service.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/services/auth_service.dart';
 import 'package:provider/provider.dart';
 import '../../domain/models/calendar_event.dart';
 import '../../data/services/calendar_service.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class AddEventDialog extends StatefulWidget {
   final DateTime selectedDay;

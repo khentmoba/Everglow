@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/features/cinema/data/models/media_item.dart';
+import '../../../../../core/theme/app_colors.dart';
+import '../../../data/models/media_item.dart';
 import 'drawer_helpers.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../../core/theme/app_typography.dart';
 
 /// Renders the "More Like This" horizontal rail of similar titles.
 /// Shows a loading skeleton while fetching, an empty-state message

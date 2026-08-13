@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/services/on_this_day_service.dart';
-import 'package:everglow/core/theme/app_typography.dart';
-import 'package:everglow/core/theme/app_radius.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/services/on_this_day_service.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_radius.dart';
 import 'feature_section.dart';
 
 /// Dashboard card surfacing spontaneous nostalgia from Gallery, Cinema,

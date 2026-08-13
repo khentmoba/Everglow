@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_typography.dart';
-import 'package:everglow/features/manga/data/models/katana_models.dart';
-import 'package:everglow/features/manga/data/services/katana_service.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_theme.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../data/models/katana_models.dart';
+import '../../data/services/katana_service.dart';
+import './katana_theme.dart';
 
 /// The Manga Katana filter widget: genre include/exclude toggles,
 /// AND/OR mode, minimum chapter count and sort order.

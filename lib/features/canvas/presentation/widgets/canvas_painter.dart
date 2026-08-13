@@ -1,6 +1,6 @@
 import 'dart:ui' show Picture, PictureRecorder, PointMode;
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../domain/models/doodle_stroke.dart';
 
 class CanvasPainter extends CustomPainter {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/core/theme/app_motion.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_motion.dart';
 import 'circuitry_painter.dart';
 
 /// Atmospheric animated backdrop shared by feature screens.

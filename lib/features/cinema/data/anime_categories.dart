@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:everglow/features/cinema/data/models/media_item.dart';
-import 'package:everglow/features/cinema/data/services/jikan_service.dart';
+import './models/media_item.dart';
+import './services/jikan_service.dart';
 
 /// Group of related anime filter chips shown on the Browse tab.
 enum AnimeCategoryGroup { format, genre, status, discovery, season }

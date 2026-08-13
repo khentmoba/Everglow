@@ -5,7 +5,7 @@
 ## Project
 - **Stack:** Flutter Web (SDK ^3.11.3), Firebase (Auth / Firestore / Storage / Hosting / Functions), Provider, go_router.
 - **Entry:** `lib/main.dart` — initializes Firebase, dotenv, Firestore persistence, then `EverglowApp` (MultiProvider → MaterialApp.router).
-- **Version:** 5.3.0+1 (source of truth: `pubspec.yaml`).
+- **Version:** 6.0.0+1 (source of truth: `pubspec.yaml`).
 - **Live:** <https://everglow-1c6db.web.app> — auto-deployed on push to `main` via `.github/workflows/deploy.yml`.
 
 ## Commands
@@ -24,15 +24,17 @@
 
 ```
 lib/
-  main.dart                  # Entry point, Provider wiring, Firestore persistence
+  main.dart                  # Entry point, bootstrap, app shell
   core/
     audio/                   # Sound effects (just_audio)
     config/env_config.dart   # EnvConfig — reads from dotenv or compile-time env, hardcoded fallbacks
     constants/api_keys.dart  # TMDB / OpenLibrary API keys
+    di/                      # Composition root (appProviders) + app shell (AppRoot)
     models/                  # Shared models (PresenceStatus)
-    router/app_router.dart   # GoRouter — all routes defined here
+    router/app_router.dart   # GoRouter composition root; feature routes live under each feature
+    services/                # Core Firebase services (AuthService, PresenceService, StorageService, NotificationService)
     theme/                   # "Dusk Petal" design system (colors, typography, spacing, radius, elevation, motion, breakpoints)
-    utils/                   # Firestore stream helpers, logger, seed date calculator
+    utils/                   # Firestore stream helpers, logger, connectivity
   features/
     entry/                   # Passcode gateway (0221=Clair, 0938=Khent, 9132=Breyan, 8080=Octagram)
     dashboard/               # Main hub — anniversary counter, milestone cards, feature previews
@@ -52,7 +54,6 @@ lib/
     starlight_jar/           # Gratitude notes jar
     watch_party/             # Watch party with WebRTC voice chat (ac-relay signaling server)
     xp/                      # XP/leveling system
-  services/                  # Core Firebase services (AuthService, PresenceService, StorageService)
   shared/
     utils/text_utils.dart    # stripMarkdown, extractTitles
     widgets/everglow/        # Design system: EverglowButton, EverglowCard, EverglowScaffold, etc.
@@ -70,7 +71,8 @@ ac-relay/server.js           # WebRTC signaling server for watch-party voice cha
 ## Conventions
 
 - **State management:** Provider (`ChangeNotifierProvider`, `Provider`, `Selector`). No Riverpod/Bloc.
-- **Routing:** `go_router` — all routes in `core/router/app_router.dart`. Complex objects passed via `extra`.
+- **Routing:** `go_router` — each feature owns its routes in `<feature>/presentation/routes/`, composed in `core/router/app_router.dart`. Complex objects passed via `extra`.
+- **DI:** `core/di/app_providers.dart` is the composition root; `main.dart` should not wire feature services directly.
 - **Theme:** Always use tokens from `core/theme/` (AppColors, AppTypography, AppSpacing, AppRadius, etc.) — never hardcode colors or spacing.
 - **Shared widgets:** Prefer `shared/widgets/everglow/` components (EverglowButton, EverglowCard, EverglowScaffold, etc.) over bare Material widgets for UI consistency.
 - **Assets:** Self-hosted Google Fonts (`assets/google_fonts/`), images in `assets/images/`, seed data in `assets/data/`. Runtime font fetching is disabled.
@@ -82,6 +84,8 @@ ac-relay/server.js           # WebRTC signaling server for watch-party voice cha
 
 ## Notes
 
+- **Secrets:** never commit real credentials, passcodes, or API keys. `assets/env.txt` is local-only and is **not** bundled into web builds; `deploy.ps1` and CI pass its values to `flutter` as `--dart-define` flags. See `.env.example`.
+- **Security rules:** `firestore.rules` blocks anonymous users, requires a known `/users/{uid}` profile, and limits couple-only collections (chat, gallery, notes, cinema, canvas, garden, AI memories, etc.) to Khent and Clair. Every Cloud Function proxy requires a valid Firebase ID token.
 - Do **not** read or expose `assets/env.txt` — it contains secrets (API keys, emails, passwords).
 - Firebase emulators config is in `firebase.json` — ports 9099–9499.
 - `deploy.ps1` auto-generates `web/sw.js` with a version-commit build stamp before deploying.

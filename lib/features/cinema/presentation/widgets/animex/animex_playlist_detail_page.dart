@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:everglow/features/cinema/data/models/animex_models.dart';
-import 'package:everglow/features/cinema/data/models/media_item.dart';
-import 'package:everglow/features/cinema/data/services/animex_stores.dart';
+import '../../../data/models/animex_models.dart';
+import '../../../data/models/media_item.dart';
+import '../../../data/services/animex_stores.dart';
 
 import 'animex_controller.dart';
 import 'animex_footer.dart';

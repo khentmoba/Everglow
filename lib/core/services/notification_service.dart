@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
@@ -74,7 +74,9 @@ class NotificationService {
         badge: true,
         sound: true,
       );
-      if (settings.authorizationStatus != AuthorizationStatus.authorized) return;
+      if (settings.authorizationStatus != AuthorizationStatus.authorized) {
+        return;
+      }
     } catch (e) {
       debugPrint("Warning: FCM requestPermission failed: $e");
       return;
@@ -98,7 +100,9 @@ class NotificationService {
         _showForegroundNotification(message);
       });
 
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      FirebaseMessaging.onBackgroundMessage(
+        _firebaseMessagingBackgroundHandler,
+      );
 
       FirebaseMessaging.onMessageOpenedApp.listen((message) {
         _messageController.add(message);
@@ -154,9 +158,7 @@ class NotificationService {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(
-            color: AppTheme.blushGold.withValues(alpha: 0.25),
-          ),
+          side: BorderSide(color: AppTheme.blushGold.withValues(alpha: 0.25)),
         ),
         duration: const Duration(seconds: 4),
         action: routeFromNotification(data) != null

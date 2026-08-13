@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:provider/provider.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_error_state.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_background.dart';
-import 'package:everglow/core/theme/app_colors.dart';
-import '../../../../services/auth_service.dart';
-import '../../../../services/presence_service.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/widgets/everglow/everglow_error_state.dart';
+import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/presence_service.dart';
 import '../../../../shared/widgets/partner_doodle_indicator.dart';
 import '../../domain/models/doodle_stroke.dart';
 import '../../data/services/canvas_service.dart';
 import '../widgets/canvas_painter.dart';
 import '../widgets/canvas_toolbar.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class CanvasScreen extends StatefulWidget {
   const CanvasScreen({super.key});

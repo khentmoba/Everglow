@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/features/manga/data/models/katana_models.dart';
-import 'package:everglow/features/manga/presentation/screens/katana_bookmarks_screen.dart';
-import 'package:everglow/features/manga/presentation/screens/katana_detail_screen.dart';
-import 'package:everglow/features/manga/presentation/screens/katana_directory_screen.dart';
-import 'package:everglow/features/manga/presentation/screens/katana_genres_screen.dart';
-import 'package:everglow/features/manga/presentation/screens/katana_reader_screen.dart';
-import 'package:everglow/features/manga/presentation/screens/katana_search_results_screen.dart';
+import '../../data/models/katana_models.dart';
+import '../screens/katana_bookmarks_screen.dart';
+import '../screens/katana_detail_screen.dart';
+import '../screens/katana_directory_screen.dart';
+import '../screens/katana_genres_screen.dart';
+import '../screens/katana_reader_screen.dart';
+import '../screens/katana_search_results_screen.dart';
 
 /// Pushes a new Manga Katana screen on top of the manga section.
 void pushHome(BuildContext context) {

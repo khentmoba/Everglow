@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import '../../data/models/music_status.dart';
 import 'package:intl/intl.dart';
 import 'listen_along_popup.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class MusicCard extends StatelessWidget {
   final MusicStatus status;
@@ -97,6 +97,7 @@ class MusicCard extends StatelessWidget {
                               ? Image.network(
                                   status.imageUrl!,
                                   fit: BoxFit.cover,
+                                  cacheWidth: 200,
                                   errorBuilder: (c, e, s) => Container(
                                     color: AppTheme.velvet,
                                     child: const Icon(Icons.music_note, color: AppTheme.roseQuartz),

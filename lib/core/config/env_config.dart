@@ -1,133 +1,76 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+/// Runtime configuration for Everglow.
+///
+/// Values are supplied at build time via `--dart-define`, or at run time via
+/// a locally provided `.env` file. No real credentials, passcodes, or API
+/// keys are committed as source-level fallbacks: a missing value resolves to
+/// an empty string and callers decide how to handle it.
 class EnvConfig {
-  static String get clairEmail {
-    const fromEnv = String.fromEnvironment('CLAIR_EMAIL', defaultValue: '');
+  static const Map<String, String> _compileTimeEnv = {
+    'CLAIR_EMAIL': String.fromEnvironment('CLAIR_EMAIL'),
+    'CLAIR_PASSWORD': String.fromEnvironment('CLAIR_PASSWORD'),
+    'KHENT_EMAIL': String.fromEnvironment('KHENT_EMAIL'),
+    'KHENT_PASSWORD': String.fromEnvironment('KHENT_PASSWORD'),
+    'BREYAN_EMAIL': String.fromEnvironment('BREYAN_EMAIL'),
+    'BREYAN_PASSWORD': String.fromEnvironment('BREYAN_PASSWORD'),
+    'OCTAGRAM_EMAIL': String.fromEnvironment('OCTAGRAM_EMAIL'),
+    'OCTAGRAM_PASSWORD': String.fromEnvironment('OCTAGRAM_PASSWORD'),
+    'CLAIR_PASSCODE': String.fromEnvironment('CLAIR_PASSCODE'),
+    'KHENT_PASSCODE': String.fromEnvironment('KHENT_PASSCODE'),
+    'BREYAN_PASSCODE': String.fromEnvironment('BREYAN_PASSCODE'),
+    'OCTAGRAM_PASSCODE': String.fromEnvironment('OCTAGRAM_PASSCODE'),
+    'TMDB_API_KEY': String.fromEnvironment('TMDB_API_KEY'),
+    'LASTFM_API_KEY': String.fromEnvironment('LASTFM_API_KEY'),
+    'JELLYFIN_API_KEY': String.fromEnvironment('JELLYFIN_API_KEY'),
+    'FCM_VAPID_KEY': String.fromEnvironment('FCM_VAPID_KEY'),
+  };
+
+  static String _from(String name, {String fallback = ''}) {
+    final fromEnv = _compileTimeEnv[name] ?? '';
     if (fromEnv.isNotEmpty) return fromEnv;
-    if (dotenv.isInitialized) {
-      final val = dotenv.env['CLAIR_EMAIL'];
+    try {
+      final val = dotenv.env[name];
       if (val != null && val.isNotEmpty) return val;
+    } catch (_) {
+      // dotenv may not be initialized in tests or early bootstrap; the
+      // fallback below is the intended behavior in that case.
     }
-    return 'clairjassen@scrapbook.local';
+    return fallback;
   }
 
-  static String get clairPassword {
-    const fromEnv = String.fromEnvironment('CLAIR_PASSWORD', defaultValue: '');
-    if (fromEnv.isNotEmpty) return fromEnv;
-    if (dotenv.isInitialized) {
-      final val = dotenv.env['CLAIR_PASSWORD'];
-      if (val != null && val.isNotEmpty) return val;
-    }
-    return '111111';
-  }
+  static String get clairEmail => _from('CLAIR_EMAIL');
+  static String get clairPassword => _from('CLAIR_PASSWORD');
+  static String get khentEmail => _from('KHENT_EMAIL');
+  static String get khentPassword => _from('KHENT_PASSWORD');
+  static String get breyanEmail => _from('BREYAN_EMAIL');
+  static String get breyanPassword => _from('BREYAN_PASSWORD');
+  static String get octagramEmail => _from('OCTAGRAM_EMAIL');
+  static String get octagramPassword => _from('OCTAGRAM_PASSWORD');
 
-  static String get khentEmail {
-    const fromEnv = String.fromEnvironment('KHENT_EMAIL', defaultValue: '');
-    if (fromEnv.isNotEmpty) return fromEnv;
-    if (dotenv.isInitialized) {
-      final val = dotenv.env['KHENT_EMAIL'];
-      if (val != null && val.isNotEmpty) return val;
-    }
-    return 'khentplaysmoba@gmail.com';
-  }
+  static String get clairPasscode => _from('CLAIR_PASSCODE');
+  static String get khentPasscode => _from('KHENT_PASSCODE');
+  static String get breyanPasscode => _from('BREYAN_PASSCODE');
+  static String get octagramPasscode => _from('OCTAGRAM_PASSCODE');
 
-  static String get khentPassword {
-    const fromEnv = String.fromEnvironment('KHENT_PASSWORD', defaultValue: '');
-    if (fromEnv.isNotEmpty) return fromEnv;
-    if (dotenv.isInitialized) {
-      final val = dotenv.env['KHENT_PASSWORD'];
-      if (val != null && val.isNotEmpty) return val;
-    }
-    return '297864503';
-  }
-
-  static String get breyanEmail {
-    const fromEnv = String.fromEnvironment('BREYAN_EMAIL', defaultValue: '');
-    if (fromEnv.isNotEmpty) return fromEnv;
-    if (dotenv.isInitialized) {
-      final val = dotenv.env['BREYAN_EMAIL'];
-      if (val != null && val.isNotEmpty) return val;
-    }
-    return 'breyan@scrapbook.local';
-  }
-
-  static String get breyanPassword {
-    const fromEnv = String.fromEnvironment('BREYAN_PASSWORD', defaultValue: '');
-    if (fromEnv.isNotEmpty) return fromEnv;
-    if (dotenv.isInitialized) {
-      final val = dotenv.env['BREYAN_PASSWORD'];
-      if (val != null && val.isNotEmpty) return val;
-    }
-    return '91329132';
-  }
-
-  static String get octagramEmail {
-    const fromEnv = String.fromEnvironment('OCTAGRAM_EMAIL', defaultValue: '');
-    if (fromEnv.isNotEmpty) return fromEnv;
-    if (dotenv.isInitialized) {
-      final val = dotenv.env['OCTAGRAM_EMAIL'];
-      if (val != null && val.isNotEmpty) return val;
-    }
-    return 'octagram@scrapbook.local';
-  }
-
-  static String get octagramPassword {
-    const fromEnv = String.fromEnvironment('OCTAGRAM_PASSWORD', defaultValue: '');
-    if (fromEnv.isNotEmpty) return fromEnv;
-    if (dotenv.isInitialized) {
-      final val = dotenv.env['OCTAGRAM_PASSWORD'];
-      if (val != null && val.isNotEmpty) return val;
-    }
-    return '80808080';
-  }
-
-  static String get tmdbApiKey {
-    const fromEnv = String.fromEnvironment('TMDB_API_KEY', defaultValue: '');
-    if (fromEnv.isNotEmpty) return fromEnv;
-    if (dotenv.isInitialized) {
-      final val = dotenv.env['TMDB_API_KEY'];
-      if (val != null && val.isNotEmpty) return val;
-    }
-    return 'b41bd33efc365bbdbbad2e31dae8f573';
-  }
-
-  static String get lastfmApiKey {
-    const fromEnv = String.fromEnvironment('LASTFM_API_KEY', defaultValue: '');
-    if (fromEnv.isNotEmpty) return fromEnv;
-    if (dotenv.isInitialized) {
-      final val = dotenv.env['LASTFM_API_KEY'];
-      if (val != null && val.isNotEmpty) return val;
-    }
-    return 'b2d92f0bec73e334497b7d1a601061da';
-  }
-
-  static String get jellyfinApiKey {
-    const fromEnv = String.fromEnvironment('JELLYFIN_API_KEY', defaultValue: '');
-    if (fromEnv.isNotEmpty) return fromEnv;
-    if (dotenv.isInitialized) {
-      final val = dotenv.env['JELLYFIN_API_KEY'];
-      if (val != null && val.isNotEmpty) return val;
-    }
-    return '';
-  }
+  static String get tmdbApiKey => _from('TMDB_API_KEY');
+  static String get lastfmApiKey => _from('LASTFM_API_KEY');
+  static String get jellyfinApiKey => _from('JELLYFIN_API_KEY');
+  static String get fcmVapidKey => _from('FCM_VAPID_KEY');
 
   static bool get hasClairCreds => clairEmail.isNotEmpty && clairPassword.isNotEmpty;
   static bool get hasKhentCreds => khentEmail.isNotEmpty && khentPassword.isNotEmpty;
   static bool get hasBreyanCreds => breyanEmail.isNotEmpty && breyanPassword.isNotEmpty;
   static bool get hasOctagramCreds => octagramEmail.isNotEmpty && octagramPassword.isNotEmpty;
   static bool get hasTmdbKey => tmdbApiKey.isNotEmpty;
-  static bool get hasJellyfinKey => jellyfinApiKey.isNotEmpty;
-  static String get fcmVapidKey {
-    const fromEnv = String.fromEnvironment('FCM_VAPID_KEY', defaultValue: '');
-    if (fromEnv.isNotEmpty) return fromEnv;
-    if (dotenv.isInitialized) {
-      final val = dotenv.env['FCM_VAPID_KEY'];
-      if (val != null && val.isNotEmpty) return val;
-    }
-    return '';
-  }
-
   static bool get hasLastfmKey => lastfmApiKey.isNotEmpty;
+  static bool get hasJellyfinKey => jellyfinApiKey.isNotEmpty;
+
+  static bool get hasAnyPasscodes =>
+      clairPasscode.isNotEmpty ||
+      khentPasscode.isNotEmpty ||
+      breyanPasscode.isNotEmpty ||
+      octagramPasscode.isNotEmpty;
 
   static List<String> missingRequired() {
     final missing = <String>[];

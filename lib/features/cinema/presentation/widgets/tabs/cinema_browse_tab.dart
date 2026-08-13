@@ -1,14 +1,14 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:everglow/core/theme/app_breakpoints.dart';
-import 'package:everglow/features/cinema/data/cinema_browse_config.dart';
-import 'package:everglow/features/cinema/data/models/media_item.dart';
-import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
-import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_colors.dart';
-import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_nav_bar.dart';
-import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_poster_card.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../../core/theme/app_breakpoints.dart';
+import '../../../data/cinema_browse_config.dart';
+import '../../../data/models/media_item.dart';
+import '../../../data/services/tmdb_service.dart';
+import '../netflix/netflix_colors.dart';
+import '../netflix/netflix_nav_bar.dart';
+import '../netflix/netflix_poster_card.dart';
+import '../../../../../core/theme/app_typography.dart';
 
 /// Netflix-style browse: quiet category chips feeding a poster grid.
 class CinemaBrowseTab extends StatefulWidget {

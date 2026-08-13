@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 
-import 'package:everglow/core/theme/app_breakpoints.dart';
-import 'package:everglow/core/theme/app_motion.dart';
-import 'package:everglow/features/cinema/data/models/media_item.dart';
+import '../../../../../core/theme/app_breakpoints.dart';
+import '../../../../../core/theme/app_motion.dart';
+import '../../../data/models/media_item.dart';
 import 'netflix_colors.dart';
 import 'netflix_hover_preview.dart';
 import 'netflix_poster_card.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../../core/theme/app_typography.dart';
 
 /// Horizontal content rail with a Netflix-style title, edge arrows on
 /// desktop, and a floating hover preview that pops above the row.

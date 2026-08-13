@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:everglow/core/utils/connectivity_aware.dart';
-import 'package:everglow/core/utils/logger.dart';
+import '../../../../core/utils/connectivity_aware.dart';
+import '../../../../core/utils/logger.dart';
 
 /// Lightweight client for the `ani.zip` mapping API
 /// (https://api.ani.zip). ani.zip aggregates per-episode metadata from

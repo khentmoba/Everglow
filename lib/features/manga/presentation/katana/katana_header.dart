@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import 'package:everglow/core/theme/app_typography.dart';
-import 'package:everglow/features/manga/data/models/katana_models.dart';
-import 'package:everglow/features/manga/data/services/katana_service.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_nav.dart';
-import 'package:everglow/features/manga/presentation/katana/katana_theme.dart';
-import 'package:everglow/services/auth_service.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../data/models/katana_models.dart';
+import '../../data/services/katana_service.dart';
+import './katana_nav.dart';
+import './katana_theme.dart';
+import '../../../../core/services/auth_service.dart';
 
 enum KatanaNav { home, latest, directory, newManga, genres }
 

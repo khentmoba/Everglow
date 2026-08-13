@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:everglow/core/theme/app_typography.dart';
-import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_colors.dart';
-import 'package:everglow/services/auth_service.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../cinema/presentation/widgets/netflix/netflix_colors.dart';
+import '../../../../core/services/auth_service.dart';
 
 import '../../data/models/temporary_chat_message.dart';
 import '../../data/services/temporary_chat_service.dart';

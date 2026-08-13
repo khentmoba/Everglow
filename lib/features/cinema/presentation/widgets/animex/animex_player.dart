@@ -4,7 +4,7 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
-import 'package:everglow/features/cinema/data/services/anilist_service.dart';
+import '../../../data/services/anilist_service.dart';
 
 import 'animex_buttons.dart';
 import 'animex_tokens.dart';

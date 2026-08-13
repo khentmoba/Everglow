@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:everglow/core/audio/audio_service.dart';
-import 'package:everglow/core/utils/firestore_stream_utils.dart';
+import '../../../../core/audio/audio_service.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../domain/models/user_progress.dart';
 
 class XPService {

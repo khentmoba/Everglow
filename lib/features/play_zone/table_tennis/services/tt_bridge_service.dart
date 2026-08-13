@@ -15,6 +15,9 @@ class TTBridgeService {
   Timer? _paddleThrottle;
   Timer? _ballThrottle;
   double _lastSentPaddleY = -1;
+  String _lastBallSignature = '';
+  bool _hasSentPaddle = false;
+  bool _hasSentBall = false;
   bool _running = false;
 
   String? get roomId => _roomId;
@@ -28,6 +31,10 @@ class TTBridgeService {
     _isHost = isHost;
     _localTick = 0;
     _running = true;
+    _lastSentPaddleY = -1;
+    _lastBallSignature = '';
+    _hasSentPaddle = false;
+    _hasSentBall = false;
 
     final iframe = _findIframe();
     if (iframe != null) {
@@ -59,12 +66,12 @@ class TTBridgeService {
       });
     });
 
-    _paddleThrottle = Timer.periodic(const Duration(milliseconds: 66), (_) {
+    _paddleThrottle = Timer.periodic(const Duration(milliseconds: 200), (_) {
       _sendPaddle();
     });
 
     if (isHost) {
-      _ballThrottle = Timer.periodic(const Duration(milliseconds: 66), (_) {
+      _ballThrottle = Timer.periodic(const Duration(milliseconds: 200), (_) {
         _sendBallState();
       });
     }
@@ -98,7 +105,9 @@ class TTBridgeService {
     if (_roomId == null) return;
     final paddle = TTMultiplayerState.localPaddleY;
     if (paddle < 0) return;
+    if (_hasSentPaddle && paddle == _lastSentPaddleY) return;
     _lastSentPaddleY = paddle;
+    _hasSentPaddle = true;
     _localTick++;
     if (_isHost) {
       _mpService.writeHostState(
@@ -123,14 +132,21 @@ class TTBridgeService {
     if (_roomId == null || !_isHost) return;
     final ballMap = TTMultiplayerState.latestBallState;
     if (ballMap == null) return;
+    final hostScore = TTMultiplayerState.latestHostScore;
+    final guestScore = TTMultiplayerState.latestGuestScore;
+    final signature =
+        '${ballMap['x']}|${ballMap['y']}|${ballMap['vx']}|${ballMap['vy']}|$hostScore|$guestScore';
+    if (_hasSentBall && signature == _lastBallSignature) return;
+    _lastBallSignature = signature;
+    _hasSentBall = true;
     _localTick++;
     _mpService.writeHostState(
       roomId: _roomId!,
       localTick: _localTick,
       hostPaddleY: _lastSentPaddleY,
       ball: BallState.fromMap(ballMap),
-      hostScore: TTMultiplayerState.latestHostScore,
-      guestScore: TTMultiplayerState.latestGuestScore,
+      hostScore: hostScore,
+      guestScore: guestScore,
       status: TTRoomStatus.playing,
     );
   }

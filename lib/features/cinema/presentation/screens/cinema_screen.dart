@@ -3,24 +3,24 @@ import 'package:flutter/material.dart' hide FilterChip;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import 'package:everglow/features/cinema/data/models/media_item.dart';
-import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
-import 'package:everglow/features/cinema/presentation/widgets/episode_drawer.dart';
-import 'package:everglow/services/auth_service.dart';
-import 'package:everglow/core/theme/app_breakpoints.dart';
+import '../../data/models/media_item.dart';
+import '../../data/services/tmdb_service.dart';
+import '../widgets/episode_drawer.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../../core/theme/app_breakpoints.dart';
 import 'package:go_router/go_router.dart';
-import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_colors.dart';
-import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_nav_bar.dart';
+import '../widgets/netflix/netflix_colors.dart';
+import '../widgets/netflix/netflix_nav_bar.dart';
 
-import 'package:everglow/features/cinema/presentation/widgets/tabs/cinema_home_tab.dart'
+import '../widgets/tabs/cinema_home_tab.dart'
     show CinemaHomeTab, featuredGenres;
-import 'package:everglow/features/cinema/presentation/widgets/tabs/cinema_search_tab.dart'
+import '../widgets/tabs/cinema_search_tab.dart'
     show CinemaSearchTab;
-import 'package:everglow/features/cinema/presentation/widgets/tabs/cinema_browse_tab.dart'
+import '../widgets/tabs/cinema_browse_tab.dart'
     show CinemaBrowseTab;
-import 'package:everglow/features/cinema/presentation/widgets/tabs/cinema_library_tab.dart'
+import '../widgets/tabs/cinema_library_tab.dart'
     show CinemaLibraryTab;
-import 'package:everglow/features/watch_party/presentation/widgets/cinema_watch_together_tab.dart';
+import '../../../watch_party/presentation/widgets/cinema_watch_together_tab.dart';
 
 // ─────────────────────────────────────────────────────────────────────
 // Cinema Color Tokens

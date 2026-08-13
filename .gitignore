@@ -58,6 +58,7 @@ everglow-1c6db-firebase-adminsdk-fbsvc-*.json
 .specify/
 specs/
 scratch/
+tools_scratch/
 wiki/
 
 # Binaries and large files
@@ -65,3 +66,8 @@ wiki/
 firebase.exe
 node_modules/
 tmp/
+
+# Generated test/runtime artifacts
+test/**/failures/
+firestore-debug.log
+firebase-debug.log

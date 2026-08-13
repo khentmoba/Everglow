@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 
-import 'package:everglow/core/theme/app_motion.dart';
-import 'package:everglow/features/cinema/data/models/media_item.dart';
+import '../../../../../core/theme/app_motion.dart';
+import '../../../data/models/media_item.dart';
 import 'netflix_colors.dart';
 import 'netflix_hover_preview.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../../core/theme/app_typography.dart';
 
 /// Tells the owning row where this card sits on screen so a floating
 /// preview can be anchored to it (Netflix-style hover popover).

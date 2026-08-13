@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:everglow/core/utils/connectivity_aware.dart';
-import 'package:everglow/core/utils/error_aware.dart';
-import 'package:everglow/core/utils/logger.dart';
-import 'package:everglow/features/cinema/data/models/media_item.dart';
+import '../../../../../core/utils/connectivity_aware.dart';
+import '../../../../../core/utils/error_aware.dart';
+import '../../../../../core/utils/logger.dart';
+import '../../models/media_item.dart';
 import 'tmdb_base.dart';
 
 /// SharedPreferences-based caching for watchlist items, scoped per user.

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:everglow/features/cinema/data/models/animex_models.dart';
-import 'package:everglow/features/cinema/data/services/animex_stores.dart';
+import '../../../data/models/animex_models.dart';
+import '../../../data/services/animex_stores.dart';
 
 import 'animex_buttons.dart';
 import 'animex_controller.dart';

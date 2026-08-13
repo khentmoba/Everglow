@@ -11,6 +11,7 @@ void main() {
   final buildConst = commitHash.isNotEmpty ? '$version-$commitHash' : version;
 
   final sw = '''
+// BUILD=$buildConst
 self.addEventListener('install', () => {
   self.skipWaiting();
 });
@@ -21,6 +22,9 @@ self.addEventListener('activate', () => {
 ''';
 
   File('web/sw.js').writeAsStringSync(sw);
+  File('web/version.json').writeAsStringSync(
+    '{"build": "$buildConst"}\n',
+  );
   print('sw.js written with BUILD = $buildConst');
 }
 

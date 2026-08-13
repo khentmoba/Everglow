@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/shared/widgets/gamified_background.dart';
-import 'package:everglow/services/auth_service.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_error_state.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_empty_state.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_skeleton.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_feature_header.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../shared/widgets/gamified_background.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../../shared/widgets/everglow/everglow_error_state.dart';
+import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
+import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
+import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../data/models/bucket_item.dart';
 import '../../data/services/bucket_list_service.dart';
 import '../widgets/bucket_item_card.dart';
 import '../widgets/add_bucket_item_dialog.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class BucketListScreen extends StatefulWidget {
   const BucketListScreen({super.key});

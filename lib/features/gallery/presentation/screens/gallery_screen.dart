@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/core/theme/app_radius.dart';
-import 'package:everglow/core/theme/app_motion.dart';
-import 'package:everglow/core/theme/app_typography.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_background.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_feature_header.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_empty_state.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_skeleton.dart';
+import 'dart:async';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_motion.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
+import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
+import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../domain/models/memory_photo.dart';
 import '../../data/services/gallery_service.dart';
 import '../widgets/add_photo_dialog.dart';
@@ -23,6 +24,13 @@ class GalleryScreen extends StatefulWidget {
 class _GalleryScreenState extends State<GalleryScreen> {
   final GalleryService _galleryService = GalleryService();
   String _searchQuery = '';
+  Timer? _searchDebounce;
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    super.dispose();
+  }
 
   Future<void> _openAddPhoto() async {
     await showDialog(
@@ -155,7 +163,12 @@ class _GalleryScreenState extends State<GalleryScreen> {
             color: AppColors.petalWhite,
             fontSize: 13,
           ),
-          onChanged: (v) => setState(() => _searchQuery = v.trim()),
+          onChanged: (v) {
+            _searchDebounce?.cancel();
+            _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+              if (mounted) setState(() => _searchQuery = v.trim());
+            });
+          },
           decoration: InputDecoration(
             hintText: 'Search memories...',
             hintStyle: AppTypography.outfitWhite.copyWith(
@@ -311,6 +324,7 @@ class _PhotoCardState extends State<_PhotoCard> {
                 Image.network(
                   GalleryService.displayUrl(photo.imageUrl),
                   fit: BoxFit.cover,
+                  cacheWidth: 440,
                   loadingBuilder: (context, child, progress) {
                     if (progress == null) return child;
                     return Container(

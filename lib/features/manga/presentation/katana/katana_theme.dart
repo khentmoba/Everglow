@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
 
 /// Everglow "MangaCelestia" dark palette used across the
 /// manga/manhwa/manhua section. Keeps the Manga Katana layout and

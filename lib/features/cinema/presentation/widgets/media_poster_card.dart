@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:everglow/features/cinema/data/models/media_item.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../data/models/media_item.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class MediaPosterCard extends StatelessWidget {
   final MediaItem item;

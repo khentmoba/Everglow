@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_colors.dart';
+import '../../../../../core/theme/app_colors.dart';
 import 'drawer_helpers.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../../core/theme/app_typography.dart';
 
 /// Renders the reviews section: a vertical list of review cards with
 /// avatar, author name, rating, and preview text. Shows a loading

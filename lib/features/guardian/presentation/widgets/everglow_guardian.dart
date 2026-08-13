@@ -4,8 +4,8 @@ import '../../../../core/theme/app_typography.dart';
 import 'package:provider/provider.dart';
 import 'character/cat_visuals.dart';
 import 'thought_bubble.dart';
-import 'package:everglow/features/guardian/presentation/controllers/guardian_controller.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import '../controllers/guardian_controller.dart';
+import '../../../../core/theme/app_theme.dart';
 
 class EverglowGuardian extends StatefulWidget {
   const EverglowGuardian({super.key});

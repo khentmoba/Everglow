@@ -19,7 +19,7 @@ jobs:
       - name: Prepare local env asset
         run: |
           if [ ! -f assets/env.txt ]; then
-            echo "# CI placeholder - real values stay in assets/env.txt locally" > assets/env.txt
+            echo "# CI placeholder - real values passed via --dart-define" > assets/env.txt
           fi
 
       - uses: subosito/flutter-action@v2
@@ -37,7 +37,73 @@ jobs:
         run: flutter analyze
 
       - name: Build web
-        run: flutter build web --release
+        env:
+          CLAIR_EMAIL: ${{ secrets.CLAIR_EMAIL }}
+          CLAIR_PASSWORD: ${{ secrets.CLAIR_PASSWORD }}
+          KHENT_EMAIL: ${{ secrets.KHENT_EMAIL }}
+          KHENT_PASSWORD: ${{ secrets.KHENT_PASSWORD }}
+          BREYAN_EMAIL: ${{ secrets.BREYAN_EMAIL }}
+          BREYAN_PASSWORD: ${{ secrets.BREYAN_PASSWORD }}
+          OCTAGRAM_EMAIL: ${{ secrets.OCTAGRAM_EMAIL }}
+          OCTAGRAM_PASSWORD: ${{ secrets.OCTAGRAM_PASSWORD }}
+          CLAIR_PASSCODE: ${{ secrets.CLAIR_PASSCODE }}
+          KHENT_PASSCODE: ${{ secrets.KHENT_PASSCODE }}
+          BREYAN_PASSCODE: ${{ secrets.BREYAN_PASSCODE }}
+          OCTAGRAM_PASSCODE: ${{ secrets.OCTAGRAM_PASSCODE }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          JELLYFIN_API_KEY: ${{ secrets.JELLYFIN_API_KEY }}
+          FCM_VAPID_KEY: ${{ secrets.FCM_VAPID_KEY }}
+        run: |
+          REQUIRED=(CLAIR_EMAIL CLAIR_PASSWORD KHENT_EMAIL KHENT_PASSWORD BREYAN_EMAIL BREYAN_PASSWORD OCTAGRAM_EMAIL OCTAGRAM_PASSWORD CLAIR_PASSCODE KHENT_PASSCODE BREYAN_PASSCODE OCTAGRAM_PASSCODE TMDB_API_KEY LASTFM_API_KEY)
+          MISSING=()
+          for KEY in "${REQUIRED[@]}"; do
+            if [ -z "${!KEY}" ]; then
+              MISSING+=("$KEY")
+            fi
+          done
+          if [ ${#MISSING[@]} -gt 0 ]; then
+            echo "Missing required GitHub secrets: ${MISSING[*]}"
+            echo "Configure these secrets in the repository before deploying."
+            exit 1
+          fi
+          ARGS=(flutter build web --release)
+          for KEY in CLAIR_EMAIL CLAIR_PASSWORD KHENT_EMAIL KHENT_PASSWORD BREYAN_EMAIL BREYAN_PASSWORD OCTAGRAM_EMAIL OCTAGRAM_PASSWORD CLAIR_PASSCODE KHENT_PASSCODE BREYAN_PASSCODE OCTAGRAM_PASSCODE TMDB_API_KEY LASTFM_API_KEY JELLYFIN_API_KEY FCM_VAPID_KEY; do
+            VAL="${!KEY}"
+            if [ -n "$VAL" ]; then
+              ARGS+=(--dart-define="$KEY=$VAL")
+            fi
+          done
+          "${ARGS[@]}"
+
+      - name: Install firebase-tools
+        run: npm install -g firebase-tools
+
+      - name: Install functions dependencies
+        working-directory: functions
+        run: npm install
+
+      - name: Check functions syntax
+        working-directory: functions
+        run: node --check index.js
+
+      - name: Deploy Cloud Functions, Firestore Rules & Storage
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB }}
+          AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT" > "$HOME"/firebase-sa.json
+          if [ -z "$AGNES_API_KEY" ] || [ -z "$TMDB_API_KEY" ]; then
+            echo "Missing required GitHub secrets: AGNES_API_KEY and/or TMDB_API_KEY"
+            exit 1
+          fi
+          cat > functions/.env <<EOF
+          AGNES_API_KEY=${AGNES_API_KEY}
+          TMDB_API_KEY=${TMDB_API_KEY}
+          EOF
+          GOOGLE_APPLICATION_CREDENTIALS="$HOME"/firebase-sa.json \
+          firebase deploy --only functions,firestore:rules,storage --project everglow-1c6db
 
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0.9.0
@@ -48,32 +114,21 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB }}
           channelId: live
           projectId: everglow-1c6db
-        continue-on-error: true
-
-      - name: Install firebase-tools
-        run: npm install -g firebase-tools
-
-      - name: Install functions dependencies
-        working-directory: functions
-        run: npm install
-
-      - name: Deploy Cloud Functions & Firestore Rules
-        continue-on-error: true
-        env:
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB }}
-        run: |
-          echo "$FIREBASE_SERVICE_ACCOUNT" > "$HOME"/firebase-sa.json
-          GOOGLE_APPLICATION_CREDENTIALS="$HOME"/firebase-sa.json \
-          firebase deploy --only functions,firestore:rules,storage --project everglow-1c6db
 
       - name: Verify site is live
         run: |
           echo "Checking deployment..."
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://everglow-1c6db.web.app")
           echo "HTTP $HTTP_CODE"
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "Site is live!"
-          else
+          if [ "$HTTP_CODE" != "200" ]; then
             echo "Unexpected status: $HTTP_CODE"
             exit 1
           fi
+          COMMIT=$(git rev-parse --short HEAD)
+          VERSION_JSON=$(curl -s -H "Cache-Control: no-cache" "https://everglow-1c6db.web.app/version.json")
+          echo "version.json: $VERSION_JSON"
+          if ! echo "$VERSION_JSON" | grep -q "$COMMIT"; then
+            echo "Deployed build does not match commit $COMMIT"
+            exit 1
+          fi
+          echo "Site is live with build $COMMIT!"

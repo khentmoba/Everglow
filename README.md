@@ -38,7 +38,7 @@ _Previous releases: [v5.3.0](https://github.com/khentmoba/Everglow/releases/tag/
 
 | Feature | Description | Version |
 |---------|-------------|---------|
-| **Gateway** | Animated passcode entry door (0221 = Clair, 0938 = Khent, 9132 = Breyan, 8080 = Octagram) | 1.0.0 / 3.0.0 |
+| **Gateway** | Animated passcode entry door (passcodes are configured via env, never hardcoded) | 1.0.0 / 3.0.0 |
 | **Dashboard** | Main hub with anniversary counter, XP, preview cards, and all feature tiles | 1.0.0 / 6.0.0 |
 | **Heartbeat** | Daily mood tracking with partner status indicators | 1.0.0 |
 | **Guardian** | Animated cat mascot with random messages and mood prompts | 1.0.0 |

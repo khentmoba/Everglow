@@ -2,9 +2,9 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import 'package:everglow/core/utils/logger.dart';
-import 'package:everglow/features/jellyfin/data/models/archive_movie.dart';
-import 'package:everglow/features/jellyfin/data/models/archive_video_file.dart';
+import '../../../../core/utils/logger.dart';
+import '../models/archive_movie.dart';
+import '../models/archive_video_file.dart';
 
 /// Search client for the Internet Archive open-media catalog.
 ///

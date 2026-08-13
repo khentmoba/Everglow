@@ -37,11 +37,12 @@ class WatchPartyChatService {
         .collection(_collection)
         .doc(roomId)
         .collection(_messagesSubcollection)
-        .orderBy('timestamp', descending: false)
+        .orderBy('timestamp', descending: true)
+        .limitToLast(200)
         .snapshots()
         .map((snapshot) {
       final messages = <WatchPartyChatMessage>[];
-      for (final doc in snapshot.docs) {
+      for (final doc in snapshot.docs.reversed) {
         try {
           messages.add(WatchPartyChatMessage.fromFirestore(doc));
         } catch (e) {
@@ -74,10 +75,13 @@ class WatchPartyChatService {
         .collection(_collection)
         .doc(roomId)
         .collection(_messagesSubcollection)
-        .orderBy('timestamp', descending: false)
+        .orderBy('timestamp', descending: true)
+        .limit(200)
         .get();
     return snap.docs
         .map(WatchPartyChatMessage.fromFirestore)
+        .toList()
+        .reversed
         .toList(growable: false);
   }
 

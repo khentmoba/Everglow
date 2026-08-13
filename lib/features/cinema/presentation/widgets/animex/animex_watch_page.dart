@@ -5,12 +5,12 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'package:everglow/features/cinema/data/models/anilist_detail.dart';
-import 'package:everglow/features/cinema/data/models/animex_models.dart';
-import 'package:everglow/features/cinema/data/models/media_item.dart';
-import 'package:everglow/features/cinema/data/services/ani_zip_service.dart';
-import 'package:everglow/features/cinema/data/services/anilist_service.dart';
-import 'package:everglow/features/cinema/data/services/animex_stores.dart';
+import '../../../data/models/anilist_detail.dart';
+import '../../../data/models/animex_models.dart';
+import '../../../data/models/media_item.dart';
+import '../../../data/services/ani_zip_service.dart';
+import '../../../data/services/anilist_service.dart';
+import '../../../data/services/animex_stores.dart';
 
 import 'animex_badges.dart';
 import 'animex_buttons.dart';
@@ -20,6 +20,7 @@ import 'animex_player.dart';
 import 'animex_poster_row.dart';
 import 'animex_section_header.dart';
 import 'animex_tokens.dart';
+part 'animex_watch_page_widgets.dart';
 
 class _ServerOption {
   final String name;
@@ -1128,132 +1129,3 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   }
 }
 
-class _AudioToggle extends StatelessWidget {
-  final String audio;
-  final ValueChanged<String> onChanged;
-
-  const _AudioToggle({required this.audio, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
-        border: Border.all(color: AnimeXTokens.border),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final a in ['sub', 'dub'])
-            GestureDetector(
-              onTap: () => onChanged(a),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 120),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                decoration: BoxDecoration(
-                  color: audio == a
-                      ? AnimeXTokens.accent
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(
-                    AnimeXTokens.radiusSm,
-                  ),
-                ),
-                child: Text(
-                  a == 'sub' ? 'SUB' : 'DUB',
-                  style: dmSansStyle(
-                    size: 11.5,
-                    color: audio == a ? Colors.white : AnimeXTokens.textSecondary,
-                    weight: FontWeight.w700,
-                    letterSpacing: 0.05,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InfoItem extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _InfoItem({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 150,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: dmSansStyle(
-              size: 10.5,
-              color: AnimeXTokens.textMuted,
-              weight: FontWeight.w700,
-              letterSpacing: 0.08,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: dmSansStyle(
-              size: 13,
-              color: AnimeXTokens.textPrimary,
-              weight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EpisodeStepButton extends StatelessWidget {
-  final String label;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  const _EpisodeStepButton({
-    required this.label,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: enabled
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
-          border: Border.all(
-            color: enabled ? AnimeXTokens.borderStrong : AnimeXTokens.border,
-          ),
-        ),
-        child: Text(
-          label,
-          style: dmSansStyle(
-            size: 12,
-            color: enabled
-                ? AnimeXTokens.textPrimary
-                : AnimeXTokens.textMuted,
-            weight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
-}

@@ -1,9 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:everglow/core/theme/app_typography.dart';
-import 'package:everglow/core/theme/app_motion.dart';
-import 'package:everglow/core/theme/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_motion.dart';
+import '../../../../core/theme/app_colors.dart';
 
 /// Elegant glass passcode keypad with gold accents and a shake-on-error.
 class PasscodeInput extends StatefulWidget {

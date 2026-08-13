@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:everglow/features/cinema/data/models/video_source_config.dart';
+import '../models/video_source_config.dart';
 
 /// Singleton service that provides the ordered list of video embed sources.
 ///

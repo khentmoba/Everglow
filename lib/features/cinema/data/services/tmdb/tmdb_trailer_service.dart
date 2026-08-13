@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:everglow/core/constants/api_keys.dart';
-import 'package:everglow/core/utils/connectivity_aware.dart';
-import 'package:everglow/core/utils/error_aware.dart';
-import 'package:everglow/core/utils/logger.dart';
+import '../../../../../core/constants/api_keys.dart';
+import '../../../../../core/utils/connectivity_aware.dart';
+import '../../../../../core/utils/error_aware.dart';
+import '../../../../../core/utils/logger.dart';
 import 'tmdb_base.dart';
 
 /// Fetches YouTube trailer keys for movies and TV shows, with in-memory

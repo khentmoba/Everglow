@@ -1,10 +1,10 @@
 import 'dart:math';
 
-import 'package:everglow/features/books/data/models/book_item.dart';
-import 'package:everglow/features/books/data/models/book_search_result.dart';
-import 'package:everglow/features/books/data/services/gutenberg_service.dart';
-import 'package:everglow/features/books/data/services/internet_archive_service.dart';
-import 'package:everglow/features/books/data/services/open_library_service.dart';
+import '../models/book_item.dart';
+import '../models/book_search_result.dart';
+import './gutenberg_service.dart';
+import './internet_archive_service.dart';
+import './open_library_service.dart';
 
 /// Sort modes copied from WeLib's search page.
 enum BookSort { relevant, popular, newest, oldest, largest, smallest, random }

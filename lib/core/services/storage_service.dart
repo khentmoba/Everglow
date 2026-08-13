@@ -5,14 +5,19 @@ import 'package:flutter/material.dart';
 class StorageService extends ChangeNotifier {
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  Future<String?> uploadImage(Uint8List fileData, String fileName, String userId) async {
+  Future<String?> uploadImage(
+    Uint8List fileData,
+    String fileName,
+    String userId,
+  ) async {
     try {
-      final String path = "memories/$userId/${DateTime.now().millisecondsSinceEpoch}_$fileName";
+      final String path =
+          "memories/$userId/${DateTime.now().millisecondsSinceEpoch}_$fileName";
       final Reference ref = _storage.ref().child(path);
-      
+
       final UploadTask uploadTask = ref.putData(fileData);
       final TaskSnapshot snapshot = await uploadTask;
-      
+
       final String downloadUrl = await snapshot.ref.getDownloadURL();
       return downloadUrl;
     } catch (e) {

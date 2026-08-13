@@ -2,9 +2,9 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-import 'package:everglow/core/config/env_config.dart';
-import 'package:everglow/core/utils/logger.dart';
-import 'package:everglow/features/jellyfin/data/models/jellyfin_media_item.dart';
+import '../../../../core/config/env_config.dart';
+import '../../../../core/utils/logger.dart';
+import '../models/jellyfin_media_item.dart';
 
 /// Read-only client for the self-hosted Jellyfin server.
 ///

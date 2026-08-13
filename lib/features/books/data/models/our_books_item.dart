@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:everglow/features/books/data/models/book_item.dart';
+import './book_item.dart';
 
 /// A single entry in the shared "Our Books" list, visible to Khent
 /// and Clair only. Mirrors the cinema's `OurCinemaItem` shape.

@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:everglow/core/utils/firestore_stream_utils.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 import '../models/bucket_item.dart';
 import '../../../../core/utils/logger.dart';
 

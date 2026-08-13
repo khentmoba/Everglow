@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_colors.dart';
+import '../../../../../core/theme/app_colors.dart';
 
 /// Everglow Cinema palette - Netflix-like structure, Everglow skin.
 ///

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:everglow/features/cinema/presentation/widgets/animex/animex_shell.dart';
+import '../widgets/animex/animex_shell.dart';
 
 /// Dedicated entry for the anime rail. The full experience (home, browse,
 /// schedule, search, history, my list, playlists, seasonal and the watch

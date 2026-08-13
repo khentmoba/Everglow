@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_colors.dart';
+import '../../../../../core/theme/app_colors.dart';
 import 'drawer_helpers.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../../core/theme/app_typography.dart';
 
 /// Renders the horizontal cast/voice-actor rail. Shows a loading
 /// skeleton while fetching, an empty-state message when no cast is

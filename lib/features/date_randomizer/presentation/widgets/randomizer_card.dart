@@ -1,17 +1,17 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:everglow/features/date_randomizer/data/services/date_idea_service.dart';
-import 'package:everglow/features/date_randomizer/data/models/date_idea.dart';
-import 'package:everglow/features/date_randomizer/presentation/widgets/celebration_dialog.dart';
-import 'package:everglow/features/date_randomizer/data/services/ai_date_idea_generator.dart';
-import 'package:everglow/features/ai/data/services/ai_service.dart';
-import 'package:everglow/shared/widgets/bouncy_button.dart';
-import 'package:everglow/shared/widgets/animated_emblem.dart';
-import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/core/theme/app_radius.dart';
-import 'package:everglow/core/theme/app_motion.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../data/services/date_idea_service.dart';
+import '../../data/models/date_idea.dart';
+import './celebration_dialog.dart';
+import '../../data/services/ai_date_idea_generator.dart';
+import '../../../ai/data/services/ai_service.dart';
+import '../../../../shared/widgets/bouncy_button.dart';
+import '../../../../shared/widgets/animated_emblem.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_motion.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class RandomizerCard extends StatefulWidget {
   final DateIdeaService service;

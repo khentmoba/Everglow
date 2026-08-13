@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/audio/audio_service.dart';
+import '../../core/audio/audio_service.dart';
 
 class BouncyButton extends StatefulWidget {
   final Widget child;

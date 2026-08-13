@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'package:everglow/features/cinema/data/models/media_item.dart';
+import '../../../data/models/media_item.dart';
 
 import 'animex_badges.dart';
 import 'animex_tokens.dart';
@@ -294,6 +294,7 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
     return Image.network(
       url,
       fit: BoxFit.cover,
+      cacheWidth: 400,
       loadingBuilder: (_, child, progress) {
         if (progress == null) return child;
         return Container(

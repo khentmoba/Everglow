@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart' hide FilterChip;
-import 'package:everglow/core/theme/app_breakpoints.dart';
-import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:everglow/features/cinema/data/models/media_item.dart';
-import 'package:everglow/shared/widgets/shelf/scroll_edge_fade.dart';
-import 'package:everglow/shared/widgets/shelf/shelf_hero_carousel.dart';
-import 'package:everglow/shared/widgets/shelf/anime_hero_banner.dart';
-import 'package:everglow/shared/widgets/shelf/shelf_icon_button.dart';
-import 'package:everglow/shared/widgets/shelf/shelf_poster_card.dart';
-import 'package:everglow/shared/widgets/shelf/shelf_section_header.dart';
-import 'package:everglow/shared/widgets/shelf/shimmer_box.dart';
-import 'package:everglow/shared/widgets/shelf/staggered_entrance.dart';
-import 'package:everglow/shared/widgets/shelf/cinema_sections.dart';
-import 'package:everglow/features/ai/presentation/widgets/ai_recommendations.dart';
+import '../../../../../core/theme/app_breakpoints.dart';
+import '../../../../../core/theme/app_colors.dart';
+import '../../../../../core/theme/app_theme.dart';
+import '../../../data/models/media_item.dart';
+import '../../../../../shared/widgets/shelf/scroll_edge_fade.dart';
+import '../../../../../shared/widgets/shelf/shelf_hero_carousel.dart';
+import '../../../../../shared/widgets/shelf/anime_hero_banner.dart';
+import '../../../../../shared/widgets/shelf/shelf_icon_button.dart';
+import '../../../../../shared/widgets/shelf/shelf_poster_card.dart';
+import '../../../../../shared/widgets/shelf/shelf_section_header.dart';
+import '../../../../../shared/widgets/shelf/shimmer_box.dart';
+import '../../../../../shared/widgets/shelf/staggered_entrance.dart';
+import '../../../../../shared/widgets/shelf/cinema_sections.dart';
+import '../../../../ai/presentation/widgets/ai_recommendations.dart';
 
 import 'anime_models.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../../core/theme/app_typography.dart';
 
 // ── Anime palette (subset used by the Home tab) ─────────────────
 const _cCard           = AppColors.animeCard;

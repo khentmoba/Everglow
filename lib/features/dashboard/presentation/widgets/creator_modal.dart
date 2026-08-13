@@ -4,9 +4,9 @@ import 'package:provider/provider.dart';
 import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import '../../data/services/creator_service.dart';
-import '../../../../services/auth_service.dart';
-import 'package:everglow/features/cinema/presentation/widgets/tmdb_search_modal.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../../cinema/presentation/widgets/tmdb_search_modal.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class CreatorModal extends StatefulWidget {
   const CreatorModal({super.key});

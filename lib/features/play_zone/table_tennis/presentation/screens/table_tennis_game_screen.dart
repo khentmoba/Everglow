@@ -6,7 +6,7 @@ import 'dart:ui_web' as ui_web;
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../presentation/widgets/web_overlay_button.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../../core/theme/app_typography.dart';
 
 class TableTennisGameScreen extends StatefulWidget {
   const TableTennisGameScreen({super.key});

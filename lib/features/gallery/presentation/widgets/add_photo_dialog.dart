@@ -1,11 +1,11 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker_web/image_picker_web.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:everglow/services/auth_service.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/services/auth_service.dart';
 import 'package:provider/provider.dart';
 import '../../data/services/gallery_service.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class AddPhotoDialog extends StatefulWidget {
   const AddPhotoDialog({super.key});

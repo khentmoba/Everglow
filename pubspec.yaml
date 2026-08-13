@@ -54,7 +54,6 @@ flutter:
     - assets/images/mochi_avatar.png
     - assets/images/milestones/
     - assets/data/
-    - assets/env.txt
     - assets/google_fonts/
     - assets/audio/
     - assets/models/

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_typography.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import '../../../core/theme/app_theme.dart';
 
 /// A reusable countdown timer widget that shows time remaining
 /// until a target [DateTime] in the Dusk Petal aesthetic.

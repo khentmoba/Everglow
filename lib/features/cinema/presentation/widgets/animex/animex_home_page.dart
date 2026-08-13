@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:everglow/features/cinema/data/models/animex_models.dart';
-import 'package:everglow/features/cinema/data/models/media_item.dart';
-import 'package:everglow/features/cinema/data/services/anilist_service.dart';
-import 'package:everglow/features/cinema/data/services/animex_stores.dart';
+import '../../../data/models/animex_models.dart';
+import '../../../data/models/media_item.dart';
+import '../../../data/services/anilist_service.dart';
+import '../../../data/services/animex_stores.dart';
 
 import 'animex_badges.dart';
 import 'animex_controller.dart';

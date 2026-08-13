@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:everglow/core/models/presence_status.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import '../../core/models/presence_status.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
-import 'package:everglow/services/auth_service.dart';
-import 'package:everglow/services/presence_service.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/services/auth_service.dart';
+import '../../core/services/presence_service.dart';
+import 'everglow/everglow_presence_dot.dart';
 
 class PartnerPresenceIndicator extends StatefulWidget {
   final TextStyle? textStyle;
@@ -68,9 +70,12 @@ class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator> {
         if (isOnline) {
           return _buildRow(
             context,
-            dot: _Dot(color: const Color(0xFF4ADE80), size: widget.dotSize, pulse: true),
+            dot: EverglowPresenceDot(
+              state: PresenceState.online,
+              size: widget.dotSize,
+            ),
             label: '$partnerName is active',
-            color: const Color(0xFF4ADE80),
+            color: AppColors.success,
             dim: false,
           );
         }
@@ -86,7 +91,10 @@ class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator> {
         final ago = _formatAgo(status.timeSinceLastSeen(_now));
         return _buildRow(
           context,
-          dot: _Dot(color: AppTheme.roseQuartz.withValues(alpha: 0.5), size: widget.dotSize),
+          dot: EverglowPresenceDot(
+            state: PresenceState.lastSeen,
+            size: widget.dotSize,
+          ),
           label: 'Active $ago ago',
           color: AppTheme.roseQuartz.withValues(alpha: 0.85),
           dim: false,
@@ -97,7 +105,7 @@ class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator> {
 
   Widget _buildRow(
     BuildContext context, {
-    required _Dot dot,
+    required Widget dot,
     required String label,
     required Color color,
     required bool dim,
@@ -155,82 +163,5 @@ class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator> {
       return remHours == 0 ? '${days}d' : '${days}d ${remHours}h';
     }
     return '${days}d';
-  }
-}
-
-class _Dot extends StatefulWidget {
-  final Color color;
-  final double size;
-  final bool pulse;
-
-  const _Dot({
-    required this.color,
-    required this.size,
-    this.pulse = false,
-  });
-
-  @override
-  State<_Dot> createState() => _DotState();
-}
-
-class _DotState extends State<_Dot> with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    );
-    if (widget.pulse) {
-      _ctrl.repeat(reverse: true);
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant _Dot oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.pulse && !_ctrl.isAnimating) {
-      _ctrl.repeat(reverse: true);
-    } else if (!widget.pulse && _ctrl.isAnimating) {
-      _ctrl.stop();
-      _ctrl.value = 0;
-    }
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: AnimatedBuilder(
-      animation: _ctrl,
-      builder: (context, _) {
-        final glow = widget.pulse ? 0.35 + (_ctrl.value * 0.55) : 0.0;
-        return Container(
-          width: widget.size,
-          height: widget.size,
-          decoration: BoxDecoration(
-            color: widget.color,
-            shape: BoxShape.circle,
-            boxShadow: widget.pulse
-                ? [
-                    BoxShadow(
-                      color: widget.color.withValues(alpha: glow),
-                      blurRadius: 8,
-                      spreadRadius: 1,
-                    ),
-                  ]
-                : null,
-          ),
-        );
-      },
-      ),
-    );
   }
 }

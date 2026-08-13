@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:everglow/features/cinema/data/models/animex_models.dart';
+import '../models/animex_models.dart';
 
 /// Local persistence for the anime section: watch history, custom
 /// playlists and small preferences (title language, schedule alerts).

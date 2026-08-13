@@ -1,9 +1,9 @@
-﻿import 'dart:async';
-import '../features/gallery/data/services/gallery_service.dart';
-import '../features/cinema/data/services/tmdb/tmdb_watchlist_service.dart';
-import '../features/cinema/data/services/tmdb/tmdb_cache_service.dart';
-import '../features/chat/data/services/chat_service.dart';
-import '../core/utils/logger.dart';
+import 'dart:async';
+import '../../features/gallery/data/services/gallery_service.dart';
+import '../../features/cinema/data/services/tmdb/tmdb_watchlist_service.dart';
+import '../../features/cinema/data/services/tmdb/tmdb_cache_service.dart';
+import '../../features/chat/data/services/chat_service.dart';
+import '../utils/logger.dart';
 
 /// Aggregated "On This Day" memory from one of the three sources.
 class OnThisDayMemory {
@@ -38,9 +38,9 @@ class OnThisDayService {
   final ChatService _chatService;
 
   OnThisDayService()
-      : _galleryService = GalleryService(),
-        _cinemaService = TMDBWatchlistService(TMDBCacheService()),
-        _chatService = ChatService();
+    : _galleryService = GalleryService(),
+      _cinemaService = TMDBWatchlistService(TMDBCacheService()),
+      _chatService = ChatService();
 
   /// Fetch all "On This Day" memories across all sources in parallel.
   Future<List<OnThisDayMemory>> getAllMemories() async {
@@ -61,14 +61,18 @@ class OnThisDayService {
 
   Future<List<OnThisDayMemory>> _getGalleryMemories() async {
     final photos = await _galleryService.getPhotosFromThisDay();
-    return photos.map((p) => OnThisDayMemory(
-      source: OnThisDaySource.gallery,
-      date: p.uploadedAt,
-      title: p.caption.isNotEmpty ? p.caption : 'A photo memory',
-      subtitle: 'Gallery photo',
-      imageUrl: GalleryService.displayUrl(p.imageUrl),
-      original: p,
-    )).toList();
+    return photos
+        .map(
+          (p) => OnThisDayMemory(
+            source: OnThisDaySource.gallery,
+            date: p.uploadedAt,
+            title: p.caption.isNotEmpty ? p.caption : 'A photo memory',
+            subtitle: 'Gallery photo',
+            imageUrl: GalleryService.displayUrl(p.imageUrl),
+            original: p,
+          ),
+        )
+        .toList();
   }
 
   Future<List<OnThisDayMemory>> _getCinemaMemories() async {
@@ -90,13 +94,18 @@ class OnThisDayService {
     final messages = await _chatService.getMessagesFromThisDay();
     // Pick up to 3 most representative messages from this day.
     final picked = messages.take(3).toList();
-    return picked.map((msg) => OnThisDayMemory(
-      source: OnThisDaySource.chat,
-      date: msg.timestamp,
-      title: msg.text.length > 80 ? '${msg.text.substring(0, 80)}...' : msg.text,
-      subtitle: '${msg.sender} said',
-      original: msg,
-    )).toList();
+    return picked
+        .map(
+          (msg) => OnThisDayMemory(
+            source: OnThisDaySource.chat,
+            date: msg.timestamp,
+            title: msg.text.length > 80
+                ? '${msg.text.substring(0, 80)}...'
+                : msg.text,
+            subtitle: '${msg.sender} said',
+            original: msg,
+          ),
+        )
+        .toList();
   }
 }
-

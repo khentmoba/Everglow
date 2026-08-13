@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:everglow/features/cinema/data/models/media_item.dart';
-import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
-import 'package:everglow/services/auth_service.dart';
+import '../../../data/models/media_item.dart';
+import '../../../data/services/tmdb_service.dart';
+import '../../../../../core/services/auth_service.dart';
 
 import 'animex_controller.dart';
 import 'animex_footer.dart';

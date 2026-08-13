@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
-import 'package:everglow/features/cinema/data/models/media_item.dart';
-import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
-import 'package:everglow/services/auth_service.dart';
+import '../../../data/models/media_item.dart';
+import '../../../data/services/tmdb_service.dart';
+import '../../../../../core/services/auth_service.dart';
 
 enum AnimexPage {
   home,
@@ -24,6 +24,7 @@ enum AnimexPage {
 class AnimeXController extends ChangeNotifier {
   final TMDBService _tmdbService = TMDBService();
   StreamSubscription<List<MediaItem>>? _watchlistSub;
+  bool _postersRefreshed = false;
 
   AnimexPage page = AnimexPage.home;
   final List<MediaItem> _library = [];
@@ -50,9 +51,14 @@ class AnimeXController extends ChangeNotifier {
     final userName = auth.currentUser ?? '';
     if (userName.isEmpty) return;
     _watchlistSub?.cancel();
+    _postersRefreshed = false;
     _watchlistSub =
         _tmdbService.getAnimeWatchListStream(userName).listen((items) async {
-      final refreshed = await _tmdbService.refreshAnimePosters(items);
+      var refreshed = items;
+      if (!_postersRefreshed) {
+        refreshed = await _tmdbService.refreshAnimePosters(items);
+        _postersRefreshed = true;
+      }
       _library
         ..clear()
         ..addAll(refreshed);

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../domain/models/hidden_note.dart';
 import '../../../../core/theme/app_theme.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class NoteDialog extends StatelessWidget {
   final HiddenNote note;

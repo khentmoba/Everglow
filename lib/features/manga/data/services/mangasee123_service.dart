@@ -2,8 +2,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:everglow/core/utils/connectivity_aware.dart';
-import 'package:everglow/features/manga/data/models/manga_item.dart';
+import '../../../../core/utils/connectivity_aware.dart';
+import '../models/manga_item.dart';
 
 /// Scrapes mangasee123.com for chapter page images. MangaSee123 is a
 /// manga aggregator that ComicK itself uses as a source. This service

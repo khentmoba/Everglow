@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart' hide FilterChip;
-import 'package:everglow/core/theme/app_breakpoints.dart';
-import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/features/cinema/data/anime_categories.dart';
-import 'package:everglow/features/cinema/data/models/media_item.dart';
-import 'package:everglow/shared/widgets/shelf/filter_chip.dart';
-import 'package:everglow/shared/widgets/shelf/shelf_poster_card.dart';
-import 'package:everglow/shared/widgets/shelf/shelf_empty_state.dart';
-import 'package:everglow/shared/widgets/shelf/shimmer_box.dart';
+import '../../../../../core/theme/app_breakpoints.dart';
+import '../../../../../core/theme/app_colors.dart';
+import '../../../data/anime_categories.dart';
+import '../../../data/models/media_item.dart';
+import '../../../../../shared/widgets/shelf/filter_chip.dart';
+import '../../../../../shared/widgets/shelf/shelf_poster_card.dart';
+import '../../../../../shared/widgets/shelf/shelf_empty_state.dart';
+import '../../../../../shared/widgets/shelf/shimmer_box.dart';
 
 import 'anime_models.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../../core/theme/app_typography.dart';
 
 // ── Anime palette (subset used by the Browse tab) ───────────────
 const _cRose           = AppColors.animeRose;

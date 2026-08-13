@@ -6,11 +6,11 @@ import '../../data/models/top_music_track.dart';
 import '../../data/models/lastfm_image_utils.dart';
 import '../providers/music_stats_provider.dart';
 import 'listen_along_popup.dart';
-import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/core/theme/app_radius.dart';
-import 'package:everglow/core/theme/app_spacing.dart';
-import 'package:everglow/core/theme/app_typography.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_skeleton.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 
 /// Dashboard music stats for Khent only: an all-time top-10 leaderboard
 /// followed by the five most recent scrobbles.
@@ -438,6 +438,7 @@ class _TrackArtwork extends StatelessWidget {
             ? Image.network(
                 url,
                 fit: BoxFit.cover,
+                cacheWidth: 200,
                 errorBuilder: (context, error, stack) =>
                     const _ArtworkFallback(),
               )

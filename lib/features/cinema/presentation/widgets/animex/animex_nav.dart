@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import 'package:everglow/features/cinema/data/services/animex_stores.dart';
-import 'package:everglow/services/auth_service.dart';
+import '../../../data/services/animex_stores.dart';
+import '../../../../../core/services/auth_service.dart';
 
 import 'animex_buttons.dart';
 import 'animex_controller.dart';

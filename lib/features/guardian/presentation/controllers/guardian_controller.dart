@@ -4,7 +4,7 @@ import '../../data/models/guardian_message.dart';
 import '../../data/services/guardian_service.dart';
 import '../../../heartbeat/data/services/mood_service.dart';
 import '../../../heartbeat/data/models/user_mood.dart';
-import '../../../../services/auth_service.dart';
+import '../../../../core/services/auth_service.dart';
 import '../../../ai/data/services/ai_service.dart';
 
 enum GuardianState { idle, greeting, reacting, thinking }

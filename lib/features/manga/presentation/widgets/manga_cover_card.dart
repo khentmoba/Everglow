@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
-import 'package:everglow/core/theme/app_radius.dart';
-import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/features/manga/data/models/manga_item.dart';
-import 'package:everglow/features/manga/data/services/mangadex_service.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../data/models/manga_item.dart';
+import '../../data/services/mangadex_service.dart';
+import '../../../../core/theme/app_typography.dart';
 
 /// Grid card for a manga / manhwa / manhua cover.
 /// Features: hover/press scale, shimmer loading, consistent tokens.

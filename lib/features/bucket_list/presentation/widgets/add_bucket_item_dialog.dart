@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:everglow/core/theme/app_theme.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../data/models/bucket_item.dart';
 import '../../data/services/bucket_list_service.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_typography.dart';
 
 /// Dialog for adding a new bucket list item.
 class AddBucketItemDialog extends StatefulWidget {

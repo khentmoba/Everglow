@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:everglow/core/theme/app_theme.dart';
-import 'package:everglow/core/theme/app_colors.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_error_state.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_empty_state.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_skeleton.dart';
-import 'package:everglow/shared/widgets/everglow/everglow_background.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../shared/widgets/everglow/everglow_error_state.dart';
+import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
+import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
+import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../domain/models/hidden_note.dart';
 import '../../data/services/letterbox_service.dart';
 import '../widgets/note_dialog.dart';
-import 'package:everglow/core/theme/app_typography.dart';
+import '../../../../core/theme/app_typography.dart';
 
 /// Full-screen letter archive with search and filter (locked / unread / read).
 class LetterboxArchiveScreen extends StatefulWidget {
