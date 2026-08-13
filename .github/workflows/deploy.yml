@@ -115,10 +115,15 @@ jobs:
             exit 1
           fi
           COMMIT=$(git rev-parse --short HEAD)
-          VERSION_JSON=$(curl -s -H "Cache-Control: no-cache" "https://everglow-1c6db.web.app/version.json")
-          echo "version.json: $VERSION_JSON"
-          if ! echo "$VERSION_JSON" | grep -q "$COMMIT"; then
-            echo "Deployed build does not match commit $COMMIT"
-            exit 1
-          fi
-          echo "Site is live with build $COMMIT!"
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            VERSION_JSON=$(curl -s -H "Cache-Control: no-cache" "https://everglow-1c6db.web.app/version.json")
+            echo "version.json: $VERSION_JSON"
+            if echo "$VERSION_JSON" | grep -q "$COMMIT"; then
+              echo "Site is live with build $COMMIT!"
+              exit 0
+            fi
+            echo "Build stamp not visible yet (attempt $i/10), waiting..."
+            sleep 10
+          done
+          echo "Deployed build does not match commit $COMMIT"
+          exit 1
