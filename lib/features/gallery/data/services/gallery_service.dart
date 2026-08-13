@@ -31,11 +31,12 @@ class GalleryService {
     required String fileName,
     required String caption,
     required String uploadedBy,
+    required String userId,
     List<String> tags = const [],
   }) async {
     // Upload to Firebase Storage
     final String path =
-        "gallery/$uploadedBy/${DateTime.now().millisecondsSinceEpoch}_$fileName";
+        "gallery/$userId/${DateTime.now().millisecondsSinceEpoch}_$fileName";
     final Reference ref = _storage.ref().child(path);
     final UploadTask uploadTask = ref.putData(
       imageBytes,
