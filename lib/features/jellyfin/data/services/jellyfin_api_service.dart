@@ -2,29 +2,34 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'package:everglow/core/config/env_config.dart';
 import 'package:everglow/core/utils/logger.dart';
 import 'package:everglow/features/jellyfin/data/models/jellyfin_media_item.dart';
 
 /// Read-only client for the self-hosted Jellyfin server.
 ///
-/// The app keeps the server address and API key in one place so the
-/// Watch Together tab can list the user's own library and turn any
-/// movie into a synchronized HLS party stream. Jellyfin sends
-/// permissive CORS headers on API/image/stream responses, so Flutter
-/// web can call it directly.
+/// The server address is kept here so the Watch Together tab can list
+/// the user's own library and turn any movie into a synchronized HLS
+/// party stream. The API key comes from the runtime JELLYFIN_API_KEY
+/// env setting instead of source code.
 class JellyfinApiService {
   static const String defaultBaseUrl = 'http://localhost:8096';
-  static const String defaultApiKey = 'ba779923cb68421faa03b2fb5b609286';
 
   final String baseUrl;
-  final String apiKey;
+  final String? apiKey;
 
   const JellyfinApiService({
     this.baseUrl = defaultBaseUrl,
-    this.apiKey = defaultApiKey,
+    this.apiKey,
   });
 
-  String _authQuery() => 'api_key=$apiKey';
+  /// Resolves the key from an explicit constructor value or the runtime
+  /// env setting. There is intentionally no hardcoded fallback.
+  String get _effectiveApiKey => apiKey ?? EnvConfig.jellyfinApiKey;
+
+  bool get hasConfiguredKey => _effectiveApiKey.isNotEmpty;
+
+  String _authQuery() => 'api_key=$_effectiveApiKey';
 
   /// Resolves the first (admin) user id. Jellyfin's item endpoints are
   /// user-scoped, so the app needs this before listing movies.

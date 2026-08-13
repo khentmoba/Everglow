@@ -101,11 +101,22 @@ class EnvConfig {
     return 'b2d92f0bec73e334497b7d1a601061da';
   }
 
+  static String get jellyfinApiKey {
+    const fromEnv = String.fromEnvironment('JELLYFIN_API_KEY', defaultValue: '');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    if (dotenv.isInitialized) {
+      final val = dotenv.env['JELLYFIN_API_KEY'];
+      if (val != null && val.isNotEmpty) return val;
+    }
+    return '';
+  }
+
   static bool get hasClairCreds => clairEmail.isNotEmpty && clairPassword.isNotEmpty;
   static bool get hasKhentCreds => khentEmail.isNotEmpty && khentPassword.isNotEmpty;
   static bool get hasBreyanCreds => breyanEmail.isNotEmpty && breyanPassword.isNotEmpty;
   static bool get hasOctagramCreds => octagramEmail.isNotEmpty && octagramPassword.isNotEmpty;
   static bool get hasTmdbKey => tmdbApiKey.isNotEmpty;
+  static bool get hasJellyfinKey => jellyfinApiKey.isNotEmpty;
   static String get fcmVapidKey {
     const fromEnv = String.fromEnvironment('FCM_VAPID_KEY', defaultValue: '');
     if (fromEnv.isNotEmpty) return fromEnv;
@@ -129,4 +140,3 @@ class EnvConfig {
     return missing;
   }
 }
-

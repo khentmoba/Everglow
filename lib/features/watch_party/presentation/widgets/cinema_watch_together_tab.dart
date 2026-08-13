@@ -64,6 +64,15 @@ class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
       _loadingJellyfin = true;
       _jellyfinError = null;
     });
+    if (!_jellyfin.hasConfiguredKey) {
+      setState(() {
+        _loadingJellyfin = false;
+        _jellyfinMovies = const [];
+        _jellyfinError = 'Jellyfin API key is not configured. '
+            'Add JELLYFIN_API_KEY to assets/env.txt, then refresh.';
+      });
+      return;
+    }
     final movies = await _jellyfin.fetchMovies();
     if (!mounted) return;
     setState(() {
