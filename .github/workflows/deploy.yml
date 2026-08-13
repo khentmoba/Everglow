@@ -16,6 +16,12 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Prepare local env asset
+        run: |
+          if [ ! -f assets/env.txt ]; then
+            echo "# CI placeholder - real values stay in assets/env.txt locally" > assets/env.txt
+          fi
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
