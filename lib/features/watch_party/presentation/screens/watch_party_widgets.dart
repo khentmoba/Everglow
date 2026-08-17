@@ -1,4 +1,4 @@
-part of 'watch_party_screen.dart';
+part of 'watch_party_screen_web.dart';
 
 class _CinemaPillButton extends StatelessWidget {
   final IconData icon;
@@ -220,4 +220,3 @@ class _WatchPartyCinematicLoaderState extends State<_WatchPartyCinematicLoader>
     );
   }
 }
-

@@ -1,10 +1,7 @@
 import 'dart:async';
-import 'dart:js_interop';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:web/web.dart' as web;
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -21,6 +18,7 @@ import '../../../../features/guardian/presentation/controllers/guardian_controll
 import '../../../guardian/presentation/widgets/roaming/roaming_guardian_controller.dart';
 import '../../../guardian/presentation/widgets/roaming/roaming_guardian_layer.dart';
 import '../../../guardian/presentation/widgets/roaming/roaming_cat_visual_web.dart';
+import 'dashboard_lifecycle.dart';
 import '../../../daily_bloom/presentation/widgets/daily_bloom.dart';
 import '../../../daily_bloom/presentation/providers/garden_provider.dart';
 import '../../../../core/services/auth_service.dart';
@@ -64,6 +62,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen>
     with WidgetsBindingObserver {
+  final DashboardLifecycle _lifecycle = DashboardLifecycle();
   AuthService? _authService;
   PresenceService? _presenceService;
   String? _lastHeartbeatUid;
@@ -79,7 +78,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _roamingGuardian = RoamingGuardianController();
-    if (kIsWeb) _registerUnloadHandlers();
+    _lifecycle.install(_setOfflineFromHeartbeat);
 
     Future.microtask(() {
       if (mounted) {
@@ -141,6 +140,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _lifecycle.uninstall();
     _roamingGuardian.dispose();
     _heartbeatRetryTimer?.cancel();
     final presence = _presenceService;
@@ -203,27 +203,12 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
-  void _registerUnloadHandlers() {
-    web.window.addEventListener(
-      'pagehide',
-      ((web.Event _) {
-        final uid = _lastHeartbeatUid;
-        final presence = _presenceService;
-        if (uid != null && presence != null) {
-          presence.setOffline(uid);
-        }
-      }).toJS,
-    );
-    web.window.addEventListener(
-      'beforeunload',
-      ((web.Event _) {
-        final uid = _lastHeartbeatUid;
-        final presence = _presenceService;
-        if (uid != null && presence != null) {
-          presence.setOffline(uid);
-        }
-      }).toJS,
-    );
+  void _setOfflineFromHeartbeat() {
+    final uid = _lastHeartbeatUid;
+    final presence = _presenceService;
+    if (uid != null && presence != null) {
+      presence.setOffline(uid);
+    }
   }
 
   /// Wraps a widget in a [FadeInUp] animation when [animate] is enabled.

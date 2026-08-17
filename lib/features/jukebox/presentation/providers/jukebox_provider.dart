@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../../../../core/config/env_config.dart';
 import '../../data/models/music_status.dart';
 import '../../data/services/music_sync_service.dart';
 import '../../data/services/music_persistence_service.dart';
@@ -8,8 +8,9 @@ import '../../data/services/music_persistence_service.dart';
 class JukeboxProvider extends ChangeNotifier {
   final MusicSyncService _apiService = MusicSyncService();
   final MusicPersistenceService _persistenceService = MusicPersistenceService();
-  
-  final _statusController = StreamController<Map<String, MusicStatus>>.broadcast();
+
+  final _statusController =
+      StreamController<Map<String, MusicStatus>>.broadcast();
   StreamSubscription? _firestoreSubscription;
   Timer? _pollingTimer;
 
@@ -22,13 +23,8 @@ class JukeboxProvider extends ChangeNotifier {
   }
 
   void _initProvider() {
-    String khentUser = 'khentsgdz';
-    String clairUser = 'clair';
-
-    if (dotenv.isInitialized) {
-      khentUser = dotenv.env['LASTFM_USER_KHENT'] ?? khentUser;
-      clairUser = dotenv.env['LASTFM_USER_CLAIR'] ?? clairUser;
-    }
+    final khentUser = EnvConfig.lastfmUserKhent;
+    final clairUser = EnvConfig.lastfmUserClair;
 
     // 1. Initial local state
     _currentStatus[khentUser] = MusicStatus.empty(khentUser);
@@ -36,15 +32,17 @@ class JukeboxProvider extends ChangeNotifier {
     _statusController.add(Map.from(_currentStatus));
 
     // 2. Listen to Firestore for real-time updates (Global Consistency)
-    _firestoreSubscription = _persistenceService.musicStatusStream([khentUser, clairUser]).listen((data) {
-      if (data.isNotEmpty) {
-        _currentStatus.addAll(data);
-        if (!_statusController.isClosed) {
-          _statusController.add(Map.from(_currentStatus));
-        }
-        notifyListeners();
-      }
-    });
+    _firestoreSubscription = _persistenceService
+        .musicStatusStream([khentUser, clairUser])
+        .listen((data) {
+          if (data.isNotEmpty) {
+            _currentStatus.addAll(data);
+            if (!_statusController.isClosed) {
+              _statusController.add(Map.from(_currentStatus));
+            }
+            notifyListeners();
+          }
+        });
 
     // 3. Start Polling Last.fm to keep Firestore updated
     // Poll every 30 seconds as per original spec requirements
@@ -61,7 +59,7 @@ class JukeboxProvider extends ChangeNotifier {
         await _persistenceService.saveMusicStatus(khentStatus);
       }
     }
-    
+
     if (clair.isNotEmpty) {
       final clairStatus = await _apiService.fetchRecentTrack(clair);
       if (clairStatus != null) {

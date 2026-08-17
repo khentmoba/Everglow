@@ -1,4 +1,4 @@
-part of 'video_player_screen.dart';
+part of 'video_player_screen_web.dart';
 
 class _PlayerPillButton extends StatefulWidget {
   final IconData icon;
@@ -484,11 +484,3 @@ class _CinematicLoaderState extends State<_CinematicLoader>
     );
   }
 }
-
-/// URL shape handed to the embed. The query-string form
-/// (`?episode=N`) is the modern v2 shape and is what Videasy emits
-/// by default; we keep the type around so a future fallback to
-/// path-segment (`/{id}/{ep}`) is a one-line change.
-// ignore: unused_field
-enum _UrlForm { queryString, pathSegment }
-

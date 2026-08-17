@@ -26,7 +26,8 @@ import 'episode_drawer_sections/cinema/cinema_reviews_section.dart';
 import 'episode_drawer_sections/cinema/cinema_section_header.dart';
 import 'episode_drawer_sections/cinema/cinema_similar_section.dart';
 part 'episode_drawer_widgets.dart';
-part 'episode_drawer_data.dart';
+part 'episode_drawer_state_base.dart';
+part 'episode_drawer_state_core2.dart';
 
 class EpisodeDrawer extends StatefulWidget {
   final MediaItem item;
@@ -46,8 +47,8 @@ class EpisodeDrawer extends StatefulWidget {
   State<EpisodeDrawer> createState() => _EpisodeDrawerState();
 }
 
-class _EpisodeDrawerState extends State<EpisodeDrawer>
-    with SingleTickerProviderStateMixin, _EpisodeDrawerStateData {
+class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
+
   @override
   Widget build(BuildContext context) {
     final ratingNum = _details?['vote_average'] as num?;
@@ -996,5 +997,3 @@ class _EpisodeDrawerState extends State<EpisodeDrawer>
 /// Live countdown chip that ticks every minute showing time until the next
 /// episode airs. Self-contained StatefulWidget so it can manage its own
 /// timer lifecycle without cluttering the drawer state.
-
-

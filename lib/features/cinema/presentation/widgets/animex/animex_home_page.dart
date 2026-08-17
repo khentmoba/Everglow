@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../../data/models/animex_models.dart';
 import '../../../data/models/media_item.dart';
+import '../../../data/services/animex_home_cache.dart';
 import '../../../data/services/anilist_service.dart';
 import '../../../data/services/animex_stores.dart';
 
@@ -50,13 +51,33 @@ class AnimeXHomePage extends StatefulWidget {
 
 class _AnimeXHomePageState extends State<AnimeXHomePage> {
   final AniListService _aniList = AniListService();
+  final AnimexHomeCache _cache = AnimexHomeCache.instance;
   final Map<String, _HomeRow> _rows = {};
+  bool _allFailed = false;
 
   @override
   void initState() {
     super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
     _buildSections();
-    _load();
+    final cached = await _cache.load();
+    for (final entry in cached.entries) {
+      final row = _rows[entry.key];
+      if (row == null) continue;
+      _rows[entry.key] = _HomeRow(
+        id: row.id,
+        title: row.title,
+        icon: row.icon,
+        loading: false,
+        items: entry.value,
+        isHero: row.isHero,
+      );
+    }
+    if (mounted) setState(() {});
+    await _load();
   }
 
   void _buildSections() {
@@ -100,12 +121,12 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
   }
 
   Future<void> _load() async {
-    await Future.wait([
-      _loadRow(
+    final results = await Future.wait([
+      _fetchRow(
         'trending',
         () => _aniList.fetchAnimexPage(sort: 'TRENDING_DESC', perPage: 18),
       ),
-      _loadRow(
+      _fetchRow(
         'airing',
         () => _aniList.fetchAnimexPage(
           sort: 'SCORE_DESC',
@@ -113,7 +134,7 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
           perPage: 18,
         ),
       ),
-      _loadRow(
+      _fetchRow(
         'seasonal',
         () {
           final season = _currentSeason();
@@ -125,11 +146,11 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
           );
         },
       ),
-      _loadRow(
+      _fetchRow(
         'popular',
         () => _aniList.fetchAnimexPage(sort: 'POPULARITY_DESC', perPage: 18),
       ),
-      _loadRow(
+      _fetchRow(
         'completed',
         () => _aniList.fetchAnimexPage(
           sort: 'END_DATE_DESC',
@@ -138,40 +159,111 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
         ),
       ),
     ]);
+    _allFailed = !results.contains(true);
     if (mounted) setState(() {});
   }
 
-  Future<void> _loadRow(
+  Future<bool> _fetchRow(
     String id,
     Future<AnimexMediaPage> Function() builder,
   ) async {
+    _HomeRow buildRow(List<MediaItem> items, {required bool loading}) {
+      final row = _rows[id]!;
+      return _HomeRow(
+        id: id,
+        title: row.title,
+        icon: row.icon,
+        loading: loading,
+        items: items,
+        isHero: row.isHero,
+      );
+    }
+
     try {
       final page = await builder();
-      if (!mounted) return;
-      setState(() {
-        _rows[id] = _HomeRow(
-          id: id,
-          title: _rows[id]!.title,
-          icon: _rows[id]!.icon,
-          loading: false,
-          items: page.items,
-          isHero: _rows[id]!.isHero,
-        );
-      });
+      _rows[id] = buildRow(page.items, loading: false);
+      await _cache.saveRow(id, page.items);
+      return page.items.isNotEmpty;
     } catch (e) {
       debugPrint('[AnimeXHome] row $id failed: $e');
-      if (!mounted) return;
-      setState(() {
-        _rows[id] = _HomeRow(
-          id: id,
-          title: _rows[id]!.title,
-          icon: _rows[id]!.icon,
-          loading: false,
-          items: const [],
-          isHero: _rows[id]!.isHero,
-        );
-      });
+      _rows[id] = buildRow(_rows[id]?.items ?? const [], loading: false);
+      return false;
     }
+  }
+
+  Future<void> _retryAll() async {
+    for (final row in _rows.values) {
+      _rows[row.id] = _HomeRow(
+        id: row.id,
+        title: row.title,
+        icon: row.icon,
+        loading: true,
+        items: row.items,
+        isHero: row.isHero,
+      );
+    }
+    setState(() {});
+    await _load();
+  }
+
+  Future<void> _retryRow(String id) async {
+    final row = _rows[id];
+    if (row == null) return;
+    setState(() {
+      _rows[id] = _HomeRow(
+        id: row.id,
+        title: row.title,
+        icon: row.icon,
+        loading: true,
+        items: const [],
+        isHero: row.isHero,
+      );
+    });
+    switch (id) {
+      case 'trending':
+        await _fetchRow(
+          id,
+          () => _aniList.fetchAnimexPage(sort: 'TRENDING_DESC', perPage: 18),
+        );
+      case 'airing':
+        await _fetchRow(
+          id,
+          () => _aniList.fetchAnimexPage(
+            sort: 'SCORE_DESC',
+            status: 'RELEASING',
+            perPage: 18,
+          ),
+        );
+      case 'seasonal':
+        final season = _currentSeason();
+        await _fetchRow(
+          id,
+          () => _aniList.fetchAnimexPage(
+            season: season.$1,
+            seasonYear: season.$2,
+            sort: 'POPULARITY_DESC',
+            perPage: 18,
+          ),
+        );
+      case 'popular':
+        await _fetchRow(
+          id,
+          () => _aniList.fetchAnimexPage(
+            sort: 'POPULARITY_DESC',
+            perPage: 18,
+          ),
+        );
+      case 'completed':
+        await _fetchRow(
+          id,
+          () => _aniList.fetchAnimexPage(
+            sort: 'END_DATE_DESC',
+            status: 'FINISHED',
+            perPage: 18,
+          ),
+        );
+    }
+    if (mounted) setState(() {});
   }
 
   @override
@@ -200,6 +292,10 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
           items: airing.items.take(14).toList(),
           onTap: (item) => widget.controller.openWatch(item),
         ),
+        if (_allFailed) ...[
+          const SizedBox(height: 20),
+          _buildOfflineBanner(),
+        ],
         const SizedBox(height: 40),
         for (final row in [
           _rows['trending']!,
@@ -220,7 +316,58 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
     );
   }
 
+  Widget _buildOfflineBanner() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        decoration: BoxDecoration(
+          color: AnimeXTokens.accent.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(AnimeXTokens.radiusLg),
+          border: Border.all(
+            color: AnimeXTokens.accent.withValues(alpha: 0.28),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.sync_problem_rounded,
+              color: AnimeXTokens.accent,
+              size: 18,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Anime feeds are temporarily unavailable',
+                style: dmSansStyle(
+                  size: 13,
+                  color: AnimeXTokens.textPrimary,
+                  weight: FontWeight.w600,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: _retryAll,
+              style: TextButton.styleFrom(
+                foregroundColor: AnimeXTokens.accent,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                minimumSize: const Size(0, 34),
+                textStyle: dmSansStyle(
+                  size: 12.5,
+                  color: AnimeXTokens.accent,
+                  weight: FontWeight.w700,
+                ),
+              ),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildRowSection(BuildContext context, _HomeRow row) {
+    final empty = !row.loading && row.items.isEmpty;
     return Padding(
       padding: const EdgeInsets.only(bottom: 40),
       child: Column(
@@ -236,14 +383,63 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
           ),
           if (row.loading)
             const AnimeXSkeletonRow(count: 8)
-          else if (row.items.isEmpty)
-            const SizedBox.shrink()
+          else if (empty)
+            _buildEmptyRow(context, row)
           else
             AnimeXPosterRow(
               items: row.items,
               onTap: (item) => widget.controller.openWatch(item),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyRow(BuildContext context, _HomeRow row) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        decoration: BoxDecoration(
+          color: AnimeXTokens.surfaceRaised,
+          borderRadius: BorderRadius.circular(AnimeXTokens.radiusLg),
+          border: Border.all(
+            color: AnimeXTokens.textSecondary.withValues(alpha: 0.18),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.cloud_off_rounded,
+              color: AnimeXTokens.textSecondary,
+              size: 18,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Couldn\'t load ${row.title.toLowerCase()}',
+                style: dmSansStyle(
+                  size: 13,
+                  color: AnimeXTokens.textSecondary,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => _retryRow(row.id),
+              style: TextButton.styleFrom(
+                foregroundColor: AnimeXTokens.accent,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                minimumSize: const Size(0, 34),
+                textStyle: dmSansStyle(
+                  size: 12.5,
+                  color: AnimeXTokens.accent,
+                  weight: FontWeight.w700,
+                ),
+              ),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
       ),
     );
   }

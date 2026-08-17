@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../../../../core/config/env_config.dart';
 import '../providers/jukebox_provider.dart';
 import 'music_card.dart';
 import '../../data/models/music_status.dart';
@@ -44,13 +44,8 @@ class _JukeboxWidgetState extends State<JukeboxWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Primary from env, fallback to hardcoded
-    final khentUser =
-        (dotenv.isInitialized ? dotenv.env['LASTFM_USER_KHENT'] : null) ??
-        'khentsgdz';
-    final clairUser =
-        (dotenv.isInitialized ? dotenv.env['LASTFM_USER_CLAIR'] : null) ??
-        'clair';
+    final khentUser = EnvConfig.lastfmUserKhent;
+    final clairUser = EnvConfig.lastfmUserClair;
 
     return StreamBuilder<Map<String, MusicStatus>>(
       stream: context.read<JukeboxProvider>().statusStream,

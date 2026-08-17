@@ -34,7 +34,9 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
   static final Map<String, String?> _trailerCache = {};
   static final Map<String, Map<String, dynamic>> _detailCache = {};
 
-  final TMDBService _tmdbService = TMDBService();
+  TMDBService? _tmdbService;
+
+  TMDBService get _service => _tmdbService ??= TMDBService();
   int _index = 0;
   Timer? _timer;
   bool _muted = true;
@@ -52,7 +54,9 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
   void initState() {
     super.initState();
     _startCycle();
-    _loadFor(_index);
+    if (widget.items.isNotEmpty) {
+      _loadFor(_index);
+    }
   }
 
   @override
@@ -86,6 +90,7 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
   }
 
   Future<void> _loadFor(int index) {
+    if (index < 0 || index >= widget.items.length) return Future.value();
     final item = widget.items[index];
     final key = '${item.tmdbId}:${item.mediaType}';
     if (_trailerCache.containsKey(key) && _detailCache.containsKey(key)) {
@@ -103,7 +108,7 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
   Future<void> _ensureTrailer(MediaItem item, String key) async {
     if (_trailerCache.containsKey(key)) return;
     try {
-      final k = await _tmdbService.fetchTrailerKey(item.tmdbId, item.mediaType);
+      final k = await _service.fetchTrailerKey(item.tmdbId, item.mediaType);
       _trailerCache[key] = k;
     } catch (_) {
       _trailerCache[key] = null;
@@ -113,7 +118,7 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
   Future<void> _ensureDetails(MediaItem item, String key) async {
     if (_detailCache.containsKey(key)) return;
     try {
-      final details = await _tmdbService.fetchMediaDetails(
+      final details = await _service.fetchMediaDetails(
         item.tmdbId,
         item.mediaType,
       );

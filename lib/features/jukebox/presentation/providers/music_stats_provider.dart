@@ -1,31 +1,32 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../../../../core/config/env_config.dart';
 import '../../data/models/music_status.dart';
 import '../../data/models/top_music_track.dart';
 import '../../data/services/music_sync_service.dart';
 
-/// Khent-only music statistics for the dashboard.
+/// Last.fm music statistics for both people in the couple.
 ///
-/// Exposes Khent's all-time top 10 tracks and 5 most recent scrobbles.
-/// Clair is intentionally not tracked here yet, per product decision.
+/// Exposes each user's all-time top 10 tracks and 5 most recent scrobbles.
 class MusicStatsProvider extends ChangeNotifier {
   MusicStatsProvider({MusicSyncService? syncService})
-      : _syncService = syncService ?? MusicSyncService() {
-    _khentUser =
-        (dotenv.isInitialized ? dotenv.env['LASTFM_USER_KHENT'] : null) ??
-        'khentsgdz';
+    : _syncService = syncService ?? MusicSyncService() {
+    _khentUser = EnvConfig.lastfmUserKhent;
+    _clairUser = EnvConfig.lastfmUserClair;
     _init();
   }
 
   final MusicSyncService _syncService;
   late final String _khentUser;
+  late final String _clairUser;
 
   static const int _topTracksLimit = 10;
   static const int _recentTracksLimit = 5;
 
   final List<TopMusicTrack> _topTracks = [];
   final List<MusicStatus> _recentTracks = [];
+  final List<TopMusicTrack> _clairTopTracks = [];
+  final List<MusicStatus> _clairRecentTracks = [];
   final Map<String, String?> _artworkCache = {};
   bool _isLoading = true;
   bool _disposed = false;
@@ -35,19 +36,34 @@ class MusicStatsProvider extends ChangeNotifier {
 
   List<TopMusicTrack> get topTracks => List.unmodifiable(_topTracks);
   List<MusicStatus> get recentTracks => List.unmodifiable(_recentTracks);
+  List<TopMusicTrack> get clairTopTracks => List.unmodifiable(_clairTopTracks);
+  List<MusicStatus> get clairRecentTracks =>
+      List.unmodifiable(_clairRecentTracks);
   String get username => _khentUser;
+  String get clairUsername => _clairUser;
   bool get isLoading => _isLoading;
-  bool get hasData => _topTracks.isNotEmpty || _recentTracks.isNotEmpty;
+  bool get hasData =>
+      _topTracks.isNotEmpty ||
+      _recentTracks.isNotEmpty ||
+      _clairTopTracks.isNotEmpty ||
+      _clairRecentTracks.isNotEmpty;
 
   Future<void> _init() async {
-    await Future.wait([_refreshTopTracks(), _refreshRecentTracks()]);
+    await Future.wait([
+      _refreshTopTracks(_khentUser, _topTracks),
+      _refreshRecentTracks(_khentUser, _recentTracks),
+      _refreshTopTracks(_clairUser, _clairTopTracks),
+      _refreshRecentTracks(_clairUser, _clairRecentTracks),
+    ]);
     _isLoading = false;
     _safeNotify();
 
     // Last.fm returns its default placeholder image for tracks without
     // artwork, so fill in real album covers in the background.
-    unawaited(_enrichTopTrackArtwork());
-    unawaited(_enrichRecentTrackArtwork());
+    unawaited(_enrichTopTrackArtwork(_topTracks));
+    unawaited(_enrichRecentTrackArtwork(_recentTracks));
+    unawaited(_enrichTopTrackArtwork(_clairTopTracks));
+    unawaited(_enrichRecentTrackArtwork(_clairRecentTracks));
 
     // Recent scrobbles refresh frequently so a fresh listen shows up
     // quickly; the all-time leaderboard barely changes, so it is polled
@@ -63,34 +79,52 @@ class MusicStatsProvider extends ChangeNotifier {
   }
 
   Future<void> _periodicRecentRefresh() async {
-    await _refreshRecentTracks();
-    await _enrichRecentTrackArtwork();
+    await Future.wait([
+      _refreshRecentTracks(_khentUser, _recentTracks),
+      _refreshRecentTracks(_clairUser, _clairRecentTracks),
+    ]);
+    await Future.wait([
+      _enrichRecentTrackArtwork(_recentTracks),
+      _enrichRecentTrackArtwork(_clairRecentTracks),
+    ]);
   }
 
   Future<void> _periodicTopRefresh() async {
-    await _refreshTopTracks();
-    await _enrichTopTrackArtwork();
+    await Future.wait([
+      _refreshTopTracks(_khentUser, _topTracks),
+      _refreshTopTracks(_clairUser, _clairTopTracks),
+    ]);
+    await Future.wait([
+      _enrichTopTrackArtwork(_topTracks),
+      _enrichTopTrackArtwork(_clairTopTracks),
+    ]);
   }
 
-  Future<void> _refreshTopTracks() async {
+  Future<void> _refreshTopTracks(
+    String username,
+    List<TopMusicTrack> destination,
+  ) async {
     final tracks = await _syncService.fetchTopTracks(
-      _khentUser,
+      username,
       limit: _topTracksLimit,
     );
     if (_disposed) return;
-    _topTracks
+    destination
       ..clear()
       ..addAll(tracks);
     _safeNotify();
   }
 
-  Future<void> _refreshRecentTracks() async {
+  Future<void> _refreshRecentTracks(
+    String username,
+    List<MusicStatus> destination,
+  ) async {
     final tracks = await _syncService.fetchRecentTracks(
-      _khentUser,
+      username,
       limit: _recentTracksLimit,
     );
     if (_disposed) return;
-    _recentTracks
+    destination
       ..clear()
       ..addAll(tracks);
     _safeNotify();
@@ -99,10 +133,10 @@ class MusicStatsProvider extends ChangeNotifier {
   /// Replaces missing (or placeholder) top-track artwork with the track's
   /// real album art from `track.getinfo`. Runs in the background so the
   /// leaderboard renders immediately.
-  Future<void> _enrichTopTrackArtwork() async {
+  Future<void> _enrichTopTrackArtwork(List<TopMusicTrack> tracks) async {
     var changed = false;
-    for (var i = 0; i < _topTracks.length; i++) {
-      final track = _topTracks[i];
+    for (var i = 0; i < tracks.length; i++) {
+      final track = tracks[i];
       if (track.imageUrl != null) continue;
       final artwork = await _artworkFor(
         track.artistName,
@@ -110,9 +144,9 @@ class MusicStatsProvider extends ChangeNotifier {
         mbid: track.mbid,
       );
       if (_disposed || artwork == null) continue;
-      if (!identical(_topTracks[i], track)) continue;
-      if (_topTracks[i].imageUrl == artwork) continue;
-      _topTracks[i] = TopMusicTrack(
+      if (!identical(tracks[i], track)) continue;
+      if (tracks[i].imageUrl == artwork) continue;
+      tracks[i] = TopMusicTrack(
         rank: track.rank,
         trackName: track.trackName,
         artistName: track.artistName,
@@ -127,16 +161,16 @@ class MusicStatsProvider extends ChangeNotifier {
   }
 
   /// Same enrichment as [_enrichTopTrackArtwork] but for recent scrobbles.
-  Future<void> _enrichRecentTrackArtwork() async {
+  Future<void> _enrichRecentTrackArtwork(List<MusicStatus> tracks) async {
     var changed = false;
-    for (var i = 0; i < _recentTracks.length; i++) {
-      final status = _recentTracks[i];
+    for (var i = 0; i < tracks.length; i++) {
+      final status = tracks[i];
       if (status.imageUrl != null) continue;
       final artwork = await _artworkFor(status.artistName, status.trackName);
       if (_disposed || artwork == null) continue;
-      if (!identical(_recentTracks[i], status)) continue;
-      if (_recentTracks[i].imageUrl == artwork) continue;
-      _recentTracks[i] = MusicStatus(
+      if (!identical(tracks[i], status)) continue;
+      if (tracks[i].imageUrl == artwork) continue;
+      tracks[i] = MusicStatus(
         username: status.username,
         trackName: status.trackName,
         artistName: status.artistName,

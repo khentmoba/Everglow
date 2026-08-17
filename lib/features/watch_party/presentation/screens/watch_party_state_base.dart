@@ -1,6 +1,7 @@
-part of 'watch_party_screen.dart';
+part of 'watch_party_screen_web.dart';
 
-mixin _WatchPartyScreenStateData on State<WatchPartyScreen> {
+abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
+    with TickerProviderStateMixin {
   late final WatchPartyService _service;
   late final AuthService _auth;
   late WatchPartyRoom _room;
@@ -157,6 +158,9 @@ mixin _WatchPartyScreenStateData on State<WatchPartyScreen> {
   /// list internally on iframe error.
   List<VideoSourceConfig> get _providers => _sourceService.providers;
 
+}
+
+abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
   @override
   void initState() {
     super.initState();
@@ -201,7 +205,7 @@ mixin _WatchPartyScreenStateData on State<WatchPartyScreen> {
           _isLoading = true;
         });
         _loadTimer?.cancel();
-        _loadTimer = Timer(_loadTimeout, () {
+        _loadTimer = Timer(_WatchPartyScreenStateBase._loadTimeout, () {
           if (!mounted) return;
           if (_isLoading) _onIframeLoadError();
         });
@@ -280,7 +284,7 @@ mixin _WatchPartyScreenStateData on State<WatchPartyScreen> {
     web.window.addEventListener('message', _messageListener);
 
     if (_usesIframe) {
-      _loadTimer = Timer(_loadTimeout, () {
+      _loadTimer = Timer(_WatchPartyScreenStateBase._loadTimeout, () {
         if (!mounted) return;
         if (_isLoading) _onIframeLoadError();
       });
@@ -438,7 +442,7 @@ mixin _WatchPartyScreenStateData on State<WatchPartyScreen> {
 
   void _startHeartbeat() {
     _heartbeatTimer?.cancel();
-    _heartbeatTimer = Timer.periodic(_heartbeatInterval, (_) async {
+    _heartbeatTimer = Timer.periodic(_WatchPartyScreenStateBase._heartbeatInterval, (_) async {
       if (!mounted) return;
       final t = _estimatedLocalTime();
       final s = _hostExplicitlyPaused ? 'paused' : 'playing';
@@ -574,7 +578,7 @@ mixin _WatchPartyScreenStateData on State<WatchPartyScreen> {
     }
 
     final drift = (incoming.currentTime - _estimatedLocalTime()).abs();
-    if (drift > _resyncThresholdSeconds) {
+    if (drift > _WatchPartyScreenStateBase._resyncThresholdSeconds) {
       if (_isHlsServer && _hlsController.isAttached) {
         _hlsController.seek(incoming.currentTime);
       } else {
@@ -652,7 +656,7 @@ mixin _WatchPartyScreenStateData on State<WatchPartyScreen> {
         _isLoading = true;
         _iframeFailed = false;
       });
-      _loadTimer = Timer(_loadTimeout, () {
+      _loadTimer = Timer(_WatchPartyScreenStateBase._loadTimeout, () {
         if (!mounted) return;
         if (_isLoading) _onIframeLoadError();
       });
@@ -665,12 +669,12 @@ mixin _WatchPartyScreenStateData on State<WatchPartyScreen> {
   /// Starts the content availability check timer. Only applies to
   /// VidLink, which sends a `MEDIA_DATA` or `PLAYER_EVENT` postMessage
   /// when content is actually playable. If the event doesn't arrive
-  /// within [_contentCheckTimeout], the embed likely showed "content not
+  /// within [_WatchPartyScreenStateBase._contentCheckTimeout], the embed likely showed "content not
   /// available" and we fall back to the next provider.
   void _startContentCheck() {
     if (_selectedProvider.id != 'vidlink') return;
     _contentCheckTimer?.cancel();
-    _contentCheckTimer = Timer(_contentCheckTimeout, () {
+    _contentCheckTimer = Timer(_WatchPartyScreenStateBase._contentCheckTimeout, () {
       if (!mounted) return;
       _onIframeLoadError();
     });
@@ -900,95 +904,6 @@ mixin _WatchPartyScreenStateData on State<WatchPartyScreen> {
     _anchorTime = incoming.currentTime;
   }
 
-  Future<void> _showServerPicker() async {
-    final serverService = WatchPartyServerService();
-    final current = _room.streamUrl == null
-        ? null
-        : WatchPartyServer.fromRoom(
-            serverType: _room.serverType ?? 'embed',
-            serverName: _room.serverName ?? 'Server',
-            serverHost: _room.serverHost ?? 'custom',
-            streamUrl: _room.streamUrl ?? '',
-            subtitleUrl: _room.subtitleUrl,
-            proxyEnabled: _room.proxyEnabled,
-          );
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => ServerPickerSheet(
-        servers: serverService.servers,
-        selected: current,
-        onSelect: _applyServer,
-      ),
-    );
-  }
-
-  Future<void> _applyServer(WatchPartyServer? server) async {
-    final roomId = _room.id;
-    final uid = _myUid;
-    if (server == null) {
-      await _service.clearServer(roomId: roomId, updatedBy: uid);
-      if (!mounted) return;
-      setState(() {
-        _room = _room
-            .copyWith(state: 'paused', currentTime: 0.0)
-            .copyWithServer();
-        _hostExplicitlyPaused = true;
-        _hlsReady = false;
-        _hlsFailed = false;
-        _hlsError = null;
-      });
-      return;
-    }
-    await _service.updateServer(
-      roomId: roomId,
-      serverType: server.type,
-      serverName: server.name,
-      serverHost: server.host,
-      streamUrl: server.streamUrl,
-      subtitleUrl: server.subtitleUrl,
-      proxyEnabled: server.proxyEnabled,
-      updatedBy: uid,
-    );
-    if (!mounted) return;
-    setState(() {
-      _room = _room
-          .copyWith(state: 'paused', currentTime: 0.0)
-          .copyWithServer(
-            serverType: server.type,
-            serverName: server.name,
-            serverHost: server.host,
-            streamUrl: server.streamUrl,
-            subtitleUrl: server.subtitleUrl,
-            proxyEnabled: server.proxyEnabled,
-          );
-      _hostExplicitlyPaused = true;
-      _hlsReady = false;
-      _hlsFailed = false;
-      _hlsError = null;
-    });
-    if (server.isHls) {
-      _reloadHlsAt(0);
-    } else if (_usesIframe) {
-      _iframe.src = server.streamUrl;
-    }
-  }
-
-  Future<void> _endParty() async {
-    if (_showEndDialog) return;
-    final completer = Completer<bool>();
-    setState(() {
-      _showEndDialog = true;
-      _endDialogCallback = completer.complete;
-    });
-    final result = await completer.future;
-    if (result != true) return;
-    await _service.endRoom(_room.id);
-    await _voiceChat.endCall();
-    if (mounted) Navigator.of(context).pop();
-  }
-
   void _showEndedAndPop() {
     if (!mounted) return;
     unawaited(_voiceChat.endCall());
@@ -1005,36 +920,5 @@ mixin _WatchPartyScreenStateData on State<WatchPartyScreen> {
     );
     Navigator.of(context).pop();
   }
-
-  // ─── Build ────────────────────────────────────────────────────────
-
-
-  void _selectProvider(VideoSourceConfig provider) {
-    if (provider.id == _selectedProvider.id) return;
-    _loadTimer?.cancel();
-    _contentCheckTimer?.cancel();
-    _failedProviderIds.clear();
-    setState(() {
-      _selectedProvider = provider;
-      _isLoading = true;
-      _iframeFailed = false;
-    });
-    _loadTimer = Timer(_loadTimeout, () {
-      if (!mounted) return;
-      if (_isLoading) _onIframeLoadError();
-    });
-    _iframe.src = _buildPlayerUrl(provider, startSeconds: _localStartHint());
-  }
-
-  String _formatT(double seconds) {
-    final d = Duration(milliseconds: (seconds * 1000).round());
-    final h = d.inHours;
-    final m = d.inMinutes.remainder(60);
-    final s = d.inSeconds.remainder(60);
-    if (h > 0) {
-      return '$h:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
-    }
-    return '$m:${s.toString().padLeft(2, '0')}';
-  }
-
 }
+

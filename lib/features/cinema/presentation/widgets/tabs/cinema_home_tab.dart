@@ -130,7 +130,9 @@ class CinemaHomeTab extends StatelessWidget {
     required List<MediaItem> items,
     bool ranked = false,
   }) {
-    if (items.isEmpty) return const SizedBox.shrink();
+    if (items.isEmpty) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
     return SliverToBoxAdapter(
       child: NetflixRow(
         title: title,
