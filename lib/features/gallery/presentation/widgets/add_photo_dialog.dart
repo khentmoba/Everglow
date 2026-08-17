@@ -1,9 +1,9 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:image_picker_web/image_picker_web.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/services/auth_service.dart';
 import 'package:provider/provider.dart';
+import '../../../../shared/utils/pick_image_bytes.dart';
 import '../../data/services/gallery_service.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -23,15 +23,15 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
   bool _isSubmitEnabled = false;
 
   Future<void> _pickImage() async {
-    final info = await ImagePickerWeb.getImageInfo;
-    if (info != null && info.data != null && mounted) {
+    final picked = await pickImageBytes();
+    if (picked != null && mounted) {
       // Guess extension from file name, fallback to jpg
       String ext = 'jpg';
-      if (info.fileName != null && info.fileName!.contains('.')) {
-        ext = info.fileName!.split('.').last.toLowerCase();
+      if (picked.fileName != null && picked.fileName!.contains('.')) {
+        ext = picked.fileName!.split('.').last.toLowerCase();
       }
       setState(() {
-        _imageBytes = info.data;
+        _imageBytes = picked.bytes;
         _fileName = 'photo_${DateTime.now().millisecondsSinceEpoch}.$ext';
         _validateInput();
       });

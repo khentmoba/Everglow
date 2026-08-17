@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_motion.dart';
@@ -43,6 +44,8 @@ class _AnimatedDoorState extends State<AnimatedDoor>
   late final Animation<double> _swing;
   late final Animation<double> _handle;
   late final Animation<double> _zoom;
+  Timer? _entranceFallbackTimer;
+  bool _entranceCompleted = false;
 
   @override
   void initState() {
@@ -85,11 +88,21 @@ class _AnimatedDoorState extends State<AnimatedDoor>
       curve: AppMotion.orLinear(Curves.easeInQuint),
     );
 
-    _entranceController.forward().then((_) {
-      if (mounted && widget.onEntranceComplete != null) {
-        widget.onEntranceComplete!();
-      }
-    });
+    _entranceController.forward().then((_) => _completeEntrance());
+    // Some Android emulators/vendors never deliver the animation ticker
+    // future reliably. Fall back so the keypad always appears.
+    _entranceFallbackTimer = Timer(
+      const Duration(milliseconds: 1800),
+      _completeEntrance,
+    );
+  }
+
+  void _completeEntrance() {
+    if (_entranceCompleted) return;
+    _entranceCompleted = true;
+    if (mounted && widget.onEntranceComplete != null) {
+      widget.onEntranceComplete!();
+    }
   }
 
   @override
@@ -111,6 +124,7 @@ class _AnimatedDoorState extends State<AnimatedDoor>
 
   @override
   void dispose() {
+    _entranceFallbackTimer?.cancel();
     _entranceController.dispose();
     _swingController.dispose();
     _handleController.dispose();

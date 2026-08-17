@@ -453,6 +453,296 @@ class _WatchTogetherStage extends StatelessWidget {
   }
 }
 
+class _JellyfinSearchDialog extends StatefulWidget {
+  final JellyfinApiService service;
+
+  const _JellyfinSearchDialog({required this.service});
+
+  @override
+  State<_JellyfinSearchDialog> createState() => _JellyfinSearchDialogState();
+}
+
+class _JellyfinSearchDialogState extends State<_JellyfinSearchDialog> {
+  final TextEditingController _query = TextEditingController();
+  List<JellyfinMediaItem> _results = const [];
+  bool _searching = false;
+  bool _searched = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  Future<void> _runSearch([String? value]) async {
+    final text = (value ?? _query.text).trim();
+    if (text.isEmpty) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _searching = true;
+      _searched = true;
+      _error = null;
+    });
+    final results = await widget.service.searchMovies(text);
+    if (!mounted) return;
+    setState(() {
+      _searching = false;
+      _results = results ?? const [];
+      if (results == null) {
+        _error = 'Could not reach Jellyfin. Make sure the server is running '
+            'and the API key is valid.';
+      } else if (results.isEmpty) {
+        _error = 'No movies found in the library for "$text".';
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dialogHeight =
+        (MediaQuery.sizeOf(context).height * 0.8).clamp(320.0, 440.0);
+    return Dialog(
+      backgroundColor: NetflixColors.surface,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: SizedBox(
+        width: 540,
+        height: dialogHeight.toDouble(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 8, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Search your directory',
+                      style: AppTypography.outfitHeading.copyWith(
+                        fontSize: 16,
+                        color: NetflixColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: NetflixColors.textMuted,
+                    ),
+                    tooltip: 'Close',
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
+              child: TextField(
+                controller: _query,
+                autofocus: true,
+                textInputAction: TextInputAction.search,
+                onSubmitted: _runSearch,
+                style: AppTypography.outfitWhite.copyWith(fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'Search Jellyfin movies by title or file name',
+                  hintStyle: AppTypography.outfitWhite.copyWith(
+                    fontSize: 13,
+                    color: NetflixColors.textMuted,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    color: NetflixColors.accent,
+                  ),
+                  suffixIcon: _searching
+                      ? const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: NetflixColors.accent,
+                            ),
+                          ),
+                        )
+                      : IconButton(
+                          onPressed: _runSearch,
+                          icon: const Icon(
+                            Icons.arrow_forward_rounded,
+                            color: NetflixColors.accent,
+                          ),
+                          tooltip: 'Search',
+                        ),
+                  filled: true,
+                  fillColor: NetflixColors.surface.withValues(alpha: 0.6),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: NetflixColors.hairline.withValues(alpha: 0.8),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: NetflixColors.hairline.withValues(alpha: 0.8),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: NetflixColors.accent),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: _buildBody(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_searching) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: NetflixColors.accent,
+          strokeWidth: 2,
+        ),
+      );
+    }
+    if (_error != null) {
+      return _buildMessage(_error!, Icons.search_off_rounded);
+    }
+    if (!_searched) {
+      return _buildMessage(
+        'Search the movies Jellyfin has indexed from your library folders.',
+        Icons.folder_open_rounded,
+      );
+    }
+    if (_results.isEmpty) {
+      return _buildMessage(
+        'Nothing found yet. Try another title.',
+        Icons.movie_filter_rounded,
+      );
+    }
+    return ListView.separated(
+      itemCount: _results.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final movie = _results[index];
+        final year = movie.year;
+        final runtime = movie.runtimeMinutes;
+        return GestureDetector(
+          onTap: () => Navigator.of(context).pop(movie),
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: NetflixColors.surface.withValues(alpha: 0.65),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: NetflixColors.hairline),
+            ),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: Image.network(
+                    widget.service.posterUrlFor(
+                      movie.id,
+                      tag: movie.imageTag,
+                    ),
+                    width: 48,
+                    height: 68,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Container(
+                      width: 48,
+                      height: 68,
+                      color: NetflixColors.surface,
+                      child: const Icon(
+                        Icons.movie_rounded,
+                        color: NetflixColors.textMuted,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        movie.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.outfitBold.copyWith(
+                          fontSize: 13,
+                          height: 1.25,
+                          color: NetflixColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        [
+                          if (year != null && year.isNotEmpty) year,
+                          if (runtime > 0) '${runtime}m',
+                        ].join(' · '),
+                        style: AppTypography.outfitWhite.copyWith(
+                          fontSize: 11,
+                          color: NetflixColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.play_circle_fill_rounded,
+                  color: NetflixColors.accent,
+                  size: 28,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMessage(String message, IconData icon) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: NetflixColors.textMuted, size: 34),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              style: AppTypography.outfitWhite.copyWith(
+                fontSize: 12.5,
+                height: 1.4,
+                color: NetflixColors.textMuted,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _JellyfinMovieCard extends StatelessWidget {
   final JellyfinMediaItem movie;
   final String posterUrl;
@@ -551,4 +841,3 @@ class _JellyfinMovieCard extends StatelessWidget {
     );
   }
 }
-

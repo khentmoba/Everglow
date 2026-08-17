@@ -1,15 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:js_interop';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
-import 'package:web/web.dart' as web;
 
 import '../models/watch_party_room.dart';
+import 'beforeunload_helper.dart';
 import 'incoming_call_validator.dart';
 
 enum VoiceChatState { idle, calling, connected, ended }
@@ -79,8 +78,8 @@ class VoiceChatService {
   StreamSubscription<DocumentSnapshot>? _incomingSignalSub;
 
   /// Hook for the host's beforeunload cleanup. Held so dispose()
-  /// can detach it cleanly. Web only.
-  web.EventListener? _beforeUnloadListener;
+  /// can detach it cleanly. Web only; native is a no-op.
+  final BeforeUnloadHelper _beforeUnload = BeforeUnloadHelper();
 
   final ValueNotifier<VoiceChatState> state =
       ValueNotifier(VoiceChatState.idle);
@@ -665,9 +664,8 @@ class VoiceChatService {
   // ─────────────────────────────────────────────────────────────────
 
   void _installBeforeUnload() {
-    if (!kIsWeb) return;
     _uninstallBeforeUnload();
-    final listener = ((web.Event _) {
+    _beforeUnload.install(() {
       // Best-effort write. We can't await inside the listener.
       if (_roomId != null && state.value != VoiceChatState.ended) {
         _db.collection(_collection).doc(_roomId).update({
@@ -687,19 +685,10 @@ class VoiceChatService {
           }
         }
       }
-    }).toJS;
-    web.window.addEventListener('beforeunload', listener);
-    _beforeUnloadListener = listener;
+    });
   }
 
   void _uninstallBeforeUnload() {
-    if (!kIsWeb) return;
-    if (_beforeUnloadListener == null) return;
-    try {
-      web.window.removeEventListener('beforeunload', _beforeUnloadListener);
-    } catch (e) {
-      debugPrint('[VoiceChatService] Failed to remove beforeunload listener: $e');
-    }
-    _beforeUnloadListener = null;
+    _beforeUnload.uninstall();
   }
 }

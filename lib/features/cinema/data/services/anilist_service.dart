@@ -7,6 +7,8 @@ import '../models/anilist_detail.dart';
 import '../models/animex_models.dart';
 import '../models/media_item.dart';
 import './jikan_service.dart';
+import './tmdb/tmdb_discovery_service.dart';
+import './tmdb/tmdb_search_service.dart';
 
 /// GraphQL client for AniList (https://anilist.co).
 ///
@@ -62,6 +64,10 @@ class AniListService with ConnectivityAware {
           final body = json.decode(response.body) as Map<String, dynamic>;
           if (body['errors'] != null) {
             Logger.e('AniList GraphQL errors: ${body['errors']}');
+            // A GraphQL error payload (e.g. AniList's temporary 403
+            // "API disabled" response) has no usable `data`, so treat
+            // it like a failed request and let callers fall back.
+            return null;
           }
           return body['data'] as Map<String, dynamic>?;
         }
@@ -563,6 +569,18 @@ class AniListService with ConnectivityAware {
     final data = await _postGraphQL(_animexPageQuery, variables);
     final pageData = data?['Page'] as Map<String, dynamic>?;
     if (pageData == null) {
+      final fallback = await _fallbackAnimexPage(
+        search: search,
+        sort: sort,
+        status: status,
+        season: season,
+        seasonYear: seasonYear,
+        format: format,
+        genre: genre,
+        page: page,
+        perPage: perPage,
+      );
+      if (fallback != null) return fallback;
       return const AnimexMediaPage(
         items: [],
         scores: [],
@@ -588,6 +606,129 @@ class AniListService with ConnectivityAware {
       lastPage: (pageInfo?['lastPage'] as num?)?.toInt(),
       hasNextPage: pageInfo?['hasNextPage'] == true,
     );
+  }
+
+  /// Best-effort replacement for AniList page queries when the GraphQL
+  /// endpoint is down or rate-limited. Jikan is the closest match for
+  /// anime lists; TMDB's anime discovery is a second fallback when no
+  /// key is present for Jikan or the query shape doesn't translate.
+  Future<AnimexMediaPage?> _fallbackAnimexPage({
+    String? search,
+    String? sort,
+    String? status,
+    String? season,
+    int? seasonYear,
+    String? format,
+    String? genre,
+    int page = 1,
+    int perPage = 24,
+  }) async {
+    final jikan = JikanService();
+    List<MediaItem>? items;
+
+    if (search != null && search.trim().isNotEmpty) {
+      items = await jikan.searchAnime(search, page: page, limit: perPage);
+    } else if (season != null && seasonYear != null) {
+      items = await jikan.fetchSeason(
+        year: seasonYear,
+        season: season.toLowerCase(),
+        page: page,
+        limit: perPage,
+      );
+    } else if (status == 'RELEASING') {
+      items = await jikan.fetchTopAiring(page: page, limit: perPage);
+    } else if (sort == 'SCORE_DESC') {
+      items = await jikan.fetchTopAnime(
+        type: 'tv',
+        page: page,
+        limit: perPage,
+      );
+    } else {
+      items = await jikan.fetchTopAnime(
+        type: 'tv',
+        filter: 'bypopularity',
+        page: page,
+        limit: perPage,
+      );
+    }
+
+    if (genre != null && genre.trim().isNotEmpty) {
+      final genreIds = _jikanGenreIds(genre);
+      if (genreIds.isNotEmpty) {
+        final byGenre = await jikan.fetchByGenres(
+          genreIds,
+          page: page,
+          limit: perPage,
+        );
+        if (byGenre.isNotEmpty) items = byGenre;
+      }
+    }
+    if (format == 'MOVIE' && items.isNotEmpty) {
+      items = items.where((i) => i.mediaType == 'movie').toList();
+    }
+
+    if (items.isNotEmpty) {
+      Logger.w('[AnimeX] AniList unavailable; showing Jikan fallback');
+      return _pageFromItems(items, page: page);
+    }
+
+    // TMDB's anime discovery is a coarse but independent third source.
+    // The API key is optional in dev builds, so skip when it's absent.
+    if (search != null && search.trim().isNotEmpty) {
+      items = await TMDBSearchService().searchMedia(search);
+    } else if (sort == 'SCORE_DESC') {
+      items = await TMDBDiscoveryService().discoverAnime(
+            sortBy: 'vote_average.desc',
+            voteCountGte: 20,
+            page: page,
+          );
+    } else if (status == 'RELEASING') {
+      items = await TMDBDiscoveryService().discoverAnime(
+            sortBy: 'popularity.desc',
+            withStatus: 1, // TMDB airing-today status.
+            page: page,
+          );
+    } else {
+      items = await TMDBDiscoveryService().fetchTrendingAnime();
+    }
+    if (items.isNotEmpty) {
+      Logger.w('[AnimeX] AniList and Jikan unavailable; showing TMDB fallback');
+      return _pageFromItems(items, page: page);
+    }
+
+    return null;
+  }
+
+  AnimexMediaPage _pageFromItems(List<MediaItem> items, {int page = 1}) {
+    return AnimexMediaPage(
+      items: items,
+      scores: items.map((i) => i.score ?? 0).toList(),
+      currentPage: page,
+      lastPage: null,
+      hasNextPage: false,
+    );
+  }
+
+  /// Maps a display genre name to MAL genre ids so the Jikan fallback
+  /// can apply the same Browse filter as AniList's `genre` argument.
+  static List<int> _jikanGenreIds(String genre) {
+    const map = <String, int>{
+      'Action': 1,
+      'Adventure': 2,
+      'Comedy': 4,
+      'Mystery': 7,
+      'Drama': 8,
+      'Fantasy': 10,
+      'Horror': 14,
+      'Romance': 22,
+      'Sci-Fi': 24,
+      'Sports': 30,
+      'Slice of Life': 36,
+      'Supernatural': 37,
+      'Thriller': 41,
+    };
+    final id = map[genre];
+    return id == null ? const [] : [id];
   }
 
   /// Weekly airing schedule via AniList's `airingSchedules`. AniList has
