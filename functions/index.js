@@ -214,6 +214,10 @@ exports.proxyMangaImage = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
+
+
 
 
 
@@ -289,6 +293,10 @@ exports.proxyMangaKakalotImage = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
+
+
 
 
 
@@ -363,6 +371,10 @@ exports.proxyMangaKatana = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
+
+
 
 
 
@@ -457,6 +469,10 @@ exports.proxyComick = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
+
+
 
 
 
@@ -527,6 +543,10 @@ exports.proxyAnimeImage = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
+
+
 
 
 
@@ -604,6 +624,10 @@ exports.proxyGalleryImage = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
+
+
 
 
 
@@ -747,6 +771,10 @@ exports.proxyScanlation = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
+
+
 
 
 
@@ -860,6 +888,10 @@ exports.proxyFetchHtml = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
+
+
 
 
 
@@ -959,6 +991,10 @@ exports.proxyEmbed = functions.https.onRequest(async (req, res) => {
 
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (req.method !== 'GET') { res.status(405).json({ error: 'GET only' }); return; }
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
+
+
 
 
 
@@ -1171,6 +1207,10 @@ exports.proxyMangaDex = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
+
+
 
 
 
@@ -1225,6 +1265,10 @@ exports.proxyVideoStream = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
+
+
 
 
 
@@ -1302,6 +1346,10 @@ exports.proxyWatchStream = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
+
+
 
 
 

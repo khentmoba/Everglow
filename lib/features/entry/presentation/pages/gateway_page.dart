@@ -328,19 +328,32 @@ class _GatewayPageState extends State<GatewayPage> {
         duration: AppMotion.orZero(const Duration(milliseconds: 1100)),
         curve: Curves.easeInQuint,
         builder: (context, zoom, child) {
-          return ClipPath(
-            clipper: _DoorMaskClipper(zoom: zoom, scale: _doorScale(context)),
-            child: Container(
-              width: double.infinity,
-              height: double.infinity,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [AppColors.inkDeep, AppColors.twilight],
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              // Backdrop only. The door itself is painted above this clip
+              // because ClipPath also removes hit-testing inside the cut
+              // hole, which would make the keypad/handle unclickable.
+              IgnorePointer(
+                child: ClipPath(
+                  clipper: _DoorMaskClipper(
+                    zoom: zoom,
+                    scale: _doorScale(context),
+                  ),
+                  child: Container(
+                    width: double.infinity,
+                    height: double.infinity,
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [AppColors.inkDeep, AppColors.twilight],
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              child: Center(
+              Center(
                 child: AnimatedDoor(
                   isUnlocked:
                       state == GatewayState.unlocking ||
@@ -359,7 +372,8 @@ class _GatewayPageState extends State<GatewayPage> {
                   keypad: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 500),
                     child:
-                        (state == GatewayState.awaitingInput ||
+                        (state == GatewayState.initialLoad ||
+                            state == GatewayState.awaitingInput ||
                             state == GatewayState.evaluating ||
                             state == GatewayState.error)
                         ? Transform.scale(
@@ -375,7 +389,7 @@ class _GatewayPageState extends State<GatewayPage> {
                   ),
                 ),
               ),
-            ),
+            ],
           );
         },
       ),

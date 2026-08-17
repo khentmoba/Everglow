@@ -1,1 +1,273 @@
-import 'dart:async';import 'package:flutter/material.dart';import 'package:provider/provider.dart';import '../../../../core/theme/app_theme.dart';import '../../data/models/media_item.dart';import '../../data/services/tmdb_service.dart';import '../../../../core/services/auth_service.dart';import 'media_poster_card.dart';import '../../../../core/theme/app_typography.dart';class TMDBSearchModal extends StatefulWidget {  const TMDBSearchModal({super.key});  @override  State<TMDBSearchModal> createState() => _TMDBSearchModalState();}class _TMDBSearchModalState extends State<TMDBSearchModal> {  final TMDBService _tmdbService = TMDBService();  final TextEditingController _searchController = TextEditingController();  Timer? _debounce;  List<MediaItem> _results = [];  bool _isLoading = false;  @override  void dispose() {    _searchController.dispose();    _debounce?.cancel();    super.dispose();  }  void _onSearchChanged(String query) {    if (_debounce?.isActive ?? false) _debounce!.cancel();    _debounce = Timer(const Duration(milliseconds: 500), () {      if (!mounted) return;      if (query.isNotEmpty) {        _performSearch(query);      } else {        setState(() {          _results = [];        });      }    });  }  Future<void> _performSearch(String query) async {    setState(() {      _isLoading = true;    });    final results = await _tmdbService.searchMedia(query);    if (mounted) {      setState(() {        _results = results;        _isLoading = false;      });    }  }  void _showAddDialog(MediaItem item) {    String status = 'to-watch';    showDialog(      context: context,      builder: (context) => StatefulBuilder(        builder: (context, setDialogState) => AlertDialog(          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),          backgroundColor: AppTheme.velvet,          title: Text(            'Add to Everglow?',            style: AppTypography.cormorantBold.copyWith(fontSize: 22),          ),          content: Column(            mainAxisSize: MainAxisSize.min,            children: [              ClipRRect(                borderRadius: BorderRadius.circular(16),                child: item.posterUrl.isNotEmpty                    ? Image.network(item.posterUrl, height: 150, fit: BoxFit.cover)                    : Container(height: 150, color: AppTheme.twilight),              ),              const SizedBox(height: 16),              Text(                item.title,                textAlign: TextAlign.center,                style: AppTypography.outfitBold.copyWith(color: AppTheme.petalWhite),              ),              const SizedBox(height: 16),              Row(                mainAxisAlignment: MainAxisAlignment.center,                children: [                  ChoiceChip(                    label: Text('To Watch', style: AppTypography.outfitWhite),                    selected: status == 'to-watch',                    onSelected: (selected) {                      if (selected) setDialogState(() => status = 'to-watch');                    },                    selectedColor: AppTheme.deepRose,                    backgroundColor: AppTheme.twilight,                    labelStyle: TextStyle(                      color: status == 'to-watch' ? AppTheme.petalWhite : AppTheme.roseQuartz.withValues(alpha: 0.6),                    ),                  ),                  const SizedBox(width: 8),                  ChoiceChip(                    label: Text('Watched', style: AppTypography.outfitWhite),                    selected: status == 'watched',                    onSelected: (selected) {                      if (selected) setDialogState(() => status = 'watched');                    },                    selectedColor: AppTheme.deepRose,                    backgroundColor: AppTheme.twilight,                    labelStyle: TextStyle(                      color: status == 'watched' ? AppTheme.petalWhite : AppTheme.roseQuartz.withValues(alpha: 0.6),                    ),                  ),                ],              ),            ],          ),          actions: [            TextButton(              onPressed: () => Navigator.pop(context),              child: Text(                'Cancel',                style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),              ),            ),            ElevatedButton(              onPressed: () async {                Navigator.pop(context); // Close dialog                final u = context.read<AuthService>().currentUser ?? '';                if (u.isEmpty) return;                try {                  await _tmdbService.saveToWatchList(item, status, u);                } catch (e) {                  if (context.mounted) {                    ScaffoldMessenger.of(context).showSnackBar(                      SnackBar(                        content: Text(                          'Failed to add — please try again',                          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),                        ),                        backgroundColor: Colors.redAccent,                        behavior: SnackBarBehavior.floating,                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),                      ),                    );                  }                  return;                }                final successMessage = '🌸 ${item.title} added to Everglow!';                if (context.mounted) {                  ScaffoldMessenger.of(context).showSnackBar(                    SnackBar(                      content: Text(                        successMessage,                        style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),                      ),                      backgroundColor: AppTheme.deepRose,                      behavior: SnackBarBehavior.floating,                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),                    ),                  );                  Navigator.pop(context); // Close search modal                }              },              style: ElevatedButton.styleFrom(                backgroundColor: AppTheme.deepRose,                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),              ),              child: Text(                'Add',                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontWeight: FontWeight.bold),              ),            ),          ],        ),      ),    );  }  @override  Widget build(BuildContext context) {    return Container(      height: MediaQuery.sizeOf(context).height * 0.8,      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),      decoration: const BoxDecoration(        color: AppTheme.velvet,        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),      ),      child: Column(        children: [          // Handle          Container(            width: 40,            height: 5,            decoration: BoxDecoration(              color: AppTheme.roseQuartz.withValues(alpha: 0.3),              borderRadius: BorderRadius.circular(10),            ),          ),          const SizedBox(height: 20),                    // Title          Text(            'Find Your Next Cinema Moment 🍿',            style: AppTypography.cormorantBold.copyWith(fontSize: 20),          ),          const SizedBox(height: 20),          // Search Field          TextField(            controller: _searchController,            onChanged: _onSearchChanged,            style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),            decoration: InputDecoration(              hintText: 'Search for a movie or show...',              hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.4)),              prefixIcon: const Icon(Icons.search, color: AppTheme.roseQuartz),              filled: true,              fillColor: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),              border: OutlineInputBorder(                borderRadius: BorderRadius.circular(20),                borderSide: BorderSide.none,              ),              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),            ),          ),          const SizedBox(height: 20),          // Results Area          Expanded(            child: _isLoading                ? const Center(child: CircularProgressIndicator(color: AppTheme.roseQuartz))                : _results.isEmpty                    ? _buildEmptyState()                    : GridView.builder(                        itemCount: _results.length,                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(                          crossAxisCount: 2,                          childAspectRatio: 0.7,                          crossAxisSpacing: 15,                          mainAxisSpacing: 15,                        ),                        itemBuilder: (context, index) {                          return MediaPosterCard(                            item: _results[index],                            onTap: () => _showAddDialog(_results[index]),                          );                        },                      ),          ),        ],      ),    );  }  Widget _buildEmptyState() {    return Column(      mainAxisAlignment: MainAxisAlignment.center,      children: [        Icon(Icons.movie_outlined, size: 60, color: AppTheme.roseQuartz.withValues(alpha: 0.2)),        const SizedBox(height: 16),        Text(          _searchController.text.isEmpty ? 'Start typing to find magic\u2026' : 'No movies found',          style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 16),        ),      ],    );  }}
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../data/models/media_item.dart';
+import '../../data/services/tmdb_service.dart';
+import '../../../../core/services/auth_service.dart';
+import 'media_poster_card.dart';
+import '../../../../core/theme/app_typography.dart';
+
+class TMDBSearchModal extends StatefulWidget {
+  const TMDBSearchModal({super.key});
+
+  @override
+  State<TMDBSearchModal> createState() => _TMDBSearchModalState();
+}
+
+class _TMDBSearchModalState extends State<TMDBSearchModal> {
+  final TMDBService _tmdbService = TMDBService();
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
+  List<MediaItem> _results = [];
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
+      if (query.isNotEmpty) {
+        _performSearch(query);
+      } else {
+        setState(() {
+          _results = [];
+        });
+      }
+    });
+  }
+
+  Future<void> _performSearch(String query) async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final results = await _tmdbService.searchMedia(query);
+
+    if (mounted) {
+      setState(() {
+        _results = results;
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _showAddDialog(MediaItem item) {
+    String status = 'to-watch';
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          backgroundColor: AppTheme.velvet,
+          title: Text(
+            'Add to Everglow?',
+            style: AppTypography.cormorantBold.copyWith(fontSize: 22),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: item.posterUrl.isNotEmpty
+                    ? Image.network(item.posterUrl, height: 150, fit: BoxFit.cover)
+                    : Container(height: 150, color: AppTheme.twilight),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                item.title,
+                textAlign: TextAlign.center,
+                style: AppTypography.outfitBold.copyWith(color: AppTheme.petalWhite),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ChoiceChip(
+                    label: Text('To Watch', style: AppTypography.outfitWhite),
+                    selected: status == 'to-watch',
+                    onSelected: (selected) {
+                      if (selected) setDialogState(() => status = 'to-watch');
+                    },
+                    selectedColor: AppTheme.deepRose,
+                    backgroundColor: AppTheme.twilight,
+                    labelStyle: TextStyle(
+                      color: status == 'to-watch' ? AppTheme.petalWhite : AppTheme.roseQuartz.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: Text('Watched', style: AppTypography.outfitWhite),
+                    selected: status == 'watched',
+                    onSelected: (selected) {
+                      if (selected) setDialogState(() => status = 'watched');
+                    },
+                    selectedColor: AppTheme.deepRose,
+                    backgroundColor: AppTheme.twilight,
+                    labelStyle: TextStyle(
+                      color: status == 'watched' ? AppTheme.petalWhite : AppTheme.roseQuartz.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context); // Close dialog
+                final u = context.read<AuthService>().currentUser ?? '';
+                if (u.isEmpty) return;
+                try {
+                  await _tmdbService.saveToWatchList(item, status, u);
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Failed to add — please try again',
+                          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
+                        ),
+                        backgroundColor: Colors.redAccent,
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    );
+                  }
+                  return;
+                }
+                final successMessage = '🌸 ${item.title} added to Everglow!';
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        successMessage,
+                        style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
+                      ),
+                      backgroundColor: AppTheme.deepRose,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  );
+                  Navigator.pop(context); // Close search modal
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.deepRose,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              ),
+              child: Text(
+                'Add',
+                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.sizeOf(context).height * 0.8,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: const BoxDecoration(
+        color: AppTheme.velvet,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
+      child: Column(
+        children: [
+          // Handle
+          Container(
+            width: 40,
+            height: 5,
+            decoration: BoxDecoration(
+              color: AppTheme.roseQuartz.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          const SizedBox(height: 20),
+          
+          // Title
+          Text(
+            'Find Your Next Cinema Moment 🍿',
+            style: AppTypography.cormorantBold.copyWith(fontSize: 20),
+          ),
+          const SizedBox(height: 20),
+
+          // Search Field
+          TextField(
+            controller: _searchController,
+            onChanged: _onSearchChanged,
+            style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
+            decoration: InputDecoration(
+              hintText: 'Search for a movie or show...',
+              hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.4)),
+              prefixIcon: const Icon(Icons.search, color: AppTheme.roseQuartz),
+              filled: true,
+              fillColor: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(20),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Results Area
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: AppTheme.roseQuartz))
+                : _results.isEmpty
+                    ? _buildEmptyState()
+                    : GridView.builder(
+                        itemCount: _results.length,
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 0.7,
+                          crossAxisSpacing: 15,
+                          mainAxisSpacing: 15,
+                        ),
+                        itemBuilder: (context, index) {
+                          return MediaPosterCard(
+                            item: _results[index],
+                            onTap: () => _showAddDialog(_results[index]),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.movie_outlined, size: 60, color: AppTheme.roseQuartz.withValues(alpha: 0.2)),
+        const SizedBox(height: 16),
+        Text(
+          _searchController.text.isEmpty ? 'Start typing to find magic\u2026' : 'No movies found',
+          style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 16),
+        ),
+      ],
+    );
+  }
+}

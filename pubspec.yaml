@@ -1,4 +1,4 @@
-﻿name: everglow
+name: everglow
 description: "A private digital relationship scrapbook for Khent and Clair — Flutter Web + Firebase."
 publish_to: 'none'
 
@@ -40,6 +40,9 @@ dependencies:
   flutter_html: ^3.0.0
   go_router: ^14.0.0
   pointer_interceptor: ^0.10.1+2
+  model_viewer_plus: ^1.10.0
+  webview_flutter: ^4.14.1
+  webview_flutter_android: ^4.14.0
 
 dev_dependencies:
   flutter_test:

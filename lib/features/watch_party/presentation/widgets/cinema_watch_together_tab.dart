@@ -93,6 +93,15 @@ class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
     });
   }
 
+  Future<void> _openJellyfinSearch() async {
+    final selected = await showDialog<JellyfinMediaItem>(
+      context: context,
+      builder: (_) => _JellyfinSearchDialog(service: _jellyfin),
+    );
+    if (!mounted || selected == null) return;
+    await _startFromJellyfin(selected);
+  }
+
   Future<void> _startFromJellyfin(JellyfinMediaItem item) async {
     final auth = context.read<AuthService>();
     final myUid = auth.uid;
@@ -324,12 +333,49 @@ class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
                   Expanded(
                     child: Text(
                       'Your Jellyfin Library',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: AppTypography.outfitHeading.copyWith(
                         fontSize: isDesktop ? 18 : 16,
                         color: NetflixColors.textPrimary,
                       ),
                     ),
                   ),
+                  GestureDetector(
+                    onTap: _openJellyfinSearch,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: NetflixColors.accent.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: NetflixColors.accent.withValues(alpha: 0.55),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.search_rounded,
+                            color: NetflixColors.textPrimary,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Search',
+                            style: AppTypography.outfitBold.copyWith(
+                              fontSize: 11.5,
+                              color: NetflixColors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
                   GestureDetector(
                     onTap: _loadJellyfinLibrary,
                     child: Container(
@@ -587,4 +633,3 @@ class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
   }
 
 }
-

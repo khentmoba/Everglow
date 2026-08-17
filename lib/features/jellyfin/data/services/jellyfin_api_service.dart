@@ -83,6 +83,40 @@ class JellyfinApiService {
     }
   }
 
+  /// Searches the movies Jellyfin has indexed from its library folders.
+  ///
+  /// This is a server-side title/path search, so it queries the same
+  /// directory the Watch Together library lists instead of trying to
+  /// scan the filesystem from the browser.
+  Future<List<JellyfinMediaItem>?> searchMovies(String searchTerm) async {
+    final userId = await _resolveUserId();
+    if (userId == null) return null;
+
+    final uri = Uri.parse(
+      '$baseUrl/Users/$userId/Items?${_authQuery()}'
+      '&searchTerm=${Uri.encodeQueryComponent(searchTerm)}'
+      '&includeItemTypes=Movie&recursive=true'
+      '&fields=Overview,RunTimeTicks,PrimaryImageAspectRatio&limit=50',
+    );
+    try {
+      final response = await http.get(uri).timeout(const Duration(seconds: 15));
+      if (response.statusCode != 200) {
+        Logger.e('Jellyfin search failed (${response.statusCode})');
+        return null;
+      }
+      final body = json.decode(response.body) as Map<String, dynamic>;
+      final items = body['Items'] as List<dynamic>? ?? const [];
+      return items
+          .whereType<Map<String, dynamic>>()
+          .map(JellyfinMediaItem.fromJson)
+          .where((item) => item.id.isNotEmpty && item.name.isNotEmpty)
+          .toList();
+    } catch (e) {
+      Logger.e('Jellyfin search error', error: e);
+      return null;
+    }
+  }
+
   /// HLS master playlist for a movie. The existing watch-party player
   /// feeds this to hls.js for real play/pause/seek sync.
   String streamUrlFor(String itemId) {

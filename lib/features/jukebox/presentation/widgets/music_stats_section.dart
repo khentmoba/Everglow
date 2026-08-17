@@ -12,11 +12,8 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 
-/// Dashboard music stats for Khent only: an all-time top-10 leaderboard
-/// followed by the five most recent scrobbles.
-///
-/// Sits directly below the "vibing to" cards. Clair's stats are not
-/// included here for now.
+/// Dashboard music stats for both people: each user's all-time top-10
+/// leaderboard followed by their five most recent scrobbles.
 class MusicStatsSection extends StatelessWidget {
   const MusicStatsSection({super.key});
 
@@ -54,44 +51,77 @@ class MusicStatsSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _SectionHeader(
-                icon: Icons.leaderboard_rounded,
-                title: "Khent's Top 10",
-                subtitle: 'Most listened all-time',
+              _MusicStatsBlock(
+                displayName: 'Khent',
+                username: provider.username,
+                topTracks: provider.topTracks,
+                recentTracks: provider.recentTracks,
               ),
-              const SizedBox(height: AppSpacing.lg),
-              if (provider.topTracks.isEmpty)
-                const _EmptyStats()
-              else
-                for (var i = 0; i < provider.topTracks.length; i++) ...[
-                  _TopTrackRow(
-                    track: provider.topTracks[i],
-                    username: provider.username,
-                  ),
-                  if (i != provider.topTracks.length - 1)
-                    const _Hairline(),
-                ],
               const SizedBox(height: AppSpacing.x2),
               const _SectionDivider(),
               const SizedBox(height: AppSpacing.x2),
-              const _SectionHeader(
-                icon: Icons.history_rounded,
-                title: 'Recently Heard',
-                subtitle: "Khent's latest scrobbles",
+              _MusicStatsBlock(
+                displayName: 'Clair',
+                username: provider.clairUsername,
+                topTracks: provider.clairTopTracks,
+                recentTracks: provider.clairRecentTracks,
               ),
-              const SizedBox(height: AppSpacing.lg),
-              if (provider.recentTracks.isEmpty)
-                const _EmptyStats()
-              else
-                for (var i = 0; i < provider.recentTracks.length; i++) ...[
-                  _RecentTrackRow(status: provider.recentTracks[i]),
-                  if (i != provider.recentTracks.length - 1)
-                    const _Hairline(),
-                ],
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _MusicStatsBlock extends StatelessWidget {
+  final String displayName;
+  final String username;
+  final List<TopMusicTrack> topTracks;
+  final List<MusicStatus> recentTracks;
+
+  const _MusicStatsBlock({
+    required this.displayName,
+    required this.username,
+    required this.topTracks,
+    required this.recentTracks,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionHeader(
+          icon: Icons.leaderboard_rounded,
+          title: "$displayName's Top 10",
+          subtitle: '$username · most listened all-time',
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        if (topTracks.isEmpty)
+          const _EmptyStats()
+        else
+          for (var i = 0; i < topTracks.length; i++) ...[
+            _TopTrackRow(track: topTracks[i], username: username),
+            if (i != topTracks.length - 1) const _Hairline(),
+          ],
+        const SizedBox(height: AppSpacing.x2),
+        const _SectionDivider(),
+        const SizedBox(height: AppSpacing.x2),
+        _SectionHeader(
+          icon: Icons.history_rounded,
+          title: 'Recently Heard',
+          subtitle: "$username's latest 5 scrobbles",
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        if (recentTracks.isEmpty)
+          const _EmptyStats()
+        else
+          for (var i = 0; i < recentTracks.length; i++) ...[
+            _RecentTrackRow(status: recentTracks[i]),
+            if (i != recentTracks.length - 1) const _Hairline(),
+          ],
+      ],
     );
   }
 }
@@ -337,9 +367,7 @@ class _RecentTrackRow extends StatelessWidget {
                     fontSize: 11.5,
                     height: 1.0,
                     fontWeight: isLive ? FontWeight.w700 : FontWeight.w500,
-                    color: isLive
-                        ? AppColors.warmAmber
-                        : AppColors.textMedium,
+                    color: isLive ? AppColors.warmAmber : AppColors.textMedium,
                   ),
                 ),
               ],
@@ -371,22 +399,13 @@ class _RankBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (Color color, Color background) = switch (rank) {
-      1 => (
-        AppColors.auroraGold,
-        AppColors.auroraGold.withValues(alpha: 0.18),
-      ),
-      2 => (
-        AppColors.auroraRose,
-        AppColors.auroraRose.withValues(alpha: 0.16),
-      ),
+      1 => (AppColors.auroraGold, AppColors.auroraGold.withValues(alpha: 0.18)),
+      2 => (AppColors.auroraRose, AppColors.auroraRose.withValues(alpha: 0.16)),
       3 => (
         AppColors.softLavender,
         AppColors.softLavender.withValues(alpha: 0.16),
       ),
-      _ => (
-        AppColors.textMuted,
-        AppColors.moonlight.withValues(alpha: 0.08),
-      ),
+      _ => (AppColors.textMuted, AppColors.moonlight.withValues(alpha: 0.08)),
     };
 
     return Container(
@@ -396,10 +415,7 @@ class _RankBadge extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: background,
-        border: Border.all(
-          color: color.withValues(alpha: 0.5),
-          width: 1,
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.5), width: 1),
       ),
       child: Text(
         '$rank',
@@ -548,9 +564,7 @@ class _EmptyStats extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.moonlight.withValues(alpha: 0.06),
         borderRadius: AppRadius.radiusMd,
-        border: Border.all(
-          color: AppColors.moonlight.withValues(alpha: 0.10),
-        ),
+        border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.10)),
       ),
       child: Column(
         children: [
@@ -590,9 +604,7 @@ class _MusicStatsSkeleton extends StatelessWidget {
           ],
         ),
         borderRadius: AppRadius.radiusX2,
-        border: Border.all(
-          color: AppColors.moonlight.withValues(alpha: 0.18),
-        ),
+        border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.18)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -12,7 +12,7 @@ enum GatewayState {
 }
 
 class GatewayNotifier extends ChangeNotifier {
-  GatewayState _currentState = GatewayState.initialLoad;
+  GatewayState _currentState = GatewayState.awaitingInput;
   String _currentInput = '';
   String? _lastEnteredPasscode;
 

@@ -1,10 +1,5 @@
-// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
-// Mochi runs on Flutter web only; dart:html powers image attachments and
-// browser clipboard integration that has no non-web equivalent here.
 import 'dart:async';
 import 'dart:convert';
-import 'dart:html' as html;
-import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -23,6 +18,7 @@ import '../../../../core/theme/app_motion.dart';
 import '../../../../shared/utils/text_utils.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../domain/mochi_quality.dart';
+import 'mochi_web_bridge.dart';
 import 'mochi_sidebar.dart';
 part 'mochi_widgets.dart';
 part 'mochi_widgets_streaming.dart';
@@ -53,13 +49,13 @@ class _MochiScreenState extends State<MochiScreen> {
   final List<String> _attachedImages = []; // base64 data URIs for preview
   final List<String> _attachedImageUrls = []; // public URLs for API
   final ImagePicker _picker = ImagePicker();
-  html.EventListener? _pasteListener;
+  final MochiWebBridge _webBridge = MochiWebBridge();
 
   @override
   void initState() {
     super.initState();
     _scroll.addListener(_onScroll);
-    if (kIsWeb) _setupClipboardPaste();
+    _webBridge.installPasteListener(_onPastedImage);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final ai = context.read<AIService>();
@@ -78,45 +74,16 @@ class _MochiScreenState extends State<MochiScreen> {
     _scroll.dispose();
     _focusNode.dispose();
     context.read<AIService>().removeListener(_onAiChanged);
-    if (_pasteListener != null) {
-      html.window.removeEventListener('paste', _pasteListener);
-    }
+    _webBridge.uninstallPasteListener();
     super.dispose();
   }
 
-  void _setupClipboardPaste() {
-    _pasteListener = (html.Event event) {
-      final e = event as html.ClipboardEvent;
-      final items = e.clipboardData?.items;
-      if (items == null) return;
-      final length = items.length ?? 0;
-      for (int i = 0; i < length; i++) {
-        final item = items[i];
-        if (item.type?.startsWith('image/') == true) {
-          final file = item.getAsFile();
-          if (file != null) {
-            final reader = html.FileReader();
-            reader.onLoadEnd.listen((_) {
-              final result = reader.result as String?;
-              if (result != null && result.contains(',')) {
-                final base64Data = result.split(',').last;
-                final ext = item.type?.split('/').last ?? 'png';
-                final dataUri = 'data:image/$ext;base64,$base64Data';
-                if (mounted) {
-                  setState(() {
-                    _attachedImages.add(dataUri);
-                    _attachedImageUrls.add(dataUri);
-                  });
-                }
-              }
-            });
-            reader.readAsDataUrl(file);
-          }
-          break;
-        }
-      }
-    };
-    html.window.addEventListener('paste', _pasteListener);
+  void _onPastedImage(String dataUri) {
+    if (!mounted) return;
+    setState(() {
+      _attachedImages.add(dataUri);
+      _attachedImageUrls.add(dataUri);
+    });
   }
 
   void _onScroll() {
@@ -253,55 +220,7 @@ class _MochiScreenState extends State<MochiScreen> {
   /// [maxDim] on the long edge, and returns a compact JPEG data URI.
   Future<String> _resizeImageToDataUri(Uint8List bytes,
       {int maxDim = 1280}) async {
-    final blob = html.Blob([bytes]);
-    final objectUrl = html.Url.createObjectUrlFromBlob(blob);
-    final completer = Completer<String>();
-    try {
-      final img = html.ImageElement();
-      img.onLoad.listen((_) async {
-        try {
-          final scale = math.min(
-            1.0,
-            maxDim / math.max(img.naturalWidth, img.naturalHeight),
-          );
-          final w = (img.naturalWidth * scale).round().clamp(1, 4096);
-          final h = (img.naturalHeight * scale).round().clamp(1, 4096);
-          final canvas = html.CanvasElement(width: w, height: h);
-          final ctx = canvas.context2D;
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'medium';
-          ctx.drawImage(img, 0, 0);
-          // JPEG keeps photos small; PNG stays lossless for screenshots.
-          final isPng = bytes.length > 8 &&
-              bytes[0] == 0x89 &&
-              bytes[1] == 0x50 &&
-              bytes[2] == 0x4E &&
-              bytes[3] == 0x47;
-          final mime = isPng ? 'image/png' : 'image/jpeg';
-          final quality = isPng ? null : 0.82;
-          final dataUri = canvas.toDataUrl(mime, quality);
-          completer.complete(dataUri);
-        } catch (e) {
-          completer.completeError(e);
-        } finally {
-          html.Url.revokeObjectUrl(objectUrl);
-        }
-      });
-      img.onError.listen((_) {
-        html.Url.revokeObjectUrl(objectUrl);
-        if (!completer.isCompleted) {
-          completer.completeError(Exception('Image could not be loaded'));
-        }
-      });
-      img.src = objectUrl;
-      await completer.future;
-    } catch (e) {
-      html.Url.revokeObjectUrl(objectUrl);
-      if (!completer.isCompleted) {
-        completer.completeError(e);
-      }
-    }
-    return completer.future;
+    return _webBridge.resizeImageToDataUri(bytes, maxDim: maxDim);
   }
 
   void _removeImage(int index) {
@@ -500,4 +419,3 @@ class _MochiScreenState extends State<MochiScreen> {
 }
 
 // ─── Header ──────────────────────────────────────────────────────
-

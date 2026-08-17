@@ -1,0 +1,22 @@
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:everglow/core/config/env_config.dart';
+
+void main() {
+  test('FCM VAPID key keeps its public fallback for web push registration', () {
+    expect(EnvConfig.fcmVapidKey, isNotEmpty);
+    expect(EnvConfig.fcmVapidKey, startsWith('BL2l'));
+  });
+
+  test('documented gateway passcodes remain available', () {
+    expect(EnvConfig.clairPasscode, '0221');
+    expect(EnvConfig.khentPasscode, '0938');
+    expect(EnvConfig.breyanPasscode, '9132');
+    expect(EnvConfig.octagramPasscode, '8080');
+  });
+
+  test('public cinema-only profiles keep working credentials', () {
+    expect(EnvConfig.hasBreyanCreds, isTrue);
+    expect(EnvConfig.hasOctagramCreds, isTrue);
+  });
+}

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker_web/image_picker_web.dart';
 import 'package:provider/provider.dart';
 import 'dart:typed_data';
 import 'package:intl/intl.dart';
+import '../../../../shared/utils/pick_image_bytes.dart';
 import '../../data/services/creator_service.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../cinema/presentation/widgets/tmdb_search_modal.dart';
@@ -86,7 +86,7 @@ class _CreatorModalState extends State<CreatorModal>
   }
 
   Future<void> _pickMemoryImage() async {
-    final bytes = await ImagePickerWeb.getImageAsBytes();
+    final bytes = (await pickImageBytes())?.bytes;
     if (bytes != null) {
       setState(() {
         _memoryImageBytes = bytes;

@@ -55,6 +55,10 @@ class MediaItem {
   /// Populated from Jikan/AniList; empty for TMDB-sourced items.
   final List<String> genres;
 
+  /// MAL/Jikan score on a 0-10 scale when known, used by the anime
+  /// section's rating chips. `null` for TMDB-sourced items.
+  final double? score;
+
   /// Season the user is currently on (TV series / anime only).
   final int? currentSeason;
 
@@ -87,6 +91,7 @@ class MediaItem {
     this.format = '',
     this.studio = '',
     this.genres = const [],
+    this.score,
     this.currentSeason,
     this.currentEpisode,
     this.currentTimestamp,
@@ -225,6 +230,7 @@ class MediaItem {
       genres: data['genres'] is List
           ? List<String>.from(data['genres'].whereType<String>())
           : const [],
+      score: data['score'] is num ? (data['score'] as num).toDouble() : null,
       currentSeason: data['currentSeason'] is int ? data['currentSeason'] as int : null,
       currentEpisode: data['currentEpisode'] is int ? data['currentEpisode'] as int : null,
       currentTimestamp: data['currentTimestamp'] is int ? data['currentTimestamp'] as int : null,
@@ -268,11 +274,64 @@ class MediaItem {
       'format': format,
       'studio': studio,
       if (genres.isNotEmpty) 'genres': genres,
+      if (score != null) 'score': score,
       if (currentSeason != null) 'currentSeason': currentSeason,
       if (currentEpisode != null) 'currentEpisode': currentEpisode,
       if (currentTimestamp != null) 'currentTimestamp': currentTimestamp,
       if (progressUpdatedAt != null) 'progressUpdatedAt': Timestamp.fromDate(progressUpdatedAt!),
     };
+  }
+
+  /// Compact JSON form used by the local anime home-row cache. Keeps the
+  /// fields the home cards and watch page need without watchlist state.
+  Map<String, dynamic> toJson() {
+    return {
+      'tmdbId': tmdbId,
+      'title': title,
+      'mediaType': mediaType,
+      'posterPath': posterPath,
+      'backdropPath': backdropPath,
+      'year': year,
+      'isAnime': isAnime,
+      'source': source,
+      if (anilistId != null) 'anilistId': anilistId,
+      'synopsis': synopsis,
+      if (episodeCount != null) 'episodeCount': episodeCount,
+      'airingStatus': airingStatus,
+      'format': format,
+      'studio': studio,
+      if (genres.isNotEmpty) 'genres': genres,
+      if (score != null) 'score': score,
+      'addedAt': addedAt.millisecondsSinceEpoch,
+    };
+  }
+
+  factory MediaItem.fromJson(Map<String, dynamic> json) {
+    return MediaItem(
+      id: '',
+      tmdbId: (json['tmdbId'] as num?)?.toInt() ?? 0,
+      title: json['title'] as String? ?? '',
+      mediaType: json['mediaType'] as String? ?? 'tv',
+      posterPath: json['posterPath'] as String? ?? '',
+      backdropPath: json['backdropPath'] as String? ?? '',
+      year: json['year'] as String? ?? '',
+      status: '',
+      isAnime: json['isAnime'] == true,
+      addedAt: DateTime.fromMillisecondsSinceEpoch(
+        (json['addedAt'] as num?)?.toInt() ?? 0,
+      ),
+      source: json['source'] as String? ?? 'jikan',
+      anilistId: (json['anilistId'] as num?)?.toInt(),
+      synopsis: json['synopsis'] as String? ?? '',
+      episodeCount: (json['episodeCount'] as num?)?.toInt(),
+      airingStatus: json['airingStatus'] as String? ?? '',
+      format: json['format'] as String? ?? '',
+      studio: json['studio'] as String? ?? '',
+      genres: json['genres'] is List
+          ? List<String>.from(json['genres']!.whereType<String>())
+          : const [],
+      score: (json['score'] as num?)?.toDouble(),
+    );
   }
 
   MediaItem copyWith({
@@ -295,6 +354,7 @@ class MediaItem {
     String? format,
     String? studio,
     List<String>? genres,
+    double? score,
     int? currentSeason,
     int? currentEpisode,
     int? currentTimestamp,
@@ -320,6 +380,7 @@ class MediaItem {
       format: format ?? this.format,
       studio: studio ?? this.studio,
       genres: genres ?? this.genres,
+      score: score ?? this.score,
       currentSeason: currentSeason ?? this.currentSeason,
       currentEpisode: currentEpisode ?? this.currentEpisode,
       currentTimestamp: currentTimestamp ?? this.currentTimestamp,

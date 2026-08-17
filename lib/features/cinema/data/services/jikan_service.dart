@@ -280,6 +280,7 @@ class JikanService with ConnectivityAware, ErrorAware {
       format: typeStr,
       studio: studioName,
       genres: genres,
+      score: (j['score'] is num) ? (j['score'] as num).toDouble() : null,
     );
   }
 
