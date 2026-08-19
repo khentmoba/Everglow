@@ -221,9 +221,12 @@ class TMDBService with ConnectivityAware, ErrorAware {
     String userName, {
     bool? isAnimeOverride,
     String? statusOwner,
+    bool skipPartnerFallback = false,
   }) =>
       _watchlist.saveToWatchList(item, status, userName,
-          isAnimeOverride: isAnimeOverride, statusOwner: statusOwner);
+          isAnimeOverride: isAnimeOverride,
+          statusOwner: statusOwner,
+          skipPartnerFallback: skipPartnerFallback);
 
   /// Returns the Firestore userName of the partner that a partner-specific
   /// status refers to (e.g. "watched-clair" → "clairjassen"), or null.
