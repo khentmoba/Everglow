@@ -113,16 +113,6 @@
       ]
     },
     {
-      "collectionGroup": "calendar_events",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "date",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "watch_party_rooms",
       "queryScope": "COLLECTION",
       "fields": [
