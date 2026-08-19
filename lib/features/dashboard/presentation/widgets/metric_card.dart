@@ -78,16 +78,16 @@ class MetricCard extends StatelessWidget {
             ),
           ),
           Positioned(
-            right: -10,
-            bottom: -8,
+            right: 8,
+            bottom: 2,
             child: IgnorePointer(
               child: Text(
                 value.toString().padLeft(2, '0'),
                 style: AppTypography.cormorantBlackWhite.copyWith(
-                  fontSize: 72,
+                  fontSize: 56,
                   height: 1.0,
-                  letterSpacing: -4,
-                  color: AppColors.petalWhite.withValues(alpha: 0.035),
+                  letterSpacing: -1.5,
+                  color: AppColors.petalWhite.withValues(alpha: 0.06),
                 ),
               ),
             ),

@@ -22,6 +22,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     String userName, {
     bool? isAnimeOverride,
     String? statusOwner,
+    bool skipPartnerFallback = false,
   }) async {
     if (userName.isEmpty) {
       Logger.w("Error saving to watch list: userName is empty");
@@ -54,7 +55,11 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       // When the drawer was opened from a couple-merged stream the item
       // may only exist under the *partner's* userName. If the effective
       // owner has no document yet, look for one under the other partner.
-      if (existing.docs.isEmpty) {
+      // Skip this when explicitly requested (e.g. "Both Watched" needs to
+      // create the partner's doc, not hijack the existing one) and when
+      // routing a partner-specific status (e.g. "Clair Watched" must not
+      // hijack the current user's doc).
+      if (!skipPartnerFallback && statusOwner == null && existing.docs.isEmpty) {
         final partner = _resolvePartner(effectiveOwner);
         if (partner != null && partner.isNotEmpty) {
           Logger.d("[WatchList] No doc for $effectiveOwner — checking partner=$partner");
@@ -134,18 +139,16 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
   ///   "watched-khent"  → "watched-self"
   ///   "watching-clair" → "watching-self"
   ///   "watching-khent" → "watching-self"
-  ///   "watched-both"   → "watched-self"
-  ///   "watching-both"  → "watching-self"
+  ///   "watched-both" / "watching-both" are preserved as-is so a
+  ///   single doc can represent "Both Watched" without needing a merge.
   ///   anything else    → as-is
   static String _toSelfStatus(String status) {
     switch (status) {
       case 'watched-clair':
       case 'watched-khent':
-      case 'watched-both':
         return 'watched-self';
       case 'watching-clair':
       case 'watching-khent':
-      case 'watching-both':
         return 'watching-self';
       default:
         return status;
@@ -826,7 +829,9 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     final merged = byId.values.map((entry) {
       if (entry.partner == null) {
         // Single-user item: resolve "watched-self" / "watching-self" to
-        // the partner-specific variant so the drawer chips match.
+        // the partner-specific variant so the drawer chips match. "watched-both"
+        // / "watching-both" already maps to "Both" as-is, so it comes through
+        // unchanged via resolveCoupleStatus and doesn't need the merge path.
         final item = entry.primary;
         final resolved = item.resolveCoupleStatus();
         return resolved != item.status
@@ -835,6 +840,24 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       }
       final a = entry.primary;
       final b = entry.partner!;
+      // If either side already stored "watched-both" / "watching-both" as
+      // the single-doc Both representation, the merged status is Both.
+      if (a.status == 'watched-both' || b.status == 'watched-both') {
+        return a.copyWith(
+          userName: '${a.userName},${b.userName}',
+          status: 'watched-both',
+          isAnime: a.isAnime || b.isAnime,
+          addedAt: a.addedAt.isAfter(b.addedAt) ? a.addedAt : b.addedAt,
+        );
+      }
+      if (a.status == 'watching-both' || b.status == 'watching-both') {
+        return a.copyWith(
+          userName: '${a.userName},${b.userName}',
+          status: 'watching-both',
+          isAnime: a.isAnime || b.isAnime,
+          addedAt: a.addedAt.isAfter(b.addedAt) ? a.addedAt : b.addedAt,
+        );
+      }
       final userName = '${a.userName},${b.userName}';
       final status = _mergeWatchedStatus(a.status, b.status);
       // Use the most recent addedAt so the merged item is positioned

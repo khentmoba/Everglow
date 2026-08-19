@@ -106,32 +106,32 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
           );
         }
 
+        final isBoth = newStatus == 'watched-both' || newStatus == 'watching-both';
         await _tmdbService.saveToWatchList(
           resolvedItem,
           newStatus,
           userName,
           isAnimeOverride: detectedAnime,
           statusOwner: statusOwner,
+          skipPartnerFallback: isBoth,
         );
 
         // For "Both" statuses (watched-both, watching-both), also update
         // the partner's document so both partners are marked. Without
         // this, "Both Watched" would only save to the current user.
-        if (newStatus == 'watched-both' || newStatus == 'watching-both') {
+        if (isBoth) {
           final partner = partnerUsername;
           if (partner != null && partner.isNotEmpty) {
-            final selfStatus = newStatus == 'watched-both'
-                ? 'watched-self'
-                : 'watching-self';
             Logger.d(
-              "[Status] Both status â€” also saving $selfStatus to partner $partner",
+              "[Status] Both status — also saving $newStatus to partner $partner",
             );
             try {
               await _tmdbService.saveToWatchList(
                 resolvedItem,
-                selfStatus,
+                newStatus,
                 partner,
                 isAnimeOverride: detectedAnime,
+                skipPartnerFallback: true,
               );
             } catch (e) {
               Logger.e(
