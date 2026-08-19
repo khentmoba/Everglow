@@ -47,10 +47,6 @@ jobs:
           KHENT_EMAIL: ${{ secrets.KHENT_EMAIL }}
           KHENT_PASSWORD: ${{ secrets.KHENT_PASSWORD }}
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
-          CLAIR_PASSCODE: ${{ secrets.CLAIR_PASSCODE }}
-          KHENT_PASSCODE: ${{ secrets.KHENT_PASSCODE }}
-          CLAIR_EMAIL: ${{ secrets.CLAIR_EMAIL }}
-          KHENT_EMAIL: ${{ secrets.KHENT_EMAIL }}
           LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
           JELLYFIN_API_KEY: ${{ secrets.JELLYFIN_API_KEY }}
           FCM_VAPID_KEY: ${{ secrets.FCM_VAPID_KEY }}
@@ -92,6 +88,10 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB }}
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          CLAIR_PASSCODE: ${{ secrets.CLAIR_PASSCODE }}
+          KHENT_PASSCODE: ${{ secrets.KHENT_PASSCODE }}
+          CLAIR_EMAIL: ${{ secrets.CLAIR_EMAIL }}
+          KHENT_EMAIL: ${{ secrets.KHENT_EMAIL }}
         run: |
           echo "$FIREBASE_SERVICE_ACCOUNT" > "$HOME"/firebase-sa.json
           if [ -n "$AGNES_API_KEY" ]; then
@@ -99,11 +99,11 @@ jobs:
           fi
           if [ -n "$TMDB_API_KEY" ]; then
             echo "TMDB_API_KEY=${TMDB_API_KEY}" >> functions/.env
+          fi
           if [ -n "${CLAIR_PASSCODE:-}" ]; then echo "CLAIR_PASSCODE=${CLAIR_PASSCODE}" >> functions/.env; fi
           if [ -n "${KHENT_PASSCODE:-}" ]; then echo "KHENT_PASSCODE=${KHENT_PASSCODE}" >> functions/.env; fi
           if [ -n "${CLAIR_EMAIL:-}" ]; then echo "CLAIR_EMAIL=${CLAIR_EMAIL}" >> functions/.env; fi
           if [ -n "${KHENT_EMAIL:-}" ]; then echo "KHENT_EMAIL=${KHENT_EMAIL}" >> functions/.env; fi
-          fi
           GOOGLE_APPLICATION_CREDENTIALS="$HOME"/firebase-sa.json \
           firebase deploy --only functions,firestore:rules,firestore:indexes,storage --project everglow-1c6db
 
