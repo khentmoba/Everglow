@@ -15,9 +15,6 @@ import '../../../date_randomizer/presentation/widgets/randomizer_card.dart';
 import '../../../date_randomizer/data/services/date_idea_service.dart';
 import '../../../../features/guardian/data/services/guardian_service.dart';
 import '../../../../features/guardian/presentation/controllers/guardian_controller.dart';
-import '../../../guardian/presentation/widgets/roaming/roaming_guardian_controller.dart';
-import '../../../guardian/presentation/widgets/roaming/roaming_guardian_layer.dart';
-import '../../../guardian/presentation/widgets/roaming/roaming_cat_visual_web.dart';
 import 'dashboard_lifecycle.dart';
 import '../../../daily_bloom/presentation/widgets/daily_bloom.dart';
 import '../../../daily_bloom/presentation/providers/garden_provider.dart';
@@ -67,8 +64,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   PresenceService? _presenceService;
   String? _lastHeartbeatUid;
   String? _lastHeartbeatUsername;
-  late final RoamingGuardianController _roamingGuardian;
-
   Timer? _heartbeatRetryTimer;
   int _heartbeatRetryCount = 0;
   static const int _maxHeartbeatRetries = 5;
@@ -77,7 +72,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _roamingGuardian = RoamingGuardianController();
     _lifecycle.install(_setOfflineFromHeartbeat);
 
     Future.microtask(() {
@@ -141,7 +135,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _lifecycle.uninstall();
-    _roamingGuardian.dispose();
     _heartbeatRetryTimer?.cancel();
     final presence = _presenceService;
     final uid = _lastHeartbeatUid;
@@ -295,16 +288,6 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
           // Ambient dusk-bloom layer (dashboard only).
           const Positioned.fill(child: DashboardAmbience()),
-          // Roaming Guardian behind the page content.
-          Positioned.fill(
-            child: RoamingGuardianLayer(
-              controller: _roamingGuardian,
-              depth: CatDepth.behind,
-              // Both layers render the real 3D model into the canvas, so it
-              // keeps its 3D look even when walking behind widgets.
-              visualBuilder: buildRoamingCatVisual,
-            ),
-          ),
           SafeArea(
             child: Stack(
               children: [
@@ -499,14 +482,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                 // Floating overlays
                 const DashboardOverlays(),
               ],
-            ),
-          ),
-          // Roaming Guardian in front of every overlay.
-          Positioned.fill(
-            child: RoamingGuardianLayer(
-              controller: _roamingGuardian,
-              depth: CatDepth.front,
-              visualBuilder: buildRoamingCatVisual,
             ),
           ),
         ],
