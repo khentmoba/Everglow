@@ -147,10 +147,15 @@ class MediaItem {
   /// `watched-clair`, `watched-both`, etc. This resolves the mismatch so
   /// the correct chip is highlighted when the drawer opens.
   ///
-  /// Returns the original [status] unchanged for non-"self" values and
-  /// for non-couple usernames (e.g. Breyan, Octagram).
+  /// Returns the original [status] unchanged for non-"self" values,
+  /// for non-couple usernames (e.g. Breyan, Octagram), and for the
+  /// shared "watched-both" / "watching-both" values that now live on
+  /// a single per-user doc.
   String resolveCoupleStatus() {
     switch (status) {
+      case 'watched-both':
+      case 'watching-both':
+        return status;
       case 'watched-self':
         return _resolveByUserName('watched');
       case 'watching-self':
