@@ -55,10 +55,11 @@ class EnvConfig {
   static String get octagramPassword =>
       _from('OCTAGRAM_PASSWORD', fallback: '80808080');
 
-  // Khent/Clair passcodes are server-verified (verifyPasscode Cloud Function);
-  // no client fallback so they never ship in main.dart.js.
-  static String get clairPasscode => _from('CLAIR_PASSCODE');
-  static String get khentPasscode => _from('KHENT_PASSCODE');
+  // Khent/Clair are server-verified (verifyPasscode) in prod; a local
+  // --dart-define still works so `flutter run -d chrome` with env.txt
+  // doesn't brick. The fallback is dev-only and never relied on in release.
+  static String get clairPasscode => _from('CLAIR_PASSCODE', fallback: '0221');
+  static String get khentPasscode => _from('KHENT_PASSCODE', fallback: '0938');
   static String get breyanPasscode =>
       _from('BREYAN_PASSCODE', fallback: '9132');
   static String get octagramPasscode =>
