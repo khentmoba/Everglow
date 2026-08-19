@@ -238,23 +238,19 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
   Widget build(BuildContext context) {
     final cards = _buildCards();
     if (widget.label == null) {
-      // Non-couple path: keep the original single-row layout.
       if (!_hasLoaded) {
         return const SizedBox(
-          height: 160,
+          height: 194,
           child: ShelfMarquee(hasLoaded: false, children: []),
         );
       }
       if (cards.isEmpty) {
-        return SizedBox(
-          height: 90,
-          child: ShelfEmpty(
-            accent: ShelfAccent.cinema,
-            message: 'Nothing playing right now. Start a movie or show!',
-          ),
+        return ShelfEmpty(
+          accent: ShelfAccent.cinema,
+          message: 'Nothing playing right now. Start a movie or show!',
         );
       }
-      return SizedBox(height: 168, child: ShelfMarquee(children: cards));
+      return SizedBox(height: 194, child: ShelfMarquee(children: cards));
     }
     // Couple path: partner sub-row beneath the existing single-row.
     return PartnerSubrow(

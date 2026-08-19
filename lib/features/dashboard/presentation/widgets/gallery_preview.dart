@@ -49,9 +49,9 @@ class GalleryPreview extends StatelessWidget {
                     ],
                   )
                 : SizedBox(
-                    height: 168,
+                    height: 194,
                     child: ShelfMarquee(
-                      itemStride: 122.0,
+                      itemStride: 140.0,
                       children: [
                         for (final photo in photos) ...[
                           Padding(

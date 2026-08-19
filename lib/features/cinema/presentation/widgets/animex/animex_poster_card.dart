@@ -44,34 +44,66 @@ class AnimeXPosterCard extends StatefulWidget {
 }
 
 class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
+  static _AnimeXPosterCardState? _active;
+
   final LayerLink _link = LayerLink();
   final OverlayPortalController _portal = OverlayPortalController();
   bool _hover = false;
   bool _popoverLeft = false;
   bool _pointerInPopover = false;
+  bool _pointerInsideCard = false;
+  Timer? _showTimer;
   Timer? _hideTimer;
 
   void _enter() {
-    if (!_hover) {
+    _pointerInsideCard = true;
+    _hideTimer?.cancel();
+    _showTimer?.cancel();
+    if (_hover) return;
+    _showTimer = Timer(const Duration(milliseconds: 160), () {
+      if (!mounted || !_pointerInsideCard || _hover) return;
+      if (_active != null && _active != this) _active!._forceHide();
+      _active = this;
       setState(() => _hover = true);
       _popoverLeft = _isNearRightEdge();
       _portal.show();
-    }
+    });
   }
 
   void _exit() {
     _hideTimer?.cancel();
+    _showTimer?.cancel();
     _pointerInPopover = false;
+    _pointerInsideCard = false;
     if (_hover) {
       setState(() => _hover = false);
-      _portal.hide();
+      if (_portal.isShowing) _portal.hide();
+      if (_active == this) _active = null;
     }
   }
 
-  void _onCardExit() {
-    // Give the pointer a moment to reach the popover before dismissing it.
+  void _forceHide() {
     _hideTimer?.cancel();
-    _hideTimer = Timer(const Duration(milliseconds: 200), () {
+    _showTimer?.cancel();
+    _pointerInPopover = false;
+    _pointerInsideCard = false;
+    if (_hover) {
+      if (mounted) {
+        setState(() => _hover = false);
+      } else {
+        _hover = false;
+      }
+      if (_portal.isShowing) _portal.hide();
+    }
+    if (_active == this) _active = null;
+  }
+
+  void _onCardExit() {
+    _pointerInsideCard = false;
+    _showTimer?.cancel();
+    if (!_hover) return;
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(milliseconds: 90), () {
       if (!_pointerInPopover) _exit();
     });
   }
@@ -79,6 +111,15 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
   void _onPopoverEnter() {
     _pointerInPopover = true;
     _hideTimer?.cancel();
+    _showTimer?.cancel();
+  }
+
+  void _onPopoverExit() {
+    _pointerInPopover = false;
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(milliseconds: 80), () {
+      if (!_pointerInsideCard) _exit();
+    });
   }
 
   bool _isNearRightEdge() {
@@ -91,7 +132,9 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
 
   @override
   void dispose() {
+    _showTimer?.cancel();
     _hideTimer?.cancel();
+    if (_active == this) _active = null;
     super.dispose();
   }
 
@@ -119,7 +162,7 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
           alignment: Alignment.topLeft,
           child: MouseRegion(
             onEnter: (_) => _onPopoverEnter(),
-            onExit: (_) => _exit(),
+            onExit: (_) => _onPopoverExit(),
             child: _CardPopover(item: item, score: widget.score),
           ),
         ),

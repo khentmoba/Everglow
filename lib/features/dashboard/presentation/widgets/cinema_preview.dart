@@ -212,20 +212,17 @@ class _CinemaShelfState extends State<_CinemaShelf> {
     if (widget.label == null) {
       if (!_hasLoaded) {
         return const SizedBox(
-          height: 160,
+          height: 194,
           child: ShelfMarquee(hasLoaded: false, children: []),
         );
       }
       if (cards.isEmpty) {
-        return SizedBox(
-          height: 110,
-          child: ShelfEmpty(
-            accent: ShelfAccent.cinema,
-            message: 'No movies watched yet. Start a movie night!',
-          ),
+        return ShelfEmpty(
+          accent: ShelfAccent.cinema,
+          message: 'No movies watched yet. Start a movie night!',
         );
       }
-      return SizedBox(height: 168, child: ShelfMarquee(children: cards));
+      return SizedBox(height: 194, child: ShelfMarquee(children: cards));
     }
     return PartnerSubrow(
       label: widget.label!,
