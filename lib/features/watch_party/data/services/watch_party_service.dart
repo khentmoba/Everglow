@@ -287,6 +287,7 @@ class WatchPartyService {
     return _db
         .collection(_collection)
         .where('active', isEqualTo: true)
+        .limit(20)
         .snapshots()
         .map((snap) {
           for (final doc in snap.docs) {

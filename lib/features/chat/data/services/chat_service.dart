@@ -21,7 +21,7 @@ class ChatService {
       _db
           .collection('sanctuary_messages')
           .orderBy('timestamp', descending: true)
-          .limit(200)
+          .limit(50)
           .snapshots()
           .map((snapshot) {
             final messages = <ChatMessage>[];
@@ -84,7 +84,7 @@ class ChatService {
         snapshot = await _db
             .collection('sanctuary_messages')
             .orderBy('timestamp', descending: true)
-            .limit(500)
+            .limit(200)
             .get();
       }
 

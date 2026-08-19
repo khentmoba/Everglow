@@ -26,7 +26,13 @@ linter:
   # `// ignore_for_file: name_of_lint` syntax on the line or in the file
   # producing the lint.
   rules:
-    avoid_print: true  # Enforced: use Logger instead of raw print()
+    avoid_print: true
+    cancel_subscriptions: true
+    close_sinks: true
+    use_key_in_widget_constructors: true
+    prefer_const_constructors: true
+    avoid_unnecessary_containers: true
+    sized_box_for_whitespace: true
     # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
 
 # Additional information about this file can be found at
