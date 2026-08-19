@@ -1,161 +1,155 @@
 {
-    "indexes":  [
-                    {
-                        "collectionGroup":  "bucket_list",
-                        "queryScope":  "COLLECTION",
-                        "fields":  [
-                                       {
-                                           "fieldPath":  "status",
-                                           "order":  "ASCENDING"
-                                       },
-                                       {
-                                           "fieldPath":  "createdAt",
-                                           "order":  "DESCENDING"
-                                       }
-                                   ]
-                    },
-                    {
-                        "collectionGroup":  "moods",
-                        "queryScope":  "COLLECTION",
-                        "fields":  [
-                                       {
-                                           "fieldPath":  "username",
-                                           "order":  "ASCENDING"
-                                       },
-                                       {
-                                           "fieldPath":  "timestamp",
-                                           "order":  "DESCENDING"
-                                       }
-                                   ]
-                    },
-                    {
-                        "collectionGroup":  "presence",
-                        "queryScope":  "COLLECTION",
-                        "fields":  [
-                                       {
-                                           "fieldPath":  "isOnline",
-                                           "order":  "ASCENDING"
-                                       },
-                                       {
-                                           "fieldPath":  "lastSeen",
-                                           "order":  "ASCENDING"
-                                       }
-                                   ]
-                    },
-                    {
-                        "collectionGroup":  "tt_rooms",
-                        "queryScope":  "COLLECTION",
-                        "fields":  [
-                                       {
-                                           "fieldPath":  "status",
-                                           "order":  "ASCENDING"
-                                       },
-                                       {
-                                           "fieldPath":  "hostUid",
-                                           "order":  "ASCENDING"
-                                       }
-                                   ]
-                    },
-                    {
-                        "collectionGroup":  "active_matches",
-                        "queryScope":  "COLLECTION",
-                        "fields":  [
-                                       {
-                                           "fieldPath":  "status",
-                                           "order":  "ASCENDING"
-                                       },
-                                       {
-                                           "fieldPath":  "category",
-                                           "order":  "ASCENDING"
-                                       }
-                                   ]
-                    },
-                    {
-                        "collectionGroup":  "gallery",
-                        "queryScope":  "COLLECTION",
-                        "fields":  [
-                                       {
-                                           "fieldPath":  "monthDay",
-                                           "order":  "ASCENDING"
-                                       },
-                                       {
-                                           "fieldPath":  "uploadedAt",
-                                           "order":  "DESCENDING"
-                                       }
-                                   ]
-                    },
-                    {
-                        "collectionGroup":  "starlight_jar",
-                        "queryScope":  "COLLECTION",
-                        "fields":  [
-                                       {
-                                           "fieldPath":  "monthDay",
-                                           "order":  "ASCENDING"
-                                       },
-                                       {
-                                           "fieldPath":  "timestamp",
-                                           "order":  "DESCENDING"
-                                       }
-                                   ]
-                    },
-                    {
-                        "collectionGroup":  "sanctuary_messages",
-                        "queryScope":  "COLLECTION",
-                        "fields":  [
-                                       {
-                                           "fieldPath":  "monthDay",
-                                           "order":  "ASCENDING"
-                                       },
-                                       {
-                                           "fieldPath":  "timestamp",
-                                           "order":  "DESCENDING"
-                                       }
-                                   ]
-                    },
-                    {
-                        "collectionGroup":  "calendar_events",
-                        "queryScope":  "COLLECTION",
-                        "fields":  [
-                                       {
-                                           "fieldPath":  "d",
-                                           "order":  "a"
-                                       },
-                                       {
-                                           "fieldPath":  "A",
-                                           "order":  "S"
-                                       }
-                                   ]
-                    },
-                    {
-                        "collectionGroup":  "watch_party_rooms",
-                        "queryScope":  "COLLECTION",
-                        "fields":  [
-                                       {
-                                           "fieldPath":  "active",
-                                           "order":  "ASCENDING"
-                                       },
-                                       {
-                                           "fieldPath":  "hostUid",
-                                           "order":  "ASCENDING"
-                                       }
-                                   ]
-                    },
-                    {
-                        "collectionGroup":  "watch_party_rooms",
-                        "queryScope":  "COLLECTION",
-                        "fields":  [
-                                       {
-                                           "fieldPath":  "active",
-                                           "order":  "ASCENDING"
-                                       },
-                                       {
-                                           "fieldPath":  "partnerUid",
-                                           "order":  "ASCENDING"
-                                       }
-                                   ]
-                    }
-                ],
-    "fieldOverrides":  [
-
-                       ]
+  "indexes": [
+    {
+      "collectionGroup": "bucket_list",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "moods",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "username",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "presence",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isOnline",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastSeen",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "tt_rooms",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "hostUid",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "active_matches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "category",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "gallery",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "monthDay",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "uploadedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "starlight_jar",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "monthDay",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "sanctuary_messages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "monthDay",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "calendar_events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "date",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "watch_party_rooms",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "active",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "hostUid",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "watch_party_rooms",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "active",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "partnerUid",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
 }
