@@ -71,3 +71,9 @@ tmp/
 test/**/failures/
 firestore-debug.log
 firebase-debug.log
+
+# Android APK
+*.apk
+android/
+build_apk.ps1
+firebase.json.bak
