@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/env_config.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../../features/xp/data/services/xp_service.dart';
 import '../../features/dashboard/data/services/letterbox_service.dart';
 import '../utils/logger.dart';
@@ -251,6 +253,33 @@ class AuthService extends ChangeNotifier {
     }
 
     notifyListeners();
+  }
+
+  /// Server-verified Khent/Clair passcode -> Firebase custom token.
+  /// Returns username (khentsgdz/clairjassen) on success, null on bad code.
+  Future<String?> verifyCouplePasscode(String passcode) async {
+    try {
+      final resp = await http.post(Uri.parse('https://us-central1-everglow-1c6db.cloudfunctions.net/verifyPasscode'), headers: {'Content-Type': 'application/json'}, body: jsonEncode({'passcode': passcode})).timeout(const Duration(seconds: 10));
+      if (resp.statusCode != 200) return null;
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final token = data['token'] as String?;
+      final username = data['username'] as String?;
+      if (token == null || token.isEmpty || username == null) return null;
+      await _auth.signInWithCustomToken(token);
+      _currentUser = username;
+      await _saveSession(username);
+      await _syncUserDoc();
+      _lastAuthError = null;
+      notifyListeners();
+      return username;
+    } catch (e) { Logger.e('verifyCouplePasscode failed', error: e); return null; }
+  }
+
+  /// Direct login for Breyan/Octagram (client-verified, non-sensitive).
+  Future<bool> loginCinemaWithPasscode(String passcode) async {
+    if (passcode == EnvConfig.breyanPasscode) { await loginWithPasscode('breyan'); return lastAuthError == null; }
+    if (passcode == EnvConfig.octagramPasscode) { await loginWithPasscode('octagram'); return lastAuthError == null; }
+    return false;
   }
 
   Future<void> logout() async {

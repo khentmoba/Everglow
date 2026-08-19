@@ -17,7 +17,7 @@ class StarlightService {
     return _db
         .collection(_collection)
         .orderBy('timestamp', descending: true)
-        .limit(200)
+        .limit(40)
         .snapshots()
         .map(
           (snapshot) =>
@@ -69,7 +69,7 @@ class StarlightService {
       final snapshot = await _db
           .collection(_collection)
           .orderBy('timestamp', descending: true)
-          .limit(200)
+          .limit(20)
           .get();
       if (snapshot.docs.isEmpty) return null;
 
@@ -101,7 +101,7 @@ class StarlightService {
         snapshot = await _db
             .collection(_collection)
             .orderBy('timestamp', descending: true)
-            .limit(500)
+            .limit(200)
             .get();
       }
 
@@ -127,7 +127,7 @@ class StarlightService {
     return _db
         .collection(_collection)
         .orderBy('timestamp', descending: true)
-        .limit(200)
+        .limit(50)
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
