@@ -24,7 +24,6 @@ part 'mochi_widgets.dart';
 part 'mochi_widgets_streaming.dart';
 part 'mochi_widgets_extra.dart';
 
-/// Full-screen Mochi AI assistant, inspired by Vercel's chatbot interface.
 class MochiScreen extends StatefulWidget {
   const MochiScreen({super.key});
 
@@ -40,14 +39,12 @@ class _MochiScreenState extends State<MochiScreen> {
   bool _showScrollButton = false;
   bool _isSending = false;
   bool _userScrolledUp = false;
-  // Deep thinking on by default so Mochi reasons before answering; the
-  // header toggle turns it off for fast replies.
   bool _deepThink = true;
   bool _deepThinkTouched = false;
   String? _lastSentMessage;
   bool _isSidebarOpen = false;
-  final List<String> _attachedImages = []; // base64 data URIs for preview
-  final List<String> _attachedImageUrls = []; // public URLs for API
+  final List<String> _attachedImages = [];
+  final List<String> _attachedImageUrls = [];
   final ImagePicker _picker = ImagePicker();
   final MochiWebBridge _webBridge = MochiWebBridge();
 
@@ -73,7 +70,9 @@ class _MochiScreenState extends State<MochiScreen> {
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
     _focusNode.dispose();
-    context.read<AIService>().removeListener(_onAiChanged);
+    try {
+      context.read<AIService>().removeListener(_onAiChanged);
+    } catch (_) {}
     _webBridge.uninstallPasteListener();
     super.dispose();
   }
@@ -184,19 +183,12 @@ class _MochiScreenState extends State<MochiScreen> {
       if (images.isNotEmpty) {
         for (final image in images) {
           final bytes = await image.readAsBytes();
-          // Resize large photos to a compact JPEG so the AI proxy request
-          // stays well under Cloud Run's size limit. Without this, full-size
-          // phone photos (multi-MB base64) get rejected with HTTP 500.
-          // Small images pass through unchanged (canvas re-encode could
-          // actually grow tiny PNGs).
           final base64Data = bytes.length > 300 * 1024
               ? await _resizeImageToDataUri(bytes)
               : 'data:image/${image.name.split('.').last};base64,${base64Encode(bytes)}';
           if (!mounted) return;
           setState(() {
             _attachedImages.add(base64Data);
-            // Agnes supports base64 data URIs via image_url, so we send the
-            // same compact data URI to the API.
             _attachedImageUrls.add(base64Data);
           });
         }
@@ -216,8 +208,6 @@ class _MochiScreenState extends State<MochiScreen> {
     }
   }
 
-  /// Draws the image bytes onto a canvas, scales it down to at most
-  /// [maxDim] on the long edge, and returns a compact JPEG data URI.
   Future<String> _resizeImageToDataUri(Uint8List bytes,
       {int maxDim = 1280}) async {
     return _webBridge.resizeImageToDataUri(bytes, maxDim: maxDim);
@@ -230,13 +220,25 @@ class _MochiScreenState extends State<MochiScreen> {
     });
   }
 
+  void _newChat() {
+    final ai = context.read<AIService>();
+    ai.clearConversation('assistant');
+    setState(() => _isSidebarOpen = false);
+    _scrollToBottom(animated: false);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.sizeOf(context).width >= 1024;
+    if (isDesktop) return _buildDesktop(context);
+    return _buildMobile(context);
+  }
+
+  Widget _buildDesktop(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.twilight,
+      backgroundColor: AppColors.inkDeep,
       body: Stack(
         children: [
-          // Atmosphere
           Positioned.fill(
             child: EverglowBackground(
               baseColor: AppColors.inkDeep,
@@ -256,7 +258,98 @@ class _MochiScreenState extends State<MochiScreen> {
               ],
             ),
           ),
-          // Main content
+          SafeArea(
+            child: Row(
+              children: [
+                AnimatedContainer(
+                  duration: AppMotion.medium,
+                  curve: AppMotion.drawer,
+                  width: _isSidebarOpen ? 320 : 0,
+                  child: OverflowBox(
+                    maxWidth: 320,
+                    minWidth: 320,
+                    alignment: Alignment.centerLeft,
+                    child: AnimatedOpacity(
+                      duration: AppMotion.fast,
+                      opacity: _isSidebarOpen ? 1 : 0,
+                      child: MochiSidebar(
+                        isOpen: true,
+                        onClose: () => setState(() => _isSidebarOpen = false),
+                        onNewChat: _newChat,
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    children: [
+                      _MochiHeader(
+                        onBack: () => context.pop(),
+                        onSidebarToggle: () =>
+                            setState(() => _isSidebarOpen = !_isSidebarOpen),
+                        onNewChat: _newChat,
+                        deepThink: _deepThink,
+                        isDesktop: true,
+                        sidebarOpen: _isSidebarOpen,
+                        onToggleDeepThink: () => setState(() {
+                          _deepThinkTouched = true;
+                          _deepThink = !_deepThink;
+                        }),
+                      ),
+                      Divider(
+                        height: 1,
+                        color: AppColors.blushGold.withValues(alpha: 0.06),
+                      ),
+                      Expanded(child: _buildChatList(centered: true)),
+                      _ErrorBanner(
+                        lastSentMessage: _lastSentMessage,
+                        onRetry: () => _send(retry: true),
+                      ),
+                      _ComposerInput(
+                        inputKey: _inputKey,
+                        controller: _input,
+                        focusNode: _focusNode,
+                        onSend: _send,
+                        onPickImages: _pickImages,
+                        attachedImages: _attachedImages,
+                        onRemoveImage: _removeImage,
+                        centered: true,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobile(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.twilight,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: EverglowBackground(
+              baseColor: AppColors.inkDeep,
+              glows: const [
+                RadialGlow(
+                  color: AppColors.auroraLilac,
+                  alignment: Alignment(-0.7, -0.9),
+                  size: 0.9,
+                  opacity: 0.14,
+                ),
+                RadialGlow(
+                  color: AppColors.deepRose,
+                  alignment: Alignment(0.9, 0.9),
+                  size: 0.8,
+                  opacity: 0.10,
+                ),
+              ],
+            ),
+          ),
           SafeArea(
             child: Column(
               children: [
@@ -266,6 +359,8 @@ class _MochiScreenState extends State<MochiScreen> {
                       setState(() => _isSidebarOpen = !_isSidebarOpen),
                   onNewChat: _newChat,
                   deepThink: _deepThink,
+                  isDesktop: false,
+                  sidebarOpen: _isSidebarOpen,
                   onToggleDeepThink: () => setState(() {
                     _deepThinkTouched = true;
                     _deepThink = !_deepThink;
@@ -275,113 +370,7 @@ class _MochiScreenState extends State<MochiScreen> {
                   height: 1,
                   color: AppColors.blushGold.withValues(alpha: 0.06),
                 ),
-                Expanded(
-                  child: Stack(
-                    children: [
-                      Selector<AIService, (AIConversation?, int, bool)>(
-                        selector: (_, ai) => (
-                          ai.assistantConversation,
-                          ai.assistantConversation?.messages.length ?? 0,
-                          ai.isLoading,
-                        ),
-                        builder: (context, snapshot, _) {
-                          final ai = context.read<AIService>();
-                          final allMsgs =
-                              snapshot.$1?.messages ?? const <AIMessage>[];
-                          final loading = snapshot.$3;
-
-                          if (allMsgs.isEmpty && !loading) {
-                            return _GreetingEmptyState(onTap: _sendQuick);
-                          }
-
-                          // The streaming bubble is the only widget that
-                          // listens to per-token revisions; history messages
-                          // stay untouched while the reply streams in.
-                          final itemCount =
-                              allMsgs.length + (loading ? 1 : 0);
-
-                          return ListView.builder(
-                            controller: _scroll,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
-                            ),
-                            itemCount: itemCount,
-                            itemBuilder: (_, i) {
-                              if (i == allMsgs.length) {
-                                return ValueListenableBuilder<int>(
-                                  valueListenable: ai.draftRevisionNotifier,
-                                  builder: (context, _, _) {
-                                    final hasStream =
-                                        ai.draftResponse.isNotEmpty ||
-                                        ai.draftReasoning.isNotEmpty ||
-                                        ai.toolStatus.isNotEmpty;
-                                    if (hasStream) {
-                                      return _MessageBubble(
-                                        text: ai.draftResponse,
-                                        isUser: false,
-                                        isStreaming: true,
-                                        reasoning:
-                                            ai.draftReasoning.isNotEmpty
-                                            ? ai.draftReasoning
-                                            : null,
-                                        toolStatus: ai.toolStatus,
-                                      );
-                                    }
-                                    return _ThinkingIndicator(
-                                      toolStatus: ai.toolStatus,
-                                    );
-                                  },
-                                );
-                              }
-                              final msg = allMsgs[i];
-                              return _MessageBubble(
-                                key: ValueKey(
-                                  'msg_${msg.timestamp.millisecondsSinceEpoch}_$i',
-                                ),
-                                text: msg.content,
-                                isUser: msg.role == 'user',
-                                timestamp: msg.timestamp,
-                                imageUrls: msg.imageUrls,
-                              );
-                            },
-                          );
-                        },
-                      ),
-                      if (_showScrollButton)
-                        Positioned(
-                          bottom: 16,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: AnimatedOpacity(
-                              opacity: _showScrollButton ? 1.0 : 0.0,
-                              duration: const Duration(milliseconds: 200),
-                              child: GestureDetector(
-                                onTap: () => _scrollToBottom(),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 7,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.surfaceGlass,
-                                    borderRadius: AppRadius.radiusFull,
-                                    border: Border.all(color: AppColors.border),
-                                  ),
-                                  child: Icon(
-                                    Icons.keyboard_arrow_down_rounded,
-                                    color: AppColors.textMuted,
-                                    size: 18,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
+                Expanded(child: _buildChatList(centered: false)),
                 _ErrorBanner(
                   lastSentMessage: _lastSentMessage,
                   onRetry: () => _send(retry: true),
@@ -394,12 +383,11 @@ class _MochiScreenState extends State<MochiScreen> {
                   onPickImages: _pickImages,
                   attachedImages: _attachedImages,
                   onRemoveImage: _removeImage,
+                  centered: false,
                 ),
               ],
             ),
           ),
-
-          // Sidebar overlay
           MochiSidebar(
             isOpen: _isSidebarOpen,
             onClose: () => setState(() => _isSidebarOpen = false),
@@ -410,11 +398,136 @@ class _MochiScreenState extends State<MochiScreen> {
     );
   }
 
-  void _newChat() {
-    final ai = context.read<AIService>();
-    ai.clearConversation('assistant');
-    setState(() => _isSidebarOpen = false);
-    _scrollToBottom(animated: false);
+  Widget _buildChatList({required bool centered}) {
+    return Stack(
+      children: [
+        Selector<AIService, (AIConversation?, int, bool)>(
+          selector: (_, ai) => (
+            ai.assistantConversation,
+            ai.assistantConversation?.messages.length ?? 0,
+            ai.isLoading,
+          ),
+          builder: (context, snapshot, _) {
+            final ai = context.read<AIService>();
+            final allMsgs = snapshot.$1?.messages ?? const <AIMessage>[];
+            final loading = snapshot.$3;
+
+            if (allMsgs.isEmpty && !loading) {
+              return _GreetingEmptyState(onTap: _sendQuick, centered: centered);
+            }
+
+            final itemCount = allMsgs.length + (loading ? 1 : 0);
+
+            Widget list = ListView.builder(
+              controller: _scroll,
+              padding: EdgeInsets.symmetric(
+                horizontal: centered ? 24 : 16,
+                vertical: 14,
+              ),
+              itemCount: itemCount,
+              itemBuilder: (_, i) {
+                if (i == allMsgs.length) {
+                  return Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: centered ? 760 : double.infinity),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: ValueListenableBuilder<int>(
+                          valueListenable: ai.draftRevisionNotifier,
+                          builder: (context, _, _) {
+                            final hasStream =
+                                ai.draftResponse.isNotEmpty ||
+                                ai.draftReasoning.isNotEmpty ||
+                                ai.toolStatus.isNotEmpty;
+                            if (hasStream) {
+                              return _MessageBubble(
+                                text: ai.draftResponse,
+                                isUser: false,
+                                isStreaming: true,
+                                reasoning: ai.draftReasoning.isNotEmpty
+                                    ? ai.draftReasoning
+                                    : null,
+                                toolStatus: ai.toolStatus,
+                              );
+                            }
+                            return _ThinkingIndicator(toolStatus: ai.toolStatus);
+                          },
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                final msg = allMsgs[i];
+                final bubble = _MessageBubble(
+                  key: ValueKey('msg_${msg.timestamp.millisecondsSinceEpoch}_$i'),
+                  text: msg.content,
+                  isUser: msg.role == 'user',
+                  timestamp: msg.timestamp,
+                  imageUrls: msg.imageUrls,
+                );
+                if (!centered) return bubble;
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 760),
+                    child: Align(
+                      alignment: msg.role == 'user' ? Alignment.centerRight : Alignment.centerLeft,
+                      child: bubble,
+                    ),
+                  ),
+                );
+              },
+            );
+
+            if (centered) {
+              return ScrollConfiguration(
+                behavior: ScrollConfiguration.of(context).copyWith(scrollbars: true),
+                child: Scrollbar(
+                  controller: _scroll,
+                  thumbVisibility: false,
+                  child: list,
+                ),
+              );
+            }
+            return list;
+          },
+        ),
+        if (_showScrollButton)
+          Positioned(
+            bottom: 16,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: AnimatedOpacity(
+                opacity: _showScrollButton ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: GestureDetector(
+                  onTap: () => _scrollToBottom(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceGlass,
+                      borderRadius: AppRadius.radiusFull,
+                      border: Border.all(color: AppColors.border),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: AppColors.textMuted,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 }
 

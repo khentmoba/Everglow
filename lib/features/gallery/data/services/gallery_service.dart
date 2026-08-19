@@ -1,6 +1,7 @@
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import '../../domain/models/memory_photo.dart';
 import '../../../../core/utils/logger.dart';
 
@@ -15,15 +16,7 @@ class GalleryService {
     return '$m-$d';
   }
 
-  /// Returns the URL used for displaying gallery images.
-  /// Routes Firebase Storage URLs through a Cloud Function proxy
-  /// on web to avoid CORS / auth issues.
-  static String displayUrl(String imageUrl) {
-    if (kIsWeb && imageUrl.contains('firebasestorage.googleapis.com')) {
-      return 'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyGalleryImage?url=${Uri.encodeComponent(imageUrl)}';
-    }
-    return imageUrl;
-  }
+  static String displayUrl(String imageUrl) => imageUrl;
 
   /// Upload a photo and store its metadata in Firestore.
   Future<MemoryPhoto> uploadPhoto({

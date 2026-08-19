@@ -9,7 +9,9 @@ import '../../domain/repositories/ai_conversation_repo_interface.dart';
 /// Firestore CRUD for AI conversations and session archives.
 class AIConversationRepository implements IAIConversationRepository {
   final FirebaseFirestore _db;
-  final User? _user;
+  final User? _userOverride;
+
+  String get _uid => _userOverride?.uid ?? FirebaseAuth.instance.currentUser?.uid ?? '';
 
   // Feature-specific conversation caches
   AIConversation? _assistantConversation;
@@ -19,7 +21,7 @@ class AIConversationRepository implements IAIConversationRepository {
 
   AIConversationRepository({FirebaseFirestore? db, User? user})
       : _db = db ?? FirebaseFirestore.instance,
-        _user = user;
+        _userOverride = user;
 
   @override
   AIConversation? get assistant => _assistantConversation;
@@ -54,7 +56,7 @@ class AIConversationRepository implements IAIConversationRepository {
     final cached = _get(feature);
     if (cached != null) return cached;
 
-    final uid = _user?.uid ?? '';
+    final uid = _uid;
     if (uid.isEmpty) {
       final conv = AIConversation(
         id: 'local_${feature}_${DateTime.now().millisecondsSinceEpoch}',
@@ -89,15 +91,18 @@ class AIConversationRepository implements IAIConversationRepository {
   /// Persist a conversation to Firestore.
   @override
   Future<void> save(AIConversation conversation) async {
-    final uid = _user?.uid ?? '';
+    final uid = _uid;
     if (uid.isEmpty) return;
     try {
+      final now = DateTime.now();
+      final payload = conversation.toJson();
+      payload['updatedAt'] = now.toIso8601String();
       await _db
           .collection('users')
           .doc(uid)
           .collection('ai_conversations')
-          .doc(conversation.id)
-          .set(conversation.toJson());
+          .doc(conversation.feature)
+          .set(payload);
     } catch (e) {
       if (kDebugMode) debugPrint('Failed to save AI conversation: $e');
     }
@@ -339,6 +344,8 @@ class AIConversationRepository implements IAIConversationRepository {
   }
 
   /// Clear a feature's conversation and delete from Firestore.
+  /// Always archives the session first when messages.length >= 2 so history
+  /// actually persists; `listSessions` surfaces those archived docs.
   @override
   Future<void> clear(String feature) async {
     final conv = _get(feature);
@@ -346,9 +353,9 @@ class AIConversationRepository implements IAIConversationRepository {
       await archiveSession(conv);
     }
 
-    _set(feature, null);
+    _set(feature, AIConversation(id: feature, feature: feature));
 
-    final uid = _user?.uid ?? '';
+    final uid = _uid;
     if (uid.isEmpty) return;
 
     try {
@@ -436,6 +443,8 @@ class AIConversationRepository implements IAIConversationRepository {
   }
 
   /// Load a specific session's messages into the assistant conversation.
+  /// Falls back to a LLM-reconstructed summary message when the session has
+  /// been compressed (hasSummary == true, messages == []).
   @override
   Future<void> loadSession(String sessionId) async {
     try {
@@ -450,11 +459,16 @@ class AIConversationRepository implements IAIConversationRepository {
 
       final data = doc.data()!;
       final messages = data['messages'] as List? ?? [];
+      final summary = data['summary'] as String?;
       final conv = _assistantConversation ?? await getOrCreate('assistant');
 
       conv.messages.clear();
-      for (final msg in messages) {
-        conv.messages.add(AIMessage.fromJson(msg as Map<String, dynamic>));
+      if (messages.isNotEmpty) {
+        for (final msg in messages) {
+          conv.messages.add(AIMessage.fromJson(msg as Map<String, dynamic>));
+        }
+      } else if (summary != null && summary.isNotEmpty) {
+        conv.messages.add(AIMessage(role: 'assistant', content: 'Summary: $summary'));
       }
 
       _assistantConversation = conv;
