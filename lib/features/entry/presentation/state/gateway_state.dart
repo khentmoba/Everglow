@@ -79,6 +79,9 @@ class GatewayNotifier extends ChangeNotifier {
           return;
         }
       } catch (_) {}
+      // Fallback: if server not configured or offline, allow client EnvConfig for dev.
+      final fallbackOk = (_currentInput == EnvConfig.clairPasscode && EnvConfig.clairPasscode.isNotEmpty) || (_currentInput == EnvConfig.khentPasscode && EnvConfig.khentPasscode.isNotEmpty);
+      if (fallbackOk) { _lastEnteredPasscode = _currentInput; updateState(GatewayState.unlocking); return; }
       updateState(GatewayState.error);
       // Wait for shake animation
       await Future.delayed(const Duration(milliseconds: 500));
