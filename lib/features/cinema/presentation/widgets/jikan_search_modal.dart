@@ -273,11 +273,11 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
           TextField(
             controller: _searchController,
             onChanged: _onSearchChanged,
-            style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
+            style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 16),
             decoration: InputDecoration(
               hintText: 'Search anime titles, studios, anything…',
               hintStyle:
-                  AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.65)),
+                  AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.65), fontSize: 16),
               prefixIcon: const Icon(Icons.search, color: AppTheme.roseQuartz),
               filled: true,
               fillColor: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),

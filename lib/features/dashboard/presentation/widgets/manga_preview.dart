@@ -241,20 +241,17 @@ class _MangaShelfState extends State<_MangaShelf> {
     if (widget.label == null) {
       if (!_hasLoaded) {
         return const SizedBox(
-          height: 160,
+          height: 194,
           child: ShelfMarquee(hasLoaded: false, children: []),
         );
       }
       if (cards.isEmpty) {
-        return SizedBox(
-          height: 110,
-          child: ShelfEmpty(
-            accent: ShelfAccent.manga,
-            message: 'No manga in your library yet. Find your next read!',
-          ),
+        return ShelfEmpty(
+          accent: ShelfAccent.manga,
+          message: 'No manga in your library yet. Find your next read!',
         );
       }
-      return SizedBox(height: 168, child: ShelfMarquee(children: cards));
+      return SizedBox(height: 194, child: ShelfMarquee(children: cards));
     }
     return PartnerSubrow(
       label: widget.label!,

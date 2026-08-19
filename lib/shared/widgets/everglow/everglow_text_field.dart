@@ -104,11 +104,12 @@ class _EverglowTextFieldState extends State<EverglowTextField> {
             keyboardType: widget.keyboardType,
             maxLength: widget.maxLength,
             enabled: widget.enabled,
-            style: AppTypography.bodyMedium(),
+            style: AppTypography.bodyMedium().copyWith(fontSize: 16),
             decoration: InputDecoration(
               hintText: widget.hint,
               hintStyle: AppTypography.bodyMedium().copyWith(
                 color: AppColors.textDisabled,
+                fontSize: 16,
               ),
               prefixIcon: widget.prefixIcon != null
                   ? Icon(widget.prefixIcon,

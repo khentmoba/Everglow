@@ -270,7 +270,7 @@ class _PersonalBooksShelfState extends State<_PersonalBooksShelf> {
   Widget build(BuildContext context) {
     final stream = _stream;
     return SizedBox(
-      height: 168,
+      height: 194,
       child: stream == null
           ? const ShelfEmpty(
               accent: ShelfAccent.books,
@@ -288,7 +288,10 @@ class _PersonalBooksShelfState extends State<_PersonalBooksShelf> {
                   );
                 }
                 if (!snapshot.hasData) {
-                  return const ShelfMarquee(hasLoaded: false, children: []);
+                  return const SizedBox(
+                    height: 194,
+                    child: ShelfMarquee(hasLoaded: false, children: []),
+                  );
                 }
                 final items = snapshot.data!;
                 if (items.isEmpty) {

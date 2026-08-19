@@ -24,10 +24,11 @@ class DashboardOverlays extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // AI Assistant & Guardian - bottom-right
+        // AI Assistant & Guardian - bottom-right (safe-area aware)
         Positioned(
           bottom: 24,
           right: 24,
+          // respect notches/home-indicator via MediaQuery padding
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -59,69 +60,114 @@ class DashboardOverlays extends StatelessWidget {
           Positioned(
             top: 24,
             left: 24,
-            child: FadeInDown(
-              delay: const Duration(milliseconds: 1500),
-              child: _FloatingAction(
-                tooltip: 'Open creator tools',
-                onTap: () => showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (context) => const CreatorModal(),
-                ),
-                child: const Icon(
-                  Icons.favorite_rounded,
-                  color: AppColors.roseQuartz,
-                  size: 26,
-                ),
-              ),
-            ),
+            child: AppMotion.reduced
+                ? _FloatingAction(
+                    tooltip: 'Open creator tools',
+                    onTap: () => showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => const CreatorModal(),
+                    ),
+                    child: const Icon(
+                      Icons.favorite_rounded,
+                      color: AppColors.roseQuartz,
+                      size: 26,
+                    ),
+                  )
+                : FadeInDown(
+                    delay: const Duration(milliseconds: 1500),
+                    child: _FloatingAction(
+                      tooltip: 'Open creator tools',
+                      onTap: () => showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (context) => const CreatorModal(),
+                      ),
+                      child: const Icon(
+                        Icons.favorite_rounded,
+                        color: AppColors.roseQuartz,
+                        size: 26,
+                      ),
+                    ),
+                  ),
           ),
 
         // Canvas + Partner status + Actions - top-right
         Positioned(
           top: 24,
           right: 96,
-          child: FadeInDown(
-            delay: const Duration(milliseconds: 1500),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const PartnerStatusIndicator(),
-                const SizedBox(width: 14),
-                const DashboardActions(),
-                const SizedBox(width: 14),
-                _FloatingAction(
-                  tooltip: 'Open Everglow Canvas',
-                  onTap: () => context.push('/canvas'),
-                  child: const Icon(
-                    Icons.brush_rounded,
-                    color: AppColors.roseQuartz,
-                    size: 26,
+          child: AppMotion.reduced
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const PartnerStatusIndicator(),
+                    const SizedBox(width: 14),
+                    const DashboardActions(),
+                    const SizedBox(width: 14),
+                    _FloatingAction(
+                      tooltip: 'Open Everglow Canvas',
+                      onTap: () => context.push('/canvas'),
+                      child: const Icon(
+                        Icons.brush_rounded,
+                        color: AppColors.roseQuartz,
+                        size: 26,
+                      ),
+                    ),
+                  ],
+                )
+              : FadeInDown(
+                  delay: const Duration(milliseconds: 1500),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const PartnerStatusIndicator(),
+                      const SizedBox(width: 14),
+                      const DashboardActions(),
+                      const SizedBox(width: 14),
+                      _FloatingAction(
+                        tooltip: 'Open Everglow Canvas',
+                        onTap: () => context.push('/canvas'),
+                        child: const Icon(
+                          Icons.brush_rounded,
+                          color: AppColors.roseQuartz,
+                          size: 26,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          ),
         ),
 
         // Sanctuary Chat Button - top-right
         Positioned(
           top: 24,
           right: 24,
-          child: FadeInDown(
-            delay: const Duration(milliseconds: 1500),
-            child: _FloatingAction(
-              tooltip: 'Open Sanctuary chat',
-              filled: true,
-              onTap: () => context.push('/sanctuary'),
-              child: const Icon(
-                Icons.chat_bubble_outline_rounded,
-                color: AppColors.petalWhite,
-                size: 26,
-              ),
-            ),
-          ),
+          child: AppMotion.reduced
+              ? _FloatingAction(
+                  tooltip: 'Open Sanctuary chat',
+                  filled: true,
+                  onTap: () => context.push('/sanctuary'),
+                  child: const Icon(
+                    Icons.chat_bubble_outline_rounded,
+                    color: AppColors.petalWhite,
+                    size: 26,
+                  ),
+                )
+              : FadeInDown(
+                  delay: const Duration(milliseconds: 1500),
+                  child: _FloatingAction(
+                    tooltip: 'Open Sanctuary chat',
+                    filled: true,
+                    onTap: () => context.push('/sanctuary'),
+                    child: const Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      color: AppColors.petalWhite,
+                      size: 26,
+                    ),
+                  ),
+                ),
         ),
 
         // Mood Picker prompt

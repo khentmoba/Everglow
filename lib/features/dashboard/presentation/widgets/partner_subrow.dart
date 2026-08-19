@@ -32,8 +32,8 @@ class PartnerSubrow extends StatelessWidget {
   /// would otherwise be empty.
   final String? emptyMessage;
 
-  /// Pixel height reserved for the marquee. Defaults to 168 to match
-  /// the existing dashboard previews.
+  /// Pixel height reserved for the marquee. Defaults to 194 to match
+  /// the taller 128×186 ShelfCard with hover lift + shadow.
   final double height;
 
   const PartnerSubrow({
@@ -42,7 +42,7 @@ class PartnerSubrow extends StatelessWidget {
     required this.children,
     required this.accent,
     this.emptyMessage = 'Nothing here yet.',
-    this.height = 168,
+    this.height = 194,
   });
 
   @override
@@ -77,26 +77,79 @@ class _SubrowLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isMe = label.toUpperCase() == 'ME';
     return Row(
       children: [
         Container(
-          width: 22,
-          height: 2,
+          width: 28,
+          height: 1.2,
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [accent.color, accent.color.withValues(alpha: 0.0)],
+              colors: [
+                accent.color.withValues(alpha: 0.0),
+                accent.color.withValues(alpha: 0.55),
+              ],
             ),
-            borderRadius: BorderRadius.circular(1),
           ),
         ),
         const SizedBox(width: 8),
-        Text(
-          '$label:',
-          style: AppTypography.outfitWhite.copyWith(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            color: accent.color,
-            letterSpacing: 1.8,
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: isMe
+                ? accent.color.withValues(alpha: 0.14)
+                : Colors.white.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: isMe
+                  ? accent.color.withValues(alpha: 0.32)
+                  : Colors.white.withValues(alpha: 0.10),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: accent.color,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: accent.color.withValues(alpha: 0.35),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label.toUpperCase(),
+                style: AppTypography.outfitWhite.copyWith(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: isMe
+                      ? accent.color
+                      : AppTheme.petalWhite.withValues(alpha: 0.72),
+                  letterSpacing: 1.6,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  accent.color.withValues(alpha: 0.22),
+                  Colors.transparent,
+                ],
+              ),
+            ),
           ),
         ),
       ],
@@ -113,23 +166,46 @@ class _SubrowEmptyLine extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: accent.color.withValues(alpha: 0.15),
+          color: Colors.white.withValues(alpha: 0.07),
           width: 1,
         ),
       ),
-      child: Text(
-        message,
-        style: AppTypography.outfitWhite.copyWith(
-          color: AppTheme.roseQuartz.withValues(alpha: 0.65),
-          fontStyle: FontStyle.italic,
-          fontSize: 12,
-          height: 1.3,
-        ),
+      child: Row(
+        children: [
+          Container(
+            width: 26,
+            height: 26,
+            decoration: BoxDecoration(
+              color: accent.color.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: accent.color.withValues(alpha: 0.18),
+              ),
+            ),
+            child: Icon(
+              Icons.nights_stay_outlined,
+              size: 13,
+              color: accent.color.withValues(alpha: 0.65),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppTheme.petalWhite.withValues(alpha: 0.48),
+                fontStyle: FontStyle.italic,
+                fontSize: 12,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

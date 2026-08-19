@@ -54,29 +54,30 @@ class _FeatureSectionState extends State<FeatureSection> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                AppColors.velvet.withValues(alpha: 0.72),
-                AppColors.inkDeep.withValues(alpha: 0.72),
+                Colors.white.withValues(alpha: 0.07),
+                AppColors.velvet.withValues(alpha: 0.68),
+                AppColors.inkDeep.withValues(alpha: 0.74),
               ],
+              stops: const [0.0, 0.42, 1.0],
             ),
             borderRadius: AppRadius.radiusX2,
             border: Border.all(
               color: _hovered
-                  ? widget.hue.withValues(alpha: 0.55)
-                  : AppColors.moonlight.withValues(alpha: 0.14),
+                  ? widget.hue.withValues(alpha: 0.48)
+                  : Colors.white.withValues(alpha: 0.08),
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: AppColors.inkDeep.withValues(alpha: 0.45),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
+                color: Colors.black.withValues(alpha: 0.42),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
               ),
-              if (_hovered)
-                BoxShadow(
-                  color: widget.hue.withValues(alpha: 0.16),
-                  blurRadius: 26,
-                  spreadRadius: -6,
-                ),
+              BoxShadow(
+                color: widget.hue.withValues(alpha: _hovered ? 0.14 : 0.06),
+                blurRadius: 22,
+                spreadRadius: -4,
+              ),
             ],
           ),
           child: Stack(

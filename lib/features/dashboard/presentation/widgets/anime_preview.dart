@@ -215,20 +215,17 @@ class _AnimeShelfState extends State<_AnimeShelf> {
     if (widget.label == null) {
       if (!_hasLoaded) {
         return const SizedBox(
-          height: 160,
+          height: 194,
           child: ShelfMarquee(hasLoaded: false, children: []),
         );
       }
       if (cards.isEmpty) {
-        return SizedBox(
-          height: 110,
-          child: ShelfEmpty(
-            accent: ShelfAccent.anime,
-            message: 'No anime watched yet. Time for a binge!',
-          ),
+        return ShelfEmpty(
+          accent: ShelfAccent.anime,
+          message: 'No anime watched yet. Time for a binge!',
         );
       }
-      return SizedBox(height: 168, child: ShelfMarquee(children: cards));
+      return SizedBox(height: 194, child: ShelfMarquee(children: cards));
     }
     return PartnerSubrow(
       label: widget.label!,

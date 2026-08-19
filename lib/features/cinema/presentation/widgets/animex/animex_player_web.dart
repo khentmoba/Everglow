@@ -9,25 +9,11 @@ import '../../../data/services/anilist_service.dart';
 import 'animex_buttons.dart';
 import 'animex_tokens.dart';
 
-/// Embedded iframe player used for episodes and trailers. Registers a
-/// unique platform view per URL so multiple players can coexist.
 class AnimeXPlayerFrame extends StatefulWidget {
   final String url;
   final double aspectRatio;
-
-  /// Referrer policy sent to the embedded site. Streaming providers expect
-  /// no referrer, while YouTube's embed requires a real origin (Error 153
-  /// otherwise), so callers opt in per surface.
   final String referrerPolicy;
-
-  /// Called when the embedded page signals that content is unavailable
-  /// (e.g. a provider "We're Sorry / 410" error page). Lets the caller
-  /// auto-advance to the next server.
   final VoidCallback? onContentError;
-
-  /// The page scroll view behind the player. The embed iframe swallows
-  /// wheel events, so without forwarding them the page can't be scrolled
-  /// on desktop while the cursor is over the player.
   final ScrollController? scrollController;
 
   const AnimeXPlayerFrame({
@@ -46,11 +32,31 @@ class AnimeXPlayerFrame extends StatefulWidget {
 class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
   late final String _viewType;
   late final web.HTMLIFrameElement _iframe;
+  late final web.HTMLDivElement _wrapper;
+  web.HTMLDivElement? _overlay;
   JSFunction? _onLoad;
   JSFunction? _onMessage;
   JSFunction? _onWheel;
+  JSFunction? _onOverlayMove;
+  JSFunction? _onOverlayDown;
+  int _overlayTimer = 0;
+  double _lastMoveX = -1;
+  double _lastMoveY = -1;
   bool _loaded = false;
   bool _contentError = false;
+
+  void _punchOverlay(int ms) {
+    final o = _overlay;
+    if (o == null) return;
+    o.style.pointerEvents = 'none';
+    web.window.clearTimeout(_overlayTimer);
+    _overlayTimer = web.window.setTimeout(
+      (() {
+        o.style.pointerEvents = 'auto';
+      }).toJS,
+      ms.toJS,
+    );
+  }
 
   @override
   void initState() {
@@ -68,45 +74,81 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
       ..style.border = 'none'
       ..style.width = '100%'
       ..style.height = '100%';
+
     _onLoad = (() {
       if (mounted) setState(() => _loaded = true);
     }).toJS;
     _iframe.addEventListener('load', _onLoad);
 
-    // Forward wheel events over the iframe to the page scroll view. The
-    // embed swallows them, so without this the page freezes under the
-    // cursor on desktop (mobile touch events are unaffected).
+    _wrapper = web.document.createElement('div') as web.HTMLDivElement
+      ..style.position = 'relative'
+      ..style.width = '100%'
+      ..style.height = '100%'
+      ..style.overflow = 'hidden';
+    _wrapper.appendChild(_iframe);
+
     final scrollController = widget.scrollController;
     if (scrollController != null) {
+      final overlay = web.document.createElement('div') as web.HTMLDivElement
+        ..style.position = 'absolute'
+        ..style.top = '0'
+        ..style.left = '0'
+        ..style.width = '100%'
+        ..style.height = '100%'
+        ..style.backgroundColor = 'transparent'
+        ..style.zIndex = '2'
+        ..style.pointerEvents = 'auto';
+      _overlay = overlay;
+      _wrapper.appendChild(overlay);
+
       _onWheel = ((web.Event e) {
         if (!scrollController.hasClients) return;
         final wheel = e as web.WheelEvent;
-        if (wheel.ctrlKey) return; // Leave pinch-zoom gestures alone.
+        if (wheel.ctrlKey) return;
         wheel.preventDefault();
-        var delta = wheel.deltaY;
+        var delta = wheel.deltaY.toDouble();
         switch (wheel.deltaMode) {
-          case 1: // DOM_DELTA_LINE
+          case 1:
             delta *= 20;
             break;
-          case 2: // DOM_DELTA_PAGE
+          case 2:
             delta *= 600;
             break;
         }
         if (delta == 0) return;
-        final position = scrollController.position;
-        final target = (position.pixels + delta)
-            .clamp(position.minScrollExtent, position.maxScrollExtent)
+        final pos = scrollController.position;
+        final target = (pos.pixels + delta)
+            .clamp(pos.minScrollExtent, pos.maxScrollExtent)
             .toDouble();
-        if (target != position.pixels) position.jumpTo(target);
+        if (target != pos.pixels) pos.jumpTo(target);
       }).toJS;
-      _iframe.addEventListener('wheel', _onWheel, true.toJS);
+      overlay.addEventListener(
+        'wheel',
+        _onWheel,
+        web.AddEventListenerOptions(passive: false),
+      );
+
+      // Let hover/click events reach the iframe's controls (play, volume,
+      // quality, seek) by briefly disabling the overlay whenever the cursor
+      // actually moves. Stationary cursor over the overlay still captures
+      // wheel for page scrolling.
+      _onOverlayMove = ((web.Event e) {
+        final m = e as web.MouseEvent;
+        final x = m.clientX.toDouble();
+        final y = m.clientY.toDouble();
+        final moved = (x - _lastMoveX).abs() > 1 || (y - _lastMoveY).abs() > 1;
+        if (!moved) return;
+        _lastMoveX = x;
+        _lastMoveY = y;
+        _punchOverlay(280);
+      }).toJS;
+      _onOverlayDown = ((web.Event _) {
+        _punchOverlay(1500);
+      }).toJS;
+      overlay.addEventListener('mousemove', _onOverlayMove);
+      overlay.addEventListener('mousedown', _onOverlayDown);
     }
 
-    // Listen for a content-availability signal from the embed. The embed
-    // pages (e.g. MegaPlay) render a "We're Sorry / 410" page inside their
-    // own document when an episode is missing; a small script injected by
-    // the provider posts `animex-content-error` to the parent so we can
-    // skip dead servers automatically.
     _onMessage = ((web.MessageEvent event) {
       final raw = event.data;
       final data = raw == null ? '' : raw.toString();
@@ -118,19 +160,26 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     web.window.addEventListener('message', _onMessage);
 
     ui_web.platformViewRegistry
-        .registerViewFactory(_viewType, (int viewId) => _iframe);
+        .registerViewFactory(_viewType, (int viewId) => _wrapper);
   }
 
   @override
   void dispose() {
+    web.window.clearTimeout(_overlayTimer);
     if (_onLoad != null) {
       _iframe.removeEventListener('load', _onLoad!);
     }
     if (_onMessage != null) {
       web.window.removeEventListener('message', _onMessage!);
     }
-    if (_onWheel != null) {
-      _iframe.removeEventListener('wheel', _onWheel!);
+    if (_onWheel != null && _overlay != null) {
+      _overlay!.removeEventListener('wheel', _onWheel!);
+    }
+    if (_onOverlayMove != null && _overlay != null) {
+      _overlay!.removeEventListener('mousemove', _onOverlayMove!);
+    }
+    if (_onOverlayDown != null && _overlay != null) {
+      _overlay!.removeEventListener('mousedown', _onOverlayDown!);
     }
     super.dispose();
   }
@@ -164,8 +213,6 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
   }
 }
 
-/// Opens the reference-style trailer modal for an anime. Fetches the
-/// AniList detail to resolve the YouTube trailer key when needed.
 Future<void> showAnimexTrailer(
   BuildContext context, {
   String? youtubeId,
@@ -195,7 +242,6 @@ Future<void> showAnimexTrailer(
   );
 }
 
-/// Trailer overlay dialog with a 16:9 YouTube player and close button.
 class AnimeXTrailerModal extends StatelessWidget {
   final String title;
   final String youtubeId;

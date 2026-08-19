@@ -84,14 +84,22 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       anilistId: _anilistId,
       malId: _malId,
     );
-    var tmdbId = _item.tmdbId;
+    int? tmdbId;
     try {
       final mappings = await _aniZip.fetchMappings(_malId);
       final mapped = mappings?['mappings'] as Map<String, dynamic>?;
-      final tvdb = mapped?['themoviedb_id'];
-      if (tvdb is num && tvdb > 0) tmdbId = tvdb.toInt();
+      final raw = mapped?['themoviedb_id'];
+      if (raw is num && raw > 0) {
+        tmdbId = raw.toInt();
+      } else if (raw is String && raw.isNotEmpty) {
+        final parsed = int.tryParse(raw);
+        if (parsed != null && parsed > 0) tmdbId = parsed;
+      }
     } catch (_) {}
+    final resolvedTmdbId = tmdbId ?? 0;
     if (!mounted) return;
+    final nextServers = _buildServers(resolvedTmdbId);
+    final firstAvailable = nextServers.indexWhere((s) => s.available);
     setState(() {
       _detail = detail;
       _episodes = _buildEpisodeList(detail);
@@ -99,7 +107,12 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         _selectedEpisode =
             _selectedEpisode.clamp(1, _episodes.length).toInt();
       }
-      _servers = _buildServers(tmdbId);
+      _servers = nextServers;
+      if (firstAvailable != -1 &&
+          (_serverIndex >= _servers.length ||
+              !_servers[_serverIndex].available)) {
+        _serverIndex = firstAvailable;
+      }
     });
     _recordHistory(_selectedEpisode);
     _probeCurrentServer();
@@ -123,22 +136,16 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     final anilistId = _anilistId;
     return [
       _ServerOption(
-        name: 'Server 1',
-        urlBuilder: (ep, audio) =>
-            'https://player.videasy.net/tv/$tmdbId?season=1&episode=$ep',
-        available: tmdbId > 0,
-      ),
-      _ServerOption(
-        name: 'Server 2',
-        urlBuilder: (ep, audio) =>
-            'https://megaplay.buzz/stream/ani/$anilistId/$ep/$audio',
-        available: anilistId != null,
-      ),
-      _ServerOption(
         name: 'Server 3',
         urlBuilder: (ep, audio) =>
             'https://vidnest.fun/anime/$anilistId/$ep/$audio',
         available: anilistId != null,
+      ),
+      _ServerOption(
+        name: 'Server 1',
+        urlBuilder: (ep, audio) =>
+            'https://player.videasy.net/tv/$tmdbId?season=1&episode=$ep',
+        available: tmdbId > 0,
       ),
       _ServerOption(
         name: 'Server 4',
@@ -146,6 +153,12 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
             'https://tryembed.us.cc/embed/anime/$anilistId/$ep/'
             '${audio == 'sub' ? '1' : '2'}',
         available: anilistId != null,
+      ),
+      _ServerOption(
+        name: 'Server 2',
+        urlBuilder: (ep, audio) =>
+            'https://megaplay.buzz/stream/ani/$anilistId/$ep/$audio',
+        available: false,
       ),
     ];
   }
