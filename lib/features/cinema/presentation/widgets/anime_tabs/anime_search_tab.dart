@@ -541,11 +541,11 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                 child: TextField(
                   controller: _searchController,
                   onChanged: _onSearchChanged,
-                  style: AppTypography.outfitWhite.copyWith(color: _cWhite, fontSize: 15),
+                  style: AppTypography.outfitWhite.copyWith(color: _cWhite, fontSize: 16),
                   decoration: InputDecoration(
                     hintText: 'Search anime titles, studios, anything\u2026',
                     hintStyle:
-                        AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 15),
+                        AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 16),
                     prefixIcon: Padding(
                       padding: const EdgeInsets.all(14),
                       child: Icon(

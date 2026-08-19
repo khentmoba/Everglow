@@ -68,6 +68,8 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
   static const _tmdbImageBase = 'https://image.tmdb.org/t/p/w342';
 
   bool get _isDesktop => AppBreakpoint.isDesktop(context);
+  bool _canHover(BuildContext context) =>
+      MediaQuery.maybeOf(context)?.accessibleNavigation == false && _isDesktop;
 
   String get _resolvedImageUrl {
     final url = widget.imageUrl;
@@ -85,7 +87,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
   Widget build(BuildContext context) {
     final badgeColor = widget.badgeColor ?? AppTheme.deepRose;
     final disabled = widget.onTap == null;
-    final isDesktop = _isDesktop;
+    final canHover = _canHover(context);
 
     // Compose the announcement: "Movie, title, year, badge"
     final announcement = [
@@ -95,10 +97,10 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
         widget.subtitle!,
     ].join(', ');
 
-    final liftY = _hovered && !_pressed && !disabled && isDesktop ? -6.0 : 0.0;
+    final liftY = _hovered && !_pressed && !disabled && canHover ? -6.0 : 0.0;
     final scaleVal = _pressed
         ? 0.96
-        : (_hovered && !disabled && isDesktop ? 1.05 : 1.0);
+        : (_hovered && !disabled && canHover ? 1.05 : 1.0);
 
     final card = AnimatedContainer(
       duration: ShelfMotion.orZero(const Duration(milliseconds: 200)),
@@ -116,7 +118,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                   spreadRadius: 2,
                 ),
               ]
-            : _hovered && !disabled && isDesktop
+            : _hovered && !disabled && canHover
                 ? [
                     BoxShadow(
                       color: badgeColor.withValues(alpha: 0.5),
@@ -155,8 +157,8 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
             else
               _Placeholder(title: widget.title, accent: badgeColor),
 
-            // Hover overlay — play button + accent border on desktop
-            if (isDesktop)
+            // Hover overlay — play button + accent border on hover-capable input
+            if (canHover)
               AnimatedOpacity(
                 duration: ShelfMotion.orZero(ShelfMotion.fast),
                 opacity: _hovered && !disabled ? 1.0 : 0.0,
@@ -243,7 +245,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                         style: AppTypography.outfitBold.copyWith(
                           color: AppTheme.blushGold
                               .withValues(alpha: 0.9),
-                          fontSize: 10,
+                          fontSize: 11,
                           fontStyle: FontStyle.italic,
                         ),
                       ),
@@ -283,7 +285,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                         widget.badge!,
                         style: AppTypography.outfitHeading.copyWith(
                           color: Colors.white,
-                          fontSize: 8,
+                          fontSize: 11,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 0.5,
                         ),
@@ -371,7 +373,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
               cursor: disabled
                   ? SystemMouseCursors.basic
                   : SystemMouseCursors.click,
-              onEnter: disabled || !isDesktop
+              onEnter: disabled || !canHover
                   ? null
                   : (_) {
                       setState(() => _hovered = true);

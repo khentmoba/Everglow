@@ -214,10 +214,10 @@ class _TMDBSearchModalState extends State<TMDBSearchModal> {
           TextField(
             controller: _searchController,
             onChanged: _onSearchChanged,
-            style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
+            style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 16),
             decoration: InputDecoration(
               hintText: 'Search for a movie or show...',
-              hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.4)),
+              hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.4), fontSize: 16),
               prefixIcon: const Icon(Icons.search, color: AppTheme.roseQuartz),
               filled: true,
               fillColor: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),

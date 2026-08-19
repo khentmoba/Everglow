@@ -84,10 +84,10 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
                 child: TextField(
                   controller: _searchController,
                   onChanged: _onSearchChanged,
-                  style: AppTypography.outfitWhite.copyWith(color: NetflixColors.textPrimary, fontSize: 15),
+                  style: AppTypography.outfitWhite.copyWith(color: NetflixColors.textPrimary, fontSize: 16),
                   decoration: InputDecoration(
                     hintText: 'Titles, actors, genres',
-                    hintStyle: AppTypography.outfitWhite.copyWith(color: NetflixColors.textMuted, fontSize: 15),
+                    hintStyle: AppTypography.outfitWhite.copyWith(color: NetflixColors.textMuted, fontSize: 16),
                     prefixIcon: Icon(
                       Icons.search_rounded,
                       color: NetflixColors.textSecondary,

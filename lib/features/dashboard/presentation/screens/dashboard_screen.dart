@@ -67,6 +67,26 @@ class _DashboardScreenState extends State<DashboardScreen>
   Timer? _heartbeatRetryTimer;
   int _heartbeatRetryCount = 0;
   static const int _maxHeartbeatRetries = 5;
+  final ScrollController _scrollController = ScrollController();
+  final Map<String, GlobalKey> _sectionKeys = {
+    'coming-up': GlobalKey(),
+    'watching': GlobalKey(),
+    'shelves': GlobalKey(),
+    'timeline': GlobalKey(),
+    'moments': GlobalKey(),
+  };
+
+  void _jumpTo(String id) {
+    final ctx = _sectionKeys[id]?.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(
+        ctx,
+        duration: AppMotion.orZero(const Duration(milliseconds: 420)),
+        curve: AppMotion.easeOutStrong,
+        alignment: 0.05,
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -133,6 +153,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   void dispose() {
+    _scrollController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _lifecycle.uninstall();
     _heartbeatRetryTimer?.cancel();
@@ -205,18 +226,29 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   /// Wraps a widget in a [FadeInUp] animation when [animate] is enabled.
+  /// Respects reduced-motion: fades in place with no translation.
   Widget _animatedSliver(
     Widget child, {
     int delayMs = 900,
     double heightAfter = 32,
     double placeholderHeight = 220,
   }) {
-    final animated = widget.animate
-        ? FadeInUp(
-            delay: Duration(milliseconds: delayMs),
-            child: child,
-          )
-        : child;
+    final Widget animated;
+    if (!widget.animate) {
+      animated = child;
+    } else if (AppMotion.reduced) {
+      animated = TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 150),
+        builder: (_, opacity, c) => Opacity(opacity: opacity, child: c),
+        child: child,
+      );
+    } else {
+      animated = FadeInUp(
+        delay: Duration(milliseconds: delayMs),
+        child: child,
+      );
+    }
     return SliverToBoxAdapter(
       child: _DeferredSection(
         placeholderHeight: placeholderHeight,
@@ -252,9 +284,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
 
     final contentMaxWidth = ResponsiveValue<double>(
-      mobile: 520,
-      tablet: 720,
-      desktop: 900,
+      mobile: 600,
+      tablet: 820,
+      desktop: 980,
     ).of(context);
 
     return Scaffold(
@@ -295,16 +327,19 @@ class _DashboardScreenState extends State<DashboardScreen>
                   child: ConstrainedBox(
                     constraints: BoxConstraints(maxWidth: contentMaxWidth),
                     child: CustomScrollView(
+                      controller: _scrollController,
                       slivers: [
                         // Header
                         SliverToBoxAdapter(
                           child: Padding(
                             padding: const EdgeInsets.fromLTRB(24, 60, 24, 28),
                             child: widget.animate
-                                ? FadeInDown(
-                                    duration: const Duration(milliseconds: 800),
-                                    child: _buildHeader(context),
-                                  )
+                                ? (AppMotion.reduced
+                                    ? _buildHeader(context)
+                                    : FadeInDown(
+                                        duration: const Duration(milliseconds: 800),
+                                        child: _buildHeader(context),
+                                      ))
                                 : _buildHeader(context),
                           ),
                         ),
@@ -329,10 +364,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                           child: Padding(
                             padding: const EdgeInsets.fromLTRB(24, 22, 24, 8),
                             child: widget.animate
-                                ? FadeInUp(
-                                    delay: const Duration(milliseconds: 250),
-                                    child: _buildQuickActions(context),
-                                  )
+                                ? (AppMotion.reduced
+                                    ? _buildQuickActions(context)
+                                    : FadeInUp(
+                                        delay: const Duration(milliseconds: 250),
+                                        child: _buildQuickActions(context),
+                                      ))
                                 : _buildQuickActions(context),
                           ),
                         ),
@@ -340,9 +377,19 @@ class _DashboardScreenState extends State<DashboardScreen>
                         // Anniversary Metrics Grid
                         AnniversaryMetrics(animate: widget.animate),
 
-                        const SliverToBoxAdapter(child: SizedBox(height: 40)),
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+                            child: _DashboardJumpBar(onJump: _jumpTo),
+                          ),
+                        ),
+
+                        const SliverToBoxAdapter(child: SizedBox(height: 26)),
 
                         // On This Day
+                        SliverToBoxAdapter(
+                          child: SizedBox(key: _sectionKeys['coming-up'], height: 0),
+                        ),
                         _animatedSliver(
                           const OnThisDayCard(),
                           delayMs: 800,
@@ -389,7 +436,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                           delayMs: 1050,
                           placeholderHeight: 280,
                         ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 32)),
+                        SliverToBoxAdapter(
+                          child: SizedBox(key: _sectionKeys['watching'], height: 0),
+                        ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 8)),
                         _animatedSliver(
                           const CurrentlyWatchingPreview(),
                           delayMs: 1080,
@@ -419,7 +469,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                           delayMs: 1150,
                           placeholderHeight: 300,
                         ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                        SliverToBoxAdapter(
+                          child: SizedBox(key: _sectionKeys['shelves'], height: 0),
+                        ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 2)),
                         _animatedSliver(
                           const GalleryPreview(),
                           delayMs: 1170,
@@ -437,13 +490,19 @@ class _DashboardScreenState extends State<DashboardScreen>
                           delayMs: 1180,
                           placeholderHeight: 300,
                         ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 32)),
+                        SliverToBoxAdapter(
+                          child: SizedBox(key: _sectionKeys['timeline'], height: 0),
+                        ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 8)),
                         _animatedSliver(
                           const TimelineView(),
                           delayMs: 1200,
                           placeholderHeight: 620,
                         ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 32)),
+                        SliverToBoxAdapter(
+                          child: SizedBox(key: _sectionKeys['moments'], height: 0),
+                        ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 8)),
                         _animatedSliver(
                           const StarlightJarWidget(),
                           delayMs: 1300,
@@ -491,116 +550,201 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Widget _buildHeader(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    final titleSize = width < 400 ? 40.0 : 46.0;
+    final titleSize = width < 400 ? 38.0 : 48.0;
     return Center(
       child: Column(
         children: [
-          // Emblem in a soft glass ring.
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.blushGold.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: AppColors.blushGold.withValues(alpha: 0.18),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 5,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: AppColors.auroraRose,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.auroraRose.withValues(alpha: 0.6),
+                        blurRadius: 6,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'EST.  FEBRUARY 14, 2026  —  KHENT  &  CLAIR',
+                  style: AppTypography.outfitHeading.copyWith(
+                    fontSize: 9.5,
+                    letterSpacing: 2.0,
+                    color: AppColors.blushGold.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
           BreathingEmblem(
             child: Container(
-              width: 104,
-              height: 104,
+              width: 108,
+              height: 108,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    AppColors.moonlight.withValues(alpha: 0.16),
-                    AppColors.deepRose.withValues(alpha: 0.10),
+                    AppColors.moonlight.withValues(alpha: 0.18),
+                    AppColors.deepRose.withValues(alpha: 0.12),
+                    AppColors.inkDeep.withValues(alpha: 0.9),
                   ],
+                  stops: const [0.0, 0.55, 1.0],
                 ),
                 border: Border.all(
-                  color: AppColors.blushGold.withValues(alpha: 0.5),
+                  color: AppColors.blushGold.withValues(alpha: 0.52),
                   width: 1.4,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.deepRose.withValues(alpha: 0.28),
-                    blurRadius: 34,
-                    spreadRadius: -4,
+                    color: AppColors.deepRose.withValues(alpha: 0.30),
+                    blurRadius: 36,
+                    spreadRadius: -6,
+                  ),
+                  BoxShadow(
+                    color: AppColors.blushGold.withValues(alpha: 0.14),
+                    blurRadius: 22,
+                    spreadRadius: -10,
                   ),
                 ],
               ),
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(13),
               child: ClipOval(
                 child: Image.asset('assets/images/logo.png', fit: BoxFit.cover),
               ),
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           Text(
             'welcome home',
             style: AppTypography.handwrittenBody().copyWith(
-              fontSize: 22,
-              color: AppColors.blushGold.withValues(alpha: 0.9),
+              fontSize: 23,
+              color: AppColors.blushGold.withValues(alpha: 0.92),
               height: 1.0,
+              letterSpacing: 0.2,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           ShimmerTitle(
             child: Text(
               'Forever In Bloom',
+              textAlign: TextAlign.center,
               style: AppTypography.cormorantBlack.copyWith(
                 fontSize: titleSize,
-                letterSpacing: -0.5,
+                height: 1.0,
+                letterSpacing: -1.0,
                 shadows: [
                   BoxShadow(
-                    color: AppColors.deepRose.withValues(alpha: 0.5),
-                    blurRadius: 24,
+                    color: AppColors.deepRose.withValues(alpha: 0.45),
+                    blurRadius: 28,
                   ),
                   BoxShadow(
-                    color: AppColors.blushGold.withValues(alpha: 0.35),
-                    blurRadius: 10,
+                    color: AppColors.blushGold.withValues(alpha: 0.30),
+                    blurRadius: 12,
                   ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            'since February 14, 2026',
-            style: AppTypography.outfitWhite.copyWith(
-              fontSize: 13,
-              color: AppColors.petalWhite.withValues(alpha: 0.72),
-              fontWeight: FontWeight.w500,
-              letterSpacing: 2.2,
-            ),
-          ),
-          const SizedBox(height: 18),
-          // Gold hairline divider with a heart.
+          const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 56,
+                width: 4,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.blushGold.withValues(alpha: 0.7),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'since  February  14,  2026',
+                style: AppTypography.outfitWhite.copyWith(
+                  fontSize: 12.5,
+                  color: AppColors.petalWhite.withValues(alpha: 0.68),
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 2.4,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                width: 4,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.blushGold.withValues(alpha: 0.7),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 42,
                 height: 1,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
                       Colors.transparent,
-                      AppColors.blushGold.withValues(alpha: 0.7),
+                      AppColors.blushGold.withValues(alpha: 0.65),
                     ],
                   ),
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10),
-                child: PulseHeart(
-                  child: Icon(
-                    Icons.favorite_rounded,
-                    color: AppColors.auroraRose,
-                    size: 15,
-                  ),
+              Container(
+                width: 3,
+                height: 3,
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.blushGold.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const PulseHeart(
+                child: Icon(
+                  Icons.favorite_rounded,
+                  color: AppColors.auroraRose,
+                  size: 14,
                 ),
               ),
               Container(
-                width: 56,
+                width: 3,
+                height: 3,
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.blushGold.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              Container(
+                width: 42,
                 height: 1,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      AppColors.blushGold.withValues(alpha: 0.7),
+                      AppColors.blushGold.withValues(alpha: 0.65),
                       Colors.transparent,
                     ],
                   ),
@@ -620,68 +764,142 @@ class _DashboardScreenState extends State<DashboardScreen>
         icon: Icons.photo_library_rounded,
         route: '/gallery',
         hue: AppColors.roseQuartz,
+        caption: 'Memories',
       ),
       _QuickAction(
         label: 'Sanctuary',
         icon: Icons.chat_bubble_rounded,
         route: '/sanctuary',
         hue: AppColors.auroraRose,
+        caption: 'Chat',
       ),
       _QuickAction(
         label: 'Canvas',
         icon: Icons.brush_rounded,
         route: '/canvas',
         hue: AppColors.softLavender,
+        caption: 'Draw',
       ),
       _QuickAction(
         label: 'Mochi',
         icon: Icons.auto_awesome_rounded,
         route: '/mochi',
         hue: AppColors.auroraGold,
+        caption: 'AI companion',
       ),
       _QuickAction(
         label: 'Calendar',
         icon: Icons.calendar_month_rounded,
         route: '/calendar',
         hue: AppColors.warmAmber,
+        caption: 'Dates',
       ),
       _QuickAction(
         label: 'Starlight',
         icon: Icons.auto_awesome_mosaic_rounded,
         route: '/starlight',
         hue: AppColors.auroraLilac,
+        caption: 'Gratitude',
       ),
       _QuickAction(
         label: 'Bucket List',
         icon: Icons.card_travel_rounded,
         route: '/bucket-list',
         hue: AppColors.auroraTeal,
+        caption: 'Dreams',
       ),
       _QuickAction(
         label: 'Letterbox',
         icon: Icons.mail_outline_rounded,
         route: '/letterbox',
         hue: AppColors.blushGold,
+        caption: 'Letters',
       ),
     ];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth < 300 ? 3 : 4;
-        final tileWidth =
-            (constraints.maxWidth - ((columns - 1) * 12)) / columns;
-        return Wrap(
-          spacing: 12,
-          runSpacing: 14,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
           children: [
-            for (final action in actions)
-              SizedBox(
-                width: tileWidth,
-                child: _QuickActionTile(action: action),
+            Container(
+              width: 22,
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.blushGold.withValues(alpha: 0.0),
+                    AppColors.blushGold.withValues(alpha: 0.55),
+                  ],
+                ),
               ),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppColors.moonlight.withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: AppColors.moonlight.withValues(alpha: 0.12),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.grid_view_rounded,
+                    size: 11,
+                    color: AppColors.blushGold.withValues(alpha: 0.9),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'QUICK ACCESS',
+                    style: AppTypography.outfitHeading.copyWith(
+                      fontSize: 10,
+                      letterSpacing: 2.0,
+                      color: AppColors.blushGold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Container(
+                height: 1,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.blushGold.withValues(alpha: 0.35),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ],
-        );
-      },
+        ),
+        const SizedBox(height: 14),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = constraints.maxWidth < 300 ? 3 : 4;
+            final tileWidth =
+                (constraints.maxWidth - ((columns - 1) * 12)) / columns;
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                for (final action in actions)
+                  SizedBox(
+                    width: tileWidth,
+                    child: _QuickActionTile(action: action),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 }
@@ -815,6 +1033,7 @@ class _XpProgressSectionState extends State<_XpProgressSection> {
 
 class _QuickAction {
   final String label;
+  final String caption;
   final IconData icon;
   final String route;
   final Color hue;
@@ -824,6 +1043,7 @@ class _QuickAction {
     required this.icon,
     required this.route,
     required this.hue,
+    this.caption = '',
   });
 }
 
@@ -868,62 +1088,233 @@ class _QuickActionTileState extends State<_QuickActionTile> {
                 _pressed ? 0.94 : 1.0,
                 1.0,
               ),
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            clipBehavior: Clip.antiAlias,
+            padding: const EdgeInsets.fromLTRB(10, 13, 10, 11),
             decoration: BoxDecoration(
-              color: AppColors.surfaceGlass,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.velvet.withValues(alpha: _hovered ? 0.92 : 0.78),
+                  AppColors.inkDeep.withValues(alpha: 0.92),
+                ],
+              ),
               borderRadius: AppRadius.radiusLg,
               border: Border.all(
                 color: _hovered
-                    ? action.hue.withValues(alpha: 0.55)
-                    : AppColors.border,
+                    ? action.hue.withValues(alpha: 0.42)
+                    : AppColors.moonlight.withValues(alpha: 0.13),
               ),
               boxShadow: _hovered
                   ? [
                       BoxShadow(
-                        color: action.hue.withValues(alpha: 0.22),
-                        blurRadius: 18,
-                        offset: const Offset(0, 6),
+                        color: action.hue.withValues(alpha: 0.18),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                      BoxShadow(
+                        color: AppColors.inkDeep.withValues(alpha: 0.45),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
                       ),
                     ]
-                  : null,
+                  : [
+                      BoxShadow(
+                        color: AppColors.inkDeep.withValues(alpha: 0.35),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
             ),
-            child: Column(
+            child: Stack(
+              children: [
+                Positioned(
+                  top: 0,
+                  left: 6,
+                  right: 6,
+                  child: Container(
+                    height: 1,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.transparent,
+                          (_hovered ? action.hue : AppColors.blushGold)
+                              .withValues(alpha: _hovered ? 0.45 : 0.22),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            action.hue.withValues(alpha: 0.26),
+                            action.hue.withValues(alpha: 0.07),
+                          ],
+                        ),
+                        border: Border.all(
+                          color: action.hue.withValues(
+                            alpha: _hovered ? 0.52 : 0.32,
+                          ),
+                          width: 1,
+                        ),
+                        boxShadow: _hovered
+                            ? [
+                                BoxShadow(
+                                  color: action.hue.withValues(alpha: 0.22),
+                                  blurRadius: 14,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Icon(action.icon, size: 18, color: action.hue),
+                    ),
+                    const SizedBox(height: 9),
+                    Text(
+                      action.label,
+                      style: AppTypography.outfitHeading.copyWith(
+                        fontSize: 11,
+                        color: _hovered
+                            ? AppColors.petalWhite
+                            : AppColors.petalWhite.withValues(alpha: 0.92),
+                        letterSpacing: 0.15,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (action.caption.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        action.caption.toUpperCase(),
+                        style: AppTypography.outfitBold.copyWith(
+                          fontSize: 9.5,
+                          letterSpacing: 1.1,
+                          color: (_hovered ? action.hue : AppColors.roseQuartz)
+                              .withValues(alpha: 0.62),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardJumpBar extends StatelessWidget {
+  const _DashboardJumpBar({required this.onJump});
+  final void Function(String id) onJump;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      _JumpItem('Today', Icons.auto_awesome_rounded, AppColors.auroraGold, 'coming-up'),
+      _JumpItem('Watching', Icons.play_circle_rounded, AppColors.auroraRose, 'watching'),
+      _JumpItem('Shelves', Icons.local_movies_rounded, AppColors.softLavender, 'shelves'),
+      _JumpItem('Timeline', Icons.timeline_rounded, AppColors.blushGold, 'timeline'),
+      _JumpItem('Moments', Icons.favorite_rounded, AppColors.deepRose, 'moments'),
+    ];
+    return Semantics(
+      label: 'Jump to section',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.inkDeep.withValues(alpha: 0.62),
+          borderRadius: AppRadius.radiusXl,
+          border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.10)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(width: 22, height: 1, color: AppColors.blushGold.withValues(alpha: 0.35)),
+                const SizedBox(width: 10),
+                Text('JUMP TO', style: AppTypography.outfitHeading.copyWith(fontSize: 10, letterSpacing: 1.8, color: AppColors.blushGold.withValues(alpha: 0.85))),
+                const SizedBox(width: 10),
+                Expanded(child: Container(height: 1, color: AppColors.moonlight.withValues(alpha: 0.08))),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: items.map((it) {
+                return _JumpChip(item: it, onJump: onJump);
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _JumpItem {
+  final String label;
+  final IconData icon;
+  final Color hue;
+  final String targetId;
+  const _JumpItem(this.label, this.icon, this.hue, this.targetId);
+}
+
+class _JumpChip extends StatefulWidget {
+  const _JumpChip({required this.item, required this.onJump});
+  final _JumpItem item;
+  final void Function(String) onJump;
+  @override
+  State<_JumpChip> createState() => _JumpChipState();
+}
+
+class _JumpChipState extends State<_JumpChip> {
+  bool _hovered = false;
+  @override
+  Widget build(BuildContext context) {
+    final it = widget.item;
+    return Semantics(
+      button: true,
+      label: 'Jump to ${it.label}',
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: () => widget.onJump(it.targetId),
+          child: AnimatedContainer(
+            duration: AppMotion.orZero(const Duration(milliseconds: 180)),
+            curve: AppMotion.easeOutStrong,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [it.hue.withValues(alpha: _hovered ? 0.22 : 0.12), it.hue.withValues(alpha: 0.04)]),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: it.hue.withValues(alpha: _hovered ? 0.45 : 0.22)),
+            ),
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        action.hue.withValues(alpha: 0.24),
-                        action.hue.withValues(alpha: 0.08),
-                      ],
-                    ),
-                    border: Border.all(
-                      color: action.hue.withValues(alpha: 0.45),
-                      width: 1,
-                    ),
-                  ),
-                  child: Icon(action.icon, size: 19, color: action.hue),
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: it.hue.withValues(alpha: 0.18), border: Border.all(color: it.hue.withValues(alpha: 0.35))),
+                  child: Icon(it.icon, size: 12, color: it.hue),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  action.label,
-                  style: AppTypography.outfitWhite.copyWith(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: _hovered
-                        ? AppColors.petalWhite
-                        : AppColors.textMedium,
-                    letterSpacing: 0.2,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                const SizedBox(width: 7),
+                Text(it.label, style: AppTypography.outfitHeading.copyWith(fontSize: 11, color: AppColors.petalWhite.withValues(alpha: _hovered ? 0.95 : 0.82))),
               ],
             ),
           ),
