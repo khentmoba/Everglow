@@ -63,7 +63,7 @@ service cloud.firestore {
         request.resource.data.username in ['khentsgdz', 'clairjassen', 'breyan', 'octagram'];
       allow read: if isRegistered();
       allow update: if ownerOf(userId) &&
-        resource.data.username == request.resource.data.username;
+        resource.data.username == request.resource.data.username && request.resource.data.keys().hasOnly(['username', 'partnerUsername', 'updatedAt', 'createdAt']);
       allow delete: if ownerOf(userId);
     }
 
@@ -82,7 +82,10 @@ service cloud.firestore {
     // ---------- Couple-only shared data ----------
 
     match /sanctuary_messages/{messageId} {
-      allow read, write: if isCouple();
+      allow read: if isCouple();
+      allow create: if isCouple() && request.resource.data.size() < 8192 && request.resource.data.text is string && request.resource.data.text.size() < 5000;
+      allow update: if isCouple() && request.resource.data.size() < 8192;
+      allow delete: if isCouple();
     }
 
     match /watch_party_rooms/{roomId} {
@@ -157,30 +160,30 @@ service cloud.firestore {
       }
     }
 
-    match /gallery/{docId} { allow read, write: if isCouple(); }
-    match /memories/{docId} { allow read, write: if isCouple(); }
-    match /notes/{docId} { allow read, write: if isCouple(); }
-    match /milestones/{docId} { allow read, write: if isCouple(); }
-    match /moods/{docId} { allow read, write: if isCouple(); }
-    match /music_status/{docId} { allow read, write: if isCouple(); }
-    match /presence/{docId} { allow read, write: if isCouple(); }
-    match /starlight_jar/{docId} { allow read, write: if isCouple(); }
-    match /calendar_events/{docId} { allow read, write: if isCouple(); }
-    match /bucket_list/{docId} { allow read, write: if isCouple(); }
-    match /our_cinema/{docId} { allow read, write: if isCouple(); }
-    match /our_books/{docId} { allow read, write: if isCouple(); }
-    match /read_list/{docId} { allow read, write: if isCouple(); }
-    match /date_ideas/{docId} { allow read, write: if isCouple(); }
-    match /guardian_messages/{docId} { allow read, write: if isCouple(); }
-    match /canvas_strokes/{docId} { allow read, write: if isCouple(); }
-    match /live_canvas/{docId} { allow read, write: if isCouple(); }
-    match /manga_library/{docId} { allow read, write: if isCouple(); }
-    match /manga_library/{docId}/bookmarks/{bookmarkId} { allow read, write: if isCouple(); }
-    match /katana_bookmarks/{docId} { allow read, write: if isCouple(); }
-    match /ai_memories/{docId} { allow read, write: if isCouple(); }
-    match /ai_memories/{docId}/facts/{factId} { allow read, write: if isCouple(); }
-    match /ai_memories/{docId}/sessions/{sessionId} { allow read, write: if isCouple(); }
-    match /recent_activity/{docId} { allow read, write: if isCouple(); }
+    match /gallery/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /memories/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /notes/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /milestones/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /moods/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /music_status/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /presence/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /starlight_jar/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 8192 && request.resource.data.content is string && request.resource.data.content.size() < 5000; allow update: if isCouple() && request.resource.data.size() < 8192; allow delete: if isCouple(); }
+    match /calendar_events/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /bucket_list/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /our_cinema/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /our_books/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /read_list/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /date_ideas/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /guardian_messages/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /canvas_strokes/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /live_canvas/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /manga_library/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /manga_library/{docId}/bookmarks/{bookmarkId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 10240; allow update: if isCouple() && request.resource.data.size() < 10240; allow delete: if isCouple(); }
+    match /katana_bookmarks/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /ai_memories/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /ai_memories/{docId}/facts/{factId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 10240; allow update: if isCouple() && request.resource.data.size() < 10240; allow delete: if isCouple(); }
+    match /ai_memories/{docId}/sessions/{sessionId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /recent_activity/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
 
     // ---------- Shared app data for all four profiles ----------
 
@@ -216,6 +219,18 @@ service cloud.firestore {
     match /config/{docId} {
       allow read: if isRegistered();
     }
+
+    // Server-only collections
+    match /reminders/{docId} { allow read, write: if false; }
+    match /music/{docId} { allow read, write: if false; }
+    match /garden_plants/{docId} { allow read, write: if false; }
+    match /canvas_drawings/{docId} { allow read, write: if false; }
+    match /playzone_scores/{docId} { allow read, write: if false; }
+    match /relationship_stats/{docId} { allow read, write: if false; }
+    match /mochi_notes/{docId} { allow read, write: if false; }
+    match /mochi_stats/{docId} { allow read, write: if false; }
+    match /mochi_stats/{docId}/{subcol}/{subId} { allow read, write: if false; }
+    match /daily_digest/{docId} { allow read, write: if false; }
   }
 }
 

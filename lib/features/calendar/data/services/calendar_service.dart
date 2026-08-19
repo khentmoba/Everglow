@@ -16,6 +16,7 @@ class CalendarService {
         .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth))
         .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endOfMonth))
         .orderBy('date', descending: false)
+        .limit(50)
         .snapshots()
         .map(
           (snapshot) => snapshot.docs

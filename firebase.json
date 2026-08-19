@@ -1,9 +1,10 @@
 {
+  "firestore": {
+    "indexes": "firestore.indexes.json",
+    "rules": "firestore.rules"
+  },
   "storage": {
     "rules": "storage.rules"
-  },
-  "firestore": {
-    "rules": "firestore.rules"
   },
   "functions": {
     "source": "functions",
@@ -18,56 +19,127 @@
     ],
     "headers": [
       {
-        "source": "**",
         "headers": [
-          { "key": "Permissions-Policy", "value": "autoplay=(\"*\"), picture-in-picture=(\"*\"), accelerometer=(\"*\"), gyroscope=(\"*\"), clipboard-write=(\"*\")" }
-        ]
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "X-Frame-Options",
+            "value": "DENY"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          },
+          {
+            "key": "Strict-Transport-Security",
+            "value": "max-age=31536000; includeSubDomains"
+          },
+          {
+            "key": "Permissions-Policy",
+            "value": "autoplay=(self), picture-in-picture=(self), clipboard-write=(self)"
+          },
+          {
+            "key": "Cross-Origin-Opener-Policy",
+            "value": "same-origin"
+          }
+        ],
+        "source": "**"
       },
       {
-        "source": "/version.json",
         "headers": [
-          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-          { "key": "Pragma",        "value": "no-cache" },
-          { "key": "Expires",       "value": "0" }
-        ]
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          },
+          {
+            "key": "Pragma",
+            "value": "no-cache"
+          },
+          {
+            "key": "Expires",
+            "value": "0"
+          }
+        ],
+        "source": "/version.json"
       },
       {
-        "source": "/sw.js",
         "headers": [
-          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-          { "key": "Pragma",        "value": "no-cache" },
-          { "key": "Expires",       "value": "0" }
-        ]
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          },
+          {
+            "key": "Pragma",
+            "value": "no-cache"
+          },
+          {
+            "key": "Expires",
+            "value": "0"
+          }
+        ],
+        "source": "/sw.js"
       },
       {
-        "source": "/index.html",
         "headers": [
-          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-          { "key": "Pragma",        "value": "no-cache" },
-          { "key": "Expires",       "value": "0" }
-        ]
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          },
+          {
+            "key": "Pragma",
+            "value": "no-cache"
+          },
+          {
+            "key": "Expires",
+            "value": "0"
+          }
+        ],
+        "source": "/index.html"
       },
       {
-        "source": "/flutter_bootstrap.js",
         "headers": [
-          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-          { "key": "Pragma",        "value": "no-cache" },
-          { "key": "Expires",       "value": "0" }
-        ]
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          },
+          {
+            "key": "Pragma",
+            "value": "no-cache"
+          },
+          {
+            "key": "Expires",
+            "value": "0"
+          }
+        ],
+        "source": "/flutter_bootstrap.js"
       },
       {
-        "source": "/flutter.js",
         "headers": [
-          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-          { "key": "Pragma",        "value": "no-cache" },
-          { "key": "Expires",       "value": "0" }
-        ]
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          },
+          {
+            "key": "Pragma",
+            "value": "no-cache"
+          },
+          {
+            "key": "Expires",
+            "value": "0"
+          }
+        ],
+        "source": "/flutter.js"
       },
       {
-        "source": "**/*.@(js|css|png|jpg|jpeg|gif|webp|svg|woff|woff2|ttf|otf|eot|ico)",
         "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-        ]
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
+        ],
+        "source": "**/*.@(js|css|png|jpg|jpeg|gif|webp|svg|woff|woff2|ttf|otf|eot|ico)"
       }
     ],
     "rewrites": [
@@ -82,6 +154,10 @@
       {
         "source": "/api/proxyBookText",
         "function": "proxyBookText"
+      },
+      {
+        "source": "/api/verifyPasscode",
+        "function": "verifyPasscode"
       },
       {
         "source": "**",

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+// verifyCouplePasscode is wired by GatewayPage -> AuthService
 import '../../../../core/config/env_config.dart';
 
 enum GatewayState {
@@ -50,23 +51,34 @@ class GatewayNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<String?> Function(String passcode)? verifyCouplePasscode;
+
   void _validatePasscode() async {
     updateState(GatewayState.evaluating);
 
     // Small delay to feel intentional
     await Future.delayed(const Duration(milliseconds: 500));
 
-    final passcodes = <String>{
-      if (EnvConfig.clairPasscode.isNotEmpty) EnvConfig.clairPasscode,
-      if (EnvConfig.khentPasscode.isNotEmpty) EnvConfig.khentPasscode,
+    // Breyan/Octagram stay client-verified (non-sensitive).
+    // Khent/Clair are server-verified (verifyPasscode) — never trust
+    // a client 0221/0938 fallback in JS.
+    final clientPasscodes = <String>{
       if (EnvConfig.breyanPasscode.isNotEmpty) EnvConfig.breyanPasscode,
       if (EnvConfig.octagramPasscode.isNotEmpty) EnvConfig.octagramPasscode,
     };
-
-    if (passcodes.contains(_currentInput)) {
+    final isClientCinemaCode = clientPasscodes.contains(_currentInput);
+    if (isClientCinemaCode) {
       _lastEnteredPasscode = _currentInput;
       updateState(GatewayState.unlocking);
-    } else {
+    } else if (verifyCouplePasscode != null) {
+      try {
+        final username = await verifyCouplePasscode!(_currentInput);
+        if (username != null && (username == 'khentsgdz' || username == 'clairjassen')) {
+          _lastEnteredPasscode = _currentInput;
+          updateState(GatewayState.unlocking);
+          return;
+        }
+      } catch (_) {}
       updateState(GatewayState.error);
       // Wait for shake animation
       await Future.delayed(const Duration(milliseconds: 500));

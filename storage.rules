@@ -1,42 +1,36 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-
-    // Gallery uploads are scoped to the authenticated user's UID.
     match /gallery/{userId}/{allPaths=**} {
       allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
     }
-
-    // Legacy username-scoped gallery blobs from before the UID migration.
-    // They remain reachable through their stored download URLs; these rules
-    // keep them viewable and deletable for authenticated app users.
     match /gallery/khentsgdz/{allPaths=**} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      allow write: if false;
     }
     match /gallery/clairjassen/{allPaths=**} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      allow write: if false;
     }
-
-    // Per-user memory uploads are scoped to the owner UID.
     match /memories/{userId}/{allPaths=**} {
       allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
     }
-
-    // Milestone uploads are scoped to the uploading user's UID. Download
-    // URLs carry their own read tokens for the couple's shared viewing.
     match /milestones/{userId}/{allPaths=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      allow write: if request.auth != null && request.auth.uid == userId
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
     }
-
-    // Legacy pre-UID milestone files that live directly under /milestones/.
     match /milestones/{legacyFile} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      allow write: if false;
     }
-
-    // Everything else is denied until a path-specific rule exists.
     match /{allPaths=**} {
       allow read, write: if false;
     }

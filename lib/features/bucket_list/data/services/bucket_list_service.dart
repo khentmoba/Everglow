@@ -18,6 +18,7 @@ class BucketListService {
       _db
           .collection(_collection)
           .orderBy('createdAt', descending: true)
+          .limit(100)
           .snapshots()
           .map(
             (snapshot) => snapshot.docs
@@ -34,6 +35,7 @@ class BucketListService {
       _db
           .collection(_collection)
           .where('status', isEqualTo: status.name)
+          .limit(50)
           .orderBy('createdAt', descending: true)
           .snapshots()
           .map(

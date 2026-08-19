@@ -1,4 +1,8 @@
-﻿name: Deploy to Firebase Hosting & Cloud Functions
+name: Deploy to Firebase Hosting & Cloud Functions
+
+concurrency:
+  group: firebase-deploy
+  cancel-in-progress: true
 
 on:
   push:
@@ -93,7 +97,7 @@ jobs:
             echo "TMDB_API_KEY=${TMDB_API_KEY}" >> functions/.env
           fi
           GOOGLE_APPLICATION_CREDENTIALS="$HOME"/firebase-sa.json \
-          firebase deploy --only functions,firestore:rules,storage --project everglow-1c6db
+          firebase deploy --only functions,firestore:rules,firestore:indexes,storage --project everglow-1c6db
 
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0.9.0
@@ -127,3 +131,4 @@ jobs:
           done
           echo "Deployed build does not match commit $COMMIT"
           exit 1
+

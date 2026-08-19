@@ -25,9 +25,10 @@ class GuardianController extends ChangeNotifier {
   String? _lastUserMessage;
 
   GuardianController(this._service,
-      {MoodService? moodService, AuthService? authService})
+      {MoodService? moodService, AuthService? authService, AIService? aiService})
       : _moodService = moodService,
-        _authService = authService;
+        _authService = authService,
+        _aiService = aiService;
 
   GuardianState get state => _state;
   GuardianMessage? get currentMessage => _currentMessage;
@@ -36,10 +37,6 @@ class GuardianController extends ChangeNotifier {
   bool get isAIMode => _isAIMode;
   String? get lastUserMessage => _lastUserMessage;
 
-  /// Set the AI service reference (called after provider setup).
-  void setAIService(AIService aiService) {
-    _aiService = aiService;
-  }
 
   /// Toggle AI chat mode on/off.
   void toggleAIMode() {

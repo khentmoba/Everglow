@@ -40,7 +40,7 @@ class GalleryService {
     final Reference ref = _storage.ref().child(path);
     final UploadTask uploadTask = ref.putData(
       imageBytes,
-      SettableMetadata(contentType: _guessContentType(fileName)),
+      SettableMetadata(contentType: _guessContentType(fileName), cacheControl: 'public, max-age=31536000'),
     );
     final TaskSnapshot snapshot = await uploadTask;
     final String downloadUrl = await snapshot.ref.getDownloadURL();
@@ -82,7 +82,7 @@ class GalleryService {
     return _db
         .collection(_collection)
         .orderBy('uploadedAt', descending: true)
-        .limit(200)
+        .limit(40)
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
@@ -131,7 +131,7 @@ class GalleryService {
     return _db
         .collection(_collection)
         .orderBy('uploadedAt', descending: true)
-        .limit(100)
+        .limit(50)
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
@@ -165,7 +165,7 @@ class GalleryService {
         snapshot = await _db
             .collection(_collection)
             .orderBy('uploadedAt', descending: true)
-            .limit(500)
+            .limit(200)
             .get();
       }
 

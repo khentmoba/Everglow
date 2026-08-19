@@ -18,6 +18,7 @@ import '../../features/play_zone/presentation/routes/play_zone_routes.dart';
 import '../../features/starlight_jar/presentation/routes/starlight_routes.dart';
 import '../../features/watch_party/presentation/routes/watch_party_routes.dart';
 import 'app_error_page.dart';
+import '../di/app_providers.dart' as di;
 
 /// App-wide router configuration.
 ///
@@ -28,7 +29,21 @@ import 'app_error_page.dart';
 ///   context.go('/dashboard')
 ///   context.push('/cinema/video/123?title=Foo&type=movie')
 ///   context.push('/books/reader', extra: bookItem)
-final GoRouter appRouter = GoRouter(
+GoRouter createAppRouter() => GoRouter(
+  refreshListenable: di.authService,
+  redirect: (context, state) {
+    final loc = state.matchedLocation;
+    const publicPaths = {'/'};
+    final isPublic = publicPaths.contains(loc);
+    final authed = di.authService.isAuthenticated;
+    // Not authed -> bounce to gate
+    if (!authed && !isPublic) return '/';
+    // Cinema-only users should not land on couple dashboard
+    if (authed && di.authService.isCinemaOnlyUser && loc.startsWith('/dashboard')) return '/cinema';
+    return null;
+  },
+  // legacy export: keep appRouter for existing imports
+
   initialLocation: '/',
   debugLogDiagnostics: false,
   routes: [
@@ -52,3 +67,4 @@ final GoRouter appRouter = GoRouter(
   ],
   errorBuilder: (context, state) => AppErrorPage(uri: state.uri),
 );
+final GoRouter appRouter = createAppRouter();

@@ -16,33 +16,26 @@ import '../services/auth_service.dart';
 import '../services/presence_service.dart';
 import '../services/storage_service.dart';
 
-/// App-wide dependency graph.
-///
-/// This module is the composition root: it is the only place that knows how
-/// feature services and controllers fit together. Features stay isolated from
-/// the entry point, and [EverglowApp] only installs this list.
+final AuthService authService = AuthService();
+final _authService = authService;
+final _presenceService = PresenceService();
+final _moodService = MoodService();
+final _aiService = AIService();
+final _guardianService = GuardianService();
+
 final List<SingleChildWidget> appProviders = [
-  ChangeNotifierProvider(create: (_) => AuthService()),
-  ChangeNotifierProvider(create: (_) => StorageService()),
-  Provider(create: (_) => PresenceService()),
+  ChangeNotifierProvider.value(value: _authService),
+  Provider(create: (_) => StorageService()), // plain service, no notify
+  Provider.value(value: _presenceService),
   Provider(create: (_) => DateIdeaService()),
   Provider(create: (_) => OurBooksService()),
-  // GuardianService and ChatService are singletons, use the existing instance.
-  Provider.value(value: GuardianService()),
+  Provider.value(value: _guardianService),
   Provider.value(value: ChatService()),
   ChangeNotifierProvider(create: (_) => GardenProvider()),
-  Provider(create: (_) => MoodService()),
-  ChangeNotifierProvider(
-    create: (context) => MoodController(context.read<MoodService>()),
-  ),
-  ChangeNotifierProvider(create: (_) => AIService()),
-  ChangeNotifierProvider(
-    create: (context) => GuardianController(
-      context.read<GuardianService>(),
-      moodService: context.read<MoodService>(),
-      authService: context.read<AuthService>(),
-    )..setAIService(context.read<AIService>()),
-  ),
+  Provider.value(value: _moodService),
+  ChangeNotifierProvider(create: (_) => MoodController(_moodService)),
+  ChangeNotifierProvider.value(value: _aiService),
+  ChangeNotifierProvider(create: (_) => GuardianController(_guardianService, moodService: _moodService, authService: _authService, aiService: _aiService)),
   ChangeNotifierProvider(create: (_) => JukeboxProvider()),
   ChangeNotifierProvider(create: (_) => MusicStatsProvider()),
 ];

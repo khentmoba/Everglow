@@ -34,6 +34,12 @@ class _GatewayPageState extends State<GatewayPage> {
     _notifier.addListener(_onStateChange);
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _notifier.verifyCouplePasscode = (code) => context.read<AuthService>().verifyCouplePasscode(code);
+  }
+
   Future<void> _seedDataOnce() async {
     try {
       Logger.d("Checking for memories to seed...");
@@ -174,10 +180,15 @@ class _GatewayPageState extends State<GatewayPage> {
       final isCinemaOnlyAccess = cinemaOnlyPasscodes.contains(passcode);
 
       try {
-        if (passcode == EnvConfig.clairPasscode) {
-          await authService.loginWithPasscode('clairjassen');
-        } else if (passcode == EnvConfig.khentPasscode) {
-          await authService.loginWithPasscode('khentsgdz');
+        // Khent/Clair are already signed in by verifyPasscode (custom token);
+        // just ensure the session is synced. Breyan/Octagram stay client-side.
+        if (passcode == EnvConfig.clairPasscode || passcode == EnvConfig.khentPasscode) {
+          // verifyPasscode already did signInWithCustomToken; sync is done.
+          if (authService.currentUser == null) {
+            // Fallback if verify path was not used (e.g. pre-patch): try direct
+            if (passcode == EnvConfig.clairPasscode) await authService.loginWithPasscode('clairjassen');
+            else await authService.loginWithPasscode('khentsgdz');
+          }
         } else if (passcode == EnvConfig.breyanPasscode) {
           // Breyan's cinema-only access: own user, isolated data
           await authService.loginWithPasscode('breyan');

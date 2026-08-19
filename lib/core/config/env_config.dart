@@ -55,8 +55,10 @@ class EnvConfig {
   static String get octagramPassword =>
       _from('OCTAGRAM_PASSWORD', fallback: '80808080');
 
-  static String get clairPasscode => _from('CLAIR_PASSCODE', fallback: '0221');
-  static String get khentPasscode => _from('KHENT_PASSCODE', fallback: '0938');
+  // Khent/Clair passcodes are server-verified (verifyPasscode Cloud Function);
+  // no client fallback so they never ship in main.dart.js.
+  static String get clairPasscode => _from('CLAIR_PASSCODE');
+  static String get khentPasscode => _from('KHENT_PASSCODE');
   static String get breyanPasscode =>
       _from('BREYAN_PASSCODE', fallback: '9132');
   static String get octagramPasscode =>

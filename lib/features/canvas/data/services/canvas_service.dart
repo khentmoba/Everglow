@@ -10,6 +10,7 @@ class CanvasService {
     return _db
         .collection(_collection)
         .orderBy('createdAt', descending: false)
+        .limit(300)
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
@@ -39,6 +40,7 @@ class CanvasService {
   Stream<List<DoodleStroke>> getLiveStrokesStream() {
     return _db
         .collection('live_canvas')
+        .limit(50)
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
