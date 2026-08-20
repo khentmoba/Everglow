@@ -52,10 +52,12 @@ void main() {
                       return ListView(
                         physics: const BouncingScrollPhysics(),
                         children: [
-                          AnimeXSpotlight(
-                            items: List.generate(5, (i) => _animexItem(i + 1)),
-                            loading: false,
+                          SizedBox(
                             height: constraints.maxHeight,
+                            child: AnimeXSpotlight(
+                              items: List.generate(5, (i) => _animexItem(i + 1)),
+                              loading: false,
+                            ),
                           ),
                         ],
                       );
