@@ -59,7 +59,7 @@ everglow-1c6db-firebase-adminsdk-fbsvc-*.json
 specs/
 scratch/
 tools_scratch/
-wiki/
+/wiki/
 
 # Binaries and large files
 .firebase/

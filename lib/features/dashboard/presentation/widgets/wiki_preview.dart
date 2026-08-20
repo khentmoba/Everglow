@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../features/wiki/data/models/wiki_page.dart';
 import '../../../../features/wiki/data/services/wiki_service.dart';
 
 class WikiPreview extends StatelessWidget {
@@ -10,14 +11,14 @@ class WikiPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final service = WikiService();
-    return StreamBuilder(
+    return StreamBuilder<List<WikiPage>>(
       stream: service.watchAllPages(),
       builder: (context, snap) {
-        final pages = snap.data ?? [];
-        return StreamBuilder(
+        final pages = snap.data ?? <WikiPage>[];
+        return StreamBuilder<List<WikiShelf>>(
           stream: service.watchShelves(),
           builder: (context, shelfSnap) {
-            final shelves = shelfSnap.data ?? [];
+            final shelves = shelfSnap.data ?? <WikiShelf>[];
             return GestureDetector(
               onTap: () => context.push('/wiki'),
               child: Container(
