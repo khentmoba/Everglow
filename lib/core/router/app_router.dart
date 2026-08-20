@@ -17,6 +17,7 @@ import '../../features/manga/presentation/routes/manga_routes.dart';
 import '../../features/play_zone/presentation/routes/play_zone_routes.dart';
 import '../../features/starlight_jar/presentation/routes/starlight_routes.dart';
 import '../../features/watch_party/presentation/routes/watch_party_routes.dart';
+import '../../features/jukebox/presentation/routes/jukebox_routes.dart';
 import 'app_error_page.dart';
 import '../di/app_providers.dart' as di;
 
@@ -64,6 +65,7 @@ GoRouter createAppRouter() => GoRouter(
     ...calendarRoutes,
     ...watchPartyRoutes,
     ...jellyfinRoutes,
+    ...jukeboxRoutes,
   ],
   errorBuilder: (context, state) => AppErrorPage(uri: state.uri),
 );

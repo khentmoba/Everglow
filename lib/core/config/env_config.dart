@@ -27,6 +27,7 @@ class EnvConfig {
     'LASTFM_USER_CLAIR': String.fromEnvironment('LASTFM_USER_CLAIR'),
     'JELLYFIN_API_KEY': String.fromEnvironment('JELLYFIN_API_KEY'),
     'FCM_VAPID_KEY': String.fromEnvironment('FCM_VAPID_KEY'),
+    'SPOTIFY_CLIENT_ID': String.fromEnvironment('SPOTIFY_CLIENT_ID'),
   };
 
   static String _from(String name, {String fallback = ''}) {
@@ -71,7 +72,8 @@ class EnvConfig {
       _from('LASTFM_USER_KHENT', fallback: 'khentsgdz');
   static String get lastfmUserClair =>
       _from('LASTFM_USER_CLAIR', fallback: 'clairjassen');
- static String get jellyfinApiKey => _from('JELLYFIN_API_KEY');
+  static String get jellyfinApiKey => _from('JELLYFIN_API_KEY');
+  static String get spotifyClientId => _from('SPOTIFY_CLIENT_ID');
  
    /// Public FCM VAPID key. This is a public identifier, not a credential;
    /// browsers need it to register for web push notifications.
@@ -91,6 +93,7 @@ class EnvConfig {
   static bool get hasTmdbKey => tmdbApiKey.isNotEmpty;
   static bool get hasLastfmKey => lastfmApiKey.isNotEmpty;
   static bool get hasJellyfinKey => jellyfinApiKey.isNotEmpty;
+  static bool get hasSpotifyClientId => spotifyClientId.isNotEmpty;
 
   static bool get hasAnyPasscodes =>
       clairPasscode.isNotEmpty ||

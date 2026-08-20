@@ -91,7 +91,8 @@ class _CinemaHeaderState extends State<_CinemaHeader> {
 
   void _subscribe() {
     _streamSub = _service.getWatchListStream(widget.userName).listen((items) {
-      final watched = items.where((i) => i.isWatched).toList();
+      final watched =
+          items.where((i) => i.isWatched && !i.isAnime).toList();
       watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
       if (!mounted) return;
       setState(() => _items = watched);
@@ -154,7 +155,8 @@ class _CinemaShelfState extends State<_CinemaShelf> {
 
   void _subscribe() {
     _streamSub = _service.getWatchListStream(widget.userName).listen((items) {
-      final watched = items.where((i) => i.isWatched).toList();
+      final watched =
+          items.where((i) => i.isWatched && !i.isAnime).toList();
       watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
       if (!mounted) return;
       setState(() {

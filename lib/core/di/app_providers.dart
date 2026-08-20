@@ -10,6 +10,8 @@ import '../../features/guardian/data/services/guardian_service.dart';
 import '../../features/guardian/presentation/controllers/guardian_controller.dart';
 import '../../features/heartbeat/data/services/mood_service.dart';
 import '../../features/heartbeat/presentation/controllers/mood_controller.dart';
+import '../../features/jukebox/data/services/spotify_auth_service.dart';
+import '../../features/jukebox/data/services/spotify_player_service.dart';
 import '../../features/jukebox/presentation/providers/jukebox_provider.dart';
 import '../../features/jukebox/presentation/providers/music_stats_provider.dart';
 import '../services/auth_service.dart';
@@ -22,6 +24,8 @@ final _presenceService = PresenceService();
 final _moodService = MoodService();
 final _aiService = AIService();
 final _guardianService = GuardianService();
+final _spotifyAuth = SpotifyAuthService();
+late final SpotifyPlayerService _spotifyPlayer;
 
 final List<SingleChildWidget> appProviders = [
   ChangeNotifierProvider.value(value: _authService),
@@ -36,6 +40,13 @@ final List<SingleChildWidget> appProviders = [
   ChangeNotifierProvider(create: (_) => MoodController(_moodService)),
   ChangeNotifierProvider.value(value: _aiService),
   ChangeNotifierProvider(create: (_) => GuardianController(_guardianService, moodService: _moodService, authService: _authService, aiService: _aiService)),
+  ChangeNotifierProvider.value(value: _spotifyAuth),
+  ChangeNotifierProvider(create: (_) {
+    _spotifyPlayer = SpotifyPlayerService(_spotifyAuth);
+    // Start listening to link status once auth is ready; actual init is lazy (needs user gesture)
+    _spotifyAuth.start();
+    return _spotifyPlayer;
+  }),
   ChangeNotifierProvider(create: (_) => JukeboxProvider()),
   ChangeNotifierProvider(create: (_) => MusicStatsProvider()),
 ];

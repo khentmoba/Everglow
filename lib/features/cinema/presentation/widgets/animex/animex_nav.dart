@@ -25,6 +25,7 @@ class AnimeXTopHeader extends StatelessWidget {
     final auth = context.watch<AuthService>();
     final userName = auth.currentUser ?? '';
     final isCoupleUser = auth.isCoupleUser;
+    final isCinemaOnlyUser = auth.isCinemaOnlyUser;
     final isDesktop = MediaQuery.sizeOf(context).width >= 768;
     final items = const [
       (AnimexPage.home, 'Home', Icons.house_outlined),
@@ -54,6 +55,13 @@ class AnimeXTopHeader extends StatelessWidget {
                     onTap: () => context.go('/dashboard'),
                   ),
                   const SizedBox(width: 4),
+                ] else if (isCinemaOnlyUser) ...[
+                  AnimeXIconButton(
+                    icon: Icons.arrow_back_rounded,
+                    tooltip: 'Cinema',
+                    onTap: () => context.go('/cinema'),
+                  ),
+                  const SizedBox(width: 4),
                 ],
                 _Logo(onTap: () => controller.goTo(AnimexPage.home)),
                 if (isDesktop) ...[
@@ -68,6 +76,13 @@ class AnimeXTopHeader extends StatelessWidget {
                   ],
                 ],
                 const Spacer(),
+                AnimeXGhostButton(
+                  label: 'Cinema',
+                  icon: Icons.movie_outlined,
+                  color: AnimeXTokens.textPrimary,
+                  onTap: () => context.go('/cinema'),
+                ),
+                const SizedBox(width: 4),
                 AnimeXIconButton(
                   icon: Icons.search_rounded,
                   tooltip: 'Search',
