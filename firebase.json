@@ -160,6 +160,22 @@
         "function": "verifyPasscode"
       },
       {
+        "source": "/api/proxySpotifySearch",
+        "function": "proxySpotifySearch"
+      },
+      {
+        "source": "/api/spotifyExchange",
+        "function": "spotifyExchange"
+      },
+      {
+        "source": "/api/spotifyRefresh",
+        "function": "spotifyRefresh"
+      },
+      {
+        "source": "/api/spotifyCurrentlyPlaying",
+        "function": "spotifyCurrentlyPlaying"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

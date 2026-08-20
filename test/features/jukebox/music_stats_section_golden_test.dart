@@ -53,9 +53,17 @@ LASTFM_USER_CLAIR=clairjassen
       await tester.pump();
       await Future<void>.delayed(const Duration(milliseconds: 600));
       await tester.pump();
+      // Allow the Last.fm fetches + artwork enrichment to complete.
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
     });
 
-    await tester.pumpAndSettle();
+    // pumpAndSettle never completes because the leaderboard header uses
+    // repeating shimmer / pulse animations for the 1ST champion badge.
+    // Pump a few deterministic frames instead.
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
 
     await expectLater(
       find.byType(MusicStatsSection),
@@ -252,10 +260,25 @@ Uint8List? _imageBytes;
 Uint8List _responseFor(Uri url) {
   final query = url.query;
   if (query.contains('method=user.gettoptracks')) {
-    return utf8.encode(jsonEncode(_topTracksJson));
+    // Return slightly different totals for the two users so the 1ST badge
+    // has a deterministic winner (Khent > Clair) in the golden.
+    if (query.contains('khentsgdz')) {
+      return utf8.encode(jsonEncode(_topTracksJsonKhent));
+    }
+    return utf8.encode(jsonEncode(_topTracksJsonClair));
   }
   if (query.contains('method=user.getrecenttracks')) {
     return utf8.encode(jsonEncode(_recentTracksJson));
+  }
+  if (query.contains('method=user.getinfo')) {
+    // All-time scrobble totals — Khent is the champion.
+    if (query.contains('khentsgdz')) {
+      return utf8.encode(jsonEncode(const {'user': {'playcount': '12847'}}));
+    }
+    if (query.contains('clairjassen')) {
+      return utf8.encode(jsonEncode(const {'user': {'playcount': '9421'}}));
+    }
+    return utf8.encode(jsonEncode(const {'user': {'playcount': '0'}}));
   }
   if (query.contains('method=track.getinfo')) {
     return utf8.encode(jsonEncode(_getInfoJson(url)));
@@ -300,13 +323,35 @@ const _placeholder =
     'https://lastfm-img.freetls.fastly.net/i/u/300x300/'
     '2a96cbd8b46e442fc41c2b86b821562f.png';
 
-final _topTracksJson = {
+final _topTracksJson = _topTracksJsonKhent;
+
+final _topTracksJsonKhent = {
   'toptracks': {
     'track': [
       for (var i = 0; i < 10; i++)
         {
           'name': 'Top Track ${i + 1}',
           'playcount': '${117 - i * 9}',
+          'artist': {'name': 'Artist ${i + 1}'},
+          'mbid': 'mbid-${i + 1}',
+          'image': [
+            {'size': 'small', '#text': _placeholder},
+            {'size': 'extralarge', '#text': _placeholder},
+          ],
+          '@attr': {'rank': '${i + 1}'},
+        },
+    ],
+  },
+};
+
+final _topTracksJsonClair = {
+  'toptracks': {
+    'track': [
+      for (var i = 0; i < 10; i++)
+        {
+          'name': 'Top Track ${i + 1}',
+          // Clair has lower playcounts so Khent wins the champion badge.
+          'playcount': '${93 - i * 7}',
           'artist': {'name': 'Artist ${i + 1}'},
           'mbid': 'mbid-${i + 1}',
           'image': [

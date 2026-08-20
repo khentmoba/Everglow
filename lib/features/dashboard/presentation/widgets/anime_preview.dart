@@ -7,6 +7,7 @@ import '../../../cinema/data/models/media_item.dart';
 import '../../../cinema/data/services/tmdb_service.dart';
 import '../../../cinema/presentation/widgets/episode_drawer.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/theme/app_typography.dart';
 import '_partner_label.dart';
 import 'partner_subrow.dart';
 import 'shelf_widgets.dart';
@@ -18,6 +19,12 @@ import 'shelf_widgets.dart';
 /// see what the other has finished watching in the anime column.
 /// Non-couple users keep the original single-row layout (one stream
 /// of their own watched anime only).
+///
+/// "Watching Now" anime no longer lives in the generic *Currently
+/// Watching* shelf — it now lives here so the two rails never
+/// duplicate the same title. Each partner's currently-watching anime
+/// is rendered just above their finished row under a small
+/// "WATCHING NOW" divider.
 class AnimePreview extends StatelessWidget {
   const AnimePreview({super.key});
 
@@ -35,6 +42,33 @@ class AnimePreview extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _AnimeHeader(userName: userName),
+          // ── WATCHING NOW ──────────────────────────────────────
+          const _AnimeSectionLabel(
+            label: 'WATCHING NOW',
+            icon: Icons.play_circle_fill_rounded,
+          ),
+          if (isCouple && partner != null && partner.isNotEmpty) ...[
+            _AnimeWatchingShelf(
+              userName: userName,
+              label: 'ME',
+              isSelf: true,
+            ),
+            _AnimeWatchingShelf(
+              userName: partner,
+              label: partnerLabel,
+              isSelf: false,
+            ),
+          ] else
+            _AnimeWatchingShelf(
+              userName: userName,
+              label: null,
+              isSelf: true,
+            ),
+          // ── FINISHED ──────────────────────────────────────────
+          const _AnimeSectionLabel(
+            label: 'FINISHED',
+            icon: Icons.check_circle_rounded,
+          ),
           if (isCouple && partner != null && partner.isNotEmpty) ...[
             _AnimeShelf(
               userName: userName,
@@ -52,6 +86,61 @@ class AnimePreview extends StatelessWidget {
               label: null,
               isSelf: true,
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AnimeSectionLabel extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  const _AnimeSectionLabel({required this.label, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16, bottom: 2),
+      child: Row(
+        children: [
+          Container(
+            width: 22,
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  ShelfAccent.anime.color.withValues(alpha: 0.0),
+                  ShelfAccent.anime.color.withValues(alpha: 0.35),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(icon, size: 13, color: ShelfAccent.anime.color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: AppTypography.outfitWhite.copyWith(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: ShelfAccent.anime.color.withValues(alpha: 0.85),
+              letterSpacing: 1.4,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              height: 1,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    ShelfAccent.anime.color.withValues(alpha: 0.22),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -90,10 +179,13 @@ class _AnimeHeaderState extends State<_AnimeHeader> {
   void _subscribe() {
     _streamSub =
         _service.getAnimeWatchListStream(widget.userName).listen((items) {
-      final watched = items.where((i) => i.isWatched).toList();
-      watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
+      // Count both watching and finished so the header never reads
+      // "0 titles" while a watching-now row is populated.
+      final visible =
+          items.where((i) => i.isWatched || i.isCurrentlyWatching).toList();
+      visible.sort((a, b) => b.addedAt.compareTo(a.addedAt));
       if (!mounted) return;
-      setState(() => _items = watched);
+      setState(() => _items = visible);
     });
   }
 
@@ -111,6 +203,161 @@ class _AnimeHeaderState extends State<_AnimeHeader> {
       itemCount: _items.length,
       badge: _items.isNotEmpty ? null : 'NEW',
       onViewAll: () => context.push('/anime'),
+    );
+  }
+}
+
+class _AnimeWatchingShelf extends StatefulWidget {
+  final String userName;
+  final String? label;
+  final bool isSelf;
+  const _AnimeWatchingShelf({
+    required this.userName,
+    required this.label,
+    required this.isSelf,
+  });
+
+  @override
+  State<_AnimeWatchingShelf> createState() => _AnimeWatchingShelfState();
+}
+
+class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
+  final TMDBService _service = TMDBService();
+  List<MediaItem> _items = [];
+  bool _hasLoaded = false;
+  StreamSubscription<List<MediaItem>>? _streamSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribe();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimeWatchingShelf oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userName != widget.userName) {
+      _streamSub?.cancel();
+      _items = [];
+      _hasLoaded = false;
+      _subscribe();
+    }
+  }
+
+  void _subscribe() {
+    _streamSub = _service
+        .getCurrentlyWatchingAnimeStream(widget.userName)
+        .listen((items) {
+      // Already anime+watching filtered by the service; sort by most recent progress.
+      final sorted = List<MediaItem>.from(items)
+        ..sort((a, b) {
+          final aTime = a.progressUpdatedAt ?? a.addedAt;
+          final bTime = b.progressUpdatedAt ?? b.addedAt;
+          return bTime.compareTo(aTime);
+        });
+      if (!mounted) return;
+      setState(() {
+        _items = sorted;
+        _hasLoaded = true;
+      });
+      _backfillPosters(sorted);
+    });
+  }
+
+  Future<void> _backfillPosters(List<MediaItem> items) async {
+    try {
+      var updated = await _service.backfillMissingPosters(items);
+      updated = await _service.refreshAnimePosters(updated);
+      if (mounted) setState(() => _items = updated);
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _streamSub?.cancel();
+    super.dispose();
+  }
+
+  void _openDetails(MediaItem item) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => EpisodeDrawer(item: item),
+    );
+  }
+
+  static final _cssArtifactRegex = RegExp(r'\bcss-[a-zA-Z0-9_-]+\b');
+
+  static String _sanitizeTitle(String title) {
+    var cleaned = title.replaceAll(_cssArtifactRegex, ' ').trim();
+    cleaned = cleaned.replaceAll(RegExp(r'\s{2,}'), ' ');
+    return cleaned.isNotEmpty ? cleaned : title;
+  }
+
+  String? _subtitleFor(MediaItem item) {
+    final parts = <String>[];
+    if (item.isMovie) {
+      if (item.year.isNotEmpty) parts.add(item.year);
+      parts.add('Movie');
+    } else {
+      if (item.currentEpisode != null) {
+        parts.add('S${item.currentSeason ?? 1}E${item.currentEpisode}');
+      } else if (item.format.isNotEmpty) {
+        parts.add(item.format);
+      } else if (item.studio.isNotEmpty) {
+        parts.add(item.studio);
+      }
+      if (item.year.isNotEmpty) parts.add(item.year);
+    }
+    return parts.isNotEmpty ? parts.join(' • ') : null;
+  }
+
+  List<Widget> _buildCards() {
+    return _items
+        .map(
+          (item) => Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: ShelfCard(
+              accent: ShelfAccent.anime,
+              imageUrl: item.posterPath,
+              title: _sanitizeTitle(item.title),
+              subtitle: _subtitleFor(item),
+              topBadge: !item.isMovie && item.currentEpisode != null
+                  ? 'S${item.currentSeason ?? 1}E${item.currentEpisode}'
+                  : null,
+              onTap: () => _openDetails(item),
+            ),
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cards = _buildCards();
+    if (widget.label == null) {
+      if (!_hasLoaded) {
+        return const SizedBox(
+          height: 194,
+          child: ShelfMarquee(hasLoaded: false, children: []),
+        );
+      }
+      if (cards.isEmpty) {
+        return ShelfEmpty(
+          accent: ShelfAccent.anime,
+          message: 'No anime in progress. Start one to see it here!',
+        );
+      }
+      return SizedBox(height: 194, child: ShelfMarquee(children: cards));
+    }
+    return PartnerSubrow(
+      label: widget.label!,
+      accent: ShelfAccent.anime,
+      emptyMessage: widget.isSelf
+          ? 'You aren\'t watching any anime right now.'
+          : 'Nothing playing on their end.',
+      children: _hasLoaded ? cards : const [],
     );
   }
 }

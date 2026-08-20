@@ -90,8 +90,11 @@ class _CurrentlyWatchingHeaderState extends State<_CurrentlyWatchingHeader> {
   void _subscribe() {
     _streamSub =
         _service.getCurrentlyWatchingStream(widget.userName).listen((items) {
+      // Keep anime out of the generic shelf — the Anime rail owns its own
+      // watching row now so the two never duplicate the same title.
+      final filtered = items.where((i) => !i.isAnime).toList();
       if (!mounted) return;
-      setState(() => _items = items);
+      setState(() => _items = filtered);
     });
   }
 
@@ -155,12 +158,13 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
   void _subscribe() {
     _streamSub =
         _service.getCurrentlyWatchingStream(widget.userName).listen((items) {
+      final filtered = items.where((i) => !i.isAnime).toList();
       if (!mounted) return;
       setState(() {
-        _items = items;
+        _items = filtered;
         _hasLoaded = true;
       });
-      _backfillPosters(items);
+      _backfillPosters(filtered);
     });
   }
 
