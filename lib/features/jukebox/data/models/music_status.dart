@@ -9,6 +9,9 @@ class MusicStatus {
   final bool isPlaying;
   final String spotifyUrl;
   final DateTime? timestamp;
+  final String? spotifyTrackId;
+  final String? spotifyEmbedUrl;
+  final String? previewUrl;
 
   MusicStatus({
     required this.username,
@@ -19,7 +22,20 @@ class MusicStatus {
     required this.isPlaying,
     required this.spotifyUrl,
     this.timestamp,
+    this.spotifyTrackId,
+    this.spotifyEmbedUrl,
+    this.previewUrl,
   });
+
+  /// True when we have a resolved Spotify track (not just a search URL).
+  bool get hasSpotifyTrack => spotifyTrackId != null && spotifyTrackId!.isNotEmpty;
+
+  String get resolvedSpotifyUrl => hasSpotifyTrack
+      ? 'https://open.spotify.com/track/$spotifyTrackId'
+      : spotifyUrl;
+
+  String? get embedUrl => spotifyEmbedUrl ??
+      (hasSpotifyTrack ? 'https://open.spotify.com/embed/track/$spotifyTrackId' : null);
 
   factory MusicStatus.fromJson(Map<String, dynamic> json, String username) {
     final track = json['recenttracks']['track'][0];
@@ -86,6 +102,9 @@ class MusicStatus {
       'isPlaying': isPlaying,
       'spotifyUrl': spotifyUrl,
       'timestamp': timestamp?.toIso8601String(),
+      if (spotifyTrackId != null) 'spotifyTrackId': spotifyTrackId,
+      if (spotifyEmbedUrl != null) 'spotifyEmbedUrl': spotifyEmbedUrl,
+      if (previewUrl != null) 'previewUrl': previewUrl,
     };
   }
 
@@ -99,6 +118,9 @@ class MusicStatus {
       isPlaying: map['isPlaying'] ?? false,
       spotifyUrl: map['spotifyUrl'] ?? '',
       timestamp: map['timestamp'] != null ? DateTime.tryParse(map['timestamp']) : null,
+      spotifyTrackId: map['spotifyTrackId'] as String?,
+      spotifyEmbedUrl: map['spotifyEmbedUrl'] as String?,
+      previewUrl: map['previewUrl'] as String?,
     );
   }
 
@@ -110,6 +132,28 @@ class MusicStatus {
       albumName: 'No Album',
       isPlaying: false,
       spotifyUrl: 'https://open.spotify.com/search/Unknown%20Artist',
+    );
+  }
+
+  MusicStatus copyWith({
+    String? spotifyTrackId,
+    String? spotifyEmbedUrl,
+    String? previewUrl,
+    String? spotifyUrl,
+    String? imageUrl,
+  }) {
+    return MusicStatus(
+      username: username,
+      trackName: trackName,
+      artistName: artistName,
+      albumName: albumName,
+      imageUrl: imageUrl ?? this.imageUrl,
+      isPlaying: isPlaying,
+      spotifyUrl: spotifyUrl ?? this.spotifyUrl,
+      timestamp: timestamp,
+      spotifyTrackId: spotifyTrackId ?? this.spotifyTrackId,
+      spotifyEmbedUrl: spotifyEmbedUrl ?? this.spotifyEmbedUrl,
+      previewUrl: previewUrl ?? this.previewUrl,
     );
   }
 }

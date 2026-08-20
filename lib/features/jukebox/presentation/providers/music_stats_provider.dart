@@ -31,6 +31,11 @@ class MusicStatsProvider extends ChangeNotifier {
   bool _isLoading = true;
   bool _disposed = false;
 
+  /// All-time scrobble totals from Last.fm `user.getInfo` (0 while loading
+  /// or when the API is unreachable — the UI falls back to the top-10 sum).
+  int _khentTotalPlays = 0;
+  int _clairTotalPlays = 0;
+
   Timer? _recentTracksTimer;
   Timer? _topTracksTimer;
 
@@ -48,12 +53,41 @@ class MusicStatsProvider extends ChangeNotifier {
       _clairTopTracks.isNotEmpty ||
       _clairRecentTracks.isNotEmpty;
 
+  /// Effective totals — prefers the authoritative Last.fm playcount, falls
+  /// back to the sum of the loaded top-10 when that count is still 0.
+  int get khentTotalPlays =>
+      _khentTotalPlays > 0 ? _khentTotalPlays : _topTracksSum(_topTracks);
+  int get clairTotalPlays =>
+      _clairTotalPlays > 0 ? _clairTotalPlays : _topTracksSum(_clairTopTracks);
+
+  /// Raw API totals (0 means not yet loaded / unavailable).
+  int get khentRawTotalPlays => _khentTotalPlays;
+  int get clairRawTotalPlays => _clairTotalPlays;
+
+  static int _topTracksSum(List<TopMusicTrack> tracks) =>
+      tracks.fold<int>(0, (s, t) => s + t.playCount);
+
+  /// Whether Khent is the current listening champion (strictly more plays).
+  bool get isKhentLeader =>
+      hasData && khentTotalPlays > 0 && khentTotalPlays > clairTotalPlays;
+
+  /// Whether Clair is the current listening champion.
+  bool get isClairLeader =>
+      hasData && clairTotalPlays > 0 && clairTotalPlays > khentTotalPlays;
+
+  bool get isTie =>
+      hasData &&
+      khentTotalPlays > 0 &&
+      clairTotalPlays > 0 &&
+      khentTotalPlays == clairTotalPlays;
+
   Future<void> _init() async {
     await Future.wait([
       _refreshTopTracks(_khentUser, _topTracks),
       _refreshRecentTracks(_khentUser, _recentTracks),
       _refreshTopTracks(_clairUser, _clairTopTracks),
       _refreshRecentTracks(_clairUser, _clairRecentTracks),
+      _refreshUserTotals(),
     ]);
     _isLoading = false;
     _safeNotify();
@@ -93,11 +127,32 @@ class MusicStatsProvider extends ChangeNotifier {
     await Future.wait([
       _refreshTopTracks(_khentUser, _topTracks),
       _refreshTopTracks(_clairUser, _clairTopTracks),
+      _refreshUserTotals(),
     ]);
     await Future.wait([
       _enrichTopTrackArtwork(_topTracks),
       _enrichTopTrackArtwork(_clairTopTracks),
     ]);
+  }
+
+  Future<void> _refreshUserTotals() async {
+    final results = await Future.wait([
+      _syncService.fetchUserTotalPlays(_khentUser),
+      _syncService.fetchUserTotalPlays(_clairUser),
+    ]);
+    if (_disposed) return;
+    final khent = results[0];
+    final clair = results[1];
+    var changed = false;
+    if (khent != _khentTotalPlays) {
+      _khentTotalPlays = khent;
+      changed = true;
+    }
+    if (clair != _clairTotalPlays) {
+      _clairTotalPlays = clair;
+      changed = true;
+    }
+    if (changed) _safeNotify();
   }
 
   Future<void> _refreshTopTracks(

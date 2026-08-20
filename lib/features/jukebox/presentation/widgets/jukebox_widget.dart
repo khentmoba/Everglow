@@ -9,6 +9,7 @@ import '../../data/models/music_status.dart';
 import 'package:marquee/marquee.dart';
 import 'package:confetti/confetti.dart';
 import 'vinyl_record.dart';
+import 'spotify_connect_card.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -182,6 +183,8 @@ class _JukeboxWidgetState extends State<JukeboxWidget>
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _JukeboxHeader(eitherLive: eitherLive),
+                        const SizedBox(height: 12),
+                        const SpotifyConnectCard(),
                         const SizedBox(height: 16),
                         LayoutBuilder(
                           builder: (context, constraints) {

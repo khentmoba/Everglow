@@ -157,6 +157,39 @@ class MusicSyncService {
     return [];
   }
 
+  /// Fetches the user's all-time scrobble count via `user.getInfo`.
+  ///
+  /// Returns 0 when the user is unknown, the key is missing, or the request
+  /// fails. The caller should fall back to summing local top-track playCounts
+  /// when this returns 0 so the UI still shows a meaningful total.
+  Future<int> fetchUserTotalPlays(String username) async {
+    if (_apiKey.isEmpty) return 0;
+    if (username.isEmpty || _invalidUsers.contains(username)) return 0;
+    try {
+      final url = Uri.parse(
+        '$_baseUrl?method=user.getinfo&user=$username&api_key=$_apiKey&format=json',
+      );
+      final response = await _client.get(url).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final user = data['user'];
+        if (user is Map) {
+          final raw = user['playcount']?.toString() ?? '';
+          final parsed = int.tryParse(raw);
+          if (parsed != null && parsed > 0) return parsed;
+        }
+      } else if (response.statusCode == 404) {
+        _invalidUsers.add(username);
+        Logger.w('Jukebox Service: Last.fm user "$username" not found (user.getInfo).');
+      }
+    } on TimeoutException {
+      Logger.e('Jukebox Service Timeout: user.getInfo for $username timed out.');
+    } catch (e) {
+      Logger.e('Jukebox Service Exception (user.getInfo, $username)', error: e);
+    }
+    return 0;
+  }
+
   /// Looks up real album artwork for a single track via `track.getinfo`.
   ///
   /// `user.gettoptracks` frequently returns Last.fm's default placeholder

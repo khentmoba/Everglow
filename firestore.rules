@@ -219,6 +219,9 @@ service cloud.firestore {
     match /config/{docId} {
       allow read: if isRegistered();
     }
+    match /spotify_tokens/{userId} {
+      allow read, write: if ownerOf(userId);
+    }
 
     // Server-only collections
     match /reminders/{docId} { allow read, write: if false; }

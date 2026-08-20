@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../data/models/media_item.dart';
 import '../../data/services/tmdb_service.dart';
+import '../widgets/cinema_sidebar.dart';
 import '../widgets/episode_drawer.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_breakpoints.dart';
@@ -45,6 +46,10 @@ class _CinemaScreenState extends State<CinemaScreen>
   /// with the requested filter even when it is already mounted.
   int _browseSeed = 0;
   String? _pendingBrowseOption;
+
+  // ── Sidebar state ──────────────────────────────────────────────
+  bool _sidebarCollapsed = false;
+  bool _mobileSidebarOpen = false;
 
   // Nav animation
   late AnimationController _navController;
@@ -133,9 +138,12 @@ class _CinemaScreenState extends State<CinemaScreen>
   }
 
   void _splitWatchlists() {
-    _watchedList = _watchlist.where((item) => item.isWatched).toList();
+    // Cinema's rails should never surface anime — the anime shelf owns it
+    // now (including its own Watching Now row on the dashboard).
+    _watchedList =
+        _watchlist.where((item) => item.isWatched && !item.isAnime).toList();
     _watchingList = _watchlist
-        .where((item) => item.isCurrentlyWatching)
+        .where((item) => item.isCurrentlyWatching && !item.isAnime)
         .toList();
   }
 
@@ -378,15 +386,65 @@ class _CinemaScreenState extends State<CinemaScreen>
     _switchTab(tab);
   }
 
+  void _toggleSidebar() {
+    final isDesktop = MediaQuery.sizeOf(context).width >= 1024;
+    HapticFeedback.selectionClick();
+    if (isDesktop) {
+      setState(() => _sidebarCollapsed = !_sidebarCollapsed);
+    } else {
+      setState(() => _mobileSidebarOpen = !_mobileSidebarOpen);
+    }
+  }
+
+  void _handleSidebarSelect(int tab, String? browseOptionId) {
+    if (_mobileSidebarOpen) {
+      setState(() => _mobileSidebarOpen = false);
+    }
+    _onNavSelect(tab, browseOptionId);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final isDesktop = width >= 1024;
     final isMobile = AppBreakpoint.isMobile(context);
-    final isCoupleUser = context.read<AuthService>().isCoupleUser;
+    final auth = context.watch<AuthService>();
+    final isCoupleUser = auth.isCoupleUser;
+    final isCinemaOnlyUser = auth.isCinemaOnlyUser;
+    final userName = auth.currentUser ?? '';
 
-    return Scaffold(
-      extendBody: true,
-      backgroundColor: NetflixColors.background,
-      body: NotificationListener<ScrollNotification>(
+    // Sidebar widget (reused for both layouts, just different toggle behavior)
+    Widget buildSidebar({required bool collapsed, required VoidCallback onToggle}) {
+      final router = GoRouter.of(context);
+      return CinemaSidebar(
+        currentIndex: _currentIndex,
+        activeBrowseOption: _pendingBrowseOption,
+        isCollapsed: collapsed,
+        onToggle: onToggle,
+        onSelect: _handleSidebarSelect,
+        onAnimeTap: () {
+          if (_mobileSidebarOpen) {
+            setState(() => _mobileSidebarOpen = false);
+          }
+          router.go('/anime');
+        },
+        onDashboardTap: isCoupleUser ? () => router.go('/dashboard') : null,
+        onLogout: () async {
+          if (_mobileSidebarOpen) {
+            setState(() => _mobileSidebarOpen = false);
+          }
+          await auth.logout();
+          if (!mounted) return;
+          router.go('/');
+        },
+        userName: userName,
+        isCinemaOnlyUser: isCinemaOnlyUser,
+      );
+    }
+
+    // Main cinema content (the IndexedStack + top nav)
+    Widget buildCinemaContent() {
+      return NotificationListener<ScrollNotification>(
         onNotification: (notification) {
           final scrolled = notification.metrics.pixels > 48;
           if (scrolled != _navScrolled) {
@@ -446,6 +504,8 @@ class _CinemaScreenState extends State<CinemaScreen>
               ],
             ),
             // Floating top navbar (desktop/tablet only — overlays hero)
+            // On desktop the sidebar already provides primary nav, but the
+            // top bar is kept for search / account actions.
             if (!isMobile)
               Positioned(
                 top: 0,
@@ -469,55 +529,149 @@ class _CinemaScreenState extends State<CinemaScreen>
                       : null,
                 ),
               ),
+            // Mobile hamburger — opens the overlay sidebar
+            if (!isDesktop && !_mobileSidebarOpen)
+              Positioned(
+                top: 0,
+                left: 0,
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 12, top: 10),
+                    child: Material(
+                      color: const Color(0xFF14101A),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.10),
+                        ),
+                      ),
+                      elevation: 8,
+                      child: InkWell(
+                        onTap: _toggleSidebar,
+                        borderRadius: BorderRadius.circular(10),
+                        child: const SizedBox(
+                          width: 42,
+                          height: 42,
+                          child: Icon(
+                            Icons.menu_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
+      );
+    }
+
+    // ── Desktop: persistent collapsible rail ──────────────────────
+    if (isDesktop) {
+      return Scaffold(
+        backgroundColor: NetflixColors.background,
+        extendBody: true,
+        body: Row(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+              width: _sidebarCollapsed ? 72 : 260,
+              child: buildSidebar(
+                collapsed: _sidebarCollapsed,
+                onToggle: _toggleSidebar,
+              ),
+            ),
+            Expanded(child: buildCinemaContent()),
+          ],
+        ),
+      );
+    }
+
+    // ── Mobile / Tablet: overlay drawer ───────────────────────────
+    return Scaffold(
+      extendBody: true,
+      backgroundColor: NetflixColors.background,
+      body: Stack(
+        children: [
+          buildCinemaContent(),
+          if (_mobileSidebarOpen) ...[
+            // Scrim
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => setState(() => _mobileSidebarOpen = false),
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.55),
+                ),
+              ),
+            ),
+            // Drawer panel — slides in from the left
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: Material(
+                color: const Color(0xFF0F0A14),
+                elevation: 24,
+                child: SizedBox(
+                  width: 280,
+                  child: buildSidebar(
+                    collapsed: false,
+                    onToggle: () =>
+                        setState(() => _mobileSidebarOpen = false),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
-      bottomNavigationBar: isMobile
-          ? NetflixNavBar(
-              scrolled: _navScrolled,
-              currentIndex: _currentIndex,
-              links: const [
-                NetflixNavLink('Home', 0),
-                NetflixNavLink('New & Popular', 2, 'collection-new'),
-                NetflixNavLink('My List', 3),
-                NetflixNavLink('Search', 1),
-              ],
-              mobileItems: const [
-                NetflixMobileItem(
-                  label: 'Home',
-                  icon: Icons.home_outlined,
-                  activeIcon: Icons.home_rounded,
-                  tab: 0,
-                ),
-                NetflixMobileItem(
-                  label: 'New & Popular',
-                  icon: Icons.local_fire_department_outlined,
-                  activeIcon: Icons.local_fire_department_rounded,
-                  tab: 2,
-                  browseOptionId: 'collection-new',
-                ),
-                NetflixMobileItem(
-                  label: 'My List',
-                  icon: Icons.bookmark_border_rounded,
-                  activeIcon: Icons.bookmark_rounded,
-                  tab: 3,
-                ),
-                NetflixMobileItem(
-                  label: 'Search',
-                  icon: Icons.search_rounded,
-                  activeIcon: Icons.search_rounded,
-                  tab: 1,
-                ),
-                NetflixMobileItem(
-                  label: 'Together',
-                  icon: Icons.favorite_outline_rounded,
-                  activeIcon: Icons.favorite_rounded,
-                  tab: 4,
-                ),
-              ],
-              onSelect: _onNavSelect,
-            )
-          : null,
+      bottomNavigationBar: NetflixNavBar(
+        scrolled: _navScrolled,
+        currentIndex: _currentIndex,
+        links: const [
+          NetflixNavLink('Home', 0),
+          NetflixNavLink('New & Popular', 2, 'collection-new'),
+          NetflixNavLink('My List', 3),
+          NetflixNavLink('Search', 1),
+        ],
+        mobileItems: const [
+          NetflixMobileItem(
+            label: 'Home',
+            icon: Icons.home_outlined,
+            activeIcon: Icons.home_rounded,
+            tab: 0,
+          ),
+          NetflixMobileItem(
+            label: 'New & Popular',
+            icon: Icons.local_fire_department_outlined,
+            activeIcon: Icons.local_fire_department_rounded,
+            tab: 2,
+            browseOptionId: 'collection-new',
+          ),
+          NetflixMobileItem(
+            label: 'My List',
+            icon: Icons.bookmark_border_rounded,
+            activeIcon: Icons.bookmark_rounded,
+            tab: 3,
+          ),
+          NetflixMobileItem(
+            label: 'Search',
+            icon: Icons.search_rounded,
+            activeIcon: Icons.search_rounded,
+            tab: 1,
+          ),
+          NetflixMobileItem(
+            label: 'Together',
+            icon: Icons.favorite_outline_rounded,
+            activeIcon: Icons.favorite_rounded,
+            tab: 4,
+          ),
+        ],
+        onSelect: _onNavSelect,
+      ),
     );
   }
 }

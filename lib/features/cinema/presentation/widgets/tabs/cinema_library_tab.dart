@@ -30,7 +30,9 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
   _LibraryFilter _filter = _LibraryFilter.all;
 
   List<MediaItem> get _visible {
-    final all = widget.watchlist;
+    // Anime lives in the dedicated anime section — keep this rail pure
+    // cinema so the same title doesn't crowd both lists.
+    final all = widget.watchlist.where((i) => !i.isAnime).toList();
     return switch (_filter) {
       _LibraryFilter.all => all,
       _LibraryFilter.watching =>
@@ -51,7 +53,11 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
   @override
   Widget build(BuildContext context) {
     final isEmpty = widget.watchlist
-        .where((i) => i.isCurrentlyWatching || i.isToWatch || i.isWatched)
+        .where(
+          (i) =>
+              !i.isAnime &&
+              (i.isCurrentlyWatching || i.isToWatch || i.isWatched),
+        )
         .isEmpty;
 
     if (isEmpty) return _buildEmptyLibrary(context);
@@ -78,7 +84,7 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 2),
                 child: Text(
-                  '${widget.watchlist.length} ${widget.watchlist.length == 1 ? 'title' : 'titles'}',
+                  '${widget.watchlist.where((i) => !i.isAnime).length} ${widget.watchlist.where((i) => !i.isAnime).length == 1 ? 'title' : 'titles'}',
                   style: AppTypography.outfitWhite.copyWith(fontSize: 13, color: NetflixColors.textMuted, fontWeight: FontWeight.w500),
                 ),
               ),
