@@ -63,7 +63,8 @@ class _MochiSidebarState extends State<MochiSidebar> {
       final ai = context.read<AIService>();
       var sessions = await ai.listSessions(limit: 50);
       final live = ai.assistantConversation;
-      if (live != null && live.messages.isNotEmpty) {
+      final hasLiveMessages = live != null && live.messages.isNotEmpty;
+      if (hasLiveMessages) {
         final preview = live.messages.firstWhere(
           (m) => m.role == 'user',
           orElse: () => live.messages.first,
@@ -78,16 +79,30 @@ class _MochiSidebarState extends State<MochiSidebar> {
           createdAt: live.updatedAt,
           title: title.isEmpty ? 'Current conversation' : title,
         );
-        final hasLiveDup = sessions.isNotEmpty &&
-            sessions.first.messageCount == live.messages.length &&
-            sessions.first.title == liveSession.title;
+        // Avoid showing a duplicate of the most recent archived session.
+        final hasLiveDup = sessions.any(
+          (s) => s.messageCount == liveSession.messageCount && s.title == liveSession.title,
+        );
         if (!hasLiveDup) sessions = [liveSession, ...sessions];
         _activeSessionId ??= '__live__';
+      } else {
+        // No live messages → new chat state. Clear stale active highlight if it
+        // pointed to a deleted session or the synthetic live entry.
+        if (_activeSessionId == '__live__' ||
+            (_activeSessionId != null && !sessions.any((s) => s.id == _activeSessionId))) {
+          _activeSessionId = null;
+        }
       }
       if (mounted) {
         setState(() {
           _sessions = sessions;
           _isLoading = false;
+          // If the active session was deleted, fall back to live (if any) or clear.
+          if (_activeSessionId != null &&
+              _activeSessionId != '__live__' &&
+              !sessions.any((s) => s.id == _activeSessionId)) {
+            _activeSessionId = hasLiveMessages ? '__live__' : null;
+          }
         });
       }
     } catch (e) {
@@ -133,16 +148,52 @@ class _MochiSidebarState extends State<MochiSidebar> {
       ),
     );
 
-    if (confirmed == true && mounted) {
+    if (confirmed != true || !mounted) return;
+
+    try {
       if (session.id == '__live__') {
         final ai = context.read<AIService>();
-        await ai.clearConversation('assistant');
+        // Explicit delete must not archive — user expects removal, not history.
+        await ai.clearConversation('assistant', archive: false);
+        if (mounted) {
+          setState(() => _activeSessionId = null);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Conversation deleted', style: AppTypography.bodySmall()),
+              backgroundColor: AppColors.surfaceGlass,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
       } else {
         final ai = context.read<AIService>();
         await ai.deleteSession(session.id);
+        if (mounted && _activeSessionId == session.id) {
+          setState(() => _activeSessionId = null);
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Conversation deleted', style: AppTypography.bodySmall()),
+              backgroundColor: AppColors.surfaceGlass,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
       }
-      await _loadSessions();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete: $e', style: AppTypography.bodySmall()),
+            backgroundColor: AppColors.deepRose.withValues(alpha: 0.9),
+          ),
+        );
+      }
     }
+    if (mounted) await _loadSessions();
   }
 
   List<AISession> get _filtered {

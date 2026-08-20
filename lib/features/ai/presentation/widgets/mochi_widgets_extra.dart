@@ -286,6 +286,22 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         padding: EdgeInsets.only(top: 7),
                         child: _StreamingProgressBar(),
                       ),
+                    // W5 citation footer — subtle source hint for assistant replies
+                    if (!widget.isUser && !widget.isStreaming && widget.text.length > 60)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.shield_outlined, size: 10, color: AppColors.textDisabled.withValues(alpha: 0.5)),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Mochi • private memory + Everglow context',
+                              style: AppTypography.bodySmall().copyWith(fontSize: 9, color: AppColors.textDisabled.withValues(alpha: 0.5), fontStyle: FontStyle.italic),
+                            ),
+                          ],
+                        ),
+                      ),
                     if (widget.timestamp != null || widget.isStreaming)
                       Padding(
                         padding: const EdgeInsets.only(top: 5),
@@ -448,7 +464,7 @@ String _formatToolStatus(String status) {
   if (status == 'executing') return 'Mochi is working on it';
   if (status == 'done') return 'Mochi is done';
   if (status.startsWith('round_')) return 'Mochi is thinking';
-  // Tool names
+  // Tool names — W2-W3 additions included
   const toolNames = {
     'add_to_watchlist': 'Adding to watchlist',
     'save_to_starlight_jar': 'Saving to Starlight Jar',
@@ -463,10 +479,14 @@ String _formatToolStatus(String status) {
     'add_book_to_our_books': 'Adding book to Our Books',
     'get_date_ideas': 'Getting date ideas',
     'read_chat_messages': 'Reading chat messages',
+    'send_sanctuary_message': 'Sending to Sanctuary',
     'get_xp_stats': 'Checking XP stats',
     'search_anime': 'Searching anime',
     'remember_fact': 'Remembering that',
     'read_memories': 'Opening the Memory Book',
+    'pin_memory': 'Pinning memory',
+    'delete_memory': 'Forgetting that',
+    'edit_memory': 'Updating memory',
     'mark_watchlist_item_watched': 'Marking as watched',
     'update_book_progress': 'Updating book progress',
     'add_xp': 'Awarding XP',
@@ -474,6 +494,12 @@ String _formatToolStatus(String status) {
     'get_relationship_insights': 'Finding patterns',
     'get_memory_trivia': 'Making memory trivia',
     'get_today_recap': 'Compiling today',
+    'get_gallery': 'Browsing gallery',
+    'get_garden': 'Checking garden',
+    'get_canvas': 'Looking at drawings',
+    'search_spotify': 'Searching Spotify',
+    'remove_from_watchlist': 'Removing from watchlist',
+    'search_everglow': 'Searching Everglow',
     'plan_date_night': 'Planning date night',
   };
   return toolNames[status] ?? 'Mochi is thinking';
@@ -507,6 +533,8 @@ IconData _toolIcon(String status) {
       return Icons.calendar_month_outlined;
     case 'read_chat_messages':
       return Icons.forum_outlined;
+    case 'send_sanctuary_message':
+      return Icons.send_rounded;
     case 'get_xp_stats':
       return Icons.military_tech_rounded;
     case 'search_anime':
@@ -515,6 +543,12 @@ IconData _toolIcon(String status) {
       return Icons.bookmark_add_outlined;
     case 'read_memories':
       return Icons.menu_book_outlined;
+    case 'pin_memory':
+      return Icons.push_pin_rounded;
+    case 'delete_memory':
+      return Icons.delete_outline_rounded;
+    case 'edit_memory':
+      return Icons.edit_note_rounded;
     case 'mark_watchlist_item_watched':
       return Icons.check_circle_outline_rounded;
     case 'update_book_progress':
@@ -529,6 +563,18 @@ IconData _toolIcon(String status) {
       return Icons.quiz_outlined;
     case 'get_today_recap':
       return Icons.wb_twilight_rounded;
+    case 'get_gallery':
+      return Icons.photo_library_rounded;
+    case 'get_garden':
+      return Icons.local_florist_rounded;
+    case 'get_canvas':
+      return Icons.brush_rounded;
+    case 'search_spotify':
+      return Icons.music_note_rounded;
+    case 'remove_from_watchlist':
+      return Icons.playlist_remove_rounded;
+    case 'search_everglow':
+      return Icons.search_rounded;
     case 'plan_date_night':
       return Icons.event_available_rounded;
     default:
@@ -542,16 +588,24 @@ Color _toolAccent(String status) {
     case 'search_movies':
     case 'get_watchlist':
     case 'search_anime':
+    case 'search_spotify':
+    case 'search_everglow':
       return AppColors.blushGold;
     case 'save_to_starlight_jar':
     case 'read_starlight_jar':
+    case 'get_gallery':
+    case 'get_canvas':
       return AppColors.auroraLilac;
     case 'set_mood':
     case 'get_weather':
+    case 'get_garden':
       return AppColors.auroraTeal;
     case 'get_date_ideas':
     case 'remember_fact':
     case 'read_memories':
+    case 'pin_memory':
+    case 'delete_memory':
+    case 'edit_memory':
     case 'get_memory_trivia':
     case 'get_today_recap':
     case 'plan_date_night':
@@ -559,8 +613,10 @@ Color _toolAccent(String status) {
     case 'mark_watchlist_item_watched':
     case 'update_book_progress':
     case 'add_xp':
+    case 'remove_from_watchlist':
       return AppColors.auroraTeal;
     case 'send_note_to_partner':
+    case 'send_sanctuary_message':
     case 'get_relationship_insights':
       return AppColors.auroraLilac;
     default:
@@ -610,6 +666,45 @@ class _ToolStatusChip extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Quick-reply chips shown above the composer for one-tap follow-ups.
+class _QuickReplyChips extends StatelessWidget {
+  final ValueChanged<String> onSelect;
+  final bool centered;
+
+  const _QuickReplyChips({required this.onSelect, this.centered = false});
+
+  static const _chips = [
+    ('What should we watch? 🎬', 'What should we watch tonight?'),
+    ('Save to Starlight ✨', 'Save this to our Starlight Jar'),
+    ('Log my mood 💭', 'I want to log my mood'),
+    ('Plan a date 🌙', 'Plan a cozy date night for us'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final inner = SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: EdgeInsets.symmetric(horizontal: centered ? 24 : 12, vertical: 6),
+      child: Row(
+        children: _chips.map((e) {
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ActionChip(
+              label: Text(e.$1, style: AppTypography.bodySmall().copyWith(fontSize: 11, color: AppColors.textMedium)),
+              backgroundColor: AppColors.surfaceGlass,
+              side: BorderSide(color: AppColors.border),
+              shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusFull),
+              onPressed: () => onSelect(e.$2),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+    if (!centered) return inner;
+    return Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 760), child: inner));
   }
 }
 

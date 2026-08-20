@@ -29,7 +29,7 @@ class TTMultiplayerGameScreen extends StatefulWidget {
 }
 
 class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
-  static const String _gameSrc = 'table_tennis/assets/index.html?v=1&mode=mp';
+  static const String _gameSrc = 'table_tennis/assets/index.typed.html?v=1&mode=mp';
 
   late final String _viewType =
       'ttmp-iframe-${DateTime.now().microsecondsSinceEpoch}-${identityHashCode(Object())}';

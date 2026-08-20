@@ -16,11 +16,15 @@ class AddPhotoDialog extends StatefulWidget {
 
 class _AddPhotoDialogState extends State<AddPhotoDialog> {
   final TextEditingController _captionController = TextEditingController();
+  final TextEditingController _locationController = TextEditingController();
+  final TextEditingController _latController = TextEditingController();
+  final TextEditingController _lngController = TextEditingController();
   final GalleryService _galleryService = GalleryService();
   Uint8List? _imageBytes;
   String _fileName = '';
   bool _isUploading = false;
   bool _isSubmitEnabled = false;
+  bool _addLocation = false;
 
   Future<void> _pickImage() async {
     final picked = await pickImageBytes();
@@ -53,12 +57,19 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
       final auth = context.read<AuthService>();
       final username = auth.currentUser ?? 'unknown';
 
+      final lat = double.tryParse(_latController.text.trim());
+      final lng = double.tryParse(_lngController.text.trim());
+      final loc = _locationController.text.trim();
       final photo = await _galleryService.uploadPhoto(
         imageBytes: _imageBytes!,
         fileName: _fileName,
         caption: _captionController.text.trim(),
         uploadedBy: username,
         userId: auth.uid ?? '',
+        latitude: _addLocation ? lat : null,
+        longitude: _addLocation ? lng : null,
+        locationName: _addLocation && loc.isNotEmpty ? loc : null,
+        takenAt: DateTime.now(),
       );
 
       if (mounted) {
@@ -81,6 +92,9 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
   @override
   void dispose() {
     _captionController.dispose();
+    _locationController.dispose();
+    _latController.dispose();
+    _lngController.dispose();
     super.dispose();
   }
 
@@ -186,6 +200,54 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                   contentPadding: const EdgeInsets.all(16),
                 ),
               ),
+              const SizedBox(height: 12),
+              // Location Toggle — Immich-inspired
+              GestureDetector(
+                onTap: () => setState(() => _addLocation = !_addLocation),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: _addLocation ? AppTheme.blushGold.withValues(alpha: 0.12) : AppTheme.twilight,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _addLocation ? AppTheme.blushGold : AppTheme.blushGold.withValues(alpha: 0.12)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(_addLocation ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded, size: 18, color: _addLocation ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.6)),
+                      const SizedBox(width: 8),
+                      Icon(Icons.place_rounded, size: 16, color: _addLocation ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.6)),
+                      const SizedBox(width: 6),
+                      Text('Pin location (Immich map)', style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: _addLocation ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.7), fontWeight: _addLocation ? FontWeight.bold : FontWeight.w500)),
+                    ],
+                  ),
+                ),
+              ),
+              if (_addLocation) ...[
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _locationController,
+                  style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: 'Place name — e.g., Kyoto, Our bench',
+                    hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.4), fontSize: 12),
+                    prefixIcon: Icon(Icons.label_rounded, size: 16, color: AppTheme.petalWhite.withValues(alpha: 0.5)),
+                    filled: true,
+                    fillColor: AppTheme.twilight,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppTheme.blushGold.withValues(alpha: 0.15))),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(child: TextField(controller: _latController, keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true), style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 12), decoration: InputDecoration(hintText: 'Latitude', hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.35), fontSize: 11), filled: true, fillColor: AppTheme.twilight, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)))),
+                    const SizedBox(width: 8),
+                    Expanded(child: TextField(controller: _lngController, keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true), style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 12), decoration: InputDecoration(hintText: 'Longitude', hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.35), fontSize: 11), filled: true, fillColor: AppTheme.twilight, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)))),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text('Tip: paste from Google Maps • leave empty to save without coords', style: AppTypography.outfitWhite.copyWith(fontSize: 10, color: AppTheme.petalWhite.withValues(alpha: 0.4))),
+              ],
               const SizedBox(height: 24),
 
               // Buttons

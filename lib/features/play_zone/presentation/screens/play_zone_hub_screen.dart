@@ -55,13 +55,19 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
                 hue: AppColors.auroraGold,
               ),
               Expanded(
-                child: Center(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 16,
-                    ),
-                    child: _buildTableTennisCard(),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
+                  child: Column(
+                    children: [
+                      _buildTableTennisCard(),
+                      const SizedBox(height: 16),
+                      _buildScribbleCard(),
+                      const SizedBox(height: 16),
+                      _buildChessCard(),
+                    ],
                   ),
                 ),
               ),
@@ -187,6 +193,86 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
                         ),
                       ],
                     ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScribbleCard() {
+    return GlassContainer(
+      borderRadius: BorderRadius.circular(24.0),
+      border: Border.all(color: AppColors.auroraTeal.withValues(alpha: 0.25), width: 1.5),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+        child: Column(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [AppColors.auroraTeal, AppColors.deepRose])),
+              child: Icon(Icons.brush_rounded, color: Colors.white, size: 28),
+            ),
+            const SizedBox(height: 14),
+            Text('Scribble Together', style: AppTypography.cormorantBold.copyWith(fontSize: 24, letterSpacing: 0.5)),
+            const SizedBox(height: 6),
+            Text('Draw & guess — one draws, one guesses. Firestore-synced canvas (Scribble.rs)', style: AppTypography.outfitWhite.copyWith(fontSize: 13, color: AppTheme.petalWhite.withValues(alpha: 0.7)), textAlign: TextAlign.center),
+            const SizedBox(height: 18),
+            BouncyButton(
+              onTap: () => context.push('/play-zone/scribble'),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                decoration: BoxDecoration(gradient: LinearGradient(colors: [AppColors.auroraTeal, AppColors.deepRose]), borderRadius: BorderRadius.circular(24.0)),
+                child: Text('DRAW', style: AppTypography.outfitWhite.copyWith(fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 2.0, fontSize: 14)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChessCard() {
+    return GlassContainer(
+      borderRadius: BorderRadius.circular(24.0),
+      border: Border.all(color: AppColors.blushGold.withValues(alpha: 0.25), width: 1.5),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+        child: Column(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [AppColors.blushGold, AppColors.auroraRose])),
+              child: Icon(Icons.grid_on_rounded, color: Colors.white, size: 28),
+            ),
+            const SizedBox(height: 14),
+            Text('Couple Chess', style: AppTypography.cormorantBold.copyWith(fontSize: 24, letterSpacing: 0.5)),
+            const SizedBox(height: 6),
+            Text('Classic 2-player chess — synced via Firestore (Lila)', style: AppTypography.outfitWhite.copyWith(fontSize: 13, color: AppTheme.petalWhite.withValues(alpha: 0.7)), textAlign: TextAlign.center),
+            const SizedBox(height: 18),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                BouncyButton(
+                  onTap: () => context.push('/play-zone/chess'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                    decoration: BoxDecoration(gradient: LinearGradient(colors: [AppColors.blushGold, AppColors.deepRose]), borderRadius: BorderRadius.circular(24.0)),
+                    child: Text('PLAY', style: AppTypography.outfitWhite.copyWith(fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 2.0, fontSize: 14)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                BouncyButton(
+                  onTap: () => context.push('/play-zone/chess'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    decoration: BoxDecoration(color: AppColors.moonlight.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(24.0), border: Border.all(color: AppColors.blushGold.withValues(alpha: 0.25))),
+                    child: Row(children: [Icon(Icons.people_rounded, size: 16, color: AppColors.blushGold), const SizedBox(width: 6), Text('1v1', style: AppTypography.outfitWhite.copyWith(fontWeight: FontWeight.bold, color: AppColors.blushGold, fontSize: 13))]),
                   ),
                 ),
               ],

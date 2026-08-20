@@ -23,7 +23,7 @@ class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
   // The `v=1` cache-buster mirrors the hexgl/index.html convention so
   // future updates aren't pinned to a stale iframe HTML by the 1-hour
   // Firebase Hosting CDN cache.
-  static const String _gameSrc = 'table_tennis/assets/index.html?v=1';
+  static const String _gameSrc = 'table_tennis/assets/index.typed.html?v=1';
 
   late final String _viewType =
       'tabletennis-iframe-${DateTime.now().microsecondsSinceEpoch}-${identityHashCode(Object())}';

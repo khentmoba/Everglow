@@ -12,6 +12,7 @@ import '../../data/models/bucket_item.dart';
 import '../../data/services/bucket_list_service.dart';
 import '../widgets/bucket_item_card.dart';
 import '../widgets/add_bucket_item_dialog.dart';
+import '../widgets/bucket_kanban_board.dart';
 import '../../../../core/theme/app_typography.dart';
 
 class BucketListScreen extends StatefulWidget {
@@ -21,13 +22,20 @@ class BucketListScreen extends StatefulWidget {
   State<BucketListScreen> createState() => _BucketListScreenState();
 }
 
+enum _ViewMode { list, board }
+
 class _BucketListScreenState extends State<BucketListScreen> {
   BucketStatus? _filter; // null = all
+  _ViewMode _viewMode = _ViewMode.list;
+  String? _assigneeFilter; // null=all, 'unassigned', or username
+  BucketPriority? _priorityFilter;
+  bool _overdueOnly = false;
 
   @override
   Widget build(BuildContext context) {
     final service = BucketListService();
     final auth = context.read<AuthService>();
+    final currentUser = auth.currentUser ?? '';
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -36,11 +44,31 @@ class _BucketListScreenState extends State<BucketListScreen> {
           child: Column(
             children: [
               // Header
-              const EverglowFeatureHeader(
+              EverglowFeatureHeader(
                 title: 'Our Bucket List',
                 subtitle: 'dreams we chase together',
                 icon: Icons.card_travel_rounded,
                 hue: AppColors.auroraTeal,
+                actions: [
+                  GestureDetector(
+                    onTap: () => setState(() => _viewMode = _viewMode == _ViewMode.list ? _ViewMode.board : _ViewMode.list),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.moonlight.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.2)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(_viewMode == _ViewMode.list ? Icons.view_kanban_rounded : Icons.view_list_rounded, size: 16, color: AppTheme.blushGold),
+                          const SizedBox(width: 6),
+                          Text(_viewMode == _ViewMode.list ? 'Board' : 'List', style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.blushGold)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
 
@@ -48,29 +76,68 @@ class _BucketListScreenState extends State<BucketListScreen> {
               _buildProgressHeader(service),
               const SizedBox(height: 12),
 
-              // Filter chips
+              // Status filter chips
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    _buildFilterChip(null, 'All'),
-                    const SizedBox(width: 8),
-                    _buildFilterChip(BucketStatus.wish, 'Wishes'),
-                    const SizedBox(width: 8),
-                    _buildFilterChip(BucketStatus.planned, 'Planned'),
-                    const SizedBox(width: 8),
-                    _buildFilterChip(BucketStatus.completed, 'Done'),
-                  ],
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildFilterChip(null, 'All'),
+                      const SizedBox(width: 8),
+                      _buildFilterChip(BucketStatus.wish, 'Wishes'),
+                      const SizedBox(width: 8),
+                      _buildFilterChip(BucketStatus.planned, 'Planned'),
+                      const SizedBox(width: 8),
+                      _buildFilterChip(BucketStatus.completed, 'Done'),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Assignee + priority + overdue row (Donetick/Vikunja)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildAssigneeChip(null, 'All'),
+                      const SizedBox(width: 8),
+                      _buildAssigneeChip('khentsgdz', 'Khent'),
+                      const SizedBox(width: 8),
+                      _buildAssigneeChip('clairjassen', 'Clair'),
+                      const SizedBox(width: 8),
+                      _buildAssigneeChip('unassigned', 'Unassigned'),
+                      const SizedBox(width: 12),
+                      Container(width: 1, height: 18, color: AppTheme.blushGold.withValues(alpha: 0.15)),
+                      const SizedBox(width: 12),
+                      _buildPriorityFilterChip(null, 'Any prio'),
+                      const SizedBox(width: 8),
+                      ...BucketPriority.values.map((p) => Padding(padding: const EdgeInsets.only(right: 8), child: _buildPriorityFilterChip(p, '${p.emoji} ${p.displayName}'))),
+                      const SizedBox(width: 12),
+                      GestureDetector(
+                        onTap: () => setState(() => _overdueOnly = !_overdueOnly),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: _overdueOnly ? Colors.redAccent.withValues(alpha: 0.15) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: _overdueOnly ? Colors.redAccent : AppTheme.blushGold.withValues(alpha: 0.15)),
+                          ),
+                          child: Text('⚠️ Overdue', style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: _overdueOnly ? FontWeight.bold : FontWeight.w500, color: _overdueOnly ? Colors.redAccent : AppTheme.petalWhite.withValues(alpha: 0.6))),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
 
-              // List
+              // List / Board
               Expanded(
                 child: StreamBuilder<List<BucketItem>>(
-                  stream: _filter != null
-                      ? service.watchByStatus(_filter!)
-                      : service.watchAll(),
+                  stream: service.watchAll(),
                   builder: (context, snapshot) {
                     if (snapshot.hasError) {
                       return EverglowErrorState(
@@ -88,22 +155,43 @@ class _BucketListScreenState extends State<BucketListScreen> {
                       );
                     }
 
-                    final items = snapshot.data!;
+                    var items = snapshot.data!;
+                    // Client-side filters (avoids extra composite indexes)
+                    if (_filter != null) items = items.where((i) => i.status == _filter).toList();
+                    if (_assigneeFilter != null) {
+                      if (_assigneeFilter == 'unassigned') {
+                        items = items.where((i) => i.assignedTo == null).toList();
+                      } else {
+                        items = items.where((i) => i.assignedTo == _assigneeFilter).toList();
+                      }
+                    }
+                    if (_priorityFilter != null) items = items.where((i) => i.priority == _priorityFilter).toList();
+                    if (_overdueOnly) items = items.where((i) => i.isOverdue).toList();
+
                     if (items.isEmpty) {
+                      final isFiltered = _filter != null || _assigneeFilter != null || _priorityFilter != null || _overdueOnly;
                       return EverglowEmptyState(
                         icon: Icons.auto_awesome,
-                        title: _filter == null
-                            ? 'Your bucket list is empty'
-                            : 'No ${_filter!.displayName.toLowerCase()} items yet',
-                        subtitle: _filter == null
-                            ? 'Add your first dream together!'
-                            : null,
-                        ctaLabel: _filter == null ? 'Add Dream' : null,
-                        onCta: _filter == null
-                            ? () => _showAddDialog(context, auth)
-                            : null,
+                        title: isFiltered ? 'No matching dreams' : 'Your bucket list is empty',
+                        subtitle: isFiltered ? 'Try adjusting filters' : 'Add your first dream together!',
+                        ctaLabel: isFiltered ? null : 'Add Dream',
+                        onCta: isFiltered ? null : () => _showAddDialog(context, auth),
                       );
                     }
+
+                    if (_viewMode == _ViewMode.board) {
+                      return BucketKanbanBoard(items: items, currentUsername: currentUser);
+                    }
+
+                    // List mode: sort by priority desc then dueDate asc then createdAt desc
+                    items.sort((a, b) {
+                      final pr = b.priority.rank.compareTo(a.priority.rank);
+                      if (pr != 0) return pr;
+                      if (a.dueDate != null && b.dueDate != null) return a.dueDate!.compareTo(b.dueDate!);
+                      if (a.dueDate != null) return -1;
+                      if (b.dueDate != null) return 1;
+                      return b.createdAt.compareTo(a.createdAt);
+                    });
 
                     return ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -111,7 +199,7 @@ class _BucketListScreenState extends State<BucketListScreen> {
                       itemBuilder: (context, index) {
                         return BucketItemCard(
                           item: items[index],
-                          currentUsername: auth.currentUser ?? '',
+                          currentUsername: currentUser,
                         );
                       },
                     );
@@ -245,6 +333,38 @@ class _BucketListScreenState extends State<BucketListScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildAssigneeChip(String? value, String label) {
+    final isSelected = _assigneeFilter == value;
+    return GestureDetector(
+      onTap: () => setState(() => _assigneeFilter = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.auroraTeal.withValues(alpha: 0.18) : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: isSelected ? AppColors.auroraTeal : AppTheme.blushGold.withValues(alpha: 0.15)),
+        ),
+        child: Text(label, style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, color: isSelected ? AppColors.auroraTeal : AppTheme.petalWhite.withValues(alpha: 0.6))),
+      ),
+    );
+  }
+
+  Widget _buildPriorityFilterChip(BucketPriority? prio, String label) {
+    final isSelected = _priorityFilter == prio;
+    return GestureDetector(
+      onTap: () => setState(() => _priorityFilter = prio),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.deepRose.withValues(alpha: 0.18) : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: isSelected ? AppTheme.deepRose : AppTheme.blushGold.withValues(alpha: 0.15)),
+        ),
+        child: Text(label, style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, color: isSelected ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.6))),
       ),
     );
   }

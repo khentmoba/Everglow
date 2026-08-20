@@ -1,0 +1,74 @@
+// ---------------------------------------------------------------------------
+// Engine constants (mirrors game.js globals)
+// ---------------------------------------------------------------------------
+export const CANVAS = {
+    minSquare: 500,
+    maxSquare: 700,
+    radian: Math.PI / 180,
+};
+export const PHYSICS = {
+    gravity: 3800, // Ball.heightInc += 3800*delta  game.js:1608
+    spinPowUser: 2.5, // pow(spin*2.5,3) game.js:1596
+    spinPowEnemy: 2.0, // pow(spin*2,3)   game.js:1598
+    spinClampUser: 3, // ±3
+    spinClampEnemy: 2, // ±2
+    bounceDamp: -0.85, // heightInc *= -.85 game.js:1626
+    offTableThreshold: -200, // height <= -200 → score game.js:1643
+    trailMax: 5,
+    netBounceY: 0.5,
+};
+export const TABLE = {
+    segsMobile: 75,
+    segsDesktop: 150,
+    sideMultiplier: 100,
+    heightFactor: 235, // (tablePosY² * 235) * (1+offY/2)
+    widthFactor: 233, // tablePosX * 233/2
+};
+export const SCORING = {
+    winScore: 11,
+    winBy: 2,
+    maxScore: 99,
+};
+// ---------------------------------------------------------------------------
+// User country pool (40)
+// ---------------------------------------------------------------------------
+export const USER_COUNTRIES = [
+    'CA', 'CN', 'BR', 'KG', 'DE', 'FR', 'HK', 'KZ', 'IE', 'IT',
+    'JP', 'NL', 'PL', 'PT', 'KR', 'ES', 'RU', 'TR', 'GB', 'US',
+    'CZ', 'AR', 'UA', 'IN', 'MX', 'EG', 'ID', 'IQ', 'IR', 'CL',
+    'DK', 'CO', 'TH', 'TW', 'AM', 'UZ', 'SK', 'BY', 'UY', 'IL',
+];
+// 10 cups × 6 opponents (mirrors aEnemyCountries game.js:2852)
+// ---------------------------------------------------------------------------
+export const ENEMY_CUPS = [
+    ['IS', 'GL', 'HW', 'CU', 'CA', 'US'],
+    ['VE', 'CK', 'WS', 'CO', 'GY', 'CR'],
+    ['PE', 'AR', 'UY', 'BO', 'CL', 'BR'],
+    ['DZ', 'LY', 'ET', 'ZW', 'KE', 'ZA'],
+    ['FR', 'NO', 'PT', 'IT', 'DE', 'GB'],
+    ['AT', 'CZ', 'PL', 'TR', 'HU', 'GR'],
+    ['IR', 'BD', 'MG', 'IN', 'PK', 'AE'],
+    ['PG', 'NZ', 'AU', 'PH', 'ID', 'MY'],
+    ['LA', 'VN', 'HK', 'JP', 'KR', 'CN'],
+    ['LV', 'EE', 'LT', 'FI', 'UZ', 'RU'],
+];
+export const SPARE_ENEMY = 'CH';
+export const MAP_MARKER_POS = [
+    [-203, -115], [-150, -31], [-136, 98], [20, 57], [-36, -109],
+    [50, -72], [101, -16], [170, 82], [192, -51], [143, -121],
+];
+export const INITIAL_GAME_DATA = {
+    cupId: 0, gameId: 0, userId: null, enemyId: null, userScore: 0, enemyScore: 0,
+};
+// localStorage key
+export const SAVE_KEY = 'tabletennisv3';
+// Fallback IDs: aLevelStore = [1,0,0…1234,0] → 1234 means firstRun
+export const FIRST_RUN_USER_ID = 1234;
+// ---------------------------------------------------------------------------
+// Audio sprite (Howler) – mirrors init in loadAssets tail game.js:??? 
+// ---------------------------------------------------------------------------
+export const AUDIO = {
+    musicSrc: ['audio/music.ogg', 'audio/music.m4a'],
+    soundSrc: ['audio/sound.ogg'],
+};
+//# sourceMappingURL=constants.js.map

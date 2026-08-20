@@ -12,9 +12,11 @@ import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../data/services/calendar_service.dart';
 import '../../domain/models/calendar_event.dart';
 import '../widgets/add_event_dialog.dart';
+import '../widgets/add_poll_dialog.dart';
 import '../widgets/calendar_event_style.dart';
 import '../widgets/calendar_grid.dart';
 import '../widgets/day_detail_sheet.dart';
+import '../widgets/polls_tab.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -25,17 +27,25 @@ class CalendarScreen extends StatefulWidget {
 
 class _CalendarScreenState extends State<CalendarScreen> {
   final CalendarService _calendarService = CalendarService();
-  late final Stream<List<CalendarEvent>> _monthEventsStream;
-  late final Stream<List<CalendarEvent>> _upcomingStream;
+  late Stream<List<CalendarEvent>> _monthEventsStream;
+  late Stream<List<CalendarEvent>> _upcomingStream;
 
   DateTime _selectedDay = DateTime.now();
-  final DateTime _currentMonth = DateTime.now();
+  DateTime _currentMonth = DateTime.now();
+  int _tabIndex = 0; // 0 = calendar, 1 = polls (Rallly)
 
   @override
   void initState() {
     super.initState();
     _monthEventsStream = _calendarService.getEventsForMonth(_currentMonth);
     _upcomingStream = _calendarService.getUpcomingEvents(days: 60);
+  }
+
+  void _onMonthChanged(DateTime newMonth) {
+    setState(() {
+      _currentMonth = newMonth;
+      _monthEventsStream = _calendarService.getEventsForMonth(_currentMonth);
+    });
   }
 
   void _onDaySelected(DateTime day) {
@@ -46,7 +56,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _openDaySheet(DateTime day) {
-    // Soft scrim keeps the calendar visible behind the day sheet.
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -57,7 +66,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _refresh() {
-    setState(() {});
+    setState(() {
+      _monthEventsStream = _calendarService.getEventsForMonth(_currentMonth);
+      _upcomingStream = _calendarService.getUpcomingEvents(days: 60);
+    });
   }
 
   Future<void> _openAddEvent() async {
@@ -66,6 +78,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
       barrierColor: Colors.black54,
       builder: (_) => AddEventDialog(selectedDay: _selectedDay),
     );
+    if (result == true) _refresh();
+  }
+
+  Future<void> _openAddPoll() async {
+    final result = await showDialog<bool>(context: context, barrierColor: Colors.black54, builder: (_) => const AddPollDialog());
     if (result == true) _refresh();
   }
 
@@ -97,76 +114,116 @@ class _CalendarScreenState extends State<CalendarScreen> {
           SafeArea(
             child: Column(
               children: [
-                const EverglowFeatureHeader(
+                EverglowFeatureHeader(
                   title: 'Shared Calendar',
                   subtitle: 'our special dates',
                   icon: Icons.calendar_month_rounded,
                   hue: AppColors.warmAmber,
-                  actions: [_CalendarRefreshButton()],
+                  actions: [
+                    _CalendarRefreshButton(onPressed: _refresh),
+                  ],
                 ),
-                Expanded(
-                  child: StreamBuilder<List<CalendarEvent>>(
-                    stream: _monthEventsStream,
-                    builder: (context, snapshot) {
-                      final events = snapshot.data ?? [];
-                      return Column(
-                        children: [
-                          CalendarGrid(
-                            initialMonth: _currentMonth,
-                            events: events,
-                            selectedDay: _selectedDay,
-                            onDaySelected: _onDaySelected,
-                          ),
-                          const SizedBox(height: 14),
-                          Expanded(
-                            child: StreamBuilder<List<CalendarEvent>>(
-                              stream: _upcomingStream,
-                              builder: (context, snapshot) {
-                                final upcoming = snapshot.data ?? [];
-                                return Column(
-                                  children: [
-                                    _buildUpcomingHeader(count: upcoming.length),
-                                    const SizedBox(height: 6),
-                                    Expanded(
-                                      child: upcoming.isEmpty
-                                          ? _buildEmptyState()
-                                          : ListView.builder(
-                                              padding: const EdgeInsets.fromLTRB(
-                                                16,
-                                                2,
-                                                16,
-                                                96,
-                                              ),
-                                              itemCount: upcoming.length.clamp(
-                                                0,
-                                                10,
-                                              ),
-                                              itemBuilder: (context, index) {
-                                                final event = upcoming[index];
-                                                return _UpcomingEventCard(
-                                                  event: event,
-                                                  onTap: () =>
-                                                      _openDaySheet(event.date),
-                                                );
-                                              },
-                                            ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      );
-                    },
+                const SizedBox(height: 8),
+                // Tabs: Calendar vs Polls (Baïkal vs Rallly)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(color: AppColors.twilight, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.14))),
+                    child: Row(
+                      children: [
+                        Expanded(child: _buildTabButton(0, 'Calendar', Icons.calendar_month_rounded)),
+                        Expanded(child: _buildTabButton(1, 'Polls', Icons.how_to_vote_rounded)),
+                      ],
+                    ),
                   ),
                 ),
+                const SizedBox(height: 12),
+                if (_tabIndex == 0)
+                  Expanded(
+                    child: StreamBuilder<List<CalendarEvent>>(
+                      stream: _monthEventsStream,
+                      builder: (context, snapshot) {
+                        final events = snapshot.data ?? [];
+                        return Column(
+                          children: [
+                            CalendarGrid(
+                              initialMonth: _currentMonth,
+                              events: events,
+                              selectedDay: _selectedDay,
+                              onDaySelected: _onDaySelected,
+                              onMonthChanged: _onMonthChanged,
+                            ),
+                            const SizedBox(height: 14),
+                            Expanded(
+                              child: StreamBuilder<List<CalendarEvent>>(
+                                stream: _upcomingStream,
+                                builder: (context, snapshot) {
+                                  final upcoming = snapshot.data ?? [];
+                                  return Column(
+                                    children: [
+                                      _buildUpcomingHeader(count: upcoming.length),
+                                      const SizedBox(height: 6),
+                                      Expanded(
+                                        child: upcoming.isEmpty
+                                            ? _buildEmptyState()
+                                            : ListView.builder(
+                                                padding: const EdgeInsets.fromLTRB(
+                                                  16,
+                                                  2,
+                                                  16,
+                                                  96,
+                                                ),
+                                                itemCount: upcoming.length.clamp(
+                                                  0,
+                                                  10,
+                                                ),
+                                                itemBuilder: (context, index) {
+                                                  final event = upcoming[index];
+                                                  return _UpcomingEventCard(
+                                                    event: event,
+                                                    onTap: () => _openDaySheet(event.date),
+                                                  );
+                                                },
+                                              ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  )
+                else
+                  const Expanded(child: PollsTab()),
               ],
             ),
           ),
         ],
       ),
-      floatingActionButton: _CalendarFab(onPressed: _openAddEvent),
+      floatingActionButton: _CalendarFab(onPressed: _tabIndex == 0 ? _openAddEvent : _openAddPoll),
+    );
+  }
+
+  Widget _buildTabButton(int index, String label, IconData icon) {
+    final isSel = _tabIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _tabIndex = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(color: isSel ? AppColors.warmAmber.withValues(alpha: 0.18) : Colors.transparent, borderRadius: BorderRadius.circular(14), border: Border.all(color: isSel ? AppColors.warmAmber : Colors.transparent)),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 16, color: isSel ? AppColors.warmAmber : AppTheme.petalWhite.withValues(alpha: 0.6)),
+            const SizedBox(width: 6),
+            Text(label, style: AppTypography.outfitBold.copyWith(fontSize: 12, color: isSel ? AppColors.warmAmber : AppTheme.petalWhite.withValues(alpha: 0.6))),
+          ],
+        ),
+      ),
     );
   }
 
@@ -393,6 +450,10 @@ class _UpcomingEventCardState extends State<_UpcomingEventCard> {
                           ),
                         ],
                       ),
+                      if (event.location != null) ...[
+                        const SizedBox(height: 3),
+                        Row(children: [Icon(Icons.place_rounded, size: 10, color: AppColors.auroraTeal), const SizedBox(width: 4), Text(event.location!, style: AppTypography.outfitWhite.copyWith(fontSize: 10, color: AppColors.auroraTeal), maxLines: 1, overflow: TextOverflow.ellipsis)]),
+                      ],
                     ],
                   ),
                 ),
@@ -488,7 +549,8 @@ class _TimePill extends StatelessWidget {
 }
 
 class _CalendarRefreshButton extends StatefulWidget {
-  const _CalendarRefreshButton();
+  final VoidCallback onPressed;
+  const _CalendarRefreshButton({required this.onPressed});
 
   @override
   State<_CalendarRefreshButton> createState() => _CalendarRefreshButtonState();
@@ -505,26 +567,29 @@ class _CalendarRefreshButtonState extends State<_CalendarRefreshButton> {
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
-        child: AnimatedContainer(
-          duration: AppMotion.orZero(AppMotion.fast),
-          curve: AppMotion.easeOutStrong,
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.moonlight.withValues(
-              alpha: _hovered ? 0.16 : 0.08,
+        child: GestureDetector(
+          onTap: widget.onPressed,
+          child: AnimatedContainer(
+            duration: AppMotion.orZero(AppMotion.fast),
+            curve: AppMotion.easeOutStrong,
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.moonlight.withValues(
+                alpha: _hovered ? 0.16 : 0.08,
+              ),
+              border: Border.all(
+                color: _hovered
+                    ? AppColors.blushGold.withValues(alpha: 0.5)
+                    : AppColors.moonlight.withValues(alpha: 0.2),
+              ),
             ),
-            border: Border.all(
-              color: _hovered
-                  ? AppColors.blushGold.withValues(alpha: 0.5)
-                  : AppColors.moonlight.withValues(alpha: 0.2),
+            child: Icon(
+              Icons.refresh_rounded,
+              color: AppColors.blushGold,
+              size: 18,
             ),
-          ),
-          child: Icon(
-            Icons.refresh_rounded,
-            color: AppColors.blushGold,
-            size: 18,
           ),
         ),
       ),
@@ -547,7 +612,7 @@ class _CalendarFabState extends State<_CalendarFab> {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: 'Add an event',
+      message: 'Add',
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _hovered = true),

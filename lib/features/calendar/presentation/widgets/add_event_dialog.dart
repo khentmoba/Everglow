@@ -18,10 +18,32 @@ class AddEventDialog extends StatefulWidget {
 class _AddEventDialogState extends State<AddEventDialog> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
+  final TextEditingController _locationController = TextEditingController();
   final CalendarService _calendarService = CalendarService();
   CalendarEventType _selectedType = CalendarEventType.custom;
   String _recurring = 'none';
   bool _isSaving = false;
+  TimeOfDay _selectedTime = const TimeOfDay(hour: 19, minute: 0);
+  bool _isAllDay = false;
+  List<String> _attendees = []; // usernames
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime,
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(colorScheme: ColorScheme.dark(primary: AppTheme.deepRose, surface: AppTheme.velvet, onSurface: AppTheme.petalWhite)),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => _selectedTime = picked);
+  }
+
+  DateTime get _combinedDate {
+    final d = widget.selectedDay;
+    if (_isAllDay) return DateTime(d.year, d.month, d.day);
+    return DateTime(d.year, d.month, d.day, _selectedTime.hour, _selectedTime.minute);
+  }
 
   Future<void> _save() async {
     if (_titleController.text.trim().isEmpty || _isSaving) return;
@@ -36,10 +58,13 @@ class _AddEventDialogState extends State<AddEventDialog> {
         id: '',
         title: _titleController.text.trim(),
         description: _descController.text.trim(),
-        date: widget.selectedDay,
+        date: _combinedDate,
         type: _selectedType,
         createdBy: username,
         recurring: _recurring,
+        location: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
+        attendees: _attendees,
+        isAllDay: _isAllDay,
       );
 
       await _calendarService.addEvent(event);
@@ -62,7 +87,26 @@ class _AddEventDialogState extends State<AddEventDialog> {
   void dispose() {
     _titleController.dispose();
     _descController.dispose();
+    _locationController.dispose();
     super.dispose();
+  }
+
+  Widget _buildAttendeeChip(String username, String label) {
+    final isSel = _attendees.contains(username);
+    return GestureDetector(
+      onTap: () => setState(() {
+        if (isSel) {
+          _attendees.remove(username);
+        } else {
+          _attendees.add(username);
+        }
+      }),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(color: isSel ? AppTheme.deepRose.withValues(alpha: 0.25) : AppTheme.twilight, borderRadius: BorderRadius.circular(20), border: Border.all(color: isSel ? AppTheme.blushGold : AppTheme.blushGold.withValues(alpha: 0.15))),
+        child: Text(label, style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: isSel ? FontWeight.bold : FontWeight.w500, color: isSel ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.7))),
+      ),
+    );
   }
 
   @override
@@ -212,6 +256,68 @@ class _AddEventDialogState extends State<AddEventDialog> {
                     ),
                     contentPadding: const EdgeInsets.all(16),
                   ),
+                ),
+                const SizedBox(height: 12),
+                // ── Time + All-day (Baïkal fix) ──
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: _isAllDay ? null : _pickTime,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: _isAllDay ? AppTheme.twilight.withValues(alpha: 0.5) : AppTheme.twilight,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.15)),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.access_time_rounded, size: 16, color: _isAllDay ? AppTheme.petalWhite.withValues(alpha: 0.3) : AppTheme.blushGold),
+                              const SizedBox(width: 8),
+                              Text(_isAllDay ? 'All day' : _selectedTime.format(context), style: AppTypography.outfitWhite.copyWith(fontSize: 13, color: _isAllDay ? AppTheme.petalWhite.withValues(alpha: 0.4) : AppTheme.petalWhite)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    GestureDetector(
+                      onTap: () => setState(() => _isAllDay = !_isAllDay),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(color: _isAllDay ? AppTheme.deepRose.withValues(alpha: 0.2) : AppTheme.twilight, borderRadius: BorderRadius.circular(12), border: Border.all(color: _isAllDay ? AppTheme.blushGold : AppTheme.blushGold.withValues(alpha: 0.15))),
+                        child: Row(children: [Icon(_isAllDay ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded, size: 16, color: _isAllDay ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.6)), const SizedBox(width: 6), Text('All-day', style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: _isAllDay ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.7)))]),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // ── Location (Maps-inspired) ──
+                TextField(
+                  controller: _locationController,
+                  style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
+                  decoration: InputDecoration(
+                    hintText: "Location (optional)",
+                    prefixIcon: Icon(Icons.place_outlined, size: 18, color: AppTheme.petalWhite.withValues(alpha: 0.6)),
+                    hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.65)),
+                    filled: true,
+                    fillColor: AppTheme.twilight,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: AppTheme.blushGold.withValues(alpha: 0.2))),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppTheme.blushGold)),
+                    contentPadding: const EdgeInsets.all(16),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // ── Attendees (couple) ──
+                Row(
+                  children: [
+                    Text("With", style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.petalWhite.withValues(alpha: 0.75))),
+                    const SizedBox(width: 10),
+                    _buildAttendeeChip('khentsgdz', 'Khent'),
+                    const SizedBox(width: 8),
+                    _buildAttendeeChip('clairjassen', 'Clair'),
+                  ],
                 ),
                 const SizedBox(height: 12),
 

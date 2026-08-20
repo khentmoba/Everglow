@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:html_unescape/html_unescape.dart';
 
@@ -39,30 +40,40 @@ class KatanaService {
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       };
 
+  Future<Map<String, String>> _authHeaders() async {
+    try {
+      final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+      if (token != null && token.isNotEmpty) {
+        return {..._headers, 'Authorization': 'Bearer $token'};
+      }
+    } catch (_) {}
+    return _headers;
+  }
+
   Uri _proxiedFetch(Uri uri) {
     return Uri.parse(
         '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}');
   }
 
   /// Proxies a page image (covers and chapter pages) through the
-  /// MangaKatana image Cloud Function. Covers served directly from
-  /// Covers live on the bare `mangakatana.com` host which the image
-  /// proxy only accepts for subdomains, so those go through the HTML
-  /// proxy instead (Flutter decodes by bytes, not content-type).
+  /// MangaKatana image Cloud Function. All covers now go through the
+  /// image proxy (which allows anonymous <img> loads via host allowlist)
+  /// so they work from Image.network without Authorization headers.
   String proxiedImageUrl(String url) {
     if (url.isEmpty) return '';
-    if (url.startsWith('https://mangakatana.com/imgs/')) {
-      return '$_proxyHtmlUrl?url=${Uri.encodeComponent(url)}';
-    }
     return '$_proxyImageUrl?url=${Uri.encodeComponent(url)}';
   }
 
   Future<String?> _fetchHtml(Uri uri) async {
     try {
+      final headers = await _authHeaders();
       final response =
-          await http.get(_proxiedFetch(uri), headers: _headers).timeout(_timeout);
+          await http.get(_proxiedFetch(uri), headers: headers).timeout(_timeout);
       if (response.statusCode == 200 && response.body.isNotEmpty) {
         return response.body;
+      }
+      if (response.statusCode == 401) {
+        Logger.e('KatanaService fetch 401 - auth required: $uri');
       }
     } catch (e) {
       Logger.e('KatanaService fetch failed: $uri', error: e);

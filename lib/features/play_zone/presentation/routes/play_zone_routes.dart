@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import '../../table_tennis/presentation/screens/table_tennis_game_screen.dart';
 import '../../table_tennis/presentation/screens/tt_multiplayer_lobby_screen.dart';
 import '../screens/play_zone_hub_screen.dart';
+import '../screens/scribble_game_screen.dart';
+import '../screens/chess_game_screen.dart';
 
 /// Routes owned by the play zone feature.
 final List<GoRoute> playZoneRoutes = [
@@ -15,6 +17,8 @@ final List<GoRoute> playZoneRoutes = [
         path: 'tt/lobby',
         builder: (_, _) => const TTMultiplayerLobbyScreen(),
       ),
+      GoRoute(path: 'scribble', builder: (_, _) => const ScribbleGameScreen()),
+      GoRoute(path: 'chess', builder: (_, _) => const ChessGameScreen()),
     ],
   ),
 ];

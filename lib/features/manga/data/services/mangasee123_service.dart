@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -31,6 +32,16 @@ class MangaSee123Service with ConnectivityAware {
   factory MangaSee123Service() => _instance;
   MangaSee123Service._internal();
 
+  Future<Map<String, String>> _authHeaders() async {
+    try {
+      final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+      if (token != null && token.isNotEmpty) {
+        return {..._headers, 'Authorization': 'Bearer $token'};
+      }
+    } catch (_) {}
+    return _headers;
+  }
+
   Map<String, String> get _headers => {
     'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -55,7 +66,8 @@ class MangaSee123Service with ConnectivityAware {
       '$_baseUrl/_search.php?q=${Uri.encodeComponent(query)}',
     );
     try {
-      final response = await http.get(_proxiedFetch(uri), headers: _headers).timeout(
+      final headers = await _authHeaders();
+      final response = await http.get(_proxiedFetch(uri), headers: headers).timeout(
             const Duration(seconds: 8),
           );
       if (response.statusCode == 200) {
@@ -98,9 +110,10 @@ class MangaSee123Service with ConnectivityAware {
     final chapterUrl =
         '$_baseUrl/read-online/$slug-chapter-$formatted-page-1.html';
     try {
+      final headers = await _authHeaders();
       final response = await http.get(
         _proxiedFetch(Uri.parse(chapterUrl)),
-        headers: _headers,
+        headers: headers,
       ).timeout(
             const Duration(seconds: 10),
           );

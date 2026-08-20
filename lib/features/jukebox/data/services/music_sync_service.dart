@@ -2,7 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../../../core/config/env_config.dart';
+import '../models/loved_track.dart';
 import '../models/music_status.dart';
+import '../models/top_album.dart';
+import '../models/top_artist.dart';
 import '../models/top_music_track.dart';
 import '../models/lastfm_image_utils.dart';
 import '../../../../core/utils/logger.dart';
@@ -353,6 +356,148 @@ class MusicSyncService {
     }
     return results.first;
   }
+
+  /// Fetches the user's most-played artists from Last.fm.
+  Future<List<TopArtist>> fetchTopArtists(
+    String username, {
+    int limit = 10,
+    String period = 'overall',
+    int page = 1,
+  }) async {
+    if (_apiKey.isEmpty) return [];
+    if (username.isEmpty || _invalidUsers.contains(username)) return [];
+    try {
+      final url = Uri.parse(
+        '$_baseUrl?method=user.gettopartists&user=$username&period=$period'
+        '&limit=$limit&page=$page&api_key=$_apiKey&format=json',
+      );
+      final response = await _client.get(url).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final artists = data['topartists']?['artist'];
+        if (artists is List && artists.isNotEmpty) {
+          return artists.map((a) => TopArtist.fromJson(a as Map<String, dynamic>)).toList();
+        }
+      } else if (response.statusCode == 404) {
+        _invalidUsers.add(username);
+      } else {
+        Logger.e('Jukebox Service Error (top artists, $username): ${response.statusCode} - ${response.body}');
+      }
+    } on TimeoutException {
+      Logger.e('Jukebox Service Timeout: Top artists for $username timed out.');
+    } catch (e) {
+      Logger.e('Jukebox Service Exception (top artists, $username)', error: e);
+    }
+    return [];
+  }
+
+  /// Fetches the user's most-played albums from Last.fm.
+  Future<List<TopAlbum>> fetchTopAlbums(
+    String username, {
+    int limit = 10,
+    String period = 'overall',
+    int page = 1,
+  }) async {
+    if (_apiKey.isEmpty) return [];
+    if (username.isEmpty || _invalidUsers.contains(username)) return [];
+    try {
+      final url = Uri.parse(
+        '$_baseUrl?method=user.gettopalbums&user=$username&period=$period'
+        '&limit=$limit&page=$page&api_key=$_apiKey&format=json',
+      );
+      final response = await _client.get(url).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final albums = data['topalbums']?['album'];
+        if (albums is List && albums.isNotEmpty) {
+          return albums.map((a) => TopAlbum.fromJson(a as Map<String, dynamic>)).toList();
+        }
+      } else if (response.statusCode == 404) {
+        _invalidUsers.add(username);
+      } else {
+        Logger.e('Jukebox Service Error (top albums, $username): ${response.statusCode} - ${response.body}');
+      }
+    } on TimeoutException {
+      Logger.e('Jukebox Service Timeout: Top albums for $username timed out.');
+    } catch (e) {
+      Logger.e('Jukebox Service Exception (top albums, $username)', error: e);
+    }
+    return [];
+  }
+
+  /// Fetches the user's loved tracks from Last.fm.
+  Future<List<LovedTrack>> fetchLovedTracks(
+    String username, {
+    int limit = 10,
+    int page = 1,
+  }) async {
+    if (_apiKey.isEmpty) return [];
+    if (username.isEmpty || _invalidUsers.contains(username)) return [];
+    try {
+      final url = Uri.parse(
+        '$_baseUrl?method=user.getlovedtracks&user=$username'
+        '&limit=$limit&page=$page&api_key=$_apiKey&format=json',
+      );
+      final response = await _client.get(url).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final tracks = data['lovedtracks']?['track'];
+        if (tracks is List && tracks.isNotEmpty) {
+          return tracks.map((t) => LovedTrack.fromJson(t as Map<String, dynamic>)).toList();
+        }
+      } else if (response.statusCode == 404) {
+        _invalidUsers.add(username);
+      } else {
+        Logger.e('Jukebox Service Error (loved, $username): ${response.statusCode} - ${response.body}');
+      }
+    } on TimeoutException {
+      Logger.e('Jukebox Service Timeout: Loved tracks for $username timed out.');
+    } catch (e) {
+      Logger.e('Jukebox Service Exception (loved, $username)', error: e);
+    }
+    return [];
+  }
+
+  /// Fetches recent tracks in a specific timestamp window (used for heatmap / OTD).
+  Future<List<MusicStatus>> fetchRecentTracksRange(
+    String username, {
+    int limit = 50,
+    required int from,
+    required int to,
+    int page = 1,
+  }) async {
+    if (_apiKey.isEmpty) return [];
+    if (username.isEmpty || _invalidUsers.contains(username)) return [];
+    try {
+      final url = Uri.parse(
+        '$_baseUrl?method=user.getrecenttracks&user=$username'
+        '&from=$from&to=$to&limit=$limit&page=$page&api_key=$_apiKey&format=json',
+      );
+      final response = await _client.get(url).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final tracks = data['recenttracks']?['track'];
+        if (tracks is List && tracks.isNotEmpty) {
+          return tracks
+              .where((t) => t is Map<String, dynamic> && t['date'] != null)
+              .map((t) => MusicStatus.fromTrackJson(t as Map<String, dynamic>, username))
+              .toList();
+        }
+      } else if (response.statusCode == 404) {
+        _invalidUsers.add(username);
+      } else {
+        Logger.e('Jukebox Service Error (recent range, $username): ${response.statusCode} - ${response.body}');
+      }
+    } on TimeoutException {
+      Logger.e('Jukebox Service Timeout: Recent range for $username timed out.');
+    } catch (e) {
+      Logger.e('Jukebox Service Exception (recent range, $username)', error: e);
+    }
+    return [];
+  }
+
+  // Alias for provider compatibility (older name).
+  Future<List<LovedTrack>> fetchLovedTracksLegacyAlias(String u, {int limit = 10}) => fetchLovedTracks(u, limit: limit);
 
   /// Lowercases and strips punctuation for forgiving title comparisons.
   static String _normalizeForMatch(String value) {

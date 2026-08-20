@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/utils/connectivity_aware.dart';
 import '../models/manga_item.dart';
@@ -31,6 +32,16 @@ class ComickService with ConnectivityAware {
     'User-Agent': 'Everglow/1.0 (https://github.com/everglow)',
     'Accept': 'application/json',
   };
+
+  Future<Map<String, String>> _authHeaders() async {
+    try {
+      final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+      if (token != null && token.isNotEmpty) {
+        return {..._headers, 'Authorization': 'Bearer $token'};
+      }
+    } catch (_) {}
+    return _headers;
+  }
 
   Uri _proxied(Uri apiUri) {
     final pathAndQuery = apiUri.path +
@@ -236,7 +247,8 @@ class ComickService with ConnectivityAware {
       queryParameters: params,
     );
     try {
-      final response = await http.get(_proxied(uri), headers: _headers).timeout(
+      final headers = await _authHeaders();
+      final response = await http.get(_proxied(uri), headers: headers).timeout(
             const Duration(seconds: 10),
           );
       if (response.statusCode == 200) {
@@ -272,7 +284,8 @@ class ComickService with ConnectivityAware {
       queryParameters: params,
     );
     try {
-      final response = await http.get(_proxied(uri), headers: _headers).timeout(
+      final headers = await _authHeaders();
+      final response = await http.get(_proxied(uri), headers: headers).timeout(
             const Duration(seconds: 10),
           );
       if (response.statusCode == 200) {
@@ -308,7 +321,8 @@ class ComickService with ConnectivityAware {
       queryParameters: params,
     );
     try {
-      final response = await http.get(_proxied(uri), headers: _headers).timeout(
+      final headers = await _authHeaders();
+      final response = await http.get(_proxied(uri), headers: headers).timeout(
             const Duration(seconds: 10),
           );
       if (response.statusCode == 200) {
@@ -329,7 +343,8 @@ class ComickService with ConnectivityAware {
     if (hid.isEmpty) return null;
     final uri = Uri.parse('$_baseUrl/comic/$hid');
     try {
-      final response = await http.get(_proxied(uri), headers: _headers).timeout(
+      final headers = await _authHeaders();
+      final response = await http.get(_proxied(uri), headers: headers).timeout(
             const Duration(seconds: 10),
           );
       if (response.statusCode == 200) {
@@ -357,7 +372,8 @@ class ComickService with ConnectivityAware {
       },
     );
     try {
-      final response = await http.get(_proxied(uri), headers: _headers).timeout(
+      final headers = await _authHeaders();
+      final response = await http.get(_proxied(uri), headers: headers).timeout(
             const Duration(seconds: 10),
           );
       if (response.statusCode == 200) {

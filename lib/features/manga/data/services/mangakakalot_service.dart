@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -34,6 +35,16 @@ class MangaKakalotService with ConnectivityAware {
     'Accept': 'text/html,application/json',
   };
 
+  Future<Map<String, String>> _authHeaders() async {
+    try {
+      final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+      if (token != null && token.isNotEmpty) {
+        return {..._headers, 'Authorization': 'Bearer $token'};
+      }
+    } catch (_) {}
+    return _headers;
+  }
+
   final Map<String, MangaChapterPages> _pageCache = {};
 
   /// Rewrite a direct [Uri] through the [proxyFetchHtml] Cloud Function
@@ -49,7 +60,8 @@ class MangaKakalotService with ConnectivityAware {
     if (title.trim().isEmpty) return '';
     final uri = Uri.parse('$_baseUrl/search/story/${Uri.encodeComponent(title)}');
     try {
-      final response = await http.get(_proxiedFetch(uri), headers: _headers).timeout(
+      final headers = await _authHeaders();
+      final response = await http.get(_proxiedFetch(uri), headers: headers).timeout(
             const Duration(seconds: 8),
           );
       if (response.statusCode == 200) {
@@ -80,7 +92,8 @@ class MangaKakalotService with ConnectivityAware {
     if (slug.isEmpty) return [];
     final uri = Uri.parse('$_baseUrl/manga/$slug');
     try {
-      final response = await http.get(_proxiedFetch(uri), headers: _headers).timeout(
+      final headers = await _authHeaders();
+      final response = await http.get(_proxiedFetch(uri), headers: headers).timeout(
             const Duration(seconds: 10),
           );
       if (response.statusCode == 200) {
@@ -130,7 +143,8 @@ class MangaKakalotService with ConnectivityAware {
     }
     final uri = Uri.parse('$_baseUrl/$chapterId');
     try {
-      final response = await http.get(_proxiedFetch(uri), headers: _headers).timeout(
+      final headers = await _authHeaders();
+      final response = await http.get(_proxiedFetch(uri), headers: headers).timeout(
             const Duration(seconds: 10),
           );
       if (response.statusCode == 200) {

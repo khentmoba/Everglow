@@ -21,6 +21,11 @@ class CalendarEvent {
   final String? color;
   final String recurring; // 'none', 'monthly', 'yearly'
 
+  // Phase 1 polish — Baïkal/Radicale extended fields
+  final String? location;
+  final List<String> attendees; // usernames
+  final bool isAllDay;
+
   const CalendarEvent({
     required this.id,
     required this.title,
@@ -31,6 +36,9 @@ class CalendarEvent {
     required this.createdBy,
     this.color,
     this.recurring = 'none',
+    this.location,
+    this.attendees = const [],
+    this.isAllDay = false,
   });
 
   factory CalendarEvent.fromFirestore(DocumentSnapshot doc) {
@@ -47,6 +55,9 @@ class CalendarEvent {
       createdBy: data['createdBy'] ?? '',
       color: data['color'],
       recurring: data['recurring'] ?? 'none',
+      location: data['location'] as String?,
+      attendees: (data['attendees'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
+      isAllDay: data['isAllDay'] ?? false,
     );
   }
 
@@ -81,6 +92,40 @@ class CalendarEvent {
       'createdBy': createdBy,
       'color': color,
       'recurring': recurring,
+      if (location != null && location!.isNotEmpty) 'location': location,
+      'attendees': attendees,
+      'isAllDay': isAllDay,
     };
+  }
+
+  CalendarEvent copyWith({
+    String? title,
+    String? description,
+    DateTime? date,
+    DateTime? endDate,
+    bool clearEndDate = false,
+    CalendarEventType? type,
+    String? color,
+    bool clearColor = false,
+    String? recurring,
+    String? location,
+    bool clearLocation = false,
+    List<String>? attendees,
+    bool? isAllDay,
+  }) {
+    return CalendarEvent(
+      id: id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      date: date ?? this.date,
+      endDate: clearEndDate ? null : (endDate ?? this.endDate),
+      type: type ?? this.type,
+      createdBy: createdBy,
+      color: clearColor ? null : (color ?? this.color),
+      recurring: recurring ?? this.recurring,
+      location: clearLocation ? null : (location ?? this.location),
+      attendees: attendees ?? this.attendees,
+      isAllDay: isAllDay ?? this.isAllDay,
+    );
   }
 }

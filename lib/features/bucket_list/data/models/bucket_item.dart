@@ -25,6 +25,19 @@ enum BucketStatus {
   const BucketStatus(this.displayName, this.emoji);
 }
 
+/// Priority — Vikunja/Donetick inspired.
+enum BucketPriority {
+  low('Low', '⬇️', 0),
+  medium('Medium', '➡️', 1),
+  high('High', '⬆️', 2),
+  urgent('Urgent', '🔥', 3);
+
+  final String displayName;
+  final String emoji;
+  final int rank;
+  const BucketPriority(this.displayName, this.emoji, this.rank);
+}
+
 /// A single bucket list item shared between the couple.
 class BucketItem {
   final String id;
@@ -39,6 +52,11 @@ class BucketItem {
   final String? imageUrl;
   final String notes;
 
+  // Phase 1 — Kanban/chores additions (Donetick/Vikunja).
+  final BucketPriority priority;
+  final String? assignedTo; // username: khentsgdz / clairjassen / null = unassigned
+  final DateTime? dueDate;
+
   const BucketItem({
     required this.id,
     required this.title,
@@ -51,6 +69,9 @@ class BucketItem {
     this.completedBy,
     this.imageUrl,
     this.notes = '',
+    this.priority = BucketPriority.medium,
+    this.assignedTo,
+    this.dueDate,
   });
 
   factory BucketItem.fromFirestore(DocumentSnapshot doc) {
@@ -73,6 +94,12 @@ class BucketItem {
       completedBy: data['completedBy'],
       imageUrl: data['imageUrl'],
       notes: data['notes'] ?? '',
+      priority: BucketPriority.values.firstWhere(
+        (p) => p.name == data['priority'],
+        orElse: () => BucketPriority.medium,
+      ),
+      assignedTo: data['assignedTo'] as String?,
+      dueDate: (data['dueDate'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -88,6 +115,9 @@ class BucketItem {
       if (completedBy != null) 'completedBy': completedBy,
       if (imageUrl != null) 'imageUrl': imageUrl,
       'notes': notes,
+      'priority': priority.name,
+      if (assignedTo != null) 'assignedTo': assignedTo,
+      if (dueDate != null) 'dueDate': Timestamp.fromDate(dueDate!),
     };
   }
 
@@ -100,6 +130,13 @@ class BucketItem {
     String? completedBy,
     String? imageUrl,
     String? notes,
+    BucketPriority? priority,
+    String? assignedTo,
+    DateTime? dueDate,
+    bool clearAssignedTo = false,
+    bool clearDueDate = false,
+    bool clearCompletedAt = false,
+    bool clearCompletedBy = false,
   }) {
     return BucketItem(
       id: id,
@@ -109,10 +146,30 @@ class BucketItem {
       status: status ?? this.status,
       createdBy: createdBy,
       createdAt: createdAt,
-      completedAt: completedAt ?? this.completedAt,
-      completedBy: completedBy ?? this.completedBy,
+      completedAt: clearCompletedAt ? null : (completedAt ?? this.completedAt),
+      completedBy: clearCompletedBy ? null : (completedBy ?? this.completedBy),
       imageUrl: imageUrl ?? this.imageUrl,
       notes: notes ?? this.notes,
+      priority: priority ?? this.priority,
+      assignedTo: clearAssignedTo ? null : (assignedTo ?? this.assignedTo),
+      dueDate: clearDueDate ? null : (dueDate ?? this.dueDate),
     );
   }
+
+  /// Helpers for Kanban/chores UI.
+  bool get isOverdue =>
+      dueDate != null &&
+      status != BucketStatus.completed &&
+      DateTime.now().isAfter(
+        DateTime(dueDate!.year, dueDate!.month, dueDate!.day, 23, 59, 59),
+      );
+
+  bool get isDueSoon {
+    if (dueDate == null || status == BucketStatus.completed) return false;
+    final now = DateTime.now();
+    final diff = dueDate!.difference(DateTime(now.year, now.month, now.day)).inDays;
+    return diff >= 0 && diff <= 2;
+  }
+
+  bool get isChore => assignedTo != null || priority != BucketPriority.medium || dueDate != null;
 }
