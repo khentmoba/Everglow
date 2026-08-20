@@ -50,6 +50,7 @@ jobs:
           LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
           JELLYFIN_API_KEY: ${{ secrets.JELLYFIN_API_KEY }}
           FCM_VAPID_KEY: ${{ secrets.FCM_VAPID_KEY }}
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
         run: |
           REQUIRED=(CLAIR_EMAIL CLAIR_PASSWORD KHENT_EMAIL KHENT_PASSWORD TMDB_API_KEY LASTFM_API_KEY)
           MISSING=()
@@ -64,7 +65,7 @@ jobs:
             exit 1
           fi
           ARGS=(flutter build web --release)
-          for KEY in CLAIR_EMAIL CLAIR_PASSWORD KHENT_EMAIL KHENT_PASSWORD TMDB_API_KEY LASTFM_API_KEY JELLYFIN_API_KEY FCM_VAPID_KEY; do
+          for KEY in CLAIR_EMAIL CLAIR_PASSWORD KHENT_EMAIL KHENT_PASSWORD TMDB_API_KEY LASTFM_API_KEY JELLYFIN_API_KEY FCM_VAPID_KEY SPOTIFY_CLIENT_ID; do
             VAL="${!KEY}"
             if [ -n "$VAL" ]; then
               ARGS+=(--dart-define="$KEY=$VAL")
@@ -92,6 +93,8 @@ jobs:
           KHENT_PASSCODE: ${{ secrets.KHENT_PASSCODE }}
           CLAIR_EMAIL: ${{ secrets.CLAIR_EMAIL }}
           KHENT_EMAIL: ${{ secrets.KHENT_EMAIL }}
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
         run: |
           echo "$FIREBASE_SERVICE_ACCOUNT" > "$HOME"/firebase-sa.json
           if [ -n "$AGNES_API_KEY" ]; then
@@ -104,6 +107,8 @@ jobs:
           if [ -n "${KHENT_PASSCODE:-}" ]; then echo "KHENT_PASSCODE=${KHENT_PASSCODE}" >> functions/.env; fi
           if [ -n "${CLAIR_EMAIL:-}" ]; then echo "CLAIR_EMAIL=${CLAIR_EMAIL}" >> functions/.env; fi
           if [ -n "${KHENT_EMAIL:-}" ]; then echo "KHENT_EMAIL=${KHENT_EMAIL}" >> functions/.env; fi
+          if [ -n "${SPOTIFY_CLIENT_ID:-}" ]; then echo "SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}" >> functions/.env; fi
+          if [ -n "${SPOTIFY_CLIENT_SECRET:-}" ]; then echo "SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}" >> functions/.env; fi
           GOOGLE_APPLICATION_CREDENTIALS="$HOME"/firebase-sa.json \
           firebase deploy --only functions,firestore:rules,firestore:indexes,storage --project everglow-1c6db
 
