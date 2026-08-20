@@ -39,6 +39,14 @@ import '../widgets/letterbox_view.dart';
 import '../widgets/upcoming_countdowns.dart';
 import '../widgets/timeline_view.dart';
 import '../widgets/on_this_day_card.dart';
+import '../widgets/journal_preview.dart';
+import '../widgets/cookbook_preview.dart';
+import '../widgets/wellness_preview.dart';
+import '../widgets/vault_preview.dart';
+import '../widgets/travel_preview.dart';
+import '../widgets/wiki_preview.dart';
+import '../widgets/budget_preview.dart';
+import '../widgets/rag_preview.dart';
 
 import '../../../xp/data/services/xp_service.dart';
 import '../../../xp/domain/models/user_progress.dart';
@@ -529,6 +537,46 @@ class _DashboardScreenState extends State<DashboardScreen>
                           delayMs: 1500,
                           placeholderHeight: 280,
                         ),
+                        _animatedSliver(
+                          const JournalPreview(),
+                          delayMs: 1520,
+                          placeholderHeight: 200,
+                        ),
+                        _animatedSliver(
+                          const CookbookPreview(),
+                          delayMs: 1540,
+                          placeholderHeight: 200,
+                        ),
+                        _animatedSliver(
+                          const WellnessPreview(),
+                          delayMs: 1560,
+                          placeholderHeight: 140,
+                        ),
+                        _animatedSliver(
+                          const VaultPreview(),
+                          delayMs: 1580,
+                          placeholderHeight: 140,
+                        ),
+                        _animatedSliver(
+                          const TravelPreview(),
+                          delayMs: 1600,
+                          placeholderHeight: 140,
+                        ),
+                        _animatedSliver(
+                          const WikiPreview(),
+                          delayMs: 1620,
+                          placeholderHeight: 140,
+                        ),
+                        _animatedSliver(
+                          const BudgetPreview(),
+                          delayMs: 1640,
+                          placeholderHeight: 140,
+                        ),
+                        _animatedSliver(
+                          const RagPreview(),
+                          delayMs: 1660,
+                          placeholderHeight: 140,
+                        ),
                         const SliverToBoxAdapter(child: SizedBox(height: 110)),
                       ],
                     ),
@@ -814,6 +862,62 @@ class _DashboardScreenState extends State<DashboardScreen>
         route: '/letterbox',
         hue: AppColors.blushGold,
         caption: 'Letters',
+      ),
+      _QuickAction(
+        label: 'Journal',
+        icon: Icons.menu_book_rounded,
+        route: '/journal',
+        hue: AppColors.softLavender,
+        caption: 'Diary',
+      ),
+      _QuickAction(
+        label: 'Cookbook',
+        icon: Icons.restaurant_menu_rounded,
+        route: '/cookbook',
+        hue: AppColors.warmAmber,
+        caption: 'Recipes',
+      ),
+      _QuickAction(
+        label: 'Wellness',
+        icon: Icons.favorite_rounded,
+        route: '/wellness',
+        hue: AppColors.auroraRose,
+        caption: 'Habits',
+      ),
+      _QuickAction(
+        label: 'Vault',
+        icon: Icons.folder_special_rounded,
+        route: '/vault',
+        hue: AppColors.auroraTeal,
+        caption: 'Drive',
+      ),
+      _QuickAction(
+        label: 'Atlas',
+        icon: Icons.map_rounded,
+        route: '/travel',
+        hue: AppColors.auroraTeal,
+        caption: 'Trips',
+      ),
+      _QuickAction(
+        label: 'Universe',
+        icon: Icons.auto_stories_rounded,
+        route: '/wiki',
+        hue: AppColors.softLavender,
+        caption: 'Lore',
+      ),
+      _QuickAction(
+        label: 'Budget',
+        icon: Icons.account_balance_wallet_rounded,
+        route: '/budget',
+        hue: AppColors.warmAmber,
+        caption: 'Money',
+      ),
+      _QuickAction(
+        label: 'Ask',
+        icon: Icons.search_rounded,
+        route: '/rag',
+        hue: AppColors.auroraLilac,
+        caption: 'RAG',
       ),
     ];
 

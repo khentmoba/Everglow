@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import '../../domain/models/memory_photo.dart';
 import '../../../../core/utils/logger.dart';
 
@@ -16,7 +16,15 @@ class GalleryService {
     return '$m-$d';
   }
 
-  static String displayUrl(String imageUrl) => imageUrl;
+  /// Returns the URL used for displaying gallery images.
+  /// Routes Firebase Storage URLs through a Cloud Function proxy
+  /// on web to avoid CORS / auth issues.
+  static String displayUrl(String imageUrl) {
+    if (kIsWeb && imageUrl.contains('firebasestorage.googleapis.com')) {
+      return 'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyGalleryImage?url=${Uri.encodeComponent(imageUrl)}';
+    }
+    return imageUrl;
+  }
 
   /// Upload a photo and store its metadata in Firestore.
   Future<MemoryPhoto> uploadPhoto({
@@ -26,6 +34,10 @@ class GalleryService {
     required String uploadedBy,
     required String userId,
     List<String> tags = const [],
+    double? latitude,
+    double? longitude,
+    String? locationName,
+    DateTime? takenAt,
   }) async {
     // Upload to Firebase Storage
     final String path =
@@ -46,6 +58,10 @@ class GalleryService {
       'uploadedAt': FieldValue.serverTimestamp(),
       'tags': tags,
       'monthDay': _monthDay(DateTime.now()),
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+      if (locationName != null && locationName.isNotEmpty) 'locationName': locationName,
+      if (takenAt != null) 'takenAt': Timestamp.fromDate(takenAt),
     });
 
     Logger.i("Photo uploaded successfully: ${docRef.id}");
@@ -57,6 +73,10 @@ class GalleryService {
       uploadedBy: uploadedBy,
       uploadedAt: DateTime.now(),
       tags: tags,
+      latitude: latitude,
+      longitude: longitude,
+      locationName: locationName,
+      takenAt: takenAt,
     );
   }
 
@@ -175,6 +195,64 @@ class GalleryService {
     } catch (e) {
       Logger.e("Error getting on-this-day photos", error: e);
       return [];
+    }
+  }
+
+  /// This Week In Past — 7-day window around today (Immich-inspired: This week in past slides)
+  Future<List<MemoryPhoto>> getPhotosFromThisWeek() async {
+    final now = DateTime.now();
+    try {
+      final all = await _db.collection(_collection).orderBy('uploadedAt', descending: true).limit(300).get();
+      final photos = all.docs.map((d) => MemoryPhoto.fromFirestore(d)).toList();
+      return photos.where((p) {
+        if (p.uploadedAt.year == now.year) return false;
+        final thisYearAnniv = DateTime(now.year, p.uploadedAt.month, p.uploadedAt.day);
+        final diff = (thisYearAnniv.difference(DateTime(now.year, now.month, now.day)).inDays).abs();
+        return diff <= 3; // within 3 days => 7-day window
+      }).toList()
+        ..sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
+    } catch (e) {
+      Logger.e("Error getting this-week photos", error: e);
+      return [];
+    }
+  }
+
+  /// All photos that have a pinned location — for map view (Immich map)
+  Stream<List<MemoryPhoto>> getPhotosWithLocationStream() {
+    return _db.collection(_collection).orderBy('uploadedAt', descending: true).limit(100).snapshots().map(
+          (snap) => snap.docs.map((d) => MemoryPhoto.fromFirestore(d)).where((p) => p.hasLocation).toList(),
+        );
+  }
+
+  Future<List<MemoryPhoto>> getPhotosWithLocation() async {
+    try {
+      final snap = await _db.collection(_collection).orderBy('uploadedAt', descending: true).limit(200).get();
+      return snap.docs.map((d) => MemoryPhoto.fromFirestore(d)).where((p) => p.hasLocation).toList();
+    } catch (e) {
+      Logger.e("Error getting located photos", error: e);
+      return [];
+    }
+  }
+
+  Future<void> updatePhotoLocation(String id, {double? lat, double? lng, String? locationName}) async {
+    try {
+      final data = <String, dynamic>{};
+      if (lat != null && lng != null) {
+        data['latitude'] = lat;
+        data['longitude'] = lng;
+      } else {
+        data['latitude'] = FieldValue.delete();
+        data['longitude'] = FieldValue.delete();
+      }
+      if (locationName != null && locationName.isNotEmpty) {
+        data['locationName'] = locationName;
+      } else {
+        data['locationName'] = FieldValue.delete();
+      }
+      await _db.collection(_collection).doc(id).update(data);
+      Logger.i("Updated location for $id");
+    } catch (e) {
+      Logger.e("Error updating location", error: e);
     }
   }
 }

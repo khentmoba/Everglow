@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/utils/connectivity_aware.dart';
@@ -30,6 +31,16 @@ class ScanlationService with ConnectivityAware {
   static final ScanlationService _instance = ScanlationService._internal();
   factory ScanlationService() => _instance;
   ScanlationService._internal();
+
+  Future<Map<String, String>> _authHeaders() async {
+    try {
+      final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+      if (token != null && token.isNotEmpty) {
+        return {..._headers, 'Authorization': 'Bearer $token'};
+      }
+    } catch (_) {}
+    return _headers;
+  }
 
   Map<String, String> get _headers => {
         'User-Agent':
@@ -249,8 +260,9 @@ class ScanlationService with ConnectivityAware {
 
     for (final searchUrl in searchUrls) {
       try {
+        final headers = await _authHeaders();
         final response =
-            await http.get(_proxiedFetch(Uri.parse(searchUrl)), headers: _headers).timeout(
+            await http.get(_proxiedFetch(Uri.parse(searchUrl)), headers: headers).timeout(
                   const Duration(seconds: 8),
                 );
         if (response.statusCode != 200) continue;
@@ -293,7 +305,8 @@ class ScanlationService with ConnectivityAware {
   Future<List<MangaChapter>> _getChapters(
       _ScanSite site, String slug) async {
     final url = '${site.baseUrl}${site.seriesPath}$slug/';
-    final response = await http.get(_proxiedFetch(Uri.parse(url)), headers: _headers).timeout(
+    final headers = await _authHeaders();
+    final response = await http.get(_proxiedFetch(Uri.parse(url)), headers: headers).timeout(
           const Duration(seconds: 8),
         );
     if (response.statusCode != 200) return [];
@@ -340,7 +353,8 @@ class ScanlationService with ConnectivityAware {
     final uri = chapterUrl.startsWith('http')
         ? Uri.parse(chapterUrl)
         : Uri.parse('${site.baseUrl}/$chapterUrl');
-    final response = await http.get(_proxiedFetch(uri), headers: _headers).timeout(
+    final headers = await _authHeaders();
+    final response = await http.get(_proxiedFetch(uri), headers: headers).timeout(
           const Duration(seconds: 8),
         );
     if (response.statusCode != 200) return [];

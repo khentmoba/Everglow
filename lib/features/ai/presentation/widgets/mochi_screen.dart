@@ -220,9 +220,24 @@ class _MochiScreenState extends State<MochiScreen> {
     });
   }
 
-  void _newChat() {
+  void _newChat() async {
     final ai = context.read<AIService>();
-    ai.clearConversation('assistant');
+    try {
+      await ai.clearConversation('assistant', archive: true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Failed to start new chat: $e',
+              style: AppTypography.bodySmall(),
+            ),
+            backgroundColor: AppColors.deepRose.withValues(alpha: 0.9),
+          ),
+        );
+      }
+    }
+    if (!mounted) return;
     setState(() => _isSidebarOpen = false);
     _scrollToBottom(animated: false);
   }
@@ -301,6 +316,13 @@ class _MochiScreenState extends State<MochiScreen> {
                         color: AppColors.blushGold.withValues(alpha: 0.06),
                       ),
                       Expanded(child: _buildChatList(centered: true)),
+                      Selector<AIService, bool>(
+                        selector: (_, ai) => ai.isLoading,
+                        builder: (context, loading, _) {
+                          if (loading || _isSending) return const SizedBox.shrink();
+                          return _QuickReplyChips(onSelect: _sendQuick, centered: true);
+                        },
+                      ),
                       _ErrorBanner(
                         lastSentMessage: _lastSentMessage,
                         onRetry: () => _send(retry: true),
@@ -371,6 +393,13 @@ class _MochiScreenState extends State<MochiScreen> {
                   color: AppColors.blushGold.withValues(alpha: 0.06),
                 ),
                 Expanded(child: _buildChatList(centered: false)),
+                Selector<AIService, bool>(
+                  selector: (_, ai) => ai.isLoading,
+                  builder: (context, loading, _) {
+                    if (loading || _isSending) return const SizedBox.shrink();
+                    return _QuickReplyChips(onSelect: _sendQuick, centered: false);
+                  },
+                ),
                 _ErrorBanner(
                   lastSentMessage: _lastSentMessage,
                   onRetry: () => _send(retry: true),

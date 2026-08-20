@@ -12,6 +12,8 @@ import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../domain/models/memory_photo.dart';
 import '../../data/services/gallery_service.dart';
 import '../widgets/add_photo_dialog.dart';
+import '../widgets/gallery_map_view.dart';
+import '../widgets/this_week_view.dart';
 import 'photo_viewer_screen.dart';
 
 class GalleryScreen extends StatefulWidget {
@@ -25,6 +27,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
   final GalleryService _galleryService = GalleryService();
   String _searchQuery = '';
   Timer? _searchDebounce;
+  int _tabIndex = 0; // 0 grid, 1 map, 2 week
 
   @override
   void dispose() {
@@ -37,6 +40,20 @@ class _GalleryScreenState extends State<GalleryScreen> {
       context: context,
       barrierColor: Colors.black54,
       builder: (context) => const AddPhotoDialog(),
+    );
+  }
+
+  Widget _buildTab(int index, String label, IconData icon) {
+    final isSel = _tabIndex == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _tabIndex = index),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(color: isSel ? AppColors.blushGold.withValues(alpha: 0.18) : Colors.transparent, borderRadius: BorderRadius.circular(14), border: Border.all(color: isSel ? AppColors.blushGold : Colors.transparent)),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, size: 14, color: isSel ? AppColors.blushGold : AppColors.petalWhite.withValues(alpha: 0.6)), const SizedBox(width: 6), Text(label, style: AppTypography.outfitBold.copyWith(fontSize: 12, color: isSel ? AppColors.blushGold : AppColors.petalWhite.withValues(alpha: 0.6)))]),
+        ),
+      ),
     );
   }
 
@@ -74,68 +91,90 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   icon: Icons.photo_library_rounded,
                   hue: AppColors.roseQuartz,
                 ),
-                _buildSearchBar(),
-                const SizedBox(height: 4),
-                Expanded(
-                  child: StreamBuilder<List<MemoryPhoto>>(
-                    stream: _searchQuery.isNotEmpty
-                        ? _galleryService.searchPhotos(_searchQuery)
-                        : _galleryService.getPhotosStream(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const EverglowSkeletonGrid(
-                          count: 6,
-                          maxCrossAxisExtent: 220,
-                          itemHeight: 200,
-                          spacing: 10,
-                          childAspectRatio: 0.75,
-                        );
-                      }
-
-                      final photos = snapshot.data ?? [];
-                      if (photos.isEmpty) {
-                        return EverglowEmptyState(
-                          icon: Icons.photo_library_outlined,
-                          title: 'No memories yet',
-                          subtitle: 'Tap + to add your first photo',
-                          ctaLabel: 'Add Photo',
-                          onCta: _openAddPhoto,
-                        );
-                      }
-
-                      return GridView.builder(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 6,
-                        ),
-                        gridDelegate:
-                            const SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: 220,
-                              mainAxisSpacing: 10,
-                              crossAxisSpacing: 10,
-                              childAspectRatio: 0.82,
-                            ),
-                        itemCount: photos.length,
-                        itemBuilder: (context, index) {
-                          final photo = photos[index];
-                          return _PhotoCard(
-                            photo: photo,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => PhotoViewerScreen(
-                                    photos: photos,
-                                    initialIndex: index,
-                                  ),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                      );
-                    },
+                const SizedBox(height: 8),
+                // Tabs — Grid / Map (Immich) / This Week (past)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(color: AppColors.twilight, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.14))),
+                    child: Row(children: [_buildTab(0, 'Grid', Icons.grid_view_rounded), _buildTab(1, 'Map', Icons.map_rounded), _buildTab(2, 'Week', Icons.history_rounded)]),
                   ),
+                ),
+                const SizedBox(height: 8),
+                if (_tabIndex == 0) _buildSearchBar(),
+                if (_tabIndex == 0) const SizedBox(height: 4),
+                Expanded(
+                  child: _tabIndex == 1
+                      ? StreamBuilder<List<MemoryPhoto>>(
+                          stream: _galleryService.getPhotosWithLocationStream(),
+                          builder: (context, snap) {
+                            final photos = snap.data ?? [];
+                            if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: AppColors.deepRose, strokeWidth: 2));
+                            return GalleryMapView(photos: photos);
+                          },
+                        )
+                      : _tabIndex == 2
+                          ? const ThisWeekView()
+                          : StreamBuilder<List<MemoryPhoto>>(
+                              stream: _searchQuery.isNotEmpty
+                                  ? _galleryService.searchPhotos(_searchQuery)
+                                  : _galleryService.getPhotosStream(),
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState == ConnectionState.waiting) {
+                                  return const EverglowSkeletonGrid(
+                                    count: 6,
+                                    maxCrossAxisExtent: 220,
+                                    itemHeight: 200,
+                                    spacing: 10,
+                                    childAspectRatio: 0.75,
+                                  );
+                                }
+
+                                final photos = snapshot.data ?? [];
+                                if (photos.isEmpty) {
+                                  return EverglowEmptyState(
+                                    icon: Icons.photo_library_outlined,
+                                    title: 'No memories yet',
+                                    subtitle: 'Tap + to add your first photo',
+                                    ctaLabel: 'Add Photo',
+                                    onCta: _openAddPhoto,
+                                  );
+                                }
+
+                                return GridView.builder(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 6,
+                                  ),
+                                  gridDelegate:
+                                      const SliverGridDelegateWithMaxCrossAxisExtent(
+                                        maxCrossAxisExtent: 220,
+                                        mainAxisSpacing: 10,
+                                        crossAxisSpacing: 10,
+                                        childAspectRatio: 0.82,
+                                      ),
+                                  itemCount: photos.length,
+                                  itemBuilder: (context, index) {
+                                    final photo = photos[index];
+                                    return _PhotoCard(
+                                      photo: photo,
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => PhotoViewerScreen(
+                                              photos: photos,
+                                              initialIndex: index,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  },
+                                );
+                              },
+                            ),
                 ),
               ],
             ),

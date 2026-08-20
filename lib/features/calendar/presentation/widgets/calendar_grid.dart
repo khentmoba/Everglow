@@ -15,6 +15,7 @@ class CalendarGrid extends StatefulWidget {
   final List<CalendarEvent> events;
   final ValueChanged<DateTime> onDaySelected;
   final DateTime? selectedDay;
+  final ValueChanged<DateTime>? onMonthChanged;
 
   const CalendarGrid({
     super.key,
@@ -22,6 +23,7 @@ class CalendarGrid extends StatefulWidget {
     required this.events,
     required this.onDaySelected,
     this.selectedDay,
+    this.onMonthChanged,
   });
 
   @override
@@ -72,6 +74,7 @@ class _CalendarGridState extends State<CalendarGrid> {
       _hoveredDay = null;
       _currentMonth = DateTime(_currentMonth.year, _currentMonth.month - 1);
     });
+    widget.onMonthChanged?.call(_currentMonth);
   }
 
   void _nextMonth() {
@@ -79,6 +82,7 @@ class _CalendarGridState extends State<CalendarGrid> {
       _hoveredDay = null;
       _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + 1);
     });
+    widget.onMonthChanged?.call(_currentMonth);
   }
 
   void _goToToday() {
@@ -87,6 +91,7 @@ class _CalendarGridState extends State<CalendarGrid> {
       _hoveredDay = null;
       _currentMonth = DateTime(now.year, now.month);
     });
+    widget.onMonthChanged?.call(_currentMonth);
   }
 
   bool _isToday(DateTime day) {

@@ -12,7 +12,7 @@ abstract class IAIConversationRepository {
   Future<void> save(AIConversation conversation);
   Future<void> archiveSession(AIConversation conversation);
   Future<void> loadSessionIntoConversation(AIConversation conversation);
-  Future<void> clear(String feature);
+  Future<void> clear(String feature, {bool archive = true});
   Future<void> loadAssistant();
   void startFresh();
 

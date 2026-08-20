@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/utils/connectivity_aware.dart';
 import '../models/manga_item.dart';
@@ -31,6 +32,16 @@ class MangaDexService with ConnectivityAware {
         'User-Agent': 'Everglow/1.0 (https://github.com/everglow)',
         'Accept': 'application/json',
       };
+
+  Future<Map<String, String>> _authHeaders() async {
+    try {
+      final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+      if (token != null && token.isNotEmpty) {
+        return {..._headers, 'Authorization': 'Bearer $token'};
+      }
+    } catch (_) {}
+    return _headers;
+  }
 
   /// Build a proxied URL for an API path (without leading slash).
   /// The path may include a query string, e.g.
@@ -76,7 +87,8 @@ class MangaDexService with ConnectivityAware {
           '&contentRating[]=suggestive'
           '&contentRating[]=erotica';
       try {
-        final response = await http.get(_proxied(path), headers: _headers).timeout(
+        final headers = await _authHeaders();
+        final response = await http.get(_proxied(path), headers: headers).timeout(
               const Duration(seconds: 10),
             );
         if (response.statusCode == 200) {
@@ -313,7 +325,8 @@ class MangaDexService with ConnectivityAware {
       buf.write('&originalLanguage[]=$lang');
     }
     try {
-      final response = await http.get(_proxied(buf.toString()), headers: _headers).timeout(
+      final headers = await _authHeaders();
+      final response = await http.get(_proxied(buf.toString()), headers: headers).timeout(
             const Duration(seconds: 10),
           );
       if (response.statusCode == 200) {
@@ -349,7 +362,8 @@ class MangaDexService with ConnectivityAware {
       buf.write('&originalLanguage[]=$lang');
     }
     try {
-      final response = await http.get(_proxied(buf.toString()), headers: _headers).timeout(
+      final headers = await _authHeaders();
+      final response = await http.get(_proxied(buf.toString()), headers: headers).timeout(
             const Duration(seconds: 10),
           );
       if (response.statusCode == 200) {
@@ -385,7 +399,8 @@ class MangaDexService with ConnectivityAware {
       buf.write('&originalLanguage[]=$lang');
     }
     try {
-      final response = await http.get(_proxied(buf.toString()), headers: _headers).timeout(
+      final headers = await _authHeaders();
+      final response = await http.get(_proxied(buf.toString()), headers: headers).timeout(
             const Duration(seconds: 10),
           );
       if (response.statusCode == 200) {
@@ -412,7 +427,8 @@ class MangaDexService with ConnectivityAware {
     if (chapterId.isEmpty) return null;
     final path = 'at-home/server/$chapterId?forcePort443=false';
     try {
-      final response = await http.get(_proxied(path), headers: _headers).timeout(
+      final headers = await _authHeaders();
+      final response = await http.get(_proxied(path), headers: headers).timeout(
             const Duration(seconds: 10),
           );
       if (response.statusCode == 200) {

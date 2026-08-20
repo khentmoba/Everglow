@@ -95,11 +95,6 @@ class AIService extends ChangeNotifier {
     try {
       conversation = await _getOrCreateConversation(feature);
 
-      // For assistant: on first message of fresh session, load last session's history
-      if (feature == 'assistant' && conversation.messages.isEmpty) {
-        await _loadSessionIntoConversation(conversation);
-      }
-
       // Add user message BEFORE notifying so the UI shows it immediately
       conversation.messages.add(AIMessage(
         role: 'user',
@@ -186,8 +181,9 @@ class AIService extends ChangeNotifier {
         }
       }
 
-      // After every exchange, try to extract and save new memories (fire-and-forget)
-      unawaited(_extractAndSaveMemories(message, reply));
+      // W1-C10: Memory extraction now handled server-side (functions/index.js
+      // serverExtractAndSaveMemory) to avoid an extra client LLM round-trip.
+      // Client-side extraction disabled for latency/cost saving.
 
       return reply;
     } catch (e) {
@@ -299,35 +295,12 @@ class AIService extends ChangeNotifier {
 
   Future<void> _ensureMemoriesLoaded() => _memoryRepo.load();
 
+  // W1-C10: Deprecated — server now handles extraction via
+  // serverExtractAndSaveMemory in functions/index.js. Kept for manual
+  // testing only; auto-call disabled to save an extra LLM round-trip.
+  // ignore: unused_element
   Future<void> _extractAndSaveMemories(String userMessage, String aiReply) async {
-    if (_auth.currentUser?.uid == null) return;
-
-    String? fact;
-    String category = 'fact';
-    try {
-      final extracted = await quickAsk(
-        message:
-            'Extract ONE personal fact about Khent or Clair from this exchange. '
-            'Reply in format: CATEGORY|FACT (e.g., "preference|Khent prefers black coffee"). '
-            'Categories: fact, preference, dislike, goal, date, habit. '
-            'If nothing worth remembering, reply with exactly: NONE\n\n'
-            'User: $userMessage\nAssistant: $aiReply',
-      );
-      fact = extracted.trim();
-      if (fact.isEmpty || fact == 'NONE' || fact.length > 200) return;
-
-      // Parse category|fact format
-      if (fact.contains('|')) {
-        final parts = fact.split('|');
-        category = parts[0].trim();
-        fact = parts.sublist(1).join('|').trim();
-      }
-    } catch (_) {
-      return;
-    }
-
-    if (_memoryRepo.isDuplicate(fact)) return;
-    await _memoryRepo.save(fact, category: category);
+    return; // no-op: server-side extraction handles this
   }
 
   Future<void> saveMemory(String fact, {String category = 'fact'}) async {
@@ -542,8 +515,8 @@ class AIService extends ChangeNotifier {
   void _setConversation(String feature, AIConversation? conv) =>
       _conversationRepo.setConversation(feature, conv);
 
-  Future<void> clearConversation(String feature) async {
-    await _conversationRepo.clear(feature);
+  Future<void> clearConversation(String feature, {bool archive = true}) async {
+    await _conversationRepo.clear(feature, archive: archive);
     notifyListeners();
   }
 
@@ -560,9 +533,6 @@ class AIService extends ChangeNotifier {
 
   Future<void> _archiveSession(AIConversation conversation) =>
       _conversationRepo.archiveSession(conversation);
-
-  Future<void> _loadSessionIntoConversation(AIConversation conversation) =>
-      _conversationRepo.loadSessionIntoConversation(conversation);
 
   // ─── Session Management ─────────────────────────────────────────
 

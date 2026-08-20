@@ -34,7 +34,7 @@ void main() {
 
     expect(
       await _insetFor(tester, desktop, EdgeInsets.zero),
-      kNetflixNavBarHeight + 16,
+      16,
     );
 
     expect(
@@ -43,7 +43,7 @@ void main() {
         desktop,
         const EdgeInsets.only(top: 24),
       ),
-      kNetflixNavBarHeight + 24 + 16,
+      24 + 16,
     );
   });
 

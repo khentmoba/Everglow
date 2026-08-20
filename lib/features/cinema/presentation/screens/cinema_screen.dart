@@ -36,11 +36,9 @@ class CinemaScreen extends StatefulWidget {
   State<CinemaScreen> createState() => _CinemaScreenState();
 }
 
-class _CinemaScreenState extends State<CinemaScreen>
-    with TickerProviderStateMixin {
+class _CinemaScreenState extends State<CinemaScreen> {
   final TMDBService _tmdbService = TMDBService();
   int _currentIndex = 0;
-  bool _navScrolled = false;
 
   /// Bumped every time a nav link targets the Browse tab so it rebuilds
   /// with the requested filter even when it is already mounted.
@@ -50,9 +48,6 @@ class _CinemaScreenState extends State<CinemaScreen>
   // ── Sidebar state ──────────────────────────────────────────────
   bool _sidebarCollapsed = false;
   bool _mobileSidebarOpen = false;
-
-  // Nav animation
-  late AnimationController _navController;
 
   StreamSubscription<List<MediaItem>>? _watchlistSubscription;
 
@@ -85,10 +80,6 @@ class _CinemaScreenState extends State<CinemaScreen>
   void initState() {
     super.initState();
     _currentIndex = widget.initialTab.clamp(0, 4);
-    _navController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
     _fetchHomeData();
     // Read auth-dependent state after the first frame so Provider is available.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -103,7 +94,6 @@ class _CinemaScreenState extends State<CinemaScreen>
 
   @override
   void dispose() {
-    _navController.dispose();
     _watchlistSubscription?.cancel();
     super.dispose();
   }
@@ -405,9 +395,7 @@ class _CinemaScreenState extends State<CinemaScreen>
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    final isDesktop = width >= 1024;
-    final isMobile = AppBreakpoint.isMobile(context);
+    final isDesktop = AppBreakpoint.isDesktop(context);
     final auth = context.watch<AuthService>();
     final isCoupleUser = auth.isCoupleUser;
     final isCinemaOnlyUser = auth.isCinemaOnlyUser;
@@ -442,17 +430,9 @@ class _CinemaScreenState extends State<CinemaScreen>
       );
     }
 
-    // Main cinema content (the IndexedStack + top nav)
+    // Main cinema content — sidebar is now the single nav source.
     Widget buildCinemaContent() {
-      return NotificationListener<ScrollNotification>(
-        onNotification: (notification) {
-          final scrolled = notification.metrics.pixels > 48;
-          if (scrolled != _navScrolled) {
-            setState(() => _navScrolled = scrolled);
-          }
-          return false;
-        },
-        child: Stack(
+      return Stack(
           children: [
             const ColoredBox(color: NetflixColors.background),
             // Content
@@ -503,32 +483,6 @@ class _CinemaScreenState extends State<CinemaScreen>
                 ),
               ],
             ),
-            // Floating top navbar (desktop/tablet only — overlays hero)
-            // On desktop the sidebar already provides primary nav, but the
-            // top bar is kept for search / account actions.
-            if (!isMobile)
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: NetflixNavBar(
-                  scrolled: _navScrolled,
-                  currentIndex: _currentIndex,
-                  links: const [
-                    NetflixNavLink('Home', 0),
-                    NetflixNavLink('Movies', 2, 'collection-movies'),
-                    NetflixNavLink('TV Shows', 2, 'collection-tv'),
-                    NetflixNavLink('New & Popular', 2, 'collection-new'),
-                    NetflixNavLink('My List', 3),
-                    NetflixNavLink('Watch Together', 4),
-                  ],
-                  onSelect: _onNavSelect,
-                  onSearchTap: () => _switchTab(1),
-                  onBackToDashboard: isCoupleUser
-                      ? () => context.go('/dashboard')
-                      : null,
-                ),
-              ),
             // Mobile hamburger — opens the overlay sidebar
             if (!isDesktop && !_mobileSidebarOpen)
               Positioned(
@@ -564,7 +518,6 @@ class _CinemaScreenState extends State<CinemaScreen>
                 ),
               ),
           ],
-        ),
       );
     }
 
@@ -629,7 +582,7 @@ class _CinemaScreenState extends State<CinemaScreen>
         ],
       ),
       bottomNavigationBar: NetflixNavBar(
-        scrolled: _navScrolled,
+        scrolled: false,
         currentIndex: _currentIndex,
         links: const [
           NetflixNavLink('Home', 0),

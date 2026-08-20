@@ -18,6 +18,14 @@ import '../../features/play_zone/presentation/routes/play_zone_routes.dart';
 import '../../features/starlight_jar/presentation/routes/starlight_routes.dart';
 import '../../features/watch_party/presentation/routes/watch_party_routes.dart';
 import '../../features/jukebox/presentation/routes/jukebox_routes.dart';
+import '../../features/journal/presentation/routes/journal_routes.dart';
+import '../../features/cookbook/presentation/routes/cookbook_routes.dart';
+import '../../features/wellness/presentation/routes/wellness_routes.dart';
+import '../../features/vault/presentation/routes/vault_routes.dart';
+import '../../features/travel/presentation/routes/travel_routes.dart';
+import '../../features/wiki/presentation/routes/wiki_routes.dart';
+import '../../features/budget/presentation/routes/budget_routes.dart';
+import '../../features/ai/presentation/routes/rag_routes.dart';
 import 'app_error_page.dart';
 import '../di/app_providers.dart' as di;
 
@@ -66,6 +74,14 @@ GoRouter createAppRouter() => GoRouter(
     ...watchPartyRoutes,
     ...jellyfinRoutes,
     ...jukeboxRoutes,
+    ...journalRoutes,
+    ...cookbookRoutes,
+    ...wellnessRoutes,
+    ...vaultRoutes,
+    ...travelRoutes,
+    ...wikiRoutes,
+    ...budgetRoutes,
+    ...ragRoutes,
   ],
   errorBuilder: (context, state) => AppErrorPage(uri: state.uri),
 );
