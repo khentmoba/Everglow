@@ -11,6 +11,10 @@ class MochiWebBridge {
 
   void uninstallPasteListener() {}
 
+  bool get isSpeechSupported => false;
+
+  Future<String?> recognizeOnce({String lang = 'en-US'}) async => null;
+
   Future<String> resizeImageToDataUri(
     Uint8List bytes, {
     int maxDim = 1280,

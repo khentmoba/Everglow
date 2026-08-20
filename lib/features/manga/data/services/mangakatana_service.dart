@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/utils/connectivity_aware.dart';
 import '../models/manga_item.dart';
@@ -26,6 +27,16 @@ class MangakatanaService with ConnectivityAware {
   factory MangakatanaService() => _instance;
   MangakatanaService._internal();
 
+  Future<Map<String, String>> _authHeaders() async {
+    try {
+      final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+      if (token != null && token.isNotEmpty) {
+        return {..._headers, 'Authorization': 'Bearer $token'};
+      }
+    } catch (_) {}
+    return _headers;
+  }
+
   Map<String, String> get _headers => {
         'User-Agent':
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -47,7 +58,8 @@ class MangakatanaService with ConnectivityAware {
     final uri = Uri.parse(
         '$_baseUrl/?s=${Uri.encodeComponent(title)}&search_type=title');
     try {
-      final response = await http.get(_proxiedFetch(uri), headers: _headers).timeout(
+      final headers = await _authHeaders();
+      final response = await http.get(_proxiedFetch(uri), headers: headers).timeout(
             const Duration(seconds: 8),
           );
       if (response.statusCode == 200) {
@@ -76,7 +88,8 @@ class MangakatanaService with ConnectivityAware {
     if (slug.isEmpty) return [];
     final uri = Uri.parse('$_baseUrl/manga/$slug');
     try {
-      final response = await http.get(_proxiedFetch(uri), headers: _headers).timeout(
+      final headers = await _authHeaders();
+      final response = await http.get(_proxiedFetch(uri), headers: headers).timeout(
             const Duration(seconds: 10),
           );
       if (response.statusCode == 200) {
@@ -130,7 +143,8 @@ class MangakatanaService with ConnectivityAware {
         ? chapterUrl
         : '$_baseUrl/$chapterUrl';
     try {
-      final response = await http.get(_proxiedFetch(Uri.parse(url)), headers: _headers).timeout(
+      final headers = await _authHeaders();
+      final response = await http.get(_proxiedFetch(Uri.parse(url)), headers: headers).timeout(
             const Duration(seconds: 10),
           );
       if (response.statusCode == 200) {

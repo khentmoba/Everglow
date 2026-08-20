@@ -59,6 +59,28 @@ class OnThisDayService {
     }
   }
 
+  /// This Week In Past — 7-day window (Immich: This week in past)
+  Future<List<OnThisDayMemory>> getThisWeekMemories() async {
+    try {
+      final photos = await _galleryService.getPhotosFromThisWeek();
+      final cinemaWeek = await _getGalleryMemoriesForWeek();
+      final all = <OnThisDayMemory>[
+        ...photos.map((p) => OnThisDayMemory(source: OnThisDaySource.gallery, date: p.uploadedAt, title: p.caption.isNotEmpty ? p.caption : 'A photo memory', subtitle: p.locationName != null ? '📍 ${p.locationName}' : 'Gallery • This week', imageUrl: GalleryService.displayUrl(p.imageUrl), original: p)),
+        ...cinemaWeek,
+      ]..sort((a, b) => b.date.compareTo(a.date));
+      return all;
+    } catch (e) {
+      Logger.e("Error fetching this-week memories", error: e);
+      return [];
+    }
+  }
+
+  Future<List<OnThisDayMemory>> _getGalleryMemoriesForWeek() async {
+    // Reuse cinema's watch list but filter to this-week window via gallery's week logic
+    // For now, use cinema's OnThisDay as week proxy — expand later.
+    return [];
+  }
+
   Future<List<OnThisDayMemory>> _getGalleryMemories() async {
     final photos = await _galleryService.getPhotosFromThisDay();
     return photos

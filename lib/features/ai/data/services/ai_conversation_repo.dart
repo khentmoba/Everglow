@@ -344,16 +344,23 @@ class AIConversationRepository implements IAIConversationRepository {
   }
 
   /// Clear a feature's conversation and delete from Firestore.
-  /// Always archives the session first when messages.length >= 2 so history
-  /// actually persists; `listSessions` surfaces those archived docs.
+  /// When [archive] is true (default for "New chat") the previous messages are
+  /// preserved as a session snapshot; when false (explicit Delete) the
+  /// conversation is removed without creating history.
   @override
-  Future<void> clear(String feature) async {
+  Future<void> clear(String feature, {bool archive = true}) async {
     final conv = _get(feature);
-    if (conv != null && conv.messages.length >= 2) {
-      await archiveSession(conv);
-    }
+    final toArchive = archive && conv != null && conv.messages.length >= 2
+        ? conv
+        : null;
 
+    // Optimistic in-memory reset so the UI shows an empty chat immediately,
+    // even if Firestore is offline or the browser is closed quickly.
     _set(feature, AIConversation(id: feature, feature: feature));
+
+    if (toArchive != null) {
+      await archiveSession(toArchive);
+    }
 
     final uid = _uid;
     if (uid.isEmpty) return;
@@ -371,13 +378,13 @@ class AIConversationRepository implements IAIConversationRepository {
   }
 
   /// Load assistant conversation from cache or Firestore.
+  /// New chats stay empty after reload — we no longer inject historical
+  /// session messages into a fresh conversation. History lives in the
+  /// sidebar's session list.
   @override
   Future<void> loadAssistant() async {
     if (_assistantConversation != null) return;
-    final conv = await getOrCreate('assistant');
-    if (conv.messages.isEmpty) {
-      await loadSessionIntoConversation(conv);
-    }
+    await getOrCreate('assistant');
   }
 
   /// Clear all cached conversations (start fresh).

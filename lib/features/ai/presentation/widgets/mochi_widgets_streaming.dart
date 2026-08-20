@@ -356,11 +356,29 @@ class _ComposerInput extends StatefulWidget {
 
 class _ComposerInputState extends State<_ComposerInput> {
   bool _hasText = false;
+  bool _isListening = false;
+  final MochiWebBridge _bridge = MochiWebBridge();
 
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_onTextChanged);
+  }
+
+  Future<void> _startVoice() async {
+    if (!_bridge.isSpeechSupported || _isListening) return;
+    setState(() => _isListening = true);
+    try {
+      final result = await _bridge.recognizeOnce(lang: 'en-US');
+      if (result != null && result.trim().isNotEmpty && mounted) {
+        final current = widget.controller.text;
+        final next = current.isEmpty ? result.trim() : '$current ${result.trim()}';
+        widget.controller.text = next;
+        widget.controller.selection = TextSelection.fromPosition(TextPosition(offset: next.length));
+      }
+    } finally {
+      if (mounted) setState(() => _isListening = false);
+    }
   }
 
   void _onTextChanged() {
@@ -464,6 +482,18 @@ class _ComposerInputState extends State<_ComposerInput> {
                         ),
                         tooltip: 'Attach images',
                       ),
+                      if (_bridge.isSpeechSupported)
+                        IconButton(
+                          onPressed: _isListening ? null : _startVoice,
+                          icon: _isListening
+                              ? SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.blushGold),
+                                )
+                              : Icon(Icons.mic_none_rounded, color: AppColors.textMuted, size: 22),
+                          tooltip: _isListening ? 'Listening...' : 'Voice input',
+                        ),
                       Expanded(
                         child: TextField(
                           controller: widget.controller,

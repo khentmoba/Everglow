@@ -18,6 +18,9 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
   BucketCategory _category = BucketCategory.experience;
+  BucketPriority _priority = BucketPriority.medium;
+  String? _assignedTo; // null = unassigned, else username
+  DateTime? _dueDate;
   bool _saving = false;
 
   @override
@@ -41,11 +44,65 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
       status: BucketStatus.wish,
       createdBy: widget.createdBy,
       createdAt: DateTime.now(),
+      priority: _priority,
+      assignedTo: _assignedTo,
+      dueDate: _dueDate,
     );
 
     await BucketListService().add(item);
 
     if (mounted) Navigator.pop(context);
+  }
+
+  Future<void> _pickDueDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _dueDate ?? now,
+      firstDate: now.subtract(const Duration(days: 1)),
+      lastDate: now.add(const Duration(days: 365 * 2)),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: ColorScheme.dark(
+            primary: AppTheme.deepRose,
+            surface: AppTheme.velvet,
+            onSurface: AppTheme.petalWhite,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => _dueDate = DateTime(picked.year, picked.month, picked.day));
+  }
+
+  Widget _buildAssignChip(String? value, String label, IconData icon) {
+    final isSelected = _assignedTo == value;
+    return GestureDetector(
+      onTap: () => setState(() => _assignedTo = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.deepRose.withValues(alpha: 0.3) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isSelected ? AppTheme.blushGold : AppTheme.blushGold.withValues(alpha: 0.15)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: isSelected ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.6)),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: AppTypography.outfitWhite.copyWith(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -185,6 +242,110 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                     ),
                   );
                 }).toList(),
+              ),
+              const SizedBox(height: 16),
+              // Priority picker (Vikunja)
+              Text(
+                'Priority',
+                style: AppTypography.outfitBold.copyWith(
+                  fontSize: 12,
+                  color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: BucketPriority.values.map((p) {
+                  final isSelected = _priority == p;
+                  return GestureDetector(
+                    onTap: () => setState(() => _priority = p),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppTheme.deepRose.withValues(alpha: 0.3) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isSelected ? AppTheme.blushGold : AppTheme.blushGold.withValues(alpha: 0.15),
+                        ),
+                      ),
+                      child: Text(
+                        '${p.emoji} ${p.displayName}',
+                        style: AppTypography.outfitWhite.copyWith(
+                          fontSize: 11,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          color: isSelected ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+
+              // Assignee picker (Donetick-style chores)
+              Text(
+                'Assigned to',
+                style: AppTypography.outfitBold.copyWith(
+                  fontSize: 12,
+                  color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  _buildAssignChip(null, 'Unassigned', Icons.person_outline),
+                  _buildAssignChip('khentsgdz', 'Khent', Icons.person_rounded),
+                  _buildAssignChip('clairjassen', 'Clair', Icons.favorite_rounded),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Due date (Grocy/Vikunja)
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Due date',
+                      style: AppTypography.outfitBold.copyWith(
+                        fontSize: 12,
+                        color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: _pickDueDate,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _dueDate == null ? AppTheme.twilight : AppTheme.deepRose.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.2)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.calendar_today_rounded, size: 14, color: AppTheme.blushGold),
+                          const SizedBox(width: 6),
+                          Text(
+                            _dueDate == null
+                                ? 'No date'
+                                : '${_dueDate!.month}/${_dueDate!.day}/${_dueDate!.year}',
+                            style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.petalWhite),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (_dueDate != null) ...[
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () => setState(() => _dueDate = null),
+                      child: Icon(Icons.close_rounded, size: 18, color: AppTheme.petalWhite.withValues(alpha: 0.6)),
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 20),
 

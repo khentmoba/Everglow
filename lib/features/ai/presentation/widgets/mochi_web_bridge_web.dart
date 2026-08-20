@@ -1,6 +1,7 @@
 // ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:async';
 import 'dart:html' as html;
+import 'dart:js' as js;
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 
@@ -46,6 +47,53 @@ class MochiWebBridge {
     if (_pasteListener == null) return;
     html.window.removeEventListener('paste', _pasteListener);
     _pasteListener = null;
+  }
+
+  bool get isSpeechSupported {
+    if (js.context['webkitSpeechRecognition'] != null) return true;
+    if (js.context['SpeechRecognition'] != null) return true;
+    return false;
+  }
+
+  Future<String?> recognizeOnce({String lang = 'en-US'}) async {
+    final ctor = js.context['webkitSpeechRecognition'] ?? js.context['SpeechRecognition'];
+    if (ctor == null) return null;
+    final completer = Completer<String?>();
+    final rec = js.JsObject(ctor);
+    rec['lang'] = lang;
+    rec['interimResults'] = false;
+    rec['maxAlternatives'] = 1;
+    rec['continuous'] = false;
+    // ignore: avoid_dynamic_calls
+    rec['onresult'] = (dynamic event) {
+      try {
+        final transcript = event['results'][0][0]['transcript'];
+        if (!completer.isCompleted) completer.complete(transcript?.toString());
+      } catch (_) {
+        if (!completer.isCompleted) completer.complete(null);
+      }
+    };
+    rec['onerror'] = (dynamic _) {
+      if (!completer.isCompleted) completer.complete(null);
+    };
+    rec['onend'] = (dynamic _) {
+      if (!completer.isCompleted) completer.complete(null);
+    };
+    try {
+      rec.callMethod('start');
+    } catch (_) {
+      return null;
+    }
+    // Timeout after 10s
+    Future.delayed(const Duration(seconds: 10), () {
+      if (!completer.isCompleted) {
+        try {
+          rec.callMethod('stop');
+        } catch (_) {}
+        completer.complete(null);
+      }
+    });
+    return completer.future;
   }
 
   /// Draws image bytes onto a canvas and returns a compact data URI.
