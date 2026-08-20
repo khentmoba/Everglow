@@ -41,7 +41,15 @@ class SpotifyConnectCard extends StatelessWidget {
           const SizedBox(width: 10),
           if (!isLinked)
             ElevatedButton(
-              onPressed: () => context.read<SpotifyAuthService>().linkSpotify(),
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                try {
+                  await context.read<SpotifyAuthService>().linkSpotify();
+                } catch (e) {
+                  final msg = e.toString().replaceFirst('Exception: ', '');
+                  messenger.showSnackBar(SnackBar(content: Text(msg)));
+                }
+              },
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1DB954), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999))),
               child: const Text('Link', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
             )

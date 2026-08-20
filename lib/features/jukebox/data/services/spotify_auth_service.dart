@@ -140,8 +140,26 @@ class SpotifyAuthService extends ChangeNotifier {
       'show_dialog': 'false',
     });
     Logger.d('SpotifyAuth authorize -> $uri');
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      throw Exception('Could not open Spotify auth');
+    // On web, externalApplication uses window.open which can be blocked.
+    // Try externalApplication first, then platformDefault, then give a
+    // helpful error that the UI can surface in a SnackBar.
+    var opened = false;
+    try {
+      opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      Logger.w('launchUrl externalApplication failed: $e');
+    }
+    if (!opened) {
+      try {
+        opened = await launchUrl(uri, mode: LaunchMode.platformDefault);
+      } catch (e) {
+        Logger.w('launchUrl platformDefault failed: $e');
+      }
+    }
+    if (!opened) {
+      throw Exception(
+        'Could not open Spotify auth — pop-up blocked? Allow pop-ups for ${Uri.base.origin} and try again, or open manually: $uri',
+      );
     }
   }
 
