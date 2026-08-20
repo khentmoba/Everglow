@@ -34,19 +34,11 @@ import '../../../../features/jukebox/presentation/widgets/music_stats_section.da
 import '../../../../features/watch_party/presentation/widgets/watch_party_card.dart';
 import '../widgets/gallery_preview.dart';
 import '../widgets/calendar_preview.dart';
-import '../../../../features/bucket_list/presentation/widgets/bucket_list_preview.dart';
+import '../widgets/keepsakes_cluster.dart';
 import '../widgets/letterbox_view.dart';
 import '../widgets/upcoming_countdowns.dart';
 import '../widgets/timeline_view.dart';
 import '../widgets/on_this_day_card.dart';
-import '../widgets/journal_preview.dart';
-import '../widgets/cookbook_preview.dart';
-import '../widgets/wellness_preview.dart';
-import '../widgets/vault_preview.dart';
-import '../widgets/travel_preview.dart';
-import '../widgets/wiki_preview.dart';
-import '../widgets/budget_preview.dart';
-import '../widgets/rag_preview.dart';
 
 import '../../../xp/data/services/xp_service.dart';
 import '../../../xp/domain/models/user_progress.dart';
@@ -533,49 +525,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                           placeholderHeight: 200,
                         ),
                         _animatedSliver(
-                          const BucketListPreview(),
+                          const KeepsakesCluster(),
                           delayMs: 1500,
-                          placeholderHeight: 280,
-                        ),
-                        _animatedSliver(
-                          const JournalPreview(),
-                          delayMs: 1520,
-                          placeholderHeight: 200,
-                        ),
-                        _animatedSliver(
-                          const CookbookPreview(),
-                          delayMs: 1540,
-                          placeholderHeight: 200,
-                        ),
-                        _animatedSliver(
-                          const WellnessPreview(),
-                          delayMs: 1560,
-                          placeholderHeight: 140,
-                        ),
-                        _animatedSliver(
-                          const VaultPreview(),
-                          delayMs: 1580,
-                          placeholderHeight: 140,
-                        ),
-                        _animatedSliver(
-                          const TravelPreview(),
-                          delayMs: 1600,
-                          placeholderHeight: 140,
-                        ),
-                        _animatedSliver(
-                          const WikiPreview(),
-                          delayMs: 1620,
-                          placeholderHeight: 140,
-                        ),
-                        _animatedSliver(
-                          const BudgetPreview(),
-                          delayMs: 1640,
-                          placeholderHeight: 140,
-                        ),
-                        _animatedSliver(
-                          const RagPreview(),
-                          delayMs: 1660,
-                          placeholderHeight: 140,
+                          placeholderHeight: 980,
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 110)),
                       ],

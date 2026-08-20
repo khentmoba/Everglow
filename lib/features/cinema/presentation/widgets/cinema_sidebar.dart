@@ -15,6 +15,10 @@ import 'netflix/netflix_colors.dart';
 /// Contains a dedicated **Anime** entry that routes to `/anime` so
 /// cinema-only profiles (breyan / octagram) can jump between the two
 /// libraries without touching the dashboard.
+///
+/// When [isAnimeActive] is true the sidebar is rendered for the anime
+/// route: the Anime card appears active, a **Cinema** back-entry is
+/// shown, and all browse taps are still routed back to `/cinema`.
 class CinemaSidebar extends StatelessWidget {
   final int currentIndex;
   final String? activeBrowseOption;
@@ -26,6 +30,8 @@ class CinemaSidebar extends StatelessWidget {
   final VoidCallback onLogout;
   final String userName;
   final bool isCinemaOnlyUser;
+  final bool isAnimeActive;
+  final VoidCallback? onCinemaTap;
 
   const CinemaSidebar({
     super.key,
@@ -39,6 +45,8 @@ class CinemaSidebar extends StatelessWidget {
     required this.onLogout,
     required this.userName,
     required this.isCinemaOnlyUser,
+    this.isAnimeActive = false,
+    this.onCinemaTap,
   });
 
   bool get _isMoviesActive =>
@@ -90,12 +98,16 @@ class CinemaSidebar extends StatelessWidget {
                       Container(
                         width: 30,
                         height: 30,
-                        decoration: const BoxDecoration(
-                          color: NetflixColors.accent,
+                        decoration: BoxDecoration(
+                          color: isAnimeActive
+                              ? const Color(0xFFC2185B)
+                              : NetflixColors.accent,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
-                          Icons.play_arrow_rounded,
+                        child: Icon(
+                          isAnimeActive
+                              ? Icons.auto_awesome_rounded
+                              : Icons.play_arrow_rounded,
                           color: Colors.white,
                           size: 18,
                         ),
@@ -103,7 +115,7 @@ class CinemaSidebar extends StatelessWidget {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Cinema',
+                          isAnimeActive ? 'Anime' : 'Cinema',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: AppTypography.cormorantExtraBold.copyWith(
@@ -231,18 +243,44 @@ class CinemaSidebar extends StatelessWidget {
                   ),
                 ),
 
-                // ── Anime section ──────────────────────────────────
+                // ── Anime / Cinema cross-link ────────────────────────
                 if (!isCollapsed) ...[
-                  _SectionLabel(label: 'Discover'),
+                  _SectionLabel(
+                    label: isAnimeActive ? 'Anime Discover' : 'Discover',
+                  ),
                   const SizedBox(height: 6),
                 ],
-                _AnimeEntry(
-                  isCollapsed: isCollapsed,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    onAnimeTap();
-                  },
-                ),
+                if (isAnimeActive) ...[
+                  _AnimeEntry(
+                    isCollapsed: isCollapsed,
+                    active: true,
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      onAnimeTap();
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  _CinemaBackEntry(
+                    isCollapsed: isCollapsed,
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      if (onCinemaTap != null) {
+                        onCinemaTap!();
+                      } else {
+                        onSelect(0, null);
+                      }
+                    },
+                  ),
+                ] else ...[
+                  _AnimeEntry(
+                    isCollapsed: isCollapsed,
+                    active: false,
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      onAnimeTap();
+                    },
+                  ),
+                ],
 
                 if (onDashboardTap != null) ...[
                   const SizedBox(height: 8),
@@ -561,7 +599,12 @@ class _SidebarEntryState extends State<_SidebarEntry> {
 class _AnimeEntry extends StatefulWidget {
   final bool isCollapsed;
   final VoidCallback onTap;
-  const _AnimeEntry({required this.isCollapsed, required this.onTap});
+  final bool active;
+  const _AnimeEntry({
+    required this.isCollapsed,
+    required this.onTap,
+    this.active = false,
+  });
   @override
   State<_AnimeEntry> createState() => _AnimeEntryState();
 }
@@ -570,12 +613,13 @@ class _AnimeEntryState extends State<_AnimeEntry> {
   bool _hovered = false;
   @override
   Widget build(BuildContext context) {
+    final isActive = widget.active;
     if (widget.isCollapsed) {
       return MouseRegion(
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
         child: Tooltip(
-          message: 'Anime',
+          message: isActive ? 'Anime • You are here' : 'Anime',
           child: GestureDetector(
             onTap: widget.onTap,
             child: AnimatedContainer(
@@ -589,7 +633,10 @@ class _AnimeEntryState extends State<_AnimeEntry> {
                 ),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.10),
+                  color: isActive
+                      ? Colors.white.withValues(alpha: 0.22)
+                      : Colors.white.withValues(alpha: 0.10),
+                  width: isActive ? 1.4 : 1,
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -597,14 +644,39 @@ class _AnimeEntryState extends State<_AnimeEntry> {
                     blurRadius: 14,
                     offset: const Offset(0, 4),
                   ),
+                  if (isActive)
+                    BoxShadow(
+                      color: Colors.white.withValues(alpha: 0.10),
+                      blurRadius: 8,
+                    ),
                 ],
               ),
-              child: const Center(
-                child: Icon(
-                  Icons.auto_awesome_rounded,
-                  color: Colors.white,
-                  size: 20,
-                ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  const Icon(
+                    Icons.auto_awesome_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  if (isActive)
+                    Positioned(
+                      right: 4,
+                      top: 4,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFF7A2442),
+                            width: 1.2,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -629,7 +701,12 @@ class _AnimeEntryState extends State<_AnimeEntry> {
                   : const [Color(0xFFC2185B), Color(0xFF7A2442)],
             ),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+            border: Border.all(
+              color: isActive
+                  ? Colors.white.withValues(alpha: 0.22)
+                  : Colors.white.withValues(alpha: 0.10),
+              width: isActive ? 1.4 : 1,
+            ),
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFFC2185B).withValues(alpha: 0.30),
@@ -659,17 +736,32 @@ class _AnimeEntryState extends State<_AnimeEntry> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      'Anime',
-                      style: AppTypography.outfitHeading.copyWith(
-                        fontSize: 13.5,
-                        color: Colors.white,
-                        height: 1,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          'Anime',
+                          style: AppTypography.outfitHeading.copyWith(
+                            fontSize: 13.5,
+                            color: Colors.white,
+                            height: 1,
+                          ),
+                        ),
+                        if (isActive) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Movies & series',
+                      isActive ? 'You are here' : 'Movies & series',
                       style: AppTypography.outfitMuted.copyWith(
                         fontSize: 11,
                         color: Colors.white.withValues(alpha: 0.78),
@@ -692,6 +784,144 @@ class _AnimeEntryState extends State<_AnimeEntry> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
+                      isActive ? 'Active' : 'Go',
+                      style: AppTypography.outfitHeading.copyWith(
+                        fontSize: 11,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    Icon(
+                      isActive
+                          ? Icons.check_rounded
+                          : Icons.arrow_forward_rounded,
+                      size: 12,
+                      color: Colors.white,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CinemaBackEntry extends StatefulWidget {
+  final bool isCollapsed;
+  final VoidCallback onTap;
+  const _CinemaBackEntry({required this.isCollapsed, required this.onTap});
+  @override
+  State<_CinemaBackEntry> createState() => _CinemaBackEntryState();
+}
+
+class _CinemaBackEntryState extends State<_CinemaBackEntry> {
+  bool _hovered = false;
+  @override
+  Widget build(BuildContext context) {
+    if (widget.isCollapsed) {
+      return MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: Tooltip(
+          message: 'Back to Cinema',
+          child: GestureDetector(
+            onTap: widget.onTap,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              height: 42,
+              decoration: BoxDecoration(
+                color: _hovered
+                    ? Colors.white.withValues(alpha: 0.10)
+                    : Colors.white.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.10),
+                ),
+              ),
+              child: const Center(
+                child: Icon(
+                  Icons.movie_outlined,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: _hovered
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: NetflixColors.accent.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.play_arrow_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Cinema',
+                      style: AppTypography.outfitHeading.copyWith(
+                        fontSize: 13.5,
+                        color: Colors.white,
+                        height: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Back to movies & TV',
+                      style: AppTypography.outfitMuted.copyWith(
+                        fontSize: 11,
+                        color: Colors.white.withValues(alpha: 0.62),
+                        height: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 7,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
                       'Go',
                       style: AppTypography.outfitHeading.copyWith(
                         fontSize: 11,
@@ -699,8 +929,8 @@ class _AnimeEntryState extends State<_AnimeEntry> {
                       ),
                     ),
                     const SizedBox(width: 2),
-                    const Icon(
-                      Icons.arrow_forward_rounded,
+                    Icon(
+                      Icons.arrow_back_rounded,
                       size: 12,
                       color: Colors.white,
                     ),

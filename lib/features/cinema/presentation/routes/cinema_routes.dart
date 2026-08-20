@@ -10,6 +10,7 @@ final List<GoRoute> cinemaRoutes = [
     path: '/cinema',
     builder: (_, state) => CinemaScreen(
       initialTab: int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0,
+      initialBrowseOption: state.uri.queryParameters['browse'],
     ),
     routes: [
       GoRoute(

@@ -29,8 +29,13 @@ import '../../../watch_party/presentation/widgets/cinema_watch_together_tab.dart
 
 class CinemaScreen extends StatefulWidget {
   final int initialTab;
+  final String? initialBrowseOption;
 
-  const CinemaScreen({super.key, this.initialTab = 0});
+  const CinemaScreen({
+    super.key,
+    this.initialTab = 0,
+    this.initialBrowseOption,
+  });
 
   @override
   State<CinemaScreen> createState() => _CinemaScreenState();
@@ -79,7 +84,13 @@ class _CinemaScreenState extends State<CinemaScreen> {
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialTab.clamp(0, 4);
+    _pendingBrowseOption = widget.initialBrowseOption;
+    if (_pendingBrowseOption != null) {
+      _currentIndex = 2;
+      _browseSeed = 1;
+    } else {
+      _currentIndex = widget.initialTab.clamp(0, 4);
+    }
     _fetchHomeData();
     // Read auth-dependent state after the first frame so Provider is available.
     WidgetsBinding.instance.addPostFrameCallback((_) {
