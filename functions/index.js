@@ -24,12 +24,15 @@ const {
 /** Mirrors `pubspec.yaml` / `lib/core/system/app_version.dart`. */
 const APP_VERSION = '6.0.0+1';
 
-/** Lazy require+init so Firebase deploy analysis doesn't time out */
+/** Lazy require+init so Firebase deploy analysis doesn't time out.
+ *  admin_compat restores the legacy namespace API (admin.auth(),
+ *  admin.firestore(), ...) that firebase-admin v14 removed from its
+ *  default export — see functions/admin_compat.js. */
 let _admin;
 function getAdmin() {
   if (!_admin) {
-    _admin = require('firebase-admin');
-    _admin.initializeApp();
+    const { getAdminCompat } = require('./admin_compat.js');
+    _admin = getAdminCompat();
   }
   return _admin;
 }
