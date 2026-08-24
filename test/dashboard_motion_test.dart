@@ -1,3 +1,8 @@
+// Golden comparisons are platform-sensitive (font/Skia backends differ
+// between Windows and Linux), so CI excludes these with --exclude-tags.
+@Tags(['golden'])
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';

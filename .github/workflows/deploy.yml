@@ -41,7 +41,9 @@ jobs:
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
       - name: Test Flutter app
-        run: flutter test
+        # Golden-image tests are excluded: committed PNGs are generated on
+        # Windows and font/Skia rasterization differs on Linux CI.
+        run: flutter test --exclude-tags=golden
 
       - name: Build web
         env:
