@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_typography.dart';
+import 'everglow_keyboard_activation.dart';
 
 /// Glass page header for feature screens — cleaner v2.
 ///
@@ -124,8 +125,8 @@ class _BackButton extends StatelessWidget {
         label: 'Back',
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            onTap:
+          child: EverglowKeyboardActivation(
+            onActivate:
                 onBack ??
                 () {
                   if (canPop) {
@@ -134,20 +135,31 @@ class _BackButton extends StatelessWidget {
                     context.go('/dashboard');
                   }
                 },
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.moonlight.withValues(alpha: 0.08),
-                border: Border.all(
-                  color: AppColors.moonlight.withValues(alpha: 0.16),
+            child: GestureDetector(
+              onTap:
+                  onBack ??
+                  () {
+                    if (canPop) {
+                      context.pop();
+                    } else {
+                      context.go('/dashboard');
+                    }
+                  },
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.moonlight.withValues(alpha: 0.08),
+                  border: Border.all(
+                    color: AppColors.moonlight.withValues(alpha: 0.16),
+                  ),
                 ),
-              ),
-              child: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: AppColors.roseQuartz,
-                size: 16,
+                child: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: AppColors.roseQuartz,
+                  size: 16,
+                ),
               ),
             ),
           ),

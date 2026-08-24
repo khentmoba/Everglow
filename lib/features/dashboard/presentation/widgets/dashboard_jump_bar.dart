@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/everglow/everglow_keyboard_activation.dart';
 
 class DashboardJumpBar extends StatelessWidget {
   const DashboardJumpBar({super.key, required this.onJump});
@@ -124,48 +125,51 @@ class _JumpChipState extends State<JumpChip> {
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
-        child: GestureDetector(
-          onTap: () => widget.onJump(it.targetId),
-          child: AnimatedContainer(
-            duration: AppMotion.orZero(const Duration(milliseconds: 180)),
-            curve: AppMotion.easeOutStrong,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  it.hue.withValues(alpha: _hovered ? 0.22 : 0.12),
-                  it.hue.withValues(alpha: 0.04),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                color: it.hue.withValues(alpha: _hovered ? 0.45 : 0.22),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: it.hue.withValues(alpha: 0.18),
-                    border: Border.all(color: it.hue.withValues(alpha: 0.35)),
-                  ),
-                  child: Icon(it.icon, size: 12, color: it.hue),
+        child: EverglowKeyboardActivation(
+          onActivate: () => widget.onJump(it.targetId),
+          child: GestureDetector(
+            onTap: () => widget.onJump(it.targetId),
+            child: AnimatedContainer(
+              duration: AppMotion.orZero(const Duration(milliseconds: 180)),
+              curve: AppMotion.easeOutStrong,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    it.hue.withValues(alpha: _hovered ? 0.22 : 0.12),
+                    it.hue.withValues(alpha: 0.04),
+                  ],
                 ),
-                const SizedBox(width: 7),
-                Text(
-                  it.label,
-                  style: AppTypography.outfitHeading.copyWith(
-                    fontSize: 11,
-                    color: AppColors.petalWhite.withValues(
-                      alpha: _hovered ? 0.95 : 0.82,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: it.hue.withValues(alpha: _hovered ? 0.45 : 0.22),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: it.hue.withValues(alpha: 0.18),
+                      border: Border.all(color: it.hue.withValues(alpha: 0.35)),
+                    ),
+                    child: Icon(it.icon, size: 12, color: it.hue),
+                  ),
+                  const SizedBox(width: 7),
+                  Text(
+                    it.label,
+                    style: AppTypography.outfitHeading.copyWith(
+                      fontSize: 11,
+                      color: AppColors.petalWhite.withValues(
+                        alpha: _hovered ? 0.95 : 0.82,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
