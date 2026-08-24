@@ -25,17 +25,23 @@ class MusicSyncService {
   final String _baseUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyLastfm';
 
-  Future<Uri> _signedUrl(Uri url) async {
+  Future<http.Response> _getWithAuth(Uri url) async {
     final signUrl = _signUrl;
-    if (signUrl != null) return signUrl(url);
+    if (signUrl != null) {
+      final signed = await signUrl(url);
+      return _client.get(signed).timeout(const Duration(seconds: 10));
+    }
     final user = FirebaseAuth.instance.currentUser;
     final token = user == null ? null : await user.getIdToken();
     if (token == null || token.isEmpty) {
       throw StateError('Last.fm requires an authenticated user');
     }
-    return url.replace(
+    final signed = url.replace(
       queryParameters: {...url.queryParameters, '__auth': token},
     );
+    return _client
+        .get(signed, headers: {'Authorization': "Bearer $token"})
+        .timeout(const Duration(seconds: 10));
   }
 
   // Usernames that Last.fm reported as invalid (HTTP 404 / error code 6
@@ -72,9 +78,7 @@ class MusicSyncService {
         '$_baseUrl?method=user.getrecenttracks&user=$username&format=json&limit=$limit',
       );
 
-      final response = await _client
-          .get(await _signedUrl(url))
-          .timeout(const Duration(seconds: 10));
+      final response = await _getWithAuth(url);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -136,9 +140,7 @@ class MusicSyncService {
         '&limit=$limit&format=json',
       );
 
-      final response = await _client
-          .get(await _signedUrl(url))
-          .timeout(const Duration(seconds: 10));
+      final response = await _getWithAuth(url);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -201,9 +203,7 @@ class MusicSyncService {
       final url = Uri.parse(
         '$_baseUrl?method=user.getinfo&user=$username&format=json',
       );
-      final response = await _client
-          .get(await _signedUrl(url))
-          .timeout(const Duration(seconds: 10));
+      final response = await _getWithAuth(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final user = data['user'];
@@ -267,10 +267,8 @@ class MusicSyncService {
         );
       }
 
-      final signedUrl = await _signedUrl(Uri.parse(buffer.toString()));
-      final response = await _client
-          .get(signedUrl)
-          .timeout(const Duration(seconds: 10));
+      final url = Uri.parse(buffer.toString());
+      final response = await _getWithAuth(url);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -397,9 +395,7 @@ class MusicSyncService {
         '$_baseUrl?method=user.gettopartists&user=$username&period=$period'
         '&limit=$limit&page=$page&format=json',
       );
-      final response = await _client
-          .get(await _signedUrl(url))
-          .timeout(const Duration(seconds: 10));
+      final response = await _getWithAuth(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final artists = data['topartists']?['artist'];
@@ -436,9 +432,7 @@ class MusicSyncService {
         '$_baseUrl?method=user.gettopalbums&user=$username&period=$period'
         '&limit=$limit&page=$page&format=json',
       );
-      final response = await _client
-          .get(await _signedUrl(url))
-          .timeout(const Duration(seconds: 10));
+      final response = await _getWithAuth(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final albums = data['topalbums']?['album'];
@@ -474,9 +468,7 @@ class MusicSyncService {
         '$_baseUrl?method=user.getlovedtracks&user=$username'
         '&limit=$limit&page=$page&format=json',
       );
-      final response = await _client
-          .get(await _signedUrl(url))
-          .timeout(const Duration(seconds: 10));
+      final response = await _getWithAuth(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final tracks = data['lovedtracks']?['track'];
@@ -516,9 +508,7 @@ class MusicSyncService {
         '$_baseUrl?method=user.getrecenttracks&user=$username'
         '&from=$from&to=$to&limit=$limit&page=$page&format=json',
       );
-      final response = await _client
-          .get(await _signedUrl(url))
-          .timeout(const Duration(seconds: 10));
+      final response = await _getWithAuth(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final tracks = data['recenttracks']?['track'];
