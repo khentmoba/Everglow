@@ -81,7 +81,9 @@ class EverglowSegmentedControl extends StatelessWidget {
                               letterSpacing: 0.15,
                               color: isSel
                                   ? activeColor
-                                  : AppColors.petalWhite.withValues(alpha: 0.62),
+                                  : AppColors.petalWhite.withValues(
+                                      alpha: 0.62,
+                                    ),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -105,5 +107,3 @@ class SegmentItem {
   final IconData icon;
   const SegmentItem(this.label, this.icon);
 }
-
-
