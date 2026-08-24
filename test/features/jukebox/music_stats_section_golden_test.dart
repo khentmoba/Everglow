@@ -1,3 +1,8 @@
+// Golden comparisons are platform-sensitive (font/Skia backends differ
+// between Windows and Linux), so CI excludes these with --exclude-tags.
+@Tags(['golden'])
+library;
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
