@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../../../../core/config/env_config.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/loved_track.dart';
 import '../models/music_status.dart';
 import '../models/top_album.dart';
@@ -11,12 +11,32 @@ import '../models/lastfm_image_utils.dart';
 import '../../../../core/utils/logger.dart';
 
 class MusicSyncService {
-  MusicSyncService({http.Client? client}) : _client = client ?? http.Client();
+  MusicSyncService({
+    http.Client? client,
+    Future<Uri> Function(Uri url)? signUrl,
+  }) : _client = client ?? http.Client(),
+       _signUrl = signUrl;
 
   final http.Client _client;
+  final Future<Uri> Function(Uri url)? _signUrl;
 
-  String get _apiKey => EnvConfig.lastfmApiKey;
-  final String _baseUrl = 'https://ws.audioscrobbler.com/2.0/';
+  /// Last.fm requests are signed and proxied server-side so the API key is
+  /// never embedded in the Flutter web bundle.
+  final String _baseUrl =
+      'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyLastfm';
+
+  Future<Uri> _signedUrl(Uri url) async {
+    final signUrl = _signUrl;
+    if (signUrl != null) return signUrl(url);
+    final user = FirebaseAuth.instance.currentUser;
+    final token = user == null ? null : await user.getIdToken();
+    if (token == null || token.isEmpty) {
+      throw StateError('Last.fm requires an authenticated user');
+    }
+    return url.replace(
+      queryParameters: {...url.queryParameters, '__auth': token},
+    );
+  }
 
   // Usernames that Last.fm reported as invalid (HTTP 404 / error code 6
   // "User not found"). Once we know a username is bad we stop hitting the
@@ -43,21 +63,18 @@ class MusicSyncService {
     String username, {
     int limit = 5,
   }) async {
-    if (_apiKey.isEmpty) {
-      Logger.w('Jukebox Service: API Key is missing!');
-      return [];
-    }
-
     if (username.isEmpty || _invalidUsers.contains(username)) {
       return [];
     }
 
     try {
       final url = Uri.parse(
-        '$_baseUrl?method=user.getrecenttracks&user=$username&api_key=$_apiKey&format=json&limit=$limit',
+        '$_baseUrl?method=user.getrecenttracks&user=$username&format=json&limit=$limit',
       );
 
-      final response = await _client.get(url).timeout(const Duration(seconds: 10));
+      final response = await _client
+          .get(await _signedUrl(url))
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -72,7 +89,9 @@ class MusicSyncService {
               )
               .toList();
         } else {
-          Logger.d('Jukebox Service: No tracks found for $username in response.');
+          Logger.d(
+            'Jukebox Service: No tracks found for $username in response.',
+          );
         }
       } else if (response.statusCode == 404) {
         // Last.fm returns 404 with `{"error": 6, "message": "User not found"}`
@@ -80,12 +99,18 @@ class MusicSyncService {
         // Mark the user as invalid so we never poll for them again this
         // session and just surface a quiet empty state in the UI.
         _invalidUsers.add(username);
-        Logger.w('Jukebox Service: Last.fm user "$username" not found. Skipping future polls this session.');
+        Logger.w(
+          'Jukebox Service: Last.fm user "$username" not found. Skipping future polls this session.',
+        );
       } else {
-        Logger.e('Jukebox Service Error ($username): Status ${response.statusCode} - ${response.body}');
+        Logger.e(
+          'Jukebox Service Error ($username): Status ${response.statusCode} - ${response.body}',
+        );
       }
     } on TimeoutException {
-      Logger.e('Jukebox Service Timeout: API call for $username timed out after 10s.');
+      Logger.e(
+        'Jukebox Service Timeout: API call for $username timed out after 10s.',
+      );
     } catch (e) {
       Logger.e('Jukebox Service Exception ($username)', error: e);
     }
@@ -101,11 +126,6 @@ class MusicSyncService {
     int limit = 10,
     String period = 'overall',
   }) async {
-    if (_apiKey.isEmpty) {
-      Logger.w('Jukebox Service: API Key is missing!');
-      return [];
-    }
-
     if (username.isEmpty || _invalidUsers.contains(username)) {
       return [];
     }
@@ -113,10 +133,12 @@ class MusicSyncService {
     try {
       final url = Uri.parse(
         '$_baseUrl?method=user.gettoptracks&user=$username&period=$period'
-        '&limit=$limit&api_key=$_apiKey&format=json',
+        '&limit=$limit&format=json',
       );
 
-      final response = await _client.get(url).timeout(const Duration(seconds: 10));
+      final response = await _client
+          .get(await _signedUrl(url))
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -144,16 +166,24 @@ class MusicSyncService {
           }
           return parsed;
         } else {
-          Logger.d('Jukebox Service: No top tracks found for $username in response.');
+          Logger.d(
+            'Jukebox Service: No top tracks found for $username in response.',
+          );
         }
       } else if (response.statusCode == 404) {
         _invalidUsers.add(username);
-        Logger.w('Jukebox Service: Last.fm user "$username" not found. Skipping future polls this session.');
+        Logger.w(
+          'Jukebox Service: Last.fm user "$username" not found. Skipping future polls this session.',
+        );
       } else {
-        Logger.e('Jukebox Service Error (top tracks, $username): Status ${response.statusCode} - ${response.body}');
+        Logger.e(
+          'Jukebox Service Error (top tracks, $username): Status ${response.statusCode} - ${response.body}',
+        );
       }
     } on TimeoutException {
-      Logger.e('Jukebox Service Timeout: Top tracks API call for $username timed out after 10s.');
+      Logger.e(
+        'Jukebox Service Timeout: Top tracks API call for $username timed out after 10s.',
+      );
     } catch (e) {
       Logger.e('Jukebox Service Exception (top tracks, $username)', error: e);
     }
@@ -166,13 +196,14 @@ class MusicSyncService {
   /// fails. The caller should fall back to summing local top-track playCounts
   /// when this returns 0 so the UI still shows a meaningful total.
   Future<int> fetchUserTotalPlays(String username) async {
-    if (_apiKey.isEmpty) return 0;
     if (username.isEmpty || _invalidUsers.contains(username)) return 0;
     try {
       final url = Uri.parse(
-        '$_baseUrl?method=user.getinfo&user=$username&api_key=$_apiKey&format=json',
+        '$_baseUrl?method=user.getinfo&user=$username&format=json',
       );
-      final response = await _client.get(url).timeout(const Duration(seconds: 10));
+      final response = await _client
+          .get(await _signedUrl(url))
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final user = data['user'];
@@ -183,10 +214,14 @@ class MusicSyncService {
         }
       } else if (response.statusCode == 404) {
         _invalidUsers.add(username);
-        Logger.w('Jukebox Service: Last.fm user "$username" not found (user.getInfo).');
+        Logger.w(
+          'Jukebox Service: Last.fm user "$username" not found (user.getInfo).',
+        );
       }
     } on TimeoutException {
-      Logger.e('Jukebox Service Timeout: user.getInfo for $username timed out.');
+      Logger.e(
+        'Jukebox Service Timeout: user.getInfo for $username timed out.',
+      );
     } catch (e) {
       Logger.e('Jukebox Service Exception (user.getInfo, $username)', error: e);
     }
@@ -221,15 +256,8 @@ class MusicSyncService {
     required String track,
     String? mbid,
   }) async {
-    if (_apiKey.isEmpty) {
-      Logger.w('Jukebox Service: API Key is missing!');
-      return null;
-    }
-
     try {
-      final buffer = StringBuffer(
-        '$_baseUrl?method=track.getinfo&api_key=$_apiKey&format=json',
-      );
+      final buffer = StringBuffer('$_baseUrl?method=track.getinfo&format=json');
       if (mbid != null && mbid.isNotEmpty) {
         buffer.write('&mbid=${Uri.encodeComponent(mbid)}');
       } else {
@@ -239,8 +267,9 @@ class MusicSyncService {
         );
       }
 
+      final signedUrl = await _signedUrl(Uri.parse(buffer.toString()));
       final response = await _client
-          .get(Uri.parse(buffer.toString()))
+          .get(signedUrl)
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -331,9 +360,7 @@ class MusicSyncService {
         'limit': '10',
       },
     );
-    final response = await _client
-        .get(uri)
-        .timeout(const Duration(seconds: 8));
+    final response = await _client.get(uri).timeout(const Duration(seconds: 8));
     if (response.statusCode != 200) return const [];
     final data = json.decode(response.body);
     final results = data is Map<String, dynamic> ? data['results'] : null;
@@ -364,24 +391,29 @@ class MusicSyncService {
     String period = 'overall',
     int page = 1,
   }) async {
-    if (_apiKey.isEmpty) return [];
     if (username.isEmpty || _invalidUsers.contains(username)) return [];
     try {
       final url = Uri.parse(
         '$_baseUrl?method=user.gettopartists&user=$username&period=$period'
-        '&limit=$limit&page=$page&api_key=$_apiKey&format=json',
+        '&limit=$limit&page=$page&format=json',
       );
-      final response = await _client.get(url).timeout(const Duration(seconds: 10));
+      final response = await _client
+          .get(await _signedUrl(url))
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final artists = data['topartists']?['artist'];
         if (artists is List && artists.isNotEmpty) {
-          return artists.map((a) => TopArtist.fromJson(a as Map<String, dynamic>)).toList();
+          return artists
+              .map((a) => TopArtist.fromJson(a as Map<String, dynamic>))
+              .toList();
         }
       } else if (response.statusCode == 404) {
         _invalidUsers.add(username);
       } else {
-        Logger.e('Jukebox Service Error (top artists, $username): ${response.statusCode} - ${response.body}');
+        Logger.e(
+          'Jukebox Service Error (top artists, $username): ${response.statusCode} - ${response.body}',
+        );
       }
     } on TimeoutException {
       Logger.e('Jukebox Service Timeout: Top artists for $username timed out.');
@@ -398,24 +430,29 @@ class MusicSyncService {
     String period = 'overall',
     int page = 1,
   }) async {
-    if (_apiKey.isEmpty) return [];
     if (username.isEmpty || _invalidUsers.contains(username)) return [];
     try {
       final url = Uri.parse(
         '$_baseUrl?method=user.gettopalbums&user=$username&period=$period'
-        '&limit=$limit&page=$page&api_key=$_apiKey&format=json',
+        '&limit=$limit&page=$page&format=json',
       );
-      final response = await _client.get(url).timeout(const Duration(seconds: 10));
+      final response = await _client
+          .get(await _signedUrl(url))
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final albums = data['topalbums']?['album'];
         if (albums is List && albums.isNotEmpty) {
-          return albums.map((a) => TopAlbum.fromJson(a as Map<String, dynamic>)).toList();
+          return albums
+              .map((a) => TopAlbum.fromJson(a as Map<String, dynamic>))
+              .toList();
         }
       } else if (response.statusCode == 404) {
         _invalidUsers.add(username);
       } else {
-        Logger.e('Jukebox Service Error (top albums, $username): ${response.statusCode} - ${response.body}');
+        Logger.e(
+          'Jukebox Service Error (top albums, $username): ${response.statusCode} - ${response.body}',
+        );
       }
     } on TimeoutException {
       Logger.e('Jukebox Service Timeout: Top albums for $username timed out.');
@@ -431,27 +468,34 @@ class MusicSyncService {
     int limit = 10,
     int page = 1,
   }) async {
-    if (_apiKey.isEmpty) return [];
     if (username.isEmpty || _invalidUsers.contains(username)) return [];
     try {
       final url = Uri.parse(
         '$_baseUrl?method=user.getlovedtracks&user=$username'
-        '&limit=$limit&page=$page&api_key=$_apiKey&format=json',
+        '&limit=$limit&page=$page&format=json',
       );
-      final response = await _client.get(url).timeout(const Duration(seconds: 10));
+      final response = await _client
+          .get(await _signedUrl(url))
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final tracks = data['lovedtracks']?['track'];
         if (tracks is List && tracks.isNotEmpty) {
-          return tracks.map((t) => LovedTrack.fromJson(t as Map<String, dynamic>)).toList();
+          return tracks
+              .map((t) => LovedTrack.fromJson(t as Map<String, dynamic>))
+              .toList();
         }
       } else if (response.statusCode == 404) {
         _invalidUsers.add(username);
       } else {
-        Logger.e('Jukebox Service Error (loved, $username): ${response.statusCode} - ${response.body}');
+        Logger.e(
+          'Jukebox Service Error (loved, $username): ${response.statusCode} - ${response.body}',
+        );
       }
     } on TimeoutException {
-      Logger.e('Jukebox Service Timeout: Loved tracks for $username timed out.');
+      Logger.e(
+        'Jukebox Service Timeout: Loved tracks for $username timed out.',
+      );
     } catch (e) {
       Logger.e('Jukebox Service Exception (loved, $username)', error: e);
     }
@@ -466,30 +510,40 @@ class MusicSyncService {
     required int to,
     int page = 1,
   }) async {
-    if (_apiKey.isEmpty) return [];
     if (username.isEmpty || _invalidUsers.contains(username)) return [];
     try {
       final url = Uri.parse(
         '$_baseUrl?method=user.getrecenttracks&user=$username'
-        '&from=$from&to=$to&limit=$limit&page=$page&api_key=$_apiKey&format=json',
+        '&from=$from&to=$to&limit=$limit&page=$page&format=json',
       );
-      final response = await _client.get(url).timeout(const Duration(seconds: 10));
+      final response = await _client
+          .get(await _signedUrl(url))
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final tracks = data['recenttracks']?['track'];
         if (tracks is List && tracks.isNotEmpty) {
           return tracks
               .where((t) => t is Map<String, dynamic> && t['date'] != null)
-              .map((t) => MusicStatus.fromTrackJson(t as Map<String, dynamic>, username))
+              .map(
+                (t) => MusicStatus.fromTrackJson(
+                  t as Map<String, dynamic>,
+                  username,
+                ),
+              )
               .toList();
         }
       } else if (response.statusCode == 404) {
         _invalidUsers.add(username);
       } else {
-        Logger.e('Jukebox Service Error (recent range, $username): ${response.statusCode} - ${response.body}');
+        Logger.e(
+          'Jukebox Service Error (recent range, $username): ${response.statusCode} - ${response.body}',
+        );
       }
     } on TimeoutException {
-      Logger.e('Jukebox Service Timeout: Recent range for $username timed out.');
+      Logger.e(
+        'Jukebox Service Timeout: Recent range for $username timed out.',
+      );
     } catch (e) {
       Logger.e('Jukebox Service Exception (recent range, $username)', error: e);
     }
@@ -497,12 +551,16 @@ class MusicSyncService {
   }
 
   // Alias for provider compatibility (older name).
-  Future<List<LovedTrack>> fetchLovedTracksLegacyAlias(String u, {int limit = 10}) => fetchLovedTracks(u, limit: limit);
+  Future<List<LovedTrack>> fetchLovedTracksLegacyAlias(
+    String u, {
+    int limit = 10,
+  }) => fetchLovedTracks(u, limit: limit);
 
   /// Lowercases and strips punctuation for forgiving title comparisons.
   static String _normalizeForMatch(String value) {
-    return value
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^\p{L}\p{N}]', unicode: true), '');
+    return value.toLowerCase().replaceAll(
+      RegExp(r'[^\p{L}\p{N}]', unicode: true),
+      '',
+    );
   }
 }

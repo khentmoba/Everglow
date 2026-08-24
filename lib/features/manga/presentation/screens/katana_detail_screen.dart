@@ -104,7 +104,10 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message, style: KatanaType.body.copyWith(color: Colors.white)),
+        content: Text(
+          message,
+          style: KatanaType.body.copyWith(color: Colors.white),
+        ),
         backgroundColor: KatanaColors.headerDark,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
@@ -138,7 +141,9 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
   }
 
   Future<void> _openDownload() async {
-    final uri = Uri.parse('https://mangakatana.com/manga/${widget.slug}/download');
+    final uri = Uri.parse(
+      'https://mangakatana.com/manga/${widget.slug}/download',
+    );
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
@@ -157,24 +162,25 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
                 child: _loading && manga == null
                     ? const Center(
                         child: CircularProgressIndicator(
-                            color: KatanaColors.accent),
+                          color: KatanaColors.accent,
+                        ),
                       )
                     : _error != null && manga == null
-                        ? _buildError()
-                        : ListView(
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 60),
-                            children: [
-                              _buildBreadcrumb(manga),
-                              const SizedBox(height: 12),
-                              if (manga != null) ...[
-                                _buildHero(manga),
-                                const SizedBox(height: 16),
-                                _buildDescription(manga),
-                                const SizedBox(height: 16),
-                                _buildChaptersSection(manga),
-                              ],
-                            ],
-                          ),
+                    ? _buildError()
+                    : ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 60),
+                        children: [
+                          _buildBreadcrumb(manga),
+                          const SizedBox(height: 12),
+                          if (manga != null) ...[
+                            _buildHero(manga),
+                            const SizedBox(height: 16),
+                            _buildDescription(manga),
+                            const SizedBox(height: 16),
+                            _buildChaptersSection(manga),
+                          ],
+                        ],
+                      ),
               ),
             ),
           ),
@@ -188,12 +194,19 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.cloud_off_rounded,
-              size: 46, color: KatanaColors.textLight),
+          const Icon(
+            Icons.cloud_off_rounded,
+            size: 46,
+            color: KatanaColors.textLight,
+          ),
           const SizedBox(height: 12),
           Text(_error!, style: KatanaType.body),
           const SizedBox(height: 12),
-          KatanaButton(label: 'Retry', icon: Icons.refresh_rounded, onTap: _load),
+          KatanaButton(
+            label: 'Retry',
+            icon: Icons.refresh_rounded,
+            onTap: _load,
+          ),
         ],
       ),
     );
@@ -204,20 +217,29 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
       children: [
         GestureDetector(
           onTap: () => pushHome(context),
-          child: const Icon(Icons.home_rounded,
-              size: 15, color: KatanaColors.textMuted),
+          child: const Icon(
+            Icons.home_rounded,
+            size: 15,
+            color: KatanaColors.textMuted,
+          ),
         ),
         const SizedBox(width: 6),
-        const Icon(Icons.chevron_right_rounded,
-            size: 15, color: KatanaColors.textLight),
+        const Icon(
+          Icons.chevron_right_rounded,
+          size: 15,
+          color: KatanaColors.textLight,
+        ),
         const SizedBox(width: 4),
         GestureDetector(
           onTap: () => pushDirectory(context),
           child: Text('Manga', style: KatanaType.link.copyWith(fontSize: 12)),
         ),
         const SizedBox(width: 6),
-        const Icon(Icons.chevron_right_rounded,
-            size: 15, color: KatanaColors.textLight),
+        const Icon(
+          Icons.chevron_right_rounded,
+          size: 15,
+          color: KatanaColors.textLight,
+        ),
         const SizedBox(width: 4),
         Expanded(
           child: Text(
@@ -245,16 +267,22 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
         child: manga.coverUrl.isEmpty
             ? Container(
                 color: KatanaColors.border,
-                child: const Icon(Icons.menu_book_rounded,
-                    color: KatanaColors.textLight, size: 40),
+                child: const Icon(
+                  Icons.menu_book_rounded,
+                  color: KatanaColors.textLight,
+                  size: 40,
+                ),
               )
             : KatanaNetworkImage(
                 manga.coverUrl,
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => Container(
                   color: KatanaColors.border,
-                  child: const Icon(Icons.broken_image_rounded,
-                      color: KatanaColors.textLight, size: 36),
+                  child: const Icon(
+                    Icons.broken_image_rounded,
+                    color: KatanaColors.textLight,
+                    size: 36,
+                  ),
                 ),
               ),
       ),
@@ -265,10 +293,13 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
       children: [
         Text(manga.title, style: KatanaType.heading.copyWith(fontSize: 26)),
         const SizedBox(height: 10),
-        if (manga.altNames.isNotEmpty) _metaRow('Alt name(s):', manga.altNames.join(' ; ')),
+        if (manga.altNames.isNotEmpty)
+          _metaRow('Alt name(s):', manga.altNames.join(' ; ')),
         if (manga.authors.isNotEmpty)
-          _linkMetaRow(
-              'Author(s) / Artist(s):', [...manga.authors, ...manga.artists]),
+          _linkMetaRow('Author(s) / Artist(s):', [
+            ...manga.authors,
+            ...manga.artists,
+          ]),
         if (manga.genres.isNotEmpty)
           Wrap(
             spacing: 6,
@@ -278,7 +309,8 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
                 KatanaChip(
                   label: genre.name,
                   color: KatanaColors.link,
-                  onTap: () => pushGenreDirectory(context, genre.slug, genre.name),
+                  onTap: () =>
+                      pushGenreDirectory(context, genre.slug, genre.name),
                 ),
             ],
           ),
@@ -286,9 +318,12 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
         _metaRow(
           'Status:',
           manga.isCompleted ? 'Completed' : 'Ongoing',
-          valueColor: manga.isCompleted ? KatanaColors.green : KatanaColors.accent,
+          valueColor: manga.isCompleted
+              ? KatanaColors.green
+              : KatanaColors.accent,
         ),
-        if (manga.latestChapter != null && manga.latestChapter!.title.isNotEmpty)
+        if (manga.latestChapter != null &&
+            manga.latestChapter!.title.isNotEmpty)
           _metaRow('Latest chapter(s):', manga.latestChapter!.title),
         if (manga.updateText.isNotEmpty)
           _metaRow('Update at:', manga.updateText),
@@ -338,11 +373,16 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(manga.title,
-                              style: KatanaType.heading.copyWith(fontSize: 20)),
+                          Text(
+                            manga.title,
+                            style: KatanaType.heading.copyWith(fontSize: 20),
+                          ),
                           const SizedBox(height: 8),
                           if (manga.altNames.isNotEmpty)
-                            _metaRow('Alt name(s):', manga.altNames.join(' ; ')),
+                            _metaRow(
+                              'Alt name(s):',
+                              manga.altNames.join(' ; '),
+                            ),
                           if (manga.updateText.isNotEmpty)
                             _metaRow('Update at:', manga.updateText),
                           _metaRow(
@@ -359,7 +399,10 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
                 ),
                 const SizedBox(height: 12),
                 if (manga.authors.isNotEmpty)
-                  _metaRow('Author(s):', [...manga.authors, ...manga.artists].join(', ')),
+                  _metaRow(
+                    'Author(s):',
+                    [...manga.authors, ...manga.artists].join(', '),
+                  ),
                 if (manga.genres.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Wrap(
@@ -371,7 +414,10 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
                           label: genre.name,
                           color: KatanaColors.link,
                           onTap: () => pushGenreDirectory(
-                              context, genre.slug, genre.name),
+                            context,
+                            genre.slug,
+                            genre.name,
+                          ),
                         ),
                     ],
                   ),
@@ -399,8 +445,9 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
                             ? Icons.check_rounded
                             : Icons.auto_stories_rounded,
                         filled: _isReading,
-                        color:
-                            _isReading ? KatanaColors.green : KatanaColors.accent,
+                        color: _isReading
+                            ? KatanaColors.green
+                            : KatanaColors.accent,
                         onTap: _toggleReading,
                       ),
                   ],
@@ -424,10 +471,7 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 150,
-            child: Text(label, style: KatanaType.small),
-          ),
+          SizedBox(width: 150, child: Text(label, style: KatanaType.small)),
           Expanded(
             child: Text(
               value,
@@ -449,10 +493,7 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 150,
-            child: Text(label, style: KatanaType.small),
-          ),
+          SizedBox(width: 150, child: Text(label, style: KatanaType.small)),
           Expanded(
             child: Wrap(
               spacing: 4,
@@ -478,7 +519,7 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          KatanaSectionHeader(title: 'Description'),
+          const KatanaSectionHeader(title: 'Description'),
           const SizedBox(height: 10),
           Text(manga.summary, style: KatanaType.body.copyWith(fontSize: 14)),
         ],
@@ -572,8 +613,11 @@ class _ChapterRow extends StatelessWidget {
         color: highlight ? KatanaColors.surfaceAlt : KatanaColors.surface,
         child: Row(
           children: [
-            const Icon(Icons.menu_book_rounded,
-                size: 16, color: KatanaColors.textLight),
+            const Icon(
+              Icons.menu_book_rounded,
+              size: 16,
+              color: KatanaColors.textLight,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -611,8 +655,11 @@ class _ChapterRow extends StatelessWidget {
                 style: KatanaType.small.copyWith(fontSize: 11.5),
               ),
             const SizedBox(width: 8),
-            const Icon(Icons.chevron_right_rounded,
-                size: 18, color: KatanaColors.textLight),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: KatanaColors.textLight,
+            ),
           ],
         ),
       ),

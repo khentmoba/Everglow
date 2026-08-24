@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Runtime configuration for Everglow.
@@ -9,10 +10,6 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 /// and password credentials are never committed.
 class EnvConfig {
   static const Map<String, String> _compileTimeEnv = {
-    'CLAIR_EMAIL': String.fromEnvironment('CLAIR_EMAIL'),
-    'CLAIR_PASSWORD': String.fromEnvironment('CLAIR_PASSWORD'),
-    'KHENT_EMAIL': String.fromEnvironment('KHENT_EMAIL'),
-    'KHENT_PASSWORD': String.fromEnvironment('KHENT_PASSWORD'),
     'BREYAN_EMAIL': String.fromEnvironment('BREYAN_EMAIL'),
     'BREYAN_PASSWORD': String.fromEnvironment('BREYAN_PASSWORD'),
     'OCTAGRAM_EMAIL': String.fromEnvironment('OCTAGRAM_EMAIL'),
@@ -21,8 +18,6 @@ class EnvConfig {
     'KHENT_PASSCODE': String.fromEnvironment('KHENT_PASSCODE'),
     'BREYAN_PASSCODE': String.fromEnvironment('BREYAN_PASSCODE'),
     'OCTAGRAM_PASSCODE': String.fromEnvironment('OCTAGRAM_PASSCODE'),
-    'TMDB_API_KEY': String.fromEnvironment('TMDB_API_KEY'),
-    'LASTFM_API_KEY': String.fromEnvironment('LASTFM_API_KEY'),
     'LASTFM_USER_KHENT': String.fromEnvironment('LASTFM_USER_KHENT'),
     'LASTFM_USER_CLAIR': String.fromEnvironment('LASTFM_USER_CLAIR'),
     'JELLYFIN_API_KEY': String.fromEnvironment('JELLYFIN_API_KEY'),
@@ -43,55 +38,46 @@ class EnvConfig {
     return fallback;
   }
 
-  static String get clairEmail => _from('CLAIR_EMAIL');
-  static String get clairPassword => _from('CLAIR_PASSWORD');
-  static String get khentEmail => _from('KHENT_EMAIL');
-  static String get khentPassword => _from('KHENT_PASSWORD');
   static String get breyanEmail =>
       _from('BREYAN_EMAIL', fallback: 'breyan@scrapbook.local');
   static String get breyanPassword =>
-      _from('BREYAN_PASSWORD', fallback: '91329132');
+      _from('BREYAN_PASSWORD', fallback: kDebugMode ? '91329132' : '');
   static String get octagramEmail =>
       _from('OCTAGRAM_EMAIL', fallback: 'octagram@scrapbook.local');
   static String get octagramPassword =>
-      _from('OCTAGRAM_PASSWORD', fallback: '80808080');
+      _from('OCTAGRAM_PASSWORD', fallback: kDebugMode ? '80808080' : '');
 
   // Khent/Clair are server-verified (verifyPasscode) in prod; a local
   // --dart-define still works so `flutter run -d chrome` with env.txt
-  // doesn't brick. The fallback is dev-only and never relied on in release.
-  static String get clairPasscode => _from('CLAIR_PASSCODE', fallback: '0221');
-  static String get khentPasscode => _from('KHENT_PASSCODE', fallback: '0938');
+  // doesn't brick. The fallback is dev-only (debug builds) so release
+  // JS bundles never contain the couple passcodes.
+  static String get clairPasscode =>
+      _from('CLAIR_PASSCODE', fallback: kDebugMode ? '0221' : '');
+  static String get khentPasscode =>
+      _from('KHENT_PASSCODE', fallback: kDebugMode ? '0938' : '');
   static String get breyanPasscode =>
       _from('BREYAN_PASSCODE', fallback: '9132');
   static String get octagramPasscode =>
       _from('OCTAGRAM_PASSCODE', fallback: '8080');
 
-  static String get tmdbApiKey => _from('TMDB_API_KEY');
-  static String get lastfmApiKey => _from('LASTFM_API_KEY');
   static String get lastfmUserKhent =>
       _from('LASTFM_USER_KHENT', fallback: 'khentsgdz');
   static String get lastfmUserClair =>
       _from('LASTFM_USER_CLAIR', fallback: 'clairjassen');
   static String get jellyfinApiKey => _from('JELLYFIN_API_KEY');
   static String get spotifyClientId => _from('SPOTIFY_CLIENT_ID');
- 
-   /// Public FCM VAPID key. This is a public identifier, not a credential;
-   /// browsers need it to register for web push notifications.
-   static const String _kFcmVapidKey =
-       'BL2l-ngjWKYYXNK5QKHRcLt4zUyHq-3wTgY5NO0MOcGEoI03Eh3A3Kk2us_hQdN4tXyOO4A6ldQ1T5L7DLTSrT0';
-   static String get fcmVapidKey =>
-       _from('FCM_VAPID_KEY', fallback: _kFcmVapidKey);
 
-  static bool get hasClairCreds =>
-      clairEmail.isNotEmpty && clairPassword.isNotEmpty;
-  static bool get hasKhentCreds =>
-      khentEmail.isNotEmpty && khentPassword.isNotEmpty;
+  /// Public FCM VAPID key. This is a public identifier, not a credential;
+  /// browsers need it to register for web push notifications.
+  static const String _kFcmVapidKey =
+      'BL2l-ngjWKYYXNK5QKHRcLt4zUyHq-3wTgY5NO0MOcGEoI03Eh3A3Kk2us_hQdN4tXyOO4A6ldQ1T5L7DLTSrT0';
+  static String get fcmVapidKey =>
+      _from('FCM_VAPID_KEY', fallback: _kFcmVapidKey);
+
   static bool get hasBreyanCreds =>
       breyanEmail.isNotEmpty && breyanPassword.isNotEmpty;
   static bool get hasOctagramCreds =>
       octagramEmail.isNotEmpty && octagramPassword.isNotEmpty;
-  static bool get hasTmdbKey => tmdbApiKey.isNotEmpty;
-  static bool get hasLastfmKey => lastfmApiKey.isNotEmpty;
   static bool get hasJellyfinKey => jellyfinApiKey.isNotEmpty;
   static bool get hasSpotifyClientId => spotifyClientId.isNotEmpty;
 
@@ -103,12 +89,8 @@ class EnvConfig {
 
   static List<String> missingRequired() {
     final missing = <String>[];
-    if (!hasClairCreds) missing.add('CLAIR_EMAIL / CLAIR_PASSWORD');
-    if (!hasKhentCreds) missing.add('KHENT_EMAIL / KHENT_PASSWORD');
     if (!hasBreyanCreds) missing.add('BREYAN_EMAIL / BREYAN_PASSWORD');
     if (!hasOctagramCreds) missing.add('OCTAGRAM_EMAIL / OCTAGRAM_PASSWORD');
-    if (!hasTmdbKey) missing.add('TMDB_API_KEY');
-    if (!hasLastfmKey) missing.add('LASTFM_API_KEY');
     return missing;
   }
 }

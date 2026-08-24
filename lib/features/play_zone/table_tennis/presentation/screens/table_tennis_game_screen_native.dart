@@ -14,19 +14,15 @@ class TableTennisGameScreen extends StatelessWidget {
         backgroundColor: AppColors.velvet,
         foregroundColor: AppColors.petalWhite,
       ),
-      body: Center(
+      body: const Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.sports_tennis,
-                size: 72,
-                color: AppColors.auroraRose,
-              ),
-              const SizedBox(height: 20),
-              const Text(
+              Icon(Icons.sports_tennis, size: 72, color: AppColors.auroraRose),
+              SizedBox(height: 20),
+              Text(
                 'Table tennis is available in the web app',
                 textAlign: TextAlign.center,
                 style: TextStyle(
@@ -35,8 +31,8 @@ class TableTennisGameScreen extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 8),
-              const Text(
+              SizedBox(height: 8),
+              Text(
                 'Open Everglow in a browser to play with the full WebGL experience.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.mutedPurple, fontSize: 14),

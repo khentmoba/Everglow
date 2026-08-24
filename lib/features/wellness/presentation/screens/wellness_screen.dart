@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../../shared/widgets/everglow/everglow_segmented_control.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../../heartbeat/data/services/mood_service.dart';
@@ -29,7 +30,20 @@ class _WellnessScreenState extends State<WellnessScreen> {
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          Positioned.fill(child: EverglowBackground(baseColor: AppColors.inkDeep, glows: const [RadialGlow(color: AppColors.auroraRose, alignment: Alignment(-0.6, -0.8), size: 0.85, opacity: 0.12)], showPetals: true)),
+          const Positioned.fill(
+            child: EverglowBackground(
+              baseColor: AppColors.inkDeep,
+              glows: [
+                RadialGlow(
+                  color: AppColors.auroraRose,
+                  alignment: Alignment(-0.6, -0.8),
+                  size: 0.85,
+                  opacity: 0.12,
+                ),
+              ],
+              showPetals: true,
+            ),
+          ),
           SafeArea(
             child: Column(
               children: [
@@ -38,43 +52,49 @@ class _WellnessScreenState extends State<WellnessScreen> {
                   subtitle: 'grow together • Habitica × wger',
                   icon: Icons.favorite_rounded,
                   hue: AppColors.auroraRose,
-                  actions: [IconButton(onPressed: () => _showAddDialog(auth), icon: Icon(Icons.add_rounded, color: AppColors.blushGold))],
+                  actions: [
+                    IconButton(
+                      onPressed: () => _showAddDialog(auth),
+                      icon: const Icon(
+                        Icons.add_rounded,
+                        color: AppColors.blushGold,
+                      ),
+                    ),
+                  ],
                 ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(color: AppColors.twilight, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.14))),
-                  child: Row(children: [_buildTab(0, 'Habits', Icons.check_circle_rounded), _buildTab(1, 'Workouts', Icons.fitness_center_rounded), _buildTab(2, 'Insights', Icons.insights_rounded)]),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: EverglowSegmentedControl(
+                    selectedIndex: _tabIndex,
+                    onChanged: (i) => setState(() => _tabIndex = i),
+                    activeColor: AppColors.auroraRose,
+                    items: const [
+                      SegmentItem('Habits', Icons.check_circle_rounded),
+                      SegmentItem('Workouts', Icons.fitness_center_rounded),
+                      SegmentItem('Insights', Icons.insights_rounded),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: _tabIndex == 0
-                    ? _HabitsTab(auth: auth)
-                    : _tabIndex == 1
-                        ? _WorkoutsTab(auth: auth)
-                        : _InsightsTab(),
-              ),
-            ],
+                const SizedBox(height: 12),
+                Expanded(
+                  child: _tabIndex == 0
+                      ? _HabitsTab(auth: auth)
+                      : _tabIndex == 1
+                      ? _WorkoutsTab(auth: auth)
+                      : _InsightsTab(),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
-      floatingActionButton: FloatingActionButton(onPressed: () => _showAddDialog(auth), backgroundColor: AppColors.deepRose, foregroundColor: Colors.white, child: Icon(_tabIndex == 1 ? Icons.fitness_center_rounded : Icons.add_rounded)),
-    );
-  }
-
-  Widget _buildTab(int idx, String label, IconData icon) {
-    final isSel = _tabIndex == idx;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _tabIndex = idx),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(color: isSel ? AppColors.auroraRose.withValues(alpha: 0.18) : Colors.transparent, borderRadius: BorderRadius.circular(14), border: Border.all(color: isSel ? AppColors.auroraRose : Colors.transparent)),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, size: 14, color: isSel ? AppColors.auroraRose : AppTheme.petalWhite.withValues(alpha: 0.6)), const SizedBox(width: 6), Text(label, style: AppTypography.outfitBold.copyWith(fontSize: 12, color: isSel ? AppColors.auroraRose : AppTheme.petalWhite.withValues(alpha: 0.6)))]),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddDialog(auth),
+        backgroundColor: AppColors.deepRose,
+        foregroundColor: Colors.white,
+        child: Icon(
+          _tabIndex == 1 ? Icons.fitness_center_rounded : Icons.add_rounded,
         ),
       ),
     );
@@ -93,33 +113,106 @@ class _WellnessScreenState extends State<WellnessScreen> {
     HabitCategory cat = HabitCategory.health;
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(builder: (ctx, setDlg) {
-        return AlertDialog(
-          backgroundColor: AppTheme.velvet,
-          title: Text('New Habit 🌱', style: AppTypography.cormorantBold.copyWith(color: AppTheme.petalWhite)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: titleCtrl, style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite), decoration: InputDecoration(hintText: 'e.g., Meditate together 10 min', hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.4)), filled: true, fillColor: AppColors.twilight, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12))),
-              const SizedBox(height: 12),
-              Wrap(spacing: 8, children: HabitCategory.values.map((c) { final sel = cat == c; return GestureDetector(onTap: () => setDlg(() => cat = c), child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: sel ? AppColors.deepRose.withValues(alpha: 0.25) : AppColors.twilight, borderRadius: BorderRadius.circular(20), border: Border.all(color: sel ? AppColors.blushGold : AppColors.border)), child: Text(c.name, style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: sel ? AppColors.blushGold : AppTheme.petalWhite.withValues(alpha: 0.7))))); }).toList()),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () async {
-                final title = titleCtrl.text.trim();
-                if (title.isEmpty) return;
-                await WellnessService().addHabit(Habit(id: '', title: title, category: cat, createdBy: auth.currentUser ?? 'unknown', createdAt: DateTime.now()));
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.deepRose),
-              child: const Text('Add', style: TextStyle(color: Colors.white)),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) {
+          return AlertDialog(
+            backgroundColor: AppTheme.velvet,
+            title: Text(
+              'New Habit 🌱',
+              style: AppTypography.cormorantBold.copyWith(
+                color: AppTheme.petalWhite,
+              ),
             ),
-          ],
-        );
-      }),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleCtrl,
+                  style: AppTypography.outfitWhite.copyWith(
+                    color: AppTheme.petalWhite,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'e.g., Meditate together 10 min',
+                    hintStyle: AppTypography.outfitWhite.copyWith(
+                      color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                    ),
+                    filled: true,
+                    fillColor: AppColors.twilight,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  children: HabitCategory.values.map((c) {
+                    final sel = cat == c;
+                    return GestureDetector(
+                      onTap: () => setDlg(() => cat = c),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: sel
+                              ? AppColors.deepRose.withValues(alpha: 0.25)
+                              : AppColors.twilight,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: sel ? AppColors.blushGold : AppColors.border,
+                          ),
+                        ),
+                        child: Text(
+                          c.name,
+                          style: AppTypography.outfitWhite.copyWith(
+                            fontSize: 11,
+                            color: sel
+                                ? AppColors.blushGold
+                                : AppTheme.petalWhite.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final title = titleCtrl.text.trim();
+                  if (title.isEmpty) return;
+                  await WellnessService().addHabit(
+                    Habit(
+                      id: '',
+                      title: title,
+                      category: cat,
+                      createdBy: auth.currentUser ?? 'unknown',
+                      createdAt: DateTime.now(),
+                    ),
+                  );
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.deepRose,
+                ),
+                child: const Text('Add', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -129,34 +222,125 @@ class _WellnessScreenState extends State<WellnessScreen> {
     WorkoutCategory cat = WorkoutCategory.other;
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(builder: (ctx, setDlg) {
-        return AlertDialog(
-          backgroundColor: AppTheme.velvet,
-          title: Text('Log Workout 💪', style: AppTypography.cormorantBold.copyWith(color: AppTheme.petalWhite)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: titleCtrl, style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite), decoration: InputDecoration(hintText: 'e.g., Evening run • Yoga', hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.4)), filled: true, fillColor: AppColors.twilight, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
-              const SizedBox(height: 12),
-              Row(children: [Expanded(child: TextField(controller: durationCtrl, keyboardType: TextInputType.number, style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite), decoration: InputDecoration(labelText: 'Minutes', labelStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.6)), filled: true, fillColor: AppColors.twilight, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)))), const SizedBox(width: 12), Expanded(child: Container(padding: const EdgeInsets.symmetric(horizontal: 10), decoration: BoxDecoration(color: AppColors.twilight, borderRadius: BorderRadius.circular(12)), child: DropdownButton<WorkoutCategory>(value: cat, isExpanded: true, dropdownColor: AppColors.twilight, underline: const SizedBox(), style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 12), items: WorkoutCategory.values.map((c) => DropdownMenuItem(value: c, child: Text(c.name))).toList(), onChanged: (v) => setDlg(() => cat = v!))))]),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () async {
-                final title = titleCtrl.text.trim();
-                if (title.isEmpty) return;
-                final mins = int.tryParse(durationCtrl.text.trim()) ?? 30;
-                await WellnessService().addWorkout(Workout(id: '', title: title, category: cat, durationMinutes: mins, createdBy: auth.currentUser ?? 'unknown', date: DateTime.now()));
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.deepRose),
-              child: const Text('Log', style: TextStyle(color: Colors.white)),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) {
+          return AlertDialog(
+            backgroundColor: AppTheme.velvet,
+            title: Text(
+              'Log Workout 💪',
+              style: AppTypography.cormorantBold.copyWith(
+                color: AppTheme.petalWhite,
+              ),
             ),
-          ],
-        );
-      }),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleCtrl,
+                  style: AppTypography.outfitWhite.copyWith(
+                    color: AppTheme.petalWhite,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'e.g., Evening run • Yoga',
+                    hintStyle: AppTypography.outfitWhite.copyWith(
+                      color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                    ),
+                    filled: true,
+                    fillColor: AppColors.twilight,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: durationCtrl,
+                        keyboardType: TextInputType.number,
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: AppTheme.petalWhite,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: 'Minutes',
+                          labelStyle: AppTypography.outfitWhite.copyWith(
+                            color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                          ),
+                          filled: true,
+                          fillColor: AppColors.twilight,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.twilight,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: DropdownButton<WorkoutCategory>(
+                          value: cat,
+                          isExpanded: true,
+                          dropdownColor: AppColors.twilight,
+                          underline: const SizedBox(),
+                          style: AppTypography.outfitWhite.copyWith(
+                            color: AppTheme.petalWhite,
+                            fontSize: 12,
+                          ),
+                          items: WorkoutCategory.values
+                              .map(
+                                (c) => DropdownMenuItem(
+                                  value: c,
+                                  child: Text(c.name),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (v) => setDlg(() => cat = v!),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final title = titleCtrl.text.trim();
+                  if (title.isEmpty) return;
+                  final mins = int.tryParse(durationCtrl.text.trim()) ?? 30;
+                  await WellnessService().addWorkout(
+                    Workout(
+                      id: '',
+                      title: title,
+                      category: cat,
+                      durationMinutes: mins,
+                      createdBy: auth.currentUser ?? 'unknown',
+                      date: DateTime.now(),
+                    ),
+                  );
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.deepRose,
+                ),
+                child: const Text('Log', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
@@ -172,8 +356,22 @@ class _HabitsTab extends StatelessWidget {
       stream: service.watchHabits(),
       builder: (context, snap) {
         final habits = snap.data ?? [];
-        if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: AppColors.deepRose, strokeWidth: 2));
-        if (habits.isEmpty) return EverglowEmptyState(icon: Icons.check_circle_outline_rounded, title: 'No habits yet', subtitle: 'Create a shared habit — Habitica style streaks', ctaLabel: null);
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(
+              color: AppColors.deepRose,
+              strokeWidth: 2,
+            ),
+          );
+        }
+        if (habits.isEmpty) {
+          return const EverglowEmptyState(
+            icon: Icons.check_circle_outline_rounded,
+            title: 'No habits yet',
+            subtitle: 'Create a shared habit — Habitica style streaks',
+            ctaLabel: null,
+          );
+        }
         return ListView.builder(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
           itemCount: habits.length,
@@ -181,18 +379,45 @@ class _HabitsTab extends StatelessWidget {
             final h = habits[idx];
             final doneToday = h.isCompletedToday;
             return Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity), borderRadius: BorderRadius.circular(14), border: Border.all(color: doneToday ? AppColors.success.withValues(alpha: 0.3) : AppColors.border)),
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.panelGlass,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: doneToday
+                      ? AppColors.success.withValues(alpha: 0.22)
+                      : AppColors.moonlight.withValues(alpha: 0.08),
+                ),
+              ),
               child: Row(
                 children: [
                   GestureDetector(
-                    onTap: () => service.toggleCompleteToday(h.id, auth.currentUser ?? ''),
+                    onTap: () => service.toggleCompleteToday(
+                      h.id,
+                      auth.currentUser ?? '',
+                    ),
                     child: Container(
                       width: 36,
                       height: 36,
-                      decoration: BoxDecoration(color: doneToday ? AppColors.success : AppColors.twilight, shape: BoxShape.circle, border: Border.all(color: doneToday ? AppColors.success : AppColors.border)),
-                      child: Icon(doneToday ? Icons.check_rounded : Icons.circle_outlined, size: 18, color: doneToday ? Colors.white : AppTheme.petalWhite.withValues(alpha: 0.6)),
+                      decoration: BoxDecoration(
+                        color: doneToday
+                            ? AppColors.success
+                            : AppColors.twilight,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: doneToday
+                              ? AppColors.success
+                              : AppColors.border,
+                        ),
+                      ),
+                      child: Icon(
+                        doneToday ? Icons.check_rounded : Icons.circle_outlined,
+                        size: 18,
+                        color: doneToday
+                            ? Colors.white
+                            : AppTheme.petalWhite.withValues(alpha: 0.6),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -200,13 +425,76 @@ class _HabitsTab extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(h.title, style: AppTypography.outfitBold.copyWith(fontSize: 13, color: AppTheme.petalWhite, decoration: doneToday ? TextDecoration.lineThrough : null)),
+                        Text(
+                          h.title,
+                          style: AppTypography.outfitBold.copyWith(
+                            fontSize: 13,
+                            color: AppTheme.petalWhite,
+                            decoration: doneToday
+                                ? TextDecoration.lineThrough
+                                : null,
+                          ),
+                        ),
                         const SizedBox(height: 4),
-                        Row(children: [Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: AppColors.auroraLilac.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)), child: Text(h.category.name, style: AppTypography.outfitWhite.copyWith(fontSize: 10, color: AppColors.auroraLilac))), const SizedBox(width: 6), Icon(Icons.local_fire_department_rounded, size: 12, color: AppColors.warmAmber), const SizedBox(width: 3), Text('${h.streak} day streak', style: AppTypography.outfitWhite.copyWith(fontSize: 10, color: AppColors.warmAmber, fontWeight: FontWeight.bold)), const SizedBox(width: 6), Text('best ${h.longestStreak}', style: AppTypography.outfitWhite.copyWith(fontSize: 10, color: AppTheme.petalWhite.withValues(alpha: 0.5)))]),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.auroraLilac.withValues(
+                                  alpha: 0.12,
+                                ),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                h.category.name,
+                                style: AppTypography.outfitWhite.copyWith(
+                                  fontSize: 10,
+                                  color: AppColors.auroraLilac,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            const Icon(
+                              Icons.local_fire_department_rounded,
+                              size: 12,
+                              color: AppColors.warmAmber,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              '${h.streak} day streak',
+                              style: AppTypography.outfitWhite.copyWith(
+                                fontSize: 10,
+                                color: AppColors.warmAmber,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'best ${h.longestStreak}',
+                              style: AppTypography.outfitWhite.copyWith(
+                                fontSize: 10,
+                                color: AppTheme.petalWhite.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
-                  IconButton(onPressed: () => service.deleteHabit(h.id), icon: Icon(Icons.delete_outline_rounded, size: 16, color: AppTheme.petalWhite.withValues(alpha: 0.4))),
+                  IconButton(
+                    onPressed: () => service.deleteHabit(h.id),
+                    icon: Icon(
+                      Icons.delete_outline_rounded,
+                      size: 16,
+                      color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                    ),
+                  ),
                 ],
               ),
             );
@@ -228,32 +516,81 @@ class _WorkoutsTab extends StatelessWidget {
       stream: service.watchWorkouts(),
       builder: (context, snap) {
         final workouts = snap.data ?? [];
-        if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: AppColors.deepRose, strokeWidth: 2));
-        if (workouts.isEmpty) return EverglowEmptyState(icon: Icons.fitness_center_rounded, title: 'No workouts yet', subtitle: 'Log a wger-style workout together', ctaLabel: null);
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(
+              color: AppColors.deepRose,
+              strokeWidth: 2,
+            ),
+          );
+        }
+        if (workouts.isEmpty) {
+          return const EverglowEmptyState(
+            icon: Icons.fitness_center_rounded,
+            title: 'No workouts yet',
+            subtitle: 'Log a wger-style workout together',
+            ctaLabel: null,
+          );
+        }
         return ListView.builder(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
           itemCount: workouts.length,
           itemBuilder: (context, idx) {
             final w = workouts[idx];
             return Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity), borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.panelGlass,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.border),
+              ),
               child: Row(
                 children: [
-                  Container(width: 40, height: 40, decoration: BoxDecoration(color: AppColors.auroraTeal.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)), child: Icon(_workoutIcon(w.category), size: 18, color: AppColors.auroraTeal)),
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppColors.auroraTeal.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      _workoutIcon(w.category),
+                      size: 18,
+                      color: AppColors.auroraTeal,
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(w.title, style: AppTypography.outfitBold.copyWith(fontSize: 13, color: AppTheme.petalWhite)),
+                        Text(
+                          w.title,
+                          style: AppTypography.outfitBold.copyWith(
+                            fontSize: 13,
+                            color: AppTheme.petalWhite,
+                          ),
+                        ),
                         const SizedBox(height: 3),
-                        Text('${w.durationMinutes} min • ${w.category.name} • ${w.date.month}/${w.date.day} • by ${w.createdBy}', style: AppTypography.outfitWhite.copyWith(fontSize: 10, color: AppTheme.petalWhite.withValues(alpha: 0.6))),
+                        Text(
+                          '${w.durationMinutes} min • ${w.category.name} • ${w.date.month}/${w.date.day} • by ${w.createdBy}',
+                          style: AppTypography.outfitWhite.copyWith(
+                            fontSize: 10,
+                            color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  IconButton(onPressed: () => service.deleteWorkout(w.id), icon: Icon(Icons.delete_outline_rounded, size: 16, color: AppTheme.petalWhite.withValues(alpha: 0.4))),
+                  IconButton(
+                    onPressed: () => service.deleteWorkout(w.id),
+                    icon: Icon(
+                      Icons.delete_outline_rounded,
+                      size: 16,
+                      color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                    ),
+                  ),
                 ],
               ),
             );
@@ -290,18 +627,67 @@ class _InsightsTab extends StatelessWidget {
         FutureBuilder<Map<String, int>>(
           future: wellness.getWeeklyStreaks(),
           builder: (context, snap) {
-            final data = snap.data ?? {'total': 0, 'completedToday': 0, 'avgStreak': 0};
+            final data =
+                snap.data ?? {'total': 0, 'completedToday': 0, 'avgStreak': 0};
             return Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity), borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.blushGold.withValues(alpha: 0.12))),
+              decoration: BoxDecoration(
+                color: AppColors.panelGlass,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppColors.blushGold.withValues(alpha: 0.12),
+                ),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(children: [Icon(Icons.insights_rounded, size: 16, color: AppColors.blushGold), const SizedBox(width: 8), Text('Weekly Insight', style: AppTypography.outfitBold.copyWith(fontSize: 13, color: AppTheme.petalWhite))]),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.insights_rounded,
+                        size: 16,
+                        color: AppColors.blushGold,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Weekly Insight',
+                        style: AppTypography.outfitBold.copyWith(
+                          fontSize: 13,
+                          color: AppTheme.petalWhite,
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
-                  Row(children: [_buildStat('${data['completedToday']}/${data['total']}', 'done today', AppColors.success), _buildDivider(), _buildStat('${data['avgStreak']}', 'avg streak', AppColors.warmAmber), _buildDivider(), _buildStat('${data['total']}', 'habits', AppColors.auroraLilac)]),
+                  Row(
+                    children: [
+                      _buildStat(
+                        '${data['completedToday']}/${data['total']}',
+                        'done today',
+                        AppColors.success,
+                      ),
+                      _buildDivider(),
+                      _buildStat(
+                        '${data['avgStreak']}',
+                        'avg streak',
+                        AppColors.warmAmber,
+                      ),
+                      _buildDivider(),
+                      _buildStat(
+                        '${data['total']}',
+                        'habits',
+                        AppColors.auroraLilac,
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
-                  Text('Habitica gamifies consistency — keep your streaks together!', style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: AppTheme.petalWhite.withValues(alpha: 0.6))),
+                  Text(
+                    'Habitica gamifies consistency — keep your streaks together!',
+                    style: AppTypography.outfitWhite.copyWith(
+                      fontSize: 11,
+                      color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                    ),
+                  ),
                 ],
               ),
             );
@@ -310,20 +696,61 @@ class _InsightsTab extends StatelessWidget {
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: AppColors.twilight, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+          decoration: BoxDecoration(
+            color: AppColors.twilight,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(children: [Icon(Icons.mood_rounded, size: 16, color: AppColors.auroraLilac), const SizedBox(width: 8), Text('Mood × Wellness', style: AppTypography.outfitBold.copyWith(fontSize: 12, color: AppTheme.petalWhite))]),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.mood_rounded,
+                    size: 16,
+                    color: AppColors.auroraLilac,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Mood × Wellness',
+                    style: AppTypography.outfitBold.copyWith(
+                      fontSize: 12,
+                      color: AppTheme.petalWhite,
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 8),
-              Text('Link your heartbeat moods to workouts — coming soon: correlate moodScore vs activity. Data from moods collection (last 7 days).', style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: AppTheme.petalWhite.withValues(alpha: 0.6), height: 1.4)),
+              Text(
+                'Link your heartbeat moods to workouts — coming soon: correlate moodScore vs activity. Data from moods collection (last 7 days).',
+                style: AppTypography.outfitWhite.copyWith(
+                  fontSize: 11,
+                  color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                  height: 1.4,
+                ),
+              ),
               const SizedBox(height: 10),
               StreamBuilder(
                 stream: moods.watchLatestMood('khentsgdz'),
                 builder: (context, snap) {
                   final mood = snap.data;
-                  if (mood == null) return Text('No mood data yet', style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: AppTheme.petalWhite.withValues(alpha: 0.5)));
-                  return Text('Khent latest: ${mood.moodEmoji} ${mood.moodScore}/5 • ${mood.timestamp.month}/${mood.timestamp.day}', style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: AppColors.auroraLilac));
+                  if (mood == null) {
+                    return Text(
+                      'No mood data yet',
+                      style: AppTypography.outfitWhite.copyWith(
+                        fontSize: 11,
+                        color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                      ),
+                    );
+                  }
+                  return Text(
+                    'Khent latest: ${mood.moodEmoji} ${mood.moodScore}/5 • ${mood.timestamp.month}/${mood.timestamp.day}',
+                    style: AppTypography.outfitWhite.copyWith(
+                      fontSize: 11,
+                      color: AppColors.auroraLilac,
+                    ),
+                  );
                 },
               ),
             ],
@@ -333,7 +760,29 @@ class _InsightsTab extends StatelessWidget {
     );
   }
 
-  Widget _buildStat(String value, String label, Color hue) => Expanded(child: Column(children: [Text(value, style: AppTypography.outfitBold.copyWith(fontSize: 16, color: hue)), const SizedBox(height: 2), Text(label, style: AppTypography.outfitWhite.copyWith(fontSize: 10, color: AppTheme.petalWhite.withValues(alpha: 0.6)))]));
+  Widget _buildStat(String value, String label, Color hue) => Expanded(
+    child: Column(
+      children: [
+        Text(
+          value,
+          style: AppTypography.outfitBold.copyWith(fontSize: 16, color: hue),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: AppTypography.outfitWhite.copyWith(
+            fontSize: 10,
+            color: AppTheme.petalWhite.withValues(alpha: 0.6),
+          ),
+        ),
+      ],
+    ),
+  );
 
-  Widget _buildDivider() => Container(width: 1, height: 30, margin: const EdgeInsets.symmetric(horizontal: 8), color: AppColors.border);
+  Widget _buildDivider() => Container(
+    width: 1,
+    height: 30,
+    margin: const EdgeInsets.symmetric(horizontal: 8),
+    color: AppColors.border,
+  );
 }

@@ -42,7 +42,9 @@ class LovedTrack {
     final date = json['date'];
     if (date is Map) {
       final uts = int.tryParse(date['uts']?.toString() ?? '');
-      if (uts != null) lovedAt = DateTime.fromMillisecondsSinceEpoch(uts * 1000);
+      if (uts != null) {
+        lovedAt = DateTime.fromMillisecondsSinceEpoch(uts * 1000);
+      }
     }
     return LovedTrack(
       trackName: name,

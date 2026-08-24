@@ -17,10 +17,10 @@ class GardenProvider extends ChangeNotifier {
 
   void updateUserId(String? userId) {
     if (_userId == userId) return;
-    
+
     _subscription?.cancel();
     _userId = userId;
-    
+
     if (_userId != null && _userId!.isNotEmpty) {
       _subscription = _service.watchStats(_userId!).listen((newStats) {
         _stats = newStats;
@@ -40,7 +40,9 @@ class GardenProvider extends ChangeNotifier {
     _partnerUid = partnerUid;
 
     if (_partnerUid != null && _partnerUid!.isNotEmpty) {
-      _partnerSubscription = _service.watchPartnerStats(_partnerUid!).listen((newStats) {
+      _partnerSubscription = _service.watchPartnerStats(_partnerUid!).listen((
+        newStats,
+      ) {
         _partnerStats = newStats;
         notifyListeners();
       });

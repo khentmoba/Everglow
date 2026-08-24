@@ -29,7 +29,8 @@ class TTMultiplayerGameScreen extends StatefulWidget {
 }
 
 class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
-  static const String _gameSrc = 'table_tennis/assets/index.typed.html?v=1&mode=mp';
+  static const String _gameSrc =
+      'table_tennis/assets/index.typed.html?v=1&mode=mp';
 
   late final String _viewType =
       'ttmp-iframe-${DateTime.now().microsecondsSinceEpoch}-${identityHashCode(Object())}';
@@ -210,7 +211,7 @@ class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.screen_rotation_rounded,
                         color: AppTheme.roseQuartz,
                         size: 56,

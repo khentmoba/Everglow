@@ -108,7 +108,7 @@ class _MemoryTriviaScreenState extends State<MemoryTriviaScreen> {
           SafeArea(
             child: Column(
               children: [
-                EverglowFeatureHeader(
+                const EverglowFeatureHeader(
                   title: 'Memory Trivia',
                   subtitle: 'how well do you know your own story?',
                   icon: Icons.quiz_rounded,
@@ -322,8 +322,7 @@ class _ChoiceButton extends StatelessWidget {
                   color: AppColors.error,
                   size: 18,
                 ),
-              if (state == _ChoiceState.correct ||
-                  state == _ChoiceState.wrong)
+              if (state == _ChoiceState.correct || state == _ChoiceState.wrong)
                 const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(

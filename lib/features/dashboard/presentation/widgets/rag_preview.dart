@@ -28,7 +28,9 @@ class RagPreview extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.06),
                 borderRadius: AppRadius.radiusLg,
-                border: Border.all(color: AppColors.auroraLilac.withValues(alpha: 0.18)),
+                border: Border.all(
+                  color: AppColors.auroraLilac.withValues(alpha: 0.18),
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: AppColors.auroraLilac.withValues(alpha: 0.10),
@@ -39,8 +41,11 @@ class RagPreview extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.search_rounded,
-                      size: 16, color: AppColors.auroraLilac.withValues(alpha: 0.85)),
+                  Icon(
+                    Icons.search_rounded,
+                    size: 16,
+                    color: AppColors.auroraLilac.withValues(alpha: 0.85),
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -53,8 +58,10 @@ class RagPreview extends StatelessWidget {
                     ),
                   ),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
@@ -64,20 +71,26 @@ class RagPreview extends StatelessWidget {
                       ),
                       borderRadius: BorderRadius.circular(999),
                       border: Border.all(
-                          color: AppColors.auroraLilac.withValues(alpha: 0.22)),
+                        color: AppColors.auroraLilac.withValues(alpha: 0.22),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.auto_awesome_rounded,
-                            size: 10, color: AppColors.auroraLilac),
+                        const Icon(
+                          Icons.auto_awesome_rounded,
+                          size: 10,
+                          color: AppColors.auroraLilac,
+                        ),
                         const SizedBox(width: 4),
-                        Text('ASK',
-                            style: AppTypography.outfitBold.copyWith(
-                              fontSize: 9,
-                              letterSpacing: 0.7,
-                              color: AppColors.auroraLilac,
-                            )),
+                        Text(
+                          'ASK',
+                          style: AppTypography.outfitBold.copyWith(
+                            fontSize: 9,
+                            letterSpacing: 0.7,
+                            color: AppColors.auroraLilac,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -86,7 +99,7 @@ class RagPreview extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             // Suggestion chips
-            Wrap(
+            const Wrap(
               spacing: 7,
               runSpacing: 7,
               children: [
@@ -123,8 +136,11 @@ class _SuggestionChip extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color hue;
-  const _SuggestionChip(
-      {required this.icon, required this.label, required this.hue});
+  const _SuggestionChip({
+    required this.icon,
+    required this.label,
+    required this.hue,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -140,12 +156,14 @@ class _SuggestionChip extends StatelessWidget {
         children: [
           Icon(icon, size: 11, color: hue),
           const SizedBox(width: 5),
-          Text(label,
-              style: AppTypography.outfitWhite.copyWith(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: AppColors.petalWhite.withValues(alpha: 0.78),
-              )),
+          Text(
+            label,
+            style: AppTypography.outfitWhite.copyWith(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: AppColors.petalWhite.withValues(alpha: 0.78),
+            ),
+          ),
         ],
       ),
     );

@@ -12,28 +12,43 @@ class BucketKanbanBoard extends StatelessWidget {
   final List<BucketItem> items;
   final String currentUsername;
 
-  const BucketKanbanBoard({super.key, required this.items, required this.currentUsername});
+  const BucketKanbanBoard({
+    super.key,
+    required this.items,
+    required this.currentUsername,
+  });
 
   @override
   Widget build(BuildContext context) {
     final byStatus = {
-      for (final s in BucketStatus.values) s: items.where((i) => i.status == s).toList(),
+      for (final s in BucketStatus.values)
+        s: items.where((i) => i.status == s).toList(),
     };
 
     return ListView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      children: BucketStatus.values.map((status) => _buildColumn(context, status, byStatus[status] ?? [])).toList(),
+      children: BucketStatus.values
+          .map(
+            (status) => _buildColumn(context, status, byStatus[status] ?? []),
+          )
+          .toList(),
     );
   }
 
-  Widget _buildColumn(BuildContext context, BucketStatus status, List<BucketItem> colItems) {
+  Widget _buildColumn(
+    BuildContext context,
+    BucketStatus status,
+    List<BucketItem> colItems,
+  ) {
     // Sort by priority rank desc, then dueDate asc, then createdAt desc.
     final sorted = List<BucketItem>.from(colItems)
       ..sort((a, b) {
         final pr = b.priority.rank.compareTo(a.priority.rank);
         if (pr != 0) return pr;
-        if (a.dueDate != null && b.dueDate != null) return a.dueDate!.compareTo(b.dueDate!);
+        if (a.dueDate != null && b.dueDate != null) {
+          return a.dueDate!.compareTo(b.dueDate!);
+        }
         if (a.dueDate != null) return -1;
         if (b.dueDate != null) return 1;
         return b.createdAt.compareTo(a.createdAt);
@@ -44,28 +59,49 @@ class BucketKanbanBoard extends StatelessWidget {
       width: 300,
       margin: const EdgeInsets.only(right: 12),
       decoration: BoxDecoration(
-        color: AppTheme.velvet.withValues(alpha: 0.6),
+        color: AppColors.panelGlass,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: hue.withValues(alpha: 0.18)),
+        border: Border.all(color: hue.withValues(alpha: 0.14)),
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: hue.withValues(alpha: 0.12),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              color: hue.withValues(alpha: 0.08),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
             ),
             child: Row(
               children: [
                 Text(status.emoji, style: const TextStyle(fontSize: 16)),
                 const SizedBox(width: 8),
-                Text(status.displayName, style: AppTypography.outfitBold.copyWith(fontSize: 13, color: hue)),
+                Text(
+                  status.displayName,
+                  style: AppTypography.outfitBold.copyWith(
+                    fontSize: 13,
+                    color: hue,
+                  ),
+                ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: hue.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(20)),
-                  child: Text('${sorted.length}', style: AppTypography.outfitWhite.copyWith(fontSize: 11, fontWeight: FontWeight.bold, color: hue)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: hue.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${sorted.length}',
+                    style: AppTypography.outfitWhite.copyWith(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: hue,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -76,9 +112,19 @@ class BucketKanbanBoard extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(_statusIcon(status), size: 28, color: hue.withValues(alpha: 0.4)),
+                    Icon(
+                      _statusIcon(status),
+                      size: 28,
+                      color: hue.withValues(alpha: 0.4),
+                    ),
                     const SizedBox(height: 8),
-                    Text('No ${status.displayName.toLowerCase()}', style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.petalWhite.withValues(alpha: 0.5))),
+                    Text(
+                      'No ${status.displayName.toLowerCase()}',
+                      style: AppTypography.outfitWhite.copyWith(
+                        fontSize: 12,
+                        color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -90,7 +136,10 @@ class BucketKanbanBoard extends StatelessWidget {
                 itemCount: sorted.length,
                 itemBuilder: (context, idx) => Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: BucketItemCard(item: sorted[idx], currentUsername: currentUsername),
+                  child: BucketItemCard(
+                    item: sorted[idx],
+                    currentUsername: currentUsername,
+                  ),
                 ),
               ),
             ),
@@ -107,14 +156,27 @@ class BucketKanbanBoard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: AppTheme.moonlight.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.1), style: BorderStyle.solid),
+                    border: Border.all(
+                      color: AppTheme.blushGold.withValues(alpha: 0.1),
+                      style: BorderStyle.solid,
+                    ),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.add_rounded, size: 14, color: AppTheme.petalWhite.withValues(alpha: 0.6)),
+                      Icon(
+                        Icons.add_rounded,
+                        size: 14,
+                        color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                      ),
                       const SizedBox(width: 6),
-                      Text('Add dream', style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: AppTheme.petalWhite.withValues(alpha: 0.6))),
+                      Text(
+                        'Add dream',
+                        style: AppTypography.outfitWhite.copyWith(
+                          fontSize: 11,
+                          color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                        ),
+                      ),
                     ],
                   ),
                 ),

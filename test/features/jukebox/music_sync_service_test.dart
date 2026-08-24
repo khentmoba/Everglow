@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
@@ -42,10 +41,6 @@ Map<String, dynamic> _itunesResult({
 }
 
 void main() {
-  setUp(() {
-    dotenv.loadFromString(envString: 'LASTFM_API_KEY=test-key\n');
-  });
-
   group('MusicSyncService.fetchTrackArtwork', () {
     test('falls back to iTunes when Last.fm has no artwork', () async {
       final requestedTerms = <String>[];
@@ -84,7 +79,12 @@ void main() {
         return _jsonResponse({'resultCount': 0, 'results': []});
       });
 
-      final service = MusicSyncService(client: client);
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
       final artwork = await service.fetchTrackArtwork(
         artist: 'Mat\u00c3\u00a9o',
         track: 'Pinipili',
@@ -115,7 +115,12 @@ void main() {
         });
       });
 
-      final service = MusicSyncService(client: client);
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
       final artwork = await service.fetchTrackArtwork(
         artist: 'Noah Kahan',
         track: 'Stick Season',
@@ -146,7 +151,12 @@ void main() {
         });
       });
 
-      final service = MusicSyncService(client: client);
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
       final artwork = await service.fetchTrackArtwork(
         artist: 'Mateo',
         track: 'Pinipili',
@@ -172,7 +182,12 @@ void main() {
         });
       });
 
-      final service = MusicSyncService(client: client);
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
       final artwork = await service.fetchTrackArtwork(
         artist: 'Someone',
         track: 'Missing Track',
@@ -189,7 +204,12 @@ void main() {
         return _jsonResponse({'resultCount': 0, 'results': []});
       });
 
-      final service = MusicSyncService(client: client);
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
       final artwork = await service.fetchTrackArtwork(
         artist: 'Nobody',
         track: 'Nothing',

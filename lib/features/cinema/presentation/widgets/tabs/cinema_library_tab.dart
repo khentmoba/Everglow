@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../../../../../core/theme/app_breakpoints.dart';
 import '../../../data/models/media_item.dart';
@@ -13,12 +13,18 @@ enum _LibraryFilter { all, watching, toWatch, watched }
 class CinemaLibraryTab extends StatefulWidget {
   final List<MediaItem> watchlist;
   final void Function(MediaItem) onMediaTap;
+  final void Function(MediaItem)? onPlayItem;
+  final void Function(MediaItem, bool add)? onToggleListItem;
+  final void Function(MediaItem, double? rating)? onRateItem;
   final void Function(int) onSwitchTab;
 
   const CinemaLibraryTab({
     super.key,
     required this.watchlist,
     required this.onMediaTap,
+    this.onPlayItem,
+    this.onToggleListItem,
+    this.onRateItem,
     required this.onSwitchTab,
   });
 
@@ -42,12 +48,11 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
     };
   }
 
-  double _progress(MediaItem item) {
-    if (item.mediaType == 'tv') {
-      final ep = item.currentEpisode ?? 1;
-      return ((ep - 1) % 12) / 12;
-    }
-    return 0.12;
+  double? _progress(MediaItem item) {
+    final position = item.currentTimestamp ?? 0;
+    final duration = item.durationSeconds ?? 0;
+    if (position <= 0 || duration <= 0) return null;
+    return (position / duration).clamp(0.0, 1.0);
   }
 
   @override
@@ -73,23 +78,31 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
             isDesktop ? 48 : 16,
             2,
           ),
-          sliver: SliverToBoxAdapter(child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                'My List',
-                style: AppTypography.outfitHeading.copyWith(fontSize: isDesktop ? 22 : 20, color: NetflixColors.textPrimary),
-              ),
-              const SizedBox(width: 10),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 2),
-                child: Text(
-                  '${widget.watchlist.where((i) => !i.isAnime).length} ${widget.watchlist.where((i) => !i.isAnime).length == 1 ? 'title' : 'titles'}',
-                  style: AppTypography.outfitWhite.copyWith(fontSize: 13, color: NetflixColors.textMuted, fontWeight: FontWeight.w500),
+          sliver: SliverToBoxAdapter(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  'My List',
+                  style: AppTypography.outfitHeading.copyWith(
+                    fontSize: isDesktop ? 22 : 20,
+                    color: NetflixColors.textPrimary,
+                  ),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 10),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Text(
+                    '${widget.watchlist.where((i) => !i.isAnime).length} ${widget.watchlist.where((i) => !i.isAnime).length == 1 ? 'title' : 'titles'}',
+                    style: AppTypography.outfitWhite.copyWith(
+                      fontSize: 13,
+                      color: NetflixColors.textMuted,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         SliverPadding(
@@ -99,32 +112,34 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
             isDesktop ? 48 : 16,
             18,
           ),
-          sliver: SliverToBoxAdapter(child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _LibraryPill(
-                label: 'All',
-                selected: _filter == _LibraryFilter.all,
-                onTap: () => setState(() => _filter = _LibraryFilter.all),
-              ),
-              _LibraryPill(
-                label: 'Watching',
-                selected: _filter == _LibraryFilter.watching,
-                onTap: () => setState(() => _filter = _LibraryFilter.watching),
-              ),
-              _LibraryPill(
-                label: 'To Watch',
-                selected: _filter == _LibraryFilter.toWatch,
-                onTap: () => setState(() => _filter = _LibraryFilter.toWatch),
-              ),
-              _LibraryPill(
-                label: 'Watched',
-                selected: _filter == _LibraryFilter.watched,
-                onTap: () => setState(() => _filter = _LibraryFilter.watched),
-              ),
-            ],
-          ),
+          sliver: SliverToBoxAdapter(
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _LibraryPill(
+                  label: 'All',
+                  selected: _filter == _LibraryFilter.all,
+                  onTap: () => setState(() => _filter = _LibraryFilter.all),
+                ),
+                _LibraryPill(
+                  label: 'Watching',
+                  selected: _filter == _LibraryFilter.watching,
+                  onTap: () =>
+                      setState(() => _filter = _LibraryFilter.watching),
+                ),
+                _LibraryPill(
+                  label: 'To Watch',
+                  selected: _filter == _LibraryFilter.toWatch,
+                  onTap: () => setState(() => _filter = _LibraryFilter.toWatch),
+                ),
+                _LibraryPill(
+                  label: 'Watched',
+                  selected: _filter == _LibraryFilter.watched,
+                  onTap: () => setState(() => _filter = _LibraryFilter.watched),
+                ),
+              ],
+            ),
           ),
         ),
         if (visible.isEmpty)
@@ -134,7 +149,10 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
               child: Center(
                 child: Text(
                   'Nothing here yet.',
-                  style: AppTypography.outfitWhite.copyWith(color: NetflixColors.textMuted, fontSize: 14),
+                  style: AppTypography.outfitWhite.copyWith(
+                    color: NetflixColors.textMuted,
+                    fontSize: 14,
+                  ),
                 ),
               ),
             ),
@@ -160,13 +178,16 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
                   selfPreview: true,
                   progress: item.isCurrentlyWatching ? _progress(item) : null,
                   onTap: () => widget.onMediaTap(item),
+                  onPlay: widget.onPlayItem,
+                  onToggleList: widget.onToggleListItem,
+                  onRate: widget.onRateItem,
+                  isInList: (_) => true,
                 );
               },
             ),
           ),
         // Bottom padding
-        SliverToBoxAdapter(
-            child: SizedBox(height: 110)),
+        const SliverToBoxAdapter(child: SizedBox(height: 110)),
       ],
     );
   }
@@ -180,7 +201,7 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
+            const Icon(
               Icons.bookmark_border_rounded,
               color: NetflixColors.textMuted,
               size: 52,
@@ -188,13 +209,20 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
             const SizedBox(height: 18),
             Text(
               'Your list is empty',
-              style: AppTypography.outfitHeading.copyWith(fontSize: isDesktop ? 19 : 17, color: NetflixColors.textPrimary),
+              style: AppTypography.outfitHeading.copyWith(
+                fontSize: isDesktop ? 19 : 17,
+                color: NetflixColors.textPrimary,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
               'Movies and shows you save or watch will appear here.',
               textAlign: TextAlign.center,
-              style: AppTypography.outfitWhite.copyWith(color: NetflixColors.textMuted, fontSize: 13, height: 1.5),
+              style: AppTypography.outfitWhite.copyWith(
+                color: NetflixColors.textMuted,
+                fontSize: 13,
+                height: 1.5,
+              ),
             ),
             const SizedBox(height: 26),
             GestureDetector(
@@ -219,7 +247,10 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
                     const SizedBox(width: 8),
                     Text(
                       'Find Something',
-                      style: AppTypography.outfitHeading.copyWith(color: Colors.black, fontSize: 13.5),
+                      style: AppTypography.outfitHeading.copyWith(
+                        color: Colors.black,
+                        fontSize: 13.5,
+                      ),
                     ),
                   ],
                 ),
@@ -259,7 +290,10 @@ class _LibraryPill extends StatelessWidget {
         ),
         child: Text(
           label,
-          style: AppTypography.outfitHeading.copyWith(color: selected ? Colors.black : NetflixColors.textSecondary, fontSize: 12.5),
+          style: AppTypography.outfitHeading.copyWith(
+            color: selected ? Colors.black : NetflixColors.textSecondary,
+            fontSize: 12.5,
+          ),
         ),
       ),
     );

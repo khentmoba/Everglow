@@ -179,18 +179,22 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-              CompositedTransformTarget(
-                link: _link,
-                child: AnimatedContainer(
+                CompositedTransformTarget(
+                  link: _link,
+                  child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(AnimeXTokens.radiusLg),
+                      borderRadius: BorderRadius.circular(
+                        AnimeXTokens.radiusLg,
+                      ),
                       boxShadow: const [],
                     ),
                     child: AspectRatio(
                       aspectRatio: 2 / 3,
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(AnimeXTokens.radiusLg),
+                        borderRadius: BorderRadius.circular(
+                          AnimeXTokens.radiusLg,
+                        ),
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
@@ -216,7 +220,8 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
                                 children: [
                                   if (episodeCount != null && episodeCount > 0)
                                     AnimeXBadge(
-                                      label: widget.episodeLabel ??
+                                      label:
+                                          widget.episodeLabel ??
                                           (episodeCount >= 100
                                               ? '$episodeCount EP'
                                               : 'EP $episodeCount'),
@@ -234,7 +239,8 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
                                 ],
                               ),
                             ),
-                            if (widget.score != null && widget.hoverAction == null)
+                            if (widget.score != null &&
+                                widget.hoverAction == null)
                               Positioned(
                                 top: 8,
                                 right: 8,
@@ -272,12 +278,12 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
                                       child: LinearProgressIndicator(
                                         value: widget.progress!.clamp(0.0, 1.0),
                                         minHeight: 3,
-                                        backgroundColor:
-                                            Colors.white.withValues(alpha: 0.15),
+                                        backgroundColor: Colors.white
+                                            .withValues(alpha: 0.15),
                                         valueColor:
                                             const AlwaysStoppedAnimation<Color>(
-                                          AnimeXTokens.accent,
-                                        ),
+                                              AnimeXTokens.accent,
+                                            ),
                                       ),
                                     ),
                                   ],
@@ -288,31 +294,31 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
                         ),
                       ),
                     ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                item.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: dmSansStyle(
-                  size: 13,
-                  color: AnimeXTokens.textPrimary,
-                  weight: FontWeight.w600,
-                  height: 1.25,
+                const SizedBox(height: 8),
+                Text(
+                  item.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: dmSansStyle(
+                    size: 13,
+                    color: AnimeXTokens.textPrimary,
+                    weight: FontWeight.w600,
+                    height: 1.25,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                _metaLine(item),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: dmSansStyle(
-                  size: 11.5,
-                  color: AnimeXTokens.textSecondary,
-                  weight: FontWeight.w400,
+                const SizedBox(height: 3),
+                Text(
+                  _metaLine(item),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: dmSansStyle(
+                    size: 11.5,
+                    color: AnimeXTokens.textSecondary,
+                    weight: FontWeight.w400,
+                  ),
                 ),
-              ),
               ],
             ),
           ),
@@ -327,7 +333,7 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
       return Container(
         color: AnimeXTokens.surfaceRaised,
         alignment: Alignment.center,
-        child: Icon(
+        child: const Icon(
           Icons.movie_creation_outlined,
           color: AnimeXTokens.textMuted,
           size: 28,
@@ -356,7 +362,7 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
       errorBuilder: (_, _, _) => Container(
         color: AnimeXTokens.surfaceRaised,
         alignment: Alignment.center,
-        child: Icon(
+        child: const Icon(
           Icons.broken_image_outlined,
           color: AnimeXTokens.textMuted,
           size: 26,
@@ -398,76 +404,76 @@ class _CardPopover extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-          Text(
-            item.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: dmSansStyle(
-              size: 13,
-              color: AnimeXTokens.textPrimary,
-              weight: FontWeight.w700,
-              height: 1.25,
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (score != null) ...[
-            Row(
-              children: [
-                const Icon(
-                  Icons.star_rounded,
-                  color: AnimeXTokens.accentWarm,
-                  size: 15,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  _formatScore(score!),
-                  style: dmSansStyle(
-                    size: 13.5,
-                    color: AnimeXTokens.accentWarm,
-                    weight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-          ],
-          if (item.genres.isNotEmpty) ...[
             Text(
-              item.genres.take(3).join(' · ').toUpperCase(),
-              maxLines: 1,
+              item.title,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: dmSansStyle(
-                size: 10.5,
-                color: AnimeXTokens.textMuted,
-                weight: FontWeight.w600,
-                letterSpacing: 0.06,
+                size: 13,
+                color: AnimeXTokens.textPrimary,
+                weight: FontWeight.w700,
+                height: 1.25,
               ),
             ),
             const SizedBox(height: 8),
-          ],
-          if (item.synopsis.isNotEmpty) ...[
-            Text(
-              item.synopsis,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: interBodyStyle(size: 11.5, height: 1.5),
-            ),
-            const SizedBox(height: 6),
-          ],
-          Container(
-            padding: const EdgeInsets.only(top: 6),
-            decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: AnimeXTokens.border)),
-            ),
-            child: Text(
-              _popoverMeta(),
-              style: dmSansStyle(
-                size: 10.5,
-                color: AnimeXTokens.textMuted,
-                weight: FontWeight.w500,
+            if (score != null) ...[
+              Row(
+                children: [
+                  const Icon(
+                    Icons.star_rounded,
+                    color: AnimeXTokens.accentWarm,
+                    size: 15,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _formatScore(score!),
+                    style: dmSansStyle(
+                      size: 13.5,
+                      color: AnimeXTokens.accentWarm,
+                      weight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+            ],
+            if (item.genres.isNotEmpty) ...[
+              Text(
+                item.genres.take(3).join(' · ').toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: dmSansStyle(
+                  size: 10.5,
+                  color: AnimeXTokens.textMuted,
+                  weight: FontWeight.w600,
+                  letterSpacing: 0.06,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            if (item.synopsis.isNotEmpty) ...[
+              Text(
+                item.synopsis,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: interBodyStyle(size: 11.5, height: 1.5),
+              ),
+              const SizedBox(height: 6),
+            ],
+            Container(
+              padding: const EdgeInsets.only(top: 6),
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: AnimeXTokens.border)),
+              ),
+              child: Text(
+                _popoverMeta(),
+                style: dmSansStyle(
+                  size: 10.5,
+                  color: AnimeXTokens.textMuted,
+                  weight: FontWeight.w500,
+                ),
               ),
             ),
-          ),
           ],
         ),
       ),

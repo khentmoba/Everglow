@@ -7,10 +7,10 @@ void main() {
   final now = DateTime(2026, 8, 13, 12);
 
   Map<String, dynamic> voiceCalling() => {
-        'callerUid': callerUid,
-        'calleeUid': myUid,
-        'state': 'calling',
-      };
+    'callerUid': callerUid,
+    'calleeUid': myUid,
+    'state': 'calling',
+  };
 
   test('shows the banner while the party room is live', () {
     expect(

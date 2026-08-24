@@ -34,8 +34,7 @@ class ReviewsSection extends StatelessWidget {
           final preview = content.length > 300
               ? '${content.substring(0, 300)}…'
               : content;
-          final hasAvatar =
-              (review['avatar'] ?? '').toString().isNotEmpty;
+          final hasAvatar = (review['avatar'] ?? '').toString().isNotEmpty;
 
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
@@ -44,7 +43,8 @@ class ReviewsSection extends StatelessWidget {
               color: AppColors.shimmerBase,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                  color: AppColors.roseQuartz.withValues(alpha: 0.1)),
+                color: AppColors.roseQuartz.withValues(alpha: 0.1),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -59,9 +59,9 @@ class ReviewsSection extends StatelessWidget {
                         shape: BoxShape.circle,
                         color: avatarColor(author).withValues(alpha: 0.2),
                         border: Border.all(
-                            color: avatarColor(author)
-                                .withValues(alpha: 0.4),
-                            width: 1.5),
+                          color: avatarColor(author).withValues(alpha: 0.4),
+                          width: 1.5,
+                        ),
                       ),
                       child: ClipOval(
                         child: hasAvatar
@@ -85,18 +85,26 @@ class ReviewsSection extends StatelessWidget {
                             author,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: AppTypography.outfitHeading.copyWith(fontSize: 13),
+                            style: AppTypography.outfitHeading.copyWith(
+                              fontSize: 13,
+                            ),
                           ),
                           if (rating != null)
                             Row(
                               children: [
-                                const Icon(Icons.star_rounded,
-                                    color: AppColors.warmAmber,
-                                    size: 12),
+                                const Icon(
+                                  Icons.star_rounded,
+                                  color: AppColors.warmAmber,
+                                  size: 12,
+                                ),
                                 const SizedBox(width: 3),
                                 Text(
                                   rating.toString(),
-                                  style: AppTypography.outfitWhite.copyWith(color: AppColors.warmAmber, fontSize: 11, fontWeight: FontWeight.bold),
+                                  style: AppTypography.outfitWhite.copyWith(
+                                    color: AppColors.warmAmber,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ],
                             ),
@@ -108,7 +116,11 @@ class ReviewsSection extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   preview,
-                  style: AppTypography.outfitWhite.copyWith(color: AppColors.petalWhite.withValues(alpha: 0.75), fontSize: 13, height: 1.5),
+                  style: AppTypography.outfitWhite.copyWith(
+                    color: AppColors.petalWhite.withValues(alpha: 0.75),
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
                 ),
               ],
             ),

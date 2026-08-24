@@ -198,8 +198,7 @@ class _ListenSheetState extends State<_ListenSheet> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color:
-                              AppTheme.deepRose.withValues(alpha: 0.4),
+                          color: AppTheme.deepRose.withValues(alpha: 0.4),
                           blurRadius: 16,
                           offset: const Offset(0, 4),
                         ),
@@ -207,9 +206,7 @@ class _ListenSheetState extends State<_ListenSheet> {
                     ),
                     alignment: Alignment.center,
                     child: Icon(
-                      _playing
-                          ? Icons.pause_rounded
-                          : Icons.play_arrow_rounded,
+                      _playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
                       color: Colors.white,
                       size: 28,
                     ),
@@ -229,7 +226,7 @@ class _ListenSheetState extends State<_ListenSheet> {
                       ),
                     ),
                     alignment: Alignment.center,
-                    child: Icon(
+                    child: const Icon(
                       Icons.stop_rounded,
                       color: AppTheme.roseQuartz,
                       size: 20,
@@ -239,7 +236,9 @@ class _ListenSheetState extends State<_ListenSheet> {
                 const SizedBox(width: 14),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.04),
                     borderRadius: BorderRadius.circular(10),
@@ -255,8 +254,11 @@ class _ListenSheetState extends State<_ListenSheet> {
                         color: AppTheme.roseQuartz,
                         fontSize: 12,
                       ),
-                      icon: const Icon(Icons.expand_more_rounded,
-                          color: AppTheme.roseQuartz, size: 16),
+                      icon: const Icon(
+                        Icons.expand_more_rounded,
+                        color: AppTheme.roseQuartz,
+                        size: 16,
+                      ),
                       items: [
                         for (final s in _speeds)
                           DropdownMenuItem(
@@ -281,10 +283,7 @@ class _ListenSheetState extends State<_ListenSheet> {
               ],
             ),
           ),
-          const Divider(
-            color: Color(0x22FFFFFF),
-            height: 1,
-          ),
+          const Divider(color: Color(0x22FFFFFF), height: 1),
           Expanded(
             child: SingleChildScrollView(
               controller: _scroll,
@@ -332,4 +331,3 @@ class _ListenSheetState extends State<_ListenSheet> {
     );
   }
 }
-

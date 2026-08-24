@@ -104,22 +104,13 @@ class _BooksScreenState extends _BooksScreenStateBase {
         ),
         slivers: [
           SliverToBoxAdapter(
-            child: StaggeredEntrance(
-              index: 0,
-              child: _buildTopHeader(),
-            ),
+            child: StaggeredEntrance(index: 0, child: _buildTopHeader()),
           ),
           SliverToBoxAdapter(
-            child: StaggeredEntrance(
-              index: 1,
-              child: _buildHomeSearch(),
-            ),
+            child: StaggeredEntrance(index: 1, child: _buildHomeSearch()),
           ),
           SliverToBoxAdapter(
-            child: StaggeredEntrance(
-              index: 2,
-              child: _buildHeroBanner(),
-            ),
+            child: StaggeredEntrance(index: 2, child: _buildHeroBanner()),
           ),
           if (_readHistoryList.isNotEmpty) ...[
             SliverToBoxAdapter(
@@ -130,10 +121,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
             ),
           ],
           SliverToBoxAdapter(
-            child: StaggeredEntrance(
-              index: 4,
-              child: _buildTrendingRankings(),
-            ),
+            child: StaggeredEntrance(index: 4, child: _buildTrendingRankings()),
           ),
           ..._buildSubjectRows(),
           const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
@@ -142,7 +130,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
     );
   }
 
-    Widget _buildContinueReading() {
+  Widget _buildContinueReading() {
     return _ContinueReadingRail(
       items: _readHistoryList,
       onOpen: _showBookDetails,
@@ -171,7 +159,11 @@ class _BooksScreenState extends _BooksScreenStateBase {
             children: [
               Text(
                 'OUR BOOKS',
-                style: AppTypography.cormorantBlack.copyWith(fontSize: 20, letterSpacing: 4, color: _cWhite),
+                style: AppTypography.cormorantBlack.copyWith(
+                  fontSize: 20,
+                  letterSpacing: 4,
+                  color: _cWhite,
+                ),
               ),
               const SizedBox(height: 2),
               Row(
@@ -194,7 +186,11 @@ class _BooksScreenState extends _BooksScreenStateBase {
                   const SizedBox(width: 6),
                   Text(
                     'BY EVERGLOW',
-                    style: AppTypography.outfitBold.copyWith(fontSize: 9, color: _cMuted, letterSpacing: 2.5),
+                    style: AppTypography.outfitBold.copyWith(
+                      fontSize: 9,
+                      color: _cMuted,
+                      letterSpacing: 2.5,
+                    ),
                   ),
                   const SizedBox(width: 6),
                   Container(
@@ -259,8 +255,11 @@ class _BooksScreenState extends _BooksScreenStateBase {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
-              const Icon(Icons.travel_explore_rounded,
-                  color: _cDeepRose, size: 20),
+              const Icon(
+                Icons.travel_explore_rounded,
+                color: _cDeepRose,
+                size: 20,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -272,8 +271,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: _cDeepRose.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
@@ -314,8 +312,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
                 builder: (context, child) {
                   double scale = 1.0;
                   if (_carouselController.position.haveDimensions) {
-                    final diff =
-                        (_carouselController.page! - index).abs();
+                    final diff = (_carouselController.page! - index).abs();
                     scale = (1 - (diff * 0.06)).clamp(0.92, 1.0);
                   } else {
                     scale = index == _carouselPage ? 1.0 : 0.94;
@@ -339,16 +336,14 @@ class _BooksScreenState extends _BooksScreenStateBase {
               width: isActive ? 22 : 5,
               height: 5,
               decoration: BoxDecoration(
-                color: isActive
-                    ? _cDeepRose
-                    : _cMuted.withValues(alpha: 0.35),
+                color: isActive ? _cDeepRose : _cMuted.withValues(alpha: 0.35),
                 borderRadius: BorderRadius.circular(3),
                 boxShadow: isActive
                     ? [
                         BoxShadow(
                           color: _cDeepRose.withValues(alpha: 0.6),
                           blurRadius: 8,
-                        )
+                        ),
                       ]
                     : null,
               ),
@@ -386,11 +381,12 @@ class _BooksScreenState extends _BooksScreenStateBase {
               fit: StackFit.expand,
               children: [
                 item.coverUrl.isNotEmpty
-                    ? Image.network(item.coverUrl,
+                    ? Image.network(
+                        item.coverUrl,
                         fit: BoxFit.cover,
                         cacheWidth: 800,
-                        errorBuilder: (_, _, _) =>
-                            Container(color: _cCard))
+                        errorBuilder: (_, _, _) => Container(color: _cCard),
+                      )
                     : Container(color: _cCard),
                 Container(
                   decoration: BoxDecoration(
@@ -418,7 +414,9 @@ class _BooksScreenState extends _BooksScreenStateBase {
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: _cDeepRose,
                               borderRadius: BorderRadius.circular(20),
@@ -434,7 +432,12 @@ class _BooksScreenState extends _BooksScreenStateBase {
                                 const SizedBox(width: 4),
                                 Text(
                                   '#${index + 1} TRENDING',
-                                  style: AppTypography.outfitWhite.copyWith(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1),
+                                  style: AppTypography.outfitWhite.copyWith(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1,
+                                  ),
                                 ),
                               ],
                             ),
@@ -446,12 +449,17 @@ class _BooksScreenState extends _BooksScreenStateBase {
                         item.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: AppTypography.cormorantBlack.copyWith(fontSize: 26, height: 1.1, shadows: [
+                        style: AppTypography.cormorantBlack.copyWith(
+                          fontSize: 26,
+                          height: 1.1,
+                          shadows: [
                             Shadow(
                               color: Colors.black.withValues(alpha: 0.6),
                               blurRadius: 12,
                             ),
-                          ], color: _cWhite),
+                          ],
+                          color: _cWhite,
+                        ),
                       ),
                       if (item.author.isNotEmpty) ...[
                         const SizedBox(height: 4),
@@ -459,7 +467,11 @@ class _BooksScreenState extends _BooksScreenStateBase {
                           'by ${item.author}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppTypography.outfitWhite.copyWith(color: _cWhite.withValues(alpha: 0.85), fontSize: 13, fontStyle: FontStyle.italic),
+                          style: AppTypography.outfitWhite.copyWith(
+                            color: _cWhite.withValues(alpha: 0.85),
+                            fontSize: 13,
+                            fontStyle: FontStyle.italic,
+                          ),
                         ),
                       ],
                       const SizedBox(height: 6),
@@ -468,14 +480,16 @@ class _BooksScreenState extends _BooksScreenStateBase {
                           if (item.year.isNotEmpty) ...[
                             Text(
                               item.year,
-                              style: AppTypography.outfitBold.copyWith(color: _cGold, fontSize: 12),
+                              style: AppTypography.outfitBold.copyWith(
+                                color: _cGold,
+                                fontSize: 12,
+                              ),
                             ),
                             Container(
-                              margin: const EdgeInsets.symmetric(
-                                  horizontal: 8),
+                              margin: const EdgeInsets.symmetric(horizontal: 8),
                               width: 3,
                               height: 3,
-                              decoration: BoxDecoration(
+                              decoration: const BoxDecoration(
                                 color: _cMuted,
                                 shape: BoxShape.circle,
                               ),
@@ -483,7 +497,10 @@ class _BooksScreenState extends _BooksScreenStateBase {
                           ],
                           Text(
                             'Tap to explore',
-                            style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 12),
+                            style: AppTypography.outfitWhite.copyWith(
+                              color: _cMuted,
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
@@ -545,7 +562,10 @@ class _BooksScreenState extends _BooksScreenStateBase {
   /// Returns a responsive list height proportional to the viewport,
   /// clamped so the list never collapses on mobile or blows out on
   /// ultrawide displays.
-  static double _responsiveListHeight(BuildContext context, {required double fallback}) {
+  static double _responsiveListHeight(
+    BuildContext context, {
+    required double fallback,
+  }) {
     final viewH = MediaQuery.sizeOf(context).height;
     return (viewH * 0.42).clamp(fallback * 0.6, fallback * 1.35);
   }
@@ -570,8 +590,13 @@ class _BooksScreenState extends _BooksScreenStateBase {
         SliverToBoxAdapter(
           child: StaggeredEntrance(
             index: i,
-            child: _buildSection(name, 'Books', items,
-                accentColor: color, icon: icon),
+            child: _buildSection(
+              name,
+              'Books',
+              items,
+              accentColor: color,
+              icon: icon,
+            ),
           ),
         ),
       );
@@ -645,7 +670,11 @@ class _BooksScreenState extends _BooksScreenStateBase {
       children: [
         Container(
           padding: EdgeInsets.fromLTRB(
-              20, MediaQuery.paddingOf(context).top + 14, 20, 0),
+            20,
+            MediaQuery.paddingOf(context).top + 14,
+            20,
+            0,
+          ),
           child: Row(
             children: [
               ShelfIconButton(
@@ -661,11 +690,18 @@ class _BooksScreenState extends _BooksScreenStateBase {
                   children: [
                     Text(
                       'Search',
-                      style: AppTypography.cormorantExtraBold.copyWith(fontSize: 26, color: _cWhite),
+                      style: AppTypography.cormorantExtraBold.copyWith(
+                        fontSize: 26,
+                        color: _cWhite,
+                      ),
                     ),
                     Text(
                       'FIND YOUR NEXT OBSESSION',
-                      style: AppTypography.outfitHeading.copyWith(fontSize: 9, color: _cMuted, letterSpacing: 2.0),
+                      style: AppTypography.outfitHeading.copyWith(
+                        fontSize: 9,
+                        color: _cMuted,
+                        letterSpacing: 2.0,
+                      ),
                     ),
                   ],
                 ),
@@ -693,19 +729,29 @@ class _BooksScreenState extends _BooksScreenStateBase {
               controller: _searchController,
               focusNode: _searchFocusNode,
               onChanged: _onSearchChanged,
-              style: AppTypography.outfitWhite.copyWith(color: _cWhite, fontSize: 15),
+              style: AppTypography.outfitWhite.copyWith(
+                color: _cWhite,
+                fontSize: 15,
+              ),
               decoration: InputDecoration(
                 hintText: 'Title, author, subject...',
-                hintStyle:
-                    AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 15),
-                prefixIcon: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Icon(Icons.search_rounded,
-                      color: _cDeepRose, size: 22),
+                hintStyle: AppTypography.outfitWhite.copyWith(
+                  color: _cMuted,
+                  fontSize: 15,
+                ),
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.all(14),
+                  child: Icon(
+                    Icons.search_rounded,
+                    color: _cDeepRose,
+                    size: 22,
+                  ),
                 ),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 0, vertical: 16),
+                  horizontal: 0,
+                  vertical: 16,
+                ),
               ),
             ),
           ),
@@ -774,9 +820,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
     );
   }
 
-
-
-    Widget _buildResultRow(BookSearchResult result) {
+  Widget _buildResultRow(BookSearchResult result) {
     final book = result.toBookItem();
     return _BookResultRow(
       result: result,
@@ -801,11 +845,6 @@ class _BooksScreenState extends _BooksScreenStateBase {
     );
   }
 
-
-
-
-
-
   // ── READLIST TABS ──────────────────────────────────────────────────
 
   Color _readBadgeColor(String status) {
@@ -828,7 +867,11 @@ class _BooksScreenState extends _BooksScreenStateBase {
       children: [
         Container(
           padding: EdgeInsets.fromLTRB(
-              20, MediaQuery.paddingOf(context).top + 14, 20, 0),
+            20,
+            MediaQuery.paddingOf(context).top + 14,
+            20,
+            0,
+          ),
           child: Row(
             children: [
               ShelfIconButton(
@@ -844,27 +887,39 @@ class _BooksScreenState extends _BooksScreenStateBase {
                   children: [
                     Text(
                       isReadTab ? 'Read' : 'To Read',
-                      style: AppTypography.cormorantExtraBold.copyWith(fontSize: 26, color: _cWhite),
+                      style: AppTypography.cormorantExtraBold.copyWith(
+                        fontSize: 26,
+                        color: _cWhite,
+                      ),
                     ),
                     Text(
                       isReadTab ? 'OUR LIBRARY' : 'THE BOOKSHELF',
-                      style: AppTypography.outfitHeading.copyWith(fontSize: 9, color: _cMuted, letterSpacing: 2.0),
+                      style: AppTypography.outfitHeading.copyWith(
+                        fontSize: 9,
+                        color: _cMuted,
+                        letterSpacing: 2.0,
+                      ),
                     ),
                   ],
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: _cDeepRose.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                      color: _cDeepRose.withValues(alpha: 0.3)),
+                  border: Border.all(color: _cDeepRose.withValues(alpha: 0.3)),
                 ),
                 child: Text(
                   '${list.length}',
-                  style: AppTypography.outfitWhite.copyWith(color: _cDeepRose, fontWeight: FontWeight.w800, fontSize: 14),
+                  style: AppTypography.outfitWhite.copyWith(
+                    color: _cDeepRose,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
                 ),
               ),
             ],
@@ -888,8 +943,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
               : GridView.builder(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
                   physics: const BouncingScrollPhysics(),
-                  gridDelegate:
-                      SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: AppBreakpoint.isDesktop(context)
                         ? 6
                         : (AppBreakpoint.isTablet(context) ? 4 : 2),
@@ -933,7 +987,11 @@ class _BooksScreenState extends _BooksScreenStateBase {
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.fromLTRB(
-                20, MediaQuery.paddingOf(context).top + 14, 20, 20),
+              20,
+              MediaQuery.paddingOf(context).top + 14,
+              20,
+              20,
+            ),
             child: const ShimmerBox(height: 40, width: 160, radius: 8),
           ),
         ),

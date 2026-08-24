@@ -36,9 +36,8 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
   BookItem _mapDocToBookItem(Map<String, dynamic> doc) {
     final workKey = (doc['key'] as String?) ?? '';
     final title = (doc['title'] as String?) ?? 'Untitled';
-    final authorList = (doc['author_name'] as List?)
-            ?.map((e) => e.toString())
-            .toList() ??
+    final authorList =
+        (doc['author_name'] as List?)?.map((e) => e.toString()).toList() ??
         const <String>[];
     final author = authorList.isNotEmpty ? authorList.first : '';
 
@@ -48,11 +47,13 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
     final firstYear = (doc['first_publish_year'] as num?)?.toInt();
     final year = firstYear != null ? firstYear.toString() : '';
 
-    final iaIds = (doc['ia'] as List?)?.map((e) => e.toString()).toList() ??
+    final iaIds =
+        (doc['ia'] as List?)?.map((e) => e.toString()).toList() ??
         const <String>[];
     final iaId = iaIds.isNotEmpty ? iaIds.first : '';
 
-    final subjects = (doc['subject'] as List?)?.take(8).map((e) => e.toString()).toList() ??
+    final subjects =
+        (doc['subject'] as List?)?.take(8).map((e) => e.toString()).toList() ??
         const <String>[];
 
     final readSource = _resolveReadSource(iaId: iaId, workKey: workKey);
@@ -153,17 +154,20 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
     if (query.isEmpty) return [];
 
     final url = Uri.parse(
-        '$_searchBase?q=${Uri.encodeComponent(query)}&limit=20');
+      '$_searchBase?q=${Uri.encodeComponent(query)}&limit=20',
+    );
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List docs = data['docs'] ?? [];
         return docs
-            .where((d) =>
-                (d['title'] as String?)?.isNotEmpty == true &&
-                ((d['key'] as String?)?.isNotEmpty == true ||
-                    ((d['ia'] as List?)?.isNotEmpty == true)))
+            .where(
+              (d) =>
+                  (d['title'] as String?)?.isNotEmpty == true &&
+                  ((d['key'] as String?)?.isNotEmpty == true ||
+                      ((d['ia'] as List?)?.isNotEmpty == true)),
+            )
             .map((d) => _mapDocToBookItem(d as Map<String, dynamic>))
             .toList();
       } else {
@@ -185,15 +189,20 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
 
   /// Curated subject discovery row. Used for the "Romance",
   /// "Mystery" etc. carousel rows on the home tab.
-  Future<List<BookItem>> discoverBySubject(String subject,
-      {int limit = 12}) async {
+  Future<List<BookItem>> discoverBySubject(
+    String subject, {
+    int limit = 12,
+  }) async {
     return _subjectSearch(subject, limit: limit);
   }
 
-  Future<List<BookItem>> _subjectSearch(String subject,
-      {int limit = 12}) async {
+  Future<List<BookItem>> _subjectSearch(
+    String subject, {
+    int limit = 12,
+  }) async {
     final url = Uri.parse(
-        '$_searchBase?subject=${Uri.encodeComponent(subject)}&limit=$limit&sort=trending');
+      '$_searchBase?subject=${Uri.encodeComponent(subject)}&limit=$limit&sort=trending',
+    );
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -232,7 +241,8 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
   Future<List<Map<String, dynamic>>> fetchEditions(String workKey) async {
     if (workKey.isEmpty) return [];
     final url = Uri.parse(
-        'https://openlibrary.org$workKey/editions.json?limit=10');
+      'https://openlibrary.org$workKey/editions.json?limit=10',
+    );
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -248,7 +258,11 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
 
   // ── READ LIST PERSISTENCE ──────────────────────────────────────────
 
-  Future<void> saveToReadList(BookItem item, String status, String userName) async {
+  Future<void> saveToReadList(
+    BookItem item,
+    String status,
+    String userName,
+  ) async {
     if (userName.isEmpty) {
       Logger.w('saveToReadList: userName is empty');
       return;
@@ -267,9 +281,15 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
           'addedAt': Timestamp.now(),
         });
       } else {
-        await collection.add(item
-            .copyWith(status: status, userName: userName, addedAt: DateTime.now())
-            .toFirestore());
+        await collection.add(
+          item
+              .copyWith(
+                status: status,
+                userName: userName,
+                addedAt: DateTime.now(),
+              )
+              .toFirestore(),
+        );
       }
       Logger.i('Saved to read_list: ${item.title} ($userName)');
     } catch (e) {
@@ -301,13 +321,14 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
           .where('userName', isEqualTo: userName)
           .snapshots()
           .map((snapshot) {
-        final items = snapshot.docs
-            .map((doc) => BookItem.fromFirestore(doc.data(), doc.id))
-            .toList()
-          ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
-        cacheReadList(items, userName);
-        return items;
-      }),
+            final items =
+                snapshot.docs
+                    .map((doc) => BookItem.fromFirestore(doc.data(), doc.id))
+                    .toList()
+                  ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
+            cacheReadList(items, userName);
+            return items;
+          }),
       label: 'read-list-$userName',
     );
   }
@@ -318,21 +339,23 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
     try {
       final prefs = await SharedPreferences.getInstance();
       final listJson = items
-          .map((item) => {
-                'id': item.id,
-                'workKey': item.workKey,
-                'editionKey': item.editionKey,
-                'iaId': item.iaId,
-                'title': item.title,
-                'author': item.author,
-                'coverUrl': item.coverUrl,
-                'year': item.year,
-                'pageCount': item.pageCount,
-                'subjects': item.subjects,
-                'status': item.status,
-                'userName': item.userName,
-                'addedAt': item.addedAt.toIso8601String(),
-              })
+          .map(
+            (item) => {
+              'id': item.id,
+              'workKey': item.workKey,
+              'editionKey': item.editionKey,
+              'iaId': item.iaId,
+              'title': item.title,
+              'author': item.author,
+              'coverUrl': item.coverUrl,
+              'year': item.year,
+              'pageCount': item.pageCount,
+              'subjects': item.subjects,
+              'status': item.status,
+              'userName': item.userName,
+              'addedAt': item.addedAt.toIso8601String(),
+            },
+          )
           .toList();
       await prefs.setString(_cacheKey(userName), json.encode(listJson));
     } catch (e) {
@@ -347,25 +370,28 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
       if (raw != null) {
         final List decoded = json.decode(raw);
         return decoded
-            .map((data) => BookItem(
-                  id: data['id'] ?? '',
-                  workKey: data['workKey'] ?? '',
-                  editionKey: data['editionKey'] ?? '',
-                  iaId: data['iaId'] ?? '',
-                  title: data['title'] ?? '',
-                  author: data['author'] ?? '',
-                  coverUrl: data['coverUrl'] ?? '',
-                  year: data['year'] ?? '',
-                  pageCount: (data['pageCount'] as num?)?.toInt() ?? 0,
-                  subjects: (data['subjects'] as List?)
-                          ?.map((e) => e.toString())
-                          .toList() ??
-                      const <String>[],
-                  status: data['status'] ?? 'to-read',
-                  userName: data['userName'] ?? userName,
-                  addedAt:
-                      DateTime.tryParse(data['addedAt'] ?? '') ?? DateTime.now(),
-                ))
+            .map(
+              (data) => BookItem(
+                id: data['id'] ?? '',
+                workKey: data['workKey'] ?? '',
+                editionKey: data['editionKey'] ?? '',
+                iaId: data['iaId'] ?? '',
+                title: data['title'] ?? '',
+                author: data['author'] ?? '',
+                coverUrl: data['coverUrl'] ?? '',
+                year: data['year'] ?? '',
+                pageCount: (data['pageCount'] as num?)?.toInt() ?? 0,
+                subjects:
+                    (data['subjects'] as List?)
+                        ?.map((e) => e.toString())
+                        .toList() ??
+                    const <String>[],
+                status: data['status'] ?? 'to-read',
+                userName: data['userName'] ?? userName,
+                addedAt:
+                    DateTime.tryParse(data['addedAt'] ?? '') ?? DateTime.now(),
+              ),
+            )
             .toList();
       }
     } catch (e) {
@@ -402,8 +428,7 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
   /// points at the local Functions emulator instead.
   static const String _proxyUrl = String.fromEnvironment(
     'BOOK_PROXY_URL',
-    defaultValue:
-        'https://everglow-1c6db.web.app/api/proxyBookText',
+    defaultValue: 'https://everglow-1c6db.web.app/api/proxyBookText',
   );
 
   static const bool _useFunctionsEmulator = bool.fromEnvironment(
@@ -425,7 +450,8 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
   /// Function proxy. The function fetches each URL server-side so
   /// Flutter web is never blocked by CORS.
   Future<FetchResult> fetchBookTextFromCandidates(
-      List<String> candidates) async {
+    List<String> candidates,
+  ) async {
     if (candidates.isEmpty) {
       return FetchResult.empty('No read source URLs available.');
     }
@@ -446,9 +472,8 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
         final data = json.decode(response.body) as Map<String, dynamic>;
         final text = data['text'] as String? ?? '';
         final usedUrl = data['usedUrl'] as String? ?? '';
-        final attempted = (data['attempted'] as List?)
-                ?.map((e) => e.toString())
-                .toList() ??
+        final attempted =
+            (data['attempted'] as List?)?.map((e) => e.toString()).toList() ??
             candidates;
         final error = data['error'] as String?;
         if (text.isNotEmpty) {
@@ -458,8 +483,7 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
             attempted: attempted,
           );
         }
-        return FetchResult.empty(
-            error ?? 'Proxy returned empty response.');
+        return FetchResult.empty(error ?? 'Proxy returned empty response.');
       }
     } catch (e) {
       Logger.e('fetchBookTextFromCandidates proxy error', error: e);
@@ -470,10 +494,7 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
       final url = candidates[i];
       try {
         final response = await http
-            .get(
-              Uri.parse(url),
-              headers: const {'Accept': 'text/plain'},
-            )
+            .get(Uri.parse(url), headers: const {'Accept': 'text/plain'})
             .timeout(const Duration(seconds: 20));
         final body = response.body;
         if (response.statusCode == 200 &&
@@ -490,7 +511,8 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
       }
     }
     return FetchResult.empty(
-        'Tried ${candidates.length} source(s); none responded with readable text.');
+      'Tried ${candidates.length} source(s); none responded with readable text.',
+    );
   }
 
   /// Build the full ordered list of read source URLs for a book.
@@ -509,7 +531,9 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
       sources.add(stored);
     }
     for (final url in _resolveReadSources(
-        iaId: item.iaId, workKey: item.workKey)) {
+      iaId: item.iaId,
+      workKey: item.workKey,
+    )) {
       if (!sources.contains(url)) sources.add(url);
     }
     return sources;
@@ -548,12 +572,8 @@ class FetchResult {
     this.error,
   });
 
-  factory FetchResult.empty(String error) => FetchResult(
-        text: '',
-        usedUrl: '',
-        attempted: const [],
-        error: error,
-      );
+  factory FetchResult.empty(String error) =>
+      FetchResult(text: '', usedUrl: '', attempted: const [], error: error);
 
   bool get isSuccess => text.isNotEmpty;
 }

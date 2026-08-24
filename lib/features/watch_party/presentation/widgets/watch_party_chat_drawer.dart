@@ -141,7 +141,9 @@ class _WatchPartyChatDrawerState extends State<WatchPartyChatDrawer> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final isWide = constraints.maxWidth >= 720;
-                final drawerWidth = isWide ? 340.0 : constraints.maxWidth * 0.92;
+                final drawerWidth = isWide
+                    ? 340.0
+                    : constraints.maxWidth * 0.92;
                 return FadeInRight(
                   duration: const Duration(milliseconds: 220),
                   child: Material(
@@ -208,8 +210,11 @@ class _WatchPartyChatDrawerState extends State<WatchPartyChatDrawer> {
       ),
       child: Row(
         children: [
-          Icon(Icons.chat_bubble_outline_rounded,
-              color: AppTheme.roseQuartz, size: 18),
+          const Icon(
+            Icons.chat_bubble_outline_rounded,
+            color: AppTheme.roseQuartz,
+            size: 18,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -222,14 +227,19 @@ class _WatchPartyChatDrawerState extends State<WatchPartyChatDrawer> {
                 ),
                 Text(
                   'Saved in this room',
-                  style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.55), fontSize: 10),
+                  style: AppTypography.outfitWhite.copyWith(
+                    color: AppTheme.roseQuartz.withValues(alpha: 0.55),
+                    fontSize: 10,
+                  ),
                 ),
               ],
             ),
           ),
           IconButton(
-            icon: Icon(Icons.close_rounded,
-                color: AppTheme.roseQuartz.withValues(alpha: 0.7)),
+            icon: Icon(
+              Icons.close_rounded,
+              color: AppTheme.roseQuartz.withValues(alpha: 0.7),
+            ),
             onPressed: _toggleOpen,
             tooltip: 'Close chat',
           ),
@@ -263,7 +273,10 @@ class _WatchPartyChatDrawerState extends State<WatchPartyChatDrawer> {
               child: Text(
                 'Chat is unavailable. Check your connection.',
                 textAlign: TextAlign.center,
-                style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.7), fontSize: 12),
+                style: AppTypography.outfitWhite.copyWith(
+                  color: AppTheme.roseQuartz.withValues(alpha: 0.7),
+                  fontSize: 12,
+                ),
               ),
             ),
           );
@@ -287,13 +300,19 @@ class _WatchPartyChatDrawerState extends State<WatchPartyChatDrawer> {
                   Text(
                     'Chat is empty',
                     textAlign: TextAlign.center,
-                    style: AppTypography.cormorantHeading.copyWith(color: AppTheme.roseQuartz, fontSize: 18),
+                    style: AppTypography.cormorantHeading.copyWith(
+                      color: AppTheme.roseQuartz,
+                      fontSize: 18,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Say hi to keep the vibes going',
                     textAlign: TextAlign.center,
-                    style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.55), fontSize: 11),
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: AppTheme.roseQuartz.withValues(alpha: 0.55),
+                      fontSize: 11,
+                    ),
                   ),
                 ],
               ),
@@ -354,7 +373,10 @@ class _WatchPartyChatDrawerState extends State<WatchPartyChatDrawer> {
               padding: const EdgeInsets.only(bottom: 6, left: 4, right: 4),
               child: Text(
                 _sendError!,
-                style: AppTypography.outfitWhite.copyWith(color: Colors.redAccent, fontSize: 10),
+                style: AppTypography.outfitWhite.copyWith(
+                  color: Colors.redAccent,
+                  fontSize: 10,
+                ),
               ),
             ),
           Row(
@@ -371,14 +393,20 @@ class _WatchPartyChatDrawerState extends State<WatchPartyChatDrawer> {
                   ),
                   child: TextField(
                     controller: _inputController,
-                    style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 13),
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: AppTheme.petalWhite,
+                      fontSize: 13,
+                    ),
                     minLines: 1,
                     maxLines: 3,
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) => _send(),
                     decoration: InputDecoration(
                       hintText: 'Type a message…',
-                      hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.65), fontSize: 13),
+                      hintStyle: AppTypography.outfitWhite.copyWith(
+                        color: AppTheme.petalWhite.withValues(alpha: 0.65),
+                        fontSize: 13,
+                      ),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 14,
@@ -428,12 +456,18 @@ class _WatchPartyChatDrawerState extends State<WatchPartyChatDrawer> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.chat_bubble_rounded,
-                color: AppTheme.roseQuartz, size: 14),
+            const Icon(
+              Icons.chat_bubble_rounded,
+              color: AppTheme.roseQuartz,
+              size: 14,
+            ),
             const SizedBox(width: 6),
             Text(
               'Chat',
-              style: AppTypography.outfitHeading.copyWith(color: AppTheme.roseQuartz, fontSize: 11),
+              style: AppTypography.outfitHeading.copyWith(
+                color: AppTheme.roseQuartz,
+                fontSize: 11,
+              ),
             ),
           ],
         ),

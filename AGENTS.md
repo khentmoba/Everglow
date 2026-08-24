@@ -27,8 +27,7 @@ lib/
   main.dart                  # Entry point, bootstrap, app shell
   core/
     audio/                   # Sound effects (just_audio)
-    config/env_config.dart   # EnvConfig — reads from dotenv or compile-time env, hardcoded fallbacks
-    constants/api_keys.dart  # TMDB / OpenLibrary API keys
+    config/env_config.dart   # EnvConfig — dotenv / --dart-define values; secret fallbacks are debug-builds only
     di/                      # Composition root (appProviders) + app shell (AppRoot)
     models/                  # Shared models (PresenceStatus)
     router/app_router.dart   # GoRouter composition root; feature routes live under each feature
@@ -43,16 +42,27 @@ lib/
     academy/                 # Trivia game — 8 categories, solo study, 1v1 matches
     ai/                      # AI assistant (Groq API via SSE streaming), conversation repo, memory repo
     books/                   # Open Library discovery + in-app reader + shared "Our Books" list
+    bucket_list/             # Shared bucket list kanban (todo / doing / done)
+    budget/                  # Couple finances - transactions, monthly budgets, expense split
+    calendar/                # Shared calendar events + date polls (Rallly-style voting)
     canvas/                  # Collaborative drawing (real-time Firestore sync)
     chat/                    # "Sanctuary" private couple chat (Firestore real-time)
     cinema/                  # Movie/anime watchlist — TMDB API, multi-provider video, trailers, episode drawer
+    cookbook/                # Shared recipe collection
     daily_bloom/             # Virtual garden that grows with daily visits
     date_randomizer/         # Date idea generator (1000+ ideas, shake gesture)
-    jukebox/                 # Last.fm music sync, listen-along
+    gallery/                 # Photo gallery with map view + "this week" memories
+    jellyfin/                # Jellyfin media server integration + party downloads
+    journal/                 # Shared journal with locked/private entries and tags
+    jukebox/                 # Last.fm music sync, listen-along, music insights
     manga/                   # Manga library — MangaDex, Bato, Comick, Mangakakalot, Mangasee123
     play_zone/               # Games hub + Table Tennis (WebGL + Firestore multiplayer)
     starlight_jar/           # Gratitude notes jar
+    travel/                  # Shared trips — itinerary pins, atlas map view, reorderable stops
+    vault/                   # Private file vault (Firebase Storage)
     watch_party/             # Watch party with WebRTC voice chat (ac-relay signaling server)
+    wellness/                # Habits + workout tracking with streaks
+    wiki/                    # Shared worldbuilding/wiki pages
     xp/                      # XP/leveling system
   shared/
     utils/text_utils.dart    # stripMarkdown, extractTitles
@@ -84,7 +94,8 @@ ac-relay/server.js           # WebRTC signaling server for watch-party voice cha
 
 ## Notes
 
-- **Secrets:** never commit real credentials, passcodes, or API keys. `assets/env.txt` is local-only and is **not** bundled into web builds; `deploy.ps1` and CI pass its values to `flutter` as `--dart-define` flags. See `.env.example`.
+- **Secrets:** never commit real credentials, passcodes, or API keys. `assets/env.txt` is local-only and is **not** bundled into web builds; only public client values are passed to Flutter. See `.env.example`.
+- **Media credentials:** TMDB and Last.fm API keys are server-only. Flutter Web calls the authenticated `proxyTmdb` / `proxyLastfm` Cloud Functions; do not reintroduce these keys as client `--dart-define`s.
 - **Security rules:** `firestore.rules` blocks anonymous users, requires a known `/users/{uid}` profile, and limits couple-only collections (chat, gallery, notes, cinema, canvas, garden, AI memories, etc.) to Khent and Clair. Every Cloud Function proxy requires a valid Firebase ID token.
 - Do **not** read or expose `assets/env.txt` — it contains secrets (API keys, emails, passwords).
 - Firebase emulators config is in `firebase.json` — ports 9099–9499.

@@ -132,8 +132,7 @@ class _CinemaTopNavState extends State<_CinemaTopNav> {
                 tooltip: 'Dashboard',
                 onTap: widget.onBackToDashboard!,
               ),
-            if (widget.onBackToDashboard != null)
-              const SizedBox(width: 8),
+            if (widget.onBackToDashboard != null) const SizedBox(width: 8),
 
             // Logo icon (red play button) + brand text
             Container(
@@ -177,7 +176,10 @@ class _CinemaTopNavState extends State<_CinemaTopNav> {
                   const SizedBox(width: 10),
                   Text(
                     widget.logoText,
-                    style: AppTypography.cormorantExtraBold.copyWith(fontSize: isDesktop ? 22 : 18, letterSpacing: 0.5),
+                    style: AppTypography.cormorantExtraBold.copyWith(
+                      fontSize: isDesktop ? 22 : 18,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ],
               ),
@@ -265,8 +267,8 @@ class _NavLinkState extends State<_NavLink> {
               color: widget.isActive
                   ? AppTheme.deepRose.withValues(alpha: 0.12)
                   : (_hovered
-                      ? AppTheme.petalWhite.withValues(alpha: 0.05)
-                      : Colors.transparent),
+                        ? AppTheme.petalWhite.withValues(alpha: 0.05)
+                        : Colors.transparent),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -284,8 +286,9 @@ class _NavLinkState extends State<_NavLink> {
                   widget.label,
                   style: AppTypography.outfitWhite.copyWith(
                     fontSize: 14,
-                    fontWeight:
-                        widget.isActive ? FontWeight.w700 : FontWeight.w500,
+                    fontWeight: widget.isActive
+                        ? FontWeight.w700
+                        : FontWeight.w500,
                     color: widget.isActive
                         ? AppTheme.petalWhite
                         : AppColors.textMuted,
@@ -295,8 +298,10 @@ class _NavLinkState extends State<_NavLink> {
                 if (widget.badge != null) ...[
                   const SizedBox(width: 6),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: AppTheme.deepRose.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(6),
@@ -355,9 +360,7 @@ class _ActionIconButtonState extends State<_ActionIconButton> {
       onShowHoverHighlight: (show) => setState(() => _hovered = show),
       child: Tooltip(
         message: widget.tooltip,
-        textStyle: AppTypography.outfitBold.copyWith(
-          fontSize: 11,
-        ),
+        textStyle: AppTypography.outfitBold.copyWith(fontSize: 11),
         decoration: BoxDecoration(
           color: AppTheme.velvet,
           borderRadius: BorderRadius.circular(8),
@@ -414,9 +417,7 @@ class _CinemaBottomNav extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1C1228),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: AppTheme.roseQuartz.withValues(alpha: 0.1),
-        ),
+        border: Border.all(color: AppTheme.roseQuartz.withValues(alpha: 0.1)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.5),
@@ -519,26 +520,26 @@ class _BottomNavItem extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   label,
-                  style: AppTypography.outfitHeading.copyWith(
-                    fontSize: 11,
-                  ),
+                  style: AppTypography.outfitHeading.copyWith(fontSize: 11),
                 ),
               ],
               if (badge != null && isActive) ...[
                 const SizedBox(width: 4),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 1,
+                  ),
                   decoration: BoxDecoration(
                     color: AppTheme.deepRose,
                     borderRadius: BorderRadius.circular(4),
                   ),
-                    child: Text(
-                      badge!,
-                      style: AppTypography.outfitHeading.copyWith(
-                        fontSize: 8,
-                        fontWeight: FontWeight.w800,
-                      ),
+                  child: Text(
+                    badge!,
+                    style: AppTypography.outfitHeading.copyWith(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ],

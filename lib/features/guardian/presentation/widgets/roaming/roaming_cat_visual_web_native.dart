@@ -55,7 +55,7 @@ class RoamingCat3DView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Transform.scale(
       scale: frame.scale * (0.92 + frame.breath * 0.06),
-      child: IgnorePointer(
+      child: const IgnorePointer(
         child: ClipOval(
           child: ModelViewer(
             src: 'assets/models/chibi_cat.glb',

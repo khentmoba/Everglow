@@ -125,7 +125,9 @@ class MetricCard extends StatelessWidget {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.auroraRose.withValues(alpha: 0.6),
+                              color: AppColors.auroraRose.withValues(
+                                alpha: 0.6,
+                              ),
                               blurRadius: 8,
                             ),
                           ],
@@ -160,10 +162,11 @@ class MetricCard extends StatelessWidget {
                           letterSpacing: -1.2,
                           shadows: [
                             BoxShadow(
-                              color: (pulse
-                                      ? AppColors.auroraRose
-                                      : AppColors.auroraGold)
-                                  .withValues(alpha: 0.45),
+                              color:
+                                  (pulse
+                                          ? AppColors.auroraRose
+                                          : AppColors.auroraGold)
+                                      .withValues(alpha: 0.45),
                               blurRadius: 16,
                             ),
                           ],

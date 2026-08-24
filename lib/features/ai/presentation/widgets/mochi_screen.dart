@@ -208,8 +208,10 @@ class _MochiScreenState extends State<MochiScreen> {
     }
   }
 
-  Future<String> _resizeImageToDataUri(Uint8List bytes,
-      {int maxDim = 1280}) async {
+  Future<String> _resizeImageToDataUri(
+    Uint8List bytes, {
+    int maxDim = 1280,
+  }) async {
     return _webBridge.resizeImageToDataUri(bytes, maxDim: maxDim);
   }
 
@@ -254,10 +256,10 @@ class _MochiScreenState extends State<MochiScreen> {
       backgroundColor: AppColors.inkDeep,
       body: Stack(
         children: [
-          Positioned.fill(
+          const Positioned.fill(
             child: EverglowBackground(
               baseColor: AppColors.inkDeep,
-              glows: const [
+              glows: [
                 RadialGlow(
                   color: AppColors.auroraLilac,
                   alignment: Alignment(-0.7, -0.9),
@@ -319,8 +321,13 @@ class _MochiScreenState extends State<MochiScreen> {
                       Selector<AIService, bool>(
                         selector: (_, ai) => ai.isLoading,
                         builder: (context, loading, _) {
-                          if (loading || _isSending) return const SizedBox.shrink();
-                          return _QuickReplyChips(onSelect: _sendQuick, centered: true);
+                          if (loading || _isSending) {
+                            return const SizedBox.shrink();
+                          }
+                          return _QuickReplyChips(
+                            onSelect: _sendQuick,
+                            centered: true,
+                          );
                         },
                       ),
                       _ErrorBanner(
@@ -353,10 +360,10 @@ class _MochiScreenState extends State<MochiScreen> {
       backgroundColor: AppColors.twilight,
       body: Stack(
         children: [
-          Positioned.fill(
+          const Positioned.fill(
             child: EverglowBackground(
               baseColor: AppColors.inkDeep,
-              glows: const [
+              glows: [
                 RadialGlow(
                   color: AppColors.auroraLilac,
                   alignment: Alignment(-0.7, -0.9),
@@ -397,7 +404,10 @@ class _MochiScreenState extends State<MochiScreen> {
                   selector: (_, ai) => ai.isLoading,
                   builder: (context, loading, _) {
                     if (loading || _isSending) return const SizedBox.shrink();
-                    return _QuickReplyChips(onSelect: _sendQuick, centered: false);
+                    return _QuickReplyChips(
+                      onSelect: _sendQuick,
+                      centered: false,
+                    );
                   },
                 ),
                 _ErrorBanner(
@@ -458,7 +468,9 @@ class _MochiScreenState extends State<MochiScreen> {
                 if (i == allMsgs.length) {
                   return Center(
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: centered ? 760 : double.infinity),
+                      constraints: BoxConstraints(
+                        maxWidth: centered ? 760 : double.infinity,
+                      ),
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: ValueListenableBuilder<int>(
@@ -479,7 +491,9 @@ class _MochiScreenState extends State<MochiScreen> {
                                 toolStatus: ai.toolStatus,
                               );
                             }
-                            return _ThinkingIndicator(toolStatus: ai.toolStatus);
+                            return _ThinkingIndicator(
+                              toolStatus: ai.toolStatus,
+                            );
                           },
                         ),
                       ),
@@ -488,7 +502,9 @@ class _MochiScreenState extends State<MochiScreen> {
                 }
                 final msg = allMsgs[i];
                 final bubble = _MessageBubble(
-                  key: ValueKey('msg_${msg.timestamp.millisecondsSinceEpoch}_$i'),
+                  key: ValueKey(
+                    'msg_${msg.timestamp.millisecondsSinceEpoch}_$i',
+                  ),
                   text: msg.content,
                   isUser: msg.role == 'user',
                   timestamp: msg.timestamp,
@@ -499,7 +515,9 @@ class _MochiScreenState extends State<MochiScreen> {
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 760),
                     child: Align(
-                      alignment: msg.role == 'user' ? Alignment.centerRight : Alignment.centerLeft,
+                      alignment: msg.role == 'user'
+                          ? Alignment.centerRight
+                          : Alignment.centerLeft,
                       child: bubble,
                     ),
                   ),
@@ -509,7 +527,9 @@ class _MochiScreenState extends State<MochiScreen> {
 
             if (centered) {
               return ScrollConfiguration(
-                behavior: ScrollConfiguration.of(context).copyWith(scrollbars: true),
+                behavior: ScrollConfiguration.of(
+                  context,
+                ).copyWith(scrollbars: true),
                 child: Scrollbar(
                   controller: _scroll,
                   thumbVisibility: false,
@@ -532,9 +552,12 @@ class _MochiScreenState extends State<MochiScreen> {
                 child: GestureDetector(
                   onTap: () => _scrollToBottom(),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 7,
+                    ),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceGlass,
+                      color: AppColors.panelGlass,
                       borderRadius: AppRadius.radiusFull,
                       border: Border.all(color: AppColors.border),
                       boxShadow: [

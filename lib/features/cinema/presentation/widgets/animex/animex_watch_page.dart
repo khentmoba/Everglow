@@ -72,9 +72,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   @override
   void initState() {
     super.initState();
-    final resume = context
-        .read<AnimexStores>()
-        .findHistory('animex-${_anilistId ?? _malId}');
+    final resume = context.read<AnimexStores>().findHistory(
+      'animex-${_anilistId ?? _malId}',
+    );
     _selectedEpisode = resume?.episode ?? _item.currentEpisode ?? 1;
     _load();
   }
@@ -104,8 +104,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       _detail = detail;
       _episodes = _buildEpisodeList(detail);
       if (_episodes.isNotEmpty) {
-        _selectedEpisode =
-            _selectedEpisode.clamp(1, _episodes.length).toInt();
+        _selectedEpisode = _selectedEpisode.clamp(1, _episodes.length).toInt();
       }
       _servers = nextServers;
       if (firstAvailable != -1 &&
@@ -390,9 +389,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                         : Image.network(
                             _item.posterUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Container(
-                              color: AnimeXTokens.surfaceRaised,
-                            ),
+                            errorBuilder: (_, _, _) =>
+                                Container(color: AnimeXTokens.surfaceRaised),
                           ),
                   ),
                 ),
@@ -415,8 +413,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          if (detail != null)
-                            statusBadge(detail.airingStatus),
+                          if (detail != null) statusBadge(detail.airingStatus),
                           if (detail != null && detail.format.isNotEmpty)
                             AnimeXBadge(
                               label: detail.format,
@@ -486,12 +483,14 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
 
   Widget _buildPlayerSection(BuildContext context) {
     final episodes = _episodes;
-    final resume = context
-        .watch<AnimexStores>()
-        .findHistory('animex-${_anilistId ?? _malId}');
+    final resume = context.watch<AnimexStores>().findHistory(
+      'animex-${_anilistId ?? _malId}',
+    );
     final resumeEpisode = resume?.episode;
-    final pageCount =
-        (episodes.length / _episodesPerPage).ceil().clamp(1, 1 << 31);
+    final pageCount = (episodes.length / _episodesPerPage).ceil().clamp(
+      1,
+      1 << 31,
+    );
     final pageEpisodes = episodes
         .skip((_episodePage - 1) * _episodesPerPage)
         .take(_episodesPerPage)
@@ -577,8 +576,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                   ),
                 ),
                 const Spacer(),
-                if (resumeEpisode != null &&
-                    resumeEpisode != _selectedEpisode)
+                if (resumeEpisode != null && resumeEpisode != _selectedEpisode)
                   GestureDetector(
                     onTap: () => _selectEpisode(resumeEpisode),
                     child: Container(
@@ -809,7 +807,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                 ),
                 _InfoItem(
                   label: 'Duration',
-                  value: detail.duration != null ? '${detail.duration} min' : '—',
+                  value: detail.duration != null
+                      ? '${detail.duration} min'
+                      : '—',
                 ),
                 _InfoItem(
                   label: 'Genres',
@@ -827,20 +827,22 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
 
   Widget _buildRelations(BuildContext context) {
     final relations = _detail!.relations
-        .map((r) => MediaItem(
-              id: '',
-              tmdbId: r.malId ?? 0,
-              title: r.title,
-              mediaType: 'tv',
-              posterPath: r.coverImageUrl,
-              year: '',
-              status: '',
-              isAnime: true,
-              addedAt: DateTime.now(),
-              source: 'jikan',
-              anilistId: r.id,
-              format: r.format,
-            ))
+        .map(
+          (r) => MediaItem(
+            id: '',
+            tmdbId: r.malId ?? 0,
+            title: r.title,
+            mediaType: 'tv',
+            posterPath: r.coverImageUrl,
+            year: '',
+            status: '',
+            isAnime: true,
+            addedAt: DateTime.now(),
+            source: 'jikan',
+            anilistId: r.id,
+            format: r.format,
+          ),
+        )
         .toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -862,19 +864,21 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
 
   Widget _buildRecommendations(BuildContext context) {
     final recs = _detail!.recommendations
-        .map((r) => MediaItem(
-              id: '',
-              tmdbId: r.malId ?? 0,
-              title: r.title,
-              mediaType: 'tv',
-              posterPath: r.coverImageUrl,
-              year: '',
-              status: '',
-              isAnime: true,
-              addedAt: DateTime.now(),
-              source: 'jikan',
-              anilistId: r.id,
-            ))
+        .map(
+          (r) => MediaItem(
+            id: '',
+            tmdbId: r.malId ?? 0,
+            title: r.title,
+            mediaType: 'tv',
+            posterPath: r.coverImageUrl,
+            year: '',
+            status: '',
+            isAnime: true,
+            addedAt: DateTime.now(),
+            source: 'jikan',
+            anilistId: r.id,
+          ),
+        )
         .toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -911,6 +915,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     if (width >= 640) return 4;
     return 2;
   }
+
   void _showShareSheet(BuildContext context) {
     final japanese = context.read<AnimexStores>().titleJapanese;
     final title = _titleFor(japanese);
@@ -985,7 +990,10 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                   ),
                 ),
                 onTap: () {
-                  launchUrl(Uri.parse(link), mode: LaunchMode.externalApplication);
+                  launchUrl(
+                    Uri.parse(link),
+                    mode: LaunchMode.externalApplication,
+                  );
                   Navigator.pop(sheetContext);
                 },
               ),
@@ -996,9 +1004,3 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     );
   }
 }
-
-
-
-
-
-

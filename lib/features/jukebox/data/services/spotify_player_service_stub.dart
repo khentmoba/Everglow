@@ -3,8 +3,7 @@ import 'spotify_auth_service.dart';
 
 /// Stub for VM / test environments where Web Playback SDK is unavailable.
 class SpotifyPlayerService extends ChangeNotifier {
-  final SpotifyAuthService _auth;
-  SpotifyPlayerService(this._auth);
+  SpotifyPlayerService(SpotifyAuthService auth);
 
   bool get isReady => false;
   bool get isConnected => false;

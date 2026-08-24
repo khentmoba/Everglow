@@ -76,26 +76,36 @@ class SpotifyAuthService extends ChangeNotifier {
         notifyListeners();
         return;
       }
-      _sub = _firestore.collection('spotify_tokens').doc(user.uid).snapshots().listen((doc) {
-        final data = doc.data();
-        final was = _linked;
-        final wasId = _spotifyUserId;
-        _linked = doc.exists && data != null && (data['access_token'] != null);
-        _spotifyUserId = data?['spotify_user_id'] as String?;
-        _displayName = data?['spotify_display_name'] as String?;
-        if (was != _linked || wasId != _spotifyUserId) notifyListeners();
-      }, onError: (_) {});
+      _sub = _firestore
+          .collection('spotify_tokens')
+          .doc(user.uid)
+          .snapshots()
+          .listen((doc) {
+            final data = doc.data();
+            final was = _linked;
+            final wasId = _spotifyUserId;
+            _linked =
+                doc.exists && data != null && (data['access_token'] != null);
+            _spotifyUserId = data?['spotify_user_id'] as String?;
+            _displayName = data?['spotify_display_name'] as String?;
+            if (was != _linked || wasId != _spotifyUserId) notifyListeners();
+          }, onError: (_) {});
     });
     // Also kick immediately for already-authed case
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null && _sub == null) {
-      _sub = _firestore.collection('spotify_tokens').doc(uid).snapshots().listen((doc) {
-        final data = doc.data();
-        _linked = doc.exists && data != null && (data['access_token'] != null);
-        _spotifyUserId = data?['spotify_user_id'] as String?;
-        _displayName = data?['spotify_display_name'] as String?;
-        notifyListeners();
-      }, onError: (_) {});
+      _sub = _firestore
+          .collection('spotify_tokens')
+          .doc(uid)
+          .snapshots()
+          .listen((doc) {
+            final data = doc.data();
+            _linked =
+                doc.exists && data != null && (data['access_token'] != null);
+            _spotifyUserId = data?['spotify_user_id'] as String?;
+            _displayName = data?['spotify_display_name'] as String?;
+            notifyListeners();
+          }, onError: (_) {});
     }
   }
 
@@ -107,7 +117,8 @@ class SpotifyAuthService extends ChangeNotifier {
   }
 
   String _generateVerifier() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+    const chars =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
     final rnd = Random.secure();
     return List.generate(64, (_) => chars[rnd.nextInt(chars.length)]).join();
   }
@@ -121,7 +132,9 @@ class SpotifyAuthService extends ChangeNotifier {
   Future<void> linkSpotify() async {
     final clientId = EnvConfig.spotifyClientId;
     if (clientId.isEmpty) {
-      Logger.w('SpotifyAuth: SPOTIFY_CLIENT_ID missing - set in assets/env.txt and rebuild');
+      Logger.w(
+        'SpotifyAuth: SPOTIFY_CLIENT_ID missing - set in assets/env.txt and rebuild',
+      );
       throw Exception('Spotify not configured (missing client ID)');
     }
     final verifier = _generateVerifier();
@@ -172,20 +185,35 @@ class SpotifyAuthService extends ChangeNotifier {
       final token = await FirebaseAuth.instance.currentUser?.getIdToken();
       if (token == null) throw Exception('Not authenticated');
       // Try Cloud Function base then hosting rewrite
-      final payload = <String, dynamic>{'code': code, 'redirectUri': redirectUri};
+      final payload = <String, dynamic>{
+        'code': code,
+        'redirectUri': redirectUri,
+      };
       if (verifier != null) payload['codeVerifier'] = verifier;
       final body = jsonEncode(payload);
       http.Response res;
       try {
         res = await http
-            .post(Uri.parse('$_functionBase/spotifyExchange'),
-                headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'}, body: body)
+            .post(
+              Uri.parse('$_functionBase/spotifyExchange'),
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer $token',
+              },
+              body: body,
+            )
             .timeout(const Duration(seconds: 12));
         if (res.statusCode == 404) throw Exception('404');
       } catch (_) {
         res = await http
-            .post(Uri.parse('/api/spotifyExchange'),
-                headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'}, body: body)
+            .post(
+              Uri.parse('/api/spotifyExchange'),
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer $token',
+              },
+              body: body,
+            )
             .timeout(const Duration(seconds: 12));
       }
       if (res.statusCode != 200) {
@@ -226,10 +254,20 @@ class SpotifyAuthService extends ChangeNotifier {
       if (token == null) return null;
       http.Response res;
       try {
-        res = await http.get(Uri.parse('$_functionBase/spotifyCurrentlyPlaying'), headers: {'Authorization': 'Bearer $token'}).timeout(const Duration(seconds: 10));
+        res = await http
+            .get(
+              Uri.parse('$_functionBase/spotifyCurrentlyPlaying'),
+              headers: {'Authorization': 'Bearer $token'},
+            )
+            .timeout(const Duration(seconds: 10));
         if (res.statusCode == 404) throw Exception('404');
       } catch (_) {
-        res = await http.get(Uri.parse('/api/spotifyCurrentlyPlaying'), headers: {'Authorization': 'Bearer $token'}).timeout(const Duration(seconds: 10));
+        res = await http
+            .get(
+              Uri.parse('/api/spotifyCurrentlyPlaying'),
+              headers: {'Authorization': 'Bearer $token'},
+            )
+            .timeout(const Duration(seconds: 10));
       }
       if (res.statusCode != 200) return null;
       return json.decode(res.body) as Map<String, dynamic>;

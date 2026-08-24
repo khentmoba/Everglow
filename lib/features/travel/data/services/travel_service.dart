@@ -13,19 +13,33 @@ class TravelService {
   final String _pinsCol = 'travel_pins';
 
   Stream<List<Trip>> watchTrips() => withFirestoreTimeout(
-        _db.collection(_tripsCol).orderBy('startDate', descending: false).limit(50).snapshots().map((s) => s.docs.map((d) => Trip.fromFirestore(d)).toList()),
-        label: 'travel-trips',
-      );
+    _db
+        .collection(_tripsCol)
+        .orderBy('startDate', descending: false)
+        .limit(50)
+        .snapshots()
+        .map((s) => s.docs.map((d) => Trip.fromFirestore(d)).toList()),
+    label: 'travel-trips',
+  );
 
   Stream<List<TripPin>> watchPins(String tripId) => withFirestoreTimeout(
-        _db.collection(_pinsCol).where('tripId', isEqualTo: tripId).orderBy('order').snapshots().map((s) => s.docs.map((d) => TripPin.fromFirestore(d)).toList()),
-        label: 'travel-pins-$tripId',
-      );
+    _db
+        .collection(_pinsCol)
+        .where('tripId', isEqualTo: tripId)
+        .orderBy('order')
+        .snapshots()
+        .map((s) => s.docs.map((d) => TripPin.fromFirestore(d)).toList()),
+    label: 'travel-pins-$tripId',
+  );
 
   Stream<List<TripPin>> watchAllPins() => withFirestoreTimeout(
-        _db.collection(_pinsCol).limit(100).snapshots().map((s) => s.docs.map((d) => TripPin.fromFirestore(d)).toList()),
-        label: 'travel-pins-all',
-      );
+    _db
+        .collection(_pinsCol)
+        .limit(100)
+        .snapshots()
+        .map((s) => s.docs.map((d) => TripPin.fromFirestore(d)).toList()),
+    label: 'travel-pins-all',
+  );
 
   Future<void> addTrip(Trip trip) async {
     try {
@@ -48,8 +62,13 @@ class TravelService {
     try {
       await _db.collection(_tripsCol).doc(id).delete();
       // best-effort delete pins
-      final pins = await _db.collection(_pinsCol).where('tripId', isEqualTo: id).get();
-      for (final d in pins.docs) await d.reference.delete();
+      final pins = await _db
+          .collection(_pinsCol)
+          .where('tripId', isEqualTo: id)
+          .get();
+      for (final d in pins.docs) {
+        await d.reference.delete();
+      }
     } catch (e) {
       Logger.e('Error deleting trip', error: e);
     }
@@ -82,7 +101,9 @@ class TravelService {
 
   Future<void> toggleVisited(TripPin pin) async {
     try {
-      await _db.collection(_pinsCol).doc(pin.id).update({'visitedAt': pin.isVisited ? FieldValue.delete() : Timestamp.now()});
+      await _db.collection(_pinsCol).doc(pin.id).update({
+        'visitedAt': pin.isVisited ? FieldValue.delete() : Timestamp.now(),
+      });
     } catch (e) {
       Logger.e('Error toggling visited', error: e);
     }

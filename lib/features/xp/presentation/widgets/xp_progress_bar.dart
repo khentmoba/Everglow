@@ -29,9 +29,7 @@ class XPProgressBar extends StatelessWidget {
           ],
         ),
         borderRadius: AppRadius.radiusXl,
-        border: Border.all(
-          color: AppColors.moonlight.withValues(alpha: 0.14),
-        ),
+        border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.14)),
         boxShadow: [
           BoxShadow(
             color: AppColors.inkDeep.withValues(alpha: 0.45),
@@ -191,7 +189,10 @@ class XPProgressBar extends StatelessWidget {
                           ),
                         ),
                         Positioned(
-                          left: (fillW - 7).clamp(0.0, constraints.maxWidth - 14),
+                          left: (fillW - 7).clamp(
+                            0.0,
+                            constraints.maxWidth - 14,
+                          ),
                           child: Container(
                             width: 14,
                             height: 14,

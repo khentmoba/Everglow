@@ -87,12 +87,17 @@ class _EverglowTextFieldState extends State<EverglowTextField> {
               color: widget.errorText != null
                   ? AppColors.error
                   : _focused
-                      ? AppColors.deepRose
-                      : AppColors.border,
+                  ? AppColors.deepRose
+                  : AppColors.border,
               width: _focused ? 1.5 : 1.0,
             ),
             boxShadow: _focused
-                ? [BoxShadow(blurRadius: 12, color: AppColors.deepRose.withValues(alpha: 0.2))]
+                ? [
+                    BoxShadow(
+                      blurRadius: 12,
+                      color: AppColors.deepRose.withValues(alpha: 0.2),
+                    ),
+                  ]
                 : null,
           ),
           child: TextField(
@@ -112,8 +117,11 @@ class _EverglowTextFieldState extends State<EverglowTextField> {
                 fontSize: 16,
               ),
               prefixIcon: widget.prefixIcon != null
-                  ? Icon(widget.prefixIcon,
-                      size: 20, color: AppColors.textMuted)
+                  ? Icon(
+                      widget.prefixIcon,
+                      size: 20,
+                      color: AppColors.textMuted,
+                    )
                   : null,
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(

@@ -31,7 +31,7 @@ class EverglowEmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.x3),
+        padding: const EdgeInsets.all(AppSpacing.x4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -41,27 +41,24 @@ class EverglowEmptyState extends StatelessWidget {
               height: 96,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [AppColors.velvet, AppColors.twilight],
+                gradient: LinearGradient(
+                  colors: [AppColors.velvet.withValues(alpha: 0.9), AppColors.inkDeep],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                border: Border.all(
-                  color: AppColors.border,
-                  width: 1.0,
-                ),
-                boxShadow: AppElevation.glowRose,
+                border: Border.all(color: AppColors.border, width: 1.0),
+                boxShadow: [BoxShadow(color: AppColors.deepRose.withValues(alpha: 0.18), blurRadius: 16)],
               ),
               child: Icon(icon, size: 40, color: AppColors.roseQuartz),
             ),
-            const SizedBox(height: AppSpacing.x2),
+            const SizedBox(height: AppSpacing.xl),
             Text(
               title,
               style: AppTypography.headlineSmall(),
               textAlign: TextAlign.center,
             ),
             if (subtitle != null) ...[
-              const SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.md),
               Text(
                 subtitle!,
                 style: AppTypography.bodyMedium(),
@@ -69,7 +66,7 @@ class EverglowEmptyState extends StatelessWidget {
               ),
             ],
             if (ctaLabel != null && onCta != null) ...[
-              const SizedBox(height: AppSpacing.x2),
+              const SizedBox(height: AppSpacing.xl),
               _CtaButton(label: ctaLabel!, onPressed: onCta!),
             ],
           ],
@@ -119,12 +116,9 @@ class _CtaButtonState extends State<_CtaButton> {
                   colors: [AppColors.deepRose, AppColors.velvet],
                 ),
                 borderRadius: AppRadius.radiusXl,
-                boxShadow: _hovered ? AppElevation.glowRose : AppElevation.e1,
+                boxShadow: _hovered ? [BoxShadow(color: AppColors.deepRose.withValues(alpha: 0.18), blurRadius: 14)] : AppElevation.e1,
               ),
-              child: Text(
-                widget.label,
-                style: AppTypography.labelLarge(),
-              ),
+              child: Text(widget.label, style: AppTypography.labelLarge()),
             ),
           ),
         ),

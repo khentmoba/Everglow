@@ -17,7 +17,8 @@ MediaItem _sampleItem() {
     isAnime: true,
     addedAt: DateTime(2026, 1, 1),
     source: 'jikan',
-    synopsis: 'At the mysterious orphanage where Sheena lives, death is '
+    synopsis:
+        'At the mysterious orphanage where Sheena lives, death is '
         'nothing new to its residents. Everyone, that is, except Sheena, who '
         'wishes for her roommate to live. When she wishes for her roommate\'s '
         'death, she meets a strange girl covered in blood who smiles despite '
@@ -30,8 +31,9 @@ MediaItem _sampleItem() {
 }
 
 void main() {
-  testWidgets('hover popover stays compact and shows real details',
-      (WidgetTester tester) async {
+  testWidgets('hover popover stays compact and shows real details', (
+    WidgetTester tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(1280, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -82,15 +84,21 @@ void main() {
     expect(popoverSize.height, lessThanOrEqualTo(220.1));
 
     final synopsisRect = tester.getRect(synopsisFinder);
-    expect(synopsisRect.width, lessThan(190),
-        reason: 'Popover text should stay inside the compact panel.');
+    expect(
+      synopsisRect.width,
+      lessThan(190),
+      reason: 'Popover text should stay inside the compact panel.',
+    );
 
     // It should sit beside the card, not overlap it.
     final cardRect = tester.getRect(find.byType(AnimeXPosterCard));
     expect(synopsisRect.left, greaterThan(cardRect.right - 1));
 
     // The popover now carries the title so it shows real details.
-    expect(find.text('I Want to Love You Till Your Dying Day'), findsNWidgets(2));
+    expect(
+      find.text('I Want to Love You Till Your Dying Day'),
+      findsNWidgets(2),
+    );
 
     // Moving the pointer onto the popover must not dismiss it.
     await gesture.moveTo(tester.getCenter(popoverBox));

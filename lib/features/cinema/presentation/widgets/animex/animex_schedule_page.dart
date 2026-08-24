@@ -109,10 +109,12 @@ class _AnimeXSchedulePageState extends State<AnimeXSchedulePage> {
             ),
           )
         else
-          ..._entries.map((e) => _ScheduleRow(
-                entry: e,
-                onTap: () => widget.controller.openWatch(e.media),
-              )),
+          ..._entries.map(
+            (e) => _ScheduleRow(
+              entry: e,
+              onTap: () => widget.controller.openWatch(e.media),
+            ),
+          ),
         const SizedBox(height: 24),
         AnimeXFooter(controller: widget.controller),
       ],
@@ -217,9 +219,8 @@ class _ScheduleRow extends StatelessWidget {
                       : Image.network(
                           media.posterUrl,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Container(
-                            color: AnimeXTokens.surfaceRaised,
-                          ),
+                          errorBuilder: (_, _, _) =>
+                              Container(color: AnimeXTokens.surfaceRaised),
                         ),
                 ),
               ),
@@ -293,9 +294,13 @@ class _ScheduleRow extends StatelessWidget {
                       ),
                     ),
                     child: Icon(
-                      alert ? Icons.notifications_active_rounded : Icons.notifications_none_rounded,
+                      alert
+                          ? Icons.notifications_active_rounded
+                          : Icons.notifications_none_rounded,
                       size: 17,
-                      color: alert ? AnimeXTokens.accent : AnimeXTokens.textSecondary,
+                      color: alert
+                          ? AnimeXTokens.accent
+                          : AnimeXTokens.textSecondary,
                     ),
                   ),
                 ),

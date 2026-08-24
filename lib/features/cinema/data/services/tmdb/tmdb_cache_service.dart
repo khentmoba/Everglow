@@ -13,19 +13,21 @@ class TMDBCacheService with TMDBBase, ConnectivityAware, ErrorAware {
     try {
       final prefs = await SharedPreferences.getInstance();
       final listJson = items
-          .map((item) => {
-                'id': item.id,
-                'tmdbId': item.tmdbId,
-                'title': item.title,
-                'mediaType': item.mediaType,
-                'posterPath': item.posterPath,
-                'backdropPath': item.backdropPath,
-                'year': item.year,
-                'status': item.status,
-                'isAnime': item.isAnime,
-                'userName': item.userName,
-                'addedAt': item.addedAt.toIso8601String(),
-              })
+          .map(
+            (item) => {
+              'id': item.id,
+              'tmdbId': item.tmdbId,
+              'title': item.title,
+              'mediaType': item.mediaType,
+              'posterPath': item.posterPath,
+              'backdropPath': item.backdropPath,
+              'year': item.year,
+              'status': item.status,
+              'isAnime': item.isAnime,
+              'userName': item.userName,
+              'addedAt': item.addedAt.toIso8601String(),
+            },
+          )
           .toList();
       await prefs.setString(_cacheKey(userName), json.encode(listJson));
     } catch (e) {
@@ -41,20 +43,22 @@ class TMDBCacheService with TMDBBase, ConnectivityAware, ErrorAware {
       if (cacheStr != null) {
         final List decoded = json.decode(cacheStr);
         return decoded
-            .map((data) => MediaItem(
-                  id: data['id'] ?? '',
-                  tmdbId: data['tmdbId'] ?? 0,
-                  title: data['title'] ?? '',
-                  mediaType: data['mediaType'] ?? 'movie',
-                  posterPath: data['posterPath'] ?? '',
-                  backdropPath: data['backdropPath'] ?? '',
-                  year: data['year'] ?? '',
-                  status: data['status'] ?? 'to-watch',
-                  isAnime: data['isAnime'] == true,
-                  userName: data['userName'] ?? userName,
-                  addedAt:
-                      DateTime.tryParse(data['addedAt'] ?? '') ?? DateTime.now(),
-                ))
+            .map(
+              (data) => MediaItem(
+                id: data['id'] ?? '',
+                tmdbId: data['tmdbId'] ?? 0,
+                title: data['title'] ?? '',
+                mediaType: data['mediaType'] ?? 'movie',
+                posterPath: data['posterPath'] ?? '',
+                backdropPath: data['backdropPath'] ?? '',
+                year: data['year'] ?? '',
+                status: data['status'] ?? 'to-watch',
+                isAnime: data['isAnime'] == true,
+                userName: data['userName'] ?? userName,
+                addedAt:
+                    DateTime.tryParse(data['addedAt'] ?? '') ?? DateTime.now(),
+              ),
+            )
             .toList();
       }
     } catch (e) {

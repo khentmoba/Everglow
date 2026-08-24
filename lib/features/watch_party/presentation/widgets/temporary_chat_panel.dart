@@ -192,10 +192,7 @@ class _TemporaryChatPanelState extends State<TemporaryChatPanel> {
       padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(
-            color: NetflixColors.hairline,
-            width: 1,
-          ),
+          bottom: BorderSide(color: NetflixColors.hairline, width: 1),
         ),
       ),
       child: Row(

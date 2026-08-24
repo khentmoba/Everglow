@@ -45,11 +45,7 @@ class EverglowErrorState extends StatelessWidget {
   final String message;
   final VoidCallback? onRetry;
 
-  const EverglowErrorState({
-    super.key,
-    required this.message,
-    this.onRetry,
-  });
+  const EverglowErrorState({super.key, required this.message, this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -78,10 +74,7 @@ class EverglowErrorState extends StatelessWidget {
               ElevatedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: Text(
-                  'Try again',
-                  style: AppTypography.outfitBold,
-                ),
+                label: Text('Try again', style: AppTypography.outfitBold),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.deepRose,
                   foregroundColor: AppTheme.petalWhite,
@@ -107,7 +100,8 @@ class EverglowOfflineState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return EverglowErrorState(
-      message: 'You appear to be offline.\nCheck your connection and try again.',
+      message:
+          'You appear to be offline.\nCheck your connection and try again.',
       onRetry: onRetry,
     );
   }

@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../../../../../core/constants/api_keys.dart';
 import '../../../../../core/utils/connectivity_aware.dart';
 import '../../../../../core/utils/error_aware.dart';
 import '../../../../../core/utils/logger.dart';
@@ -17,10 +15,7 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
   /// Animation genre (id 16). Sorted by popularity so the carousel shows
   /// what's actually hot right now.
   Future<List<MediaItem>> fetchTrendingAnime() async {
-    return discoverAnime(
-      sortBy: 'popularity.desc',
-      voteCountGte: 20,
-    );
+    return discoverAnime(sortBy: 'popularity.desc', voteCountGte: 20);
   }
 
   /// Unified anime discovery used by every category on the Anime screen
@@ -45,7 +40,6 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
     int page = 1,
   }) async {
     final params = <String, String>{
-      'api_key': ApiKeys.tmdbApiKey,
       'with_original_language': 'ja',
       'with_genres': '16',
       'include_adult': 'false',
@@ -53,7 +47,8 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
     };
     if (sortBy != null) params['sort_by'] = sortBy;
     if (withGenres != null && withGenres.isNotEmpty) {
-      params['with_genres'] = '${params['with_genres']},${withGenres.join(',')}';
+      params['with_genres'] =
+          '${params['with_genres']},${withGenres.join(',')}';
     }
     if (withKeywords != null && withKeywords.isNotEmpty) {
       params['with_keywords'] = withKeywords.join('|');
@@ -74,16 +69,16 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
     }
 
     final url = Uri.parse(
-        '$tmdbBaseUrl/discover/tv?${params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&')}');
+      '$tmdbBaseUrl/discover/tv?${params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&')}',
+    );
 
     try {
-      final response = await http.get(url);
+      final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
         return results
-            .map((item) =>
-                mapResultToMediaItem(item, forcedMediaType: 'tv'))
+            .map((item) => mapResultToMediaItem(item, forcedMediaType: 'tv'))
             .toList();
       }
     } catch (e) {
@@ -103,7 +98,6 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
     int page = 1,
   }) async {
     final params = <String, String>{
-      'api_key': ApiKeys.tmdbApiKey,
       'with_original_language': 'ja',
       'with_genres': '16',
       'include_adult': 'false',
@@ -119,16 +113,16 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
     if (voteCountGte != null) params['vote_count.gte'] = '$voteCountGte';
 
     final url = Uri.parse(
-        '$tmdbBaseUrl/discover/movie?${params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&')}');
+      '$tmdbBaseUrl/discover/movie?${params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&')}',
+    );
 
     try {
-      final response = await http.get(url);
+      final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
         return results
-            .map((item) => mapResultToMediaItem(
-                item, forcedMediaType: 'movie'))
+            .map((item) => mapResultToMediaItem(item, forcedMediaType: 'movie'))
             .toList();
       }
     } catch (e) {
@@ -152,17 +146,18 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
       return fetchTrendingByCountry(countryCode: region);
     }
 
-    final url = Uri.parse(
-        '$tmdbBaseUrl/trending/all/$timeWindow?api_key=${ApiKeys.tmdbApiKey}');
+    final url = Uri.parse('$tmdbBaseUrl/trending/all/$timeWindow');
     try {
-      final response = await http.get(url);
+      final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
 
         return results
-            .where((item) =>
-                item['media_type'] == 'movie' || item['media_type'] == 'tv')
+            .where(
+              (item) =>
+                  item['media_type'] == 'movie' || item['media_type'] == 'tv',
+            )
             .map((item) => mapResultToMediaItem(item))
             .toList();
       }
@@ -188,28 +183,27 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
     final monetization = 'flatrate|free|ads';
 
     final movieUrl = Uri.parse(
-        '$tmdbBaseUrl/discover/movie?api_key=${ApiKeys.tmdbApiKey}'
-        '&sort_by=popularity.desc'
-        '&watch_region=$cc'
-        '&with_watch_monetization_types=$monetization'
-        '&region=$cc'
-        '&include_adult=false'
-        '&vote_count.gte=50'
-        '&page=1');
+      '$tmdbBaseUrl/discover/movie'
+      '&sort_by=popularity.desc'
+      '&watch_region=$cc'
+      '&with_watch_monetization_types=$monetization'
+      '&region=$cc'
+      '&include_adult=false'
+      '&vote_count.gte=50'
+      '&page=1',
+    );
     final tvUrl = Uri.parse(
-        '$tmdbBaseUrl/discover/tv?api_key=${ApiKeys.tmdbApiKey}'
-        '&sort_by=popularity.desc'
-        '&watch_region=$cc'
-        '&with_watch_monetization_types=$monetization'
-        '&include_adult=false'
-        '&vote_count.gte=50'
-        '&page=1');
+      '$tmdbBaseUrl/discover/tv'
+      '&sort_by=popularity.desc'
+      '&watch_region=$cc'
+      '&with_watch_monetization_types=$monetization'
+      '&include_adult=false'
+      '&vote_count.gte=50'
+      '&page=1',
+    );
 
     try {
-      final responses = await Future.wait([
-        http.get(movieUrl),
-        http.get(tvUrl),
-      ]);
+      final responses = await Future.wait([tmdbGet(movieUrl), tmdbGet(tvUrl)]);
 
       final combined = <Map<String, dynamic>>[];
 
@@ -217,7 +211,10 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
         final data = json.decode(responses[0].body);
         final List results = data['results'] ?? [];
         for (final item in results) {
-          combined.add({...item as Map<String, dynamic>, 'media_type': 'movie'});
+          combined.add({
+            ...item as Map<String, dynamic>,
+            'media_type': 'movie',
+          });
         }
       }
       if (responses[1].statusCode == 200) {
@@ -248,10 +245,9 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
 
   /// Fetch Top Rated Movies
   Future<List<MediaItem>> fetchTopRatedMovies() async {
-    final url = Uri.parse(
-        '$tmdbBaseUrl/movie/top_rated?api_key=${ApiKeys.tmdbApiKey}');
+    final url = Uri.parse('$tmdbBaseUrl/movie/top_rated');
     try {
-      final response = await http.get(url);
+      final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
@@ -268,10 +264,9 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
 
   /// Fetch Popular TV Shows
   Future<List<MediaItem>> fetchPopularTVShows() async {
-    final url =
-        Uri.parse('$tmdbBaseUrl/tv/popular?api_key=${ApiKeys.tmdbApiKey}');
+    final url = Uri.parse('$tmdbBaseUrl/tv/popular');
     try {
-      final response = await http.get(url);
+      final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
@@ -288,10 +283,9 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
 
   /// Fetch Popular Movies
   Future<List<MediaItem>> fetchPopularMovies() async {
-    final url = Uri.parse(
-        '$tmdbBaseUrl/movie/popular?api_key=${ApiKeys.tmdbApiKey}');
+    final url = Uri.parse('$tmdbBaseUrl/movie/popular');
     try {
-      final response = await http.get(url);
+      final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
@@ -308,10 +302,9 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
 
   /// Fetch Top Rated TV Shows
   Future<List<MediaItem>> fetchTopRatedTV() async {
-    final url = Uri.parse(
-        '$tmdbBaseUrl/tv/top_rated?api_key=${ApiKeys.tmdbApiKey}');
+    final url = Uri.parse('$tmdbBaseUrl/tv/top_rated');
     try {
-      final response = await http.get(url);
+      final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
@@ -328,10 +321,9 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
 
   /// Fetch TV shows airing today
   Future<List<MediaItem>> fetchAiringToday() async {
-    final url = Uri.parse(
-        '$tmdbBaseUrl/tv/airing_today?api_key=${ApiKeys.tmdbApiKey}');
+    final url = Uri.parse('$tmdbBaseUrl/tv/airing_today');
     try {
-      final response = await http.get(url);
+      final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
@@ -348,10 +340,9 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
 
   /// Fetch TV shows currently on the air
   Future<List<MediaItem>> fetchOnTheAir() async {
-    final url = Uri.parse(
-        '$tmdbBaseUrl/tv/on_the_air?api_key=${ApiKeys.tmdbApiKey}');
+    final url = Uri.parse('$tmdbBaseUrl/tv/on_the_air');
     try {
-      final response = await http.get(url);
+      final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
@@ -368,10 +359,9 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
 
   /// Fetch Now Playing in Cinemas (movies currently in theaters)
   Future<List<MediaItem>> fetchNowPlaying({String region = 'PH'}) async {
-    final url = Uri.parse(
-        '$tmdbBaseUrl/movie/now_playing?api_key=${ApiKeys.tmdbApiKey}&region=$region');
+    final url = Uri.parse('$tmdbBaseUrl/movie/now_playing?region=$region');
     try {
-      final response = await http.get(url);
+      final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
@@ -388,10 +378,9 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
 
   /// Fetch Upcoming movies (newly released / coming soon)
   Future<List<MediaItem>> fetchUpcoming({String region = 'PH'}) async {
-    final url = Uri.parse(
-        '$tmdbBaseUrl/movie/upcoming?api_key=${ApiKeys.tmdbApiKey}&region=$region');
+    final url = Uri.parse('$tmdbBaseUrl/movie/upcoming?region=$region');
     try {
-      final response = await http.get(url);
+      final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
@@ -408,10 +397,9 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
 
   /// Fetch list of all available genres for a media type
   Future<Map<int, String>> fetchGenreList(String mediaType) async {
-    final url = Uri.parse(
-        '$tmdbBaseUrl/genre/$mediaType/list?api_key=${ApiKeys.tmdbApiKey}');
+    final url = Uri.parse('$tmdbBaseUrl/genre/$mediaType/list');
     try {
-      final response = await http.get(url);
+      final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List genres = data['genres'] ?? [];
@@ -432,15 +420,18 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
     String sortBy = 'popularity.desc',
   }) async {
     final url = Uri.parse(
-        '$tmdbBaseUrl/discover/$mediaType?api_key=${ApiKeys.tmdbApiKey}&with_genres=$genreId&sort_by=$sortBy');
+      '$tmdbBaseUrl/discover/$mediaType?with_genres=$genreId&sort_by=$sortBy',
+    );
     try {
-      final response = await http.get(url);
+      final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
 
         return results
-            .map((item) => mapResultToMediaItem(item, forcedMediaType: mediaType))
+            .map(
+              (item) => mapResultToMediaItem(item, forcedMediaType: mediaType),
+            )
             .toList();
       }
     } catch (e) {
@@ -466,11 +457,7 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
     String? withOriginalLanguage,
     int page = 1,
   }) async {
-    final params = <String, String>{
-      'api_key': ApiKeys.tmdbApiKey,
-      'include_adult': 'false',
-      'page': '$page',
-    };
+    final params = <String, String>{'include_adult': 'false', 'page': '$page'};
     if (sortBy != null) params['sort_by'] = sortBy;
     if (withGenres != null && withGenres.isNotEmpty) {
       params['with_genres'] = withGenres.join(',');
@@ -497,16 +484,18 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
     }
 
     final url = Uri.parse(
-        '$tmdbBaseUrl/discover/$mediaType?${params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&')}');
+      '$tmdbBaseUrl/discover/$mediaType?${params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&')}',
+    );
 
     try {
-      final response = await http.get(url);
+      final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
         return results
-            .map((item) =>
-                mapResultToMediaItem(item, forcedMediaType: mediaType))
+            .map(
+              (item) => mapResultToMediaItem(item, forcedMediaType: mediaType),
+            )
             .toList();
       }
     } catch (e) {

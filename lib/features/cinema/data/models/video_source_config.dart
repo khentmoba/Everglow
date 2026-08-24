@@ -54,7 +54,8 @@ class VideoSourceConfig {
     return VideoSourceConfig(
       id: id ?? (data['id'] as String? ?? ''),
       name: data['name'] as String? ?? '',
-      shortName: data['shortName'] as String? ?? (data['name'] as String? ?? ''),
+      shortName:
+          data['shortName'] as String? ?? (data['name'] as String? ?? ''),
       desc: data['desc'] as String? ?? '',
       movieUrl: data['movieUrl'] as String? ?? '',
       tvUrl: data['tvUrl'] as String? ?? '',
@@ -82,7 +83,8 @@ class VideoSourceConfig {
     return VideoSourceConfig(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
-      shortName: json['shortName'] as String? ?? (json['name'] as String? ?? ''),
+      shortName:
+          json['shortName'] as String? ?? (json['name'] as String? ?? ''),
       desc: json['desc'] as String? ?? '',
       movieUrl: json['movieUrl'] as String? ?? '',
       tvUrl: json['tvUrl'] as String? ?? '',

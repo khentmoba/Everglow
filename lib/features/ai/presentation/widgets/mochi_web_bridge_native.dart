@@ -22,10 +22,7 @@ class MochiWebBridge {
     final codec = await ui.instantiateImageCodec(bytes);
     final frame = await codec.getNextFrame();
     final source = frame.image;
-    final scale = math.min(
-      1.0,
-      maxDim / math.max(source.width, source.height),
-    );
+    final scale = math.min(1.0, maxDim / math.max(source.width, source.height));
     final width = (source.width * scale).round().clamp(1, 4096);
     final height = (source.height * scale).round().clamp(1, 4096);
 
@@ -33,12 +30,7 @@ class MochiWebBridge {
     final canvas = Canvas(recorder);
     canvas.drawImageRect(
       source,
-      Rect.fromLTWH(
-        0,
-        0,
-        source.width.toDouble(),
-        source.height.toDouble(),
-      ),
+      Rect.fromLTWH(0, 0, source.width.toDouble(), source.height.toDouble()),
       Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
       Paint()..filterQuality = FilterQuality.medium,
     );

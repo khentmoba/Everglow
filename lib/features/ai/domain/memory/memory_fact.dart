@@ -87,19 +87,19 @@ class MemoryFact {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'fact': fact,
-        'category': category,
-        if (subject != null) 'subject': subject,
-        if (relation != null) 'relation': relation,
-        if (object != null) 'object': object,
-        if (occurredAt != null) 'occurredAt': occurredAt!.toIso8601String(),
-        if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
-        'confidence': confidence,
-        'pinned': pinned,
-        'accessCount': accessCount,
-        if (source.isNotEmpty) 'source': source,
-      };
+    'id': id,
+    'fact': fact,
+    'category': category,
+    if (subject != null) 'subject': subject,
+    if (relation != null) 'relation': relation,
+    if (object != null) 'object': object,
+    if (occurredAt != null) 'occurredAt': occurredAt!.toIso8601String(),
+    if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
+    'confidence': confidence,
+    'pinned': pinned,
+    'accessCount': accessCount,
+    if (source.isNotEmpty) 'source': source,
+  };
 
   factory MemoryFact.fromJson(Map<String, dynamic> json, {String id = ''}) {
     return MemoryFact(
@@ -150,10 +150,6 @@ class FactStructureParser {
     if (trimmed.isEmpty) return (null, null, null);
     final match = _knownVerbs.firstMatch(trimmed);
     if (match == null) return (null, null, null);
-    return (
-      match.group(1),
-      match.group(2),
-      match.group(3),
-    );
+    return (match.group(1), match.group(2), match.group(3));
   }
 }

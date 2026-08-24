@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../../core/theme/app_breakpoints.dart';
@@ -13,6 +13,10 @@ import '../../../../../core/theme/app_typography.dart';
 /// Netflix-style browse: quiet category chips feeding a poster grid.
 class CinemaBrowseTab extends StatefulWidget {
   final void Function(MediaItem) onMediaTap;
+  final void Function(MediaItem)? onPlayItem;
+  final void Function(MediaItem, bool add)? onToggleListItem;
+  final void Function(MediaItem, double? rating)? onRateItem;
+  final bool Function(MediaItem)? isInList;
 
   /// Browse option to auto-select on first build (used by top nav links).
   final String? initialOptionId;
@@ -20,6 +24,10 @@ class CinemaBrowseTab extends StatefulWidget {
   const CinemaBrowseTab({
     super.key,
     required this.onMediaTap,
+    this.onPlayItem,
+    this.onToggleListItem,
+    this.onRateItem,
+    this.isInList,
     this.initialOptionId,
   });
 
@@ -64,7 +72,10 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
           sliver: SliverToBoxAdapter(
             child: Text(
               'Browse',
-              style: AppTypography.outfitHeading.copyWith(fontSize: AppBreakpoint.isDesktop(context) ? 22 : 20, color: NetflixColors.textPrimary),
+              style: AppTypography.outfitHeading.copyWith(
+                fontSize: AppBreakpoint.isDesktop(context) ? 22 : 20,
+                color: NetflixColors.textPrimary,
+              ),
             ),
           ),
         ),
@@ -97,7 +108,10 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
             ),
             child: Text(
               browseGroupMeta(group).title,
-              style: AppTypography.outfitHeading.copyWith(fontSize: isDesktop ? 16 : 15, color: NetflixColors.textSecondary),
+              style: AppTypography.outfitHeading.copyWith(
+                fontSize: isDesktop ? 16 : 15,
+                color: NetflixColors.textSecondary,
+              ),
             ),
           ),
           SizedBox(
@@ -152,7 +166,10 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
             child: Center(
               child: Text(
                 'No titles found for this filter.',
-                style: AppTypography.outfitWhite.copyWith(color: NetflixColors.textMuted, fontSize: 13.5),
+                style: AppTypography.outfitWhite.copyWith(
+                  color: NetflixColors.textMuted,
+                  fontSize: 13.5,
+                ),
               ),
             ),
           ),
@@ -172,7 +189,11 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
           ),
           child: Text(
             '${_browseResults.length} titles',
-            style: AppTypography.outfitWhite.copyWith(fontSize: 13, fontWeight: FontWeight.w500, color: NetflixColors.textMuted),
+            style: AppTypography.outfitWhite.copyWith(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: NetflixColors.textMuted,
+            ),
           ),
         ),
       ),
@@ -195,6 +216,10 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
               compact: true,
               selfPreview: true,
               onTap: () => widget.onMediaTap(item),
+              onPlay: widget.onPlayItem,
+              onToggleList: widget.onToggleListItem,
+              onRate: widget.onRateItem,
+              isInList: widget.isInList,
             );
           },
         ),
@@ -218,7 +243,10 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
                   ),
                   child: Text(
                     'Load More',
-                    style: AppTypography.outfitHeading.copyWith(color: NetflixColors.textPrimary, fontSize: 13),
+                    style: AppTypography.outfitHeading.copyWith(
+                      color: NetflixColors.textPrimary,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
               ),
@@ -320,7 +348,10 @@ class _BrowsePill extends StatelessWidget {
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: AppTypography.outfitHeading.copyWith(color: selected ? Colors.black : NetflixColors.textSecondary, fontSize: 12.5),
+          style: AppTypography.outfitHeading.copyWith(
+            color: selected ? Colors.black : NetflixColors.textSecondary,
+            fontSize: 12.5,
+          ),
         ),
       ),
     );

@@ -32,10 +32,7 @@ Future<void> showAnimexTrailer(
   await showDialog<void>(
     context: context,
     barrierColor: const Color(0xE0000000),
-    builder: (_) => AnimeXTrailerModal(
-      title: title,
-      youtubeId: trailerId!,
-    ),
+    builder: (_) => AnimeXTrailerModal(title: title, youtubeId: trailerId!),
   );
 }
 

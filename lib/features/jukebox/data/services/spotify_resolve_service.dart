@@ -11,7 +11,8 @@ import '../models/music_status.dart';
 /// not need to have linked Spotify. Returns a copy of [status] with
 /// `spotifyTrackId`/`spotifyEmbedUrl` populated, or the original status on failure.
 class SpotifyResolveService {
-  SpotifyResolveService({http.Client? client}) : _client = client ?? http.Client();
+  SpotifyResolveService({http.Client? client})
+    : _client = client ?? http.Client();
   final http.Client _client;
 
   // Generic Cloud Function base — falls back to hosting rewrite when emulator not used.
@@ -24,26 +25,41 @@ class SpotifyResolveService {
   /// Resolves via GET /proxySpotifySearch?artist=&track=
   Future<MusicStatus> resolve(MusicStatus status) async {
     // Already resolved or empty sentinel
-    if (status.hasSpotifyTrack || status.trackName == 'Silent Night') return status;
+    if (status.hasSpotifyTrack || status.trackName == 'Silent Night') {
+      return status;
+    }
     if (status.artistName.isEmpty || status.trackName.isEmpty) return status;
     try {
       final token = await FirebaseAuth.instance.currentUser?.getIdToken();
       if (token == null) return status;
-      final uri = Uri.parse('$_base/proxySpotifySearch').replace(queryParameters: {
-        'artist': status.artistName,
-        'track': status.trackName,
-      });
-      final res = await _client.get(uri, headers: {'Authorization': 'Bearer $token'}).timeout(const Duration(seconds: 10));
+      final uri = Uri.parse('$_base/proxySpotifySearch').replace(
+        queryParameters: {
+          'artist': status.artistName,
+          'track': status.trackName,
+        },
+      );
+      final res = await _client
+          .get(uri, headers: {'Authorization': 'Bearer $token'})
+          .timeout(const Duration(seconds: 10));
       if (res.statusCode != 200) {
         // Try hosting rewrite path
-        final alt = Uri.parse('/api/proxySpotifySearch').replace(queryParameters: {'artist': status.artistName, 'track': status.trackName});
-        final res2 = await _client.get(alt, headers: {'Authorization': 'Bearer $token'}).timeout(const Duration(seconds: 10));
+        final alt = Uri.parse('/api/proxySpotifySearch').replace(
+          queryParameters: {
+            'artist': status.artistName,
+            'track': status.trackName,
+          },
+        );
+        final res2 = await _client
+            .get(alt, headers: {'Authorization': 'Bearer $token'})
+            .timeout(const Duration(seconds: 10));
         if (res2.statusCode != 200) return status;
         return _apply(status, json.decode(res2.body));
       }
       return _apply(status, json.decode(res.body));
     } on TimeoutException {
-      Logger.w('SpotifyResolve timeout for ${status.artistName} - ${status.trackName}');
+      Logger.w(
+        'SpotifyResolve timeout for ${status.artistName} - ${status.trackName}',
+      );
       return status;
     } catch (e) {
       Logger.w('SpotifyResolve error: $e');

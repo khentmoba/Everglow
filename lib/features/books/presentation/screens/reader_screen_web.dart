@@ -55,10 +55,10 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
         child: _isLoading
             ? _buildLoading()
             : _readerMode == ReaderMode.embed
-                ? _buildEmbedReader()
-                : (_loadError != null && _chapters.isEmpty
-                    ? _buildError()
-                    : _buildReader()),
+            ? _buildEmbedReader()
+            : (_loadError != null && _chapters.isEmpty
+                  ? _buildError()
+                  : _buildReader()),
       ),
     );
   }
@@ -101,13 +101,20 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.menu_book_outlined,
-                      color: AppTheme.roseQuartz, size: 64),
+                  const Icon(
+                    Icons.menu_book_outlined,
+                    color: AppTheme.roseQuartz,
+                    size: 64,
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     _loadError!,
                     textAlign: TextAlign.center,
-                    style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.8), fontSize: 14, height: 1.5),
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: AppTheme.roseQuartz.withValues(alpha: 0.8),
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
                   ),
                   const SizedBox(height: 24),
                   if (widget.book.readSourceLabel.isNotEmpty)
@@ -117,18 +124,24 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
                         if (url.isNotEmpty) {
                           final uri = Uri.parse(url);
                           if (await canLaunchUrl(uri)) {
-                            await launchUrl(uri,
-                                mode: LaunchMode.externalApplication);
+                            await launchUrl(
+                              uri,
+                              mode: LaunchMode.externalApplication,
+                            );
                           }
                         }
                       },
                       icon: const Icon(Icons.open_in_new_rounded),
-                      label: Text('Open on ${widget.book.readSourceLabel}',
-                          style: AppTypography.outfitWhite),
+                      label: Text(
+                        'Open on ${widget.book.readSourceLabel}',
+                        style: AppTypography.outfitWhite,
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.deepRose,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 14),
+                          horizontal: 24,
+                          vertical: 14,
+                        ),
                       ),
                     ),
                 ],
@@ -155,7 +168,11 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
                 // Chapter title
                 Text(
                   chapter.title,
-                  style: AppTypography.cormorantBlack.copyWith(fontSize: 28, height: 1.15, color: _theme.fg),
+                  style: AppTypography.cormorantBlack.copyWith(
+                    fontSize: 28,
+                    height: 1.15,
+                    color: _theme.fg,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 // Chapter body — render plain text via flutter_html so we
@@ -195,10 +212,7 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
       padding: const EdgeInsets.symmetric(vertical: 18),
       decoration: BoxDecoration(
         border: Border(
-          top: BorderSide(
-            color: _theme.fg.withValues(alpha: 0.1),
-            width: 1,
-          ),
+          top: BorderSide(color: _theme.fg.withValues(alpha: 0.1), width: 1),
         ),
       ),
       child: Row(
@@ -211,7 +225,10 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
           ),
           Text(
             '${_currentChapter + 1} of ${_chapters.length}',
-            style: AppTypography.outfitBold.copyWith(color: _theme.fg.withValues(alpha: 0.6), fontSize: 12),
+            style: AppTypography.outfitBold.copyWith(
+              color: _theme.fg.withValues(alpha: 0.6),
+              fontSize: 12,
+            ),
           ),
           TextButton.icon(
             onPressed: hasNext ? _nextChapter : null,
@@ -240,8 +257,11 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
         children: [
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: Icon(Icons.arrow_back_ios_new_rounded,
-                color: _theme.fg, size: 18),
+            icon: Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: _theme.fg,
+              size: 18,
+            ),
           ),
           Expanded(
             child: Column(
@@ -251,14 +271,21 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
                   widget.book.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTypography.outfitHeading.copyWith(color: _theme.fg, fontSize: 14),
+                  style: AppTypography.outfitHeading.copyWith(
+                    color: _theme.fg,
+                    fontSize: 14,
+                  ),
                 ),
                 if (widget.book.author.isNotEmpty)
                   Text(
                     widget.book.author,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTypography.outfitWhite.copyWith(color: _theme.fg.withValues(alpha: 0.6), fontSize: 11, fontStyle: FontStyle.italic),
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: _theme.fg.withValues(alpha: 0.6),
+                      fontSize: 11,
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
               ],
             ),
@@ -273,8 +300,7 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
             IconButton(
               tooltip: 'Listen',
               onPressed: _showListenSheet,
-              icon: Icon(Icons.headphones_rounded,
-                  color: _theme.fg, size: 22),
+              icon: Icon(Icons.headphones_rounded, color: _theme.fg, size: 22),
             ),
           ],
           IconButton(
@@ -301,10 +327,7 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
       decoration: BoxDecoration(
         color: _theme.bg,
         border: Border(
-          top: BorderSide(
-            color: _theme.fg.withValues(alpha: 0.08),
-            width: 0.5,
-          ),
+          top: BorderSide(color: _theme.fg.withValues(alpha: 0.08), width: 0.5),
         ),
       ),
       child: Column(
@@ -316,7 +339,8 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
               minHeight: 3,
               backgroundColor: _theme.fg.withValues(alpha: 0.08),
               valueColor: const AlwaysStoppedAnimation<Color>(
-                  AppTheme.deepRose),
+                AppTheme.deepRose,
+              ),
             ),
           ),
           const SizedBox(height: 8),
@@ -325,7 +349,11 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
             children: [
               Text(
                 '${(progress * 100).toStringAsFixed(0)}% complete',
-                style: AppTypography.outfitWhite.copyWith(color: _theme.fg.withValues(alpha: 0.55), fontSize: 11, fontWeight: FontWeight.w500),
+                style: AppTypography.outfitWhite.copyWith(
+                  color: _theme.fg.withValues(alpha: 0.55),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               Row(
                 children: [
@@ -338,8 +366,9 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
                     ),
                   ),
                   IconButton(
-                    onPressed:
-                        _currentChapter < _chapters.length - 1 ? _nextChapter : null,
+                    onPressed: _currentChapter < _chapters.length - 1
+                        ? _nextChapter
+                        : null,
                     icon: Icon(
                       Icons.skip_next_rounded,
                       color: _theme.fg,
@@ -359,9 +388,7 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
     return Column(
       children: [
         _buildTopBar(),
-        Expanded(
-          child: HtmlElementView(viewType: _viewType),
-        ),
+        Expanded(child: HtmlElementView(viewType: _viewType)),
         _buildEmbedBottomBar(),
       ],
     );
@@ -373,10 +400,7 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
       decoration: BoxDecoration(
         color: _theme.bg,
         border: Border(
-          top: BorderSide(
-            color: _theme.fg.withValues(alpha: 0.08),
-            width: 0.5,
-          ),
+          top: BorderSide(color: _theme.fg.withValues(alpha: 0.08), width: 0.5),
         ),
       ),
       child: Row(
@@ -384,7 +408,11 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
         children: [
           Text(
             'Via Internet Archive',
-            style: AppTypography.outfitWhite.copyWith(color: _theme.fg.withValues(alpha: 0.55), fontSize: 11, fontWeight: FontWeight.w500),
+            style: AppTypography.outfitWhite.copyWith(
+              color: _theme.fg.withValues(alpha: 0.55),
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           if (widget.book.readSourceUrl.isNotEmpty)
             TextButton.icon(
@@ -392,15 +420,11 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
                 final url = widget.book.readSourceUrl;
                 final uri = Uri.parse(url);
                 if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri,
-                      mode: LaunchMode.externalApplication);
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
                 }
               },
               icon: const Icon(Icons.open_in_new_rounded, size: 16),
-              label: Text(
-                'Full Screen',
-                style: AppTypography.outfitBold,
-              ),
+              label: Text('Full Screen', style: AppTypography.outfitBold),
             ),
         ],
       ),
@@ -446,18 +470,22 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
                 ),
               ),
               Padding(
-                padding:
-                    const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
                 child: Row(
                   children: [
                     Text(
                       'Chapters',
-                      style: AppTypography.cormorantExtraBoldWhite.copyWith(fontSize: 22),
+                      style: AppTypography.cormorantExtraBoldWhite.copyWith(
+                        fontSize: 22,
+                      ),
                     ),
                     const Spacer(),
                     Text(
                       '${_chapters.length} total',
-                      style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 12),
+                      style: AppTypography.outfitWhite.copyWith(
+                        color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
@@ -478,7 +506,9 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 12),
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
                         decoration: BoxDecoration(
                           color: isCurrent
                               ? AppTheme.deepRose.withValues(alpha: 0.15)
@@ -496,23 +526,31 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
                               width: 32,
                               child: Text(
                                 '${i + 1}',
-                                style: AppTypography.cormorantBlack.copyWith(fontSize: 16),
+                                style: AppTypography.cormorantBlack.copyWith(
+                                  fontSize: 16,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
                                 _chapters[i].title,
-                                style: AppTypography.outfitBold.copyWith(color: isCurrent
+                                style: AppTypography.outfitBold.copyWith(
+                                  color: isCurrent
                                       ? AppTheme.petalWhite
-                                      : AppTheme.roseQuartz, fontSize: 13),
+                                      : AppTheme.roseQuartz,
+                                  fontSize: 13,
+                                ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             if (isCurrent)
-                              const Icon(Icons.play_arrow_rounded,
-                                  color: AppTheme.roseQuartz, size: 18),
+                              const Icon(
+                                Icons.play_arrow_rounded,
+                                color: AppTheme.roseQuartz,
+                                size: 18,
+                              ),
                           ],
                         ),
                       ),
@@ -554,19 +592,28 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
             ),
             Text(
               'Reading Settings',
-              style: AppTypography.cormorantExtraBoldWhite.copyWith(fontSize: 22),
+              style: AppTypography.cormorantExtraBoldWhite.copyWith(
+                fontSize: 22,
+              ),
             ),
             const SizedBox(height: 20),
             if (_readerMode == ReaderMode.text) ...[
               Text(
                 'Font size',
-                style: AppTypography.outfitBold.copyWith(color: AppTheme.roseQuartz, fontSize: 12, letterSpacing: 1.2),
+                style: AppTypography.outfitBold.copyWith(
+                  color: AppTheme.roseQuartz,
+                  fontSize: 12,
+                  letterSpacing: 1.2,
+                ),
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(Icons.text_decrease_rounded,
-                      color: AppTheme.roseQuartz, size: 18),
+                  const Icon(
+                    Icons.text_decrease_rounded,
+                    color: AppTheme.roseQuartz,
+                    size: 18,
+                  ),
                   Expanded(
                     child: Slider(
                       value: _fontSize,
@@ -574,75 +621,87 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
                       max: 26,
                       divisions: 13,
                       activeColor: AppTheme.deepRose,
-                      inactiveColor:
-                          AppTheme.roseQuartz.withValues(alpha: 0.2),
+                      inactiveColor: AppTheme.roseQuartz.withValues(alpha: 0.2),
                       onChanged: (v) => setState(() => _fontSize = v),
                     ),
                   ),
-                  const Icon(Icons.text_increase_rounded,
-                      color: AppTheme.roseQuartz, size: 22),
+                  const Icon(
+                    Icons.text_increase_rounded,
+                    color: AppTheme.roseQuartz,
+                    size: 22,
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
             ],
             Text(
               'Theme',
-              style: AppTypography.outfitBold.copyWith(color: AppTheme.roseQuartz, fontSize: 12, letterSpacing: 1.2),
+              style: AppTypography.outfitBold.copyWith(
+                color: AppTheme.roseQuartz,
+                fontSize: 12,
+                letterSpacing: 1.2,
+              ),
             ),
             const SizedBox(height: 12),
             Row(
               children: ReaderTheme.values
-                  .map((t) => Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: GestureDetector(
-                            onTap: () => setState(() => _theme = t),
-                            child: AnimatedContainer(
-                              duration:
-                                  const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 12, horizontal: 8),
-                              decoration: BoxDecoration(
+                  .map(
+                    (t) => Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: GestureDetector(
+                          onTap: () => setState(() => _theme = t),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                              horizontal: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _theme == t
+                                  ? AppTheme.deepRose.withValues(alpha: 0.25)
+                                  : Colors.white.withValues(alpha: 0.03),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
                                 color: _theme == t
                                     ? AppTheme.deepRose
-                                        .withValues(alpha: 0.25)
-                                    : Colors.white.withValues(alpha: 0.03),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: _theme == t
-                                      ? AppTheme.deepRose
-                                      : AppTheme.roseQuartz
-                                          .withValues(alpha: 0.2),
-                                ),
+                                    : AppTheme.roseQuartz.withValues(
+                                        alpha: 0.2,
+                                      ),
                               ),
-                              child: Column(
-                                children: [
-                                  Container(
-                                    width: 32,
-                                    height: 32,
-                                    decoration: BoxDecoration(
-                                      color: t.bg,
-                                      borderRadius:
-                                          BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: AppTheme.roseQuartz
-                                            .withValues(alpha: 0.3),
+                            ),
+                            child: Column(
+                              children: [
+                                Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: t.bg,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: AppTheme.roseQuartz.withValues(
+                                        alpha: 0.3,
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    t.label,
-                                    style: AppTypography.outfitHeading.copyWith(color: _theme == t
-                                          ? AppTheme.petalWhite
-                                          : AppTheme.roseQuartz, fontSize: 11),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  t.label,
+                                  style: AppTypography.outfitHeading.copyWith(
+                                    color: _theme == t
+                                        ? AppTheme.petalWhite
+                                        : AppTheme.roseQuartz,
+                                    fontSize: 11,
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                      ))
+                      ),
+                    ),
+                  )
                   .toList(),
             ),
             const SizedBox(height: 12),
@@ -654,8 +713,10 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
                     if (url.isEmpty) return;
                     final uri = Uri.parse(url);
                     if (await canLaunchUrl(uri)) {
-                      await launchUrl(uri,
-                          mode: LaunchMode.externalApplication);
+                      await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                      );
                     }
                   },
                   icon: const Icon(Icons.open_in_new_rounded, size: 16),
@@ -724,14 +785,11 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
     final iaId = widget.book.iaId;
     if (iaId.startsWith('pg') && iaId.length > 2) {
       final id = iaId.substring(2);
-      formats['txt'] =
-          'https://www.gutenberg.org/cache/epub/$id/pg$id.txt';
+      formats['txt'] = 'https://www.gutenberg.org/cache/epub/$id/pg$id.txt';
       formats['epub'] = 'https://www.gutenberg.org/ebooks/$id.epub3.images';
-      formats['mobi'] =
-          'https://www.gutenberg.org/ebooks/$id.kindle.noimages';
+      formats['mobi'] = 'https://www.gutenberg.org/ebooks/$id.kindle.noimages';
     } else if (iaId.isNotEmpty) {
-      formats['txt'] =
-          'https://archive.org/download/$iaId/${iaId}_djvu.txt';
+      formats['txt'] = 'https://archive.org/download/$iaId/${iaId}_djvu.txt';
       formats['epub'] = 'https://archive.org/download/$iaId/$iaId.epub';
       formats['pdf'] = 'https://archive.org/download/$iaId/$iaId.pdf';
     }
@@ -766,7 +824,8 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
             Text(
               'Download',
               style: AppTypography.cormorantExtraBoldWhite.copyWith(
-                  fontSize: 22),
+                fontSize: 22,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
@@ -906,6 +965,3 @@ String _normalizeBookText(String text) {
 }
 
 /// Visual theme variants for the reader.
-
-
-

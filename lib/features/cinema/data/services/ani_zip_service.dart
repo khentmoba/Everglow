@@ -71,9 +71,7 @@ class AniZipService with ConnectivityAware {
     }
     final uri = Uri.parse('$_baseUrl/mappings?mal_id=$malId');
     try {
-      final response = await http.get(uri).timeout(
-            const Duration(seconds: 15),
-          );
+      final response = await http.get(uri).timeout(const Duration(seconds: 15));
       if (response.statusCode != 200) {
         Logger.e('ani.zip GET $uri failed (${response.statusCode})');
         return null;

@@ -209,7 +209,7 @@ class _ServerPickerSheetState extends State<ServerPickerSheet> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.download_rounded, color: _cTeal, size: 18),
+                    const Icon(Icons.download_rounded, color: _cTeal, size: 18),
                     const SizedBox(width: 8),
                     Text(
                       'Find a movie to host',

@@ -111,7 +111,8 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
       builder: (context, snap) {
         final room = snap.data;
         final hasActiveParty = room != null && room.active;
-        final mediaDiffers = hasActiveParty &&
+        final mediaDiffers =
+            hasActiveParty &&
             (room.tmdbId != widget.media.tmdbId ||
                 room.season != widget.media.season ||
                 room.episode != widget.media.episode);
@@ -129,13 +130,19 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
 
   // ─── Variants ─────────────────────────────────────────────────────
 
-  Widget _buildPill(BuildContext context, bool hasParty, bool mediaDiffers, WatchPartyRoom? room) {
-    final label = widget.labelOverride ??
+  Widget _buildPill(
+    BuildContext context,
+    bool hasParty,
+    bool mediaDiffers,
+    WatchPartyRoom? room,
+  ) {
+    final label =
+        widget.labelOverride ??
         (mediaDiffers
             ? 'Switch to this'
             : hasParty
-                ? 'Resume Night'
-                : 'Watch Together');
+            ? 'Resume Night'
+            : 'Watch Together');
     return GestureDetector(
       onTap: () => _onTap(context, hasParty, room),
       child: Container(
@@ -159,15 +166,24 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
               mediaDiffers
                   ? Icons.swap_horiz_rounded
                   : hasParty
-                      ? Icons.replay_rounded
-                      : Icons.favorite_rounded,
-              color: mediaDiffers ? _cAmber : hasParty ? _cGold : _cDeepRose,
+                  ? Icons.replay_rounded
+                  : Icons.favorite_rounded,
+              color: mediaDiffers
+                  ? _cAmber
+                  : hasParty
+                  ? _cGold
+                  : _cDeepRose,
               size: 16,
             ),
             const SizedBox(width: 6),
             Text(
               label,
-              style: AppTypography.outfitWhite.copyWith(color: _cWhite, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.4),
+              style: AppTypography.outfitWhite.copyWith(
+                color: _cWhite,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.4,
+              ),
             ),
           ],
         ),
@@ -176,9 +192,21 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
   }
 
   Widget _buildCard(
-      BuildContext context, bool hasParty, bool mediaDiffers, WatchPartyRoom? room) {
-    final iconColor = mediaDiffers ? _cAmber : hasParty ? _cGold : _cDeepRose;
-    final label = mediaDiffers ? 'Switch' : hasParty ? 'Resume' : 'Start';
+    BuildContext context,
+    bool hasParty,
+    bool mediaDiffers,
+    WatchPartyRoom? room,
+  ) {
+    final iconColor = mediaDiffers
+        ? _cAmber
+        : hasParty
+        ? _cGold
+        : _cDeepRose;
+    final label = mediaDiffers
+        ? 'Switch'
+        : hasParty
+        ? 'Resume'
+        : 'Start';
     return GestureDetector(
       onTap: () => _onTap(context, hasParty, room),
       child: Container(
@@ -227,8 +255,8 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
                 mediaDiffers
                     ? Icons.swap_horiz_rounded
                     : hasParty
-                        ? Icons.movie_filter_rounded
-                        : Icons.favorite_rounded,
+                    ? Icons.movie_filter_rounded
+                    : Icons.favorite_rounded,
                 color: Colors.white,
                 size: 28,
               ),
@@ -242,18 +270,25 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
                     mediaDiffers
                         ? 'Switch movie'
                         : hasParty
-                            ? 'Watching now'
-                            : 'Movie Night',
-                    style: AppTypography.cormorantExtraBold.copyWith(fontSize: 18, color: _cWhite),
+                        ? 'Watching now'
+                        : 'Movie Night',
+                    style: AppTypography.cormorantExtraBold.copyWith(
+                      fontSize: 18,
+                      color: _cWhite,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     mediaDiffers
                         ? 'Tap to switch to ${widget.media.title}'
                         : hasParty
-                            ? (room?.title ?? 'Resuming your party…')
-                            : 'Watch a film in real time with your love',
-                    style: AppTypography.outfitWhite.copyWith(color: _cWhite.withValues(alpha: 0.7), fontSize: 11.5, fontWeight: FontWeight.w500),
+                        ? (room?.title ?? 'Resuming your party…')
+                        : 'Watch a film in real time with your love',
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: _cWhite.withValues(alpha: 0.7),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w500,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -261,29 +296,26 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
               ),
             ),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: iconColor.withValues(alpha: 0.25),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: iconColor,
-                  width: 1,
-                ),
+                border: Border.all(color: iconColor, width: 1),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     label,
-                    style: AppTypography.outfitWhite.copyWith(color: iconColor, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1),
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: iconColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1,
+                    ),
                   ),
                   const SizedBox(width: 4),
-                  Icon(
-                    Icons.arrow_forward_rounded,
-                    color: iconColor,
-                    size: 14,
-                  ),
+                  Icon(Icons.arrow_forward_rounded, color: iconColor, size: 14),
                 ],
               ),
             ),
@@ -294,8 +326,16 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
   }
 
   Widget _buildIcon(
-      BuildContext context, bool hasParty, bool mediaDiffers, WatchPartyRoom? room) {
-    final iconColor = mediaDiffers ? _cAmber : hasParty ? _cGold : _cDeepRose;
+    BuildContext context,
+    bool hasParty,
+    bool mediaDiffers,
+    WatchPartyRoom? room,
+  ) {
+    final iconColor = mediaDiffers
+        ? _cAmber
+        : hasParty
+        ? _cGold
+        : _cDeepRose;
     return GestureDetector(
       onTap: () => _onTap(context, hasParty, room),
       child: Container(
@@ -304,17 +344,14 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
         decoration: BoxDecoration(
           color: iconColor.withValues(alpha: 0.25),
           shape: BoxShape.circle,
-          border: Border.all(
-            color: iconColor,
-            width: 1.2,
-          ),
+          border: Border.all(color: iconColor, width: 1.2),
         ),
         child: Icon(
           mediaDiffers
               ? Icons.swap_horiz_rounded
               : hasParty
-                  ? Icons.replay_rounded
-                  : Icons.favorite_rounded,
+              ? Icons.replay_rounded
+              : Icons.favorite_rounded,
           color: iconColor,
           size: 16,
         ),
@@ -324,7 +361,11 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
 
   // ─── Tap handler ──────────────────────────────────────────────────
 
-  Future<void> _onTap(BuildContext context, bool hasParty, WatchPartyRoom? room) async {
+  Future<void> _onTap(
+    BuildContext context,
+    bool hasParty,
+    WatchPartyRoom? room,
+  ) async {
     HapticFeedback.selectionClick();
     final auth = context.read<AuthService>();
     final myUid = auth.uid;
@@ -336,13 +377,16 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
     WatchPartyRoom toOpen;
     bool isHost;
     bool freshChat = false;
-    debugPrint('SWP _onTap: hasParty=$hasParty, media.tmdbId=${widget.media.tmdbId}, room.tmdbId=${room?.tmdbId}');
+    debugPrint(
+      'SWP _onTap: hasParty=$hasParty, media.tmdbId=${widget.media.tmdbId}, room.tmdbId=${room?.tmdbId}',
+    );
     if (hasParty && room != null) {
       // Check if user is picking a different movie/episode.
       // A tmdbId of 0 means the button was built from a dummy MediaRef
       // (e.g. the dashboard card) — in that case we should never switch
       // the room to the dummy id.
-      final mediaChanged = widget.media.tmdbId != 0 &&
+      final mediaChanged =
+          widget.media.tmdbId != 0 &&
           (room.tmdbId != widget.media.tmdbId ||
               room.season != widget.media.season ||
               room.episode != widget.media.episode);
@@ -396,7 +440,9 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
             ),
             backgroundColor: _cDeepRose,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
         return;

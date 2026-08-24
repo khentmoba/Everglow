@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../../../../../core/constants/api_keys.dart';
 import '../../../../../core/utils/connectivity_aware.dart';
 import '../../../../../core/utils/error_aware.dart';
 import '../../../../../core/utils/logger.dart';
@@ -14,17 +12,20 @@ class TMDBSearchService with TMDBBase, ConnectivityAware, ErrorAware {
     if (query.isEmpty) return [];
 
     final url = Uri.parse(
-        '$tmdbBaseUrl/search/multi?api_key=${ApiKeys.tmdbApiKey}&query=${Uri.encodeComponent(query)}');
+      '$tmdbBaseUrl/search/multi?query=${Uri.encodeComponent(query)}',
+    );
 
     try {
-      final response = await http.get(url);
+      final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
 
         return results
-            .where((item) =>
-                item['media_type'] == 'movie' || item['media_type'] == 'tv')
+            .where(
+              (item) =>
+                  item['media_type'] == 'movie' || item['media_type'] == 'tv',
+            )
             .map((item) => mapResultToMediaItem(item))
             .toList();
       } else {
@@ -40,17 +41,15 @@ class TMDBSearchService with TMDBBase, ConnectivityAware, ErrorAware {
   /// ani.zip doesn't have a TMDB mapping for the MAL id. Returns the
   /// first result's ID, or null on no match / API error.
   Future<int?> searchTvShow(String title, {String? firstAirDateYear}) async {
-    final params = <String, String>{
-      'query': title,
-      'api_key': ApiKeys.tmdbApiKey,
-    };
+    final params = <String, String>{'query': title};
     if (firstAirDateYear != null && firstAirDateYear.isNotEmpty) {
       params['first_air_date_year'] = firstAirDateYear;
     }
-    final url =
-        Uri.parse('$tmdbBaseUrl/search/tv').replace(queryParameters: params);
+    final url = Uri.parse(
+      '$tmdbBaseUrl/search/tv',
+    ).replace(queryParameters: params);
     try {
-      final response = await http.get(url).timeout(const Duration(seconds: 10));
+      final response = await tmdbGet(url).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final results = data['results'] as List?;

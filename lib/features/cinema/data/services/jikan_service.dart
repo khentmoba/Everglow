@@ -57,17 +57,21 @@ class JikanService with ConnectivityAware, ErrorAware {
 
   Future<T> _enqueue<T>(Future<T> Function() task) async {
     final completer = Completer<T>();
-    _queue.add(_JikanTask(task: () async {
-      try {
-        // Wrap the task in a timeout so a stuck HTTP call can't block
-        // the queue indefinitely. When the timeout fires the queue
-        // continues to the next task and the caller gets a null result.
-        final result = await task().timeout(_queueTaskTimeout);
-        completer.complete(result);
-      } catch (e, st) {
-        completer.completeError(e, st);
-      }
-    }));
+    _queue.add(
+      _JikanTask(
+        task: () async {
+          try {
+            // Wrap the task in a timeout so a stuck HTTP call can't block
+            // the queue indefinitely. When the timeout fires the queue
+            // continues to the next task and the caller gets a null result.
+            final result = await task().timeout(_queueTaskTimeout);
+            completer.complete(result);
+          } catch (e, st) {
+            completer.completeError(e, st);
+          }
+        },
+      ),
+    );
     _dispatch();
     return completer.future;
   }
@@ -101,8 +105,11 @@ class JikanService with ConnectivityAware, ErrorAware {
   /// map, or null on a non-200 / network error. On 429 we back off
   /// exponentially (5s, 10s, 20s) up to [_serverBackoffMax] and respect
   /// the server's `Retry-After` header when present.
-  Future<Map<String, dynamic>?> _getJson(String path,
-      {Map<String, String>? params, int maxRetries = 3}) async {
+  Future<Map<String, dynamic>?> _getJson(
+    String path, {
+    Map<String, String>? params,
+    int maxRetries = 3,
+  }) async {
     final uri = Uri.parse('$_baseUrl$path').replace(queryParameters: params);
     // Jikan strongly recommends a custom User-Agent to avoid aggressive
     // rate-limiting. The Accept header ensures we always request JSON.
@@ -114,9 +121,9 @@ class JikanService with ConnectivityAware, ErrorAware {
       var attempt = 0;
       while (true) {
         try {
-          final response = await http.get(uri, headers: headers).timeout(
-                const Duration(seconds: 20),
-              );
+          final response = await http
+              .get(uri, headers: headers)
+              .timeout(const Duration(seconds: 20));
           if (response.statusCode == 200) {
             return json.decode(response.body) as Map<String, dynamic>;
           }
@@ -125,19 +132,25 @@ class JikanService with ConnectivityAware, ErrorAware {
             // Prefer the server's Retry-After, else grow exponentially
             // from [_serverBackoff] up to [_serverBackoffMax] so a
             // single sustained burst doesn't keep the queue dead.
-            final retryAfter = _parseRetryAfter(response.headers['retry-after']);
-            final base = retryAfter ??
+            final retryAfter = _parseRetryAfter(
+              response.headers['retry-after'],
+            );
+            final base =
+                retryAfter ??
                 Duration(
-                  milliseconds: (_serverBackoff.inMilliseconds *
-                          (1 << (attempt - 1).clamp(0, 4)))
-                      .clamp(0, _serverBackoffMax.inMilliseconds),
+                  milliseconds:
+                      (_serverBackoff.inMilliseconds *
+                              (1 << (attempt - 1).clamp(0, 4)))
+                          .clamp(0, _serverBackoffMax.inMilliseconds),
                 );
             final clamped = base > _serverBackoffMax ? _serverBackoffMax : base;
             await Future.delayed(clamped);
             continue;
           }
-          Logger.e('[Jikan] $path failed (${response.statusCode}): '
-              '${response.body.length > 200 ? '${response.body.substring(0, 200)}...' : response.body}');
+          Logger.e(
+            '[Jikan] $path failed (${response.statusCode}): '
+            '${response.body.length > 200 ? '${response.body.substring(0, 200)}...' : response.body}',
+          );
           return null;
         } catch (e) {
           Logger.e('[Jikan] $path error', error: e);
@@ -166,8 +179,11 @@ class JikanService with ConnectivityAware, ErrorAware {
   /// must not be blocked by a backed-up queue from carousel preloads.
   /// The caller is responsible for not flooding Jikan — this should only
   /// be called for one-shot user interactions, not bulk fan-out.
-  Future<Map<String, dynamic>?> _getJsonDirect(String path,
-      {Map<String, String>? params, int maxRetries = 1}) async {
+  Future<Map<String, dynamic>?> _getJsonDirect(
+    String path, {
+    Map<String, String>? params,
+    int maxRetries = 1,
+  }) async {
     final uri = Uri.parse('$_baseUrl$path').replace(queryParameters: params);
     const headers = <String, String>{
       'User-Agent': 'Everglow/5.3 (anime; +https://everglow.app)',
@@ -176,9 +192,9 @@ class JikanService with ConnectivityAware, ErrorAware {
     var attempt = 0;
     while (true) {
       try {
-        final response = await http.get(uri, headers: headers).timeout(
-              const Duration(seconds: 10),
-            );
+        final response = await http
+            .get(uri, headers: headers)
+            .timeout(const Duration(seconds: 10));
         if (response.statusCode == 200) {
           return json.decode(response.body) as Map<String, dynamic>;
         }
@@ -190,8 +206,10 @@ class JikanService with ConnectivityAware, ErrorAware {
           await Future.delayed(clamped);
           continue;
         }
-        Logger.e('[Jikan][Direct] $path failed (${response.statusCode}): '
-            '${response.body.length > 200 ? '${response.body.substring(0, 200)}...' : response.body}');
+        Logger.e(
+          '[Jikan][Direct] $path failed (${response.statusCode}): '
+          '${response.body.length > 200 ? '${response.body.substring(0, 200)}...' : response.body}',
+        );
         return null;
       } catch (e) {
         Logger.e('[Jikan][Direct] $path error', error: e);
@@ -234,8 +252,8 @@ class JikanService with ConnectivityAware, ErrorAware {
     final year = yearVal != null
         ? yearVal.toString()
         : (airedFrom != null && airedFrom.length >= 4
-            ? airedFrom.substring(0, 4)
-            : '');
+              ? airedFrom.substring(0, 4)
+              : '');
 
     final typeStr = (j['type'] as String?) ?? '';
     // Jikan's type maps loosely to TMDB's mediaType so the existing
@@ -297,10 +315,10 @@ class JikanService with ConnectivityAware, ErrorAware {
   /// is unavailable (a common Jikan degradation pattern), so the
   /// "Currently Airing" Browse chip still returns results.
   Future<List<MediaItem>> fetchSeasonNow({int page = 1, int limit = 20}) async {
-    final json = await _getJson('/seasons/now', params: {
-      'page': '$page',
-      'limit': '$limit',
-    });
+    final json = await _getJson(
+      '/seasons/now',
+      params: {'page': '$page', 'limit': '$limit'},
+    );
     if (json != null) {
       final data = (json['data'] as List?) ?? const [];
       if (data.isNotEmpty) {
@@ -317,10 +335,10 @@ class JikanService with ConnectivityAware, ErrorAware {
 
   /// Upcoming anime (next season + later).
   Future<List<MediaItem>> fetchUpcoming({int page = 1, int limit = 20}) async {
-    final json = await _getJson('/seasons/upcoming', params: {
-      'page': '$page',
-      'limit': '$limit',
-    });
+    final json = await _getJson(
+      '/seasons/upcoming',
+      params: {'page': '$page', 'limit': '$limit'},
+    );
     if (json == null) return [];
     final data = (json['data'] as List?) ?? const [];
     return data
@@ -398,11 +416,10 @@ class JikanService with ConnectivityAware, ErrorAware {
     double minScore = 7.5,
     int maxMembers = 200000,
   }) async {
-    final json = await _getJson('/top/anime', params: {
-      'type': 'tv',
-      'page': '$page',
-      'limit': '$limit',
-    });
+    final json = await _getJson(
+      '/top/anime',
+      params: {'type': 'tv', 'page': '$page', 'limit': '$limit'},
+    );
     if (json == null) return [];
     final data = (json['data'] as List?) ?? const [];
     final gems = data.whereType<Map<String, dynamic>>().where((j) {
@@ -416,13 +433,16 @@ class JikanService with ConnectivityAware, ErrorAware {
   /// "New Releases" rail. Fetches the most recent season + next season
   /// and returns anime that started airing recently. Falls back to the
   /// top-anime endpoint with a generous member filter when seasons fail.
-  Future<List<MediaItem>> fetchNewReleases({int page = 1, int limit = 20}) async {
+  Future<List<MediaItem>> fetchNewReleases({
+    int page = 1,
+    int limit = 20,
+  }) async {
     // Try current season first — this is the most reliable source for
     // genuinely new releases.
-    final json = await _getJson('/seasons/now', params: {
-      'page': '$page',
-      'limit': '$limit',
-    });
+    final json = await _getJson(
+      '/seasons/now',
+      params: {'page': '$page', 'limit': '$limit'},
+    );
     if (json != null) {
       final data = (json['data'] as List?) ?? const [];
       if (data.isNotEmpty) {
@@ -434,11 +454,10 @@ class JikanService with ConnectivityAware, ErrorAware {
     }
     // Current season empty — try recent top anime with a generous
     // member threshold so we actually get results.
-    final topJson = await _getJson('/top/anime', params: {
-      'type': 'tv',
-      'page': '$page',
-      'limit': '$limit',
-    });
+    final topJson = await _getJson(
+      '/top/anime',
+      params: {'type': 'tv', 'page': '$page', 'limit': '$limit'},
+    );
     if (topJson == null) return [];
     final topData = (topJson['data'] as List?) ?? const [];
     return topData
@@ -451,16 +470,22 @@ class JikanService with ConnectivityAware, ErrorAware {
   /// Search anime by free-text query. We rely on the standard `q` param
   /// and return the first page of results (limit capped at 25 to keep
   /// the search modal snappy).
-  Future<List<MediaItem>> searchAnime(String query,
-      {int page = 1, int limit = 25}) async {
+  Future<List<MediaItem>> searchAnime(
+    String query, {
+    int page = 1,
+    int limit = 25,
+  }) async {
     if (query.trim().isEmpty) return [];
-    final json = await _getJson('/anime', params: {
-      'q': query,
-      'page': '$page',
-      'limit': '$limit',
-      'order_by': 'popularity',
-      'sort': 'desc',
-    });
+    final json = await _getJson(
+      '/anime',
+      params: {
+        'q': query,
+        'page': '$page',
+        'limit': '$limit',
+        'order_by': 'popularity',
+        'sort': 'desc',
+      },
+    );
     if (json == null) return [];
     final data = (json['data'] as List?) ?? const [];
     return data
@@ -476,16 +501,22 @@ class JikanService with ConnectivityAware, ErrorAware {
   /// Currently Airing, etc.) and we don't want the search modal to feel
   /// stuck. The caller should still handle null/empty gracefully since
   /// Jikan's /anime search endpoint is less reliable than AniList.
-  Future<List<MediaItem>> searchAnimeDirect(String query,
-      {int page = 1, int limit = 25}) async {
+  Future<List<MediaItem>> searchAnimeDirect(
+    String query, {
+    int page = 1,
+    int limit = 25,
+  }) async {
     if (query.trim().isEmpty) return [];
-    final json = await _getJsonDirect('/anime', params: {
-      'q': query,
-      'page': '$page',
-      'limit': '$limit',
-      'order_by': 'popularity',
-      'sort': 'desc',
-    });
+    final json = await _getJsonDirect(
+      '/anime',
+      params: {
+        'q': query,
+        'page': '$page',
+        'limit': '$limit',
+        'order_by': 'popularity',
+        'sort': 'desc',
+      },
+    );
     if (json == null) return [];
     final data = (json['data'] as List?) ?? const [];
     return data
@@ -512,9 +543,7 @@ class JikanService with ConnectivityAware, ErrorAware {
   /// renders even during partial Jikan outages.
   Future<List<MediaItem>> fetchAnimeByIds(List<int> malIds) async {
     if (malIds.isEmpty) return [];
-    final json = await _getJson('/anime', params: {
-      'ids': malIds.join(','),
-    });
+    final json = await _getJson('/anime', params: {'ids': malIds.join(',')});
     if (json != null) {
       final data = (json['data'] as List?) ?? const [];
       if (data.isNotEmpty) {
@@ -550,21 +579,24 @@ class JikanService with ConnectivityAware, ErrorAware {
     int limit = 20,
   }) async {
     // Pull a bigger page so genre filtering doesn't leave us with 0 items.
-    final json = await _getJson('/top/anime', params: {
-      'type': 'tv',
-      'page': '1',
-      'limit': '50',
-    });
+    final json = await _getJson(
+      '/top/anime',
+      params: {'type': 'tv', 'page': '1', 'limit': '50'},
+    );
     if (json == null) return [];
     final data = (json['data'] as List?) ?? const [];
     final genreSet = genreIds.toSet();
-    final matched = data.whereType<Map<String, dynamic>>().where((j) {
-      final genres = j['genres'] as List? ?? const [];
-      for (final g in genres) {
-        if (g is Map && genreSet.contains(g['mal_id'])) return true;
-      }
-      return false;
-    }).take(limit).toList();
+    final matched = data
+        .whereType<Map<String, dynamic>>()
+        .where((j) {
+          final genres = j['genres'] as List? ?? const [];
+          for (final g in genres) {
+            if (g is Map && genreSet.contains(g['mal_id'])) return true;
+          }
+          return false;
+        })
+        .take(limit)
+        .toList();
     return matched.map(mapJikanToMediaItem).toList();
   }
 
@@ -573,7 +605,9 @@ class JikanService with ConnectivityAware, ErrorAware {
   /// `relations` + `recommendations` come back empty (which happens for
   /// most niche shows). Returns the raw Jikan envelope entries — the
   /// caller maps them into [MediaItem].
-  Future<List<Map<String, dynamic>>> fetchAnimeRecommendations(int malId) async {
+  Future<List<Map<String, dynamic>>> fetchAnimeRecommendations(
+    int malId,
+  ) async {
     final json = await _getJson('/anime/$malId/recommendations');
     if (json == null) return const [];
     final data = (json['data'] as List?) ?? const [];
@@ -597,9 +631,10 @@ class JikanService with ConnectivityAware, ErrorAware {
     const maxPages = 10; // 10 * 100 = 1000 episodes, more than enough.
     final out = <Map<String, dynamic>>[];
     for (var page = 1; page <= maxPages; page++) {
-      final json = await _getJson('/anime/$malId/episodes', params: {
-        'page': '$page',
-      });
+      final json = await _getJson(
+        '/anime/$malId/episodes',
+        params: {'page': '$page'},
+      );
       if (json == null) return out;
       final data = (json['data'] as List?) ?? const [];
       final entries = data.whereType<Map<String, dynamic>>().toList();
@@ -625,9 +660,10 @@ class JikanService with ConnectivityAware, ErrorAware {
     const maxPages = 1;
     final out = <Map<String, dynamic>>[];
     for (var page = 1; page <= maxPages; page++) {
-      final json = await _getJson('/anime/$malId/reviews', params: {
-        'page': '$page',
-      });
+      final json = await _getJson(
+        '/anime/$malId/reviews',
+        params: {'page': '$page'},
+      );
       if (json == null) return out;
       final data = (json['data'] as List?) ?? const [];
       final entries = data.whereType<Map<String, dynamic>>().toList();
@@ -654,13 +690,16 @@ class JikanService with ConnectivityAware, ErrorAware {
     int limit = 20,
   }) async {
     if (genreIds.isEmpty) return [];
-    final json = await _getJson('/anime', params: {
-      'genres': genreIds.join(','),
-      'page': '$page',
-      'limit': '$limit',
-      'order_by': 'score',
-      'sort': 'desc',
-    });
+    final json = await _getJson(
+      '/anime',
+      params: {
+        'genres': genreIds.join(','),
+        'page': '$page',
+        'limit': '$limit',
+        'order_by': 'score',
+        'sort': 'desc',
+      },
+    );
     if (json != null) {
       final data = (json['data'] as List?) ?? const [];
       if (data.isNotEmpty) {

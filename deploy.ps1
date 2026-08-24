@@ -7,10 +7,15 @@ if ($LASTEXITCODE -ne 0) { Write-Host "SW generation failed"; exit 1 }
 
 Write-Host "Running flutter build web..."
 $dartDefines = @()
+# Only public client values may enter a web bundle. Server-only credentials
+# (TMDB, Last.fm, couple account credentials) must stay in Cloud Functions.
+$allowedClientKeys = @('FCM_VAPID_KEY', 'SPOTIFY_CLIENT_ID')
 if (Test-Path "assets/env.txt") {
   Get-Content "assets/env.txt" | ForEach-Object {
     if ($_ -match '^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$') {
-      $dartDefines += "--dart-define=$($matches[1])=$($matches[2])"
+      if ($allowedClientKeys -contains $matches[1]) {
+        $dartDefines += "--dart-define=$($matches[1])=$($matches[2])"
+      }
     }
   }
 }

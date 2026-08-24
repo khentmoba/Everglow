@@ -63,7 +63,7 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
       lastDate: now.add(const Duration(days: 365 * 2)),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: ColorScheme.dark(
+          colorScheme: const ColorScheme.dark(
             primary: AppTheme.deepRose,
             surface: AppTheme.velvet,
             onSurface: AppTheme.petalWhite,
@@ -72,7 +72,11 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
         child: child!,
       ),
     );
-    if (picked != null) setState(() => _dueDate = DateTime(picked.year, picked.month, picked.day));
+    if (picked != null) {
+      setState(
+        () => _dueDate = DateTime(picked.year, picked.month, picked.day),
+      );
+    }
   }
 
   Widget _buildAssignChip(String? value, String label, IconData icon) {
@@ -82,21 +86,35 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.deepRose.withValues(alpha: 0.3) : Colors.transparent,
+          color: isSelected
+              ? AppTheme.deepRose.withValues(alpha: 0.3)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? AppTheme.blushGold : AppTheme.blushGold.withValues(alpha: 0.15)),
+          border: Border.all(
+            color: isSelected
+                ? AppTheme.blushGold
+                : AppTheme.blushGold.withValues(alpha: 0.15),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: isSelected ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.6)),
+            Icon(
+              icon,
+              size: 14,
+              color: isSelected
+                  ? AppTheme.blushGold
+                  : AppTheme.petalWhite.withValues(alpha: 0.6),
+            ),
             const SizedBox(width: 6),
             Text(
               label,
               style: AppTypography.outfitWhite.copyWith(
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.6),
+                color: isSelected
+                    ? AppTheme.blushGold
+                    : AppTheme.petalWhite.withValues(alpha: 0.6),
               ),
             ),
           ],
@@ -261,20 +279,31 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                   return GestureDetector(
                     onTap: () => setState(() => _priority = p),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
-                        color: isSelected ? AppTheme.deepRose.withValues(alpha: 0.3) : Colors.transparent,
+                        color: isSelected
+                            ? AppTheme.deepRose.withValues(alpha: 0.3)
+                            : Colors.transparent,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isSelected ? AppTheme.blushGold : AppTheme.blushGold.withValues(alpha: 0.15),
+                          color: isSelected
+                              ? AppTheme.blushGold
+                              : AppTheme.blushGold.withValues(alpha: 0.15),
                         ),
                       ),
                       child: Text(
                         '${p.emoji} ${p.displayName}',
                         style: AppTypography.outfitWhite.copyWith(
                           fontSize: 11,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                          color: isSelected ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.6),
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.w500,
+                          color: isSelected
+                              ? AppTheme.blushGold
+                              : AppTheme.petalWhite.withValues(alpha: 0.6),
                         ),
                       ),
                     ),
@@ -297,7 +326,11 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                 children: [
                   _buildAssignChip(null, 'Unassigned', Icons.person_outline),
                   _buildAssignChip('khentsgdz', 'Khent', Icons.person_rounded),
-                  _buildAssignChip('clairjassen', 'Clair', Icons.favorite_rounded),
+                  _buildAssignChip(
+                    'clairjassen',
+                    'Clair',
+                    Icons.favorite_rounded,
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -317,22 +350,36 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                   GestureDetector(
                     onTap: _pickDueDate,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
-                        color: _dueDate == null ? AppTheme.twilight : AppTheme.deepRose.withValues(alpha: 0.2),
+                        color: _dueDate == null
+                            ? AppTheme.twilight
+                            : AppTheme.deepRose.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.2)),
+                        border: Border.all(
+                          color: AppTheme.blushGold.withValues(alpha: 0.2),
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.calendar_today_rounded, size: 14, color: AppTheme.blushGold),
+                          const Icon(
+                            Icons.calendar_today_rounded,
+                            size: 14,
+                            color: AppTheme.blushGold,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             _dueDate == null
                                 ? 'No date'
                                 : '${_dueDate!.month}/${_dueDate!.day}/${_dueDate!.year}',
-                            style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.petalWhite),
+                            style: AppTypography.outfitWhite.copyWith(
+                              fontSize: 12,
+                              color: AppTheme.petalWhite,
+                            ),
                           ),
                         ],
                       ),
@@ -342,7 +389,11 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                     const SizedBox(width: 8),
                     GestureDetector(
                       onTap: () => setState(() => _dueDate = null),
-                      child: Icon(Icons.close_rounded, size: 18, color: AppTheme.petalWhite.withValues(alpha: 0.6)),
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                      ),
                     ),
                   ],
                 ],

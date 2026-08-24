@@ -110,11 +110,16 @@ class KatanaItemCard extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.schedule_rounded,
-                size: 13, color: KatanaColors.textLight),
+            const Icon(
+              Icons.schedule_rounded,
+              size: 13,
+              color: KatanaColors.textLight,
+            ),
             const SizedBox(width: 4),
-            Text(manga.updateText.isEmpty ? 'recently' : manga.updateText,
-                style: KatanaType.small),
+            Text(
+              manga.updateText.isEmpty ? 'recently' : manga.updateText,
+              style: KatanaType.small,
+            ),
           ],
         ),
         if (manga.latestChapter != null)
@@ -130,8 +135,11 @@ class KatanaItemCard extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.double_arrow_rounded,
-                    size: 13, color: KatanaColors.link),
+                const Icon(
+                  Icons.double_arrow_rounded,
+                  size: 13,
+                  color: KatanaColors.link,
+                ),
                 const SizedBox(width: 4),
                 Text('First Chapter', style: KatanaType.link),
               ],
@@ -155,7 +163,8 @@ class KatanaItemCard extends StatelessWidget {
                 color: KatanaColors.link.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
-                    color: KatanaColors.link.withValues(alpha: 0.35)),
+                  color: KatanaColors.link.withValues(alpha: 0.35),
+                ),
               ),
               child: Text(
                 genre.name,
@@ -198,7 +207,9 @@ class KatanaItemCard extends StatelessWidget {
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
                         decoration: TextDecoration.underline,
-                        decorationColor: KatanaColors.link.withValues(alpha: 0.4),
+                        decorationColor: KatanaColors.link.withValues(
+                          alpha: 0.4,
+                        ),
                       ),
                     ),
                   ),
@@ -244,24 +255,29 @@ class _Cover extends StatelessWidget {
             url.isEmpty
                 ? Container(
                     color: KatanaColors.border,
-                    child: const Icon(Icons.menu_book_rounded,
-                        color: KatanaColors.textLight, size: 28),
+                    child: const Icon(
+                      Icons.menu_book_rounded,
+                      color: KatanaColors.textLight,
+                      size: 28,
+                    ),
                   )
                 : KatanaNetworkImage(
                     url,
                     fit: BoxFit.cover,
                     errorBuilder: (_, _, _) => Container(
                       color: KatanaColors.border,
-                      child: const Icon(Icons.broken_image_rounded,
-                          color: KatanaColors.textLight, size: 26),
+                      child: const Icon(
+                        Icons.broken_image_rounded,
+                        color: KatanaColors.textLight,
+                        size: 26,
+                      ),
                     ),
                   ),
             Positioned(
               left: 0,
               top: 0,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
                   color: status == 'completed'
                       ? KatanaColors.green
@@ -308,16 +324,20 @@ class KatanaCompactCard extends StatelessWidget {
               child: manga.coverUrl.isEmpty
                   ? Container(
                       color: KatanaColors.border,
-                      child: const Icon(Icons.menu_book_rounded,
-                          color: KatanaColors.textLight),
+                      child: const Icon(
+                        Icons.menu_book_rounded,
+                        color: KatanaColors.textLight,
+                      ),
                     )
                   : KatanaNetworkImage(
                       manga.coverUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (_, _, _) => Container(
                         color: KatanaColors.border,
-                        child: const Icon(Icons.broken_image_rounded,
-                            color: KatanaColors.textLight),
+                        child: const Icon(
+                          Icons.broken_image_rounded,
+                          color: KatanaColors.textLight,
+                        ),
                       ),
                     ),
             ),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../shared/widgets/gamified_background.dart';
+import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../shared/widgets/everglow/everglow_error_state.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
@@ -39,176 +39,259 @@ class _BucketListScreenState extends State<BucketListScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: GamifiedBackground(
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Header
-              EverglowFeatureHeader(
-                title: 'Our Bucket List',
-                subtitle: 'dreams we chase together',
-                icon: Icons.card_travel_rounded,
-                hue: AppColors.auroraTeal,
-                actions: [
-                  GestureDetector(
-                    onTap: () => setState(() => _viewMode = _viewMode == _ViewMode.list ? _ViewMode.board : _ViewMode.list),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AppTheme.moonlight.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.2)),
+      body: Stack(
+        children: [
+          const Positioned.fill(
+            child: EverglowBackground(baseColor: AppColors.inkDeep),
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+                // Header
+                EverglowFeatureHeader(
+                  title: 'Our Bucket List',
+                  subtitle: 'dreams we chase together',
+                  icon: Icons.card_travel_rounded,
+                  hue: AppColors.auroraTeal,
+                  actions: [
+                    GestureDetector(
+                      onTap: () => setState(
+                        () => _viewMode = _viewMode == _ViewMode.list
+                            ? _ViewMode.board
+                            : _ViewMode.list,
                       ),
-                      child: Row(
-                        children: [
-                          Icon(_viewMode == _ViewMode.list ? Icons.view_kanban_rounded : Icons.view_list_rounded, size: 16, color: AppTheme.blushGold),
-                          const SizedBox(width: 6),
-                          Text(_viewMode == _ViewMode.list ? 'Board' : 'List', style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.blushGold)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              // Progress bar
-              _buildProgressHeader(service),
-              const SizedBox(height: 12),
-
-              // Status filter chips
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildFilterChip(null, 'All'),
-                      const SizedBox(width: 8),
-                      _buildFilterChip(BucketStatus.wish, 'Wishes'),
-                      const SizedBox(width: 8),
-                      _buildFilterChip(BucketStatus.planned, 'Planned'),
-                      const SizedBox(width: 8),
-                      _buildFilterChip(BucketStatus.completed, 'Done'),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              // Assignee + priority + overdue row (Donetick/Vikunja)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildAssigneeChip(null, 'All'),
-                      const SizedBox(width: 8),
-                      _buildAssigneeChip('khentsgdz', 'Khent'),
-                      const SizedBox(width: 8),
-                      _buildAssigneeChip('clairjassen', 'Clair'),
-                      const SizedBox(width: 8),
-                      _buildAssigneeChip('unassigned', 'Unassigned'),
-                      const SizedBox(width: 12),
-                      Container(width: 1, height: 18, color: AppTheme.blushGold.withValues(alpha: 0.15)),
-                      const SizedBox(width: 12),
-                      _buildPriorityFilterChip(null, 'Any prio'),
-                      const SizedBox(width: 8),
-                      ...BucketPriority.values.map((p) => Padding(padding: const EdgeInsets.only(right: 8), child: _buildPriorityFilterChip(p, '${p.emoji} ${p.displayName}'))),
-                      const SizedBox(width: 12),
-                      GestureDetector(
-                        onTap: () => setState(() => _overdueOnly = !_overdueOnly),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: _overdueOnly ? Colors.redAccent.withValues(alpha: 0.15) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: _overdueOnly ? Colors.redAccent : AppTheme.blushGold.withValues(alpha: 0.15)),
-                          ),
-                          child: Text('⚠️ Overdue', style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: _overdueOnly ? FontWeight.bold : FontWeight.w500, color: _overdueOnly ? Colors.redAccent : AppTheme.petalWhite.withValues(alpha: 0.6))),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppColors.moonlight.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.14)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              _viewMode == _ViewMode.list ? Icons.view_kanban_rounded : Icons.view_list_rounded,
+                              size: 14,
+                              color: AppColors.blushGold,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _viewMode == _ViewMode.list ? 'Board' : 'List',
+                              style: AppTypography.outfitBold.copyWith(fontSize: 11, color: AppColors.blushGold),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Progress bar
+                _buildProgressHeader(service),
+                const SizedBox(height: 12),
+
+                // Status filter chips
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildFilterChip(null, 'All'),
+                        const SizedBox(width: 8),
+                        _buildFilterChip(BucketStatus.wish, 'Wishes'),
+                        const SizedBox(width: 8),
+                        _buildFilterChip(BucketStatus.planned, 'Planned'),
+                        const SizedBox(width: 8),
+                        _buildFilterChip(BucketStatus.completed, 'Done'),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
+                const SizedBox(height: 8),
+                // Assignee + priority + overdue row (Donetick/Vikunja)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildAssigneeChip(null, 'All'),
+                        const SizedBox(width: 8),
+                        _buildAssigneeChip('khentsgdz', 'Khent'),
+                        const SizedBox(width: 8),
+                        _buildAssigneeChip('clairjassen', 'Clair'),
+                        const SizedBox(width: 8),
+                        _buildAssigneeChip('unassigned', 'Unassigned'),
+                        const SizedBox(width: 12),
+                        Container(
+                          width: 1,
+                          height: 18,
+                          color: AppTheme.blushGold.withValues(alpha: 0.15),
+                        ),
+                        const SizedBox(width: 12),
+                        _buildPriorityFilterChip(null, 'Any prio'),
+                        const SizedBox(width: 8),
+                        ...BucketPriority.values.map(
+                          (p) => Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: _buildPriorityFilterChip(
+                              p,
+                              '${p.emoji} ${p.displayName}',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        GestureDetector(
+                          onTap: () =>
+                              setState(() => _overdueOnly = !_overdueOnly),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _overdueOnly
+                                  ? Colors.redAccent.withValues(alpha: 0.15)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: _overdueOnly
+                                    ? Colors.redAccent
+                                    : AppTheme.blushGold.withValues(
+                                        alpha: 0.15,
+                                      ),
+                              ),
+                            ),
+                            child: Text(
+                              '⚠️ Overdue',
+                              style: AppTypography.outfitWhite.copyWith(
+                                fontSize: 12,
+                                fontWeight: _overdueOnly
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                                color: _overdueOnly
+                                    ? Colors.redAccent
+                                    : AppTheme.petalWhite.withValues(
+                                        alpha: 0.6,
+                                      ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
 
-              // List / Board
-              Expanded(
-                child: StreamBuilder<List<BucketItem>>(
-                  stream: service.watchAll(),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasError) {
-                      return EverglowErrorState(
-                        message: 'Could not load bucket list',
-                        onRetry: () => setState(() {}),
-                        icon: Icons.cloud_off_outlined,
-                      );
-                    }
-
-                    if (!snapshot.hasData) {
-                      return const EverglowSkeleton(
-                        width: double.infinity,
-                        height: 80,
-                        radius: 16,
-                      );
-                    }
-
-                    var items = snapshot.data!;
-                    // Client-side filters (avoids extra composite indexes)
-                    if (_filter != null) items = items.where((i) => i.status == _filter).toList();
-                    if (_assigneeFilter != null) {
-                      if (_assigneeFilter == 'unassigned') {
-                        items = items.where((i) => i.assignedTo == null).toList();
-                      } else {
-                        items = items.where((i) => i.assignedTo == _assigneeFilter).toList();
+                // List / Board
+                Expanded(
+                  child: StreamBuilder<List<BucketItem>>(
+                    stream: service.watchAll(),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return EverglowErrorState(
+                          message: 'Could not load bucket list',
+                          onRetry: () => setState(() {}),
+                          icon: Icons.cloud_off_outlined,
+                        );
                       }
-                    }
-                    if (_priorityFilter != null) items = items.where((i) => i.priority == _priorityFilter).toList();
-                    if (_overdueOnly) items = items.where((i) => i.isOverdue).toList();
 
-                    if (items.isEmpty) {
-                      final isFiltered = _filter != null || _assigneeFilter != null || _priorityFilter != null || _overdueOnly;
-                      return EverglowEmptyState(
-                        icon: Icons.auto_awesome,
-                        title: isFiltered ? 'No matching dreams' : 'Your bucket list is empty',
-                        subtitle: isFiltered ? 'Try adjusting filters' : 'Add your first dream together!',
-                        ctaLabel: isFiltered ? null : 'Add Dream',
-                        onCta: isFiltered ? null : () => _showAddDialog(context, auth),
-                      );
-                    }
+                      if (!snapshot.hasData) {
+                        return const EverglowSkeleton(
+                          width: double.infinity,
+                          height: 80,
+                          radius: 16,
+                        );
+                      }
 
-                    if (_viewMode == _ViewMode.board) {
-                      return BucketKanbanBoard(items: items, currentUsername: currentUser);
-                    }
+                      var items = snapshot.data!;
+                      // Client-side filters (avoids extra composite indexes)
+                      if (_filter != null) {
+                        items = items
+                            .where((i) => i.status == _filter)
+                            .toList();
+                      }
+                      if (_assigneeFilter != null) {
+                        if (_assigneeFilter == 'unassigned') {
+                          items = items
+                              .where((i) => i.assignedTo == null)
+                              .toList();
+                        } else {
+                          items = items
+                              .where((i) => i.assignedTo == _assigneeFilter)
+                              .toList();
+                        }
+                      }
+                      if (_priorityFilter != null) {
+                        items = items
+                            .where((i) => i.priority == _priorityFilter)
+                            .toList();
+                      }
+                      if (_overdueOnly) {
+                        items = items.where((i) => i.isOverdue).toList();
+                      }
 
-                    // List mode: sort by priority desc then dueDate asc then createdAt desc
-                    items.sort((a, b) {
-                      final pr = b.priority.rank.compareTo(a.priority.rank);
-                      if (pr != 0) return pr;
-                      if (a.dueDate != null && b.dueDate != null) return a.dueDate!.compareTo(b.dueDate!);
-                      if (a.dueDate != null) return -1;
-                      if (b.dueDate != null) return 1;
-                      return b.createdAt.compareTo(a.createdAt);
-                    });
+                      if (items.isEmpty) {
+                        final isFiltered =
+                            _filter != null ||
+                            _assigneeFilter != null ||
+                            _priorityFilter != null ||
+                            _overdueOnly;
+                        return EverglowEmptyState(
+                          icon: Icons.auto_awesome,
+                          title: isFiltered
+                              ? 'No matching dreams'
+                              : 'Your bucket list is empty',
+                          subtitle: isFiltered
+                              ? 'Try adjusting filters'
+                              : 'Add your first dream together!',
+                          ctaLabel: isFiltered ? null : 'Add Dream',
+                          onCta: isFiltered
+                              ? null
+                              : () => _showAddDialog(context, auth),
+                        );
+                      }
 
-                    return ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: items.length,
-                      itemBuilder: (context, index) {
-                        return BucketItemCard(
-                          item: items[index],
+                      if (_viewMode == _ViewMode.board) {
+                        return BucketKanbanBoard(
+                          items: items,
                           currentUsername: currentUser,
                         );
-                      },
-                    );
-                  },
+                      }
+
+                      // List mode: sort by priority desc then dueDate asc then createdAt desc
+                      items.sort((a, b) {
+                        final pr = b.priority.rank.compareTo(a.priority.rank);
+                        if (pr != 0) return pr;
+                        if (a.dueDate != null && b.dueDate != null) {
+                          return a.dueDate!.compareTo(b.dueDate!);
+                        }
+                        if (a.dueDate != null) return -1;
+                        if (b.dueDate != null) return 1;
+                        return b.createdAt.compareTo(a.createdAt);
+                      });
+
+                      return ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        itemCount: items.length,
+                        itemBuilder: (context, index) {
+                          return BucketItemCard(
+                            item: items[index],
+                            currentUsername: currentUser,
+                          );
+                        },
+                      );
+                    },
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddDialog(context, auth),
@@ -257,7 +340,9 @@ class _BucketListScreenState extends State<BucketListScreen> {
                         backgroundColor: AppTheme.petalWhite.withValues(
                           alpha: 0.1,
                         ),
-                        valueColor: AlwaysStoppedAnimation(AppTheme.blushGold),
+                        valueColor: const AlwaysStoppedAnimation(
+                          AppTheme.blushGold,
+                        ),
                       ),
                       Text(
                         '$completed',
@@ -344,11 +429,26 @@ class _BucketListScreenState extends State<BucketListScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.auroraTeal.withValues(alpha: 0.18) : Colors.transparent,
+          color: isSelected
+              ? AppColors.auroraTeal.withValues(alpha: 0.18)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: isSelected ? AppColors.auroraTeal : AppTheme.blushGold.withValues(alpha: 0.15)),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.auroraTeal
+                : AppTheme.blushGold.withValues(alpha: 0.15),
+          ),
         ),
-        child: Text(label, style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, color: isSelected ? AppColors.auroraTeal : AppTheme.petalWhite.withValues(alpha: 0.6))),
+        child: Text(
+          label,
+          style: AppTypography.outfitWhite.copyWith(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected
+                ? AppColors.auroraTeal
+                : AppTheme.petalWhite.withValues(alpha: 0.6),
+          ),
+        ),
       ),
     );
   }
@@ -360,11 +460,26 @@ class _BucketListScreenState extends State<BucketListScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.deepRose.withValues(alpha: 0.18) : Colors.transparent,
+          color: isSelected
+              ? AppTheme.deepRose.withValues(alpha: 0.18)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: isSelected ? AppTheme.deepRose : AppTheme.blushGold.withValues(alpha: 0.15)),
+          border: Border.all(
+            color: isSelected
+                ? AppTheme.deepRose
+                : AppTheme.blushGold.withValues(alpha: 0.15),
+          ),
         ),
-        child: Text(label, style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.w500, color: isSelected ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.6))),
+        child: Text(
+          label,
+          style: AppTypography.outfitWhite.copyWith(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected
+                ? AppTheme.blushGold
+                : AppTheme.petalWhite.withValues(alpha: 0.6),
+          ),
+        ),
       ),
     );
   }

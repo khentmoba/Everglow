@@ -21,8 +21,9 @@ mixin ErrorAware {
   DateTime? get lastErrorTime => _lastErrorTime;
 
   /// Whether there's a recent error (within the last 30 seconds).
-  bool get hasRecentError => _lastError != null && 
-      _lastErrorTime != null && 
+  bool get hasRecentError =>
+      _lastError != null &&
+      _lastErrorTime != null &&
       DateTime.now().difference(_lastErrorTime!).inSeconds < 30;
 
   /// Clear the error state.

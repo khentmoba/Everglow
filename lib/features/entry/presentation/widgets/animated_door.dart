@@ -242,7 +242,7 @@ class _AnimatedDoorState extends State<AnimatedDoor>
             height: 560 * (0.45 + (0.55 * t)),
             decoration: BoxDecoration(
               gradient: RadialGradient(
-                center: Alignment(0.2, 0),
+                center: const Alignment(0.2, 0),
                 radius: 0.9,
                 colors: [
                   AppColors.blushGold.withValues(alpha: 0.85 * t),
@@ -351,8 +351,10 @@ class _AnimatedDoorState extends State<AnimatedDoor>
           ),
           child: Stack(
             children: [
-              // Carved bevels.
-              Positioned.fill(child: _buildPanelBevels()),
+              // Carved bevels stay out of the input state so the keypad has a
+              // single quiet surface.
+              if (widget.isUnlocked)
+                Positioned.fill(child: _buildPanelBevels()),
               // Engraved nameplate.
               Positioned(top: 34, left: 0, right: 0, child: _buildNameplate()),
               Positioned(
@@ -376,22 +378,24 @@ class _AnimatedDoorState extends State<AnimatedDoor>
                   child: widget.keypad ?? const SizedBox.shrink(),
                 ),
               ),
-              // Brass lever.
-              Positioned(
-                right: 14,
-                top: 262,
-                child: AnimatedBuilder(
-                  animation: _handleController,
-                  builder: (context, _) {
-                    return Transform.rotate(
-                      angle: _handle.value * (math.pi / 5),
-                      child: _buildLever(),
-                    );
-                  },
+              // Hardware appears only while the door is opening, so it never
+              // collides with the passcode surface.
+              if (widget.isUnlocked) ...[
+                Positioned(
+                  right: 14,
+                  top: 262,
+                  child: AnimatedBuilder(
+                    animation: _handleController,
+                    builder: (context, _) {
+                      return Transform.rotate(
+                        angle: _handle.value * (math.pi / 5),
+                        child: _buildLever(),
+                      );
+                    },
+                  ),
                 ),
-              ),
-              // Keyhole escutcheon below the lever.
-              Positioned(right: 38, top: 330, child: _buildEscutcheon()),
+                Positioned(right: 38, top: 330, child: _buildEscutcheon()),
+              ],
             ],
           ),
         ),

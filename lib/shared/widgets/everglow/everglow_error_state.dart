@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -40,7 +41,9 @@ class EverglowErrorState extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: AppColors.velvet.withValues(alpha: 0.5),
-                border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                border: Border.all(
+                  color: AppColors.error.withValues(alpha: 0.3),
+                ),
                 boxShadow: [
                   BoxShadow(
                     blurRadius: 24,
@@ -77,8 +80,11 @@ class EverglowErrorState extends StatelessWidget {
               EverglowButton.ghost(
                 label: 'Open in browser',
                 icon: Icons.open_in_new,
-                onPressed: () {
-                  // url_launcher will be imported by the consuming screen
+                onPressed: () async {
+                  final uri = Uri.tryParse(externalUrl!);
+                  if (uri != null && await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
                 },
               ),
             ],

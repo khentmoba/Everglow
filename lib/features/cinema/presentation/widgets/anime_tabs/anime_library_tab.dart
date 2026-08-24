@@ -8,12 +8,12 @@ import '../../../../../shared/widgets/shelf/anime_cta_button.dart';
 import '../../../../../core/theme/app_typography.dart';
 
 // ── Anime palette (subset used by the Library tab) ──────────────
-const _cWhite          = AppColors.animeWhite;
-const _cMuted          = AppColors.animeMuted;
-const _cCyan           = AppColors.animeCyan;
-const _cMagenta        = AppColors.animeMagenta;
+const _cWhite = AppColors.animeWhite;
+const _cMuted = AppColors.animeMuted;
+const _cCyan = AppColors.animeCyan;
+const _cMagenta = AppColors.animeMagenta;
 const _cElectricPurple = AppColors.animeElectricPurple;
-const _cVibrantPink    = AppColors.animeVibrantPink;
+const _cVibrantPink = AppColors.animeVibrantPink;
 
 /// Library tab for the Anime screen.
 ///
@@ -35,7 +35,9 @@ class AnimeLibraryTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentlyWatching = library.where((i) => i.isCurrentlyWatching).toList();
+    final currentlyWatching = library
+        .where((i) => i.isCurrentlyWatching)
+        .toList();
     final wantToWatch = library.where((i) => i.isToWatch).toList();
     final watched = library.where((i) => i.isWatched).toList();
 
@@ -47,76 +49,103 @@ class AnimeLibraryTab extends StatelessWidget {
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-          sliver: SliverToBoxAdapter(child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 4,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [_cMagenta, _cCyan],
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [_cMagenta, _cCyan],
+                        ),
+                        borderRadius: BorderRadius.circular(2),
                       ),
-                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'OUR ANIME',
+                      style: AppTypography.cormorantBlack.copyWith(
+                        fontSize: 24,
+                        letterSpacing: 3,
+                        color: _cWhite,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: Text(
+                    'JAPANESE ANIMATION',
+                    style: AppTypography.outfitHeading.copyWith(
+                      fontSize: 9,
+                      color: _cMuted,
+                      letterSpacing: 2.5,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'OUR ANIME',
-                    style: AppTypography.cormorantBlack.copyWith(fontSize: 24, letterSpacing: 3, color: _cWhite),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Padding(
-                padding: const EdgeInsets.only(left: 16),
-                child: Text(
-                  'JAPANESE ANIMATION',
-                  style: AppTypography.outfitHeading.copyWith(fontSize: 9, color: _cMuted, letterSpacing: 2.5),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  _LibraryStat(
-                    label: 'Watching',
-                    count: currentlyWatching.length,
-                    color: const Color(0xFFFF6D00),
-                  ),
-                  const SizedBox(width: 8),
-                  _LibraryStat(
-                    label: 'Queue',
-                    count: wantToWatch.length,
-                    color: _cCyan,
-                  ),
-                  const SizedBox(width: 8),
-                  _LibraryStat(
-                    label: 'Watched',
-                    count: watched.length,
-                    color: const Color(0xFF8BC34A),
-                  ),
-                  const SizedBox(width: 8),
-                  _LibraryStat(
-                    label: 'Total',
-                    count: currentlyWatching.length + wantToWatch.length + watched.length,
-                    color: _cVibrantPink,
-                  ),
-                ],
-              ),
-            ],
-          ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    _LibraryStat(
+                      label: 'Watching',
+                      count: currentlyWatching.length,
+                      color: const Color(0xFFFF6D00),
+                    ),
+                    const SizedBox(width: 8),
+                    _LibraryStat(
+                      label: 'Queue',
+                      count: wantToWatch.length,
+                      color: _cCyan,
+                    ),
+                    const SizedBox(width: 8),
+                    _LibraryStat(
+                      label: 'Watched',
+                      count: watched.length,
+                      color: const Color(0xFF8BC34A),
+                    ),
+                    const SizedBox(width: 8),
+                    _LibraryStat(
+                      label: 'Total',
+                      count:
+                          currentlyWatching.length +
+                          wantToWatch.length +
+                          watched.length,
+                      color: _cVibrantPink,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
-        ..._buildLibrarySectionSlivers(context, 'Currently Watching', currentlyWatching,
-            Icons.play_circle_filled_rounded, const Color(0xFFFF6D00)),
         ..._buildLibrarySectionSlivers(
-            context, 'Want to Watch', wantToWatch, Icons.bookmark_rounded, _cCyan),
-        ..._buildLibrarySectionSlivers(context, 'Watched', watched,
-            Icons.remove_red_eye_rounded, const Color(0xFF8BC34A)),
+          context,
+          'Currently Watching',
+          currentlyWatching,
+          Icons.play_circle_filled_rounded,
+          const Color(0xFFFF6D00),
+        ),
+        ..._buildLibrarySectionSlivers(
+          context,
+          'Want to Watch',
+          wantToWatch,
+          Icons.bookmark_rounded,
+          _cCyan,
+        ),
+        ..._buildLibrarySectionSlivers(
+          context,
+          'Watched',
+          watched,
+          Icons.remove_red_eye_rounded,
+          const Color(0xFF8BC34A),
+        ),
       ],
     );
   }
@@ -139,10 +168,7 @@ class AnimeLibraryTab extends StatelessWidget {
                 gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    _cMagenta,
-                    _cElectricPurple,
-                  ],
+                  colors: [_cMagenta, _cElectricPurple],
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -153,19 +179,29 @@ class AnimeLibraryTab extends StatelessWidget {
                 ],
               ),
               alignment: Alignment.center,
-              child: const Icon(Icons.collections_bookmark_rounded,
-                  color: _cWhite, size: 44),
+              child: const Icon(
+                Icons.collections_bookmark_rounded,
+                color: _cWhite,
+                size: 44,
+              ),
             ),
             const SizedBox(height: 24),
             Text(
               'Your anime library is empty',
-              style: AppTypography.cormorantBold.copyWith(fontSize: 24, color: _cWhite),
+              style: AppTypography.cormorantBold.copyWith(
+                fontSize: 24,
+                color: _cWhite,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               'Search for any series and add it to your watchlist.\nItems you mark as watched will live here too.',
               textAlign: TextAlign.center,
-              style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 13, height: 1.5),
+              style: AppTypography.outfitWhite.copyWith(
+                color: _cMuted,
+                fontSize: 13,
+                height: 1.5,
+              ),
             ),
             const SizedBox(height: 28),
             AnimeCtaButton(
@@ -207,8 +243,9 @@ class AnimeLibraryTab extends StatelessWidget {
         sliver: SliverGrid.builder(
           itemCount: items.length,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount:
-                isDesktop ? 6 : (AppBreakpoint.isTablet(context) ? 4 : 2),
+            crossAxisCount: isDesktop
+                ? 6
+                : (AppBreakpoint.isTablet(context) ? 4 : 2),
             childAspectRatio: 0.65,
             crossAxisSpacing: 14,
             mainAxisSpacing: 14,
@@ -217,11 +254,11 @@ class AnimeLibraryTab extends StatelessWidget {
             final item = items[index];
             final badge = title == 'Currently Watching'
                 ? (!item.isMovie && item.currentEpisode != null
-                    ? 'S${item.currentSeason ?? 1}E${item.currentEpisode}'
-                    : 'WATCHING')
+                      ? 'S${item.currentSeason ?? 1}E${item.currentEpisode}'
+                      : 'WATCHING')
                 : title == 'Watched'
-                    ? 'WATCHED'
-                    : 'QUEUE';
+                ? 'WATCHED'
+                : 'QUEUE';
             return ShelfPosterCard(
               imageUrl: item.posterPath,
               title: item.title,
@@ -264,22 +301,26 @@ class _LibraryStat extends StatelessWidget {
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: color.withValues(alpha: 0.25),
-            width: 0.8,
-          ),
+          border: Border.all(color: color.withValues(alpha: 0.25), width: 0.8),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               '$count',
-              style: AppTypography.cormorantBlack.copyWith(fontSize: 20, color: color),
+              style: AppTypography.cormorantBlack.copyWith(
+                fontSize: 20,
+                color: color,
+              ),
             ),
             const SizedBox(height: 2),
             Text(
               label,
-              style: AppTypography.outfitHeading.copyWith(fontSize: 10, color: color.withValues(alpha: 0.8), letterSpacing: 0.5),
+              style: AppTypography.outfitHeading.copyWith(
+                fontSize: 10,
+                color: color.withValues(alpha: 0.8),
+                letterSpacing: 0.5,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),

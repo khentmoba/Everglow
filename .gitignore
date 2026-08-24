@@ -59,7 +59,11 @@ everglow-1c6db-firebase-adminsdk-fbsvc-*.json
 specs/
 scratch/
 tools_scratch/
+.commandcode/
 /wiki/
+
+# Local editor/tool backups
+*.bak
 
 # Binaries and large files
 .firebase/
@@ -77,3 +81,4 @@ firebase-debug.log
 android/
 build_apk.ps1
 firebase.json.bak
+web/table_tennis/index.html.bak

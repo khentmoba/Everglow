@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../../../../../core/constants/api_keys.dart';
 import '../../../../../core/utils/connectivity_aware.dart';
 import '../../../../../core/utils/error_aware.dart';
 import '../../../../../core/utils/logger.dart';
@@ -12,11 +10,12 @@ import 'tmdb_base.dart';
 class TMDBDetailsService with TMDBBase, ConnectivityAware, ErrorAware {
   /// Fetch cast (credits) for a movie or TV show
   Future<List<Map<String, dynamic>>> fetchCredits(
-      int id, String mediaType) async {
-    final url = Uri.parse(
-        '$tmdbBaseUrl/$mediaType/$id/credits?api_key=${ApiKeys.tmdbApiKey}');
+    int id,
+    String mediaType,
+  ) async {
+    final url = Uri.parse('$tmdbBaseUrl/$mediaType/$id/credits');
     try {
-      final response = await http.get(url);
+      final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List cast = (data['cast'] as List?) ?? [];
@@ -39,11 +38,12 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware, ErrorAware {
 
   /// Fetch user reviews for a movie or TV show
   Future<List<Map<String, dynamic>>> fetchReviews(
-      int id, String mediaType) async {
-    final url = Uri.parse(
-        '$tmdbBaseUrl/$mediaType/$id/reviews?api_key=${ApiKeys.tmdbApiKey}');
+    int id,
+    String mediaType,
+  ) async {
+    final url = Uri.parse('$tmdbBaseUrl/$mediaType/$id/reviews');
     try {
-      final response = await http.get(url);
+      final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = (data['results'] as List?) ?? [];
@@ -71,17 +71,17 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware, ErrorAware {
 
   /// Fetch similar movies / TV shows
   Future<List<MediaItem>> fetchSimilar(int id, String mediaType) async {
-    final url = Uri.parse(
-        '$tmdbBaseUrl/$mediaType/$id/similar?api_key=${ApiKeys.tmdbApiKey}');
+    final url = Uri.parse('$tmdbBaseUrl/$mediaType/$id/similar');
     try {
-      final response = await http.get(url);
+      final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];
 
         return results
-            .map((item) =>
-                mapResultToMediaItem(item, forcedMediaType: mediaType))
+            .map(
+              (item) => mapResultToMediaItem(item, forcedMediaType: mediaType),
+            )
             .toList();
       }
     } catch (e) {
@@ -92,10 +92,9 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware, ErrorAware {
 
   /// Fetch TV Show details (including seasons)
   Future<Map<String, dynamic>?> fetchTVShowDetails(int tvId) async {
-    final url =
-        Uri.parse('$tmdbBaseUrl/tv/$tvId?api_key=${ApiKeys.tmdbApiKey}');
+    final url = Uri.parse('$tmdbBaseUrl/tv/$tvId');
     try {
-      final response = await http.get(url);
+      final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         return json.decode(response.body);
       }
@@ -106,12 +105,10 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware, ErrorAware {
   }
 
   /// Fetch TV Show Season Episodes
-  Future<List<dynamic>> fetchSeasonEpisodes(
-      int tvId, int seasonNumber) async {
-    final url = Uri.parse(
-        '$tmdbBaseUrl/tv/$tvId/season/$seasonNumber?api_key=${ApiKeys.tmdbApiKey}');
+  Future<List<dynamic>> fetchSeasonEpisodes(int tvId, int seasonNumber) async {
+    final url = Uri.parse('$tmdbBaseUrl/tv/$tvId/season/$seasonNumber');
     try {
-      final response = await http.get(url);
+      final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         return data['episodes'] ?? [];
@@ -124,11 +121,12 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware, ErrorAware {
 
   /// Fetch Media Item details (for Hero Banner metadata)
   Future<Map<String, dynamic>?> fetchMediaDetails(
-      int id, String mediaType) async {
-    final url = Uri.parse(
-        '$tmdbBaseUrl/$mediaType/$id?api_key=${ApiKeys.tmdbApiKey}');
+    int id,
+    String mediaType,
+  ) async {
+    final url = Uri.parse('$tmdbBaseUrl/$mediaType/$id');
     try {
-      final response = await http.get(url);
+      final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         return json.decode(response.body);
       }

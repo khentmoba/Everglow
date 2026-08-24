@@ -126,7 +126,10 @@ class MangaItem {
     }
   }
 
-  factory MangaItem.fromFirestore(Map<String, dynamic> data, String documentId) {
+  factory MangaItem.fromFirestore(
+    Map<String, dynamic> data,
+    String documentId,
+  ) {
     return MangaItem(
       id: documentId,
       mangaId: data['mangaId'] ?? '',
@@ -139,7 +142,9 @@ class MangaItem {
       status: data['status'] ?? '',
       originalLanguage: data['originalLanguage'] ?? 'jp',
       contentRating: data['contentRating'] ?? 'safe',
-      tags: (data['tags'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+      tags:
+          (data['tags'] as List?)?.map((e) => e.toString()).toList() ??
+          const [],
       userName: data['userName'] ?? '',
       addedAt: _parseDateTime(data['addedAt']),
       libraryStatus: data['libraryStatus'] ?? 'none',
@@ -150,7 +155,9 @@ class MangaItem {
       mangaKakalotId: data['mangaKakalotId'] ?? data['mangaDexId'] ?? '',
       rating: (data['rating'] as num?)?.toDouble() ?? 0.0,
       followCount: (data['followCount'] as num?)?.toInt() ?? 0,
-      altTitles: (data['altTitles'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+      altTitles:
+          (data['altTitles'] as List?)?.map((e) => e.toString()).toList() ??
+          const [],
     );
   }
 
@@ -288,7 +295,10 @@ class MangaChapter {
     return 'Ch. $chapter';
   }
 
-  factory MangaChapter.fromApi(Map<String, dynamic> attrs, Map<String, dynamic> rels) {
+  factory MangaChapter.fromApi(
+    Map<String, dynamic> attrs,
+    Map<String, dynamic> rels,
+  ) {
     final relationships = rels['relationships'] as List? ?? [];
     String group = '';
     for (final rel in relationships) {
@@ -305,7 +315,8 @@ class MangaChapter {
       pages: (attrs['pages'] as num?)?.toInt() ?? 0,
       translatedLanguage: (attrs['translatedLanguage'] as String?) ?? 'en',
       scanlationGroup: group,
-      publishAt: DateTime.tryParse((attrs['publishAt'] as String?) ?? '') ??
+      publishAt:
+          DateTime.tryParse((attrs['publishAt'] as String?) ?? '') ??
           DateTime.now(),
     );
   }

@@ -27,19 +27,27 @@ Offset positionHoverPreview({
 
 /// Netflix-style hover popover with real title details.
 ///
-/// Shows backdrop art, match %, year, runtime / season info, the synopsis
-/// and genres. TMDB details are fetched on demand (cached) so the popover
+/// Shows backdrop art, available metadata, synopsis, genres and quick
+/// actions. TMDB details are fetched on demand (cached) so the popover
 /// never shows placeholder copy when the row payload only has a poster.
 class NetflixHoverPreview extends StatefulWidget {
   final MediaItem item;
   final double width;
   final VoidCallback? onTap;
+  final VoidCallback? onPlay;
+  final ValueChanged<bool>? onToggleList;
+  final ValueChanged<double?>? onRate;
+  final bool inList;
 
   const NetflixHoverPreview({
     super.key,
     required this.item,
     required this.width,
     this.onTap,
+    this.onPlay,
+    this.onToggleList,
+    this.onRate,
+    this.inList = false,
   });
 
   @override
@@ -48,6 +56,8 @@ class NetflixHoverPreview extends StatefulWidget {
 
 class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
   Map<String, dynamic>? _details;
+  late bool _inList = widget.inList;
+  late double? _rating = widget.item.userRating;
 
   String get _cacheKey => '${widget.item.tmdbId}:${widget.item.mediaType}';
 
@@ -87,10 +97,8 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
 
   int get _matchPercent {
     final vote = _details?['vote_average'] as num?;
-    if (vote != null && vote > 0) {
-      return (vote * 10).round().clamp(50, 99);
-    }
-    return 82 + (widget.item.tmdbId % 17);
+    if (vote == null || vote <= 0) return 0;
+    return (vote * 10).round().clamp(50, 99);
   }
 
   String get _year {
@@ -226,13 +234,14 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                         runSpacing: 4,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          Text(
-                            '$_matchPercent% Match',
-                            style: AppTypography.outfitHeading.copyWith(
-                              fontSize: 12,
-                              color: NetflixColors.match,
+                          if (_matchPercent > 0)
+                            Text(
+                              '$_matchPercent% Match',
+                              style: AppTypography.outfitHeading.copyWith(
+                                fontSize: 12,
+                                color: NetflixColors.match,
+                              ),
                             ),
-                          ),
                           if (_year.isNotEmpty)
                             Text(
                               _year,
@@ -273,16 +282,16 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                         ),
                       ),
                       const SizedBox(height: 6),
-                        Expanded(
-                          child: Text(
-                            _synopsis,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.outfitMuted.copyWith(
-                              fontSize: 11.5,
-                              color: NetflixColors.textSecondary,
-                              height: 1.35,
-                            ),
+                      Expanded(
+                        child: Text(
+                          _synopsis,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.outfitMuted.copyWith(
+                            fontSize: 11.5,
+                            color: NetflixColors.textSecondary,
+                            height: 1.35,
+                          ),
                         ),
                       ),
                       if (_genres.isNotEmpty) ...[
@@ -297,6 +306,59 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                           ),
                         ),
                       ],
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          _HoverActionButton(
+                            icon: Icons.play_arrow_rounded,
+                            tooltip: 'Play',
+                            onTap: () {
+                              widget.onTap?.call();
+                              widget.onPlay?.call();
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          _HoverActionButton(
+                            icon: _inList
+                                ? Icons.check_rounded
+                                : Icons.add_rounded,
+                            tooltip: _inList ? 'In My List' : 'Add to My List',
+                            onTap: () {
+                              final next = !_inList;
+                              setState(() => _inList = next);
+                              widget.onToggleList?.call(next);
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          _HoverActionButton(
+                            icon: Icons.thumb_up_outlined,
+                            selected: _rating == 1,
+                            tooltip: 'I like this',
+                            onTap: () {
+                              final next = _rating == 1 ? null : 1.0;
+                              setState(() => _rating = next);
+                              widget.onRate?.call(next);
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          _HoverActionButton(
+                            icon: Icons.thumb_down_outlined,
+                            selected: _rating == -1,
+                            tooltip: "Not for me",
+                            onTap: () {
+                              final next = _rating == -1 ? null : -1.0;
+                              setState(() => _rating = next);
+                              widget.onRate?.call(next);
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          _HoverActionButton(
+                            icon: Icons.info_outline_rounded,
+                            tooltip: 'More Info',
+                            onTap: widget.onTap,
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -326,6 +388,66 @@ class _HdBadge extends StatelessWidget {
           fontSize: 9,
           color: Colors.white.withValues(alpha: 0.9),
           letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+}
+
+class _HoverActionButton extends StatefulWidget {
+  final IconData icon;
+  final String tooltip;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  const _HoverActionButton({
+    required this.icon,
+    required this.tooltip,
+    this.selected = false,
+    this.onTap,
+  });
+
+  @override
+  State<_HoverActionButton> createState() => _HoverActionButtonState();
+}
+
+class _HoverActionButtonState extends State<_HoverActionButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: widget.tooltip,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: widget.onTap == null
+            ? null
+            : (_) => setState(() => _pressed = true),
+        onTapUp: widget.onTap == null
+            ? null
+            : (_) {
+                setState(() => _pressed = false);
+                widget.onTap?.call();
+              },
+        onTapCancel: widget.onTap == null
+            ? null
+            : () => setState(() => _pressed = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: widget.selected || _pressed
+                ? Colors.white
+                : Colors.white.withValues(alpha: .18),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withValues(alpha: .45)),
+          ),
+          child: Icon(
+            widget.icon,
+            size: 19,
+            color: widget.selected || _pressed ? Colors.black : Colors.white,
+          ),
         ),
       ),
     );

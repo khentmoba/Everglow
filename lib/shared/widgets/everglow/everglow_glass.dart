@@ -34,7 +34,9 @@ class EverglowGlass extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveBlur = AppMotion.reduced ? 0.0 : (blur ?? AppTheme.glassBlur);
+    final effectiveBlur = AppMotion.reduced
+        ? 0.0
+        : (blur ?? AppTheme.glassBlur);
     final fill = fillColor ?? AppColors.surfaceGlass;
     final border = borderColor ?? AppColors.border;
 

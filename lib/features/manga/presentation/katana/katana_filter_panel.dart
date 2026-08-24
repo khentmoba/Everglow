@@ -75,13 +75,15 @@ class _KatanaFilterPanelState extends State<KatanaFilterPanel> {
   }
 
   void _apply() {
-    widget.onApply(KatanaFilterState(
-      include: Set.of(_include),
-      exclude: Set.of(_exclude),
-      genreMode: _genreMode,
-      chapters: _chapters,
-      orderBy: _orderBy,
-    ));
+    widget.onApply(
+      KatanaFilterState(
+        include: Set.of(_include),
+        exclude: Set.of(_exclude),
+        genreMode: _genreMode,
+        chapters: _chapters,
+        orderBy: _orderBy,
+      ),
+    );
   }
 
   @override
@@ -89,11 +91,14 @@ class _KatanaFilterPanelState extends State<KatanaFilterPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        KatanaSectionHeader(title: 'Filter', trailing: const Icon(
-          Icons.filter_list_rounded,
-          color: KatanaColors.accent,
-          size: 18,
-        )),
+        const KatanaSectionHeader(
+          title: 'Filter',
+          trailing: Icon(
+            Icons.filter_list_rounded,
+            color: KatanaColors.accent,
+            size: 18,
+          ),
+        ),
         const SizedBox(height: 12),
         _label('Genres:'),
         const SizedBox(height: 6),
@@ -105,7 +110,9 @@ class _KatanaFilterPanelState extends State<KatanaFilterPanel> {
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2, color: KatanaColors.accent),
+                  strokeWidth: 2,
+                  color: KatanaColors.accent,
+                ),
               ),
             ),
           )
@@ -131,25 +138,33 @@ class _KatanaFilterPanelState extends State<KatanaFilterPanel> {
                             ),
                           ),
                         ),
-                        _toggleChip('+', 'Include ${genre.name}',
-                            _include.contains(genre.slug), () {
-                          setState(() {
-                            _include.contains(genre.slug)
-                                ? _include.remove(genre.slug)
-                                : _include.add(genre.slug);
-                            _exclude.remove(genre.slug);
-                          });
-                        }),
+                        _toggleChip(
+                          '+',
+                          'Include ${genre.name}',
+                          _include.contains(genre.slug),
+                          () {
+                            setState(() {
+                              _include.contains(genre.slug)
+                                  ? _include.remove(genre.slug)
+                                  : _include.add(genre.slug);
+                              _exclude.remove(genre.slug);
+                            });
+                          },
+                        ),
                         const SizedBox(width: 4),
-                        _toggleChip('−', 'Exclude ${genre.name}',
-                            _exclude.contains(genre.slug), () {
-                          setState(() {
-                            _exclude.contains(genre.slug)
-                                ? _exclude.remove(genre.slug)
-                                : _exclude.add(genre.slug);
-                            _include.remove(genre.slug);
-                          });
-                        }),
+                        _toggleChip(
+                          '−',
+                          'Exclude ${genre.name}',
+                          _exclude.contains(genre.slug),
+                          () {
+                            setState(() {
+                              _exclude.contains(genre.slug)
+                                  ? _exclude.remove(genre.slug)
+                                  : _exclude.add(genre.slug);
+                              _include.remove(genre.slug);
+                            });
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -169,35 +184,27 @@ class _KatanaFilterPanelState extends State<KatanaFilterPanel> {
         const SizedBox(height: 14),
         _label('Chapters:'),
         const SizedBox(height: 6),
-        _dropdown(
-          _chapters,
-          const [
-            ('=1', '=1'),
-            ('1', '1+'),
-            ('5', '5+'),
-            ('10', '10+'),
-            ('20', '20+'),
-            ('30', '30+'),
-            ('50', '50+'),
-            ('100', '100+'),
-            ('150', '150+'),
-            ('200', '200+'),
-          ],
-          (v) => setState(() => _chapters = v),
-        ),
+        _dropdown(_chapters, const [
+          ('=1', '=1'),
+          ('1', '1+'),
+          ('5', '5+'),
+          ('10', '10+'),
+          ('20', '20+'),
+          ('30', '30+'),
+          ('50', '50+'),
+          ('100', '100+'),
+          ('150', '150+'),
+          ('200', '200+'),
+        ], (v) => setState(() => _chapters = v)),
         const SizedBox(height: 14),
         _label('Order by:'),
         const SizedBox(height: 6),
-        _dropdown(
-          _orderBy,
-          const [
-            ('latest', 'Latest update'),
-            ('new', 'New manga'),
-            ('az', 'A-Z'),
-            ('numc', 'Number of chapters'),
-          ],
-          (v) => setState(() => _orderBy = v),
-        ),
+        _dropdown(_orderBy, const [
+          ('latest', 'Latest update'),
+          ('new', 'New manga'),
+          ('az', 'A-Z'),
+          ('numc', 'Number of chapters'),
+        ], (v) => setState(() => _orderBy = v)),
         const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
@@ -221,7 +228,12 @@ class _KatanaFilterPanelState extends State<KatanaFilterPanel> {
     );
   }
 
-  Widget _toggleChip(String symbol, String tooltip, bool active, VoidCallback onTap) {
+  Widget _toggleChip(
+    String symbol,
+    String tooltip,
+    bool active,
+    VoidCallback onTap,
+  ) {
     return Tooltip(
       message: tooltip,
       child: GestureDetector(
@@ -289,8 +301,10 @@ class _KatanaFilterPanelState extends State<KatanaFilterPanel> {
           isDense: true,
           style: KatanaType.body.copyWith(fontSize: 12.5),
           dropdownColor: KatanaColors.surface,
-          icon: const Icon(Icons.arrow_drop_down_rounded,
-              color: KatanaColors.textMuted),
+          icon: const Icon(
+            Icons.arrow_drop_down_rounded,
+            color: KatanaColors.textMuted,
+          ),
           items: [
             for (final (v, label) in items)
               DropdownMenuItem(

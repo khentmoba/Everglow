@@ -23,6 +23,10 @@ class NetflixPosterCard extends StatefulWidget {
   final MediaItem item;
   final VoidCallback? onTap;
   final NetflixHoverCallback? onHover;
+  final void Function(MediaItem)? onPlay;
+  final void Function(MediaItem, bool add)? onToggleList;
+  final void Function(MediaItem, double? rating)? onRate;
+  final bool Function(MediaItem)? isInList;
 
   /// Renders a thin progress bar at the bottom (continue watching).
   final double? progress;
@@ -42,6 +46,10 @@ class NetflixPosterCard extends StatefulWidget {
     required this.item,
     this.onTap,
     this.onHover,
+    this.onPlay,
+    this.onToggleList,
+    this.onRate,
+    this.isInList,
     this.progress,
     this.rank,
     this.compact = false,
@@ -112,7 +120,7 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
     final overlay = Overlay.of(context);
     final screen = MediaQuery.sizeOf(context);
     final width = (screen.width * 0.26).clamp(300.0, 360.0);
-    final height = width * 0.5625 + 178;
+    final height = width * 0.5625 + 218;
     final offset = positionHoverPreview(
       anchor: rect,
       previewSize: Size(width, height),
@@ -134,10 +142,14 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
           child: NetflixHoverPreview(
             item: widget.item,
             width: width,
+            inList: widget.isInList?.call(widget.item) ?? false,
             onTap: () {
               _removeSelfPreview();
               widget.onTap?.call();
             },
+            onPlay: () => widget.onPlay?.call(widget.item),
+            onToggleList: (add) => widget.onToggleList?.call(widget.item, add),
+            onRate: (rating) => widget.onRate?.call(widget.item, rating),
           ),
         ),
       ),
@@ -267,10 +279,15 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
                 fit: BoxFit.contain,
                 child: Text(
                   '${widget.rank}',
-                  style: AppTypography.outfitWhite.copyWith(fontSize: 150, fontWeight: FontWeight.w900, height: 0.9, foreground: Paint()
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 150,
+                    fontWeight: FontWeight.w900,
+                    height: 0.9,
+                    foreground: Paint()
                       ..style = PaintingStyle.stroke
                       ..strokeWidth = 3
-                      ..color = _rankColor(widget.rank!)),
+                      ..color = _rankColor(widget.rank!),
+                  ),
                 ),
               ),
             ),
@@ -421,7 +438,10 @@ class _NetflixContinueCardState extends State<NetflixContinueCard> {
                                   widget.item.title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: AppTypography.outfitHeading.copyWith(color: Colors.white, fontSize: 13),
+                                  style: AppTypography.outfitHeading.copyWith(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                  ),
                                 ),
                               ),
                               const Icon(
@@ -455,7 +475,11 @@ class _NetflixContinueCardState extends State<NetflixContinueCard> {
                       widget.subtitle!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppTypography.outfitWhite.copyWith(color: NetflixColors.textSecondary, fontSize: 11.5, fontWeight: FontWeight.w500),
+                      style: AppTypography.outfitWhite.copyWith(
+                        color: NetflixColors.textSecondary,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ],
@@ -483,7 +507,10 @@ class _PosterFallback extends StatelessWidget {
         maxLines: 3,
         overflow: TextOverflow.ellipsis,
         textAlign: TextAlign.center,
-        style: AppTypography.outfitBold.copyWith(color: NetflixColors.textSecondary, fontSize: 11),
+        style: AppTypography.outfitBold.copyWith(
+          color: NetflixColors.textSecondary,
+          fontSize: 11,
+        ),
       ),
     );
   }

@@ -31,8 +31,9 @@ class TMDBPosterService with TMDBBase, ConnectivityAware, ErrorAware {
   /// a TMDB ID. We resolve the real TMDB ID via ani.zip first so we
   /// don't fetch the poster for a completely unrelated title.
   Future<List<MediaItem>> backfillMissingPosters(List<MediaItem> items) async {
-    final needsPoster =
-        items.where((i) => i.posterPath.isEmpty && i.tmdbId > 0).toList();
+    final needsPoster = items
+        .where((i) => i.posterPath.isEmpty && i.tmdbId > 0)
+        .toList();
     if (needsPoster.isEmpty) return items;
 
     final aniZipService = AniZipService();
@@ -48,12 +49,13 @@ class TMDBPosterService with TMDBBase, ConnectivityAware, ErrorAware {
           tmdbId = resolved;
         }
 
-        final details =
-            await _detailsService.fetchMediaDetails(tmdbId, item.mediaType);
+        final details = await _detailsService.fetchMediaDetails(
+          tmdbId,
+          item.mediaType,
+        );
         if (details == null) continue;
-        final tmdbTitle = (details['name'] as String?) ??
-            (details['title'] as String?) ??
-            '';
+        final tmdbTitle =
+            (details['name'] as String?) ?? (details['title'] as String?) ?? '';
         if (!titlesMatch(item.title, tmdbTitle)) continue;
         final posterPath = details['poster_path'] as String?;
         if (posterPath == null || posterPath.isEmpty) continue;
@@ -79,8 +81,10 @@ class TMDBPosterService with TMDBBase, ConnectivityAware, ErrorAware {
   Future<List<MediaItem>> refreshAnimePosters(List<MediaItem> items) async {
     final needsRefresh = items
         .where((i) => i.isAnime && i.tmdbId > 0)
-        .where((i) =>
-            i.posterPath.isEmpty || i.posterPath.contains('image.tmdb.org'))
+        .where(
+          (i) =>
+              i.posterPath.isEmpty || i.posterPath.contains('image.tmdb.org'),
+        )
         .toList();
     if (needsRefresh.isEmpty) return items;
 
@@ -88,8 +92,9 @@ class TMDBPosterService with TMDBBase, ConnectivityAware, ErrorAware {
     final updated = List<MediaItem>.from(items);
     for (final item in needsRefresh) {
       try {
-        final detail =
-            await aniListService.fetchDetailsWithFallback(malId: item.tmdbId);
+        final detail = await aniListService.fetchDetailsWithFallback(
+          malId: item.tmdbId,
+        );
         final correctPoster = detail?.coverImageUrl;
         if (correctPoster == null || correctPoster.isEmpty) continue;
         if (correctPoster == item.posterPath) continue;
@@ -97,8 +102,7 @@ class TMDBPosterService with TMDBBase, ConnectivityAware, ErrorAware {
         // Verify the AniList title matches the stored title to avoid
         // saving a wrong poster when tmdbId isn't actually a MAL ID.
         final anilistTitle = detail?.titleEnglish ?? detail?.titleRomaji ?? '';
-        if (anilistTitle.isNotEmpty &&
-            !titlesMatch(item.title, anilistTitle)) {
+        if (anilistTitle.isNotEmpty && !titlesMatch(item.title, anilistTitle)) {
           continue;
         }
 

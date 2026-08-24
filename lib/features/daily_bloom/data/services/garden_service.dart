@@ -15,11 +15,11 @@ class GardenService {
           .doc('stats')
           .snapshots()
           .map((snapshot) {
-        if (!snapshot.exists) {
-          return GardenStats.initial();
-        }
-        return GardenStats.fromFirestore(snapshot);
-      }),
+            if (!snapshot.exists) {
+              return GardenStats.initial();
+            }
+            return GardenStats.fromFirestore(snapshot);
+          }),
       label: 'garden-stats',
     );
   }
@@ -47,7 +47,7 @@ class GardenService {
     }
 
     final currentStats = GardenStats.fromFirestore(snapshot);
-    
+
     // Calculate new streak
     int newStreak = currentStats.streakCount;
     if (_isYesterday(currentStats.lastVisit, now)) {

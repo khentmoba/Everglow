@@ -60,7 +60,10 @@ class _SharedGardenViewState extends State<SharedGardenView> {
                   const Spacer(),
                   Text(
                     'Our Garden',
-                    style: AppTypography.cormorantBold.copyWith(fontSize: 22, letterSpacing: 1.5),
+                    style: AppTypography.cormorantBold.copyWith(
+                      fontSize: 22,
+                      letterSpacing: 1.5,
+                    ),
                   ),
                   const Spacer(),
                   const SizedBox(width: 48),
@@ -77,17 +80,33 @@ class _SharedGardenViewState extends State<SharedGardenView> {
                   if (isWide) {
                     return Row(
                       children: [
-                        Expanded(child: _buildGardenCard(myName, provider.stats, true)),
+                        Expanded(
+                          child: _buildGardenCard(myName, provider.stats, true),
+                        ),
                         const SizedBox(width: 16),
-                        Expanded(child: _buildGardenCard(partnerName, provider.partnerStats, false)),
+                        Expanded(
+                          child: _buildGardenCard(
+                            partnerName,
+                            provider.partnerStats,
+                            false,
+                          ),
+                        ),
                       ],
                     );
                   }
                   return Column(
                     children: [
-                      Expanded(child: _buildGardenCard(myName, provider.stats, true)),
+                      Expanded(
+                        child: _buildGardenCard(myName, provider.stats, true),
+                      ),
                       const SizedBox(height: 16),
-                      Expanded(child: _buildGardenCard(partnerName, provider.partnerStats, false)),
+                      Expanded(
+                        child: _buildGardenCard(
+                          partnerName,
+                          provider.partnerStats,
+                          false,
+                        ),
+                      ),
                     ],
                   );
                 },
@@ -100,7 +119,9 @@ class _SharedGardenViewState extends State<SharedGardenView> {
   }
 
   Widget _buildGardenCard(String name, GardenStats? stats, bool isMine) {
-    final plantType = stats != null ? PlantType.fromId(stats.plantType) : PlantType.all.first;
+    final plantType = stats != null
+        ? PlantType.fromId(stats.plantType)
+        : PlantType.all.first;
     final stage = stats?.currentStage ?? 0;
     final effectiveStage = plantType.effectiveStage(stage);
 
@@ -109,17 +130,12 @@ class _SharedGardenViewState extends State<SharedGardenView> {
       decoration: BoxDecoration(
         color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppTheme.blushGold.withValues(alpha: 0.15),
-        ),
+        border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.15)),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            name,
-            style: AppTypography.cormorantBold.copyWith(fontSize: 18),
-          ),
+          Text(name, style: AppTypography.cormorantBold.copyWith(fontSize: 18)),
           const SizedBox(height: 4),
           if (plantType.isInSeason)
             Container(
@@ -140,10 +156,7 @@ class _SharedGardenViewState extends State<SharedGardenView> {
           SizedBox(
             height: 150,
             width: 150,
-            child: GardenPlantView(
-              plantType: plantType,
-              stage: effectiveStage,
-            ),
+            child: GardenPlantView(plantType: plantType, stage: effectiveStage),
           ),
           const SizedBox(height: 8),
           if (stats != null)

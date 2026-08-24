@@ -538,8 +538,9 @@ class _ShelfCardState extends State<ShelfCard> {
                                   shape: BoxShape.circle,
                                   boxShadow: [
                                     BoxShadow(
-                                      color: widget.accent.color
-                                          .withValues(alpha: 0.6),
+                                      color: widget.accent.color.withValues(
+                                        alpha: 0.6,
+                                      ),
                                       blurRadius: 4,
                                     ),
                                   ],
@@ -550,8 +551,9 @@ class _ShelfCardState extends State<ShelfCard> {
                                 child: Text(
                                   widget.subtitle!.toUpperCase(),
                                   style: AppTypography.outfitBold.copyWith(
-                                    color: widget.accent.color
-                                        .withValues(alpha: 0.95),
+                                    color: widget.accent.color.withValues(
+                                      alpha: 0.95,
+                                    ),
                                     fontSize: 8.2,
                                     letterSpacing: 0.9,
                                     shadows: const [
@@ -799,9 +801,7 @@ class ShelfEmpty extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.white.withValues(alpha: 0.06),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.10),
-              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
             ),
             child: Icon(
               Icons.add_rounded,

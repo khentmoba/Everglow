@@ -78,10 +78,7 @@ final List<AnimeCategoryOption> animeCategoryOptions = [
     icon: Icons.tv_rounded,
     color: const Color(0xFFE8C97A),
     group: AnimeCategoryGroup.format,
-    fetch: (jikan) => jikan.fetchTopAnime(
-      type: 'tv',
-      filter: 'bypopularity',
-    ),
+    fetch: (jikan) => jikan.fetchTopAnime(type: 'tv', filter: 'bypopularity'),
   ),
   AnimeCategoryOption(
     id: 'movies',
@@ -89,10 +86,8 @@ final List<AnimeCategoryOption> animeCategoryOptions = [
     icon: Icons.movie_rounded,
     color: const Color(0xFFF4C2C2),
     group: AnimeCategoryGroup.format,
-    fetch: (jikan) => jikan.fetchTopAnime(
-      type: 'movie',
-      filter: 'bypopularity',
-    ),
+    fetch: (jikan) =>
+        jikan.fetchTopAnime(type: 'movie', filter: 'bypopularity'),
   ),
   AnimeCategoryOption(
     id: 'ovas',
@@ -213,13 +208,8 @@ final List<AnimeCategoryOption> animeCategoryOptions = [
     // top-rated TV list and keep only those whose MAL status is
     // "Finished Airing" with a credible vote count.
     fetch: (jikan) async {
-      final results = await jikan.fetchTopAnime(
-        type: 'tv',
-        limit: 25,
-      );
-      return results
-          .where((m) => m.airingStatus == 'Finished Airing')
-          .toList();
+      final results = await jikan.fetchTopAnime(type: 'tv', limit: 25);
+      return results.where((m) => m.airingStatus == 'Finished Airing').toList();
     },
   ),
   AnimeCategoryOption(
@@ -246,10 +236,7 @@ final List<AnimeCategoryOption> animeCategoryOptions = [
     icon: Icons.public_rounded,
     color: const Color(0xFFAB47BC),
     group: AnimeCategoryGroup.discovery,
-    fetch: (jikan) => jikan.fetchTopAnime(
-      type: 'tv',
-      filter: 'bypopularity',
-    ),
+    fetch: (jikan) => jikan.fetchTopAnime(type: 'tv', filter: 'bypopularity'),
   ),
   AnimeCategoryOption(
     id: 'curated-top-rated',
@@ -259,10 +246,7 @@ final List<AnimeCategoryOption> animeCategoryOptions = [
     group: AnimeCategoryGroup.discovery,
     // `favorite` filter on /top/anime is the closest Jikan equivalent
     // of a "members-loved" leaderboard.
-    fetch: (jikan) => jikan.fetchTopAnime(
-      type: 'tv',
-      filter: 'favorite',
-    ),
+    fetch: (jikan) => jikan.fetchTopAnime(type: 'tv', filter: 'favorite'),
   ),
   AnimeCategoryOption(
     id: 'curated-hidden-gems',
@@ -272,11 +256,11 @@ final List<AnimeCategoryOption> animeCategoryOptions = [
     group: AnimeCategoryGroup.discovery,
     fetch: (jikan) => jikan.fetchHiddenGems(),
   ),
-  AnimeCategoryOption(
+  const AnimeCategoryOption(
     id: 'curated-editors-picks',
     label: "Editor's Picks",
     icon: Icons.workspace_premium_rounded,
-    color: const Color(0xFFEC407A),
+    color: Color(0xFFEC407A),
     group: AnimeCategoryGroup.discovery,
     fetch: _fetchEditorPicks,
   ),

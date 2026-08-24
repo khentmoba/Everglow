@@ -68,21 +68,20 @@ class TMDBService with ConnectivityAware, ErrorAware {
     int? voteCountLte,
     double? voteAverageGte,
     int page = 1,
-  }) =>
-      _discovery.discoverAnime(
-        sortBy: sortBy,
-        withGenres: withGenres,
-        withKeywords: withKeywords,
-        withStatus: withStatus,
-        airDateGte: airDateGte,
-        airDateLte: airDateLte,
-        firstAirDateGte: firstAirDateGte,
-        firstAirDateLte: firstAirDateLte,
-        voteCountGte: voteCountGte,
-        voteCountLte: voteCountLte,
-        voteAverageGte: voteAverageGte,
-        page: page,
-      );
+  }) => _discovery.discoverAnime(
+    sortBy: sortBy,
+    withGenres: withGenres,
+    withKeywords: withKeywords,
+    withStatus: withStatus,
+    airDateGte: airDateGte,
+    airDateLte: airDateLte,
+    firstAirDateGte: firstAirDateGte,
+    firstAirDateLte: firstAirDateLte,
+    voteCountGte: voteCountGte,
+    voteCountLte: voteCountLte,
+    voteAverageGte: voteAverageGte,
+    page: page,
+  );
 
   Future<List<MediaItem>> discoverAnimeMovies({
     String? sortBy,
@@ -90,25 +89,22 @@ class TMDBService with ConnectivityAware, ErrorAware {
     String? primaryReleaseDateLte,
     int? voteCountGte,
     int page = 1,
-  }) =>
-      _discovery.discoverAnimeMovies(
-        sortBy: sortBy,
-        primaryReleaseDateGte: primaryReleaseDateGte,
-        primaryReleaseDateLte: primaryReleaseDateLte,
-        voteCountGte: voteCountGte,
-        page: page,
-      );
+  }) => _discovery.discoverAnimeMovies(
+    sortBy: sortBy,
+    primaryReleaseDateGte: primaryReleaseDateGte,
+    primaryReleaseDateLte: primaryReleaseDateLte,
+    voteCountGte: voteCountGte,
+    page: page,
+  );
 
   Future<List<MediaItem>> fetchTrending({
     String region = 'all',
     String timeWindow = 'week',
-  }) =>
-      _discovery.fetchTrending(region: region, timeWindow: timeWindow);
+  }) => _discovery.fetchTrending(region: region, timeWindow: timeWindow);
 
   Future<List<MediaItem>> fetchTrendingByCountry({
     required String countryCode,
-  }) =>
-      _discovery.fetchTrendingByCountry(countryCode: countryCode);
+  }) => _discovery.fetchTrendingByCountry(countryCode: countryCode);
 
   Future<List<MediaItem>> fetchTrendingToday() =>
       _discovery.fetchTrendingToday();
@@ -124,8 +120,7 @@ class TMDBService with ConnectivityAware, ErrorAware {
 
   Future<List<MediaItem>> fetchTopRatedTV() => _discovery.fetchTopRatedTV();
 
-  Future<List<MediaItem>> fetchAiringToday() =>
-      _discovery.fetchAiringToday();
+  Future<List<MediaItem>> fetchAiringToday() => _discovery.fetchAiringToday();
 
   Future<List<MediaItem>> fetchOnTheAir() => _discovery.fetchOnTheAir();
 
@@ -142,9 +137,11 @@ class TMDBService with ConnectivityAware, ErrorAware {
     required int genreId,
     required String mediaType,
     String sortBy = 'popularity.desc',
-  }) =>
-      _discovery.discoverByGenre(
-          genreId: genreId, mediaType: mediaType, sortBy: sortBy);
+  }) => _discovery.discoverByGenre(
+    genreId: genreId,
+    mediaType: mediaType,
+    sortBy: sortBy,
+  );
 
   Future<List<MediaItem>> discoverMedia({
     required String mediaType,
@@ -156,18 +153,17 @@ class TMDBService with ConnectivityAware, ErrorAware {
     int? voteCountGte,
     String? withOriginalLanguage,
     int page = 1,
-  }) =>
-      _discovery.discoverMedia(
-        mediaType: mediaType,
-        sortBy: sortBy,
-        withGenres: withGenres,
-        yearGte: yearGte,
-        yearLte: yearLte,
-        voteAverageGte: voteAverageGte,
-        voteCountGte: voteCountGte,
-        withOriginalLanguage: withOriginalLanguage,
-        page: page,
-      );
+  }) => _discovery.discoverMedia(
+    mediaType: mediaType,
+    sortBy: sortBy,
+    withGenres: withGenres,
+    yearGte: yearGte,
+    yearLte: yearLte,
+    voteAverageGte: voteAverageGte,
+    voteCountGte: voteCountGte,
+    withOriginalLanguage: withOriginalLanguage,
+    page: page,
+  );
 
   // ─── Search ────────────────────────────────────────────────────────────
 
@@ -179,12 +175,10 @@ class TMDBService with ConnectivityAware, ErrorAware {
 
   // ─── Details ───────────────────────────────────────────────────────────
 
-  Future<List<Map<String, dynamic>>> fetchCredits(
-          int id, String mediaType) =>
+  Future<List<Map<String, dynamic>>> fetchCredits(int id, String mediaType) =>
       _details.fetchCredits(id, mediaType);
 
-  Future<List<Map<String, dynamic>>> fetchReviews(
-          int id, String mediaType) =>
+  Future<List<Map<String, dynamic>>> fetchReviews(int id, String mediaType) =>
       _details.fetchReviews(id, mediaType);
 
   Future<List<MediaItem>> fetchSimilar(int id, String mediaType) =>
@@ -222,11 +216,14 @@ class TMDBService with ConnectivityAware, ErrorAware {
     bool? isAnimeOverride,
     String? statusOwner,
     bool skipPartnerFallback = false,
-  }) =>
-      _watchlist.saveToWatchList(item, status, userName,
-          isAnimeOverride: isAnimeOverride,
-          statusOwner: statusOwner,
-          skipPartnerFallback: skipPartnerFallback);
+  }) => _watchlist.saveToWatchList(
+    item,
+    status,
+    userName,
+    isAnimeOverride: isAnimeOverride,
+    statusOwner: statusOwner,
+    skipPartnerFallback: skipPartnerFallback,
+  );
 
   /// Returns the Firestore userName of the partner that a partner-specific
   /// status refers to (e.g. "watched-clair" → "clairjassen"), or null.
@@ -235,8 +232,10 @@ class TMDBService with ConnectivityAware, ErrorAware {
 
   /// Clean stale partner-specific status from the current user's doc.
   Future<void> cleanStalePartnerStatus(
-          int tmdbId, String userName, String newStatus) =>
-      _watchlist.cleanStalePartnerStatus(tmdbId, userName, newStatus);
+    int tmdbId,
+    String userName,
+    String newStatus,
+  ) => _watchlist.cleanStalePartnerStatus(tmdbId, userName, newStatus);
 
   /// One-time cleanup of duplicate partner entries.
   Future<int> cleanupDuplicatePartnerEntries() =>
@@ -248,16 +247,32 @@ class TMDBService with ConnectivityAware, ErrorAware {
     int? season,
     int? episode,
     int? timestamp,
+    int? durationSeconds,
     String? status,
-  }) =>
-      _watchlist.updateProgress(item, userName,
-          season: season,
-          episode: episode,
-          timestamp: timestamp,
-          status: status);
+  }) => _watchlist.updateProgress(
+    item,
+    userName,
+    season: season,
+    episode: episode,
+    timestamp: timestamp,
+    durationSeconds: durationSeconds,
+    status: status,
+  );
 
   Future<void> removeFromWatchList(int tmdbId, String userName) =>
       _watchlist.removeFromWatchList(tmdbId, userName);
+
+  Future<bool> setListMembership(
+    MediaItem item,
+    String userName, {
+    required bool add,
+  }) => _watchlist.setListMembership(item, userName, add: add);
+
+  Future<void> setUserRating(
+    MediaItem item,
+    String userName, {
+    double? rating,
+  }) => _watchlist.setUserRating(item, userName, rating: rating);
 
   // ─── Watchlist Streams ─────────────────────────────────────────────────
 
@@ -267,8 +282,7 @@ class TMDBService with ConnectivityAware, ErrorAware {
   Stream<List<MediaItem>> getCoupleWatchListStream({
     String userA = 'khentsgdz',
     String userB = 'clairjassen',
-  }) =>
-      _watchlist.getCoupleWatchListStream(userA: userA, userB: userB);
+  }) => _watchlist.getCoupleWatchListStream(userA: userA, userB: userB);
 
   Stream<List<MediaItem>> getAnimeWatchListStream(String userName) =>
       _watchlist.getAnimeWatchListStream(userName);
@@ -276,8 +290,7 @@ class TMDBService with ConnectivityAware, ErrorAware {
   Stream<List<MediaItem>> getCoupleAnimeStream({
     String userA = 'khentsgdz',
     String userB = 'clairjassen',
-  }) =>
-      _watchlist.getCoupleAnimeStream(userA: userA, userB: userB);
+  }) => _watchlist.getCoupleAnimeStream(userA: userA, userB: userB);
 
   Stream<List<MediaItem>> getCurrentlyWatchingStream(String userName) =>
       _watchlist.getCurrentlyWatchingStream(userName);
@@ -285,8 +298,7 @@ class TMDBService with ConnectivityAware, ErrorAware {
   Stream<List<MediaItem>> getCoupleCurrentlyWatchingStream({
     String userA = 'khentsgdz',
     String userB = 'clairjassen',
-  }) =>
-      _watchlist.getCoupleCurrentlyWatchingStream(userA: userA, userB: userB);
+  }) => _watchlist.getCoupleCurrentlyWatchingStream(userA: userA, userB: userB);
 
   Stream<List<MediaItem>> getCurrentlyWatchingAnimeStream(String userName) =>
       _watchlist.getCurrentlyWatchingAnimeStream(userName);
@@ -294,9 +306,10 @@ class TMDBService with ConnectivityAware, ErrorAware {
   Stream<List<MediaItem>> getCoupleCurrentlyWatchingAnimeStream({
     String userA = 'khentsgdz',
     String userB = 'clairjassen',
-  }) =>
-      _watchlist.getCoupleCurrentlyWatchingAnimeStream(
-          userA: userA, userB: userB);
+  }) => _watchlist.getCoupleCurrentlyWatchingAnimeStream(
+    userA: userA,
+    userB: userB,
+  );
 
   // ─── Progress / Heartbeat ──────────────────────────────────────────────
 
@@ -306,9 +319,15 @@ class TMDBService with ConnectivityAware, ErrorAware {
     int? season,
     int? episode,
     int? timestamp,
-  }) =>
-      _watchlist.heartbeatProgress(tmdbId, userName,
-          season: season, episode: episode, timestamp: timestamp);
+    int? durationSeconds,
+  }) => _watchlist.heartbeatProgress(
+    tmdbId,
+    userName,
+    season: season,
+    episode: episode,
+    timestamp: timestamp,
+    durationSeconds: durationSeconds,
+  );
 
   // ─── Cache ─────────────────────────────────────────────────────────────
 

@@ -20,6 +20,7 @@ class VideoPlayerScreen extends StatefulWidget {
   final String mediaType;
   final int? season;
   final int? episode;
+  final int? startSeconds;
   final String title;
   final bool isAnime;
   final int? malId;
@@ -30,6 +31,7 @@ class VideoPlayerScreen extends StatefulWidget {
     required this.mediaType,
     this.season,
     this.episode,
+    this.startSeconds,
     required this.title,
     this.isAnime = false,
     this.malId,
@@ -76,7 +78,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   VideoSourceConfig _resolveCurrent(List<VideoSourceConfig> providers) {
     if (providers.isEmpty) {
-      return VideoSourceConfig(
+      return const VideoSourceConfig(
         id: 'none',
         name: 'No source',
         shortName: 'None',
@@ -191,9 +193,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 ),
               ),
               const SizedBox(height: 18),
-              Text(
+              const Text(
                 'Switch Source',
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
                   fontSize: 17,
                   fontWeight: FontWeight.bold,
@@ -202,10 +204,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               const SizedBox(height: 4),
               Text(
                 'Playback runs in-app. Switch sources if a server fails.',
-                style: TextStyle(
-                  color: AppColors.textMuted,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: AppColors.textMuted, fontSize: 12),
               ),
               const SizedBox(height: 16),
               Padding(
@@ -241,10 +240,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                                 height: 30,
                                 decoration: BoxDecoration(
                                   color: selected
-                                      ? AppColors.deepRose
-                                          .withValues(alpha: 0.2)
-                                      : AppColors.moonlight
-                                          .withValues(alpha: 0.08),
+                                      ? AppColors.deepRose.withValues(
+                                          alpha: 0.2,
+                                        )
+                                      : AppColors.moonlight.withValues(
+                                          alpha: 0.08,
+                                        ),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
@@ -357,9 +358,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         decoration: BoxDecoration(
           color: Colors.black,
           borderRadius: BorderRadius.circular(AppRadius.md),
-          border: Border.all(
-            color: AppColors.deepRose.withValues(alpha: 0.4),
-          ),
+          border: Border.all(color: AppColors.deepRose.withValues(alpha: 0.4)),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(AppRadius.md - 1),
@@ -435,10 +434,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   ],
                 ),
               ),
-              const Icon(
-                Icons.swap_horiz_rounded,
-                color: AppColors.roseQuartz,
-              ),
+              const Icon(Icons.swap_horiz_rounded, color: AppColors.roseQuartz),
             ],
           ),
         ),

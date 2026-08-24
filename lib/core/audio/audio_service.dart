@@ -9,7 +9,7 @@ class AudioService {
 
   final AudioPlayer _player = AudioPlayer();
   bool _isMuted = false;
-  
+
   bool get isMuted => _isMuted;
 
   Future<void> initialize() async {
@@ -25,7 +25,7 @@ class AudioService {
 
   Future<void> playSfx(String assetPath) async {
     if (_isMuted) return;
-    
+
     try {
       await _player.setAsset(assetPath);
       await _player.play();

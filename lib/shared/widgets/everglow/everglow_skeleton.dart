@@ -63,24 +63,24 @@ class _EverglowSkeletonState extends State<EverglowSkeleton>
 
     return RepaintBoundary(
       child: AnimatedBuilder(
-      animation: _controller!,
-      builder: (_, _) => Container(
-        width: widget.width,
-        height: widget.height,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(widget.radius),
-          gradient: LinearGradient(
-            begin: Alignment(-1.0 + 2.0 * _controller!.value, 0),
-            end: Alignment(-0.5 + 2.0 * _controller!.value, 0),
-            colors: const [
-              AppColors.shimmerBase,
-              AppColors.shimmerHighlight,
-              AppColors.shimmerBase,
-            ],
-            stops: const [0.0, 0.5, 1.0],
+        animation: _controller!,
+        builder: (_, _) => Container(
+          width: widget.width,
+          height: widget.height,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(widget.radius),
+            gradient: LinearGradient(
+              begin: Alignment(-1.0 + 2.0 * _controller!.value, 0),
+              end: Alignment(-0.5 + 2.0 * _controller!.value, 0),
+              colors: const [
+                Color(0xFF1C1228),
+                Color(0xFF2A1F3A),
+                Color(0xFF1C1228),
+              ],
+              stops: const [0.0, 0.5, 1.0],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -114,11 +114,8 @@ class EverglowSkeletonRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20),
         itemCount: count,
         separatorBuilder: (_, _) => SizedBox(width: spacing),
-        itemBuilder: (_, _) => EverglowSkeleton(
-          width: itemWidth,
-          height: itemHeight,
-          radius: 14,
-        ),
+        itemBuilder: (_, _) =>
+            EverglowSkeleton(width: itemWidth, height: itemHeight, radius: 14),
       ),
     );
   }
@@ -163,9 +160,7 @@ class EverglowSkeletonGrid extends StatelessWidget {
               childAspectRatio: childAspectRatio,
             ),
       itemCount: count,
-      itemBuilder: (_, _) => const EverglowSkeleton(
-        radius: 14,
-      ),
+      itemBuilder: (_, _) => const EverglowSkeleton(radius: 14),
     );
   }
 }

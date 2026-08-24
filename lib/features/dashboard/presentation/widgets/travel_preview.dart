@@ -38,35 +38,46 @@ class TravelPreview extends StatelessWidget {
                 trailing: const SectionChevron(hue: AppColors.auroraTeal),
                 onTap: () => context.push('/travel'),
                 child: trips.isEmpty && pins.isEmpty
-                    ? _EmptyAtlas(hue: AppColors.auroraTeal)
+                    ? const _EmptyAtlas(hue: AppColors.auroraTeal)
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (totalPins > 0) ...[
                             Row(
                               children: [
-                                Icon(Icons.place_rounded,
-                                    size: 12, color: AppColors.auroraTeal),
+                                const Icon(
+                                  Icons.place_rounded,
+                                  size: 12,
+                                  color: AppColors.auroraTeal,
+                                ),
                                 const SizedBox(width: 6),
-                                Text('$visited explored',
-                                    style: AppTypography.outfitBold.copyWith(
-                                      fontSize: 11,
-                                      color: AppColors.auroraTeal,
-                                    )),
+                                Text(
+                                  '$visited explored',
+                                  style: AppTypography.outfitBold.copyWith(
+                                    fontSize: 11,
+                                    color: AppColors.auroraTeal,
+                                  ),
+                                ),
                                 const SizedBox(width: 8),
-                                Text('• ${totalPins - visited} dreaming',
-                                    style: AppTypography.outfitWhite.copyWith(
-                                      fontSize: 11,
-                                      color: AppColors.petalWhite
-                                          .withValues(alpha: 0.45),
-                                    )),
+                                Text(
+                                  '• ${totalPins - visited} dreaming',
+                                  style: AppTypography.outfitWhite.copyWith(
+                                    fontSize: 11,
+                                    color: AppColors.petalWhite.withValues(
+                                      alpha: 0.45,
+                                    ),
+                                  ),
+                                ),
                                 const Spacer(),
-                                Text('${(pct * 100).round()}%',
-                                    style: AppTypography.outfitBold.copyWith(
-                                      fontSize: 11,
-                                      color: AppColors.petalWhite
-                                          .withValues(alpha: 0.65),
-                                    )),
+                                Text(
+                                  '${(pct * 100).round()}%',
+                                  style: AppTypography.outfitBold.copyWith(
+                                    fontSize: 11,
+                                    color: AppColors.petalWhite.withValues(
+                                      alpha: 0.65,
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 8),
@@ -75,10 +86,12 @@ class TravelPreview extends StatelessWidget {
                               child: LinearProgressIndicator(
                                 value: pct == 0 ? 0.04 : pct,
                                 minHeight: 6,
-                                backgroundColor:
-                                    Colors.white.withValues(alpha: 0.07),
+                                backgroundColor: Colors.white.withValues(
+                                  alpha: 0.07,
+                                ),
                                 valueColor: const AlwaysStoppedAnimation(
-                                    AppColors.auroraTeal),
+                                  AppColors.auroraTeal,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 10),
@@ -90,30 +103,40 @@ class TravelPreview extends StatelessWidget {
                               children: trips.take(4).map((t) {
                                 return Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 9, vertical: 5),
+                                    horizontal: 9,
+                                    vertical: 5,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withValues(alpha: 0.06),
                                     borderRadius: BorderRadius.circular(999),
                                     border: Border.all(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.08)),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.08,
+                                      ),
+                                    ),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.flight_takeoff_rounded,
-                                          size: 11,
-                                          color: AppColors.auroraTeal
-                                              .withValues(alpha: 0.85)),
+                                      Icon(
+                                        Icons.flight_takeoff_rounded,
+                                        size: 11,
+                                        color: AppColors.auroraTeal.withValues(
+                                          alpha: 0.85,
+                                        ),
+                                      ),
                                       const SizedBox(width: 5),
                                       Text(
-                                        t.title.isEmpty ? 'Untitled trip' : t.title,
-                                        style: AppTypography.outfitWhite.copyWith(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppColors.petalWhite
-                                              .withValues(alpha: 0.85),
-                                        ),
+                                        t.title.isEmpty
+                                            ? 'Untitled trip'
+                                            : t.title,
+                                        style: AppTypography.outfitWhite
+                                            .copyWith(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.petalWhite
+                                                  .withValues(alpha: 0.85),
+                                            ),
                                       ),
                                     ],
                                   ),
@@ -131,14 +154,18 @@ class TravelPreview extends StatelessWidget {
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     color: p.isVisited
-                                        ? AppColors.auroraTeal
-                                            .withValues(alpha: 0.22)
+                                        ? AppColors.auroraTeal.withValues(
+                                            alpha: 0.22,
+                                          )
                                         : Colors.white.withValues(alpha: 0.06),
                                     border: Border.all(
                                       color: p.isVisited
-                                          ? AppColors.auroraTeal
-                                              .withValues(alpha: 0.45)
-                                          : Colors.white.withValues(alpha: 0.10),
+                                          ? AppColors.auroraTeal.withValues(
+                                              alpha: 0.45,
+                                            )
+                                          : Colors.white.withValues(
+                                              alpha: 0.10,
+                                            ),
                                     ),
                                   ),
                                   child: Icon(
@@ -148,8 +175,9 @@ class TravelPreview extends StatelessWidget {
                                     size: 13,
                                     color: p.isVisited
                                         ? AppColors.auroraTeal
-                                        : AppColors.petalWhite
-                                            .withValues(alpha: 0.35),
+                                        : AppColors.petalWhite.withValues(
+                                            alpha: 0.35,
+                                          ),
                                   ),
                                 );
                               }).toList(),
@@ -199,16 +227,20 @@ class _EmptyAtlas extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Where to next?',
-                    style: AppTypography.outfitBold.copyWith(
-                      fontSize: 12,
-                      color: AppColors.petalWhite.withValues(alpha: 0.88),
-                    )),
-                Text('Pin Japan, Cebu, Kyoto — draw your map together.',
-                    style: AppTypography.outfitWhite.copyWith(
-                      fontSize: 11,
-                      color: AppColors.petalWhite.withValues(alpha: 0.50),
-                    )),
+                Text(
+                  'Where to next?',
+                  style: AppTypography.outfitBold.copyWith(
+                    fontSize: 12,
+                    color: AppColors.petalWhite.withValues(alpha: 0.88),
+                  ),
+                ),
+                Text(
+                  'Pin Japan, Cebu, Kyoto — draw your map together.',
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 11,
+                    color: AppColors.petalWhite.withValues(alpha: 0.50),
+                  ),
+                ),
               ],
             ),
           ),

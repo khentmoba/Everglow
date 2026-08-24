@@ -46,10 +46,7 @@ class ShelfHoverPreview extends StatelessWidget {
           decoration: BoxDecoration(
             color: const Color(0xFF141418),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: accent.withValues(alpha: 0.18),
-              width: 1,
-            ),
+            border: Border.all(color: accent.withValues(alpha: 0.18), width: 1),
             boxShadow: [
               BoxShadow(
                 color: accent.withValues(alpha: 0.1),
@@ -167,25 +164,26 @@ class _HoverMetaChips extends StatelessWidget {
       spacing: 6,
       runSpacing: 5,
       children: chips
-          .map((c) => Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.1),
-                    width: 0.6,
-                  ),
+          .map(
+            (c) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  width: 0.6,
                 ),
-                child: Text(
-                  c.label,
-                  style: AppTypography.outfitBold.copyWith(
-                    fontSize: 8,
-                    color: Colors.white.withValues(alpha: 0.6),
-                  ),
+              ),
+              child: Text(
+                c.label,
+                style: AppTypography.outfitBold.copyWith(
+                  fontSize: 8,
+                  color: Colors.white.withValues(alpha: 0.6),
                 ),
-              ))
+              ),
+            ),
+          )
           .toList(),
     );
   }
@@ -233,11 +231,11 @@ class _HoverButtonState extends State<_HoverButton> {
           decoration: BoxDecoration(
             color: widget.primary
                 ? (_hovered
-                    ? widget.accent
-                    : widget.accent.withValues(alpha: 0.85))
+                      ? widget.accent
+                      : widget.accent.withValues(alpha: 0.85))
                 : (_hovered
-                    ? Colors.white.withValues(alpha: 0.1)
-                    : Colors.white.withValues(alpha: 0.05)),
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.white.withValues(alpha: 0.05)),
             borderRadius: BorderRadius.circular(16),
             border: widget.primary
                 ? null
@@ -262,9 +260,7 @@ class _HoverButtonState extends State<_HoverButton> {
               const SizedBox(width: 3),
               Text(
                 widget.label,
-                style: AppTypography.outfitHeading.copyWith(
-                  fontSize: 9,
-                ),
+                style: AppTypography.outfitHeading.copyWith(fontSize: 9),
               ),
             ],
           ),

@@ -81,8 +81,9 @@ class VoiceChatService {
   /// can detach it cleanly. Web only; native is a no-op.
   final BeforeUnloadHelper _beforeUnload = BeforeUnloadHelper();
 
-  final ValueNotifier<VoiceChatState> state =
-      ValueNotifier(VoiceChatState.idle);
+  final ValueNotifier<VoiceChatState> state = ValueNotifier(
+    VoiceChatState.idle,
+  );
   final ValueNotifier<bool> isMuted = ValueNotifier(false);
   final ValueNotifier<bool> hasRemoteAudio = ValueNotifier(false);
 
@@ -219,7 +220,8 @@ class VoiceChatService {
       if (s == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
         state.value = VoiceChatState.connected;
         _iceRestarted = false;
-      } else if (s == RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
+      } else if (s ==
+          RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
         // Don't immediately bail — give ICE a few seconds to
         // self-heal. The "failed" handler below does the heavy
         // lifting.
@@ -258,7 +260,8 @@ class VoiceChatService {
           'calleeUid': _remoteUid,
           'state': 'calling',
           'offer': offerJson,
-          'answer': '',  // clear old answer so callee processes the restart offer
+          'answer':
+              '', // clear old answer so callee processes the restart offer
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
         // Give the new ICE gathering a few seconds to complete.
@@ -361,12 +364,12 @@ class VoiceChatService {
           .doc(_roomId)
           .collection('candidates')
           .add({
-        'from': _myUid,
-        'candidate': candidate.candidate,
-        'sdpMid': candidate.sdpMid,
-        'sdpMLineIndex': candidate.sdpMLineIndex,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+            'from': _myUid,
+            'candidate': candidate.candidate,
+            'sdpMid': candidate.sdpMid,
+            'sdpMLineIndex': candidate.sdpMLineIndex,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
     } catch (e) {
       Logger.e('VoiceChatService._sendCandidate failed', error: e);
     }
@@ -374,65 +377,71 @@ class VoiceChatService {
 
   void _listenSignal() {
     if (_roomId == null) return;
-    _signalSub = withFirestoreTimeout(
-        _db.collection(_collection).doc(_roomId).snapshots(),
-        label: 'voice_chat_room_state',
-      ).listen((snap) {
-      if (!snap.exists) return;
-      final data = snap.data()!;
+    _signalSub =
+        withFirestoreTimeout(
+          _db.collection(_collection).doc(_roomId).snapshots(),
+          label: 'voice_chat_room_state',
+        ).listen((snap) {
+          if (!snap.exists) return;
+          final data = snap.data()!;
 
-      final docState = data['state'] as String?;
-      if (docState == 'ended') {
-        state.value = VoiceChatState.ended;
-        return;
-      }
+          final docState = data['state'] as String?;
+          if (docState == 'ended') {
+            state.value = VoiceChatState.ended;
+            return;
+          }
 
-      final callerUid = data['callerUid'] as String?;
+          final callerUid = data['callerUid'] as String?;
 
-      if (_myUid != callerUid) {
-        final offer = data['offer'] as String?;
-        final answer = data['answer'] as String?;
-        if (offer != null && offer.isNotEmpty && (answer == null || answer.isEmpty)) {
-          _handleOffer(offer);
-        }
-      }
+          if (_myUid != callerUid) {
+            final offer = data['offer'] as String?;
+            final answer = data['answer'] as String?;
+            if (offer != null &&
+                offer.isNotEmpty &&
+                (answer == null || answer.isEmpty)) {
+              _handleOffer(offer);
+            }
+          }
 
-      if (_myUid == callerUid) {
-        final answer = data['answer'] as String?;
-        if (answer != null && answer.isNotEmpty && !_remoteDescSet) {
-          _handleAnswer(answer);
-        }
-      }
-    });
+          if (_myUid == callerUid) {
+            final answer = data['answer'] as String?;
+            if (answer != null && answer.isNotEmpty && !_remoteDescSet) {
+              _handleAnswer(answer);
+            }
+          }
+        });
   }
 
   void _listenCandidates() {
     if (_roomId == null) return;
-    _candidateSub = withFirestoreTimeout(
-        _db
-            .collection(_collection)
-            .doc(_roomId)
-            .collection('candidates')
-            .snapshots(),
-        label: 'voice_chat_candidates',
-      ).listen((snap) {
-      for (final change in snap.docChanges) {
-        if (change.type == DocumentChangeType.added) {
-          final data = change.doc.data()!;
-          if (data['from'] == _myUid) continue;
-          if (data['candidate'] == null || data['sdpMid'] == null) continue;
-          try {
-            _pc?.addCandidate(RTCIceCandidate(
-              data['candidate'] as String,
-              data['sdpMid'] as String,
-              (data['sdpMLineIndex'] as num?)?.toInt() ?? 0,
-            ));
-          } catch (e) {
-            // Candidate may have been added before remote desc — browser queues it
+    _candidateSub =
+        withFirestoreTimeout(
+          _db
+              .collection(_collection)
+              .doc(_roomId)
+              .collection('candidates')
+              .snapshots(),
+          label: 'voice_chat_candidates',
+        ).listen((snap) {
+          for (final change in snap.docChanges) {
+            if (change.type == DocumentChangeType.added) {
+              final data = change.doc.data()!;
+              if (data['from'] == _myUid) continue;
+              if (data['candidate'] == null || data['sdpMid'] == null) continue;
+              try {
+                _pc?.addCandidate(
+                  RTCIceCandidate(
+                    data['candidate'] as String,
+                    data['sdpMid'] as String,
+                    (data['sdpMLineIndex'] as num?)?.toInt() ?? 0,
+                  ),
+                );
+              } catch (e) {
+                // Candidate may have been added before remote desc — browser queues it
+              }
+            }
           }
-        }
-      }
-    });
+        });
   }
 
   Future<void> toggleMute() async {
@@ -536,30 +545,26 @@ class VoiceChatService {
     _incomingWatcherSub?.cancel();
     _incomingPartySub?.cancel();
 
-    _incomingWatcherSub = withFirestoreTimeout(
-        _incomingDb
-            .collection(_collection)
-            .doc(roomId)
-            .snapshots(),
-        label: 'voice_chat_incoming',
-      ).listen((snap) {
-      _incomingVoiceSnapshot = snap.exists ? snap : null;
-      _evaluateIncoming(myUid: myUid, roomId: roomId);
-    });
+    _incomingWatcherSub =
+        withFirestoreTimeout(
+          _incomingDb.collection(_collection).doc(roomId).snapshots(),
+          label: 'voice_chat_incoming',
+        ).listen((snap) {
+          _incomingVoiceSnapshot = snap.exists ? snap : null;
+          _evaluateIncoming(myUid: myUid, roomId: roomId);
+        });
 
     // The voice room is only meaningful while the matching watch
     // party room is still live. A room left in `calling` by a closed
     // tab or an old session must never re-surface as an invitation.
-    _incomingPartySub = withFirestoreTimeout(
-        _incomingDb
-            .collection(_watchPartyCollection)
-            .doc(roomId)
-            .snapshots(),
-        label: 'watch_party_room_incoming',
-      ).listen((snap) {
-      _incomingPartySnapshot = snap.exists ? snap : null;
-      _evaluateIncoming(myUid: myUid, roomId: roomId);
-    });
+    _incomingPartySub =
+        withFirestoreTimeout(
+          _incomingDb.collection(_watchPartyCollection).doc(roomId).snapshots(),
+          label: 'watch_party_room_incoming',
+        ).listen((snap) {
+          _incomingPartySnapshot = snap.exists ? snap : null;
+          _evaluateIncoming(myUid: myUid, roomId: roomId);
+        });
   }
 
   static void _evaluateIncoming({
@@ -584,7 +589,8 @@ class VoiceChatService {
         partyRoom = WatchPartyRoom.fromFirestore(partySnap);
       } catch (e) {
         debugPrint(
-            'VoiceChatService: failed to parse watch party room $roomId: $e');
+          'VoiceChatService: failed to parse watch party room $roomId: $e',
+        );
       }
     }
 
@@ -611,7 +617,9 @@ class VoiceChatService {
       malId: (data['malId'] is num) ? (data['malId'] as num).toInt() : null,
       isAnime: data['isAnime'] == true,
       season: (data['season'] is num) ? (data['season'] as num).toInt() : null,
-      episode: (data['episode'] is num) ? (data['episode'] as num).toInt() : null,
+      episode: (data['episode'] is num)
+          ? (data['episode'] as num).toInt()
+          : null,
       seenAt: DateTime.now(),
     );
 
@@ -652,9 +660,9 @@ class VoiceChatService {
 
   static final FirebaseFirestore _incomingDb = FirebaseFirestore.instance;
   static StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
-      _incomingWatcherSub;
+  _incomingWatcherSub;
   static StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
-      _incomingPartySub;
+  _incomingPartySub;
   static DocumentSnapshot<Map<String, dynamic>>? _incomingVoiceSnapshot;
   static DocumentSnapshot<Map<String, dynamic>>? _incomingPartySnapshot;
   static const String _watchPartyCollection = 'watch_party_rooms';
@@ -668,12 +676,16 @@ class VoiceChatService {
     _beforeUnload.install(() {
       // Best-effort write. We can't await inside the listener.
       if (_roomId != null && state.value != VoiceChatState.ended) {
-        _db.collection(_collection).doc(_roomId).update({
-          'state': 'ended',
-          'updatedAt': FieldValue.serverTimestamp(),
-        }).catchError((Object e) {
-          Logger.e('VoiceChatService beforeunload update failed', error: e);
-        });
+        _db
+            .collection(_collection)
+            .doc(_roomId)
+            .update({
+              'state': 'ended',
+              'updatedAt': FieldValue.serverTimestamp(),
+            })
+            .catchError((Object e) {
+              Logger.e('VoiceChatService beforeunload update failed', error: e);
+            });
       }
       // Also stop local tracks so the browser releases the mic.
       if (_localStream != null) {
@@ -681,7 +693,9 @@ class VoiceChatService {
           try {
             track.stop();
           } catch (e) {
-            debugPrint('[VoiceChatService] Failed to stop track before unload: $e');
+            debugPrint(
+              '[VoiceChatService] Failed to stop track before unload: $e',
+            );
           }
         }
       }

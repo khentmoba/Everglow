@@ -49,37 +49,33 @@ class _ShimmerBoxState extends State<ShimmerBox>
   Widget build(BuildContext context) {
     return RepaintBoundary(
       child: AnimatedBuilder(
-      animation: _anim,
-      builder: (context, child) {
-        return ShaderMask(
-          blendMode: BlendMode.srcATop,
-          shaderCallback: (bounds) {
-            return LinearGradient(
-              begin: const Alignment(-1.5, 0),
-              end: const Alignment(1.5, 0),
-              colors: [
-                widget.base,
-                widget.highlight,
-                widget.base,
-              ],
-              stops: [
-                (_anim.value - 0.3).clamp(0.0, 1.0),
-                _anim.value.clamp(0.0, 1.0),
-                (_anim.value + 0.3).clamp(0.0, 1.0),
-              ],
-            ).createShader(bounds);
-          },
-          child: child,
-        );
-      },
-      child: Container(
-        width: widget.width ?? double.infinity,
-        height: widget.height,
-        decoration: BoxDecoration(
-          color: widget.base,
-          borderRadius: BorderRadius.circular(widget.radius),
+        animation: _anim,
+        builder: (context, child) {
+          return ShaderMask(
+            blendMode: BlendMode.srcATop,
+            shaderCallback: (bounds) {
+              return LinearGradient(
+                begin: const Alignment(-1.5, 0),
+                end: const Alignment(1.5, 0),
+                colors: [widget.base, widget.highlight, widget.base],
+                stops: [
+                  (_anim.value - 0.3).clamp(0.0, 1.0),
+                  _anim.value.clamp(0.0, 1.0),
+                  (_anim.value + 0.3).clamp(0.0, 1.0),
+                ],
+              ).createShader(bounds);
+            },
+            child: child,
+          );
+        },
+        child: Container(
+          width: widget.width ?? double.infinity,
+          height: widget.height,
+          decoration: BoxDecoration(
+            color: widget.base,
+            borderRadius: BorderRadius.circular(widget.radius),
+          ),
         ),
-      ),
       ),
     );
   }
@@ -100,8 +96,7 @@ class ShimmerPosterRow extends StatelessWidget {
     this.height = 200,
     this.width = 130,
     this.count = 6,
-    this.padding =
-        const EdgeInsets.symmetric(horizontal: 20),
+    this.padding = const EdgeInsets.symmetric(horizontal: 20),
     this.radius = 12,
     this.base = const Color(0xFF1C1228),
     this.highlight = const Color(0xFF2A1F3A),

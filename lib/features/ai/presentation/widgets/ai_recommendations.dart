@@ -182,10 +182,7 @@ class _AIRecommendationsState extends State<AIRecommendations> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppTheme.twilight,
-        title: Text(
-          item.title,
-          style: AppTypography.outfitWhite,
-        ),
+        title: Text(item.title, style: AppTypography.outfitWhite),
         content: Text(
           item.year.isNotEmpty ? item.year : '',
           style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz),
@@ -232,9 +229,7 @@ class _AIRecommendationsState extends State<AIRecommendations> {
               Expanded(
                 child: Text(
                   widget.title,
-                  style: AppTypography.outfitBold.copyWith(
-                    fontSize: 16,
-                  ),
+                  style: AppTypography.outfitBold.copyWith(fontSize: 16),
                 ),
               ),
               if (!_isLoading)

@@ -38,10 +38,10 @@ class MangakatanaService with ConnectivityAware {
   }
 
   Map<String, String> get _headers => {
-        'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'text/html,application/xhtml+xml',
-      };
+    'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'Accept': 'text/html,application/xhtml+xml',
+  };
 
   final Map<String, MangaChapterPages> _pageCache = {};
 
@@ -49,19 +49,21 @@ class MangakatanaService with ConnectivityAware {
   /// so the request works on Flutter Web (CORS-safe).
   Uri _proxiedFetch(Uri uri) {
     return Uri.parse(
-        '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}');
+      '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}',
+    );
   }
 
   /// Search MangaKatana by title and return the manga slug.
   Future<String> searchByTitle(String title) async {
     if (title.trim().isEmpty) return '';
     final uri = Uri.parse(
-        '$_baseUrl/?s=${Uri.encodeComponent(title)}&search_type=title');
+      '$_baseUrl/?s=${Uri.encodeComponent(title)}&search_type=title',
+    );
     try {
       final headers = await _authHeaders();
-      final response = await http.get(_proxiedFetch(uri), headers: headers).timeout(
-            const Duration(seconds: 8),
-          );
+      final response = await http
+          .get(_proxiedFetch(uri), headers: headers)
+          .timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final body = response.body;
         final hrefReg = RegExp(r'<a[^>]*href="([^"]*)"[^>]*>');
@@ -89,9 +91,9 @@ class MangakatanaService with ConnectivityAware {
     final uri = Uri.parse('$_baseUrl/manga/$slug');
     try {
       final headers = await _authHeaders();
-      final response = await http.get(_proxiedFetch(uri), headers: headers).timeout(
-            const Duration(seconds: 10),
-          );
+      final response = await http
+          .get(_proxiedFetch(uri), headers: headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         return _parseChapterList(response.body, slug);
       }
@@ -114,20 +116,23 @@ class MangakatanaService with ConnectivityAware {
       final text = m.group(2)?.trim() ?? '';
       if (href.isEmpty || !seen.add(href)) continue;
       final id = href;
-      final numMatch =
-          RegExp(r'chapter[_\s-]?([\d.]+)', caseSensitive: false)
-              .firstMatch(href);
+      final numMatch = RegExp(
+        r'chapter[_\s-]?([\d.]+)',
+        caseSensitive: false,
+      ).firstMatch(href);
       final chapterNum = numMatch?.group(1) ?? '';
-      chapters.add(MangaChapter(
-        id: id,
-        title: text,
-        chapter: chapterNum,
-        volume: '',
-        pages: 0,
-        translatedLanguage: 'en',
-        scanlationGroup: '',
-        publishAt: DateTime.now(),
-      ));
+      chapters.add(
+        MangaChapter(
+          id: id,
+          title: text,
+          chapter: chapterNum,
+          volume: '',
+          pages: 0,
+          translatedLanguage: 'en',
+          scanlationGroup: '',
+          publishAt: DateTime.now(),
+        ),
+      );
     }
     return chapters;
   }
@@ -144,9 +149,9 @@ class MangakatanaService with ConnectivityAware {
         : '$_baseUrl/$chapterUrl';
     try {
       final headers = await _authHeaders();
-      final response = await http.get(_proxiedFetch(Uri.parse(url)), headers: headers).timeout(
-            const Duration(seconds: 10),
-          );
+      final response = await http
+          .get(_proxiedFetch(Uri.parse(url)), headers: headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final urls = <String>[];
         final imgReg = RegExp(r'<img[^>]*src="([^"]+)"[^>]*>');
@@ -154,9 +159,10 @@ class MangakatanaService with ConnectivityAware {
         for (final m in matches) {
           final src = m.group(1)?.trim() ?? '';
           if (src.isEmpty) continue;
-          if (!RegExp(r'\.(jpg|jpeg|png|webp|gif|bmp)(\?|$)',
-                  caseSensitive: false)
-              .hasMatch(src)) {
+          if (!RegExp(
+            r'\.(jpg|jpeg|png|webp|gif|bmp)(\?|$)',
+            caseSensitive: false,
+          ).hasMatch(src)) {
             continue;
           }
           if (src.contains('ads') ||

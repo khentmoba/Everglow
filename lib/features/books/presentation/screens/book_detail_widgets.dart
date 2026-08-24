@@ -26,17 +26,11 @@ class _TopIconButton extends StatelessWidget {
               : _cCard.withValues(alpha: 0.8),
           shape: BoxShape.circle,
           border: Border.all(
-            color: active
-                ? _cDeepRose
-                : _cRose.withValues(alpha: 0.12),
+            color: active ? _cDeepRose : _cRose.withValues(alpha: 0.12),
           ),
         ),
         alignment: Alignment.center,
-        child: Icon(
-          icon,
-          color: active ? _cDeepRose : _cRose,
-          size: 18,
-        ),
+        child: Icon(icon, color: active ? _cDeepRose : _cRose, size: 18),
       ),
     );
   }
@@ -73,9 +67,7 @@ class _ActionChip extends StatelessWidget {
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: color.withValues(alpha: 0.35),
-                ),
+                border: Border.all(color: color.withValues(alpha: 0.35)),
               ),
               alignment: Alignment.center,
               child: Icon(icon, color: color, size: 20),
@@ -111,7 +103,10 @@ class _TabHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return Container(
       color: _cBlack,
       child: TabBar(
@@ -122,8 +117,9 @@ class _TabHeaderDelegate extends SliverPersistentHeaderDelegate {
         labelColor: _cWhite,
         unselectedLabelColor: _cMuted,
         labelStyle: AppTypography.outfitBold.copyWith(fontSize: 11.5),
-        unselectedLabelStyle:
-            AppTypography.outfitWhite.copyWith(fontSize: 11.5),
+        unselectedLabelStyle: AppTypography.outfitWhite.copyWith(
+          fontSize: 11.5,
+        ),
         tabs: const [
           Tab(text: 'Downloads'),
           Tab(text: 'Details'),
@@ -242,4 +238,3 @@ class _DownloadSheet extends StatelessWidget {
     );
   }
 }
-

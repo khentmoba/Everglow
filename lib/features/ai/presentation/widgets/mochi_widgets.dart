@@ -23,11 +23,20 @@ class _MochiHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final showNav = isDesktop || MediaQuery.sizeOf(context).width >= 520;
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: isDesktop ? 18 : 8, vertical: 8),
+      padding: EdgeInsets.symmetric(
+        horizontal: isDesktop ? 18 : 8,
+        vertical: 8,
+      ),
       decoration: BoxDecoration(
-        color: isDesktop ? AppColors.twilight.withValues(alpha: 0.7) : Colors.transparent,
+        color: isDesktop
+            ? AppColors.twilight.withValues(alpha: 0.7)
+            : Colors.transparent,
         border: isDesktop
-            ? Border(bottom: BorderSide(color: AppColors.blushGold.withValues(alpha: 0.06)))
+            ? Border(
+                bottom: BorderSide(
+                  color: AppColors.blushGold.withValues(alpha: 0.06),
+                ),
+              )
             : null,
       ),
       child: Row(
@@ -67,7 +76,10 @@ class _MochiHeader extends StatelessWidget {
             children: [
               Text(
                 'Mochi',
-                style: AppTypography.titleLarge().copyWith(fontSize: 18, height: 1.0),
+                style: AppTypography.titleLarge().copyWith(
+                  fontSize: 18,
+                  height: 1.0,
+                ),
               ),
               if (isDesktop)
                 Text(
@@ -89,7 +101,11 @@ class _MochiHeader extends StatelessWidget {
                 borderRadius: AppRadius.radiusSm,
                 child: Padding(
                   padding: const EdgeInsets.all(8),
-                  child: Icon(Icons.menu_book_rounded, color: AppColors.textMuted, size: 20),
+                  child: Icon(
+                    Icons.menu_book_rounded,
+                    color: AppColors.textMuted,
+                    size: 20,
+                  ),
                 ),
               ),
             ),
@@ -100,7 +116,11 @@ class _MochiHeader extends StatelessWidget {
                 borderRadius: AppRadius.radiusSm,
                 child: Padding(
                   padding: const EdgeInsets.all(8),
-                  child: Icon(Icons.quiz_rounded, color: AppColors.textMuted, size: 20),
+                  child: Icon(
+                    Icons.quiz_rounded,
+                    color: AppColors.textMuted,
+                    size: 20,
+                  ),
                 ),
               ),
             ),
@@ -111,7 +131,11 @@ class _MochiHeader extends StatelessWidget {
                 borderRadius: AppRadius.radiusSm,
                 child: Padding(
                   padding: const EdgeInsets.all(8),
-                  child: Icon(Icons.wb_twilight_rounded, color: AppColors.textMuted, size: 20),
+                  child: Icon(
+                    Icons.wb_twilight_rounded,
+                    color: AppColors.textMuted,
+                    size: 20,
+                  ),
                 ),
               ),
             ),
@@ -126,7 +150,11 @@ class _MochiHeader extends StatelessWidget {
               borderRadius: AppRadius.radiusSm,
               child: Padding(
                 padding: const EdgeInsets.all(8),
-                child: Icon(Icons.add_rounded, color: AppColors.textMuted, size: 20),
+                child: Icon(
+                  Icons.add_rounded,
+                  color: AppColors.textMuted,
+                  size: 20,
+                ),
               ),
             ),
           ),
@@ -141,11 +169,15 @@ class _MochiHeader extends StatelessWidget {
                     ? BoxDecoration(
                         color: AppColors.blushGold.withValues(alpha: 0.14),
                         borderRadius: AppRadius.radiusSm,
-                        border: Border.all(color: AppColors.blushGold.withValues(alpha: 0.25)),
+                        border: Border.all(
+                          color: AppColors.blushGold.withValues(alpha: 0.25),
+                        ),
                       )
                     : null,
                 child: Icon(
-                  deepThink ? Icons.psychology_rounded : Icons.psychology_outlined,
+                  deepThink
+                      ? Icons.psychology_rounded
+                      : Icons.psychology_outlined,
                   color: deepThink ? AppColors.blushGold : AppColors.textMuted,
                   size: 20,
                 ),
@@ -227,10 +259,17 @@ class _SuggestedGrid extends StatelessWidget {
 
   static const _suggestions = [
     _Suggestion('Add a movie to our watchlist', Icons.movie_filter_outlined),
-    _Suggestion('Save a note to the Starlight Jar', Icons.auto_awesome_outlined),
+    _Suggestion(
+      'Save a note to the Starlight Jar',
+      Icons.auto_awesome_outlined,
+    ),
     _Suggestion('Plan a date for us', Icons.calendar_month_outlined),
     _Suggestion('How are we doing today?', Icons.favorite_outline_rounded),
-    _Suggestion('Mochi Today', Icons.wb_twilight_rounded, route: '/mochi-today'),
+    _Suggestion(
+      'Mochi Today',
+      Icons.wb_twilight_rounded,
+      route: '/mochi-today',
+    ),
     _Suggestion('Memory Trivia', Icons.quiz_rounded, route: '/mochi-trivia'),
     _Suggestion('Memory Book', Icons.menu_book_rounded, route: '/mochi-memory'),
   ];
@@ -288,7 +327,8 @@ class _SuggestionCardState extends State<_SuggestionCard> {
           duration: AppMotion.fast,
           curve: AppMotion.easeOutStrong,
           padding: const EdgeInsets.all(14),
-          transform: Matrix4.identity()..translate(0.0, _hover ? -2.0 : 0.0),
+          transform: Matrix4.identity()
+            ..translateByDouble(0, _hover ? -2.0 : 0.0, 0, 0),
           decoration: BoxDecoration(
             color: _hover
                 ? AppColors.moonlight.withValues(alpha: 0.16)
@@ -313,11 +353,18 @@ class _SuggestionCardState extends State<_SuggestionCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(widget.suggestion.icon, size: 18, color: AppColors.blushGold.withValues(alpha: 0.85)),
+              Icon(
+                widget.suggestion.icon,
+                size: 18,
+                color: AppColors.blushGold.withValues(alpha: 0.85),
+              ),
               const SizedBox(height: 8),
               Text(
                 widget.suggestion.text,
-                style: AppTypography.bodySmall().copyWith(color: AppColors.textMedium, height: 1.3),
+                style: AppTypography.bodySmall().copyWith(
+                  color: AppColors.textMedium,
+                  height: 1.3,
+                ),
               ),
             ],
           ),

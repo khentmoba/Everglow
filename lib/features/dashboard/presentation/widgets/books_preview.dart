@@ -282,7 +282,7 @@ class _PersonalBooksShelfState extends State<_PersonalBooksShelf> {
                 if (snapshot.hasError ||
                     (!snapshot.hasData &&
                         snapshot.connectionState == ConnectionState.done)) {
-                  return ShelfEmpty(
+                  return const ShelfEmpty(
                     accent: ShelfAccent.books,
                     message: 'Could not load books. Tap to retry.',
                   );
@@ -295,7 +295,7 @@ class _PersonalBooksShelfState extends State<_PersonalBooksShelf> {
                 }
                 final items = snapshot.data!;
                 if (items.isEmpty) {
-                  return ShelfEmpty(
+                  return const ShelfEmpty(
                     accent: ShelfAccent.books,
                     message: 'No books yet. Find your next read!',
                   );

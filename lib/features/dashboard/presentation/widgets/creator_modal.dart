@@ -6,6 +6,8 @@ import '../../../../shared/utils/pick_image_bytes.dart';
 import '../../data/services/creator_service.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../cinema/presentation/widgets/tmdb_search_modal.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_typography.dart';
 
 class CreatorModal extends StatefulWidget {
@@ -174,9 +176,9 @@ class _CreatorModalState extends State<CreatorModal>
     return Container(
       height: MediaQuery.sizeOf(context).height * 0.85,
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      decoration: const BoxDecoration(
-        color: Color(0xFFFFF0F5),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      decoration: BoxDecoration(
+        color: AppColors.panelGlass,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Column(
         children: [
@@ -185,18 +187,22 @@ class _CreatorModalState extends State<CreatorModal>
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.pink.shade100,
+              color: AppColors.moonlight.withValues(alpha: 0.22),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
           const SizedBox(height: 20),
           TabBar(
             controller: _tabController,
-            indicatorColor: Colors.pinkAccent,
-            labelColor: Colors.pinkAccent,
-            unselectedLabelColor: Colors.pink.shade200,
-            labelStyle: AppTypography.outfitWhite.copyWith(
+            dividerColor: Colors.transparent,
+            indicatorColor: AppColors.blushGold,
+            indicatorSize: TabBarIndicatorSize.label,
+            labelColor: AppColors.petalWhite,
+            unselectedLabelColor: AppColors.textMuted,
+            labelStyle: AppTypography.outfitBold.copyWith(
               fontWeight: FontWeight.bold,
+              fontSize: 12,
+              letterSpacing: 0.2,
             ),
             tabs: const [
               Tab(text: 'Add Memory'),
@@ -212,6 +218,7 @@ class _CreatorModalState extends State<CreatorModal>
                 _buildAddMemoryForm(),
                 _buildDropLetterForm(),
                 _buildCinemaForm(),
+                _buildSystemPanel(),
               ],
             ),
           ),
@@ -283,7 +290,7 @@ class _CreatorModalState extends State<CreatorModal>
               'Start from a template (optional)',
               style: AppTypography.outfitBold.copyWith(
                 fontSize: 14,
-                color: Colors.pink.shade700,
+                color: AppColors.textHigh,
               ),
             ),
             const SizedBox(height: 8),
@@ -302,10 +309,20 @@ class _CreatorModalState extends State<CreatorModal>
                         fontWeight: isSelected
                             ? FontWeight.bold
                             : FontWeight.w500,
-                        color: isSelected ? Colors.white : Colors.pink.shade600,
+                        color: isSelected
+                            ? AppColors.petalWhite
+                            : AppColors.textMedium,
                       ),
-                      selectedColor: Colors.pinkAccent,
-                      backgroundColor: Colors.pink.shade50,
+                      selectedColor: AppColors.deepRose.withValues(alpha: 0.24),
+                      backgroundColor: AppColors.velvet.withValues(alpha: 0.38),
+                      side: BorderSide(
+                        color: isSelected
+                            ? AppColors.deepRose.withValues(alpha: 0.42)
+                            : AppColors.border,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppRadius.radiusFull,
+                      ),
                       onSelected: (_) {
                         setState(() {
                           if (isSelected) {
@@ -379,7 +396,7 @@ class _CreatorModalState extends State<CreatorModal>
           label,
           style: AppTypography.outfitBold.copyWith(
             fontSize: 14,
-            color: Colors.pink.shade700,
+            color: AppColors.textHigh,
           ),
         ),
         const SizedBox(height: 8),
@@ -389,12 +406,22 @@ class _CreatorModalState extends State<CreatorModal>
           style: AppTypography.outfitWhite.copyWith(fontSize: 16),
           decoration: InputDecoration(
             hintText: hint,
-            prefixIcon: Icon(icon, color: Colors.pink.shade200),
+            hintStyle: AppTypography.outfitWhite.copyWith(
+              fontSize: 14,
+              color: AppColors.textMuted,
+            ),
+            prefixIcon: Icon(icon, size: 18, color: AppColors.textMuted),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: AppColors.velvet.withValues(alpha: 0.55),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: AppRadius.radiusLg,
               borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: AppRadius.radiusLg,
+              borderSide: BorderSide(
+                color: AppColors.blushGold.withValues(alpha: 0.45),
+              ),
             ),
             contentPadding: const EdgeInsets.all(16),
           ),
@@ -417,7 +444,7 @@ class _CreatorModalState extends State<CreatorModal>
           label,
           style: AppTypography.outfitBold.copyWith(
             fontSize: 14,
-            color: Colors.pink.shade700,
+            color: AppColors.textHigh,
           ),
         ),
         const SizedBox(height: 8),
@@ -426,16 +453,21 @@ class _CreatorModalState extends State<CreatorModal>
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              color: AppColors.velvet.withValues(alpha: 0.55),
+              borderRadius: AppRadius.radiusLg,
+              border: Border.all(color: AppColors.border),
             ),
             child: Row(
               children: [
-                Icon(Icons.calendar_today_rounded, color: Colors.pink.shade200),
+                const Icon(
+                  Icons.calendar_today_rounded,
+                  size: 18,
+                  color: AppColors.blushGold,
+                ),
                 const SizedBox(width: 12),
                 Text(
                   DateFormat('MMMM dd, yyyy').format(currentDate),
-                  style: AppTypography.outfitWhite.copyWith(fontSize: 16),
+                  style: AppTypography.outfitWhite.copyWith(fontSize: 15),
                 ),
               ],
             ),
@@ -453,7 +485,7 @@ class _CreatorModalState extends State<CreatorModal>
           'Add a Photo',
           style: AppTypography.outfitBold.copyWith(
             fontSize: 14,
-            color: Colors.pink.shade700,
+            color: AppColors.textHigh,
           ),
         ),
         const SizedBox(height: 8),
@@ -462,9 +494,9 @@ class _CreatorModalState extends State<CreatorModal>
           child: Container(
             height: 120,
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.pink.shade50, width: 2),
+              color: AppColors.velvet.withValues(alpha: 0.55),
+              borderRadius: AppRadius.radiusLg,
+              border: Border.all(color: AppColors.border),
             ),
             child: _memoryImageBytes != null
                 ? Stack(
@@ -489,7 +521,7 @@ class _CreatorModalState extends State<CreatorModal>
                             icon: const Icon(
                               Icons.close,
                               size: 16,
-                              color: Colors.white,
+                              color: AppColors.petalWhite,
                             ),
                             onPressed: () => setState(() {
                               _memoryImageBytes = null;
@@ -504,17 +536,17 @@ class _CreatorModalState extends State<CreatorModal>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.add_photo_alternate_rounded,
                           size: 32,
-                          color: Colors.pink.shade200,
+                          color: AppColors.blushGold,
                         ),
                         const SizedBox(height: 4),
                         Text(
                           'Tap to pick an image',
                           style: AppTypography.outfitWhite.copyWith(
                             fontSize: 12,
-                            color: Colors.pink.shade200,
+                            color: AppColors.textMuted,
                           ),
                         ),
                       ],
@@ -534,10 +566,12 @@ class _CreatorModalState extends State<CreatorModal>
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.pinkAccent,
-        foregroundColor: Colors.white,
+        backgroundColor: onPressed == null
+            ? AppColors.deepRose.withValues(alpha: 0.48)
+            : AppColors.deepRose,
+        foregroundColor: AppColors.petalWhite,
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLg),
         elevation: 0,
       ),
       child: isLoading
@@ -546,7 +580,7 @@ class _CreatorModalState extends State<CreatorModal>
               width: 20,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.petalWhite),
               ),
             )
           : Text(
@@ -569,7 +603,7 @@ class _CreatorModalState extends State<CreatorModal>
           Icon(
             Icons.movie_creation_outlined,
             size: 60,
-            color: Colors.pink.shade100,
+            color: AppColors.auroraRose.withValues(alpha: 0.65),
           ),
           const SizedBox(height: 16),
           Text(
@@ -578,7 +612,7 @@ class _CreatorModalState extends State<CreatorModal>
             style: AppTypography.outfitWhite.copyWith(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Colors.pink.shade700,
+              color: AppColors.petalWhite,
             ),
           ),
           const SizedBox(height: 8),
@@ -587,7 +621,7 @@ class _CreatorModalState extends State<CreatorModal>
             textAlign: TextAlign.center,
             style: AppTypography.outfitWhite.copyWith(
               fontSize: 14,
-              color: Colors.pink.shade300,
+              color: AppColors.textMuted,
             ),
           ),
           const SizedBox(height: 40),
@@ -603,6 +637,42 @@ class _CreatorModalState extends State<CreatorModal>
             },
             isLoading: false,
             label: 'Search TMDB 🍿',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSystemPanel() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 20),
+          Icon(
+            Icons.tune_rounded,
+            size: 60,
+            color: AppColors.softLavender.withValues(alpha: 0.65),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'System Tools',
+            textAlign: TextAlign.center,
+            style: AppTypography.outfitWhite.copyWith(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.petalWhite,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Maintenance actions for the Everglow workspace.',
+            textAlign: TextAlign.center,
+            style: AppTypography.outfitWhite.copyWith(
+              fontSize: 14,
+              color: AppColors.textMuted,
+            ),
           ),
         ],
       ),

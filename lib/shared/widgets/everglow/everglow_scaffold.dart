@@ -50,19 +50,19 @@ class EverglowScaffold extends StatelessWidget {
     this.showPetals = false,
     this.centerMaxWidth,
   }) : glows = const [
-    RadialGlow(
-      color: AppColors.deepRose,
-      alignment: Alignment(-0.8, -0.9),
-      size: 0.7,
-      opacity: 0.12,
-    ),
-    RadialGlow(
-      color: AppColors.softLavender,
-      alignment: Alignment(0.9, 0.8),
-      size: 0.65,
-      opacity: 0.08,
-    ),
-  ];
+         RadialGlow(
+           color: AppColors.deepRose,
+           alignment: Alignment(-0.8, -0.9),
+           size: 0.7,
+           opacity: 0.12,
+         ),
+         RadialGlow(
+           color: AppColors.softLavender,
+           alignment: Alignment(0.9, 0.8),
+           size: 0.65,
+           opacity: 0.08,
+         ),
+       ];
 
   @override
   Widget build(BuildContext context) {
@@ -123,8 +123,8 @@ class EverglowScaffold extends StatelessWidget {
   double _responsiveMaxWidth(BuildContext context) {
     final bp = AppBreakpoint.of(context);
     return switch (bp) {
-      BreakpointSize.mobile  => 500,
-      BreakpointSize.tablet  => 720,
+      BreakpointSize.mobile => 500,
+      BreakpointSize.tablet => 720,
       BreakpointSize.desktop => 960,
     };
   }

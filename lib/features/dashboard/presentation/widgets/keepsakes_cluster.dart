@@ -22,7 +22,7 @@ class KeepsakesCluster extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -35,11 +35,11 @@ class KeepsakesCluster extends StatelessWidget {
             ],
           ),
           borderRadius: AppRadius.radiusX2,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.28),
-              blurRadius: 28,
+              color: Colors.black.withValues(alpha: 0.20),
+              blurRadius: 22,
               offset: const Offset(0, 12),
             ),
           ],
@@ -119,22 +119,22 @@ class KeepsakesCluster extends StatelessWidget {
                         if (!isWide) {
                           return const Column(
                             children: [
-                              const BucketListPreview(),
-                              const JournalPreview(),
-                              const CookbookPreview(),
-                              const WellnessPreview(),
-                              const VaultPreview(),
-                              const TravelPreview(),
-                              const WikiPreview(),
-                              const BudgetPreview(),
-                              const RagPreview(),
+                              BucketListPreview(),
+                              JournalPreview(),
+                              CookbookPreview(),
+                              WellnessPreview(),
+                              VaultPreview(),
+                              TravelPreview(),
+                              WikiPreview(),
+                              BudgetPreview(),
+                              RagPreview(),
                             ],
                           );
                         }
                         // Wide: 2-col bento, bucket spans full width
-                        return Column(
+                        return const Column(
                           children: [
-                            const BucketListPreview(),
+                            BucketListPreview(),
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -172,28 +172,33 @@ class KeepsakesCluster extends StatelessWidget {
                     Center(
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.05),
+                          color: Colors.white.withValues(alpha: 0.04),
                           borderRadius: BorderRadius.circular(999),
                           border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.07)),
+                            color: Colors.white.withValues(alpha: 0.07),
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.auto_awesome_rounded,
-                                size: 10,
-                                color:
-                                    AppColors.blushGold.withValues(alpha: 0.7)),
+                            Icon(
+                              Icons.auto_awesome_rounded,
+                              size: 10,
+                              color: AppColors.blushGold.withValues(alpha: 0.7),
+                            ),
                             const SizedBox(width: 6),
                             Text(
                               'Tap any card to open its world',
                               style: AppTypography.outfitWhite.copyWith(
                                 fontSize: 10,
                                 letterSpacing: 0.4,
-                                color:
-                                    AppColors.petalWhite.withValues(alpha: 0.45),
+                                color: AppColors.petalWhite.withValues(
+                                  alpha: 0.45,
+                                ),
                               ),
                             ),
                           ],
@@ -212,7 +217,7 @@ class KeepsakesCluster extends StatelessWidget {
 }
 
 class _ClusterHeader extends StatelessWidget {
-  const _ClusterHeader({super.key});
+  const _ClusterHeader();
 
   @override
   Widget build(BuildContext context) {
@@ -240,13 +245,17 @@ class _ClusterHeader extends StatelessWidget {
                 color: AppColors.blushGold.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(
-                    color: AppColors.blushGold.withValues(alpha: 0.18)),
+                  color: AppColors.blushGold.withValues(alpha: 0.18),
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.auto_awesome_mosaic_rounded,
-                      size: 11, color: AppColors.blushGold),
+                  const Icon(
+                    Icons.auto_awesome_mosaic_rounded,
+                    size: 11,
+                    color: AppColors.blushGold,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     'ATELIER  •  KEEPSAKES',
@@ -295,18 +304,35 @@ class _ClusterHeader extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         // Category filter chips — non-interactive legend
-        Wrap(
+        const Wrap(
           spacing: 7,
           runSpacing: 7,
           children: [
             _LegendChip(
-                dot: AppColors.blushGold, label: 'Dreams', count: 'Bucket'),
+              dot: AppColors.blushGold,
+              label: 'Dreams',
+              count: 'Bucket',
+            ),
             _LegendChip(
-                dot: AppColors.softLavender, label: 'Stories', count: 'Journal'),
-            _LegendChip(dot: AppColors.warmAmber, label: 'Tastes', count: 'Cookbook'),
+              dot: AppColors.softLavender,
+              label: 'Stories',
+              count: 'Journal',
+            ),
             _LegendChip(
-                dot: AppColors.auroraRose, label: 'Rituals', count: 'Wellness'),
-            _LegendChip(dot: AppColors.auroraTeal, label: 'Archive', count: 'Vault'),
+              dot: AppColors.warmAmber,
+              label: 'Tastes',
+              count: 'Cookbook',
+            ),
+            _LegendChip(
+              dot: AppColors.auroraRose,
+              label: 'Rituals',
+              count: 'Wellness',
+            ),
+            _LegendChip(
+              dot: AppColors.auroraTeal,
+              label: 'Archive',
+              count: 'Vault',
+            ),
           ],
         ),
       ],
@@ -318,7 +344,11 @@ class _LegendChip extends StatelessWidget {
   final Color dot;
   final String label;
   final String count;
-  const _LegendChip({required this.dot, required this.label, required this.count});
+  const _LegendChip({
+    required this.dot,
+    required this.label,
+    required this.count,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -327,7 +357,7 @@ class _LegendChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -338,18 +368,22 @@ class _LegendChip extends StatelessWidget {
             decoration: BoxDecoration(shape: BoxShape.circle, color: dot),
           ),
           const SizedBox(width: 6),
-          Text(label,
-              style: AppTypography.outfitBold.copyWith(
-                fontSize: 10,
-                letterSpacing: 0.5,
-                color: AppColors.petalWhite.withValues(alpha: 0.68),
-              )),
+          Text(
+            label,
+            style: AppTypography.outfitBold.copyWith(
+              fontSize: 10,
+              letterSpacing: 0.5,
+              color: AppColors.petalWhite.withValues(alpha: 0.68),
+            ),
+          ),
           const SizedBox(width: 4),
-          Text('·  $count',
-              style: AppTypography.outfitWhite.copyWith(
-                fontSize: 10,
-                color: AppColors.petalWhite.withValues(alpha: 0.32),
-              )),
+          Text(
+            '·  $count',
+            style: AppTypography.outfitWhite.copyWith(
+              fontSize: 10,
+              color: AppColors.petalWhite.withValues(alpha: 0.32),
+            ),
+          ),
         ],
       ),
     );

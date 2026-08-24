@@ -97,7 +97,9 @@ class OurBooksItem {
   }
 
   factory OurBooksItem.fromFirestore(
-      Map<String, dynamic> data, String documentId) {
+    Map<String, dynamic> data,
+    String documentId,
+  ) {
     final subjectsRaw = data['subjects'];
     final subjects = subjectsRaw is List
         ? subjectsRaw.map((e) => e.toString()).toList()
@@ -131,10 +133,12 @@ class OurBooksItem {
       'subjects': subjects,
       'addedBy': addedBy,
       'addedAt': Timestamp.fromDate(addedAt),
-      'khentReadAt':
-          khentReadAt == null ? null : Timestamp.fromDate(khentReadAt!),
-      'clairReadAt':
-          clairReadAt == null ? null : Timestamp.fromDate(clairReadAt!),
+      'khentReadAt': khentReadAt == null
+          ? null
+          : Timestamp.fromDate(khentReadAt!),
+      'clairReadAt': clairReadAt == null
+          ? null
+          : Timestamp.fromDate(clairReadAt!),
     };
   }
 

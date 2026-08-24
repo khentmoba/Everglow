@@ -73,10 +73,7 @@ class ChatBubble extends StatelessWidget {
               constraints: BoxConstraints(
                 maxWidth: MediaQuery.sizeOf(context).width * 0.75,
               ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 gradient: isMe
                     ? LinearGradient(
@@ -136,9 +133,6 @@ class ChatBubble extends StatelessWidget {
       ),
     );
     if (AppMotion.reduced) return bubble;
-    return FadeInUp(
-      duration: const Duration(milliseconds: 400),
-      child: bubble,
-    );
+    return FadeInUp(duration: const Duration(milliseconds: 400), child: bubble);
   }
 }
