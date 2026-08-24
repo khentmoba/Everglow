@@ -6,7 +6,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_elevation.dart';
-import '../../../../shared/widgets/gamified_background.dart';
+import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/partner_presence_indicator.dart';
 import '../../../../core/utils/logger.dart';
 import '../../data/services/chat_service.dart';
@@ -150,295 +151,266 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: GamifiedBackground(
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Custom Header Row
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
+      body: Stack(
+        children: [
+          const Positioned.fill(
+            child: EverglowBackground(baseColor: AppColors.inkDeep),
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+                EverglowFeatureHeader(
+                  title: 'Sanctuary',
+                  subtitle: 'our quiet corner',
+                  icon: Icons.chat_bubble_rounded,
+                  hue: AppColors.auroraRose,
+                  actions: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.wifi_tethering,
+                        color: AppColors.blushGold,
+                        size: 18,
+                      ),
+                      onPressed: () => _showDiagnostics(context),
+                      tooltip: 'Connection',
+                    ),
+                  ],
                 ),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        AppColors.moonlight.withValues(alpha: 0.10),
-                        AppColors.inkDeep.withValues(alpha: 0.45),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: AppColors.moonlight.withValues(alpha: 0.14),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Center(child: PartnerPresenceIndicator()),
+                ),
+                Expanded(
+                  child: Stack(
                     children: [
-                      IconButton(
-                        icon: const Icon(
-                          Icons.arrow_back_ios_new_rounded,
-                          color: AppColors.roseQuartz,
-                        ),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                      Expanded(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Sanctuary Chat',
-                              style: AppTypography.titleLarge(),
-                            ),
-                            const SizedBox(height: 2),
-                            const PartnerPresenceIndicator(),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.wifi_tethering,
-                          color: AppColors.roseQuartz,
-                        ),
-                        onPressed: () => _showDiagnostics(context),
-                        tooltip: 'Check Connection',
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Stack(
-                  children: [
-                    if (!_authChecked)
-                      Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const PulsingHeartLoader(),
-                            const SizedBox(height: 20),
-                            Text(
-                              'Verifying access...',
-                              style: AppTypography.bodyLarge().copyWith(
-                                color: AppColors.roseQuartz,
+                      if (!_authChecked)
+                        Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const PulsingHeartLoader(),
+                              const SizedBox(height: 20),
+                              Text(
+                                'Verifying access...',
+                                style: AppTypography.bodyLarge().copyWith(
+                                  color: AppColors.roseQuartz,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else if (_authError != null)
-                      _buildAuthError()
-                    else
-                      StreamBuilder<List<ChatMessage>>(
-                        stream: _messagesStream,
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                                  ConnectionState.done &&
-                              !snapshot.hasData) {
-                            return _ErrorState(
-                              icon: Icons.cloud_off_rounded,
-                              title: 'Sanctuary is taking too long to respond',
-                              subtitle: 'Check your connection and try again.',
-                              onRetry: () => _resetAndRetry(context),
-                            );
-                          }
-
-                          if (snapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const PulsingHeartLoader(),
-                                  const SizedBox(height: 20),
-                                  Text(
-                                    'Opening our sanctuary...',
-                                    style: AppTypography.bodyLarge().copyWith(
-                                      color: AppColors.roseQuartz,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  TextButton(
-                                    onPressed: () => _resetAndRetry(context),
-                                    child: Text(
-                                      'Taking too long? Tap to retry',
-                                      style: AppTypography.bodySmall().copyWith(
-                                        color: AppColors.roseQuartz.withValues(
-                                          alpha: 0.6,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-
-                          if (snapshot.hasError) {
-                            final error = snapshot.error.toString();
-                            String message;
-                            String detail;
-
-                            if (error.contains('permission-denied')) {
-                              message = 'Access requires a linked account';
-                              detail =
-                                  'Please log out and log back in to refresh your session.';
-                            } else if (error.contains('unavailable') ||
-                                error.contains('deadline-exceeded')) {
-                              message =
-                                  'The sanctuary is temporarily unavailable';
-                              detail =
-                                  'Please check your connection and try again.';
-                            } else {
-                              message = 'Something went wrong';
-                              detail = error.length > 120
-                                  ? '${error.substring(0, 120)}...'
-                                  : error;
+                            ],
+                          ),
+                        )
+                      else if (_authError != null)
+                        _buildAuthError()
+                      else
+                        StreamBuilder<List<ChatMessage>>(
+                          stream: _messagesStream,
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                    ConnectionState.done &&
+                                !snapshot.hasData) {
+                              return _ErrorState(
+                                icon: Icons.cloud_off_rounded,
+                                title:
+                                    'Sanctuary is taking too long to respond',
+                                subtitle:
+                                    'Check your connection and try again.',
+                                onRetry: () => _resetAndRetry(context),
+                              );
                             }
 
-                            return _ErrorState(
-                              icon: Icons.cloud_off_rounded,
-                              title: message,
-                              subtitle: detail,
-                              onRetry: () => _resetAndRetry(context),
-                            );
-                          }
-
-                          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                            return Center(
-                              child: FadeInUp(
-                                duration: const Duration(milliseconds: 250),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(AppSpacing.x2),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: AppColors.glowRose,
-                                              blurRadius: 32,
-                                              spreadRadius: 4,
-                                            ),
-                                          ],
-                                        ),
-                                        child: const Icon(
-                                          Icons.favorite_rounded,
-                                          size: 80,
-                                          color: AppColors.roseQuartz,
-                                        ),
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const PulsingHeartLoader(),
+                                    const SizedBox(height: 20),
+                                    Text(
+                                      'Opening our sanctuary...',
+                                      style: AppTypography.bodyLarge().copyWith(
+                                        color: AppColors.roseQuartz,
                                       ),
-                                      const SizedBox(height: 20),
-                                      Text(
-                                        'Our sanctuary is empty...',
-                                        style: AppTypography.titleLarge()
-                                            .copyWith(
-                                              color: AppColors.roseQuartz,
-                                            ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        'Send the first message to start blooming',
-                                        style: AppTypography.bodyMedium()
+                                    ),
+                                    const SizedBox(height: 10),
+                                    TextButton(
+                                      onPressed: () => _resetAndRetry(context),
+                                      child: Text(
+                                        'Taking too long? Tap to retry',
+                                        style: AppTypography.bodySmall()
                                             .copyWith(
                                               color: AppColors.roseQuartz
                                                   .withValues(alpha: 0.6),
                                             ),
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            );
-                          }
+                              );
+                            }
 
-                          final messages = snapshot.data!;
+                            if (snapshot.hasError) {
+                              final error = snapshot.error.toString();
+                              String message;
+                              String detail;
 
-                          // Auto-scroll logic
-                          WidgetsBinding.instance.addPostFrameCallback(
-                            (_) => _scrollToBottom(),
-                          );
+                              if (error.contains('permission-denied')) {
+                                message = 'Access requires a linked account';
+                                detail =
+                                    'Please log out and log back in to refresh your session.';
+                              } else if (error.contains('unavailable') ||
+                                  error.contains('deadline-exceeded')) {
+                                message =
+                                    'The sanctuary is temporarily unavailable';
+                                detail =
+                                    'Please check your connection and try again.';
+                              } else {
+                                message = 'Something went wrong';
+                                detail = error.length > 120
+                                    ? '${error.substring(0, 120)}...'
+                                    : error;
+                              }
 
-                          return Semantics(
-                            liveRegion: true,
-                            child: ListView.builder(
-                              controller: _scrollController,
-                              padding: const EdgeInsets.fromLTRB(
-                                16,
-                                20,
-                                16,
-                                100,
-                              ),
-                              itemCount: messages.length,
-                              itemBuilder: (context, index) {
-                                final message = messages[index];
-                                final isMe = message.sender == currentUser;
+                              return _ErrorState(
+                                icon: Icons.cloud_off_rounded,
+                                title: message,
+                                subtitle: detail,
+                                onRetry: () => _resetAndRetry(context),
+                              );
+                            }
 
-                                return FadeInUp(
+                            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                              return Center(
+                                child: FadeInUp(
                                   duration: const Duration(milliseconds: 250),
-                                  delay: Duration(
-                                    milliseconds: (index * 50).clamp(0, 200),
-                                  ),
-                                  child: Align(
-                                    alignment: isMe
-                                        ? Alignment.centerRight
-                                        : Alignment.centerLeft,
-                                    child: ChatBubble(
-                                      text: message.text,
-                                      isMe: isMe,
-                                      sender: message.sender,
-                                      timestamp: message.timestamp,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(
+                                      AppSpacing.x2,
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: AppColors.glowRose,
+                                                blurRadius: 32,
+                                                spreadRadius: 4,
+                                              ),
+                                            ],
+                                          ),
+                                          child: const Icon(
+                                            Icons.favorite_rounded,
+                                            size: 80,
+                                            color: AppColors.roseQuartz,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 20),
+                                        Text(
+                                          'Our sanctuary is empty...',
+                                          style: AppTypography.titleLarge()
+                                              .copyWith(
+                                                color: AppColors.roseQuartz,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Send the first message to start blooming',
+                                          style: AppTypography.bodyMedium()
+                                              .copyWith(
+                                                color: AppColors.roseQuartz
+                                                    .withValues(alpha: 0.6),
+                                              ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                );
-                              },
-                            ),
-                          );
-                        },
-                      ),
-                    // Scroll-to-bottom FAB
-                    if (_showScrollButton)
-                      Positioned(
-                        bottom: 8,
-                        right: 8,
-                        child: FadeIn(
-                          duration: const Duration(milliseconds: 200),
-                          child: GestureDetector(
-                            onTap: () => _scrollToBottom(),
-                            child: Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceGlass,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: AppColors.border),
-                                boxShadow: AppElevation.e2,
+                                ),
+                              );
+                            }
+
+                            final messages = snapshot.data!;
+
+                            // Auto-scroll logic
+                            WidgetsBinding.instance.addPostFrameCallback(
+                              (_) => _scrollToBottom(),
+                            );
+
+                            return Semantics(
+                              liveRegion: true,
+                              child: ListView.builder(
+                                controller: _scrollController,
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  20,
+                                  16,
+                                  100,
+                                ),
+                                itemCount: messages.length,
+                                itemBuilder: (context, index) {
+                                  final message = messages[index];
+                                  final isMe = message.sender == currentUser;
+
+                                  return FadeInUp(
+                                    duration: const Duration(milliseconds: 250),
+                                    delay: Duration(
+                                      milliseconds: (index * 50).clamp(0, 200),
+                                    ),
+                                    child: Align(
+                                      alignment: isMe
+                                          ? Alignment.centerRight
+                                          : Alignment.centerLeft,
+                                      child: ChatBubble(
+                                        text: message.text,
+                                        isMe: isMe,
+                                        sender: message.sender,
+                                        timestamp: message.timestamp,
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
-                              child: Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                color: AppColors.textMuted,
-                                size: 20,
+                            );
+                          },
+                        ),
+                      // Scroll-to-bottom FAB
+                      if (_showScrollButton)
+                        Positioned(
+                          bottom: 8,
+                          right: 8,
+                          child: FadeIn(
+                            duration: const Duration(milliseconds: 200),
+                            child: GestureDetector(
+                              onTap: () => _scrollToBottom(),
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceGlass,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: AppColors.border),
+                                  boxShadow: AppElevation.e2,
+                                ),
+                                child: Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  color: AppColors.textMuted,
+                                  size: 20,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              _buildInputArea(),
-            ],
+                _buildInputArea(),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -447,30 +419,35 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
-        vertical: 20,
+        vertical: 10,
       ),
       decoration: BoxDecoration(
-        color: AppColors.velvet.withValues(alpha: 0.85),
+        color: AppColors.inkDeep.withValues(alpha: 0.72),
         border: Border(
           top: BorderSide(
-            color: AppColors.moonlight.withValues(alpha: 0.12),
+            color: AppColors.moonlight.withValues(alpha: 0.08),
             width: 1.0,
           ),
         ),
       ),
       child: SafeArea(
+        top: false,
         child: Row(
           children: [
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
                   color: AppColors.surfaceGlass,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: AppColors.border, width: 0.5),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: AppColors.moonlight.withValues(alpha: 0.14),
+                  ),
                 ),
                 child: TextField(
                   controller: _messageController,
                   style: AppTypography.bodyMedium(),
+                  maxLines: 4,
+                  minLines: 1,
                   maxLength: 1000,
                   buildCounter:
                       (
@@ -499,7 +476,7 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
             GestureDetector(
               onTap: _sendMessage,
               child: Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(11),
                 decoration: BoxDecoration(
                   color: AppColors.deepRose,
                   shape: BoxShape.circle,
@@ -514,7 +491,7 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
                 child: const Icon(
                   Icons.send_rounded,
                   color: AppColors.petalWhite,
-                  size: 24,
+                  size: 20,
                 ),
               ),
             ),
@@ -569,7 +546,7 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
         builder: (context) => AlertDialog(
           backgroundColor: AppColors.velvet,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(22),
           ),
           title: Text(
             'Sanctuary Status',

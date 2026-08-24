@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../../shared/widgets/everglow/everglow_segmented_control.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../data/models/trip.dart';
@@ -31,17 +32,48 @@ class _TravelScreenState extends State<TravelScreen> {
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          Positioned.fill(child: EverglowBackground(baseColor: AppColors.inkDeep, glows: const [RadialGlow(color: AppColors.auroraTeal, alignment: Alignment(-0.6, -0.9), size: 0.85, opacity: 0.12)], showPetals: true)),
+          const Positioned.fill(
+            child: EverglowBackground(
+              baseColor: AppColors.inkDeep,
+              glows: [
+                RadialGlow(
+                  color: AppColors.auroraTeal,
+                  alignment: Alignment(-0.6, -0.9),
+                  size: 0.85,
+                  opacity: 0.12,
+                ),
+              ],
+              showPetals: true,
+            ),
+          ),
           SafeArea(
             child: Column(
               children: [
-                EverglowFeatureHeader(title: 'Atlas', subtitle: 'where we\'ve been • Dawarich × AdventureLog', icon: Icons.map_rounded, hue: AppColors.auroraTeal, actions: [IconButton(onPressed: () => _showAddTrip(auth), icon: Icon(Icons.add_location_alt_rounded, color: AppColors.blushGold))]),
+                EverglowFeatureHeader(
+                  title: 'Atlas',
+                  subtitle: 'where we\'ve been • Dawarich × AdventureLog',
+                  icon: Icons.map_rounded,
+                  hue: AppColors.auroraTeal,
+                  actions: [
+                    IconButton(
+                      onPressed: () => _showAddTrip(auth),
+                      icon: const Icon(
+                        Icons.add_location_alt_rounded,
+                        color: AppColors.blushGold,
+                      ),
+                    ),
+                  ],
+                ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(color: AppColors.twilight, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.14))),
-                    child: Row(children: [_buildTab(0, 'Trips', Icons.card_travel_rounded), _buildTab(1, 'Atlas', Icons.public_rounded)]),
+                  child: EverglowSegmentedControl(
+                    selectedIndex: _tabIndex,
+                    onChanged: (i) => setState(() => _tabIndex = i),
+                    activeColor: AppColors.auroraTeal,
+                    items: const [
+                      SegmentItem('Trips', Icons.card_travel_rounded),
+                      SegmentItem('Atlas', Icons.public_rounded),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -51,13 +83,31 @@ class _TravelScreenState extends State<TravelScreen> {
                       : StreamBuilder<List<Trip>>(
                           stream: service.watchTrips(),
                           builder: (context, snap) {
-                            if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: AppColors.deepRose, strokeWidth: 2));
+                            if (snap.connectionState ==
+                                ConnectionState.waiting) {
+                              return const Center(
+                                child: CircularProgressIndicator(
+                                  color: AppColors.deepRose,
+                                  strokeWidth: 2,
+                                ),
+                              );
+                            }
                             final trips = snap.data ?? [];
-                            if (trips.isEmpty) return EverglowEmptyState(icon: Icons.map_rounded, title: 'No trips yet', subtitle: 'Plan your first getaway — pins, itinerary, auto-journal', ctaLabel: 'New Trip', onCta: () => _showAddTrip(auth));
+                            if (trips.isEmpty) {
+                              return EverglowEmptyState(
+                                icon: Icons.map_rounded,
+                                title: 'No trips yet',
+                                subtitle:
+                                    'Plan your first getaway — pins, itinerary, auto-journal',
+                                ctaLabel: 'New Trip',
+                                onCta: () => _showAddTrip(auth),
+                              );
+                            }
                             return ListView.builder(
                               padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
                               itemCount: trips.length,
-                              itemBuilder: (context, idx) => _TripCard(trip: trips[idx]),
+                              itemBuilder: (context, idx) =>
+                                  _TripCard(trip: trips[idx]),
                             );
                           },
                         ),
@@ -67,26 +117,20 @@ class _TravelScreenState extends State<TravelScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(onPressed: () => _showAddTrip(auth), backgroundColor: AppColors.auroraTeal, foregroundColor: Colors.white, child: const Icon(Icons.add_rounded)),
-    );
-  }
-
-  Widget _buildTab(int idx, String label, IconData icon) {
-    final isSel = _tabIndex == idx;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _tabIndex = idx),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(color: isSel ? AppColors.auroraTeal.withValues(alpha: 0.18) : Colors.transparent, borderRadius: BorderRadius.circular(14), border: Border.all(color: isSel ? AppColors.auroraTeal : Colors.transparent)),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, size: 14, color: isSel ? AppColors.auroraTeal : AppTheme.petalWhite.withValues(alpha: 0.6)), const SizedBox(width: 6), Text(label, style: AppTypography.outfitBold.copyWith(fontSize: 12, color: isSel ? AppColors.auroraTeal : AppTheme.petalWhite.withValues(alpha: 0.6)))]),
-        ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddTrip(auth),
+        backgroundColor: AppColors.auroraTeal,
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.add_rounded),
       ),
     );
   }
 
   void _showAddTrip(AuthService auth) {
-    showDialog(context: context, builder: (_) => AddTripDialog(author: auth.currentUser ?? 'unknown'));
+    showDialog(
+      context: context,
+      builder: (_) => AddTripDialog(author: auth.currentUser ?? 'unknown'),
+    );
   }
 }
 
@@ -101,14 +145,28 @@ class _TripCard extends StatelessWidget {
       onTap: () => context.push('/travel/${trip.id}'),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity), borderRadius: BorderRadius.circular(16), border: Border.all(color: statusColor.withValues(alpha: 0.18))),
+        decoration: BoxDecoration(
+          color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: statusColor.withValues(alpha: 0.18)),
+        ),
         child: Row(
           children: [
             Container(
               width: 90,
               height: 90,
-              decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.15), borderRadius: const BorderRadius.horizontal(left: Radius.circular(16))),
-              child: Center(child: Text(_statusEmoji(trip.status), style: const TextStyle(fontSize: 32))),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.15),
+                borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(16),
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  _statusEmoji(trip.status),
+                  style: const TextStyle(fontSize: 32),
+                ),
+              ),
             ),
             Expanded(
               child: Padding(
@@ -116,16 +174,90 @@ class _TripCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(children: [Expanded(child: Text(trip.title, style: AppTypography.outfitBold.copyWith(fontSize: 14, color: AppTheme.petalWhite), maxLines: 1, overflow: TextOverflow.ellipsis)), Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)), child: Text(trip.status.name, style: AppTypography.outfitWhite.copyWith(fontSize: 9, fontWeight: FontWeight.bold, color: statusColor)))]),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            trip.title,
+                            style: AppTypography.outfitBold.copyWith(
+                              fontSize: 14,
+                              color: AppTheme.petalWhite,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: statusColor.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            trip.status.name,
+                            style: AppTypography.outfitWhite.copyWith(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: statusColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 4),
-                    Text(trip.description.isEmpty ? 'No description' : trip.description, style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: AppTheme.petalWhite.withValues(alpha: 0.6)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(
+                      trip.description.isEmpty
+                          ? 'No description'
+                          : trip.description,
+                      style: AppTypography.outfitWhite.copyWith(
+                        fontSize: 11,
+                        color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     const SizedBox(height: 6),
-                    Row(children: [Icon(Icons.calendar_today_rounded, size: 10, color: AppTheme.petalWhite.withValues(alpha: 0.5)), const SizedBox(width: 4), Text('${trip.startDate.month}/${trip.startDate.day} → ${trip.endDate.month}/${trip.endDate.day} • ${trip.days} days', style: AppTypography.outfitWhite.copyWith(fontSize: 10, color: AppTheme.petalWhite.withValues(alpha: 0.6))), const Spacer(), if (trip.budgetEstimate > 0) Text('${trip.budgetEstimate.toStringAsFixed(0)} ${trip.currency}', style: AppTypography.outfitBold.copyWith(fontSize: 10, color: AppColors.warmAmber))]),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_today_rounded,
+                          size: 10,
+                          color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${trip.startDate.month}/${trip.startDate.day} → ${trip.endDate.month}/${trip.endDate.day} • ${trip.days} days',
+                          style: AppTypography.outfitWhite.copyWith(
+                            fontSize: 10,
+                            color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                          ),
+                        ),
+                        const Spacer(),
+                        if (trip.budgetEstimate > 0)
+                          Text(
+                            '${trip.budgetEstimate.toStringAsFixed(0)} ${trip.currency}',
+                            style: AppTypography.outfitBold.copyWith(
+                              fontSize: 10,
+                              color: AppColors.warmAmber,
+                            ),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),
             ),
-            Padding(padding: const EdgeInsets.only(right: 12), child: Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.blushGold)),
+            const Padding(
+              padding: EdgeInsets.only(right: 12),
+              child: Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: AppColors.blushGold,
+              ),
+            ),
           ],
         ),
       ),

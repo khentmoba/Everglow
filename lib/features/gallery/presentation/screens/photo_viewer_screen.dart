@@ -141,10 +141,11 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
               onPageChanged: (i) => setState(() => _currentIndex = i),
               itemBuilder: (context, index) {
                 final photo = widget.photos[index];
-                final decodeWidth = (MediaQuery.sizeOf(context).width *
-                        MediaQuery.devicePixelRatioOf(context))
-                    .round()
-                    .clamp(800, 2400);
+                final decodeWidth =
+                    (MediaQuery.sizeOf(context).width *
+                            MediaQuery.devicePixelRatioOf(context))
+                        .round()
+                        .clamp(800, 2400);
                 return InteractiveViewer(
                   minScale: 0.5,
                   maxScale: 4.0,

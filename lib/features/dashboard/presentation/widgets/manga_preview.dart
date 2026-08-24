@@ -246,7 +246,7 @@ class _MangaShelfState extends State<_MangaShelf> {
         );
       }
       if (cards.isEmpty) {
-        return ShelfEmpty(
+        return const ShelfEmpty(
           accent: ShelfAccent.manga,
           message: 'No manga in your library yet. Find your next read!',
         );

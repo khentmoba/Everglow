@@ -20,7 +20,8 @@ MediaItem _animexItem(int i) {
     isAnime: true,
     addedAt: DateTime(2026, 1, 1),
     source: 'jikan',
-    synopsis: 'A long synopsis that wraps across several lines to ensure the '
+    synopsis:
+        'A long synopsis that wraps across several lines to ensure the '
         'hero layout still fits inside the available space on a phone.',
     episodeCount: 12,
     airingStatus: 'RELEASING',
@@ -29,8 +30,9 @@ MediaItem _animexItem(int i) {
 }
 
 void main() {
-  testWidgets('AnimeXSpotlight hero fits viewport on phone with status bar',
-      (WidgetTester tester) async {
+  testWidgets('AnimeXSpotlight hero fits viewport on phone with status bar', (
+    WidgetTester tester,
+  ) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1.0;
     tester.view.padding = const FakeViewPadding(top: 44);
@@ -55,7 +57,10 @@ void main() {
                           SizedBox(
                             height: constraints.maxHeight,
                             child: AnimeXSpotlight(
-                              items: List.generate(5, (i) => _animexItem(i + 1)),
+                              items: List.generate(
+                                5,
+                                (i) => _animexItem(i + 1),
+                              ),
                               loading: false,
                             ),
                           ),
@@ -67,8 +72,9 @@ void main() {
               ],
             ),
           ),
-          bottomNavigationBar:
-              const SizedBox(height: AnimeXTokens.mobileNavHeight),
+          bottomNavigationBar: const SizedBox(
+            height: AnimeXTokens.mobileNavHeight,
+          ),
         ),
       ),
     );
@@ -79,12 +85,17 @@ void main() {
     // Hero must start right below header (44 status + 60 header = 104) and
     // must not extend past the visible body area (ends at 844 - 56 nav = 788).
     expect(hero.top, 104);
-    expect(hero.bottom, lessThanOrEqualTo(788.1),
-        reason: 'Hero bottom should not be clipped by the viewport. Got: ${hero.bottom}');
+    expect(
+      hero.bottom,
+      lessThanOrEqualTo(788.1),
+      reason:
+          'Hero bottom should not be clipped by the viewport. Got: ${hero.bottom}',
+    );
   });
 
-  testWidgets('AnimeHeroBanner has no overflow on a 360px phone',
-      (WidgetTester tester) async {
+  testWidgets('AnimeHeroBanner has no overflow on a 360px phone', (
+    WidgetTester tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(360, 640));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -95,7 +106,8 @@ void main() {
         subtitle: '2026',
         imageUrl: '',
         posterUrl: '',
-        synopsis: 'A fairly long synopsis that will wrap across several lines '
+        synopsis:
+            'A fairly long synopsis that will wrap across several lines '
             'on a small phone screen and used to overflow the action buttons.',
         episodeCount: 24,
         format: 'TV',
@@ -118,20 +130,23 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('AnimeHeroBanner has no overflow on desktop with long content',
-      (WidgetTester tester) async {
+  testWidgets('AnimeHeroBanner has no overflow on desktop with long content', (
+    WidgetTester tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final items = List.generate(3, (i) {
       return ShelfHeroItem(
         id: 'x$i',
-        title: 'A Very Long Anime Hero Title That Wraps Across Two Lines '
+        title:
+            'A Very Long Anime Hero Title That Wraps Across Two Lines '
             'On The Desktop Banner',
         subtitle: '2026',
         imageUrl: '',
         posterUrl: '',
-        synopsis: 'A long synopsis for the hero banner slide that is '
+        synopsis:
+            'A long synopsis for the hero banner slide that is '
             'deliberately quite long so it wraps across multiple lines and '
             'exercises the bottom-anchored metadata and action button layout '
             'on a wide desktop screen without causing vertical overflow.',

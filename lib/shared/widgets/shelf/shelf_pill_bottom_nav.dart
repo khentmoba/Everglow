@@ -43,9 +43,7 @@ class ShelfPillBottomNav extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1C1228),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: AppTheme.roseQuartz.withValues(alpha: 0.1),
-        ),
+        border: Border.all(color: AppTheme.roseQuartz.withValues(alpha: 0.1)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.5),

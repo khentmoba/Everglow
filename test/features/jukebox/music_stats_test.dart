@@ -75,9 +75,7 @@ void main() {
     });
 
     test('fromJson falls back gracefully when fields are missing', () {
-      final track = TopMusicTrack.fromJson({
-        'name': 'Mystery',
-      });
+      final track = TopMusicTrack.fromJson({'name': 'Mystery'});
 
       expect(track.rank, 0);
       expect(track.artistName, 'Unknown Artist');

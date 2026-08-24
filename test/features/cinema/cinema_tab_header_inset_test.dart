@@ -28,38 +28,26 @@ Future<double> _insetFor(
 }
 
 void main() {
-  testWidgets('desktop content clears the floating navbar',
-      (WidgetTester tester) async {
+  testWidgets('desktop content clears the floating navbar', (
+    WidgetTester tester,
+  ) async {
     const desktop = Size(1280, 800);
 
-    expect(
-      await _insetFor(tester, desktop, EdgeInsets.zero),
-      16,
-    );
+    expect(await _insetFor(tester, desktop, EdgeInsets.zero), 76);
 
     expect(
-      await _insetFor(
-        tester,
-        desktop,
-        const EdgeInsets.only(top: 24),
-      ),
-      24 + 16,
+      await _insetFor(tester, desktop, const EdgeInsets.only(top: 24)),
+      24 + kToolbarHeight + 20,
     );
   });
 
-  testWidgets('mobile content only adds the status inset',
-      (WidgetTester tester) async {
+  testWidgets('mobile content only adds the status inset', (
+    WidgetTester tester,
+  ) async {
     const mobile = Size(390, 844);
 
     expect(await _insetFor(tester, mobile, EdgeInsets.zero), 12);
 
-    expect(
-      await _insetFor(
-        tester,
-        mobile,
-        const EdgeInsets.only(top: 24),
-      ),
-      36,
-    );
+    expect(await _insetFor(tester, mobile, const EdgeInsets.only(top: 24)), 36);
   });
 }

@@ -33,12 +33,15 @@ class _EverglowSparklesState extends State<EverglowSparkles>
   void initState() {
     super.initState();
     final rng = Random(42);
-    _sparkles = List.generate(widget.count, (_) => _Sparkle(
-      x: rng.nextDouble(),
-      y: rng.nextDouble(),
-      size: 2 + rng.nextDouble() * 4,
-      phase: rng.nextDouble() * 2 * pi,
-    ));
+    _sparkles = List.generate(
+      widget.count,
+      (_) => _Sparkle(
+        x: rng.nextDouble(),
+        y: rng.nextDouble(),
+        size: 2 + rng.nextDouble() * 4,
+        phase: rng.nextDouble() * 2 * pi,
+      ),
+    );
 
     if (!AppMotion.reduced) {
       _controller = AnimationController(
@@ -58,21 +61,21 @@ class _EverglowSparklesState extends State<EverglowSparkles>
   Widget build(BuildContext context) {
     return RepaintBoundary(
       child: Positioned.fill(
-      child: IgnorePointer(
-        child: ExcludeSemantics(
-          child: AnimatedBuilder(
-            animation: _controller ?? const AlwaysStoppedAnimation(0),
-            builder: (_, _) => CustomPaint(
-              painter: _SparklePainter(
-                sparkles: _sparkles,
-                color: widget.color,
-                opacity: widget.opacity,
-                time: _controller?.value ?? 0,
+        child: IgnorePointer(
+          child: ExcludeSemantics(
+            child: AnimatedBuilder(
+              animation: _controller ?? const AlwaysStoppedAnimation(0),
+              builder: (_, _) => CustomPaint(
+                painter: _SparklePainter(
+                  sparkles: _sparkles,
+                  color: widget.color,
+                  opacity: widget.opacity,
+                  time: _controller?.value ?? 0,
+                ),
               ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -120,6 +123,5 @@ class _SparklePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _SparklePainter old) =>
-      old.time != time;
+  bool shouldRepaint(covariant _SparklePainter old) => old.time != time;
 }

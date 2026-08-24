@@ -63,29 +63,31 @@ class _AnimeXSearchPageState extends State<AnimeXSearchPage> {
     try {
       AnimexMediaPage page;
       if (_query.isNotEmpty) {
-        page = await _aniList.fetchAnimexPage(
-          search: _query,
-          perPage: 30,
-        );
+        page = await _aniList.fetchAnimexPage(search: _query, perPage: 30);
       } else {
         page = switch (_mode) {
-          'trending' =>
-            await _aniList.fetchAnimexPage(sort: 'TRENDING_DESC', perPage: 30),
+          'trending' => await _aniList.fetchAnimexPage(
+            sort: 'TRENDING_DESC',
+            perPage: 30,
+          ),
           'airing' => await _aniList.fetchAnimexPage(
-              sort: 'SCORE_DESC',
-              status: 'RELEASING',
-              perPage: 30,
-            ),
+            sort: 'SCORE_DESC',
+            status: 'RELEASING',
+            perPage: 30,
+          ),
           'movies' => await _aniList.fetchAnimexPage(
-              format: 'MOVIE',
-              sort: 'POPULARITY_DESC',
-              perPage: 30,
-            ),
+            format: 'MOVIE',
+            sort: 'POPULARITY_DESC',
+            perPage: 30,
+          ),
           'new' => await _aniList.fetchAnimexPage(
-              sort: 'START_DATE_DESC',
-              perPage: 30,
-            ),
-          _ => await _aniList.fetchAnimexPage(sort: 'TRENDING_DESC', perPage: 30),
+            sort: 'START_DATE_DESC',
+            perPage: 30,
+          ),
+          _ => await _aniList.fetchAnimexPage(
+            sort: 'TRENDING_DESC',
+            perPage: 30,
+          ),
         };
       }
       if (!mounted) return;
@@ -151,7 +153,11 @@ class _AnimeXSearchPageState extends State<AnimeXSearchPage> {
       child: Row(
         children: [
           const SizedBox(width: 14),
-          const Icon(Icons.search_rounded, size: 19, color: AnimeXTokens.textSecondary),
+          const Icon(
+            Icons.search_rounded,
+            size: 19,
+            color: AnimeXTokens.textSecondary,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: TextField(
@@ -160,10 +166,7 @@ class _AnimeXSearchPageState extends State<AnimeXSearchPage> {
               style: dmSansStyle(size: 14, color: AnimeXTokens.textPrimary),
               decoration: InputDecoration(
                 hintText: 'Search anime...',
-                hintStyle: dmSansStyle(
-                  size: 14,
-                  color: AnimeXTokens.textMuted,
-                ),
+                hintStyle: dmSansStyle(size: 14, color: AnimeXTokens.textMuted),
                 border: InputBorder.none,
                 isDense: true,
               ),

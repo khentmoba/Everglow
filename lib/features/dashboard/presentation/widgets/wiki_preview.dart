@@ -26,8 +26,8 @@ class WikiPreview extends StatelessWidget {
             final subtitle = shelves.isEmpty
                 ? 'No lore yet — create your first shelf'
                 : '${shelves.length} ${shelves.length == 1 ? 'shelf' : 'shelves'}'
-                    ' • ${pages.length} ${pages.length == 1 ? 'page' : 'pages'}'
-                    '${pinned > 0 ? ' • $pinned pinned' : ''}';
+                      ' • ${pages.length} ${pages.length == 1 ? 'page' : 'pages'}'
+                      '${pinned > 0 ? ' • $pinned pinned' : ''}';
 
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -39,7 +39,7 @@ class WikiPreview extends StatelessWidget {
                 trailing: const SectionChevron(hue: AppColors.auroraLilac),
                 onTap: () => context.push('/wiki'),
                 child: shelves.isEmpty && pages.isEmpty
-                    ? _EmptyUniverse(hue: AppColors.auroraLilac)
+                    ? const _EmptyUniverse(hue: AppColors.auroraLilac)
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -50,39 +50,51 @@ class WikiPreview extends StatelessWidget {
                               children: shelves.take(4).map((s) {
                                 return Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 7),
+                                    horizontal: 10,
+                                    vertical: 7,
+                                  ),
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
                                       colors: [
-                                        AppColors.auroraLilac
-                                            .withValues(alpha: 0.18),
-                                        AppColors.auroraLilac
-                                            .withValues(alpha: 0.06),
+                                        AppColors.auroraLilac.withValues(
+                                          alpha: 0.18,
+                                        ),
+                                        AppColors.auroraLilac.withValues(
+                                          alpha: 0.06,
+                                        ),
                                       ],
                                     ),
                                     borderRadius: BorderRadius.circular(999),
                                     border: Border.all(
-                                        color: AppColors.auroraLilac
-                                            .withValues(alpha: 0.22)),
+                                      color: AppColors.auroraLilac.withValues(
+                                        alpha: 0.22,
+                                      ),
+                                    ),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.bookmark_rounded,
-                                          size: 11,
-                                          color: AppColors.auroraLilac),
+                                      const Icon(
+                                        Icons.bookmark_rounded,
+                                        size: 11,
+                                        color: AppColors.auroraLilac,
+                                      ),
                                       const SizedBox(width: 5),
                                       Text(
-                                        s.title.isEmpty ? 'Untitled shelf' : s.title,
-                                        style:
-                                            AppTypography.outfitBold.copyWith(
-                                          fontSize: 11,
-                                          color: AppColors.auroraLilac,
-                                        ),
+                                        s.title.isEmpty
+                                            ? 'Untitled shelf'
+                                            : s.title,
+                                        style: AppTypography.outfitBold
+                                            .copyWith(
+                                              fontSize: 11,
+                                              color: AppColors.auroraLilac,
+                                            ),
                                       ),
                                       const SizedBox(width: 6),
-                                      Text(s.icon,
-                                          style: const TextStyle(fontSize: 11)),
+                                      Text(
+                                        s.icon,
+                                        style: const TextStyle(fontSize: 11),
+                                      ),
                                     ],
                                   ),
                                 );
@@ -91,68 +103,77 @@ class WikiPreview extends StatelessWidget {
                             const SizedBox(height: 10),
                           ],
                           if (pages.isNotEmpty)
-                            ...pages.take(2).map((p) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 30,
-                                        height: 30,
-                                        decoration: BoxDecoration(
-                                          color: AppColors.auroraLilac
-                                              .withValues(alpha: 0.13),
-                                          borderRadius: AppRadius.radiusSm,
-                                          border: Border.all(
-                                              color: AppColors.auroraLilac
-                                                  .withValues(alpha: 0.20)),
-                                        ),
-                                        child: Icon(
-                                          p.isPinned
-                                              ? Icons.push_pin_rounded
-                                              : Icons.article_rounded,
-                                          size: 14,
-                                          color: AppColors.auroraLilac,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Text(
-                                          p.title.isEmpty
-                                              ? 'Untitled page'
-                                              : p.title,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: AppTypography.outfitWhite
-                                              .copyWith(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w500,
-                                            color: AppColors.petalWhite
-                                                .withValues(alpha: 0.88),
-                                          ),
-                                        ),
-                                      ),
-                                      if (p.isPinned)
+                            ...pages
+                                .take(2)
+                                .map(
+                                  (p) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: Row(
+                                      children: [
                                         Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 6, vertical: 3),
+                                          width: 30,
+                                          height: 30,
                                           decoration: BoxDecoration(
-                                            color: AppColors.auroraGold
-                                                .withValues(alpha: 0.16),
-                                            borderRadius:
-                                                BorderRadius.circular(999),
+                                            color: AppColors.auroraLilac
+                                                .withValues(alpha: 0.13),
+                                            borderRadius: AppRadius.radiusSm,
+                                            border: Border.all(
+                                              color: AppColors.auroraLilac
+                                                  .withValues(alpha: 0.20),
+                                            ),
                                           ),
-                                          child: Text('PINNED',
+                                          child: Icon(
+                                            p.isPinned
+                                                ? Icons.push_pin_rounded
+                                                : Icons.article_rounded,
+                                            size: 14,
+                                            color: AppColors.auroraLilac,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            p.title.isEmpty
+                                                ? 'Untitled page'
+                                                : p.title,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: AppTypography.outfitWhite
+                                                .copyWith(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: AppColors.petalWhite
+                                                      .withValues(alpha: 0.88),
+                                                ),
+                                          ),
+                                        ),
+                                        if (p.isPinned)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 3,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.auroraGold
+                                                  .withValues(alpha: 0.16),
+                                              borderRadius:
+                                                  BorderRadius.circular(999),
+                                            ),
+                                            child: Text(
+                                              'PINNED',
                                               style: AppTypography.outfitWhite
                                                   .copyWith(
-                                                fontSize: 8,
-                                                fontWeight: FontWeight.w800,
-                                                letterSpacing: 0.6,
-                                                color: AppColors.auroraGold,
-                                              )),
-                                        ),
-                                    ],
+                                                    fontSize: 8,
+                                                    fontWeight: FontWeight.w800,
+                                                    letterSpacing: 0.6,
+                                                    color: AppColors.auroraGold,
+                                                  ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                                   ),
-                                )),
+                                ),
                         ],
                       ),
               ),
@@ -193,16 +214,20 @@ class _EmptyUniverse extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Build your lore',
-                    style: AppTypography.outfitBold.copyWith(
-                      fontSize: 12,
-                      color: AppColors.petalWhite.withValues(alpha: 0.88),
-                    )),
-                Text('Inside jokes, timelines, headcanons — your canon.',
-                    style: AppTypography.outfitWhite.copyWith(
-                      fontSize: 11,
-                      color: AppColors.petalWhite.withValues(alpha: 0.50),
-                    )),
+                Text(
+                  'Build your lore',
+                  style: AppTypography.outfitBold.copyWith(
+                    fontSize: 12,
+                    color: AppColors.petalWhite.withValues(alpha: 0.88),
+                  ),
+                ),
+                Text(
+                  'Inside jokes, timelines, headcanons — your canon.',
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 11,
+                    color: AppColors.petalWhite.withValues(alpha: 0.50),
+                  ),
+                ),
               ],
             ),
           ),

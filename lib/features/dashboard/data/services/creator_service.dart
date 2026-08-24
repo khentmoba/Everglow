@@ -5,8 +5,17 @@ import '../../domain/models/milestone.dart';
 import '../../domain/models/hidden_note.dart';
 
 class CreatorService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
+  FirebaseFirestore? _firestoreInstance;
+  FirebaseStorage? _storageInstance;
+
+  CreatorService({FirebaseFirestore? firestore, FirebaseStorage? storage})
+    : _firestoreInstance = firestore,
+      _storageInstance = storage;
+
+  FirebaseFirestore get _firestore =>
+      _firestoreInstance ??= FirebaseFirestore.instance;
+
+  FirebaseStorage get _storage => _storageInstance ??= FirebaseStorage.instance;
 
   /// Uploads an image to Firebase Storage and returns the download URL.
   Future<String?> uploadImage(

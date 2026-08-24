@@ -179,7 +179,9 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _type == 'all' ? _buildLatest(data.latest) : _buildTypeList(),
+                      _type == 'all'
+                          ? _buildLatest(data.latest)
+                          : _buildTypeList(),
                       if (_type == 'all') ...[
                         const SizedBox(height: 20),
                         _buildHotWidget(data.hot),
@@ -225,10 +227,7 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
       children: [
         KatanaSectionHeader(
           title: _typeLabel(_type),
-          trailing: Text(
-            _typeEyebrow(_type),
-            style: KatanaType.small,
-          ),
+          trailing: Text(_typeEyebrow(_type), style: KatanaType.small),
         ),
         const SizedBox(height: 12),
         if (_typeLoading && _typeItems.isEmpty)
@@ -243,7 +242,11 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-                Text(_typeError!, textAlign: TextAlign.center, style: KatanaType.body),
+                Text(
+                  _typeError!,
+                  textAlign: TextAlign.center,
+                  style: KatanaType.body,
+                ),
                 const SizedBox(height: 12),
                 KatanaButton(
                   label: 'Retry',
@@ -256,7 +259,10 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
         else if (_typeItems.isEmpty)
           KatanaCard(
             padding: const EdgeInsets.all(20),
-            child: Text('No ${_typeLabel(_type)} titles yet.', style: KatanaType.small),
+            child: Text(
+              'No ${_typeLabel(_type)} titles yet.',
+              style: KatanaType.small,
+            ),
           )
         else ...[
           for (final manga in _typeItems) ...[
@@ -370,12 +376,19 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_off_rounded,
-                size: 52, color: KatanaColors.textLight),
+            const Icon(
+              Icons.cloud_off_rounded,
+              size: 52,
+              color: KatanaColors.textLight,
+            ),
             const SizedBox(height: 14),
             Text(_error!, textAlign: TextAlign.center, style: KatanaType.body),
             const SizedBox(height: 14),
-            KatanaButton(label: 'Retry', icon: Icons.refresh_rounded, onTap: _load),
+            KatanaButton(
+              label: 'Retry',
+              icon: Icons.refresh_rounded,
+              onTap: _load,
+            ),
           ],
         ),
       ),
@@ -386,7 +399,7 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        KatanaSectionHeader(title: 'Latest Updates'),
+        const KatanaSectionHeader(title: 'Latest Updates'),
         const SizedBox(height: 12),
         if (latest.isEmpty)
           KatanaCard(
@@ -409,10 +422,13 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          KatanaSectionHeader(
+          const KatanaSectionHeader(
             title: 'Hot Manga',
-            trailing: const Icon(Icons.local_fire_department_rounded,
-                color: KatanaColors.orange, size: 20),
+            trailing: Icon(
+              Icons.local_fire_department_rounded,
+              color: KatanaColors.orange,
+              size: 20,
+            ),
           ),
           const SizedBox(height: 10),
           SizedBox(
@@ -440,7 +456,7 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          KatanaSectionHeader(title: 'Genres'),
+          const KatanaSectionHeader(title: 'Genres'),
           const SizedBox(height: 12),
           Wrap(
             spacing: 7,
@@ -451,8 +467,10 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
                   onTap: () =>
                       pushGenreDirectory(context, genre.slug, genre.name),
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: KatanaColors.surfaceAlt,
                       borderRadius: BorderRadius.circular(4),

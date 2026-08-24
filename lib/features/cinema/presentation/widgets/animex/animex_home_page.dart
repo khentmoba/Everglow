@@ -82,20 +82,20 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
 
   void _buildSections() {
     final season = _currentSeason();
-    _rows['trending'] = _HomeRow(
+    _rows['trending'] = const _HomeRow(
       id: 'trending',
       title: 'Trending This Week',
       icon: Icons.trending_up_rounded,
       loading: true,
-      items: const [],
+      items: [],
       isHero: true,
     );
-    _rows['airing'] = _HomeRow(
+    _rows['airing'] = const _HomeRow(
       id: 'airing',
       title: 'Top Airing',
       icon: Icons.local_fire_department_rounded,
       loading: true,
-      items: const [],
+      items: [],
     );
     _rows['seasonal'] = _HomeRow(
       id: 'seasonal',
@@ -104,19 +104,19 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
       loading: true,
       items: const [],
     );
-    _rows['popular'] = _HomeRow(
+    _rows['popular'] = const _HomeRow(
       id: 'popular',
       title: 'Most Popular',
       icon: Icons.star_rounded,
       loading: true,
-      items: const [],
+      items: [],
     );
-    _rows['completed'] = _HomeRow(
+    _rows['completed'] = const _HomeRow(
       id: 'completed',
       title: 'Recently Completed',
       icon: Icons.check_circle_outline_rounded,
       loading: true,
-      items: const [],
+      items: [],
     );
   }
 
@@ -134,18 +134,15 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
           perPage: 18,
         ),
       ),
-      _fetchRow(
-        'seasonal',
-        () {
-          final season = _currentSeason();
-          return _aniList.fetchAnimexPage(
-            season: season.$1,
-            seasonYear: season.$2,
-            sort: 'POPULARITY_DESC',
-            perPage: 18,
-          );
-        },
-      ),
+      _fetchRow('seasonal', () {
+        final season = _currentSeason();
+        return _aniList.fetchAnimexPage(
+          season: season.$1,
+          seasonYear: season.$2,
+          sort: 'POPULARITY_DESC',
+          perPage: 18,
+        );
+      }),
       _fetchRow(
         'popular',
         () => _aniList.fetchAnimexPage(sort: 'POPULARITY_DESC', perPage: 18),
@@ -248,10 +245,7 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
       case 'popular':
         await _fetchRow(
           id,
-          () => _aniList.fetchAnimexPage(
-            sort: 'POPULARITY_DESC',
-            perPage: 18,
-          ),
+          () => _aniList.fetchAnimexPage(sort: 'POPULARITY_DESC', perPage: 18),
         );
       case 'completed':
         await _fetchRow(
@@ -292,10 +286,7 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
           items: airing.items.take(14).toList(),
           onTap: (item) => widget.controller.openWatch(item),
         ),
-        if (_allFailed) ...[
-          const SizedBox(height: 20),
-          _buildOfflineBanner(),
-        ],
+        if (_allFailed) ...[const SizedBox(height: 20), _buildOfflineBanner()],
         const SizedBox(height: 40),
         for (final row in [
           _rows['trending']!,
@@ -305,9 +296,7 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
           _rows['completed']!,
         ])
           _buildRowSection(context, row),
-        if (history.isNotEmpty) ...[
-          _buildContinueWatching(context, history),
-        ],
+        if (history.isNotEmpty) ...[_buildContinueWatching(context, history)],
         const SizedBox(height: 24),
         _buildScheduleCta(context),
         const SizedBox(height: 40),
@@ -418,10 +407,7 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
             Expanded(
               child: Text(
                 'Couldn\'t load ${row.title.toLowerCase()}',
-                style: dmSansStyle(
-                  size: 13,
-                  color: AnimeXTokens.textSecondary,
-                ),
+                style: dmSansStyle(size: 13, color: AnimeXTokens.textSecondary),
               ),
             ),
             TextButton(
@@ -622,10 +608,7 @@ class _ContinueCard extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
-                    colors: [
-                      Color(0xE6000000),
-                      Color(0x66000000),
-                    ],
+                    colors: [Color(0xE6000000), Color(0x66000000)],
                   ),
                 ),
               ),
@@ -654,8 +637,9 @@ class _ContinueCard extends StatelessWidget {
                         value: progress,
                         minHeight: 3,
                         backgroundColor: Colors.white.withValues(alpha: 0.15),
-                        valueColor:
-                            const AlwaysStoppedAnimation<Color>(AnimeXTokens.accent),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          AnimeXTokens.accent,
+                        ),
                       ),
                     ),
                   ],

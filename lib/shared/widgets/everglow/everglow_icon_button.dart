@@ -72,8 +72,9 @@ class _EverglowIconButtonState extends State<EverglowIconButton> {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveScale =
-        _pressed ? AppMotion.pressScale : (_hovered ? AppMotion.hoverScale : 1.0);
+    final effectiveScale = _pressed
+        ? AppMotion.pressScale
+        : (_hovered ? AppMotion.hoverScale : 1.0);
     final bg = widget.backgroundColor ?? AppColors.surfaceGlass;
     final borderColor = widget.borderColor ?? AppColors.border;
     final iconColor = widget.iconColor ?? AppColors.roseQuartz;
@@ -83,20 +84,24 @@ class _EverglowIconButtonState extends State<EverglowIconButton> {
       curve: AppMotion.easeOutStrong,
       width: widget.size,
       height: widget.size,
-      transform: Matrix4.identity()..scaleByDouble(effectiveScale, effectiveScale, effectiveScale, 1.0),
+      transform: Matrix4.identity()
+        ..scaleByDouble(effectiveScale, effectiveScale, effectiveScale, 1.0),
       decoration: BoxDecoration(
         color: bg,
         shape: BoxShape.circle,
         border: Border.all(color: borderColor),
         boxShadow: _focused
-            ? [BoxShadow(blurRadius: 12, color: AppColors.deepRose.withValues(alpha: 0.4))]
+            ? [
+                BoxShadow(
+                  blurRadius: 12,
+                  color: AppColors.deepRose.withValues(alpha: 0.4),
+                ),
+              ]
             : _hovered
-                ? AppElevation.e1
-                : null,
+            ? AppElevation.e1
+            : null,
       ),
-      child: Center(
-        child: Icon(widget.icon, size: 20, color: iconColor),
-      ),
+      child: Center(child: Icon(widget.icon, size: 20, color: iconColor)),
     );
 
     child = Semantics(
@@ -134,10 +139,7 @@ class _EverglowIconButtonState extends State<EverglowIconButton> {
           borderRadius: AppRadius.radiusSm,
           border: Border.all(color: AppColors.border),
         ),
-        textStyle: TextStyle(
-          color: AppColors.textMedium,
-          fontSize: 12,
-        ),
+        textStyle: TextStyle(color: AppColors.textMedium, fontSize: 12),
         child: child,
       );
     }

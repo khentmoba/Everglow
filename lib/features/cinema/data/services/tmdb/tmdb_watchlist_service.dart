@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../../core/utils/connectivity_aware.dart';
 import '../../../../../core/utils/error_aware.dart';
@@ -43,13 +43,17 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       final effectiveStatus = _toSelfStatus(status);
 
       // Check if the owner already has this tmdbId
-      Logger.d("[WatchList] Querying tmdbId=${item.tmdbId} (${item.tmdbId.runtimeType}), owner=$effectiveOwner, status=$effectiveStatus, title=${item.title}");
+      Logger.d(
+        "[WatchList] Querying tmdbId=${item.tmdbId} (${item.tmdbId.runtimeType}), owner=$effectiveOwner, status=$effectiveStatus, title=${item.title}",
+      );
       var existing = await collection
           .where('tmdbId', isEqualTo: item.tmdbId)
           .where('userName', isEqualTo: effectiveOwner)
           .limit(1)
           .get();
-      Logger.d("[WatchList] Query returned ${existing.docs.length} docs for owner=$effectiveOwner");
+      Logger.d(
+        "[WatchList] Query returned ${existing.docs.length} docs for owner=$effectiveOwner",
+      );
 
       // ── Couple-merge fallback ──────────────────────────────────────
       // When the drawer was opened from a couple-merged stream the item
@@ -59,17 +63,23 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       // create the partner's doc, not hijack the existing one) and when
       // routing a partner-specific status (e.g. "Clair Watched" must not
       // hijack the current user's doc).
-      if (!skipPartnerFallback && statusOwner == null && existing.docs.isEmpty) {
+      if (!skipPartnerFallback &&
+          statusOwner == null &&
+          existing.docs.isEmpty) {
         final partner = _resolvePartner(effectiveOwner);
         if (partner != null && partner.isNotEmpty) {
-          Logger.d("[WatchList] No doc for $effectiveOwner — checking partner=$partner");
+          Logger.d(
+            "[WatchList] No doc for $effectiveOwner — checking partner=$partner",
+          );
           final partnerDocs = await collection
               .where('tmdbId', isEqualTo: item.tmdbId)
               .where('userName', isEqualTo: partner)
               .limit(1)
               .get();
           if (partnerDocs.docs.isNotEmpty) {
-            Logger.d("[WatchList] Found doc under partner $partner — updating that instead");
+            Logger.d(
+              "[WatchList] Found doc under partner $partner — updating that instead",
+            );
             existing = partnerDocs;
           }
         }
@@ -81,7 +91,9 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       final isAnime = isAnimeOverride ?? item.isAnime;
 
       if (existing.docs.isNotEmpty) {
-        Logger.d("[WatchList] Updating existing doc ${existing.docs.first.id} with status=$effectiveStatus, owner=$effectiveOwner");
+        Logger.d(
+          "[WatchList] Updating existing doc ${existing.docs.first.id} with status=$effectiveStatus, owner=$effectiveOwner",
+        );
         // Update status if exists — also refresh metadata fields so the
         // dashboard cards always have the latest poster, title, etc.
         // (Items saved before posterPath was stored get their poster
@@ -103,21 +115,29 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
           updateData['posterPath'] = item.posterPath;
         }
         await collection.doc(existing.docs.first.id).update(updateData);
-        Logger.d("[WatchList] Update succeeded for doc ${existing.docs.first.id}");
+        Logger.d(
+          "[WatchList] Update succeeded for doc ${existing.docs.first.id}",
+        );
       } else {
         // Create new entry scoped to the effective owner
-        Logger.d("[WatchList] No existing doc found — creating new entry for owner=$effectiveOwner");
-        await collection.add(item
-            .copyWith(
-              status: effectiveStatus,
-              isAnime: isAnime,
-              userName: effectiveOwner,
-              addedAt: DateTime.now(),
-            )
-            .toFirestore());
+        Logger.d(
+          "[WatchList] No existing doc found — creating new entry for owner=$effectiveOwner",
+        );
+        await collection.add(
+          item
+              .copyWith(
+                status: effectiveStatus,
+                isAnime: isAnime,
+                userName: effectiveOwner,
+                addedAt: DateTime.now(),
+              )
+              .toFirestore(),
+        );
         Logger.d("[WatchList] New entry created successfully");
       }
-      Logger.i("Saved to watch list successfully: ${item.title} ($effectiveOwner, status=$effectiveStatus)");
+      Logger.i(
+        "Saved to watch list successfully: ${item.title} ($effectiveOwner, status=$effectiveStatus)",
+      );
     } catch (e, st) {
       Logger.e("Error saving to watch list", error: e);
       Logger.d("[WatchList] Stack trace: $st");
@@ -181,6 +201,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     int? season,
     int? episode,
     int? timestamp,
+    int? durationSeconds,
     String? status,
   }) async {
     if (userName.isEmpty) return;
@@ -212,6 +233,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
         'currentSeason': season,
         'currentEpisode': episode,
         'currentTimestamp': timestamp,
+        'durationSeconds': durationSeconds,
         'progressUpdatedAt': now,
       };
       if (status != null) data['status'] = status;
@@ -219,17 +241,20 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       if (existing.docs.isNotEmpty) {
         await collection.doc(existing.docs.first.id).update(data);
       } else {
-        await collection.add(item
-            .copyWith(
-              status: status ?? 'watching-self',
-              userName: userName,
-              addedAt: DateTime.now(),
-              currentSeason: season,
-              currentEpisode: episode,
-              currentTimestamp: timestamp,
-              progressUpdatedAt: DateTime.now(),
-            )
-            .toFirestore());
+        await collection.add(
+          item
+              .copyWith(
+                status: status ?? 'watching-self',
+                userName: userName,
+                addedAt: DateTime.now(),
+                currentSeason: season,
+                currentEpisode: episode,
+                currentTimestamp: timestamp,
+                durationSeconds: durationSeconds,
+                progressUpdatedAt: DateTime.now(),
+              )
+              .toFirestore(),
+        );
       }
     } catch (e) {
       Logger.e('Error updating watch progress', error: e);
@@ -271,6 +296,58 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     }
   }
 
+  /// Adds or removes a lightweight "My List" entry from hover previews.
+  Future<bool> setListMembership(
+    MediaItem item,
+    String userName, {
+    required bool add,
+  }) async {
+    if (add) {
+      await saveToWatchList(item, 'to-watch', userName);
+      return true;
+    }
+    await removeFromWatchList(item.tmdbId, userName);
+    return false;
+  }
+
+  /// Persists a Netflix-style thumbs-up / thumbs-down rating.
+  Future<void> setUserRating(
+    MediaItem item,
+    String userName, {
+    double? rating,
+  }) async {
+    if (userName.isEmpty) return;
+    try {
+      final collection = firestore.collection('watch_list');
+      final existing = await collection
+          .where('tmdbId', isEqualTo: item.tmdbId)
+          .where('userName', isEqualTo: userName)
+          .limit(1)
+          .get();
+      final ratingData = <String, dynamic>{
+        'userRating': rating,
+        'ratedAt': rating == null ? null : Timestamp.now(),
+      };
+      if (existing.docs.isEmpty) {
+        if (rating == null) return;
+        await collection.add(
+          item.copyWith(status: 'to-watch', userName: userName).toFirestore(),
+        );
+        final created = await collection
+            .where('tmdbId', isEqualTo: item.tmdbId)
+            .where('userName', isEqualTo: userName)
+            .limit(1)
+            .get();
+        if (created.docs.isEmpty) return;
+        await collection.doc(created.docs.first.id).update(ratingData);
+        return;
+      }
+      await collection.doc(existing.docs.first.id).update(ratingData);
+    } catch (e) {
+      Logger.e('Error updating user rating', error: e);
+    }
+  }
+
   // ─── Streams ───────────────────────────────────────────────────────────
 
   /// Stream of watch list items for a specific user (Firestore-based).
@@ -281,14 +358,15 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
         .where('userName', isEqualTo: userName)
         .snapshots()
         .map((snapshot) {
-      final items = snapshot.docs
-          .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
-          .toList()
-        ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
-      // Side effect: Cache the list locally per user
-      _cacheService.cacheWatchList(items, userName);
-      return items;
-    });
+          final items =
+              snapshot.docs
+                  .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+                  .toList()
+                ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
+          // Side effect: Cache the list locally per user
+          _cacheService.cacheWatchList(items, userName);
+          return items;
+        });
   }
 
   /// Stream of the combined watch list for the couple
@@ -323,26 +401,27 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
           .where('userName', isEqualTo: userA)
           .snapshots()
           .listen((snapshot) {
-        itemsA = snapshot.docs
-            .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
-            .toList();
-        emit();
-      });
+            itemsA = snapshot.docs
+                .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+                .toList();
+            emit();
+          });
       subB = firestore
           .collection('watch_list')
           .where('userName', isEqualTo: userB)
           .snapshots()
           .listen((snapshot) {
-        itemsB = snapshot.docs
-            .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
-            .toList();
-        emit();
-      });
+            itemsB = snapshot.docs
+                .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+                .toList();
+            emit();
+          });
     };
 
     controller.onCancel = () async {
       await subA?.cancel();
       await subB?.cancel();
+      await controller.close();
     };
 
     return controller.stream;
@@ -358,13 +437,14 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
         .where('userName', isEqualTo: userName)
         .snapshots()
         .map((snapshot) {
-      final items = snapshot.docs
-          .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
-          .where((i) => i.isAnime)
-          .toList()
-        ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
-      return items;
-    });
+          final items =
+              snapshot.docs
+                  .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+                  .where((i) => i.isAnime)
+                  .toList()
+                ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
+          return items;
+        });
   }
 
   /// Couple-scoped stream of the anime rail. Identical shape to
@@ -393,26 +473,27 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
           .where('userName', isEqualTo: userA)
           .snapshots()
           .listen((snapshot) {
-        itemsA = snapshot.docs
-            .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
-            .toList();
-        emit();
-      });
+            itemsA = snapshot.docs
+                .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+                .toList();
+            emit();
+          });
       subB = firestore
           .collection('watch_list')
           .where('userName', isEqualTo: userB)
           .snapshots()
           .listen((snapshot) {
-        itemsB = snapshot.docs
-            .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
-            .toList();
-        emit();
-      });
+            itemsB = snapshot.docs
+                .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+                .toList();
+            emit();
+          });
     };
 
     controller.onCancel = () async {
       await subA?.cancel();
       await subB?.cancel();
+      await controller.close();
     };
 
     return controller.stream;
@@ -425,17 +506,18 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
         .where('userName', isEqualTo: userName)
         .snapshots()
         .map((snapshot) {
-      final items = snapshot.docs
-          .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
-          .where((i) => i.isCurrentlyWatching)
-          .toList()
-        ..sort((a, b) {
-          final aTime = a.progressUpdatedAt ?? a.addedAt;
-          final bTime = b.progressUpdatedAt ?? b.addedAt;
-          return bTime.compareTo(aTime);
+          final items =
+              snapshot.docs
+                  .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+                  .where((i) => i.isCurrentlyWatching)
+                  .toList()
+                ..sort((a, b) {
+                  final aTime = a.progressUpdatedAt ?? a.addedAt;
+                  final bTime = b.progressUpdatedAt ?? b.addedAt;
+                  return bTime.compareTo(aTime);
+                });
+          return items;
         });
-      return items;
-    });
   }
 
   /// Couple-scoped currently watching stream.
@@ -460,26 +542,27 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
           .where('userName', isEqualTo: userA)
           .snapshots()
           .listen((snapshot) {
-        itemsA = snapshot.docs
-            .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
-            .toList();
-        emit();
-      });
+            itemsA = snapshot.docs
+                .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+                .toList();
+            emit();
+          });
       subB = firestore
           .collection('watch_list')
           .where('userName', isEqualTo: userB)
           .snapshots()
           .listen((snapshot) {
-        itemsB = snapshot.docs
-            .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
-            .toList();
-        emit();
-      });
+            itemsB = snapshot.docs
+                .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+                .toList();
+            emit();
+          });
     };
 
     controller.onCancel = () async {
       await subA?.cancel();
       await subB?.cancel();
+      await controller.close();
     };
 
     return controller.stream;
@@ -492,17 +575,18 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
         .where('userName', isEqualTo: userName)
         .snapshots()
         .map((snapshot) {
-      final items = snapshot.docs
-          .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
-          .where((i) => i.isAnime && i.isCurrentlyWatching)
-          .toList()
-        ..sort((a, b) {
-          final aTime = a.progressUpdatedAt ?? a.addedAt;
-          final bTime = b.progressUpdatedAt ?? b.addedAt;
-          return bTime.compareTo(aTime);
+          final items =
+              snapshot.docs
+                  .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+                  .where((i) => i.isAnime && i.isCurrentlyWatching)
+                  .toList()
+                ..sort((a, b) {
+                  final aTime = a.progressUpdatedAt ?? a.addedAt;
+                  final bTime = b.progressUpdatedAt ?? b.addedAt;
+                  return bTime.compareTo(aTime);
+                });
+          return items;
         });
-      return items;
-    });
   }
 
   /// Couple-scoped anime currently watching stream.
@@ -518,8 +602,9 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
 
     void emit() {
       final merged = _mergeCoupleItems(itemsA, itemsB);
-      controller
-          .add(merged.where((i) => i.isAnime && i.isCurrentlyWatching).toList());
+      controller.add(
+        merged.where((i) => i.isAnime && i.isCurrentlyWatching).toList(),
+      );
     }
 
     controller.onListen = () {
@@ -528,26 +613,27 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
           .where('userName', isEqualTo: userA)
           .snapshots()
           .listen((snapshot) {
-        itemsA = snapshot.docs
-            .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
-            .toList();
-        emit();
-      });
+            itemsA = snapshot.docs
+                .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+                .toList();
+            emit();
+          });
       subB = firestore
           .collection('watch_list')
           .where('userName', isEqualTo: userB)
           .snapshots()
           .listen((snapshot) {
-        itemsB = snapshot.docs
-            .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
-            .toList();
-        emit();
-      });
+            itemsB = snapshot.docs
+                .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+                .toList();
+            emit();
+          });
     };
 
     controller.onCancel = () async {
       await subA?.cancel();
       await subB?.cancel();
+      await controller.close();
     };
 
     return controller.stream;
@@ -562,6 +648,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     int? season,
     int? episode,
     int? timestamp,
+    int? durationSeconds,
   }) async {
     if (userName.isEmpty) return;
     try {
@@ -588,12 +675,11 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       }
 
       if (existing.docs.isNotEmpty) {
-        final data = <String, dynamic>{
-          'progressUpdatedAt': Timestamp.now(),
-        };
+        final data = <String, dynamic>{'progressUpdatedAt': Timestamp.now()};
         if (season != null) data['currentSeason'] = season;
         if (episode != null) data['currentEpisode'] = episode;
         if (timestamp != null) data['currentTimestamp'] = timestamp;
+        if (durationSeconds != null) data['durationSeconds'] = durationSeconds;
         await collection.doc(existing.docs.first.id).update(data);
       }
     } catch (e) {
@@ -633,12 +719,16 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       // a status to the partner would make the couple merge think both
       // partners have the item (causing it to appear in both shelves).
       final stalePartner = _companionPartnerStatus(newStatus);
-      final isSelfStatus = currentStatus == 'watched-self' ||
-          currentStatus == 'watching-self';
+      final isSelfStatus =
+          currentStatus == 'watched-self' || currentStatus == 'watching-self';
       if ((stalePartner != null && currentStatus == stalePartner) ||
           isSelfStatus) {
-        Logger.d("[WatchList] Cleaning stale '$currentStatus' from $userName's doc");
-        await collection.doc(existing.docs.first.id).update({'status': 'to-watch'});
+        Logger.d(
+          "[WatchList] Cleaning stale '$currentStatus' from $userName's doc",
+        );
+        await collection.doc(existing.docs.first.id).update({
+          'status': 'to-watch',
+        });
       }
     } catch (e) {
       Logger.e("[WatchList] Error cleaning stale partner status", error: e);
@@ -705,14 +795,18 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
         if (tmdbId != null &&
             clairWatchedIds.contains(tmdbId) &&
             (status == 'watched-self' || status == 'watching-clair')) {
-          Logger.d("[Cleanup] Removing Khent's doc ${doc.id} for tmdbId=$tmdbId (status=$status) — Clair already has watched-self");
+          Logger.d(
+            "[Cleanup] Removing Khent's doc ${doc.id} for tmdbId=$tmdbId (status=$status) — Clair already has watched-self",
+          );
           await doc.reference.delete();
           deleted++;
         }
       }
 
       if (deleted > 0) {
-        Logger.i("[Cleanup] Removed $deleted duplicate entries from Khent's watchlist");
+        Logger.i(
+          "[Cleanup] Removed $deleted duplicate entries from Khent's watchlist",
+        );
       } else {
         Logger.i("[Cleanup] No duplicate entries found");
       }
@@ -750,7 +844,8 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       }
       if (migrated > 0) {
         Logger.i(
-            "Migrated $migrated legacy watch_list items to user-scoped ownership.");
+          "Migrated $migrated legacy watch_list items to user-scoped ownership.",
+        );
       }
       return migrated;
     } catch (e) {
@@ -758,7 +853,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       return 0;
     }
   }
-
 
   /// "On This Day" — watch list items added on the same month+day in
   /// previous years, for both partners.
@@ -811,7 +905,9 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
   /// merged `userName` becomes "userA,userB" and the `status` is the
   /// strongest watched-state across the two (see [_mergeWatchedStatus]).
   static List<MediaItem> _mergeCoupleItems(
-      List<MediaItem> itemsA, List<MediaItem> itemsB) {
+    List<MediaItem> itemsA,
+    List<MediaItem> itemsB,
+  ) {
     final byId = <int, _MergedEntry>{};
     for (final item in itemsA) {
       byId[item.tmdbId] = _MergedEntry(primary: item, partner: null);
@@ -821,8 +917,10 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       if (existing == null) {
         byId[item.tmdbId] = _MergedEntry(primary: item, partner: null);
       } else {
-        byId[item.tmdbId] =
-            _MergedEntry(primary: existing.primary, partner: item);
+        byId[item.tmdbId] = _MergedEntry(
+          primary: existing.primary,
+          partner: item,
+        );
       }
     }
 
@@ -834,9 +932,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
         // unchanged via resolveCoupleStatus and doesn't need the merge path.
         final item = entry.primary;
         final resolved = item.resolveCoupleStatus();
-        return resolved != item.status
-            ? item.copyWith(status: resolved)
-            : item;
+        return resolved != item.status ? item.copyWith(status: resolved) : item;
       }
       final a = entry.primary;
       final b = entry.partner!;
@@ -872,8 +968,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
         isAnime: isAnime,
         addedAt: addedAt,
       );
-    }).toList()
-      ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
+    }).toList()..sort((a, b) => b.addedAt.compareTo(a.addedAt));
     return merged;
   }
 

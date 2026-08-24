@@ -117,10 +117,10 @@ class _AnimeXShellState extends State<AnimeXShell> {
           final detailChild = _controller.watchItem != null
               ? AnimeXWatchPage(controller: _controller)
               : (_controller.playlistId != null
-                  ? AnimeXPlaylistDetailPage(controller: _controller)
-                  : (_controller.dmcaOpen
-                      ? AnimeXDmcaPage(controller: _controller)
-                      : null));
+                    ? AnimeXPlaylistDetailPage(controller: _controller)
+                    : (_controller.dmcaOpen
+                          ? AnimeXDmcaPage(controller: _controller)
+                          : null));
 
           final auth = context.watch<AuthService>();
           final userName = auth.currentUser ?? '';
@@ -141,7 +141,9 @@ class _AnimeXShellState extends State<AnimeXShell> {
               onAnimeTap: _handleAnimeTap,
               isAnimeActive: true,
               onCinemaTap: _handleCinemaTap,
-              onDashboardTap: isCoupleUser ? () => router.go('/dashboard') : null,
+              onDashboardTap: isCoupleUser
+                  ? () => router.go('/dashboard')
+                  : null,
               onLogout: () async {
                 if (_mobileSidebarOpen) {
                   setState(() => _mobileSidebarOpen = false);
@@ -199,10 +201,7 @@ class _AnimeXShellState extends State<AnimeXShell> {
                     ),
                   ),
                   Expanded(
-                    child: SafeArea(
-                      bottom: false,
-                      child: buildAnimeContent(),
-                    ),
+                    child: SafeArea(bottom: false, child: buildAnimeContent()),
                   ),
                 ],
               ),
@@ -254,8 +253,7 @@ class _AnimeXShellState extends State<AnimeXShell> {
                   if (_mobileSidebarOpen) ...[
                     Positioned.fill(
                       child: GestureDetector(
-                        onTap: () =>
-                            setState(() => _mobileSidebarOpen = false),
+                        onTap: () => setState(() => _mobileSidebarOpen = false),
                         child: Container(
                           color: Colors.black.withValues(alpha: 0.55),
                         ),

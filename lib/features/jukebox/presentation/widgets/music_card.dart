@@ -30,8 +30,7 @@ class MusicCard extends StatefulWidget {
   State<MusicCard> createState() => _MusicCardState();
 }
 
-class _MusicCardState extends State<MusicCard>
-    with TickerProviderStateMixin {
+class _MusicCardState extends State<MusicCard> with TickerProviderStateMixin {
   late AnimationController _glowController;
   late AnimationController _shimmerController;
   late AnimationController _floatController;
@@ -108,7 +107,10 @@ class _MusicCardState extends State<MusicCard>
           builder: (context, child) {
             final floatT = _floatController.value;
             return Transform.translate(
-              offset: Offset(0, lift + (isLive ? math.sin(floatT * math.pi) * 1.2 : 0)),
+              offset: Offset(
+                0,
+                lift + (isLive ? math.sin(floatT * math.pi) * 1.2 : 0),
+              ),
               child: AnimatedScale(
                 scale: scale,
                 duration: AppMotion.orZero(const Duration(milliseconds: 220)),
@@ -137,8 +139,12 @@ class _MusicCardState extends State<MusicCard>
               color: isLive ? null : AppTheme.moonlight.withValues(alpha: 0.10),
               border: Border.all(
                 color: isLive
-                    ? AppColors.blushGold.withValues(alpha: 0.42 + _glowController.value * 0.22)
-                    : AppColors.moonlight.withValues(alpha: _hovered ? 0.22 : 0.14),
+                    ? AppColors.blushGold.withValues(
+                        alpha: 0.42 + _glowController.value * 0.22,
+                      )
+                    : AppColors.moonlight.withValues(
+                        alpha: _hovered ? 0.22 : 0.14,
+                      ),
                 width: isLive ? 1.2 : 1.0,
               ),
               boxShadow: [
@@ -149,13 +155,17 @@ class _MusicCardState extends State<MusicCard>
                 ),
                 if (isLive)
                   BoxShadow(
-                    color: AppColors.deepRose.withValues(alpha: 0.18 + _glowController.value * 0.12),
+                    color: AppColors.deepRose.withValues(
+                      alpha: 0.18 + _glowController.value * 0.12,
+                    ),
                     blurRadius: 28,
                     spreadRadius: -6,
                   ),
                 if (isLive)
                   BoxShadow(
-                    color: AppColors.auroraLilac.withValues(alpha: 0.10 + _glowController.value * 0.08),
+                    color: AppColors.auroraLilac.withValues(
+                      alpha: 0.10 + _glowController.value * 0.08,
+                    ),
                     blurRadius: 36,
                     spreadRadius: -10,
                   ),
@@ -176,7 +186,7 @@ class _MusicCardState extends State<MusicCard>
                       child: IgnorePointer(
                         child: AnimatedBuilder(
                           animation: _shimmerController,
-                          builder: (_, __) {
+                          builder: (_, _) {
                             return Transform.translate(
                               offset: Offset(
                                 -220 + _shimmerController.value * 520,
@@ -232,7 +242,10 @@ class _MusicCardState extends State<MusicCard>
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: isLive
                                   ? AppColors.deepRose.withValues(alpha: 0.18)
@@ -250,14 +263,22 @@ class _MusicCardState extends State<MusicCard>
                                 Icon(
                                   Icons.music_note_rounded,
                                   size: 11,
-                                  color: isLive ? AppColors.blushGold : AppColors.moonlight.withValues(alpha: 0.6),
+                                  color: isLive
+                                      ? AppColors.blushGold
+                                      : AppColors.moonlight.withValues(
+                                          alpha: 0.6,
+                                        ),
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
                                   widget.title,
                                   style: AppTypography.outfitBold.copyWith(
                                     fontSize: 11,
-                                    color: isLive ? AppColors.blushGold : AppColors.petalWhite.withValues(alpha: 0.72),
+                                    color: isLive
+                                        ? AppColors.blushGold
+                                        : AppColors.petalWhite.withValues(
+                                            alpha: 0.72,
+                                          ),
                                     letterSpacing: 0.6,
                                   ),
                                 ),
@@ -267,11 +288,20 @@ class _MusicCardState extends State<MusicCard>
                           const Spacer(),
                           if (isLive)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
-                                color: AppColors.success.withValues(alpha: 0.14),
+                                color: AppColors.success.withValues(
+                                  alpha: 0.14,
+                                ),
                                 borderRadius: BorderRadius.circular(999),
-                                border: Border.all(color: AppColors.success.withValues(alpha: 0.22)),
+                                border: Border.all(
+                                  color: AppColors.success.withValues(
+                                    alpha: 0.22,
+                                  ),
+                                ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -294,9 +324,14 @@ class _MusicCardState extends State<MusicCard>
                             )
                           else
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
-                                color: AppColors.moonlight.withValues(alpha: 0.08),
+                                color: AppColors.moonlight.withValues(
+                                  alpha: 0.08,
+                                ),
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Row(
@@ -306,7 +341,9 @@ class _MusicCardState extends State<MusicCard>
                                     width: 6,
                                     height: 6,
                                     decoration: BoxDecoration(
-                                      color: AppColors.mutedPurple.withValues(alpha: 0.9),
+                                      color: AppColors.mutedPurple.withValues(
+                                        alpha: 0.9,
+                                      ),
                                       shape: BoxShape.circle,
                                     ),
                                   ),
@@ -316,7 +353,9 @@ class _MusicCardState extends State<MusicCard>
                                     style: AppTypography.outfitWhite.copyWith(
                                       fontSize: 9,
                                       fontWeight: FontWeight.w700,
-                                      color: AppColors.petalWhite.withValues(alpha: 0.55),
+                                      color: AppColors.petalWhite.withValues(
+                                        alpha: 0.55,
+                                      ),
                                       letterSpacing: 1.0,
                                     ),
                                   ),
@@ -339,7 +378,8 @@ class _MusicCardState extends State<MusicCard>
                                   child: AnimatedOpacity(
                                     opacity: isLive ? 1 : 0,
                                     duration: const Duration(milliseconds: 400),
-                                    child: widget.vinylWidget ??
+                                    child:
+                                        widget.vinylWidget ??
                                         VinylRecord(isPlaying: isLive),
                                   ),
                                 ),
@@ -351,12 +391,16 @@ class _MusicCardState extends State<MusicCard>
                                   boxShadow: [
                                     if (isLive)
                                       BoxShadow(
-                                        color: AppColors.deepRose.withValues(alpha: 0.28),
+                                        color: AppColors.deepRose.withValues(
+                                          alpha: 0.28,
+                                        ),
                                         blurRadius: 18,
                                         spreadRadius: 1,
                                       ),
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.28),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.28,
+                                      ),
                                       blurRadius: 16,
                                       offset: const Offset(0, 6),
                                     ),
@@ -369,20 +413,27 @@ class _MusicCardState extends State<MusicCard>
                                     children: [
                                       AnimatedScale(
                                         scale: isLive ? 1.04 : 1.0,
-                                        duration: const Duration(milliseconds: 600),
+                                        duration: const Duration(
+                                          milliseconds: 600,
+                                        ),
                                         curve: AppMotion.easeOutStrong,
                                         child: widget.status.imageUrl != null
                                             ? Image.network(
                                                 widget.status.imageUrl!,
                                                 fit: BoxFit.cover,
                                                 cacheWidth: 220,
-                                                errorBuilder: (c, e, s) => _FallbackArt(isLive: isLive),
+                                                errorBuilder: (c, e, s) =>
+                                                    _FallbackArt(
+                                                      isLive: isLive,
+                                                    ),
                                               )
                                             : _FallbackArt(isLive: isLive),
                                       ),
                                       if (!isLive)
                                         Container(
-                                          color: Colors.black.withValues(alpha: 0.18),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.18,
+                                          ),
                                         ),
                                       if (!isLive)
                                         Container(
@@ -392,7 +443,9 @@ class _MusicCardState extends State<MusicCard>
                                               end: Alignment.bottomCenter,
                                               colors: [
                                                 Colors.transparent,
-                                                Colors.black.withValues(alpha: 0.22),
+                                                Colors.black.withValues(
+                                                  alpha: 0.22,
+                                                ),
                                               ],
                                             ),
                                           ),
@@ -400,20 +453,33 @@ class _MusicCardState extends State<MusicCard>
                                       Positioned.fill(
                                         child: DecoratedBox(
                                           decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(16),
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
                                             border: Border.all(
-                                              color: Colors.white.withValues(alpha: isLive ? 0.10 : 0.06),
+                                              color: Colors.white.withValues(
+                                                alpha: isLive ? 0.10 : 0.06,
+                                              ),
                                             ),
                                             gradient: LinearGradient(
                                               begin: Alignment.topLeft,
                                               end: Alignment.bottomRight,
                                               colors: [
-                                                Colors.white.withValues(alpha: 0.14),
+                                                Colors.white.withValues(
+                                                  alpha: 0.14,
+                                                ),
                                                 Colors.transparent,
                                                 Colors.transparent,
-                                                Colors.white.withValues(alpha: 0.06),
+                                                Colors.white.withValues(
+                                                  alpha: 0.06,
+                                                ),
                                               ],
-                                              stops: const [0.0, 0.18, 0.72, 1.0],
+                                              stops: const [
+                                                0.0,
+                                                0.18,
+                                                0.72,
+                                                1.0,
+                                              ],
                                             ),
                                           ),
                                         ),
@@ -426,11 +492,21 @@ class _MusicCardState extends State<MusicCard>
                                             width: 22,
                                             height: 22,
                                             decoration: BoxDecoration(
-                                              color: Colors.black.withValues(alpha: 0.42),
+                                              color: Colors.black.withValues(
+                                                alpha: 0.42,
+                                              ),
                                               shape: BoxShape.circle,
-                                              border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+                                              border: Border.all(
+                                                color: Colors.white.withValues(
+                                                  alpha: 0.18,
+                                                ),
+                                              ),
                                             ),
-                                            child: const Icon(Icons.play_arrow_rounded, size: 14, color: Colors.white),
+                                            child: const Icon(
+                                              Icons.play_arrow_rounded,
+                                              size: 14,
+                                              color: Colors.white,
+                                            ),
                                           ),
                                         ),
                                     ],
@@ -448,7 +524,9 @@ class _MusicCardState extends State<MusicCard>
                                       borderRadius: BorderRadius.circular(99),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.35),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.35,
+                                          ),
                                           blurRadius: 12,
                                           spreadRadius: -2,
                                         ),
@@ -467,28 +545,40 @@ class _MusicCardState extends State<MusicCard>
                                   widget.marqueeWidget!
                                 else
                                   Text(
-                                    widget.status.trackName.isEmpty ? '—' : widget.status.trackName,
+                                    widget.status.trackName.isEmpty
+                                        ? '—'
+                                        : widget.status.trackName,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: AppTypography.outfitWhite.copyWith(
                                       fontSize: 16.5,
                                       fontWeight: FontWeight.w800,
-                                      color: isLive ? AppColors.petalWhite : AppColors.petalWhite.withValues(alpha: 0.82),
+                                      color: isLive
+                                          ? AppColors.petalWhite
+                                          : AppColors.petalWhite.withValues(
+                                              alpha: 0.82,
+                                            ),
                                       letterSpacing: -0.2,
                                       height: 1.1,
                                     ),
                                   ),
                                 const SizedBox(height: 3),
                                 Text(
-                                  widget.status.artistName.isEmpty ? 'Unknown Artist' : widget.status.artistName,
+                                  widget.status.artistName.isEmpty
+                                      ? 'Unknown Artist'
+                                      : widget.status.artistName,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: AppTypography.outfitWhite.copyWith(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
                                     color: isLive
-                                        ? AppColors.petalWhite.withValues(alpha: 0.78)
-                                        : AppColors.petalWhite.withValues(alpha: 0.62),
+                                        ? AppColors.petalWhite.withValues(
+                                            alpha: 0.78,
+                                          )
+                                        : AppColors.petalWhite.withValues(
+                                            alpha: 0.62,
+                                          ),
                                   ),
                                 ),
                                 if (widget.status.albumName.isNotEmpty)
@@ -500,7 +590,9 @@ class _MusicCardState extends State<MusicCard>
                                       overflow: TextOverflow.ellipsis,
                                       style: AppTypography.outfitWhite.copyWith(
                                         fontSize: 11,
-                                        color: AppColors.petalWhite.withValues(alpha: isLive ? 0.52 : 0.42),
+                                        color: AppColors.petalWhite.withValues(
+                                          alpha: isLive ? 0.52 : 0.42,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -512,7 +604,9 @@ class _MusicCardState extends State<MusicCard>
                                         width: 4,
                                         height: 4,
                                         decoration: BoxDecoration(
-                                          color: AppColors.blushGold.withValues(alpha: 0.9),
+                                          color: AppColors.blushGold.withValues(
+                                            alpha: 0.9,
+                                          ),
                                           shape: BoxShape.circle,
                                         ),
                                       ),
@@ -522,12 +616,14 @@ class _MusicCardState extends State<MusicCard>
                                           'Tap to listen along →',
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: AppTypography.outfitWhite.copyWith(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppColors.blushGold.withValues(alpha: 0.9),
-                                            letterSpacing: 0.15,
-                                          ),
+                                          style: AppTypography.outfitWhite
+                                              .copyWith(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppColors.blushGold
+                                                    .withValues(alpha: 0.9),
+                                                letterSpacing: 0.15,
+                                              ),
                                         ),
                                       ),
                                     ],
@@ -535,7 +631,13 @@ class _MusicCardState extends State<MusicCard>
                                 else
                                   Row(
                                     children: [
-                                      Icon(Icons.schedule_rounded, size: 12, color: AppColors.petalWhite.withValues(alpha: 0.42)),
+                                      Icon(
+                                        Icons.schedule_rounded,
+                                        size: 12,
+                                        color: AppColors.petalWhite.withValues(
+                                          alpha: 0.42,
+                                        ),
+                                      ),
                                       const SizedBox(width: 5),
                                       Expanded(
                                         child: Text(
@@ -544,11 +646,13 @@ class _MusicCardState extends State<MusicCard>
                                               : 'Not vibing right now',
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: AppTypography.outfitWhite.copyWith(
-                                            fontSize: 11,
-                                            fontStyle: FontStyle.italic,
-                                            color: AppColors.petalWhite.withValues(alpha: 0.48),
-                                          ),
+                                          style: AppTypography.outfitWhite
+                                              .copyWith(
+                                                fontSize: 11,
+                                                fontStyle: FontStyle.italic,
+                                                color: AppColors.petalWhite
+                                                    .withValues(alpha: 0.48),
+                                              ),
                                         ),
                                       ),
                                     ],
@@ -584,22 +688,20 @@ class _FallbackArt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            AppColors.velvet,
-            AppColors.plum,
-            AppColors.twilight,
-          ],
+          colors: [AppColors.velvet, AppColors.plum, AppColors.twilight],
         ),
       ),
       child: Center(
         child: Icon(
           Icons.music_note_rounded,
           size: 32,
-          color: isLive ? AppColors.roseQuartz : AppColors.roseQuartz.withValues(alpha: 0.55),
+          color: isLive
+              ? AppColors.roseQuartz
+              : AppColors.roseQuartz.withValues(alpha: 0.55),
         ),
       ),
     );
@@ -618,7 +720,10 @@ class _PulsingDotState extends State<_PulsingDot>
   @override
   void initState() {
     super.initState();
-    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat();
   }
 
   @override
@@ -631,7 +736,7 @@ class _PulsingDotState extends State<_PulsingDot>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _c,
-      builder: (_, __) {
+      builder: (_, _) {
         final t = _c.value;
         return SizedBox(
           width: 10,
@@ -646,7 +751,7 @@ class _PulsingDotState extends State<_PulsingDot>
                   child: Container(
                     width: 8,
                     height: 8,
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: AppColors.success,
                       shape: BoxShape.circle,
                     ),
@@ -691,7 +796,10 @@ class _EqualizerBarsState extends State<_EqualizerBars>
   @override
   void initState() {
     super.initState();
-    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 420))..repeat();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
+    )..repeat();
   }
 
   @override

@@ -49,8 +49,9 @@ class MemoryRetriever {
 
     if (tokens.isEmpty) return score;
 
-    final factText = '${fact.fact} ${fact.subject ?? ''} '
-        '${fact.relation ?? ''} ${fact.object ?? ''} ${fact.category}'
+    final factText =
+        '${fact.fact} ${fact.subject ?? ''} '
+                '${fact.relation ?? ''} ${fact.object ?? ''} ${fact.category}'
             .toLowerCase();
     for (final token in tokens) {
       if (factText.contains(token)) score += 1.5;
@@ -178,11 +179,13 @@ class RelationshipInsights {
       }
       if (counts.isNotEmpty) {
         final top = counts.entries.reduce((a, b) => a.value >= b.value ? a : b);
-        insights.add(RelationshipInsight(
-          title: 'Mood signal',
-          detail: '"${top.key}" shows up most often in recent check-ins.',
-          category: 'mood',
-        ));
+        insights.add(
+          RelationshipInsight(
+            title: 'Mood signal',
+            detail: '"${top.key}" shows up most often in recent check-ins.',
+            category: 'mood',
+          ),
+        );
       }
     }
 
@@ -207,13 +210,16 @@ class RelationshipInsights {
         }
       }
       if (categories.isNotEmpty) {
-        final top = categories.entries
-            .reduce((a, b) => a.value >= b.value ? a : b);
-        insights.add(RelationshipInsight(
-          title: 'Shared rhythm',
-          detail: 'Recent activity leans toward ${top.key}.',
-          category: 'activity',
-        ));
+        final top = categories.entries.reduce(
+          (a, b) => a.value >= b.value ? a : b,
+        );
+        insights.add(
+          RelationshipInsight(
+            title: 'Shared rhythm',
+            detail: 'Recent activity leans toward ${top.key}.',
+            category: 'activity',
+          ),
+        );
       }
     }
 

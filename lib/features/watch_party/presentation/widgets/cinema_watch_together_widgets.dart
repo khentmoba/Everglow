@@ -83,10 +83,7 @@ class _ActivePartyCard extends StatelessWidget {
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => WatchPartyScreen(
-              initialRoom: room,
-              isHost: isHost,
-            ),
+            builder: (_) => WatchPartyScreen(initialRoom: room, isHost: isHost),
           ),
         );
       },
@@ -219,21 +216,14 @@ class _WatchTogetherPoster extends StatelessWidget {
   final MediaItem item;
   final VoidCallback onTap;
 
-  const _WatchTogetherPoster({
-    required this.item,
-    required this.onTap,
-  });
+  const _WatchTogetherPoster({required this.item, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       fit: StackFit.expand,
       children: [
-        NetflixPosterCard(
-          item: item,
-          compact: true,
-          onTap: onTap,
-        ),
+        NetflixPosterCard(item: item, compact: true, onTap: onTap),
         Positioned(
           right: 6,
           bottom: 6,
@@ -260,10 +250,7 @@ class _WatchTogetherStage extends StatelessWidget {
   final bool isEmpty;
   final VoidCallback onHost;
 
-  const _WatchTogetherStage({
-    required this.isEmpty,
-    required this.onHost,
-  });
+  const _WatchTogetherStage({required this.isEmpty, required this.onHost});
 
   @override
   Widget build(BuildContext context) {
@@ -303,10 +290,7 @@ class _WatchTogetherStage extends StatelessWidget {
                           gradient: const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [
-                              NetflixColors.accent,
-                              Color(0xFF8E1444),
-                            ],
+                            colors: [NetflixColors.accent, Color(0xFF8E1444)],
                           ),
                           shape: BoxShape.circle,
                           boxShadow: [
@@ -490,7 +474,8 @@ class _JellyfinSearchDialogState extends State<_JellyfinSearchDialog> {
       _searching = false;
       _results = results ?? const [];
       if (results == null) {
-        _error = 'Could not reach Jellyfin. Make sure the server is running '
+        _error =
+            'Could not reach Jellyfin. Make sure the server is running '
             'and the API key is valid.';
       } else if (results.isEmpty) {
         _error = 'No movies found in the library for "$text".';
@@ -500,8 +485,10 @@ class _JellyfinSearchDialogState extends State<_JellyfinSearchDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final dialogHeight =
-        (MediaQuery.sizeOf(context).height * 0.8).clamp(320.0, 440.0);
+    final dialogHeight = (MediaQuery.sizeOf(context).height * 0.8).clamp(
+      320.0,
+      440.0,
+    );
     return Dialog(
       backgroundColor: NetflixColors.surface,
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -657,10 +644,7 @@ class _JellyfinSearchDialogState extends State<_JellyfinSearchDialog> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(6),
                   child: Image.network(
-                    widget.service.posterUrlFor(
-                      movie.id,
-                      tag: movie.imageTag,
-                    ),
+                    widget.service.posterUrlFor(movie.id, tag: movie.imageTag),
                     width: 48,
                     height: 68,
                     fit: BoxFit.cover,

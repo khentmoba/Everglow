@@ -38,7 +38,10 @@ Widget buildCastInitial(String name) {
     alignment: Alignment.center,
     child: Text(
       getInitial(name),
-      style: AppTypography.cormorantBold.copyWith(fontSize: 26, color: avatarColor(name)),
+      style: AppTypography.cormorantBold.copyWith(
+        fontSize: 26,
+        color: avatarColor(name),
+      ),
     ),
   );
 }
@@ -64,7 +67,10 @@ Widget buildEmptySection(String msg) {
     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
     child: Text(
       msg,
-      style: AppTypography.outfitWhite.copyWith(color: AppColors.mutedPurple, fontSize: 13),
+      style: AppTypography.outfitWhite.copyWith(
+        color: AppColors.mutedPurple,
+        fontSize: 13,
+      ),
     ),
   );
 }

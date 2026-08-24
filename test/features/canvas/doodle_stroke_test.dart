@@ -32,7 +32,9 @@ void main() {
       final date = DateTime(2026, 1, 15, 10, 30);
       final stroke = DoodleStroke(
         id: 'abc',
-        points: [{'x': 0.0, 'y': 0.0}],
+        points: [
+          {'x': 0.0, 'y': 0.0},
+        ],
         color: '#B0E0E6',
         strokeWidth: 5.0,
         createdAt: date,
@@ -47,16 +49,15 @@ void main() {
     test('copyWith creates new instance with overridden fields', () {
       final original = DoodleStroke(
         id: 'orig',
-        points: [{'x': 0.5, 'y': 0.5}],
+        points: [
+          {'x': 0.5, 'y': 0.5},
+        ],
         color: '#FFC0CB',
         strokeWidth: 3.0,
         userId: 'user1',
       );
 
-      final copied = original.copyWith(
-        color: '#98FB98',
-        strokeWidth: 8.0,
-      );
+      final copied = original.copyWith(color: '#98FB98', strokeWidth: 8.0);
 
       expect(copied.id, 'orig'); // unchanged
       expect(copied.color, '#98FB98'); // changed
@@ -68,7 +69,9 @@ void main() {
     test('copyWith with no arguments returns equivalent instance', () {
       final original = DoodleStroke(
         id: 'test',
-        points: [{'x': 1.0, 'y': 1.0}],
+        points: [
+          {'x': 1.0, 'y': 1.0},
+        ],
         color: '#FFFACD',
         strokeWidth: 2.0,
         userId: 'user3',

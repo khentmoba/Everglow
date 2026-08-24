@@ -48,7 +48,6 @@ class EpisodeDrawer extends StatefulWidget {
 }
 
 class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
-
   @override
   Widget build(BuildContext context) {
     final ratingNum = _details?['vote_average'] as num?;
@@ -169,11 +168,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                       horizontal: 20,
                       vertical: 8,
                     ),
-                    child: Column(
-                      children: [
-                        _buildPlayButton(),
-                      ],
-                    ),
+                    child: Column(children: [_buildPlayButton()]),
                   ),
                 )
               else
@@ -472,8 +467,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
   // HELPERS
   // ═══════════════════════════════════════════════════════════════
 
-
-
   // ──────────────────────────────────────────────────────────────
   // CINEMA ENHANCED VARIANT
   // ──────────────────────────────────────────────────────────────
@@ -565,7 +558,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                 isAnimeSourced: _isAnimeSourced,
               ),
             ),
-            SliverToBoxAdapter(
+            const SliverToBoxAdapter(
               child: CinemaSectionHeader(
                 eyebrow: 'WORD OF MOUTH',
                 title: 'Reviews',
@@ -577,7 +570,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                 isLoading: _isLoadingReviews,
               ),
             ),
-            SliverToBoxAdapter(
+            const SliverToBoxAdapter(
               child: CinemaSectionHeader(
                 eyebrow: 'DISCOVER MORE',
                 title: 'Mochi says\u2026 \u{1F431}',
@@ -876,18 +869,10 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     );
   }
 
-
-
-
-
   Widget _buildCinemaActions() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 6),
-      child: Column(
-        children: [
-          _buildCinemaPlayButton(),
-        ],
-      ),
+      child: Column(children: [_buildCinemaPlayButton()]),
     );
   }
 
@@ -941,12 +926,10 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
   /// status). Renders a leading icon and a tighter padding than the
   /// genre chip so the three facts fit on one row at mobile width.
 
-
   /// Live countdown chip showing time until the next episode airs. Uses a
   /// one-minute timer to keep the countdown accurate without excessive
   /// rebuilds. The chip is pulsing-animated to draw attention and only
   /// rendered when AniList provides a `nextAiringAt` timestamp.
-
 
   Widget _buildStatusChip(
     String label,

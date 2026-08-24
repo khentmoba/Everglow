@@ -11,7 +11,8 @@ class AIConversationRepository implements IAIConversationRepository {
   final FirebaseFirestore _db;
   final User? _userOverride;
 
-  String get _uid => _userOverride?.uid ?? FirebaseAuth.instance.currentUser?.uid ?? '';
+  String get _uid =>
+      _userOverride?.uid ?? FirebaseAuth.instance.currentUser?.uid ?? '';
 
   // Feature-specific conversation caches
   AIConversation? _assistantConversation;
@@ -20,8 +21,8 @@ class AIConversationRepository implements IAIConversationRepository {
   AIConversation? _dateIdeaConversation;
 
   AIConversationRepository({FirebaseFirestore? db, User? user})
-      : _db = db ?? FirebaseFirestore.instance,
-        _userOverride = user;
+    : _db = db ?? FirebaseFirestore.instance,
+      _userOverride = user;
 
   @override
   AIConversation? get assistant => _assistantConversation;
@@ -30,25 +31,39 @@ class AIConversationRepository implements IAIConversationRepository {
 
   AIConversation? _get(String feature) {
     switch (feature) {
-      case 'assistant': return _assistantConversation;
-      case 'guardian': return _guardianConversation;
-      case 'recommendations': return _recommendationConversation;
-      case 'date_ideas': return _dateIdeaConversation;
-      default: return null;
+      case 'assistant':
+        return _assistantConversation;
+      case 'guardian':
+        return _guardianConversation;
+      case 'recommendations':
+        return _recommendationConversation;
+      case 'date_ideas':
+        return _dateIdeaConversation;
+      default:
+        return null;
     }
   }
 
   void _set(String feature, AIConversation? conv) {
     switch (feature) {
-      case 'assistant': _assistantConversation = conv; break;
-      case 'guardian': _guardianConversation = conv; break;
-      case 'recommendations': _recommendationConversation = conv; break;
-      case 'date_ideas': _dateIdeaConversation = conv; break;
+      case 'assistant':
+        _assistantConversation = conv;
+        break;
+      case 'guardian':
+        _guardianConversation = conv;
+        break;
+      case 'recommendations':
+        _recommendationConversation = conv;
+        break;
+      case 'date_ideas':
+        _dateIdeaConversation = conv;
+        break;
     }
   }
 
   @override
-  void setConversation(String feature, AIConversation? conv) => _set(feature, conv);
+  void setConversation(String feature, AIConversation? conv) =>
+      _set(feature, conv);
 
   /// Get or create a conversation for a feature, with Firestore fallback.
   @override
@@ -80,7 +95,9 @@ class AIConversationRepository implements IAIConversationRepository {
         return conv;
       }
     } catch (e) {
-      debugPrint('[AIConversationRepository] Failed to load conversation from Firestore: $e');
+      debugPrint(
+        '[AIConversationRepository] Failed to load conversation from Firestore: $e',
+      );
     }
 
     final conv = AIConversation(id: feature, feature: feature);
@@ -181,18 +198,24 @@ class AIConversationRepository implements IAIConversationRepository {
     }
 
     try {
-      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken() ?? '';
-      final response = await http.post(
-        Uri.parse('https://proxyaiv2-6pr4gqobxa-uc.a.run.app'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $idToken',
-        },
-        body: jsonEncode({
-          'systemPrompt': 'Summarize this conversation in 2-3 sentences. Focus on key topics, decisions, and notable moments. Be concise.',
-          'messages': [{'role': 'user', 'content': userMessages}],
-        }),
-      ).timeout(const Duration(seconds: 30));
+      final idToken =
+          await FirebaseAuth.instance.currentUser?.getIdToken() ?? '';
+      final response = await http
+          .post(
+            Uri.parse('https://proxyaiv2-6pr4gqobxa-uc.a.run.app'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $idToken',
+            },
+            body: jsonEncode({
+              'systemPrompt':
+                  'Summarize this conversation in 2-3 sentences. Focus on key topics, decisions, and notable moments. Be concise.',
+              'messages': [
+                {'role': 'user', 'content': userMessages},
+              ],
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -200,7 +223,9 @@ class AIConversationRepository implements IAIConversationRepository {
         if (summary.isNotEmpty) return summary;
       }
     } catch (e) {
-      debugPrint('[AIConversationRepository] Summary API call failed, falling back to local: $e');
+      debugPrint(
+        '[AIConversationRepository] Summary API call failed, falling back to local: $e',
+      );
     }
 
     // Fallback to local summarization
@@ -232,18 +257,24 @@ class AIConversationRepository implements IAIConversationRepository {
       // Try LLM merge, fallback to simple concatenation
       String mergedSummary;
       try {
-        final idToken = await FirebaseAuth.instance.currentUser?.getIdToken() ?? '';
-        final response = await http.post(
-          Uri.parse('https://proxyaiv2-6pr4gqobxa-uc.a.run.app'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $idToken',
-          },
-          body: jsonEncode({
-            'systemPrompt': 'Merge these session summaries into one concise paragraph preserving key information.',
-            'messages': [{'role': 'user', 'content': summaries}],
-          }),
-        ).timeout(const Duration(seconds: 30));
+        final idToken =
+            await FirebaseAuth.instance.currentUser?.getIdToken() ?? '';
+        final response = await http
+            .post(
+              Uri.parse('https://proxyaiv2-6pr4gqobxa-uc.a.run.app'),
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer $idToken',
+              },
+              body: jsonEncode({
+                'systemPrompt':
+                    'Merge these session summaries into one concise paragraph preserving key information.',
+                'messages': [
+                  {'role': 'user', 'content': summaries},
+                ],
+              }),
+            )
+            .timeout(const Duration(seconds: 30));
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
@@ -257,14 +288,18 @@ class AIConversationRepository implements IAIConversationRepository {
       }
 
       // Write merged summary, delete old ones
-      await _db.collection('ai_memories').doc('shared').collection('sessions').add({
-        'summary': mergedSummary,
-        'hasSummary': true,
-        'messages': [],
-        'feature': 'assistant',
-        'messageCount': 0,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      await _db
+          .collection('ai_memories')
+          .doc('shared')
+          .collection('sessions')
+          .add({
+            'summary': mergedSummary,
+            'hasSummary': true,
+            'messages': [],
+            'feature': 'assistant',
+            'messageCount': 0,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
       for (final doc in toMerge) {
         await doc.reference.delete();
       }
@@ -297,7 +332,9 @@ class AIConversationRepository implements IAIConversationRepository {
               ? '${firstSentence.substring(0, 80)}…'
               : firstSentence;
           // Deduplicate against near-matches
-          final key = gist.substring(0, gist.length > 20 ? 20 : gist.length).toLowerCase();
+          final key = gist
+              .substring(0, gist.length > 20 ? 20 : gist.length)
+              .toLowerCase();
           if (seen.add(key) && topics.length < 8) {
             topics.add(gist);
           }
@@ -373,7 +410,9 @@ class AIConversationRepository implements IAIConversationRepository {
           .doc(feature)
           .delete();
     } catch (e) {
-      debugPrint('[AIConversationRepository] Failed to delete conversation: $e');
+      debugPrint(
+        '[AIConversationRepository] Failed to delete conversation: $e',
+      );
     }
   }
 
@@ -416,20 +455,27 @@ class AIConversationRepository implements IAIConversationRepository {
         final messages = data['messages'] as List? ?? [];
         final hasSummary = data['hasSummary'] as bool? ?? true;
         final summary = data['summary'] as String?;
-        final createdAt = (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+        final createdAt =
+            (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
 
         // Generate title from first user message or summary
         String title = 'New conversation';
         if (hasSummary && summary != null && summary.isNotEmpty) {
-          title = summary.length > 60 ? '${summary.substring(0, 60)}…' : summary;
+          title = summary.length > 60
+              ? '${summary.substring(0, 60)}…'
+              : summary;
         } else if (messages.isNotEmpty) {
           final firstUserMsg = messages.firstWhere(
             (m) => (m as Map<String, dynamic>)['role'] == 'user',
             orElse: () => null,
           );
           if (firstUserMsg != null) {
-            final content = (firstUserMsg as Map<String, dynamic>)['content'] as String? ?? '';
-            title = content.length > 60 ? '${content.substring(0, 60)}…' : content;
+            final content =
+                (firstUserMsg as Map<String, dynamic>)['content'] as String? ??
+                '';
+            title = content.length > 60
+                ? '${content.substring(0, 60)}…'
+                : content;
           }
         }
 
@@ -475,7 +521,9 @@ class AIConversationRepository implements IAIConversationRepository {
           conv.messages.add(AIMessage.fromJson(msg as Map<String, dynamic>));
         }
       } else if (summary != null && summary.isNotEmpty) {
-        conv.messages.add(AIMessage(role: 'assistant', content: 'Summary: $summary'));
+        conv.messages.add(
+          AIMessage(role: 'assistant', content: 'Summary: $summary'),
+        );
       }
 
       _assistantConversation = conv;

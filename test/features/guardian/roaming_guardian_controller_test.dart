@@ -75,31 +75,33 @@ void main() {
       controller.dispose();
     });
 
-    test('beginDrag freezes roaming and endDrag resumes from the drop point',
-        () {
-      final controller = makeController(seed: 11);
-      controller.attach(bounds);
-      pump(controller, 60);
-      final before = controller.position;
+    test(
+      'beginDrag freezes roaming and endDrag resumes from the drop point',
+      () {
+        final controller = makeController(seed: 11);
+        controller.attach(bounds);
+        pump(controller, 60);
+        final before = controller.position;
 
-      controller.beginDrag();
-      controller.dragBy(const Offset(120, -80));
-      final dropped = controller.position;
-      expect(dropped, isNot(equals(before)));
+        controller.beginDrag();
+        controller.dragBy(const Offset(120, -80));
+        final dropped = controller.position;
+        expect(dropped, isNot(equals(before)));
 
-      pump(controller, 30);
-      expect(controller.position, dropped);
-      expect(controller.isDragging, isTrue);
+        pump(controller, 30);
+        expect(controller.position, dropped);
+        expect(controller.isDragging, isTrue);
 
-      controller.endDrag();
-      expect(controller.isDragging, isFalse);
-      expect(controller.activity, RoamingActivity.wandering);
-      expect(controller.position, dropped);
+        controller.endDrag();
+        expect(controller.isDragging, isFalse);
+        expect(controller.activity, RoamingActivity.wandering);
+        expect(controller.position, dropped);
 
-      pump(controller, 5);
-      expect(controller.position, isNot(equals(dropped)));
-      controller.dispose();
-    });
+        pump(controller, 5);
+        expect(controller.position, isNot(equals(dropped)));
+        controller.dispose();
+      },
+    );
 
     test('burst triggers a zoomie dash', () {
       final controller = makeController(seed: 13);
@@ -134,10 +136,7 @@ void main() {
         depths.add(controller.depth);
       }
 
-      expect(
-        depths,
-        containsAll(<CatDepth>[CatDepth.front, CatDepth.behind]),
-      );
+      expect(depths, containsAll(<CatDepth>[CatDepth.front, CatDepth.behind]));
       controller.dispose();
     });
 

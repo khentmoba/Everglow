@@ -42,8 +42,9 @@ class AnimeXTopHeader extends StatelessWidget {
       ),
       child: Center(
         child: ConstrainedBox(
-          constraints:
-              const BoxConstraints(maxWidth: AnimeXTokens.pageMaxWidth),
+          constraints: const BoxConstraints(
+            maxWidth: AnimeXTokens.pageMaxWidth,
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -69,8 +70,7 @@ class AnimeXTopHeader extends StatelessWidget {
                   for (final (page, label, _) in items) ...[
                     _NavItem(
                       label: label,
-                      active: controller.page == page &&
-                          !controller.hasDetail,
+                      active: controller.page == page && !controller.hasDetail,
                       onTap: () => controller.goTo(page),
                     ),
                   ],
@@ -92,9 +92,9 @@ class AnimeXTopHeader extends StatelessWidget {
                 AnimeXGhostButton(
                   label: 'My List',
                   icon: Icons.bookmark_add_outlined,
-                    color: AnimeXTokens.textPrimary,
-                    onTap: () => controller.goTo(AnimexPage.myList),
-                  ),
+                  color: AnimeXTokens.textPrimary,
+                  onTap: () => controller.goTo(AnimexPage.myList),
+                ),
                 if (isDesktop) ...[
                   const SizedBox(width: 8),
                   const _SourceToggle(),
@@ -150,7 +150,12 @@ class AnimeXMobileBottomNav extends StatelessWidget {
         Icons.bookmark_add_outlined,
         Icons.bookmark_add_rounded,
       ),
-      (AnimexPage.history, 'History', Icons.history_rounded, Icons.history_rounded),
+      (
+        AnimexPage.history,
+        'History',
+        Icons.history_rounded,
+        Icons.history_rounded,
+      ),
     ];
 
     return Container(
@@ -228,9 +233,7 @@ class _NavItem extends StatelessWidget {
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
-                color: active
-                    ? AnimeXTokens.accent
-                    : Colors.transparent,
+                color: active ? AnimeXTokens.accent : Colors.transparent,
                 width: 2,
               ),
             ),
@@ -284,8 +287,7 @@ class _TitleLanguageToggle extends StatelessWidget {
       labels: const ['EN', 'JP'],
       selected: japanese ? 1 : 0,
       activeBackground: AnimeXTokens.accent,
-      onSelect: (i) =>
-          context.read<AnimexStores>().setTitleJapanese(i == 1),
+      onSelect: (i) => context.read<AnimexStores>().setTitleJapanese(i == 1),
     );
   }
 }
@@ -322,8 +324,10 @@ class _SegmentedPill extends StatelessWidget {
                 cursor: SystemMouseCursors.click,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: i == selected
                         ? activeBackground

@@ -15,8 +15,8 @@ class AIMemoryRepository implements IAIMemoryRepository {
   bool _memoriesLoaded = false;
 
   AIMemoryRepository({FirebaseFirestore? db, User? user})
-      : _db = db ?? FirebaseFirestore.instance,
-        _user = user;
+    : _db = db ?? FirebaseFirestore.instance,
+      _user = user;
 
   @override
   List<String> get all => List.unmodifiable(_memories);
@@ -167,26 +167,23 @@ class AIMemoryRepository implements IAIMemoryRepository {
     try {
       final parser = const FactStructureParser();
       final inferred = parser.parse(fact);
-      await _db
-          .collection('ai_memories')
-          .doc('shared')
-          .collection('facts')
-          .add({
-            'fact': fact.trim(),
-            'category': category,
-            'subject': subject ?? inferred.$1,
-            'relation': relation ?? inferred.$2,
-            'object': object ?? inferred.$3,
-            if (occurredAt != null)
-              'occurredAt': Timestamp.fromDate(occurredAt),
-            'addedBy': _user?.uid ?? 'unknown',
-            'createdAt': FieldValue.serverTimestamp(),
-            'confidence': 1.0,
-            'accessCount': 0,
-            'lastAccessed': null,
-            'pinned': false,
-            'source': _user?.uid ?? 'unknown',
-          });
+      await _db.collection('ai_memories').doc('shared').collection('facts').add(
+        {
+          'fact': fact.trim(),
+          'category': category,
+          'subject': subject ?? inferred.$1,
+          'relation': relation ?? inferred.$2,
+          'object': object ?? inferred.$3,
+          if (occurredAt != null) 'occurredAt': Timestamp.fromDate(occurredAt),
+          'addedBy': _user?.uid ?? 'unknown',
+          'createdAt': FieldValue.serverTimestamp(),
+          'confidence': 1.0,
+          'accessCount': 0,
+          'lastAccessed': null,
+          'pinned': false,
+          'source': _user?.uid ?? 'unknown',
+        },
+      );
       _memories.insert(0, fact.trim());
       _facts.insert(
         0,
@@ -208,9 +205,15 @@ class AIMemoryRepository implements IAIMemoryRepository {
   /// Check if a normalized fact is already in the cache.
   @override
   bool isDuplicate(String fact) {
-    final normalized = fact.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '').trim();
+    final normalized = fact
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^\w\s]'), '')
+        .trim();
     return _memories.any((existing) {
-      final existingNorm = existing.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '').trim();
+      final existingNorm = existing
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^\w\s]'), '')
+          .trim();
       return normalized == existingNorm ||
           existingNorm.contains(normalized) ||
           normalized.contains(existingNorm);

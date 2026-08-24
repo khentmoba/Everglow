@@ -104,13 +104,9 @@ class RoamingGuardianController extends ChangeNotifier {
         _bounds.width * (0.35 + _random.nextDouble() * 0.3),
         _bounds.height * (0.45 + _random.nextDouble() * 0.25),
       );
-      _depth = _random.nextDouble() < 0.55
-          ? CatDepth.front
-          : CatDepth.behind;
+      _depth = _random.nextDouble() < 0.55 ? CatDepth.front : CatDepth.behind;
       _activity = RoamingActivity.idle;
-      _activityRemaining = Duration(
-        milliseconds: 500 + _random.nextInt(700),
-      );
+      _activityRemaining = Duration(milliseconds: 500 + _random.nextInt(700));
     }
     if (changed || firstBounds) {
       _ensureTicking();
@@ -139,8 +135,10 @@ class RoamingGuardianController extends ChangeNotifier {
     if (_bounds.isEmpty || _dragging) {
       return;
     }
-    final dt = (elapsed.inMicroseconds / Duration.microsecondsPerSecond)
-        .clamp(0.0, 0.1);
+    final dt = (elapsed.inMicroseconds / Duration.microsecondsPerSecond).clamp(
+      0.0,
+      0.1,
+    );
     _elapsed += dt;
 
     switch (_activity) {
@@ -161,8 +159,7 @@ class RoamingGuardianController extends ChangeNotifier {
         }
       case RoamingActivity.turning:
         _activityRemaining -= elapsed;
-        if (!_turnedOnce &&
-            _activityRemaining <= _turnDuration ~/ 2) {
+        if (!_turnedOnce && _activityRemaining <= _turnDuration ~/ 2) {
           _turnedOnce = true;
           _facing *= -1;
         }

@@ -56,7 +56,11 @@ class CalendarEvent {
       color: data['color'],
       recurring: data['recurring'] ?? 'none',
       location: data['location'] as String?,
-      attendees: (data['attendees'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
+      attendees:
+          (data['attendees'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
       isAllDay: data['isAllDay'] ?? false,
     );
   }

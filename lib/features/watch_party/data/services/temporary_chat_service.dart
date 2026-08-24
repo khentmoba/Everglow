@@ -15,7 +15,7 @@ class TemporaryChatService {
   final FirebaseFirestore _db;
 
   TemporaryChatService({FirebaseFirestore? firestore})
-      : _db = firestore ?? FirebaseFirestore.instance;
+    : _db = firestore ?? FirebaseFirestore.instance;
 
   static const String _collection = 'temporary_chats';
   static const String _messagesSubcollection = 'messages';
@@ -30,14 +30,11 @@ class TemporaryChatService {
   }) async {
     if (roomId.isEmpty || myUid.isEmpty || partnerUid.isEmpty) return;
     try {
-      await _db.collection(_collection).doc(roomId).set(
-            {
-              'hostUid': myUid,
-              'partnerUid': partnerUid,
-              'updatedAt': FieldValue.serverTimestamp(),
-            },
-            SetOptions(merge: true),
-          );
+      await _db.collection(_collection).doc(roomId).set({
+        'hostUid': myUid,
+        'partnerUid': partnerUid,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
     } catch (e) {
       debugPrint('TemporaryChatService.ensureRoom failed: $e');
     }
@@ -56,19 +53,20 @@ class TemporaryChatService {
         .limitToLast(200)
         .snapshots()
         .map((snapshot) {
-      final messages = <TemporaryChatMessage>[];
-      for (final doc in snapshot.docs) {
-        try {
-          messages.add(TemporaryChatMessage.fromFirestore(doc));
-        } catch (e) {
-          debugPrint('TemporaryChatService: failed to parse ${doc.id}: $e');
-        }
-      }
-      return messages;
-    }).handleError((error) {
-      debugPrint('TemporaryChatService stream error: $error');
-      throw error;
-    });
+          final messages = <TemporaryChatMessage>[];
+          for (final doc in snapshot.docs) {
+            try {
+              messages.add(TemporaryChatMessage.fromFirestore(doc));
+            } catch (e) {
+              debugPrint('TemporaryChatService: failed to parse ${doc.id}: $e');
+            }
+          }
+          return messages;
+        })
+        .handleError((error) {
+          debugPrint('TemporaryChatService stream error: $error');
+          throw error;
+        });
   }
 
   /// Appends a message. Re-throws so the UI can show a friendly error.

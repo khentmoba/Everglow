@@ -23,14 +23,14 @@ class MoodService {
   Future<bool> hasSubmittedToday(String username) async {
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
-    
+
     final snapshot = await _db
         .collection('moods')
         .where('username', isEqualTo: username)
         .where('timestamp', isGreaterThanOrEqualTo: startOfDay)
         .limit(1)
         .get();
-    
+
     return snapshot.docs.isNotEmpty;
   }
 
@@ -44,9 +44,9 @@ class MoodService {
           .limit(1)
           .snapshots()
           .map((snapshot) {
-        if (snapshot.docs.isEmpty) return null;
-        return UserMood.fromFirestore(snapshot.docs.first.data());
-      }),
+            if (snapshot.docs.isEmpty) return null;
+            return UserMood.fromFirestore(snapshot.docs.first.data());
+          }),
       label: 'mood-$username',
     );
   }

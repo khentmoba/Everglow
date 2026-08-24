@@ -37,7 +37,8 @@ class _GatewayPageState extends State<GatewayPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _notifier.verifyCouplePasscode = (code) => context.read<AuthService>().verifyCouplePasscode(code);
+    _notifier.verifyCouplePasscode = (code) =>
+        context.read<AuthService>().verifyCouplePasscode(code);
   }
 
   Future<void> _seedDataOnce() async {
@@ -181,13 +182,11 @@ class _GatewayPageState extends State<GatewayPage> {
 
       try {
         // Khent/Clair are already signed in by verifyPasscode (custom token);
-        // just ensure the session is synced. Breyan/Octagram stay client-side.
-        if (passcode == EnvConfig.clairPasscode || passcode == EnvConfig.khentPasscode) {
-          // verifyPasscode already did signInWithCustomToken; sync is done.
+        // there is intentionally no client-side credential fallback.
+        if (passcode == EnvConfig.clairPasscode ||
+            passcode == EnvConfig.khentPasscode) {
           if (authService.currentUser == null) {
-            // Fallback if verify path was not used (e.g. pre-patch): try direct
-            if (passcode == EnvConfig.clairPasscode) await authService.loginWithPasscode('clairjassen');
-            else await authService.loginWithPasscode('khentsgdz');
+            authService.setAuthError('Server verification failed. Try again.');
           }
         } else if (passcode == EnvConfig.breyanPasscode) {
           // Breyan's cinema-only access: own user, isolated data
@@ -270,8 +269,8 @@ class _GatewayPageState extends State<GatewayPage> {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [AppColors.inkDeep, AppColors.twilight, AppColors.velvet],

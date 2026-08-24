@@ -16,8 +16,10 @@ import '../../../../core/theme/app_typography.dart';
 BookItem _resolveReaderBook(BookItem item) {
   if (item.readSourceUrl.isNotEmpty) return item;
   return item.copyWith(
-    readSourceUrl:
-        BookItem.deriveReadSourceUrl(iaId: item.iaId, workKey: item.workKey),
+    readSourceUrl: BookItem.deriveReadSourceUrl(
+      iaId: item.iaId,
+      workKey: item.workKey,
+    ),
     readSourceLabel: BookItem.deriveReadSourceLabel(iaId: item.iaId),
   );
 }
@@ -64,7 +66,10 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
     }
     final subjectsRaw = details['subjects'];
     final subjects = subjectsRaw is List
-        ? subjectsRaw.map((e) => e.toString()).where((s) => s.isNotEmpty).toList()
+        ? subjectsRaw
+              .map((e) => e.toString())
+              .where((s) => s.isNotEmpty)
+              .toList()
         : <String>[];
     setState(() {
       _description = desc;
@@ -94,7 +99,10 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg, style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite)),
+        content: Text(
+          msg,
+          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
+        ),
         backgroundColor: AppTheme.deepRose,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -205,11 +213,13 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: 0.5),
                 shape: BoxShape.circle,
-                border:
-                    Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
               ),
-              child: const Icon(Icons.close_rounded,
-                  color: Colors.white, size: 18),
+              child: const Icon(
+                Icons.close_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
             ),
           ),
         ),
@@ -223,12 +233,17 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
             children: [
               Text(
                 widget.item.title,
-                style: AppTypography.cormorantBlack.copyWith(fontSize: 28, height: 1.1, shadows: [
+                style: AppTypography.cormorantBlack.copyWith(
+                  fontSize: 28,
+                  height: 1.1,
+                  shadows: [
                     Shadow(
                       color: Colors.black.withValues(alpha: 0.7),
                       blurRadius: 16,
                     ),
-                  ], color: Colors.white),
+                  ],
+                  color: Colors.white,
+                ),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -236,7 +251,12 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
                 const SizedBox(height: 6),
                 Text(
                   'by ${widget.item.author}',
-                  style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.9), fontSize: 13, fontStyle: FontStyle.italic, fontWeight: FontWeight.w500),
+                  style: AppTypography.outfitWhite.copyWith(
+                    color: AppTheme.roseQuartz.withValues(alpha: 0.9),
+                    fontSize: 13,
+                    fontStyle: FontStyle.italic,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
               const SizedBox(height: 8),
@@ -245,7 +265,10 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
                   if (widget.item.year.isNotEmpty) ...[
                     Text(
                       widget.item.year,
-                      style: AppTypography.outfitHeading.copyWith(color: AppTheme.blushGold, fontSize: 12),
+                      style: AppTypography.outfitHeading.copyWith(
+                        color: AppTheme.blushGold,
+                        fontSize: 12,
+                      ),
                     ),
                     _dot(),
                   ],
@@ -258,7 +281,10 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
                     const SizedBox(width: 4),
                     Text(
                       widget.item.readSourceLabel,
-                      style: AppTypography.outfitBold.copyWith(color: AppTheme.roseQuartz, fontSize: 12),
+                      style: AppTypography.outfitBold.copyWith(
+                        color: AppTheme.roseQuartz,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ],
@@ -271,16 +297,16 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
   }
 
   Widget _dot() => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Container(
-          width: 3,
-          height: 3,
-          decoration: const BoxDecoration(
-            color: Color(0xFF8A7A92),
-            shape: BoxShape.circle,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 8),
+    child: Container(
+      width: 3,
+      height: 3,
+      decoration: const BoxDecoration(
+        color: Color(0xFF8A7A92),
+        shape: BoxShape.circle,
+      ),
+    ),
+  );
 
   Widget _buildMeta() {
     if (_isLoadingDetails) {
@@ -316,7 +342,11 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
               const SizedBox(width: 8),
               Text(
                 'READING STATUS',
-                style: AppTypography.outfitHeading.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.7), fontSize: 10, letterSpacing: 2),
+                style: AppTypography.outfitHeading.copyWith(
+                  color: AppTheme.roseQuartz.withValues(alpha: 0.7),
+                  fontSize: 10,
+                  letterSpacing: 2,
+                ),
               ),
             ],
           ),
@@ -326,25 +356,40 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
             physics: const BouncingScrollPhysics(),
             child: Row(
               children: [
-                _buildStatusChip('To Read', 'to-read',
-                    icon: Icons.bookmark_rounded),
+                _buildStatusChip(
+                  'To Read',
+                  'to-read',
+                  icon: Icons.bookmark_rounded,
+                ),
                 const SizedBox(width: 8),
                 if (isCinemaOnly) ...[
-                  _buildStatusChip('Read', 'read-self',
-                      icon: Icons.check_circle_rounded,
-                      activeColor: const Color(0xFF2E7D32)),
+                  _buildStatusChip(
+                    'Read',
+                    'read-self',
+                    icon: Icons.check_circle_rounded,
+                    activeColor: const Color(0xFF2E7D32),
+                  ),
                 ] else ...[
-                  _buildStatusChip('Khent Read', 'read-khent',
-                      icon: Icons.person_rounded,
-                      activeColor: const Color(0xFF1976D2)),
+                  _buildStatusChip(
+                    'Khent Read',
+                    'read-khent',
+                    icon: Icons.person_rounded,
+                    activeColor: const Color(0xFF1976D2),
+                  ),
                   const SizedBox(width: 8),
-                  _buildStatusChip('Clair Read', 'read-clair',
-                      icon: Icons.favorite_rounded,
-                      activeColor: const Color(0xFFE91E8C)),
+                  _buildStatusChip(
+                    'Clair Read',
+                    'read-clair',
+                    icon: Icons.favorite_rounded,
+                    activeColor: const Color(0xFFE91E8C),
+                  ),
                   const SizedBox(width: 8),
-                  _buildStatusChip('Both Read', 'read-both',
-                      icon: Icons.people_rounded,
-                      activeColor: const Color(0xFF2E7D32)),
+                  _buildStatusChip(
+                    'Both Read',
+                    'read-both',
+                    icon: Icons.people_rounded,
+                    activeColor: const Color(0xFF2E7D32),
+                  ),
                 ],
               ],
             ),
@@ -389,9 +434,12 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
             ],
             Text(
               label,
-              style: AppTypography.outfitHeading.copyWith(color: active
+              style: AppTypography.outfitHeading.copyWith(
+                color: active
                     ? Colors.white
-                    : AppTheme.roseQuartz.withValues(alpha: 0.85), fontSize: 12),
+                    : AppTheme.roseQuartz.withValues(alpha: 0.85),
+                fontSize: 12,
+              ),
             ),
           ],
         ),
@@ -408,7 +456,11 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
         children: [
           Text(
             _description,
-            style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.78), fontSize: 13.5, height: 1.55),
+            style: AppTypography.outfitWhite.copyWith(
+              color: AppTheme.petalWhite.withValues(alpha: 0.78),
+              fontSize: 13.5,
+              height: 1.55,
+            ),
           ),
         ],
       ),
@@ -424,22 +476,30 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
         spacing: 6,
         runSpacing: 6,
         children: shown
-            .map((s) => Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: AppTheme.moonlight.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                        color:
-                            AppTheme.moonlight.withValues(alpha: 0.25),
-                        width: 0.5),
+            .map(
+              (s) => Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.moonlight.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppTheme.moonlight.withValues(alpha: 0.25),
+                    width: 0.5,
                   ),
-                  child: Text(
-                    s,
-                    style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.8), fontSize: 10.5, fontWeight: FontWeight.w500),
+                ),
+                child: Text(
+                  s,
+                  style: AppTypography.outfitWhite.copyWith(
+                    color: AppTheme.petalWhite.withValues(alpha: 0.8),
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w500,
                   ),
-                ))
+                ),
+              ),
+            )
             .toList(),
       ),
     );
@@ -494,9 +554,14 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
             const SizedBox(width: 12),
             Text(
               hasSource ? 'READ BOOK' : 'NO READABLE COPY FOUND',
-              style: AppTypography.outfitWhite.copyWith(color: hasSource
+              style: AppTypography.outfitWhite.copyWith(
+                color: hasSource
                     ? Colors.white
-                    : AppTheme.roseQuartz.withValues(alpha: 0.6), fontWeight: FontWeight.w800, fontSize: 15, letterSpacing: 1.5),
+                    : AppTheme.roseQuartz.withValues(alpha: 0.6),
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+                letterSpacing: 1.5,
+              ),
             ),
           ],
         ),

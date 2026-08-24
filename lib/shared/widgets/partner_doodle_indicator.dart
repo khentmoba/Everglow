@@ -100,10 +100,7 @@ class _DoodleBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.velvet.withValues(alpha: 0.78),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: accent.withValues(alpha: 0.4),
-          width: 1.0,
-        ),
+        border: Border.all(color: accent.withValues(alpha: 0.4), width: 1.0),
         boxShadow: isActive
             ? [
                 BoxShadow(
@@ -130,7 +127,9 @@ class _DoodleBanner extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    isActive ? '$name is doodling' : subtitle ?? '$name is here',
+                    isActive
+                        ? '$name is doodling'
+                        : subtitle ?? '$name is here',
                     style: AppTypography.outfitBold.copyWith(fontSize: 12),
                   ),
                   if (isActive) ...[

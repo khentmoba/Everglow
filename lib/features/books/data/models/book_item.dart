@@ -112,10 +112,11 @@ class BookItem {
       // address after a round-trip through Firestore. If the field
       // is missing on a legacy document we re-derive it from the
       // `iaId` / `workKey` instead of leaving the reader stranded.
-      readSourceUrl: data['readSourceUrl'] ??
+      readSourceUrl:
+          data['readSourceUrl'] ??
           deriveReadSourceUrl(iaId: iaId, workKey: workKey),
-      readSourceLabel: data['readSourceLabel'] ??
-          deriveReadSourceLabel(iaId: iaId),
+      readSourceLabel:
+          data['readSourceLabel'] ?? deriveReadSourceLabel(iaId: iaId),
     );
   }
 

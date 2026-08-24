@@ -7,7 +7,9 @@ import 'package:everglow/features/xp/domain/models/user_progress.dart';
 import 'package:everglow/features/xp/presentation/widgets/xp_progress_bar.dart';
 
 void main() {
-  testWidgets('dashboard primitives render without layout errors', (tester) async {
+  testWidgets('dashboard primitives render without layout errors', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -41,7 +43,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Coming Up'), findsOneWidget);
-    expect(find.text('29'), findsOneWidget);
+    expect(find.text('29'), findsNWidgets(2));
     expect(find.text('LEVEL 3'), findsOneWidget);
   });
 }

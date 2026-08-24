@@ -31,7 +31,10 @@ class AnimeXHistoryPage extends StatelessWidget {
                 children: [
                   Text(
                     'History',
-                    style: bebasStyle(size: 32, color: AnimeXTokens.textPrimary),
+                    style: bebasStyle(
+                      size: 32,
+                      color: AnimeXTokens.textPrimary,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -50,8 +53,10 @@ class AnimeXHistoryPage extends StatelessWidget {
               GestureDetector(
                 onTap: () => stores.clearHistory(),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
@@ -96,16 +101,18 @@ class AnimeXHistoryPage extends StatelessWidget {
             ),
           )
         else
-          ...history.map((e) => _HistoryRow(
-                entry: e,
-                onTap: () {
-                  controller.openWatch(
-                    mediaItemFromHistory(e),
-                    episode: e.episode,
-                  );
-                },
-                onRemove: () => stores.removeHistoryEntry(e.key),
-              )),
+          ...history.map(
+            (e) => _HistoryRow(
+              entry: e,
+              onTap: () {
+                controller.openWatch(
+                  mediaItemFromHistory(e),
+                  episode: e.episode,
+                );
+              },
+              onRemove: () => stores.removeHistoryEntry(e.key),
+            ),
+          ),
         const SizedBox(height: 24),
         AnimeXFooter(controller: controller),
       ],
@@ -154,9 +161,8 @@ class _HistoryRow extends StatelessWidget {
                       : Image.network(
                           entry.coverUrl,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Container(
-                            color: AnimeXTokens.surfaceRaised,
-                          ),
+                          errorBuilder: (_, _, _) =>
+                              Container(color: AnimeXTokens.surfaceRaised),
                         ),
                 ),
               ),
@@ -191,8 +197,9 @@ class _HistoryRow extends StatelessWidget {
                         value: progress,
                         minHeight: 3,
                         backgroundColor: Colors.white.withValues(alpha: 0.1),
-                        valueColor:
-                            const AlwaysStoppedAnimation<Color>(AnimeXTokens.accent),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          AnimeXTokens.accent,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),

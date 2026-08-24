@@ -38,7 +38,12 @@ class ForYouSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: EdgeInsets.fromLTRB(isDesktop ? 48 : 20, 28, isDesktop ? 48 : 20, 0),
+          padding: EdgeInsets.fromLTRB(
+            isDesktop ? 48 : 20,
+            28,
+            isDesktop ? 48 : 20,
+            0,
+          ),
           child: ShelfSectionHeader(
             eyebrow: eyebrow,
             title: title,
@@ -60,10 +65,7 @@ class ForYouSection extends StatelessWidget {
             separatorBuilder: (_, _) => const SizedBox(width: 12),
             itemBuilder: (context, i) {
               final item = items[i];
-              return _ForYouCard(
-                item: item,
-                width: isDesktop ? 180 : 140,
-              );
+              return _ForYouCard(item: item, width: isDesktop ? 180 : 140);
             },
           ),
         ),
@@ -99,8 +101,8 @@ class _ForYouCardState extends State<_ForYouCard> {
             curve: ShelfMotion.easeOutStrong,
             transform: _hovered
                 ? (Matrix4.translationValues(0.0, -4.0, 0.0)
-                      ..setEntry(0, 0, 1.03)
-                      ..setEntry(1, 1, 1.03))
+                    ..setEntry(0, 0, 1.03)
+                    ..setEntry(1, 1, 1.03))
                 : Matrix4.identity(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -124,16 +126,16 @@ class _ForYouCardState extends State<_ForYouCard> {
                           Container(color: const Color(0xFF1C1228)),
                         // Hover overlay
                         if (_hovered)
-                          Container(
-                            color: Colors.black.withValues(alpha: 0.1),
-                          ),
+                          Container(color: Colors.black.withValues(alpha: 0.1)),
                         // Match badge
                         Positioned(
                           top: 8,
                           left: 8,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 3),
+                              horizontal: 6,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: widget.item.matchColor,
                               borderRadius: BorderRadius.circular(8),
@@ -141,15 +143,19 @@ class _ForYouCardState extends State<_ForYouCard> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.auto_awesome, size: 10, color: Colors.white),
+                                const Icon(
+                                  Icons.auto_awesome,
+                                  size: 10,
+                                  color: Colors.white,
+                                ),
                                 const SizedBox(width: 3),
-                        Text(
-                          '${widget.item.matchPercent}%',
-                          style: AppTypography.outfitHeading.copyWith(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                          ),
+                                Text(
+                                  '${widget.item.matchPercent}%',
+                                  style: AppTypography.outfitHeading.copyWith(
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                  ),
                                 ),
                               ],
                             ),
@@ -164,9 +170,7 @@ class _ForYouCardState extends State<_ForYouCard> {
                   widget.item.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTypography.outfitHeading.copyWith(
-                    fontSize: 12,
-                  ),
+                  style: AppTypography.outfitHeading.copyWith(fontSize: 12),
                 ),
                 if (widget.item.subtitle != null) ...[
                   const SizedBox(height: 2),
@@ -174,9 +178,7 @@ class _ForYouCardState extends State<_ForYouCard> {
                     widget.item.subtitle!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                  style: AppTypography.outfitMuted.copyWith(
-                    fontSize: 10,
-                  ),
+                    style: AppTypography.outfitMuted.copyWith(fontSize: 10),
                   ),
                 ],
               ],
@@ -260,7 +262,12 @@ class TopTenRankingSection extends StatelessWidget {
     final displayItems = items.take(10).toList();
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(isDesktop ? 48 : 20, 32, isDesktop ? 48 : 20, 0),
+      padding: EdgeInsets.fromLTRB(
+        isDesktop ? 48 : 20,
+        32,
+        isDesktop ? 48 : 20,
+        0,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -274,11 +281,10 @@ class TopTenRankingSection extends StatelessWidget {
           const SizedBox(height: 14),
           ...List.generate(displayItems.length, (i) {
             return Padding(
-              padding: EdgeInsets.only(bottom: i < displayItems.length - 1 ? 8 : 0),
-              child: _RankingTile(
-                rank: i + 1,
-                item: displayItems[i],
+              padding: EdgeInsets.only(
+                bottom: i < displayItems.length - 1 ? 8 : 0,
               ),
+              child: _RankingTile(rank: i + 1, item: displayItems[i]),
             );
           }),
         ],
@@ -366,7 +372,9 @@ class _RankingTileState extends State<_RankingTile> {
                           shape: BoxShape.circle,
                           color: _rankColor.withValues(alpha: 0.15),
                           border: Border.all(
-                              color: _rankColor.withValues(alpha: 0.5), width: 1.5),
+                            color: _rankColor.withValues(alpha: 0.5),
+                            width: 1.5,
+                          ),
                           boxShadow: [
                             BoxShadow(
                               color: _rankColor.withValues(alpha: 0.2),
@@ -377,16 +385,19 @@ class _RankingTileState extends State<_RankingTile> {
                         alignment: Alignment.center,
                         child: Text(
                           '${widget.rank}',
-                          style: AppTypography.cormorantBlack.copyWith(fontSize: 18, color: _rankColor),
+                          style: AppTypography.cormorantBlack.copyWith(
+                            fontSize: 18,
+                            color: _rankColor,
+                          ),
                         ),
                       )
                     : Center(
                         child: Text(
                           '${widget.rank}',
-                            style: AppTypography.outfitMuted.copyWith(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          style: AppTypography.outfitMuted.copyWith(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
               ),
@@ -398,11 +409,13 @@ class _RankingTileState extends State<_RankingTile> {
                   width: 44,
                   height: 62,
                   child: widget.item.imageUrl.isNotEmpty
-                      ? Image.network(widget.item.imageUrl,
+                      ? Image.network(
+                          widget.item.imageUrl,
                           fit: BoxFit.cover,
                           cacheWidth: 150,
                           errorBuilder: (_, _, _) =>
-                              Container(color: const Color(0xFF1C1228)))
+                              Container(color: const Color(0xFF1C1228)),
+                        )
                       : Container(color: const Color(0xFF1C1228)),
                 ),
               ),
@@ -416,25 +429,25 @@ class _RankingTileState extends State<_RankingTile> {
                       widget.item.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AppTypography.outfitHeading.copyWith(
-                        fontSize: 13,
-                      ),
+                      style: AppTypography.outfitHeading.copyWith(fontSize: 13),
                     ),
                     if (widget.item.subtitle != null) ...[
                       const SizedBox(height: 3),
                       Text(
                         widget.item.subtitle!,
-                      style: AppTypography.outfitBold.copyWith(
-                        color: AppTheme.warmAmber,
-                        fontSize: 11,
-                      ),
+                        style: AppTypography.outfitBold.copyWith(
+                          color: AppTheme.warmAmber,
+                          fontSize: 11,
+                        ),
                       ),
                     ],
                     if (widget.item.badge != null) ...[
                       const SizedBox(height: 2),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 5, vertical: 1),
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
                           color: AppTheme.deepRose.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(4),
@@ -451,8 +464,11 @@ class _RankingTileState extends State<_RankingTile> {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right_rounded,
-                  color: AppColors.textMuted, size: 18),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textMuted,
+                size: 18,
+              ),
             ],
           ),
         ),
@@ -497,24 +513,31 @@ class OnlyOnSection extends StatelessWidget {
     final isDesktop = AppBreakpoint.isDesktop(context);
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(isDesktop ? 48 : 20, 32, isDesktop ? 48 : 20, 0),
+      padding: EdgeInsets.fromLTRB(
+        isDesktop ? 48 : 20,
+        32,
+        isDesktop ? 48 : 20,
+        0,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ShelfSectionHeader(
+          const ShelfSectionHeader(
             eyebrow: 'Streaming Providers',
             title: 'Only on',
             icon: Icons.live_tv_rounded,
             accent: AppTheme.softLavender,
           ),
           const SizedBox(height: 14),
-          ...providers.map((provider) => Padding(
-                padding: const EdgeInsets.only(bottom: 20),
-                child: _ProviderRowWidget(
-                  provider: provider,
-                  isDesktop: isDesktop,
-                ),
-              )),
+          ...providers.map(
+            (provider) => Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: _ProviderRowWidget(
+                provider: provider,
+                isDesktop: isDesktop,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -553,10 +576,7 @@ class _ProviderRowWidget extends StatelessWidget {
   final ProviderRow provider;
   final bool isDesktop;
 
-  const _ProviderRowWidget({
-    required this.provider,
-    required this.isDesktop,
-  });
+  const _ProviderRowWidget({required this.provider, required this.isDesktop});
 
   @override
   Widget build(BuildContext context) {
@@ -598,11 +618,13 @@ class _ProviderRowWidget extends StatelessWidget {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(12),
                           child: item.imageUrl.isNotEmpty
-                              ? Image.network(item.imageUrl,
+                              ? Image.network(
+                                  item.imageUrl,
                                   fit: BoxFit.cover,
                                   cacheWidth: 300,
-                                  errorBuilder: (_, _, _) => Container(
-                                      color: const Color(0xFF1C1228)))
+                                  errorBuilder: (_, _, _) =>
+                                      Container(color: const Color(0xFF1C1228)),
+                                )
                               : Container(color: const Color(0xFF1C1228)),
                         ),
                       ),
@@ -611,10 +633,10 @@ class _ProviderRowWidget extends StatelessWidget {
                         item.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                      style: AppTypography.outfitMuted.copyWith(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
+                        style: AppTypography.outfitMuted.copyWith(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
@@ -679,7 +701,12 @@ class ContinueWatchingRow extends StatelessWidget {
     final isDesktop = AppBreakpoint.isDesktop(context);
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(isDesktop ? 48 : 20, 28, isDesktop ? 48 : 20, 0),
+      padding: EdgeInsets.fromLTRB(
+        isDesktop ? 48 : 20,
+        28,
+        isDesktop ? 48 : 20,
+        0,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -753,9 +780,7 @@ class _ContinueCard extends StatelessWidget {
               Colors.black.withValues(alpha: 0.05),
             ],
           ),
-          border: Border.all(
-            color: accent.withValues(alpha: 0.25),
-          ),
+          border: Border.all(color: accent.withValues(alpha: 0.25)),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(13),
@@ -795,7 +820,9 @@ class _ContinueCard extends StatelessWidget {
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: accent,
                         borderRadius: BorderRadius.circular(6),
@@ -815,7 +842,10 @@ class _ContinueCard extends StatelessWidget {
                       item.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: AppTypography.cormorantBoldWhite.copyWith(fontSize: 15, height: 1.15),
+                      style: AppTypography.cormorantBoldWhite.copyWith(
+                        fontSize: 15,
+                        height: 1.15,
+                      ),
                     ),
                     if (item.year != null) ...[
                       const SizedBox(height: 4),

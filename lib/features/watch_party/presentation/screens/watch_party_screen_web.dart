@@ -79,7 +79,6 @@ class WatchPartyScreen extends StatefulWidget {
 }
 
 class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -112,8 +111,10 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
   /// Cinema-style 16:9 stage. Keeps the HLS player / iframe in the same
   /// platform view, with loading, error, sync, voice, and chat overlays.
   Widget _buildCinemaPlayerStage() {
-    final maxPlayerHeight =
-        (MediaQuery.sizeOf(context).height - 320).clamp(240.0, double.infinity);
+    final maxPlayerHeight = (MediaQuery.sizeOf(context).height - 320).clamp(
+      240.0,
+      double.infinity,
+    );
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: maxPlayerHeight),
       child: RepaintBoundary(
@@ -194,10 +195,7 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
     final compact = MediaQuery.sizeOf(context).width < 560;
     return Container(
       height: 56,
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 10 : 16,
-        vertical: 8,
-      ),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 16, vertical: 8),
       decoration: BoxDecoration(
         color: AppColors.inkDeep,
         border: Border(
@@ -263,7 +261,7 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
     final isTv = _room.mediaType == 'tv';
     final activeServer = _activeServerLabel;
     return Padding(
-      padding: EdgeInsets.fromLTRB(
+      padding: const EdgeInsets.fromLTRB(
         AppSpacing.xl,
         AppSpacing.lg,
         AppSpacing.xl,
@@ -276,11 +274,7 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
             spacing: AppSpacing.sm,
             runSpacing: AppSpacing.sm,
             children: [
-              _metaBadge(
-                Icons.source_rounded,
-                activeServer,
-                accent: true,
-              ),
+              _metaBadge(Icons.source_rounded, activeServer, accent: true),
               _metaBadge(
                 isTv ? Icons.tv_rounded : Icons.movie_rounded,
                 isTv ? 'TV Show' : 'Movie',
@@ -323,10 +317,7 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
   }) {
     final chipColor = tint ?? AppColors.textMuted;
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 5,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: accent
             ? AppColors.deepRose.withValues(alpha: 0.15)
@@ -368,10 +359,10 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
     final desc = _room.streamUrl == null
         ? _selectedProvider.desc
         : isHls
-            ? 'Self-hosted HLS stream · real play/pause/seek sync'
-            : 'Embedded server · best-effort sync';
+        ? 'Self-hosted HLS stream · real play/pause/seek sync'
+        : 'Embedded server · best-effort sync';
     return Padding(
-      padding: EdgeInsets.fromLTRB(
+      padding: const EdgeInsets.fromLTRB(
         AppSpacing.xl,
         AppSpacing.lg,
         AppSpacing.xl,
@@ -410,9 +401,7 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: (isHls
-                                ? AppColors.success
-                                : AppColors.blushGold)
+                        color: (isHls ? AppColors.success : AppColors.blushGold)
                             .withValues(alpha: 0.6),
                         blurRadius: 8,
                       ),
@@ -462,8 +451,7 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
         : _hostExplicitlyPaused
         ? _cMuted
         : _cGreen;
-    final pausedByMe =
-        _hostExplicitlyPaused && _room.updatedBy == _myUid;
+    final pausedByMe = _hostExplicitlyPaused && _room.updatedBy == _myUid;
     final label = _isResyncing
         ? 'Syncing to ${_formatT(_room.currentTime)}…'
         : _hostExplicitlyPaused
@@ -695,8 +683,6 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
     );
   }
 
-
-
   Widget _buildEndDialog() {
     return Stack(
       children: [
@@ -767,7 +753,4 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
       ],
     );
   }
-
-
 }
-

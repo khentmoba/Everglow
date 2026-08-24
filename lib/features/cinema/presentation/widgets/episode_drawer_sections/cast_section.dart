@@ -36,8 +36,7 @@ class CastSection extends StatelessWidget {
             separatorBuilder: (_, _) => const SizedBox(width: 14),
             itemBuilder: (context, i) {
               final m = cast[i];
-              final hasPhoto =
-                  (m['profilePath'] ?? '').toString().isNotEmpty;
+              final hasPhoto = (m['profilePath'] ?? '').toString().isNotEmpty;
               final character = (m['character'] ?? '').toString();
               final name = (m['name'] ?? '').toString();
               return SizedBox(
@@ -51,9 +50,9 @@ class CastSection extends StatelessWidget {
                         shape: BoxShape.circle,
                         color: AppColors.shimmerBase,
                         border: Border.all(
-                            color: AppColors.roseQuartz
-                                .withValues(alpha: 0.2),
-                            width: 1.5),
+                          color: AppColors.roseQuartz.withValues(alpha: 0.2),
+                          width: 1.5,
+                        ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.3),
@@ -63,10 +62,12 @@ class CastSection extends StatelessWidget {
                       ),
                       child: ClipOval(
                         child: hasPhoto
-                            ? Image.network(m['profilePath'],
+                            ? Image.network(
+                                m['profilePath'],
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, _, _) =>
-                                    buildCastInitial(name))
+                                    buildCastInitial(name),
+                              )
                             : buildCastInitial(name),
                       ),
                     ),
@@ -87,7 +88,11 @@ class CastSection extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
-                          style: AppTypography.outfitWhite.copyWith(color: AppColors.mutedPurple, fontSize: 9, fontStyle: FontStyle.italic),
+                          style: AppTypography.outfitWhite.copyWith(
+                            color: AppColors.mutedPurple,
+                            fontSize: 9,
+                            fontStyle: FontStyle.italic,
+                          ),
                         ),
                     ] else ...[
                       Text(
@@ -103,7 +108,11 @@ class CastSection extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
-                          style: AppTypography.outfitWhite.copyWith(color: AppColors.mutedPurple, fontSize: 9, fontStyle: FontStyle.italic),
+                          style: AppTypography.outfitWhite.copyWith(
+                            color: AppColors.mutedPurple,
+                            fontSize: 9,
+                            fontStyle: FontStyle.italic,
+                          ),
                         ),
                     ],
                   ],

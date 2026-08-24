@@ -72,8 +72,9 @@ class _OLSearchModalState extends State<OLSearchModal> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
           backgroundColor: AppTheme.velvet,
           title: Text(
             'Add to Everglow?',
@@ -86,22 +87,31 @@ class _OLSearchModalState extends State<OLSearchModal> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: item.coverUrl.isNotEmpty
-                      ? Image.network(item.coverUrl,
-                          height: 150, fit: BoxFit.cover)
+                      ? Image.network(
+                          item.coverUrl,
+                          height: 150,
+                          fit: BoxFit.cover,
+                        )
                       : Container(height: 150, color: AppTheme.twilight),
                 ),
                 const SizedBox(height: 16),
                 Text(
                   item.title,
                   textAlign: TextAlign.center,
-                  style: AppTypography.outfitBold.copyWith(color: AppTheme.petalWhite),
+                  style: AppTypography.outfitBold.copyWith(
+                    color: AppTheme.petalWhite,
+                  ),
                 ),
                 if (item.author.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
                     item.author,
                     textAlign: TextAlign.center,
-                    style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.7), fontStyle: FontStyle.italic, fontSize: 12),
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: AppTheme.roseQuartz.withValues(alpha: 0.7),
+                      fontStyle: FontStyle.italic,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 16),
@@ -141,8 +151,10 @@ class _OLSearchModalState extends State<OLSearchModal> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       ChoiceChip(
-                        label:
-                            Text('To Read', style: AppTypography.outfitWhite),
+                        label: Text(
+                          'To Read',
+                          style: AppTypography.outfitWhite,
+                        ),
                         selected: status == 'to-read',
                         onSelected: (selected) {
                           if (selected) {
@@ -184,7 +196,9 @@ class _OLSearchModalState extends State<OLSearchModal> {
               onPressed: () => Navigator.pop(ctx),
               child: Text(
                 'Cancel',
-                style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
+                style: AppTypography.outfitWhite.copyWith(
+                  color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+                ),
               ),
             ),
             ElevatedButton(
@@ -207,12 +221,15 @@ class _OLSearchModalState extends State<OLSearchModal> {
                     SnackBar(
                       content: Text(
                         successMessage,
-                        style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: AppTheme.petalWhite,
+                        ),
                       ),
                       backgroundColor: AppTheme.deepRose,
                       behavior: SnackBarBehavior.floating,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   );
                   if (Navigator.of(context).canPop()) {
@@ -223,11 +240,15 @@ class _OLSearchModalState extends State<OLSearchModal> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.deepRose,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24)),
+                  borderRadius: BorderRadius.circular(24),
+                ),
               ),
               child: Text(
                 'Add',
-                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontWeight: FontWeight.bold),
+                style: AppTypography.outfitWhite.copyWith(
+                  color: AppTheme.petalWhite,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -252,8 +273,7 @@ class _OLSearchModalState extends State<OLSearchModal> {
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding:
-              const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
           decoration: BoxDecoration(
             color: active
                 ? AppTheme.deepRose.withValues(alpha: 0.35)
@@ -273,9 +293,12 @@ class _OLSearchModalState extends State<OLSearchModal> {
               const SizedBox(width: 6),
               Text(
                 label,
-                style: AppTypography.outfitHeading.copyWith(color: active
+                style: AppTypography.outfitHeading.copyWith(
+                  color: active
                       ? AppTheme.petalWhite
-                      : AppTheme.roseQuartz.withValues(alpha: 0.7), fontSize: 13),
+                      : AppTheme.roseQuartz.withValues(alpha: 0.7),
+                  fontSize: 13,
+                ),
               ),
             ],
           ),
@@ -312,12 +335,15 @@ class _OLSearchModalState extends State<OLSearchModal> {
           TextField(
             controller: _controller,
             onChanged: _onChanged,
-            style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
+            style: AppTypography.outfitWhite.copyWith(
+              color: AppTheme.petalWhite,
+            ),
             decoration: InputDecoration(
               hintText: 'Search title, author, or subject...',
-              hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.65)),
-              prefixIcon:
-                  const Icon(Icons.search, color: AppTheme.roseQuartz),
+              hintStyle: AppTypography.outfitWhite.copyWith(
+                color: AppTheme.petalWhite.withValues(alpha: 0.65),
+              ),
+              prefixIcon: const Icon(Icons.search, color: AppTheme.roseQuartz),
               filled: true,
               fillColor: AppTheme.moonlight.withValues(alpha: 0.12),
               border: OutlineInputBorder(
@@ -325,7 +351,9 @@ class _OLSearchModalState extends State<OLSearchModal> {
                 borderSide: BorderSide.none,
               ),
               contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20, vertical: 15),
+                horizontal: 20,
+                vertical: 15,
+              ),
             ),
           ),
           const SizedBox(height: 20),
@@ -333,25 +361,27 @@ class _OLSearchModalState extends State<OLSearchModal> {
             child: _isLoading
                 ? const Center(
                     child: CircularProgressIndicator(
-                        color: AppTheme.roseQuartz))
+                      color: AppTheme.roseQuartz,
+                    ),
+                  )
                 : _results.isEmpty
-                    ? _buildEmptyState()
-                    : GridView.builder(
-                        itemCount: _results.length,
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
+                ? _buildEmptyState()
+                : GridView.builder(
+                    itemCount: _results.length,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
                           childAspectRatio: 0.62,
                           crossAxisSpacing: 14,
                           mainAxisSpacing: 14,
                         ),
-                        itemBuilder: (context, index) {
-                          return BookCoverCard(
-                            item: _results[index],
-                            onTap: () => _showAddDialog(_results[index]),
-                          );
-                        },
-                      ),
+                    itemBuilder: (context, index) {
+                      return BookCoverCard(
+                        item: _results[index],
+                        onTap: () => _showAddDialog(_results[index]),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -363,14 +393,20 @@ class _OLSearchModalState extends State<OLSearchModal> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.menu_book_outlined,
-              size: 60, color: AppTheme.roseQuartz.withValues(alpha: 0.2)),
+          Icon(
+            Icons.menu_book_outlined,
+            size: 60,
+            color: AppTheme.roseQuartz.withValues(alpha: 0.2),
+          ),
           const SizedBox(height: 16),
           Text(
             _controller.text.isEmpty
                 ? 'Start typing to find a book...'
                 : 'No books found! 🌸',
-            style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 16),
+            style: AppTypography.outfitWhite.copyWith(
+              color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+              fontSize: 16,
+            ),
           ),
         ],
       ),

@@ -24,7 +24,7 @@ class JournalPreview extends StatelessWidget {
         final subtitle = count == 0
             ? 'No entries yet — write your first memory'
             : '$count ${count == 1 ? 'entry' : 'entries'}'
-                '${pinned > 0 ? ' • $pinned pinned' : ''}';
+                  '${pinned > 0 ? ' • $pinned pinned' : ''}';
 
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -36,7 +36,7 @@ class JournalPreview extends StatelessWidget {
             trailing: const SectionChevron(hue: AppColors.softLavender),
             onTap: () => context.push('/journal'),
             child: recent.isEmpty
-                ? _EmptyRow(
+                ? const _EmptyRow(
                     hue: AppColors.softLavender,
                     icon: Icons.edit_note_rounded,
                     text: 'Capture a date, a fight, a laugh — keep it forever.',
@@ -68,11 +68,15 @@ class _JournalRow extends StatelessWidget {
               color: AppColors.softLavender.withValues(alpha: 0.14),
               borderRadius: AppRadius.radiusSm,
               border: Border.all(
-                  color: AppColors.softLavender.withValues(alpha: 0.22)),
+                color: AppColors.softLavender.withValues(alpha: 0.22),
+              ),
             ),
             child: Center(
-                child: Text(entry.category.emoji,
-                    style: const TextStyle(fontSize: 13))),
+              child: Text(
+                entry.category.emoji,
+                style: const TextStyle(fontSize: 13),
+              ),
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -82,19 +86,24 @@ class _JournalRow extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(entry.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.outfitWhite.copyWith(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.petalWhite.withValues(alpha: 0.92),
-                          )),
+                      child: Text(
+                        entry.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.outfitWhite.copyWith(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.petalWhite.withValues(alpha: 0.92),
+                        ),
+                      ),
                     ),
                     if (entry.isPinned) ...[
                       const SizedBox(width: 6),
-                      Icon(Icons.push_pin_rounded,
-                          size: 11, color: AppColors.auroraGold.withValues(alpha: 0.9)),
+                      Icon(
+                        Icons.push_pin_rounded,
+                        size: 11,
+                        color: AppColors.auroraGold.withValues(alpha: 0.9),
+                      ),
                     ],
                   ],
                 ),
@@ -117,12 +126,14 @@ class _JournalRow extends StatelessWidget {
               borderRadius: BorderRadius.circular(999),
               border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
             ),
-            child: Text('${entry.wordCount}w',
-                style: AppTypography.outfitWhite.copyWith(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.petalWhite.withValues(alpha: 0.55),
-                )),
+            child: Text(
+              '${entry.wordCount}w',
+              style: AppTypography.outfitWhite.copyWith(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: AppColors.petalWhite.withValues(alpha: 0.55),
+              ),
+            ),
           ),
         ],
       ),
@@ -159,11 +170,13 @@ class _EmptyRow extends StatelessWidget {
           Icon(icon, size: 16, color: hue),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(text,
-                style: AppTypography.outfitWhite.copyWith(
-                  fontSize: 11,
-                  color: AppColors.petalWhite.withValues(alpha: 0.60),
-                )),
+            child: Text(
+              text,
+              style: AppTypography.outfitWhite.copyWith(
+                fontSize: 11,
+                color: AppColors.petalWhite.withValues(alpha: 0.60),
+              ),
+            ),
           ),
         ],
       ),

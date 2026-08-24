@@ -46,10 +46,7 @@ void main() {
     });
 
     test('empty query returns first blocks', () {
-      final selected = selector.select({
-        'a': 'alpha',
-        'b': 'beta',
-      }, '');
+      final selected = selector.select({'a': 'alpha', 'b': 'beta'}, '');
       expect(selected.map((e) => e.key), ['a', 'b']);
     });
   });

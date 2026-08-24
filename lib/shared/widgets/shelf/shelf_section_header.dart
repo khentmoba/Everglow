@@ -76,18 +76,22 @@ class ShelfSectionHeader extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   title,
-                  style: AppTypography.cormorantExtraBoldWhite.copyWith(fontSize: 22, letterSpacing: 0.2, height: 1.0),
+                  style: AppTypography.cormorantExtraBoldWhite.copyWith(
+                    fontSize: 22,
+                    letterSpacing: 0.2,
+                    height: 1.0,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 if (subtitle != null && subtitle!.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
-                  subtitle!,
-                  style: AppTypography.outfitWhite.copyWith(
-                    fontSize: 12,
-                    color: AppTheme.roseQuartz.withValues(alpha: 0.55),
-                  ),
+                    subtitle!,
+                    style: AppTypography.outfitWhite.copyWith(
+                      fontSize: 12,
+                      color: AppTheme.roseQuartz.withValues(alpha: 0.55),
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -98,8 +102,7 @@ class ShelfSectionHeader extends StatelessWidget {
           if (count != null) ...[
             const SizedBox(width: 8),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
               decoration: BoxDecoration(
                 color: accent.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
@@ -109,15 +112,13 @@ class ShelfSectionHeader extends StatelessWidget {
                 ),
               ),
               child: Text(
-                countLabel != null
-                    ? '$count $countLabel'
-                    : '$count',
+                countLabel != null ? '$count $countLabel' : '$count',
                 style: AppTypography.outfitHeading.copyWith(
                   fontSize: 10,
-          fontWeight: FontWeight.w800,
-          color: accent,
-          letterSpacing: 0.4,
-        ),
+                  fontWeight: FontWeight.w800,
+                  color: accent,
+                  letterSpacing: 0.4,
+                ),
               ),
             ),
           ],
@@ -153,31 +154,25 @@ class _SeeAllChipState extends State<_SeeAllChip> {
         onShowFocusHighlight: (show) => setState(() => _hovered = show),
         child: Tooltip(
           message: 'See all',
-          textStyle: AppTypography.outfitBold.copyWith(
-            fontSize: 11,
-          ),
+          textStyle: AppTypography.outfitBold.copyWith(fontSize: 11),
           decoration: BoxDecoration(
             color: AppTheme.velvet,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: widget.accent.withValues(alpha: 0.3),
-            ),
+            border: Border.all(color: widget.accent.withValues(alpha: 0.3)),
           ),
           child: GestureDetector(
             onTap: widget.onTap,
             child: AnimatedContainer(
               duration: ShelfMotion.orZero(ShelfMotion.medium),
               curve: ShelfMotion.easeOutStrong,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: _hovered
                     ? widget.accent.withValues(alpha: 0.14)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: widget.accent
-                      .withValues(alpha: _hovered ? 0.55 : 0.3),
+                  color: widget.accent.withValues(alpha: _hovered ? 0.55 : 0.3),
                   width: 0.8,
                 ),
               ),

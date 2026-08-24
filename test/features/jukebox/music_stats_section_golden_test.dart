@@ -15,8 +15,9 @@ import 'package:everglow/features/jukebox/presentation/widgets/music_stats_secti
 /// golden so the typography/layout can be reviewed visually. Uses a fake
 /// [HttpOverrides] because widget tests block real network access.
 void main() {
-  testWidgets('MusicStatsSection renders the leaderboard and recent list',
-      (tester) async {
+  testWidgets('MusicStatsSection renders the leaderboard and recent list', (
+    tester,
+  ) async {
     dotenv.loadFromString(
       envString: '''
 LASTFM_API_KEY=test-key
@@ -27,7 +28,7 @@ LASTFM_USER_CLAIR=clairjassen
 
     HttpOverrides.global = _FakeHttpOverrides();
 
-    tester.view.physicalSize = const Size(560, 1320);
+    tester.view.physicalSize = const Size(560, 785);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
@@ -42,7 +43,14 @@ LASTFM_USER_CLAIR=clairjassen
               child: SizedBox(
                 width: 520,
                 child: ChangeNotifierProvider(
-                  create: (_) => MusicStatsProvider(),
+                  create: (_) => MusicStatsProvider(
+                    signLastfmUrl: (url) async => url.replace(
+                      queryParameters: {
+                        ...url.queryParameters,
+                        '__auth': 'test-token',
+                      },
+                    ),
+                  ),
                   child: const MusicStatsSection(),
                 ),
               ),
@@ -206,8 +214,9 @@ class _FakeHttpClientResponse implements HttpClientResponse {
 
   @override
   Stream<S> transform<S>(StreamTransformer<List<int>, S> streamTransformer) {
-    return Stream<List<int>>.fromIterable([_bytes])
-        .transform(streamTransformer);
+    return Stream<List<int>>.fromIterable([
+      _bytes,
+    ]).transform(streamTransformer);
   }
 
   @override
@@ -228,7 +237,9 @@ class _FakeHeaders implements HttpHeaders {
 
   @override
   void add(String name, Object value, {bool preserveHeaderCase = false}) {
-    _values.putIfAbsent(name.toLowerCase(), () => <String>[]).add(value.toString());
+    _values
+        .putIfAbsent(name.toLowerCase(), () => <String>[])
+        .add(value.toString());
   }
 
   @override
@@ -273,12 +284,24 @@ Uint8List _responseFor(Uri url) {
   if (query.contains('method=user.getinfo')) {
     // All-time scrobble totals — Khent is the champion.
     if (query.contains('khentsgdz')) {
-      return utf8.encode(jsonEncode(const {'user': {'playcount': '12847'}}));
+      return utf8.encode(
+        jsonEncode(const {
+          'user': {'playcount': '12847'},
+        }),
+      );
     }
     if (query.contains('clairjassen')) {
-      return utf8.encode(jsonEncode(const {'user': {'playcount': '9421'}}));
+      return utf8.encode(
+        jsonEncode(const {
+          'user': {'playcount': '9421'},
+        }),
+      );
     }
-    return utf8.encode(jsonEncode(const {'user': {'playcount': '0'}}));
+    return utf8.encode(
+      jsonEncode(const {
+        'user': {'playcount': '0'},
+      }),
+    );
   }
   if (query.contains('method=track.getinfo')) {
     return utf8.encode(jsonEncode(_getInfoJson(url)));
@@ -292,10 +315,7 @@ Uint8List _responseFor(Uri url) {
 Future<Uint8List> _solidPng(Color color) async {
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
-  canvas.drawRect(
-    const Rect.fromLTWH(0, 0, 8, 8),
-    Paint()..color = color,
-  );
+  canvas.drawRect(const Rect.fromLTWH(0, 0, 8, 8), Paint()..color = color);
   final image = await recorder.endRecording().toImage(8, 8);
   final data = await image.toByteData(format: ui.ImageByteFormat.png);
   return data!.buffer.asUint8List();
@@ -309,10 +329,7 @@ Map<String, dynamic> _getInfoJson(Uri url) {
         'title': 'Album',
         'image': [
           {'size': 'small', '#text': 'https://img.example/small.png'},
-          {
-            'size': 'extralarge',
-            '#text': 'https://img.example/$mbid.png',
-          },
+          {'size': 'extralarge', '#text': 'https://img.example/$mbid.png'},
         ],
       },
     },
@@ -322,8 +339,6 @@ Map<String, dynamic> _getInfoJson(Uri url) {
 const _placeholder =
     'https://lastfm-img.freetls.fastly.net/i/u/300x300/'
     '2a96cbd8b46e442fc41c2b86b821562f.png';
-
-final _topTracksJson = _topTracksJsonKhent;
 
 final _topTracksJsonKhent = {
   'toptracks': {
@@ -385,10 +400,7 @@ final _recentTracksJson = {
         'album': {'#text': 'Stick Season'},
         'image': [
           {'size': 'small', '#text': 'https://img.example/small.png'},
-          {
-            'size': 'extralarge',
-            '#text': 'https://img.example/recent2.png',
-          },
+          {'size': 'extralarge', '#text': 'https://img.example/recent2.png'},
         ],
         'date': {
           'uts': '${DateTime.now().millisecondsSinceEpoch ~/ 1000 - 2220}',
@@ -400,10 +412,7 @@ final _recentTracksJson = {
         'album': {'#text': '2 COOL 4 SKOOL'},
         'image': [
           {'size': 'small', '#text': 'https://img.example/small.png'},
-          {
-            'size': 'extralarge',
-            '#text': 'https://img.example/recent3.png',
-          },
+          {'size': 'extralarge', '#text': 'https://img.example/recent3.png'},
         ],
         '@attr': {'nowplaying': 'true'},
       },
@@ -413,10 +422,7 @@ final _recentTracksJson = {
         'album': {'#text': 'Tears'},
         'image': [
           {'size': 'small', '#text': 'https://img.example/small.png'},
-          {
-            'size': 'extralarge',
-            '#text': 'https://img.example/recent4.png',
-          },
+          {'size': 'extralarge', '#text': 'https://img.example/recent4.png'},
         ],
         'date': {
           'uts': '${DateTime.now().millisecondsSinceEpoch ~/ 1000 - 3600}',
@@ -428,14 +434,10 @@ final _recentTracksJson = {
         'album': {'#text': 'Single'},
         'image': [
           {'size': 'small', '#text': 'https://img.example/small.png'},
-          {
-            'size': 'extralarge',
-            '#text': 'https://img.example/recent5.png',
-          },
+          {'size': 'extralarge', '#text': 'https://img.example/recent5.png'},
         ],
         'date': {
-          'uts':
-              '${DateTime.now().millisecondsSinceEpoch ~/ 1000 - 86400 * 2}',
+          'uts': '${DateTime.now().millisecondsSinceEpoch ~/ 1000 - 86400 * 2}',
         },
       },
     ],

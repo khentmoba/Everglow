@@ -19,9 +19,9 @@ class XPService {
           .doc('main')
           .snapshots()
           .map((snapshot) {
-        if (!snapshot.exists) return null;
-        return UserProgress.fromMap(uid, snapshot.data()!);
-      }),
+            if (!snapshot.exists) return null;
+            return UserProgress.fromMap(uid, snapshot.data()!);
+          }),
       label: 'xp-progress',
     );
   }
@@ -35,7 +35,7 @@ class XPService {
 
     await _firestore.runTransaction((transaction) async {
       final snapshot = await transaction.get(docRef);
-      
+
       if (!snapshot.exists) {
         transaction.set(docRef, {
           'xpTotal': amount,
@@ -47,7 +47,7 @@ class XPService {
         final currentXp = snapshot.data()!['xpTotal'] as int;
         final newXp = currentXp + amount;
         final newLevel = (newXp / 1000).floor() + 1;
-        
+
         transaction.update(docRef, {
           'xpTotal': newXp,
           'level': newLevel,
@@ -69,7 +69,7 @@ class XPService {
         .doc(uid)
         .collection('progress')
         .doc('main');
-        
+
     final snapshot = await docRef.get();
     if (!snapshot.exists) {
       await docRef.set({

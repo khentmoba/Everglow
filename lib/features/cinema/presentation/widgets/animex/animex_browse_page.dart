@@ -119,10 +119,7 @@ class _AnimeXBrowsePageState extends State<AnimeXBrowsePage> {
         const SizedBox(height: 2),
         Text(
           'Explore anime',
-          style: dmSansStyle(
-            size: 13,
-            color: AnimeXTokens.textSecondary,
-          ),
+          style: dmSansStyle(size: 13, color: AnimeXTokens.textSecondary),
         ),
         const SizedBox(height: 20),
         _buildFilterBar(),
@@ -139,8 +136,7 @@ class _AnimeXBrowsePageState extends State<AnimeXBrowsePage> {
             skeletonCount: 12,
           ),
         const SizedBox(height: 20),
-        if (_data != null && (_data!.hasNextPage || _page > 1))
-          _buildPager(),
+        if (_data != null && (_data!.hasNextPage || _page > 1)) _buildPager(),
         AnimeXFooter(controller: widget.controller),
       ],
     );
@@ -167,10 +163,7 @@ class _AnimeXBrowsePageState extends State<AnimeXBrowsePage> {
         _Select(
           value: _moviesOnly ? 'MOVIE' : 'ALL',
           label: 'Type',
-          options: const [
-            ('ALL', 'All Anime'),
-            ('MOVIE', 'Anime movies'),
-          ],
+          options: const [('ALL', 'All Anime'), ('MOVIE', 'Anime movies')],
           onChanged: (v) {
             _moviesOnly = v == 'MOVIE';
             _resetAndFetch();
@@ -281,8 +274,9 @@ class _Select extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selectedLabel =
-        options.firstWhere((o) => o.$1 == value, orElse: () => ('', label)).$2;
+    final selectedLabel = options
+        .firstWhere((o) => o.$1 == value, orElse: () => ('', label))
+        .$2;
     return PopupMenuButton<String>(
       initialValue: value,
       tooltip: label,
@@ -309,10 +303,7 @@ class _Select extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   o.$2,
-                  style: dmSansStyle(
-                    size: 13,
-                    color: AnimeXTokens.textPrimary,
-                  ),
+                  style: dmSansStyle(size: 13, color: AnimeXTokens.textPrimary),
                 ),
               ],
             ),

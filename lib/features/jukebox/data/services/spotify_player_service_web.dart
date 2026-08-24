@@ -41,11 +41,18 @@ class SpotifyPlayerService extends ChangeNotifier {
       _createPlayer();
     }
 
-    _evalJS('window.onSpotifyWebPlaybackSDKReady = function(){ window.dispatchEvent(new Event("everglow_sdk_ready")); }');
-    web.window.addEventListener('everglow_sdk_ready', ((web.Event _) => onReady()).toJS);
+    _evalJS(
+      'window.onSpotifyWebPlaybackSDKReady = function(){ window.dispatchEvent(new Event("everglow_sdk_ready")); }',
+    );
+    web.window.addEventListener(
+      'everglow_sdk_ready',
+      ((web.Event _) => onReady()).toJS,
+    );
 
     Timer(const Duration(milliseconds: 900), () {
-      final present = _evalJS('typeof Spotify !== "undefined" && !!Spotify.Player') as JSBoolean?;
+      final present =
+          _evalJS('typeof Spotify !== "undefined" && !!Spotify.Player')
+              as JSBoolean?;
       if (!completer.isCompleted && (present?.toDart ?? false)) onReady();
     });
 
@@ -66,7 +73,11 @@ class SpotifyPlayerService extends ChangeNotifier {
       return;
     }
     try {
-      final escToken = token.replaceAll('\\', '\\\\').replaceAll('"', r'\"').replaceAll("'", r"\'").replaceAll('\n', '');
+      final escToken = token
+          .replaceAll('\\', '\\\\')
+          .replaceAll('"', r'\"')
+          .replaceAll("'", r"\'")
+          .replaceAll('\n', '');
       _evalJS('''
         (function(){
           if(window._everglowSpotifyPlayer) return;
@@ -101,28 +112,37 @@ class SpotifyPlayerService extends ChangeNotifier {
   }
 
   void _listenWindowEvents() {
-    web.window.addEventListener('everglow_spotify_ready', ((web.Event e) {
-      final ce = e as web.CustomEvent;
-      final detail = ce.detail;
-      if (detail != null) _deviceId = (detail as JSString).toDart;
-      _connected = true;
-      _error = null;
-      Logger.d('Spotify device ready: $_deviceId');
-      notifyListeners();
-    }).toJS);
+    web.window.addEventListener(
+      'everglow_spotify_ready',
+      ((web.Event e) {
+        final ce = e as web.CustomEvent;
+        final detail = ce.detail;
+        if (detail != null) _deviceId = (detail as JSString).toDart;
+        _connected = true;
+        _error = null;
+        Logger.d('Spotify device ready: $_deviceId');
+        notifyListeners();
+      }).toJS,
+    );
 
-    web.window.addEventListener('everglow_spotify_not_ready', ((web.Event _) {
-      _connected = false;
-      notifyListeners();
-    }).toJS);
+    web.window.addEventListener(
+      'everglow_spotify_not_ready',
+      ((web.Event _) {
+        _connected = false;
+        notifyListeners();
+      }).toJS,
+    );
 
-    web.window.addEventListener('everglow_spotify_error', ((web.Event e) {
-      final ce = e as web.CustomEvent;
-      final detail = ce.detail;
-      _error = detail != null ? (detail as JSString).toDart : 'Unknown';
-      Logger.w('Spotify error: $_error');
-      notifyListeners();
-    }).toJS);
+    web.window.addEventListener(
+      'everglow_spotify_error',
+      ((web.Event e) {
+        final ce = e as web.CustomEvent;
+        final detail = ce.detail;
+        _error = detail != null ? (detail as JSString).toDart : 'Unknown';
+        Logger.w('Spotify error: $_error');
+        notifyListeners();
+      }).toJS,
+    );
   }
 
   void _scheduleTokenRefresh() {
@@ -131,7 +151,9 @@ class SpotifyPlayerService extends ChangeNotifier {
       final fresh = await _auth.getStoredAccessToken();
       if (fresh == null) return;
       final esc = fresh.replaceAll('\\', '\\\\').replaceAll('"', r'\"');
-      _evalJS('if(window._everglowSpotifyPlayer) { window._everglowSpotifyPlayer._options.getOAuthToken = (cb)=>cb("$esc"); }');
+      _evalJS(
+        'if(window._everglowSpotifyPlayer) { window._everglowSpotifyPlayer._options.getOAuthToken = (cb)=>cb("$esc"); }',
+      );
     });
   }
 
@@ -171,16 +193,22 @@ class SpotifyPlayerService extends ChangeNotifier {
   }
 
   Future<void> pause() async {
-    _evalJS('if(window._everglowSpotifyPlayer) window._everglowSpotifyPlayer.pause();');
+    _evalJS(
+      'if(window._everglowSpotifyPlayer) window._everglowSpotifyPlayer.pause();',
+    );
   }
 
   Future<void> togglePlay() async {
-    _evalJS('if(window._everglowSpotifyPlayer) window._everglowSpotifyPlayer.togglePlay();');
+    _evalJS(
+      'if(window._everglowSpotifyPlayer) window._everglowSpotifyPlayer.togglePlay();',
+    );
   }
 
   void disposePlayer() {
     try {
-      _evalJS('if(window._everglowSpotifyPlayer) { window._everglowSpotifyPlayer.disconnect(); window._everglowSpotifyPlayer=null; }');
+      _evalJS(
+        'if(window._everglowSpotifyPlayer) { window._everglowSpotifyPlayer.disconnect(); window._everglowSpotifyPlayer=null; }',
+      );
     } catch (_) {}
     _connected = false;
     _deviceId = null;

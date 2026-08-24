@@ -43,9 +43,7 @@ class EverglowSnackbar {
         backgroundColor: AppColors.deepRose,
         duration: duration,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.radiusLg,
-        ),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLg),
         action: actionLabel != null && onAction != null
             ? SnackBarAction(
                 label: actionLabel,

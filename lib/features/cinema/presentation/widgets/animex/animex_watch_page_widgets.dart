@@ -23,21 +23,21 @@ class _AudioToggle extends StatelessWidget {
               onTap: () => onChanged(a),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 120),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
-                  color: audio == a
-                      ? AnimeXTokens.accent
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(
-                    AnimeXTokens.radiusSm,
-                  ),
+                  color: audio == a ? AnimeXTokens.accent : Colors.transparent,
+                  borderRadius: BorderRadius.circular(AnimeXTokens.radiusSm),
                 ),
                 child: Text(
                   a == 'sub' ? 'SUB' : 'DUB',
                   style: dmSansStyle(
                     size: 11.5,
-                    color: audio == a ? Colors.white : AnimeXTokens.textSecondary,
+                    color: audio == a
+                        ? Colors.white
+                        : AnimeXTokens.textSecondary,
                     weight: FontWeight.w700,
                     letterSpacing: 0.05,
                   ),
@@ -119,9 +119,7 @@ class _EpisodeStepButton extends StatelessWidget {
           label,
           style: dmSansStyle(
             size: 12,
-            color: enabled
-                ? AnimeXTokens.textPrimary
-                : AnimeXTokens.textMuted,
+            color: enabled ? AnimeXTokens.textPrimary : AnimeXTokens.textMuted,
             weight: FontWeight.w600,
           ),
         ),
@@ -129,4 +127,3 @@ class _EpisodeStepButton extends StatelessWidget {
     );
   }
 }
-

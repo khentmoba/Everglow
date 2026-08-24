@@ -100,8 +100,8 @@ class _RandomizerCardState extends State<RandomizerCard>
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                AppColors.velvet.withValues(alpha: 0.72),
-                AppColors.inkDeep.withValues(alpha: 0.72),
+                AppColors.velvet.withValues(alpha: 0.52),
+                AppColors.inkDeep.withValues(alpha: 0.58),
               ],
             ),
             borderRadius: AppRadius.radiusX2,
@@ -227,7 +227,7 @@ class _RandomizerCardState extends State<RandomizerCard>
                           height: 156,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            gradient: SweepGradient(
+                            gradient: const SweepGradient(
                               colors: [
                                 AppColors.deepRose,
                                 AppColors.auroraGold,
@@ -250,8 +250,8 @@ class _RandomizerCardState extends State<RandomizerCard>
                               shape: BoxShape.circle,
                               color: AppColors.inkDeep,
                             ),
-                            child: CustomPaint(
-                              painter: const _RoulettePainter(),
+                            child: const CustomPaint(
+                              painter: _RoulettePainter(),
                             ),
                           ),
                         ),

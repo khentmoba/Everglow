@@ -13,7 +13,12 @@ class DiscoveryEntry {
   final DateTime? khentFirst;
   final DateTime? clairFirst;
   final String? winner; // 'khent' | 'clair' | 'tie' | null
-  DiscoveryEntry({required this.artistName, this.khentFirst, this.clairFirst, this.winner});
+  DiscoveryEntry({
+    required this.artistName,
+    this.khentFirst,
+    this.clairFirst,
+    this.winner,
+  });
 }
 
 class HeatmapData {
@@ -22,11 +27,18 @@ class HeatmapData {
   final int currentStreak;
   final int longestStreak;
   final int maxDaily;
-  HeatmapData({required this.counts, required this.totalPlays, required this.currentStreak, required this.longestStreak, required this.maxDaily});
+  HeatmapData({
+    required this.counts,
+    required this.totalPlays,
+    required this.currentStreak,
+    required this.longestStreak,
+    required this.maxDaily,
+  });
 }
 
 class MusicInsightsProvider extends ChangeNotifier {
-  MusicInsightsProvider({MusicSyncService? syncService}) : _sync = syncService ?? MusicSyncService() {
+  MusicInsightsProvider({MusicSyncService? syncService})
+    : _sync = syncService ?? MusicSyncService() {
     _khentUser = EnvConfig.lastfmUserKhent;
     _clairUser = EnvConfig.lastfmUserClair;
     _init();
@@ -73,7 +85,10 @@ class MusicInsightsProvider extends ChangeNotifier {
   String get khentUser => _khentUser;
   String get clairUser => _clairUser;
   bool get isLoading => _loading;
-  bool get hasAny => _khentArtists.isNotEmpty || _clairArtists.isNotEmpty || _khentLoved.isNotEmpty;
+  bool get hasAny =>
+      _khentArtists.isNotEmpty ||
+      _clairArtists.isNotEmpty ||
+      _khentLoved.isNotEmpty;
 
   List<TopArtist> get khentTopArtists => _khentArtists;
   List<TopArtist> get clairTopArtists => _clairArtists;
@@ -102,8 +117,14 @@ class MusicInsightsProvider extends ChangeNotifier {
   // Compatibility
   int get compatibilityScore {
     if (_khentArtists.isEmpty || _clairArtists.isEmpty) return 0;
-    final khentSet = _khentArtists.take(50).map((a) => a.name.toLowerCase()).toSet();
-    final clairSet = _clairArtists.take(50).map((a) => a.name.toLowerCase()).toSet();
+    final khentSet = _khentArtists
+        .take(50)
+        .map((a) => a.name.toLowerCase())
+        .toSet();
+    final clairSet = _clairArtists
+        .take(50)
+        .map((a) => a.name.toLowerCase())
+        .toSet();
     final inter = khentSet.intersection(clairSet).length;
     final union = khentSet.union(clairSet).length;
     if (union == 0) return 0;
@@ -130,12 +151,18 @@ class MusicInsightsProvider extends ChangeNotifier {
 
   List<TopArtist> get khentUniqueArtists {
     final clairSet = _clairArtists.map((a) => a.name.toLowerCase()).toSet();
-    return _khentArtists.where((a) => !clairSet.contains(a.name.toLowerCase())).take(4).toList();
+    return _khentArtists
+        .where((a) => !clairSet.contains(a.name.toLowerCase()))
+        .take(4)
+        .toList();
   }
 
   List<TopArtist> get clairUniqueArtists {
     final khentSet = _khentArtists.map((a) => a.name.toLowerCase()).toSet();
-    return _clairArtists.where((a) => !khentSet.contains(a.name.toLowerCase())).take(4).toList();
+    return _clairArtists
+        .where((a) => !khentSet.contains(a.name.toLowerCase()))
+        .take(4)
+        .toList();
   }
 
   Future<void> _init() async {
@@ -196,8 +223,8 @@ class MusicInsightsProvider extends ChangeNotifier {
       _sync.fetchLovedTracks(_clairUser, limit: 12),
     ]);
     if (_disposed) return;
-    _khentLoved = results[0] as List<LovedTrack>;
-    _clairLoved = results[1] as List<LovedTrack>;
+    _khentLoved = results[0];
+    _clairLoved = results[1];
     _safeNotify();
   }
 
@@ -209,51 +236,120 @@ class MusicInsightsProvider extends ChangeNotifier {
     final toSec = (now.millisecondsSinceEpoch / 1000).floor();
 
     final heatResults = await Future.wait([
-      _sync.fetchRecentTracksRange(_khentUser, limit: 200, from: fromSec, to: toSec, page: 1),
-      _sync.fetchRecentTracksRange(_clairUser, limit: 200, from: fromSec, to: toSec, page: 1),
-      _sync.fetchRecentTracksRange(_khentUser, limit: 200, from: fromSec, to: toSec, page: 2),
-      _sync.fetchRecentTracksRange(_clairUser, limit: 200, from: fromSec, to: toSec, page: 2),
+      _sync.fetchRecentTracksRange(
+        _khentUser,
+        limit: 200,
+        from: fromSec,
+        to: toSec,
+        page: 1,
+      ),
+      _sync.fetchRecentTracksRange(
+        _clairUser,
+        limit: 200,
+        from: fromSec,
+        to: toSec,
+        page: 1,
+      ),
+      _sync.fetchRecentTracksRange(
+        _khentUser,
+        limit: 200,
+        from: fromSec,
+        to: toSec,
+        page: 2,
+      ),
+      _sync.fetchRecentTracksRange(
+        _clairUser,
+        limit: 200,
+        from: fromSec,
+        to: toSec,
+        page: 2,
+      ),
     ]);
     if (_disposed) return;
-    final khentAll = [...heatResults[0] as List<MusicStatus>, ...heatResults[2] as List<MusicStatus>];
-    final clairAll = [...heatResults[1] as List<MusicStatus>, ...heatResults[3] as List<MusicStatus>];
+    final khentAll = [...heatResults[0], ...heatResults[2]];
+    final clairAll = [...heatResults[1], ...heatResults[3]];
 
     _khentHeatmap = _buildHeatmap(khentAll, days: 84);
     _clairHeatmap = _buildHeatmap(clairAll, days: 84);
 
     // On This Day: same month/day last year 00:00-23:59
     final lastYear = DateTime(now.year - 1, now.month, now.day);
-    final lFrom = DateTime(lastYear.year, lastYear.month, lastYear.day, 0, 0, 0);
-    final lTo = DateTime(lastYear.year, lastYear.month, lastYear.day, 23, 59, 59);
+    final lFrom = DateTime(
+      lastYear.year,
+      lastYear.month,
+      lastYear.day,
+      0,
+      0,
+      0,
+    );
+    final lTo = DateTime(
+      lastYear.year,
+      lastYear.month,
+      lastYear.day,
+      23,
+      59,
+      59,
+    );
     final otdResults = await Future.wait([
-      _sync.fetchRecentTracksRange(_khentUser, limit: 50, from: (lFrom.millisecondsSinceEpoch / 1000).floor(), to: (lTo.millisecondsSinceEpoch / 1000).floor()),
-      _sync.fetchRecentTracksRange(_clairUser, limit: 50, from: (lFrom.millisecondsSinceEpoch / 1000).floor(), to: (lTo.millisecondsSinceEpoch / 1000).floor()),
+      _sync.fetchRecentTracksRange(
+        _khentUser,
+        limit: 50,
+        from: (lFrom.millisecondsSinceEpoch / 1000).floor(),
+        to: (lTo.millisecondsSinceEpoch / 1000).floor(),
+      ),
+      _sync.fetchRecentTracksRange(
+        _clairUser,
+        limit: 50,
+        from: (lFrom.millisecondsSinceEpoch / 1000).floor(),
+        to: (lTo.millisecondsSinceEpoch / 1000).floor(),
+      ),
     ]);
     if (_disposed) return;
-    _khentOnThisDay = otdResults[0] as List<MusicStatus>;
-    _clairOnThisDay = otdResults[1] as List<MusicStatus>;
+    _khentOnThisDay = otdResults[0];
+    _clairOnThisDay = otdResults[1];
 
     // Anniversary: Feb 14 last year (or this year if after Feb 14)
-    final annYear = now.month > 2 || (now.month == 2 && now.day >= 14) ? now.year : now.year - 1;
+    final annYear = now.month > 2 || (now.month == 2 && now.day >= 14)
+        ? now.year
+        : now.year - 1;
     // Show the most recent Feb 14 that is in the past
     final annDate = DateTime(annYear, 2, 14);
     final annFrom = DateTime(annDate.year, annDate.month, annDate.day, 0, 0, 0);
-    final annTo = DateTime(annDate.year, annDate.month, annDate.day, 23, 59, 59);
+    final annTo = DateTime(
+      annDate.year,
+      annDate.month,
+      annDate.day,
+      23,
+      59,
+      59,
+    );
     // If annDate is today, use last year's Feb14 instead for "anniversary soundtrack"
     DateTime effFrom = annFrom;
     DateTime effTo = annTo;
-    if (annDate.year == now.year && annDate.month == now.month && annDate.day == now.day) {
+    if (annDate.year == now.year &&
+        annDate.month == now.month &&
+        annDate.day == now.day) {
       final prev = DateTime(annYear - 1, 2, 14);
       effFrom = DateTime(prev.year, prev.month, prev.day, 0, 0, 0);
       effTo = DateTime(prev.year, prev.month, prev.day, 23, 59, 59);
     }
     final annResults = await Future.wait([
-      _sync.fetchRecentTracksRange(_khentUser, limit: 50, from: (effFrom.millisecondsSinceEpoch / 1000).floor(), to: (effTo.millisecondsSinceEpoch / 1000).floor()),
-      _sync.fetchRecentTracksRange(_clairUser, limit: 50, from: (effFrom.millisecondsSinceEpoch / 1000).floor(), to: (effTo.millisecondsSinceEpoch / 1000).floor()),
+      _sync.fetchRecentTracksRange(
+        _khentUser,
+        limit: 50,
+        from: (effFrom.millisecondsSinceEpoch / 1000).floor(),
+        to: (effTo.millisecondsSinceEpoch / 1000).floor(),
+      ),
+      _sync.fetchRecentTracksRange(
+        _clairUser,
+        limit: 50,
+        from: (effFrom.millisecondsSinceEpoch / 1000).floor(),
+        to: (effTo.millisecondsSinceEpoch / 1000).floor(),
+      ),
     ]);
     if (_disposed) return;
-    _khentAnniversary = annResults[0] as List<MusicStatus>;
-    _clairAnniversary = annResults[1] as List<MusicStatus>;
+    _khentAnniversary = annResults[0];
+    _clairAnniversary = annResults[1];
 
     // Discovery race: find earliest for shared artists among those recent 200+200
     _discovery = _buildDiscovery(khentAll, clairAll);
@@ -266,7 +362,11 @@ class MusicInsightsProvider extends ChangeNotifier {
     final map = <DateTime, int>{};
     // init all days 0
     for (var i = 0; i < days; i++) {
-      final d = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
+      final d = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(Duration(days: i));
       map[d] = 0;
     }
     for (final t in tracks) {
@@ -276,11 +376,17 @@ class MusicInsightsProvider extends ChangeNotifier {
       if (map.containsKey(d)) map[d] = (map[d] ?? 0) + 1;
     }
     final total = map.values.fold<int>(0, (a, b) => a + b);
-    final maxDaily = map.values.isEmpty ? 0 : map.values.reduce((a, b) => a > b ? a : b);
+    final maxDaily = map.values.isEmpty
+        ? 0
+        : map.values.reduce((a, b) => a > b ? a : b);
     // streak: consecutive days from today backwards with >0
     int currentStreak = 0;
     for (var i = 0; i < days; i++) {
-      final d = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
+      final d = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(Duration(days: i));
       if ((map[d] ?? 0) > 0) {
         currentStreak++;
       } else {
@@ -296,7 +402,11 @@ class MusicInsightsProvider extends ChangeNotifier {
     int longest = 0;
     int cur = 0;
     for (var i = days - 1; i >= 0; i--) {
-      final d = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
+      final d = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(Duration(days: i));
       if ((map[d] ?? 0) > 0) {
         cur++;
         if (cur > longest) longest = cur;
@@ -304,14 +414,29 @@ class MusicInsightsProvider extends ChangeNotifier {
         cur = 0;
       }
     }
-    return HeatmapData(counts: map, totalPlays: total, currentStreak: currentStreak, longestStreak: longest, maxDaily: maxDaily);
+    return HeatmapData(
+      counts: map,
+      totalPlays: total,
+      currentStreak: currentStreak,
+      longestStreak: longest,
+      maxDaily: maxDaily,
+    );
   }
 
-  List<DiscoveryEntry> _buildDiscovery(List<MusicStatus> khentAll, List<MusicStatus> clairAll) {
+  List<DiscoveryEntry> _buildDiscovery(
+    List<MusicStatus> khentAll,
+    List<MusicStatus> clairAll,
+  ) {
     // shared artists = intersection of artist names in the fetched windows plus top artists
-    final khentArtists = {for (final t in khentAll) t.artistName.toLowerCase(): t.artistName};
-    final clairArtists = {for (final t in clairAll) t.artistName.toLowerCase(): t.artistName};
-    final sharedKeys = khentArtists.keys.toSet().intersection(clairArtists.keys.toSet());
+    final khentArtists = {
+      for (final t in khentAll) t.artistName.toLowerCase(): t.artistName,
+    };
+    final clairArtists = {
+      for (final t in clairAll) t.artistName.toLowerCase(): t.artistName,
+    };
+    final sharedKeys = khentArtists.keys.toSet().intersection(
+      clairArtists.keys.toSet(),
+    );
     // also include shared top artists if not in recent window
     for (final a in sharedArtists) {
       sharedKeys.add(a.name.toLowerCase());
@@ -328,13 +453,17 @@ class MusicInsightsProvider extends ChangeNotifier {
       final k = t.artistName.toLowerCase();
       if (!sharedKeys.contains(k) || t.timestamp == null) continue;
       final cur = khentEarliest[k];
-      if (cur == null || t.timestamp!.isBefore(cur)) khentEarliest[k] = t.timestamp;
+      if (cur == null || t.timestamp!.isBefore(cur)) {
+        khentEarliest[k] = t.timestamp;
+      }
     }
     for (final t in clairAll) {
       final k = t.artistName.toLowerCase();
       if (!sharedKeys.contains(k) || t.timestamp == null) continue;
       final cur = clairEarliest[k];
-      if (cur == null || t.timestamp!.isBefore(cur)) clairEarliest[k] = t.timestamp;
+      if (cur == null || t.timestamp!.isBefore(cur)) {
+        clairEarliest[k] = t.timestamp;
+      }
     }
     final entries = <DiscoveryEntry>[];
     for (final k in sharedKeys.take(6)) {
@@ -351,7 +480,14 @@ class MusicInsightsProvider extends ChangeNotifier {
         winner = 'clair';
       }
       final displayName = khentArtists[k] ?? clairArtists[k] ?? k;
-      entries.add(DiscoveryEntry(artistName: displayName, khentFirst: kh, clairFirst: cl, winner: winner));
+      entries.add(
+        DiscoveryEntry(
+          artistName: displayName,
+          khentFirst: kh,
+          clairFirst: cl,
+          winner: winner,
+        ),
+      );
     }
     // sort: winners first, then alphabetical
     entries.sort((a, b) {
@@ -368,9 +504,21 @@ class MusicInsightsProvider extends ChangeNotifier {
       for (var i = 0; i < list.length; i++) {
         final t = list[i];
         if (t.imageUrl != null) continue;
-        final art = await _sync.fetchTrackArtwork(artist: t.artistName, track: t.trackName, mbid: t.mbid);
+        final art = await _sync.fetchTrackArtwork(
+          artist: t.artistName,
+          track: t.trackName,
+          mbid: t.mbid,
+        );
         if (_disposed || art == null) continue;
-        list[i] = TopMusicTrack(rank: t.rank, trackName: t.trackName, artistName: t.artistName, playCount: t.playCount, imageUrl: art, spotifyUrl: t.spotifyUrl, mbid: t.mbid);
+        list[i] = TopMusicTrack(
+          rank: t.rank,
+          trackName: t.trackName,
+          artistName: t.artistName,
+          playCount: t.playCount,
+          imageUrl: art,
+          spotifyUrl: t.spotifyUrl,
+          mbid: t.mbid,
+        );
       }
     }
     _safeNotify();

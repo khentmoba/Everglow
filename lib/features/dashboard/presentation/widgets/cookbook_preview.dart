@@ -34,9 +34,10 @@ class CookbookPreview extends StatelessWidget {
             trailing: const SectionChevron(hue: AppColors.warmAmber),
             onTap: () => context.push('/cookbook'),
             child: recent.isEmpty
-                ? _EmptyRow(
+                ? const _EmptyRow(
                     hue: AppColors.warmAmber,
-                    text: 'Adobo, pasta, late-night snacks — save your flavors.',
+                    text:
+                        'Adobo, pasta, late-night snacks — save your flavors.',
                   )
                 : Column(
                     children: recent.map((r) => _RecipeRow(recipe: r)).toList(),
@@ -64,7 +65,9 @@ class _RecipeRow extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppColors.warmAmber.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.warmAmber.withValues(alpha: 0.22)),
+              border: Border.all(
+                color: AppColors.warmAmber.withValues(alpha: 0.22),
+              ),
               image: (recipe.imageUrl != null && recipe.imageUrl!.isNotEmpty)
                   ? DecorationImage(
                       image: NetworkImage(recipe.imageUrl!),
@@ -74,8 +77,11 @@ class _RecipeRow extends StatelessWidget {
             ),
             child: (recipe.imageUrl == null || recipe.imageUrl!.isEmpty)
                 ? Center(
-                    child: Text(recipe.category.emoji,
-                        style: const TextStyle(fontSize: 14)))
+                    child: Text(
+                      recipe.category.emoji,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  )
                 : null,
           ),
           const SizedBox(width: 10),
@@ -86,18 +92,24 @@ class _RecipeRow extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(recipe.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.outfitWhite.copyWith(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.petalWhite.withValues(alpha: 0.92),
-                          )),
+                      child: Text(
+                        recipe.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.outfitWhite.copyWith(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.petalWhite.withValues(alpha: 0.92),
+                        ),
+                      ),
                     ),
                     if (recipe.isFavorite) ...[
                       const SizedBox(width: 6),
-                      Icon(Icons.star_rounded, size: 12, color: AppColors.auroraGold),
+                      const Icon(
+                        Icons.star_rounded,
+                        size: 12,
+                        color: AppColors.auroraGold,
+                      ),
                     ],
                   ],
                 ),
@@ -123,14 +135,20 @@ class _RecipeRow extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.timer_outlined, size: 10, color: AppColors.warmAmber),
+                const Icon(
+                  Icons.timer_outlined,
+                  size: 10,
+                  color: AppColors.warmAmber,
+                ),
                 const SizedBox(width: 3),
-                Text('${recipe.cookMinutes}m',
-                    style: AppTypography.outfitWhite.copyWith(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.warmAmber,
-                    )),
+                Text(
+                  '${recipe.cookMinutes}m',
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.warmAmber,
+                  ),
+                ),
               ],
             ),
           ),
@@ -159,11 +177,13 @@ class _EmptyRow extends StatelessWidget {
           Icon(Icons.soup_kitchen_rounded, size: 16, color: hue),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(text,
-                style: AppTypography.outfitWhite.copyWith(
-                  fontSize: 11,
-                  color: AppColors.petalWhite.withValues(alpha: 0.60),
-                )),
+            child: Text(
+              text,
+              style: AppTypography.outfitWhite.copyWith(
+                fontSize: 11,
+                color: AppColors.petalWhite.withValues(alpha: 0.60),
+              ),
+            ),
           ),
         ],
       ),

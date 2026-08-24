@@ -51,14 +51,12 @@ class CanvasService {
 
   Future<void> clearAllStrokes() async {
     await _deleteInBatches(
-      (await _db.collection(_collection).get())
-          .docs
+      (await _db.collection(_collection).get()).docs
           .map((doc) => doc.reference)
           .toList(),
     );
     await _deleteInBatches(
-      (await _db.collection('live_canvas').get())
-          .docs
+      (await _db.collection('live_canvas').get()).docs
           .map((doc) => doc.reference)
           .toList(),
     );

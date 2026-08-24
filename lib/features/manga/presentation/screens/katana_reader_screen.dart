@@ -63,16 +63,26 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   KatanaChapter? get _prevChapter =>
       _currentIndex > 0 ? _chapters[_currentIndex - 1] : null;
 
-  KatanaChapter? get _nextChapter =>
-      _currentIndex < _chapters.length - 1 ? _chapters[_currentIndex + 1] : null;
+  KatanaChapter? get _nextChapter => _currentIndex < _chapters.length - 1
+      ? _chapters[_currentIndex + 1]
+      : null;
 
   @override
   void initState() {
     super.initState();
     _chapters = sortChaptersAscending(widget.chapters);
-    final initial = _chapters.where((c) => c.id == widget.chapterId).firstOrNull;
-    _chapter = initial ??
-        (_chapters.isNotEmpty ? _chapters.first : KatanaChapter(id: widget.chapterId, num: '', title: widget.chapterId));
+    final initial = _chapters
+        .where((c) => c.id == widget.chapterId)
+        .firstOrNull;
+    _chapter =
+        initial ??
+        (_chapters.isNotEmpty
+            ? _chapters.first
+            : KatanaChapter(
+                id: widget.chapterId,
+                num: '',
+                title: widget.chapterId,
+              ));
     _scrollController.addListener(_onScroll);
     _loadPages();
     _loadBookmark();
@@ -187,7 +197,10 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message, style: KatanaType.body.copyWith(color: Colors.white)),
+        content: Text(
+          message,
+          style: KatanaType.body.copyWith(color: Colors.white),
+        ),
         backgroundColor: KatanaColors.headerDark,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
@@ -280,8 +293,11 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
                   await _saveProgress(_lastSavedPage < 0 ? 1 : _lastSavedPage);
                   navigator.pop();
                 },
-                icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                    size: 17, color: KatanaColors.textMuted),
+                icon: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  size: 17,
+                  color: KatanaColors.textMuted,
+                ),
                 tooltip: 'Back',
               ),
               Expanded(
@@ -319,7 +335,9 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
                   },
                 ),
               _toolButton(
-                label: _darkenEnabled ? 'Darken: ${_darken.round()}%' : 'Darken image',
+                label: _darkenEnabled
+                    ? 'Darken: ${_darken.round()}%'
+                    : 'Darken image',
                 icon: Icons.brightness_4_rounded,
                 active: _darkenEnabled,
                 showLabel: !narrow,
@@ -357,8 +375,11 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
               padding: const EdgeInsets.fromLTRB(12, 2, 12, 4),
               child: Row(
                 children: [
-                  const Icon(Icons.brightness_low_rounded,
-                      size: 16, color: KatanaColors.textMuted),
+                  const Icon(
+                    Icons.brightness_low_rounded,
+                    size: 16,
+                    color: KatanaColors.textMuted,
+                  ),
                   Expanded(
                     child: Slider(
                       value: _darken,
@@ -418,16 +439,20 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
           margin: const EdgeInsets.only(left: 6),
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
           decoration: BoxDecoration(
-            color: active ? color.withValues(alpha: 0.12) : KatanaColors.surfaceAlt,
+            color: active
+                ? color.withValues(alpha: 0.12)
+                : KatanaColors.surfaceAlt,
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: active ? color : KatanaColors.border,
-            ),
+            border: Border.all(color: active ? color : KatanaColors.border),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 15, color: active ? color : KatanaColors.textMuted),
+              Icon(
+                icon,
+                size: 15,
+                color: active ? color : KatanaColors.textMuted,
+              ),
               if (showLabel) ...[
                 const SizedBox(width: 5),
                 Text(
@@ -505,10 +530,17 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.broken_image_rounded,
-                  size: 46, color: KatanaColors.textLight),
+              const Icon(
+                Icons.broken_image_rounded,
+                size: 46,
+                color: KatanaColors.textLight,
+              ),
               const SizedBox(height: 12),
-              Text(_error!, textAlign: TextAlign.center, style: KatanaType.body),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: KatanaType.body,
+              ),
               const SizedBox(height: 12),
               KatanaButton(
                 label: 'Retry',
@@ -534,10 +566,11 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   Widget _buildPageImage(int index) {
     final url = _service.proxiedImageUrl(_pages[index]);
     final viewportHeight = MediaQuery.sizeOf(context).height - 210;
-    final decodeWidth = (MediaQuery.sizeOf(context).width *
-            MediaQuery.devicePixelRatioOf(context))
-        .round()
-        .clamp(800, 2400);
+    final decodeWidth =
+        (MediaQuery.sizeOf(context).width *
+                MediaQuery.devicePixelRatioOf(context))
+            .round()
+            .clamp(800, 2400);
 
     Widget image = Image.network(
       url,
@@ -548,8 +581,11 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
         height: 220,
         color: KatanaColors.border,
         alignment: Alignment.center,
-        child: const Icon(Icons.broken_image_rounded,
-            color: KatanaColors.textLight, size: 34),
+        child: const Icon(
+          Icons.broken_image_rounded,
+          color: KatanaColors.textLight,
+          size: 34,
+        ),
       ),
       loadingBuilder: (context, child, progress) {
         if (progress == null) return child;
@@ -599,18 +635,17 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: image,
-    );
+    return Padding(padding: const EdgeInsets.only(bottom: 2), child: image);
   }
 
   void _scrollByPage(int delta) {
     if (!_scrollController.hasClients || _pages.isEmpty) return;
     final perPage =
         _scrollController.position.maxScrollExtent / (_pages.length - 1);
-    final target = (_scrollController.offset + delta * perPage)
-        .clamp(0.0, _scrollController.position.maxScrollExtent);
+    final target = (_scrollController.offset + delta * perPage).clamp(
+      0.0,
+      _scrollController.position.maxScrollExtent,
+    );
     _scrollController.animateTo(
       target,
       duration: const Duration(milliseconds: 320),
@@ -641,11 +676,16 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
           ] else
             const Column(
               children: [
-                Icon(Icons.check_circle_outline_rounded,
-                    color: KatanaColors.green, size: 42),
+                Icon(
+                  Icons.check_circle_outline_rounded,
+                  color: KatanaColors.green,
+                  size: 42,
+                ),
                 SizedBox(height: 10),
-                Text('You have read the latest chapter',
-                    style: TextStyle(fontSize: 14, color: KatanaColors.textMuted)),
+                Text(
+                  'You have read the latest chapter',
+                  style: TextStyle(fontSize: 14, color: KatanaColors.textMuted),
+                ),
               ],
             ),
         ],
@@ -666,7 +706,9 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
             child: _navButton(
               label: '‹ Prev',
               enabled: _prevChapter != null,
-              onTap: _prevChapter != null ? () => _goToChapter(_prevChapter!) : null,
+              onTap: _prevChapter != null
+                  ? () => _goToChapter(_prevChapter!)
+                  : null,
             ),
           ),
           const SizedBox(width: 10),
@@ -685,8 +727,11 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.list_rounded,
-                      color: KatanaColors.accent, size: 16),
+                  const Icon(
+                    Icons.list_rounded,
+                    color: KatanaColors.accent,
+                    size: 16,
+                  ),
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(
@@ -699,8 +744,10 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
                       ),
                     ),
                   ),
-                  const Icon(Icons.arrow_drop_down_rounded,
-                      color: KatanaColors.accent),
+                  const Icon(
+                    Icons.arrow_drop_down_rounded,
+                    color: KatanaColors.accent,
+                  ),
                 ],
               ),
             ),
@@ -710,7 +757,9 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
             child: _navButton(
               label: 'Next ›',
               enabled: _nextChapter != null,
-              onTap: _nextChapter != null ? () => _goToChapter(_nextChapter!) : null,
+              onTap: _nextChapter != null
+                  ? () => _goToChapter(_nextChapter!)
+                  : null,
             ),
           ),
         ],
@@ -787,20 +836,26 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
                   return ListTile(
                     dense: true,
                     selected: current,
-                    selectedTileColor: KatanaColors.accent.withValues(alpha: 0.08),
+                    selectedTileColor: KatanaColors.accent.withValues(
+                      alpha: 0.08,
+                    ),
                     leading: Icon(
                       current
                           ? Icons.play_arrow_rounded
                           : Icons.menu_book_rounded,
                       size: 18,
-                      color: current ? KatanaColors.accent : KatanaColors.textLight,
+                      color: current
+                          ? KatanaColors.accent
+                          : KatanaColors.textLight,
                     ),
                     title: Text(
                       chapter.displayTitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.outfitBold.copyWith(
-                        color: current ? KatanaColors.accent : KatanaColors.text,
+                        color: current
+                            ? KatanaColors.accent
+                            : KatanaColors.text,
                         fontSize: 13,
                       ),
                     ),

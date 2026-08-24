@@ -27,10 +27,10 @@ class TulipPainter extends CustomPainter {
       height: potHeight,
     );
 
-    paint.shader = LinearGradient(
+    paint.shader = const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [const Color(0xFFB3E5FC), const Color(0xFF81D4FA)],
+      colors: [Color(0xFFB3E5FC), Color(0xFF81D4FA)],
     ).createShader(rect);
 
     canvas.drawRRect(
@@ -105,7 +105,11 @@ class TulipPainter extends CustomPainter {
       // Tulip bud — elongated
       paint.color = const Color(0xFFE91E63);
       canvas.drawOval(
-        Rect.fromCenter(center: top, width: 10, height: 18 + (stage * 2).toDouble()),
+        Rect.fromCenter(
+          center: top,
+          width: 10,
+          height: 18 + (stage * 2).toDouble(),
+        ),
         paint,
       );
     } else {
@@ -118,12 +122,16 @@ class TulipPainter extends CustomPainter {
       final backPath = Path();
       backPath.moveTo(top.dx - cupWidth / 2, top.dy);
       backPath.quadraticBezierTo(
-        top.dx - cupWidth * 0.6, top.dy - cupHeight * 0.7,
-        top.dx, top.dy - cupHeight,
+        top.dx - cupWidth * 0.6,
+        top.dy - cupHeight * 0.7,
+        top.dx,
+        top.dy - cupHeight,
       );
       backPath.quadraticBezierTo(
-        top.dx + cupWidth * 0.6, top.dy - cupHeight * 0.7,
-        top.dx + cupWidth / 2, top.dy,
+        top.dx + cupWidth * 0.6,
+        top.dy - cupHeight * 0.7,
+        top.dx + cupWidth / 2,
+        top.dy,
       );
       backPath.close();
       canvas.drawPath(backPath, paint);
@@ -133,12 +141,16 @@ class TulipPainter extends CustomPainter {
       final frontPath = Path();
       frontPath.moveTo(top.dx - cupWidth * 0.4, top.dy);
       frontPath.quadraticBezierTo(
-        top.dx - cupWidth * 0.3, top.dy - cupHeight * 0.5,
-        top.dx, top.dy - cupHeight * 0.8,
+        top.dx - cupWidth * 0.3,
+        top.dy - cupHeight * 0.5,
+        top.dx,
+        top.dy - cupHeight * 0.8,
       );
       frontPath.quadraticBezierTo(
-        top.dx + cupWidth * 0.3, top.dy - cupHeight * 0.5,
-        top.dx + cupWidth * 0.4, top.dy,
+        top.dx + cupWidth * 0.3,
+        top.dy - cupHeight * 0.5,
+        top.dx + cupWidth * 0.4,
+        top.dy,
       );
       frontPath.close();
       canvas.drawPath(frontPath, paint);
@@ -154,6 +166,7 @@ class TulipPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant TulipPainter oldDelegate) {
-    return oldDelegate.stage != stage || oldDelegate.animationValue != animationValue;
+    return oldDelegate.stage != stage ||
+        oldDelegate.animationValue != animationValue;
   }
 }

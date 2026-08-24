@@ -69,6 +69,7 @@ class _EverglowButtonState extends State<EverglowButton>
     with SingleTickerProviderStateMixin {
   bool _hovered = false;
   bool _pressed = false;
+  bool _focused = false;
 
   void _onTapDown(_) => setState(() => _pressed = true);
   void _onTapUp(_) {
@@ -83,8 +84,12 @@ class _EverglowButtonState extends State<EverglowButton>
 
   @override
   Widget build(BuildContext context) {
-    final effectiveScale = _pressed ? AppMotion.pressScale : (_hovered ? AppMotion.hoverScale : 1.0);
-    final effectiveTranslateY = _hovered && !_pressed ? AppMotion.hoverLift : 0.0;
+    final effectiveScale = _pressed
+        ? AppMotion.pressScale
+        : (_hovered ? AppMotion.hoverScale : 1.0);
+    final effectiveTranslateY = _hovered && !_pressed
+        ? AppMotion.hoverLift
+        : 0.0;
 
     Widget child = AnimatedContainer(
       duration: AppMotion.orZero(AppMotion.fast),
@@ -102,7 +107,25 @@ class _EverglowButtonState extends State<EverglowButton>
       label: widget.tooltip ?? widget.label,
       enabled: widget.enabled,
       child: FocusableActionDetector(
+        enabled: widget.enabled,
         onShowHoverHighlight: (h) => setState(() => _hovered = h),
+        onShowFocusHighlight: (f) => setState(() => _focused = f),
+        shortcuts: {
+          const SingleActivator(LogicalKeyboardKey.enter):
+              const ActivateIntent(),
+          const SingleActivator(LogicalKeyboardKey.space):
+              const ActivateIntent(),
+        },
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              if (!widget.enabled || widget.onPressed == null) return null;
+              HapticFeedback.selectionClick();
+              widget.onPressed!();
+              return null;
+            },
+          ),
+        },
         child: GestureDetector(
           onTapDown: widget.enabled ? _onTapDown : null,
           onTapUp: widget.enabled ? _onTapUp : null,
@@ -148,19 +171,26 @@ class _EverglowButtonState extends State<EverglowButton>
     final radius = widget._variant == _Variant.pill
         ? AppRadius.radiusFull
         : AppRadius.radiusX2;
+    final focusBorder = Border.all(
+      color: AppColors.blushGold.withValues(alpha: 0.65),
+      width: 1.4,
+    );
 
     switch (widget._variant) {
       case _Variant.filled:
         return BoxDecoration(
-          color: widget.enabled ? AppColors.deepRose : AppColors.deepRose.withValues(alpha: 0.5),
+          color: widget.enabled
+              ? AppColors.deepRose
+              : AppColors.deepRose.withValues(alpha: 0.5),
           borderRadius: radius,
+          border: _focused ? focusBorder : null,
           boxShadow: _hovered ? AppElevation.glowRose : AppElevation.e1,
         );
       case _Variant.glass:
         return BoxDecoration(
           color: AppColors.surfaceGlass,
           borderRadius: radius,
-          border: Border.all(color: AppColors.border),
+          border: _focused ? focusBorder : Border.all(color: AppColors.border),
           boxShadow: _hovered ? AppElevation.e2 : AppElevation.e1,
         );
       case _Variant.ghost:
@@ -169,6 +199,7 @@ class _EverglowButtonState extends State<EverglowButton>
               ? AppColors.moonlight.withValues(alpha: 0.08)
               : Colors.transparent,
           borderRadius: radius,
+          border: _focused ? focusBorder : null,
         );
       case _Variant.pill:
         return BoxDecoration(
@@ -176,9 +207,9 @@ class _EverglowButtonState extends State<EverglowButton>
               ? AppColors.deepRose.withValues(alpha: 0.15)
               : AppColors.deepRose.withValues(alpha: 0.08),
           borderRadius: radius,
-          border: Border.all(
-            color: AppColors.deepRose.withValues(alpha: 0.3),
-          ),
+          border: _focused
+              ? focusBorder
+              : Border.all(color: AppColors.deepRose.withValues(alpha: 0.22)),
         );
     }
   }
@@ -199,9 +230,6 @@ class _EverglowButtonState extends State<EverglowButton>
       ),
     ];
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: children,
-    );
+    return Row(mainAxisSize: MainAxisSize.min, children: children);
   }
 }

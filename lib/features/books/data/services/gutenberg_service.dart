@@ -86,7 +86,8 @@ class GutenbergService {
         ? (((authors.first as Map<String, dynamic>)['name'] as String?) ?? '')
         : '';
 
-    final formats = (book['formats'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final formats =
+        (book['formats'] as Map?)?.cast<String, dynamic>() ?? const {};
     final coverUrl = _firstFormat(formats, 'image/jpeg') ?? '';
 
     final languages = (book['languages'] as List?)?.cast<String>() ?? const [];
@@ -94,12 +95,14 @@ class GutenbergService {
 
     final downloads = (book['download_count'] as num?)?.toInt() ?? 0;
 
-    final txtUrl = _firstFormat(formats, 'text/plain; charset=us-ascii') ??
+    final txtUrl =
+        _firstFormat(formats, 'text/plain; charset=us-ascii') ??
         _firstFormat(formats, 'text/plain') ??
         (id > 0 ? 'https://www.gutenberg.org/cache/epub/$id/pg$id.txt' : '');
     final epubUrl = _firstFormat(formats, 'application/epub+zip');
     final mobiUrl = _firstFormat(formats, 'application/x-mobipocket-ebook');
-    final htmlUrl = _firstFormat(formats, 'text/html') ??
+    final htmlUrl =
+        _firstFormat(formats, 'text/html') ??
         _firstFormat(formats, 'text/html; charset=utf-8');
     final pdfUrl = _firstFormat(formats, 'application/pdf');
 
@@ -111,7 +114,8 @@ class GutenbergService {
       if (pdfUrl != null && pdfUrl.isNotEmpty) 'pdf': pdfUrl,
     };
 
-    final subjects = (book['subjects'] as List?)
+    final subjects =
+        (book['subjects'] as List?)
             ?.map((e) => e.toString().replaceAll(RegExp(r'\s*--\s*'), ' · '))
             .where((s) => s.trim().isNotEmpty)
             .take(8)

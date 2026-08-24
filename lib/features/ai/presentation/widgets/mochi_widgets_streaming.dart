@@ -10,13 +10,9 @@ class _StreamingPlaceholder extends StatelessWidget {
     if (_isToolAction(toolStatus)) {
       return _ToolStatusChip(status: toolStatus);
     }
-    return Row(
+    return const Row(
       mainAxisSize: MainAxisSize.min,
-      children: [
-        const _RotatingThinkingText(),
-        const SizedBox(width: 8),
-        _ThreeDots(),
-      ],
+      children: [_RotatingThinkingText(), SizedBox(width: 8), _ThreeDots()],
     );
   }
 }
@@ -372,9 +368,13 @@ class _ComposerInputState extends State<_ComposerInput> {
       final result = await _bridge.recognizeOnce(lang: 'en-US');
       if (result != null && result.trim().isNotEmpty && mounted) {
         final current = widget.controller.text;
-        final next = current.isEmpty ? result.trim() : '$current ${result.trim()}';
+        final next = current.isEmpty
+            ? result.trim()
+            : '$current ${result.trim()}';
         widget.controller.text = next;
-        widget.controller.selection = TextSelection.fromPosition(TextPosition(offset: next.length));
+        widget.controller.selection = TextSelection.fromPosition(
+          TextPosition(offset: next.length),
+        );
       }
     } finally {
       if (mounted) setState(() => _isListening = false);
@@ -404,7 +404,9 @@ class _ComposerInputState extends State<_ComposerInput> {
           ),
           decoration: BoxDecoration(
             border: Border(
-              top: BorderSide(color: AppColors.blushGold.withValues(alpha: 0.06)),
+              top: BorderSide(
+                color: AppColors.blushGold.withValues(alpha: 0.06),
+              ),
             ),
           ),
           child: Column(
@@ -442,7 +444,11 @@ class _ComposerInputState extends State<_ComposerInput> {
                                     color: Colors.black54,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(Icons.close, size: 12, color: Colors.white),
+                                  child: const Icon(
+                                    Icons.close,
+                                    size: 12,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             ),
@@ -486,13 +492,22 @@ class _ComposerInputState extends State<_ComposerInput> {
                         IconButton(
                           onPressed: _isListening ? null : _startVoice,
                           icon: _isListening
-                              ? SizedBox(
+                              ? const SizedBox(
                                   width: 22,
                                   height: 22,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.blushGold),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.blushGold,
+                                  ),
                                 )
-                              : Icon(Icons.mic_none_rounded, color: AppColors.textMuted, size: 22),
-                          tooltip: _isListening ? 'Listening...' : 'Voice input',
+                              : Icon(
+                                  Icons.mic_none_rounded,
+                                  color: AppColors.textMuted,
+                                  size: 22,
+                                ),
+                          tooltip: _isListening
+                              ? 'Listening...'
+                              : 'Voice input',
                         ),
                       Expanded(
                         child: TextField(
@@ -503,17 +518,26 @@ class _ComposerInputState extends State<_ComposerInput> {
                           maxLines: 6,
                           textInputAction: TextInputAction.newline,
                           decoration: InputDecoration(
-                            hintText: 'Talk to Mochi...  (Enter to send, Shift+Enter for newline)',
-                            hintStyle: AppTypography.bodyMedium().copyWith(color: AppColors.textDisabled, fontSize: 13),
+                            hintText:
+                                'Talk to Mochi...  (Enter to send, Shift+Enter for newline)',
+                            hintStyle: AppTypography.bodyMedium().copyWith(
+                              color: AppColors.textDisabled,
+                              fontSize: 13,
+                            ),
                             border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 14),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 14,
+                            ),
                           ),
                         ),
                       ),
                       Padding(
                         padding: const EdgeInsets.only(right: 8, bottom: 4),
                         child: GestureDetector(
-                          onTap: (ai.isLoading || (!_hasText && widget.attachedImages.isEmpty))
+                          onTap:
+                              (ai.isLoading ||
+                                  (!_hasText && widget.attachedImages.isEmpty))
                               ? null
                               : widget.onSend,
                           child: AnimatedContainer(
@@ -521,14 +545,23 @@ class _ComposerInputState extends State<_ComposerInput> {
                             width: 36,
                             height: 36,
                             decoration: BoxDecoration(
-                              gradient: (!ai.isLoading && (_hasText || widget.attachedImages.isNotEmpty))
+                              gradient:
+                                  (!ai.isLoading &&
+                                      (_hasText ||
+                                          widget.attachedImages.isNotEmpty))
                                   ? const LinearGradient(
-                                      colors: [AppColors.blushGold, AppColors.deepRose],
+                                      colors: [
+                                        AppColors.blushGold,
+                                        AppColors.deepRose,
+                                      ],
                                       begin: Alignment.topLeft,
                                       end: Alignment.bottomRight,
                                     )
                                   : null,
-                              color: (!ai.isLoading && (_hasText || widget.attachedImages.isNotEmpty))
+                              color:
+                                  (!ai.isLoading &&
+                                      (_hasText ||
+                                          widget.attachedImages.isNotEmpty))
                                   ? null
                                   : AppColors.velvet.withValues(alpha: 0.4),
                               borderRadius: AppRadius.radiusLg,
@@ -538,11 +571,16 @@ class _ComposerInputState extends State<_ComposerInput> {
                                   ? const SizedBox(
                                       width: 18,
                                       height: 18,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.blushGold),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: AppColors.blushGold,
+                                      ),
                                     )
                                   : Icon(
                                       Icons.arrow_upward_rounded,
-                                      color: (_hasText || widget.attachedImages.isNotEmpty)
+                                      color:
+                                          (_hasText ||
+                                              widget.attachedImages.isNotEmpty)
                                           ? AppColors.petalWhite
                                           : AppColors.textDisabled,
                                       size: 20,
@@ -560,7 +598,10 @@ class _ComposerInputState extends State<_ComposerInput> {
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
                     'Mochi remembers your conversations privately — history lives in the left panel.',
-                    style: AppTypography.bodySmall().copyWith(color: AppColors.textDisabled, fontSize: 10),
+                    style: AppTypography.bodySmall().copyWith(
+                      color: AppColors.textDisabled,
+                      fontSize: 10,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -592,5 +633,3 @@ Uint8List _decodeBase64(String dataUri) {
   _base64Cache[dataUri] = decoded;
   return decoded;
 }
-
-

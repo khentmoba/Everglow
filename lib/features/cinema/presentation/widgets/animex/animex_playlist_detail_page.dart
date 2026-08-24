@@ -39,8 +39,10 @@ class AnimeXPlaylistDetailPage extends StatelessWidget {
             child: MouseRegion(
               cursor: SystemMouseCursors.click,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
@@ -134,9 +136,10 @@ class AnimeXPlaylistDetailPage extends StatelessWidget {
             hoverActionBuilder: (item) => GestureDetector(
               onTap: () {
                 if (item.anilistId != null) {
-                  context
-                      .read<AnimexStores>()
-                      .removeFromPlaylist(id, item.anilistId!);
+                  context.read<AnimexStores>().removeFromPlaylist(
+                    id,
+                    item.anilistId!,
+                  );
                 }
               },
               child: MouseRegion(

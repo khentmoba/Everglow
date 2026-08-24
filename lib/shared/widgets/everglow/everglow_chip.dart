@@ -53,16 +53,13 @@ class _EverglowChipState extends State<EverglowChip> {
             child: AnimatedContainer(
               duration: AppMotion.orZero(AppMotion.fast),
               curve: AppMotion.easeOutStrong,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: selected
                     ? AppColors.deepRose.withValues(alpha: 0.2)
                     : _hovered
-                        ? AppColors.moonlight.withValues(alpha: 0.08)
-                        : Colors.transparent,
+                    ? AppColors.moonlight.withValues(alpha: 0.08)
+                    : Colors.transparent,
                 borderRadius: AppRadius.radiusFull,
                 border: Border.all(
                   color: selected

@@ -57,13 +57,25 @@ class _SpotifyCallbackPageState extends State<SpotifyCallbackPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.music_note_rounded, size: 48, color: AppColors.blushGold),
+              const Icon(
+                Icons.music_note_rounded,
+                size: 48,
+                color: AppColors.blushGold,
+              ),
               const SizedBox(height: 16),
-              Text(_status, style: AppTypography.outfitWhite.copyWith(fontSize: 16), textAlign: TextAlign.center),
+              Text(
+                _status,
+                style: AppTypography.outfitWhite.copyWith(fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 24),
-              if (!_done && widget.error == null) const CircularProgressIndicator(color: AppColors.blushGold),
+              if (!_done && widget.error == null)
+                const CircularProgressIndicator(color: AppColors.blushGold),
               if (_done || widget.error != null)
-                ElevatedButton(onPressed: () => context.go('/dashboard'), child: const Text('Back to Everglow')),
+                ElevatedButton(
+                  onPressed: () => context.go('/dashboard'),
+                  child: const Text('Back to Everglow'),
+                ),
             ],
           ),
         ),

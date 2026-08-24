@@ -43,16 +43,31 @@ class _GardenPlantViewState extends State<GardenPlantView>
   CustomPainter _getPainter() {
     switch (widget.plantType.id) {
       case 'rose':
-        return RosePainter(stage: widget.stage, animationValue: _breathingController.value);
+        return RosePainter(
+          stage: widget.stage,
+          animationValue: _breathingController.value,
+        );
       case 'sunflower':
-        return SunflowerPainter(stage: widget.stage, animationValue: _breathingController.value);
+        return SunflowerPainter(
+          stage: widget.stage,
+          animationValue: _breathingController.value,
+        );
       case 'tulip':
-        return TulipPainter(stage: widget.stage, animationValue: _breathingController.value);
+        return TulipPainter(
+          stage: widget.stage,
+          animationValue: _breathingController.value,
+        );
       case 'sakura':
-        return SakuraPainter(stage: widget.stage, animationValue: _breathingController.value);
+        return SakuraPainter(
+          stage: widget.stage,
+          animationValue: _breathingController.value,
+        );
       case 'lily':
       default:
-        return LilyPainter(stage: widget.stage, animationValue: _breathingController.value);
+        return LilyPainter(
+          stage: widget.stage,
+          animationValue: _breathingController.value,
+        );
     }
   }
 
@@ -60,23 +75,23 @@ class _GardenPlantViewState extends State<GardenPlantView>
   Widget build(BuildContext context) {
     return RepaintBoundary(
       child: AnimatedBuilder(
-      animation: _breathingController,
-      builder: (context, _) {
-        return AnimatedSwitcher(
-          duration: const Duration(seconds: 1),
-          transitionBuilder: (Widget child, Animation<double> animation) {
-            return FadeTransition(
-              opacity: animation,
-              child: ScaleTransition(scale: animation, child: child),
-            );
-          },
-          child: CustomPaint(
-            key: ValueKey('${widget.plantType.id}-${widget.stage}'),
-            size: Size.infinite,
-            painter: _getPainter(),
-          ),
-        );
-      },
+        animation: _breathingController,
+        builder: (context, _) {
+          return AnimatedSwitcher(
+            duration: const Duration(seconds: 1),
+            transitionBuilder: (Widget child, Animation<double> animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(scale: animation, child: child),
+              );
+            },
+            child: CustomPaint(
+              key: ValueKey('${widget.plantType.id}-${widget.stage}'),
+              size: Size.infinite,
+              painter: _getPainter(),
+            ),
+          );
+        },
       ),
     );
   }

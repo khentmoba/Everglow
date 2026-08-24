@@ -160,8 +160,8 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
 
   int get _matchPercent {
     final v = _voteAverage;
-    if (v > 0) return (v * 10).round().clamp(50, 99);
-    return 82 + (_item.tmdbId % 17);
+    if (v <= 0) return 0;
+    return (v * 10).round().clamp(50, 99);
   }
 
   String get _backdropUrl {
@@ -223,12 +223,6 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
               ),
             ),
           ),
-          if (_index == 0 && widget.items.length > 1)
-            Positioned(
-              top: 96,
-              left: isDesktop ? 48 : 16,
-              child: const _Top10Badge(),
-            ),
           Positioned(
             left: isDesktop ? 48 : 16,
             right: isDesktop ? 48 : 16,
@@ -314,13 +308,14 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
             if (isDesktop)
               Row(
                 children: [
+                  if (_matchPercent > 0)
                     Text(
                       '$_matchPercent% Match',
                       style: AppTypography.outfitHeading.copyWith(
                         fontSize: 14,
                         color: NetflixColors.match,
                       ),
-                  ),
+                    ),
                   if (_item.year.isNotEmpty) ...[
                     const SizedBox(width: 10),
                     _MetaText(_item.year),
@@ -335,7 +330,7 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
                   ],
                   if (_item.mediaType == 'tv') ...[
                     const SizedBox(width: 10),
-                    _MetaText('Series'),
+                    const _MetaText('Series'),
                   ],
                 ],
               ),
@@ -344,9 +339,15 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
               _item.title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-             style: AppTypography.cormorantBlack.copyWith(fontSize: isDesktop ? 46 : 32, height: 1.02, letterSpacing: 0.2, shadows: const [
-                 Shadow(color: Color(0xAA000000), blurRadius: 18),
-               ], color: NetflixColors.textPrimary),
+              style: AppTypography.cormorantBlack.copyWith(
+                fontSize: isDesktop ? 46 : 32,
+                height: 1.02,
+                letterSpacing: 0.2,
+                shadows: const [
+                  Shadow(color: Color(0xAA000000), blurRadius: 18),
+                ],
+                color: NetflixColors.textPrimary,
+              ),
             ),
             if (isDesktop && _synopsis.isNotEmpty) ...[
               const SizedBox(height: 14),
@@ -421,45 +422,6 @@ class _HdBadge extends StatelessWidget {
           fontSize: 10,
           letterSpacing: 0.5,
         ),
-      ),
-    );
-  }
-}
-
-class _Top10Badge extends StatelessWidget {
-  const _Top10Badge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'TOP',
-            style: AppTypography.outfitHeading.copyWith(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            '10',
-            style: AppTypography.outfitHeading.copyWith(
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-              color: NetflixColors.gold,
-              letterSpacing: 1.2,
-            ),
-          ),
-        ],
       ),
     );
   }

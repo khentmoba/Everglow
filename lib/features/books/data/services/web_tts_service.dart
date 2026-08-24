@@ -17,11 +17,9 @@ class WebTtsService {
 
   bool get isSupported => kIsWeb;
 
-  bool get isSpeaking =>
-      isSupported && web.window.speechSynthesis.speaking;
+  bool get isSpeaking => isSupported && web.window.speechSynthesis.speaking;
 
-  bool get isPaused =>
-      isSupported && web.window.speechSynthesis.paused;
+  bool get isPaused => isSupported && web.window.speechSynthesis.paused;
 
   double get rate => _rate;
 

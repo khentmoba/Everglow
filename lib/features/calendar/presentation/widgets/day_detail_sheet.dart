@@ -280,21 +280,70 @@ class _EventTile extends StatelessWidget {
                     runSpacing: 4,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(color: AppColors.moonlight.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(6)),
-                        child: Text(event.isAllDay ? 'All day' : DateFormat.jm().format(event.date), style: AppTypography.outfitWhite.copyWith(fontSize: 10, color: AppTheme.petalWhite.withValues(alpha: 0.7))),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.moonlight.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          event.isAllDay
+                              ? 'All day'
+                              : DateFormat.jm().format(event.date),
+                          style: AppTypography.outfitWhite.copyWith(
+                            fontSize: 10,
+                            color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                          ),
+                        ),
                       ),
                       if (event.location != null)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(color: AppColors.auroraTeal.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.place_rounded, size: 10, color: AppColors.auroraTeal), const SizedBox(width: 3), Text(event.location!, style: AppTypography.outfitWhite.copyWith(fontSize: 10, color: AppColors.auroraTeal))]),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.auroraTeal.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.place_rounded,
+                                size: 10,
+                                color: AppColors.auroraTeal,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                event.location!,
+                                style: AppTypography.outfitWhite.copyWith(
+                                  fontSize: 10,
+                                  color: AppColors.auroraTeal,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       if (event.attendees.isNotEmpty)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(color: AppColors.blushGold.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
-                          child: Text(event.attendees.join(', '), style: AppTypography.outfitWhite.copyWith(fontSize: 10, color: AppColors.blushGold)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.blushGold.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            event.attendees.join(', '),
+                            style: AppTypography.outfitWhite.copyWith(
+                              fontSize: 10,
+                              color: AppColors.blushGold,
+                            ),
+                          ),
                         ),
                     ],
                   ),

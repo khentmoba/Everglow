@@ -12,13 +12,13 @@ class StarlightPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return const Scaffold(
       body: Stack(
         children: [
           Positioned.fill(
             child: EverglowBackground(
               baseColor: AppColors.inkDeep,
-              glows: const [
+              glows: [
                 RadialGlow(
                   color: AppColors.auroraLilac,
                   alignment: Alignment(-0.6, -0.9),
@@ -35,7 +35,7 @@ class StarlightPage extends StatelessWidget {
               showPetals: true,
             ),
           ),
-          const StarlightJarWidget(),
+          StarlightJarWidget(),
         ],
       ),
     );

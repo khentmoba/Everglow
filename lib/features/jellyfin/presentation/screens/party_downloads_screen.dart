@@ -57,7 +57,9 @@ class _PartyDownloadsScreenState extends State<PartyDownloadsScreen> {
     setState(() {
       _searching = false;
       _results = results;
-      _searchError = results.isEmpty ? 'No movies found. Try another title.' : null;
+      _searchError = results.isEmpty
+          ? 'No movies found. Try another title.'
+          : null;
     });
   }
 
@@ -73,7 +75,9 @@ class _PartyDownloadsScreenState extends State<PartyDownloadsScreen> {
     setState(() {
       _loadingFiles = false;
       _files = files;
-      _filesError = files.isEmpty ? 'No downloadable video found for this item.' : null;
+      _filesError = files.isEmpty
+          ? 'No downloadable video found for this item.'
+          : null;
     });
   }
 
@@ -86,7 +90,9 @@ class _PartyDownloadsScreenState extends State<PartyDownloadsScreen> {
     );
     if (!opened && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not start the download for ${file.name}')),
+        SnackBar(
+          content: Text('Could not start the download for ${file.name}'),
+        ),
       );
     }
   }
@@ -94,7 +100,7 @@ class _PartyDownloadsScreenState extends State<PartyDownloadsScreen> {
   @override
   Widget build(BuildContext context) {
     return EverglowScaffold.cinema(
-      appBar: EverglowAppBar(title: 'Party Downloads'),
+      appBar: const EverglowAppBar(title: 'Party Downloads'),
       body: Column(
         children: [
           Padding(
@@ -115,7 +121,10 @@ class _PartyDownloadsScreenState extends State<PartyDownloadsScreen> {
                   color: AppColors.mutedPurple,
                   fontSize: 13,
                 ),
-                prefixIcon: const Icon(Icons.search_rounded, color: AppColors.blushGold),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  color: AppColors.blushGold,
+                ),
                 suffixIcon: _searching
                     ? const Padding(
                         padding: EdgeInsets.all(AppSpacing.md),
@@ -130,7 +139,10 @@ class _PartyDownloadsScreenState extends State<PartyDownloadsScreen> {
                       )
                     : IconButton(
                         onPressed: _runSearch,
-                        icon: const Icon(Icons.arrow_forward_rounded, color: AppColors.blushGold),
+                        icon: const Icon(
+                          Icons.arrow_forward_rounded,
+                          color: AppColors.blushGold,
+                        ),
                       ),
                 filled: true,
                 fillColor: AppColors.inkDeep.withValues(alpha: 0.55),
@@ -140,11 +152,15 @@ class _PartyDownloadsScreenState extends State<PartyDownloadsScreen> {
                 ),
                 border: OutlineInputBorder(
                   borderRadius: AppRadius.radiusLg,
-                  borderSide: BorderSide(color: AppColors.moonlight.withValues(alpha: 0.18)),
+                  borderSide: BorderSide(
+                    color: AppColors.moonlight.withValues(alpha: 0.18),
+                  ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: AppRadius.radiusLg,
-                  borderSide: BorderSide(color: AppColors.moonlight.withValues(alpha: 0.18)),
+                  borderSide: BorderSide(
+                    color: AppColors.moonlight.withValues(alpha: 0.18),
+                  ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: AppRadius.radiusLg,
@@ -154,9 +170,7 @@ class _PartyDownloadsScreenState extends State<PartyDownloadsScreen> {
             ),
           ),
           Expanded(
-            child: _selected == null
-                ? _buildResults()
-                : _buildMovieDetail(),
+            child: _selected == null ? _buildResults() : _buildMovieDetail(),
           ),
         ],
       ),
@@ -169,7 +183,10 @@ class _PartyDownloadsScreenState extends State<PartyDownloadsScreen> {
     }
     if (_searching) return _buildLoading();
     if (_results.isEmpty) {
-      return _buildMessage('Search for a movie to add to the party library.', Icons.movie_filter_rounded);
+      return _buildMessage(
+        'Search for a movie to add to the party library.',
+        Icons.movie_filter_rounded,
+      );
     }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(
@@ -192,7 +209,9 @@ class _PartyDownloadsScreenState extends State<PartyDownloadsScreen> {
         decoration: BoxDecoration(
           color: AppColors.inkDeep.withValues(alpha: 0.6),
           borderRadius: AppRadius.radiusLg,
-          border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.14)),
+          border: Border.all(
+            color: AppColors.moonlight.withValues(alpha: 0.14),
+          ),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -208,7 +227,11 @@ class _PartyDownloadsScreenState extends State<PartyDownloadsScreen> {
                   width: 88,
                   height: 124,
                   color: AppColors.velvet,
-                  child: const Icon(Icons.movie_rounded, color: AppColors.mutedPurple, size: 30),
+                  child: const Icon(
+                    Icons.movie_rounded,
+                    color: AppColors.mutedPurple,
+                    size: 30,
+                  ),
                 ),
               ),
             ),
@@ -221,7 +244,10 @@ class _PartyDownloadsScreenState extends State<PartyDownloadsScreen> {
                     movie.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTypography.outfitBold.copyWith(fontSize: 14, height: 1.25),
+                    style: AppTypography.outfitBold.copyWith(
+                      fontSize: 14,
+                      height: 1.25,
+                    ),
                   ),
                   if (movie.year != null && movie.year!.isNotEmpty) ...[
                     const SizedBox(height: AppSpacing.xs),
@@ -236,7 +262,11 @@ class _PartyDownloadsScreenState extends State<PartyDownloadsScreen> {
                   const SizedBox(height: AppSpacing.sm),
                   Row(
                     children: [
-                      Icon(Icons.download_rounded, color: AppColors.auroraTeal, size: 16),
+                      const Icon(
+                        Icons.download_rounded,
+                        color: AppColors.auroraTeal,
+                        size: 16,
+                      ),
                       const SizedBox(width: AppSpacing.xs),
                       Text(
                         'Choose file',
@@ -270,7 +300,11 @@ class _PartyDownloadsScreenState extends State<PartyDownloadsScreen> {
           onTap: () => setState(() => _selected = null),
           child: Row(
             children: [
-              const Icon(Icons.arrow_back_rounded, color: AppColors.blushGold, size: 18),
+              const Icon(
+                Icons.arrow_back_rounded,
+                color: AppColors.blushGold,
+                size: 18,
+              ),
               const SizedBox(width: AppSpacing.sm),
               Text(
                 'Back to results',
@@ -297,7 +331,11 @@ class _PartyDownloadsScreenState extends State<PartyDownloadsScreen> {
                   width: 120,
                   height: 170,
                   color: AppColors.velvet,
-                  child: const Icon(Icons.movie_rounded, color: AppColors.mutedPurple, size: 40),
+                  child: const Icon(
+                    Icons.movie_rounded,
+                    color: AppColors.mutedPurple,
+                    size: 40,
+                  ),
                 ),
               ),
             ),
@@ -308,7 +346,10 @@ class _PartyDownloadsScreenState extends State<PartyDownloadsScreen> {
                 children: [
                   Text(
                     movie.title,
-                    style: AppTypography.cormorantBoldWhite.copyWith(fontSize: 22, height: 1.1),
+                    style: AppTypography.cormorantBoldWhite.copyWith(
+                      fontSize: 22,
+                      height: 1.1,
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   if (movie.year != null && movie.year!.isNotEmpty)
@@ -325,11 +366,14 @@ class _PartyDownloadsScreenState extends State<PartyDownloadsScreen> {
           ],
         ),
         const SizedBox(height: AppSpacing.lg),
-        if (_filesError != null) _buildMessage(_filesError!, Icons.folder_off_rounded),
+        if (_filesError != null)
+          _buildMessage(_filesError!, Icons.folder_off_rounded),
         if (_loadingFiles)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: AppSpacing.x3),
-            child: Center(child: CircularProgressIndicator(color: AppColors.auroraTeal)),
+            child: Center(
+              child: CircularProgressIndicator(color: AppColors.auroraTeal),
+            ),
           )
         else
           for (final file in _files) ...[
@@ -380,7 +424,10 @@ class _PartyDownloadsScreenState extends State<PartyDownloadsScreen> {
           GestureDetector(
             onTap: () => _download(file),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
+              ),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [AppColors.auroraTeal, Color(0xFF2E9E8A)],
@@ -390,7 +437,11 @@ class _PartyDownloadsScreenState extends State<PartyDownloadsScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.download_rounded, color: AppColors.inkDeep, size: 16),
+                  const Icon(
+                    Icons.download_rounded,
+                    color: AppColors.inkDeep,
+                    size: 16,
+                  ),
                   const SizedBox(width: AppSpacing.xs),
                   Text(
                     'Download',

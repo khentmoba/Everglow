@@ -25,8 +25,7 @@ Future<String> streamSseResponse({
 
   final client = http.Client();
   try {
-    final response =
-        await client.send(request).timeout(timeout);
+    final response = await client.send(request).timeout(timeout);
 
     if (response.statusCode == 200) {
       await for (final line

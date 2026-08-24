@@ -46,8 +46,9 @@ Widget _fakeVisual(BuildContext context, RoamingCatFrame frame) {
 }
 
 void main() {
-  testWidgets('dragging the cat moves it in real time and roaming resumes',
-      (tester) async {
+  testWidgets('dragging the cat moves it in real time and roaming resumes', (
+    tester,
+  ) async {
     final controller = RoamingGuardianController(random: math.Random(2));
     addTearDown(controller.dispose);
 
@@ -120,8 +121,9 @@ void main() {
     controller.stop();
   });
 
-  testWidgets('depth change cross-fades and removes the inactive cat',
-      (tester) async {
+  testWidgets('depth change cross-fades and removes the inactive cat', (
+    tester,
+  ) async {
     final controller = RoamingGuardianController(random: math.Random(6));
     addTearDown(controller.dispose);
 

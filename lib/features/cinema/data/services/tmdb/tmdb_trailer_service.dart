@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-import '../../../../../core/constants/api_keys.dart';
 import '../../../../../core/utils/connectivity_aware.dart';
 import '../../../../../core/utils/error_aware.dart';
 import '../../../../../core/utils/logger.dart';
@@ -19,10 +17,9 @@ class TMDBTrailerService with TMDBBase, ConnectivityAware, ErrorAware {
       return _trailerCache[cacheKey];
     }
 
-    final url = Uri.parse(
-        '$tmdbBaseUrl/$mediaType/$id/videos?api_key=${ApiKeys.tmdbApiKey}');
+    final url = Uri.parse('$tmdbBaseUrl/$mediaType/$id/videos');
     try {
-      final response = await http.get(url);
+      final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List results = data['results'] ?? [];

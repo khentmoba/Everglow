@@ -7,11 +7,7 @@ class MediaPosterCard extends StatelessWidget {
   final MediaItem item;
   final VoidCallback onTap;
 
-  const MediaPosterCard({
-    super.key,
-    required this.item,
-    required this.onTap,
-  });
+  const MediaPosterCard({super.key, required this.item, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +38,8 @@ class MediaPosterCard extends StatelessWidget {
                   item.posterUrl,
                   fit: BoxFit.cover,
                   cacheWidth: 400,
-                  errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+                  errorBuilder: (context, error, stackTrace) =>
+                      _buildPlaceholder(),
                 )
               else
                 _buildPlaceholder(),
@@ -51,7 +48,10 @@ class MediaPosterCard extends StatelessWidget {
                 left: 0,
                 right: 0,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.bottomCenter,
@@ -70,7 +70,12 @@ class MediaPosterCard extends StatelessWidget {
                     children: [
                       Text(
                         item.title,
-                        style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.2),
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: AppTheme.petalWhite,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.2,
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -79,7 +84,10 @@ class MediaPosterCard extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: AppTheme.deepRose.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(4),
@@ -90,13 +98,24 @@ class MediaPosterCard extends StatelessWidget {
                             ),
                             child: Text(
                               item.mediaType.toUpperCase(),
-                              style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                              style: AppTypography.outfitWhite.copyWith(
+                                color: AppTheme.roseQuartz,
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
                             ),
                           ),
                           if (item.year.isNotEmpty)
                             Text(
                               item.year,
-                              style: AppTypography.outfitWhite.copyWith(color: AppTheme.blushGold.withValues(alpha: 0.8), fontSize: 10, fontWeight: FontWeight.w500),
+                              style: AppTypography.outfitWhite.copyWith(
+                                color: AppTheme.blushGold.withValues(
+                                  alpha: 0.8,
+                                ),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                         ],
                       ),

@@ -113,7 +113,9 @@ class PlantPickerSheet extends StatelessWidget {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: AppTheme.blushGold.withValues(alpha: 0.2),
+                                color: AppTheme.blushGold.withValues(
+                                  alpha: 0.2,
+                                ),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -139,7 +141,7 @@ class PlantPickerSheet extends StatelessWidget {
                   ),
                 ),
                 if (isSelected)
-                  Icon(
+                  const Icon(
                     Icons.check_circle_rounded,
                     color: AppTheme.blushGold,
                     size: 20,

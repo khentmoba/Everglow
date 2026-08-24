@@ -6,9 +6,7 @@ void main() {
   test('composeTodayRecap includes real data and on-this-day memories', () {
     final recap = composeTodayRecap(
       dateLabel: '2026-08-13',
-      moods: [
-        (uid: 'khentsgdz', mood: 'happy'),
-      ],
+      moods: [(uid: 'khentsgdz', mood: 'happy')],
       activities: ['Watched a movie'],
       starlight: ['I love our mornings'],
       watchlist: ['Interstellar'],
@@ -17,10 +15,7 @@ void main() {
           fact: 'Khent and Clair started dating',
           occurredAt: DateTime(2026, 2, 14),
         ),
-        MemoryFact(
-          fact: 'First ramen date',
-          occurredAt: DateTime(2025, 8, 13),
-        ),
+        MemoryFact(fact: 'First ramen date', occurredAt: DateTime(2025, 8, 13)),
       ],
       now: DateTime(2026, 8, 13),
     );

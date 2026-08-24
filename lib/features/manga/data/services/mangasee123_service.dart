@@ -54,7 +54,8 @@ class MangaSee123Service with ConnectivityAware {
   /// so the request works on Flutter Web (CORS-safe).
   Uri _proxiedFetch(Uri uri) {
     return Uri.parse(
-        '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}');
+      '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}',
+    );
   }
 
   /// Search MangaSee123 by title and return the series slug.
@@ -67,9 +68,9 @@ class MangaSee123Service with ConnectivityAware {
     );
     try {
       final headers = await _authHeaders();
-      final response = await http.get(_proxiedFetch(uri), headers: headers).timeout(
-            const Duration(seconds: 8),
-          );
+      final response = await http
+          .get(_proxiedFetch(uri), headers: headers)
+          .timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final body = response.body.trim();
         if (body.isNotEmpty && body != '[]') {
@@ -111,12 +112,9 @@ class MangaSee123Service with ConnectivityAware {
         '$_baseUrl/read-online/$slug-chapter-$formatted-page-1.html';
     try {
       final headers = await _authHeaders();
-      final response = await http.get(
-        _proxiedFetch(Uri.parse(chapterUrl)),
-        headers: headers,
-      ).timeout(
-            const Duration(seconds: 10),
-          );
+      final response = await http
+          .get(_proxiedFetch(Uri.parse(chapterUrl)), headers: headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final urls = <String>[];
 
@@ -162,12 +160,18 @@ class MangaSee123Service with ConnectivityAware {
                 } else if (item is Map) {
                   final src = item['src'] ?? item['url'] ?? '';
                   if (src is String && src.isNotEmpty) {
-                    urls.add(src.startsWith('http') ? src : 'https://scans-hot.xyz/$src');
+                    urls.add(
+                      src.startsWith('http')
+                          ? src
+                          : 'https://scans-hot.xyz/$src',
+                    );
                   }
                 }
               }
             } catch (e) {
-              debugPrint('[MangaSee123Service] CurlReading/PrefetchImages parse error: $e');
+              debugPrint(
+                '[MangaSee123Service] CurlReading/PrefetchImages parse error: $e',
+              );
             }
           }
         }
@@ -175,13 +179,16 @@ class MangaSee123Service with ConnectivityAware {
         // Method 3: Fallback to standard img tags
         if (urls.isEmpty) {
           const imgRe = r'<img[^>]*src="(https?://[^"]+)"[^>]*>';
-          for (final m in RegExp(imgRe, caseSensitive: false)
-              .allMatches(response.body)) {
+          for (final m in RegExp(
+            imgRe,
+            caseSensitive: false,
+          ).allMatches(response.body)) {
             final src = (m.group(1) ?? '').trim();
             if (src.isEmpty) continue;
-            if (!RegExp(r'\.(jpg|jpeg|png|webp|gif|bmp)(\?|$)',
-                    caseSensitive: false)
-                .hasMatch(src)) {
+            if (!RegExp(
+              r'\.(jpg|jpeg|png|webp|gif|bmp)(\?|$)',
+              caseSensitive: false,
+            ).hasMatch(src)) {
               continue;
             }
             urls.add(src);

@@ -16,6 +16,7 @@ import '../../../../core/theme/app_typography.dart';
 
 /// Reader background — deep black, darker than the anime palette.
 const _readerBg = AppColors.animeBackground; // 0xFF080810
+
 ///   • Long-strip (webtoon) mode by default — vertical continuous scroll
 ///   • Tap center of screen to show/hide UI chrome
 ///   • Chapter dropdown for quick navigation
@@ -86,7 +87,9 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
     final ratio = maxScroll > 0 ? offset / maxScroll : 0;
     final totalPages = _pages!.filenames.length;
     setState(() {
-      _currentPageEstimate = (ratio * totalPages).clamp(0, totalPages - 1).toInt();
+      _currentPageEstimate = (ratio * totalPages)
+          .clamp(0, totalPages - 1)
+          .toInt();
     });
 
     // Save progress periodically
@@ -124,28 +127,38 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
     final futures = <Future<MangaChapterPages?>>[];
 
     // 1) MangaDex — try chapter.id directly
-    futures.add(_mangaDexService
-        .getChapterPagesProxied(widget.chapter.id)
-        .timeout(timeout, onTimeout: () => null));
+    futures.add(
+      _mangaDexService
+          .getChapterPagesProxied(widget.chapter.id)
+          .timeout(timeout, onTimeout: () => null),
+    );
 
     // 2) MangaDex — match by chapter number
     final mangaDexId = widget.manga.mangaKakalotId;
     if (mangaDexId.isNotEmpty && widget.chapter.chapter.isNotEmpty) {
-      futures.add(_resolveMangaDexByChapterNumber(mangaDexId)
-          .timeout(timeout, onTimeout: () => null));
+      futures.add(
+        _resolveMangaDexByChapterNumber(
+          mangaDexId,
+        ).timeout(timeout, onTimeout: () => null),
+      );
     }
     if (widget.manga.mangaId.isNotEmpty &&
         widget.manga.mangaId != mangaDexId &&
         widget.manga.comickId == 0 &&
         widget.chapter.chapter.isNotEmpty) {
-      futures.add(_resolveMangaDexByChapterNumber(widget.manga.mangaId)
-          .timeout(timeout, onTimeout: () => null));
+      futures.add(
+        _resolveMangaDexByChapterNumber(
+          widget.manga.mangaId,
+        ).timeout(timeout, onTimeout: () => null),
+      );
     }
 
     // 3) MangaKakalot
-    futures.add(_kakalotService
-        .getChapterPages(widget.chapter.id)
-        .timeout(timeout, onTimeout: () => null));
+    futures.add(
+      _kakalotService
+          .getChapterPages(widget.chapter.id)
+          .timeout(timeout, onTimeout: () => null),
+    );
 
     final kakalotTitles = <String>[widget.manga.title];
     for (final alt in widget.manga.altTitles) {
@@ -154,38 +167,42 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
       }
     }
     for (final title in kakalotTitles) {
-      futures.add(_kakalotService
-          .searchByTitle(title)
-          .timeout(timeout, onTimeout: () => '')
-          .then((slug) async {
-        if (slug.isEmpty) return null;
-        final chapters = await _kakalotService.getChapterFeed(slug);
-        MangaChapter? match;
-        for (final c in chapters) {
-          if (_chaptersMatch(c.chapter, widget.chapter.chapter)) {
-            match = c;
-            break;
-          }
-        }
-        if (match == null) return null;
-        final pages = await _kakalotService.getChapterPages(match.id);
-        if (pages == null || pages.filenames.isEmpty) return null;
-        final proxied = pages.filenames
-            .map((u) => _kakalotService.proxiedImageUrl(u))
-            .toList();
-        return MangaChapterPages(
-          chapterId: pages.chapterId,
-          baseUrl: '',
-          hash: '',
-          filenames: proxied,
-          expiresAt: pages.expiresAt,
-        );
-      }).timeout(timeout, onTimeout: () => null));
+      futures.add(
+        _kakalotService
+            .searchByTitle(title)
+            .timeout(timeout, onTimeout: () => '')
+            .then((slug) async {
+              if (slug.isEmpty) return null;
+              final chapters = await _kakalotService.getChapterFeed(slug);
+              MangaChapter? match;
+              for (final c in chapters) {
+                if (_chaptersMatch(c.chapter, widget.chapter.chapter)) {
+                  match = c;
+                  break;
+                }
+              }
+              if (match == null) return null;
+              final pages = await _kakalotService.getChapterPages(match.id);
+              if (pages == null || pages.filenames.isEmpty) return null;
+              final proxied = pages.filenames
+                  .map((u) => _kakalotService.proxiedImageUrl(u))
+                  .toList();
+              return MangaChapterPages(
+                chapterId: pages.chapterId,
+                baseUrl: '',
+                hash: '',
+                filenames: proxied,
+                expiresAt: pages.expiresAt,
+              );
+            })
+            .timeout(timeout, onTimeout: () => null),
+      );
     }
 
     // 4) MangaKatana
-    futures.add(_resolveMangakatanaPages()
-        .timeout(timeout, onTimeout: () => null));
+    futures.add(
+      _resolveMangakatanaPages().timeout(timeout, onTimeout: () => null),
+    );
 
     // 5) Bato.to — only if the chapter ID is already a Bato path
     if (widget.chapter.id.startsWith('/title/') ||
@@ -193,11 +210,13 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
       final batoPath = widget.chapter.id.startsWith('http')
           ? widget.chapter.id
           : widget.chapter.id.startsWith('/')
-              ? widget.chapter.id
-              : '/${widget.chapter.id}';
-      futures.add(_batoService
-          .getChapterPages(batoPath)
-          .timeout(timeout, onTimeout: () => null));
+          ? widget.chapter.id
+          : '/${widget.chapter.id}';
+      futures.add(
+        _batoService
+            .getChapterPages(batoPath)
+            .timeout(timeout, onTimeout: () => null),
+      );
     }
 
     // 6) MangaSee123 — only if we have a known slug (skip Comick hid)
@@ -207,9 +226,11 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
     // 7) Scanlation sites
     final slugs = widget.scanlationSlugs;
     if (slugs != null && slugs.isNotEmpty) {
-      futures.add(_scanlationService
-          .getChapterPagesFromAll(slugs, widget.chapter.chapter)
-          .timeout(timeout, onTimeout: () => null));
+      futures.add(
+        _scanlationService
+            .getChapterPagesFromAll(slugs, widget.chapter.chapter)
+            .timeout(timeout, onTimeout: () => null),
+      );
     }
 
     // Wait for all and pick the first non-null result
@@ -227,12 +248,13 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
   }
 
   Future<MangaChapterPages?> _resolveMangaDexByChapterNumber(
-      String mangaDexId) async {
+    String mangaDexId,
+  ) async {
     final mdChapters = await _mangaDexService.getChapterFeed(mangaDexId);
     final targetChapter = mdChapters.cast<MangaChapter?>().firstWhere(
-          (c) => c != null && _chaptersMatch(c.chapter, widget.chapter.chapter),
-          orElse: () => null,
-        );
+      (c) => c != null && _chaptersMatch(c.chapter, widget.chapter.chapter),
+      orElse: () => null,
+    );
     if (targetChapter != null) {
       return _mangaDexService.getChapterPagesProxied(targetChapter.id);
     }
@@ -280,10 +302,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
     // Wait for ALL futures so we can pick deterministically by source
     // priority rather than whichever finishes first.
     final results = await Future.wait(
-      futures.map((f) => f.then(
-        (pages) => pages,
-        onError: (_) => null,
-      )),
+      futures.map((f) => f.then((pages) => pages, onError: (_) => null)),
     );
 
     // Priority order matches the order we added futures:
@@ -322,7 +341,9 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
           // Scroll to approximate position (will be refined once layout settles)
           final ratio = widget.manga.lastReadPage / pages.filenames.length;
           final target = _scrollController.position.maxScrollExtent * ratio;
-          _scrollController.jumpTo(target.clamp(0, _scrollController.position.maxScrollExtent));
+          _scrollController.jumpTo(
+            target.clamp(0, _scrollController.position.maxScrollExtent),
+          );
         }
       });
     }
@@ -397,12 +418,19 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                 children: [
                   Text(
                     'Chapters',
-                    style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 16, fontWeight: FontWeight.bold),
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: AppTheme.petalWhite,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const Spacer(),
                   Text(
                     '${widget.allChapters.length} total',
-                    style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.5), fontSize: 12),
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: AppTheme.roseQuartz.withValues(alpha: 0.5),
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -418,21 +446,35 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                   return ListTile(
                     dense: true,
                     selected: isCurrent,
-                    selectedTileColor: AppTheme.deepRose.withValues(alpha: 0.15),
+                    selectedTileColor: AppTheme.deepRose.withValues(
+                      alpha: 0.15,
+                    ),
                     leading: isCurrent
-                        ? const Icon(Icons.play_arrow_rounded,
-                            color: AppTheme.deepRose, size: 20)
+                        ? const Icon(
+                            Icons.play_arrow_rounded,
+                            color: AppTheme.deepRose,
+                            size: 20,
+                          )
                         : null,
                     title: Text(
                       c.displayTitle,
-                      style: AppTypography.outfitWhite.copyWith(color: isCurrent
+                      style: AppTypography.outfitWhite.copyWith(
+                        color: isCurrent
                             ? AppTheme.deepRose
-                            : AppTheme.petalWhite, fontSize: 13, fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500),
+                            : AppTheme.petalWhite,
+                        fontSize: 13,
+                        fontWeight: isCurrent
+                            ? FontWeight.bold
+                            : FontWeight.w500,
+                      ),
                     ),
                     subtitle: c.pages > 0
                         ? Text(
                             '${c.pages} pages',
-                            style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.4), fontSize: 10),
+                            style: AppTypography.outfitWhite.copyWith(
+                              color: AppTheme.roseQuartz.withValues(alpha: 0.4),
+                              fontSize: 10,
+                            ),
                           )
                         : null,
                     onTap: () {
@@ -464,8 +506,8 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
             child: _isLoading
                 ? _buildLoading()
                 : _loadError != null
-                    ? _buildError()
-                    : _buildReader(),
+                ? _buildError()
+                : _buildReader(),
           ),
           // Top bar (animated)
           AnimatedPositioned(
@@ -494,15 +536,20 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                 opacity: _showUI ? 0.0 : 0.7,
                 duration: const Duration(milliseconds: 200),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black54,
                     borderRadius: AppRadius.radiusSm,
                   ),
                   child: Text(
                     '${_currentPageEstimate + 1}/${_pages!.filenames.length}',
-                    style: AppTypography.outfitBold.copyWith(color: Colors.white70, fontSize: 11),
+                    style: AppTypography.outfitBold.copyWith(
+                      color: Colors.white70,
+                      fontSize: 11,
+                    ),
                   ),
                 ),
               ),
@@ -539,8 +586,11 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                     await _saveProgress(_currentPageEstimate);
                     if (mounted) Navigator.pop(context);
                   },
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                      color: Colors.white70, size: 18),
+                  icon: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: Colors.white70,
+                    size: 18,
+                  ),
                 ),
                 Expanded(
                   child: Column(
@@ -548,13 +598,20 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                     children: [
                       Text(
                         widget.manga.title,
-                        style: AppTypography.outfitWhite.copyWith(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         widget.chapter.displayTitle,
-                        style: AppTypography.outfitMuted.copyWith(color: Colors.white54, fontSize: 11),
+                        style: AppTypography.outfitMuted.copyWith(
+                          color: Colors.white54,
+                          fontSize: 11,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -564,8 +621,11 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                 // Chapter picker button
                 IconButton(
                   onPressed: _openChapterPicker,
-                  icon: const Icon(Icons.list_rounded,
-                      color: Colors.white70, size: 22),
+                  icon: const Icon(
+                    Icons.list_rounded,
+                    color: Colors.white70,
+                    size: 22,
+                  ),
                   tooltip: 'Chapter list',
                 ),
               ],
@@ -605,7 +665,10 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                 children: [
                   Text(
                     'Page ${_currentPageEstimate + 1}',
-                    style: AppTypography.outfitMuted.copyWith(color: Colors.white54, fontSize: 11),
+                    style: AppTypography.outfitMuted.copyWith(
+                      color: Colors.white54,
+                      fontSize: 11,
+                    ),
                   ),
                   Expanded(
                     child: Padding(
@@ -613,18 +676,22 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                       child: LinearProgressIndicator(
                         value: _pages!.filenames.isNotEmpty
                             ? (_currentPageEstimate + 1) /
-                                _pages!.filenames.length
+                                  _pages!.filenames.length
                             : 0,
                         backgroundColor: Colors.white12,
                         valueColor: const AlwaysStoppedAnimation<Color>(
-                            AppTheme.deepRose),
+                          AppTheme.deepRose,
+                        ),
                         minHeight: 2,
                       ),
                     ),
                   ),
                   Text(
                     '${_pages!.filenames.length}',
-                    style: AppTypography.outfitMuted.copyWith(color: Colors.white54, fontSize: 11),
+                    style: AppTypography.outfitMuted.copyWith(
+                      color: Colors.white54,
+                      fontSize: 11,
+                    ),
                   ),
                 ],
               ),
@@ -647,8 +714,10 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                 GestureDetector(
                   onTap: _openChapterPicker,
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: AppTheme.deepRose.withValues(alpha: 0.15),
                       borderRadius: AppRadius.radiusSm,
@@ -659,12 +728,19 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.menu_book_rounded,
-                            color: AppTheme.deepRose, size: 16),
+                        const Icon(
+                          Icons.menu_book_rounded,
+                          color: AppTheme.deepRose,
+                          size: 16,
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           'Ch. ${widget.chapter.chapter}',
-                          style: AppTypography.outfitWhite.copyWith(color: AppTheme.deepRose, fontSize: 13, fontWeight: FontWeight.bold),
+                          style: AppTypography.outfitWhite.copyWith(
+                            color: AppTheme.deepRose,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
@@ -695,7 +771,10 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
           const SizedBox(height: 16),
           Text(
             'Loading pages...',
-            style: AppTypography.outfitMuted.copyWith(color: Colors.white54, fontSize: 14),
+            style: AppTypography.outfitMuted.copyWith(
+              color: Colors.white54,
+              fontSize: 14,
+            ),
           ),
         ],
       ),
@@ -709,8 +788,11 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline,
-                color: AppTheme.roseQuartz, size: 56),
+            const Icon(
+              Icons.error_outline,
+              color: AppTheme.roseQuartz,
+              size: 56,
+            ),
             const SizedBox(height: 16),
             Text(
               _loadError!,
@@ -722,11 +804,12 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
               onPressed: _loadPages,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.deepRose,
-                shape: RoundedRectangleBorder(
-                    borderRadius: AppRadius.radiusSm),
+                shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusSm),
               ),
-              child: Text('Retry',
-                  style: AppTypography.outfitWhite.copyWith(color: Colors.white)),
+              child: Text(
+                'Retry',
+                style: AppTypography.outfitWhite.copyWith(color: Colors.white),
+              ),
             ),
           ],
         ),
@@ -772,7 +855,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                     color: AppTheme.deepRose.withValues(alpha: 0.6),
                     value: loadingProgress.expectedTotalBytes != null
                         ? loadingProgress.cumulativeBytesLoaded /
-                            loadingProgress.expectedTotalBytes!
+                              loadingProgress.expectedTotalBytes!
                         : null,
                   ),
                 );
@@ -785,26 +868,37 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.broken_image,
-                          color: Colors.white24, size: 40),
+                      const Icon(
+                        Icons.broken_image,
+                        color: Colors.white24,
+                        size: 40,
+                      ),
                       const SizedBox(height: 8),
                       Text(
                         'Page ${index + 1} failed to load',
-                        style: AppTypography.outfitWhite.copyWith(color: Colors.white38, fontSize: 12),
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: Colors.white38,
+                          fontSize: 12,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       GestureDetector(
                         onTap: _loadPages,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 6),
+                            horizontal: 16,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: AppTheme.deepRose.withValues(alpha: 0.2),
                             borderRadius: AppRadius.radiusXs,
                           ),
                           child: Text(
                             'Retry',
-                            style: AppTypography.outfitWhite.copyWith(color: AppTheme.deepRose, fontSize: 12),
+                            style: AppTypography.outfitWhite.copyWith(
+                              color: AppTheme.deepRose,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       ),
@@ -825,12 +919,18 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
         padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 32),
         child: Column(
           children: [
-            const Icon(Icons.check_circle_outline,
-                color: Colors.white24, size: 48),
+            const Icon(
+              Icons.check_circle_outline,
+              color: Colors.white24,
+              size: 48,
+            ),
             const SizedBox(height: 12),
             Text(
               'You\'ve reached the end',
-              style: AppTypography.outfitWhite.copyWith(color: Colors.white38, fontSize: 14),
+              style: AppTypography.outfitWhite.copyWith(
+                color: Colors.white38,
+                fontSize: 14,
+              ),
             ),
           ],
         ),
@@ -848,20 +948,26 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
           ],
         ),
         borderRadius: AppRadius.radiusLg,
-        border: Border.all(
-          color: AppTheme.deepRose.withValues(alpha: 0.25),
-        ),
+        border: Border.all(color: AppTheme.deepRose.withValues(alpha: 0.25)),
       ),
       child: Column(
         children: [
           Text(
             'End of Chapter',
-            style: AppTypography.outfitWhite.copyWith(color: Colors.white38, fontSize: 12, fontWeight: FontWeight.w500),
+            style: AppTypography.outfitWhite.copyWith(
+              color: Colors.white38,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const SizedBox(height: 12),
           Text(
             next.displayTitle,
-            style: AppTypography.outfitWhite.copyWith(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+            style: AppTypography.outfitWhite.copyWith(
+              color: Colors.white,
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
@@ -870,16 +976,16 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
             icon: const Icon(Icons.arrow_forward_rounded, size: 18),
             label: Text(
               'Next Chapter',
-              style: AppTypography.outfitWhite.copyWith(fontWeight: FontWeight.bold, fontSize: 14),
+              style: AppTypography.outfitWhite.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.deepRose,
               foregroundColor: Colors.white,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: AppRadius.radiusSm,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusSm),
             ),
           ),
         ],
@@ -893,11 +999,7 @@ class _NavButton extends StatelessWidget {
   final bool enabled;
   final VoidCallback? onTap;
 
-  const _NavButton({
-    required this.label,
-    required this.enabled,
-    this.onTap,
-  });
+  const _NavButton({required this.label, required this.enabled, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -919,7 +1021,10 @@ class _NavButton extends StatelessWidget {
         child: Text(
           label,
           textAlign: TextAlign.center,
-          style: AppTypography.outfitBold.copyWith(color: enabled ? Colors.white : Colors.white24, fontSize: 13),
+          style: AppTypography.outfitBold.copyWith(
+            color: enabled ? Colors.white : Colors.white24,
+            fontSize: 13,
+          ),
         ),
       ),
     );

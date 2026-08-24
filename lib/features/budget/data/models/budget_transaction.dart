@@ -31,9 +31,14 @@ class BudgetTransaction {
     this.receiptUrl,
   });
 
-  static TransactionType _parseType(dynamic v) => v == 'income' ? TransactionType.income : TransactionType.expense;
+  static TransactionType _parseType(dynamic v) =>
+      v == 'income' ? TransactionType.income : TransactionType.expense;
   static SplitMode _parseSplit(dynamic v) {
-    if (v is String) for (final s in SplitMode.values) if (s.name == v) return s;
+    if (v is String) {
+      for (final s in SplitMode.values) {
+        if (s.name == v) return s;
+      }
+    }
     return SplitMode.equal;
   }
 
@@ -47,7 +52,13 @@ class BudgetTransaction {
       category: data['category'] ?? 'Other',
       paidBy: data['paidBy'] ?? '',
       split: _parseSplit(data['split']),
-      customSplit: data['customSplit'] != null ? Map<String, double>.from((data['customSplit'] as Map).map((k, v) => MapEntry(k.toString(), (v as num).toDouble()))) : null,
+      customSplit: data['customSplit'] != null
+          ? Map<String, double>.from(
+              (data['customSplit'] as Map).map(
+                (k, v) => MapEntry(k.toString(), (v as num).toDouble()),
+              ),
+            )
+          : null,
       date: (data['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
       note: data['note'] ?? '',
       receiptUrl: data['receiptUrl'],
@@ -55,29 +66,37 @@ class BudgetTransaction {
   }
 
   Map<String, dynamic> toFirestore() => {
-        'title': title,
-        'amount': amount,
-        'type': type.name,
-        'category': category,
-        'paidBy': paidBy,
-        'split': split.name,
-        if (customSplit != null) 'customSplit': customSplit,
-        'date': Timestamp.fromDate(date),
-        'note': note,
-        if (receiptUrl != null) 'receiptUrl': receiptUrl,
-        'monthKey': '${date.year}-${date.month.toString().padLeft(2, '0')}',
-      };
+    'title': title,
+    'amount': amount,
+    'type': type.name,
+    'category': category,
+    'paidBy': paidBy,
+    'split': split.name,
+    if (customSplit != null) 'customSplit': customSplit,
+    'date': Timestamp.fromDate(date),
+    'note': note,
+    if (receiptUrl != null) 'receiptUrl': receiptUrl,
+    'monthKey': '${date.year}-${date.month.toString().padLeft(2, '0')}',
+  };
 
   double get signedAmount => type == TransactionType.expense ? -amount : amount;
 
   // IHateMoney: compute how much each owes
   Map<String, double> get splitAmounts {
-    if (split == SplitMode.equal) return {'khentsgdz': amount / 2, 'clairjassen': amount / 2};
-    if (split == SplitMode.khent) return {'khentsgdz': amount, 'clairjassen': 0};
-    if (split == SplitMode.clair) return {'khentsgdz': 0, 'clairjassen': amount};
+    if (split == SplitMode.equal) {
+      return {'khentsgdz': amount / 2, 'clairjassen': amount / 2};
+    }
+    if (split == SplitMode.khent) {
+      return {'khentsgdz': amount, 'clairjassen': 0};
+    }
+    if (split == SplitMode.clair) {
+      return {'khentsgdz': 0, 'clairjassen': amount};
+    }
     if (split == SplitMode.custom && customSplit != null) {
       final totalRatio = customSplit!.values.fold(0.0, (a, b) => a + b);
-      if (totalRatio == 0) return {'khentsgdz': amount / 2, 'clairjassen': amount / 2};
+      if (totalRatio == 0) {
+        return {'khentsgdz': amount / 2, 'clairjassen': amount / 2};
+      }
       return customSplit!.map((k, v) => MapEntry(k, amount * (v / totalRatio)));
     }
     return {'khentsgdz': amount / 2, 'clairjassen': amount / 2};

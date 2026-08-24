@@ -179,10 +179,7 @@ class _CountdownEventCardState extends State<_CountdownEventCard> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
-                    colors: [
-                      hue.withValues(alpha: 0.22),
-                      Colors.transparent,
-                    ],
+                    colors: [hue.withValues(alpha: 0.22), Colors.transparent],
                   ),
                 ),
               ),
@@ -219,7 +216,11 @@ class _CountdownEventCardState extends State<_CountdownEventCard> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _EventBadge(emoji: info.$1, hue: hue, imminent: isImminent),
+                      _EventBadge(
+                        emoji: info.$1,
+                        hue: hue,
+                        imminent: isImminent,
+                      ),
                       const SizedBox(width: 11),
                       Expanded(
                         child: Column(
@@ -243,10 +244,14 @@ class _CountdownEventCardState extends State<_CountdownEventCard> {
                                 vertical: 3,
                               ),
                               decoration: BoxDecoration(
-                                color: AppColors.petalWhite.withValues(alpha: 0.08),
+                                color: AppColors.petalWhite.withValues(
+                                  alpha: 0.08,
+                                ),
                                 borderRadius: BorderRadius.circular(999),
                                 border: Border.all(
-                                  color: AppColors.moonlight.withValues(alpha: 0.10),
+                                  color: AppColors.moonlight.withValues(
+                                    alpha: 0.10,
+                                  ),
                                 ),
                               ),
                               child: Row(
@@ -260,17 +265,22 @@ class _CountdownEventCardState extends State<_CountdownEventCard> {
                                   const SizedBox(width: 5),
                                   Flexible(
                                     child: Text(
-                                      DateFormat('EEE, MMM d').format(widget.event.date),
+                                      DateFormat(
+                                        'EEE, MMM d',
+                                      ).format(widget.event.date),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: AppTypography.outfitBold.copyWith(
                                         fontSize: 10,
                                         letterSpacing: 0.3,
-                                        color: AppColors.petalWhite.withValues(alpha: 0.78),
+                                        color: AppColors.petalWhite.withValues(
+                                          alpha: 0.78,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                  if (widget.event.type == CalendarEventType.anniversary) ...[
+                                  if (widget.event.type ==
+                                      CalendarEventType.anniversary) ...[
                                     const SizedBox(width: 5),
                                     Container(
                                       width: 3,
@@ -428,9 +438,7 @@ class _EventBadge extends StatelessWidget {
                   ),
                 ),
               ),
-              Center(
-                child: Text(emoji, style: const TextStyle(fontSize: 19)),
-              ),
+              Center(child: Text(emoji, style: const TextStyle(fontSize: 19))),
             ],
           ),
         ),
@@ -472,8 +480,8 @@ class _UrgencyPill extends StatelessWidget {
     final label = diff.inHours < 24
         ? (diff.inHours < 1 ? 'NOW' : 'TODAY')
         : days == 1
-            ? 'TOMORROW'
-            : null;
+        ? 'TOMORROW'
+        : null;
     if (label == null) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
@@ -578,7 +586,12 @@ class _CountdownUnitsState extends State<_CountdownUnits> {
 
     return Row(
       children: [
-        _TimeCapsule(value: days, label: 'days', hue: widget.hue, emphasized: true),
+        _TimeCapsule(
+          value: days,
+          label: 'days',
+          hue: widget.hue,
+          emphasized: true,
+        ),
         _TickSeparator(hue: widget.hue),
         _TimeCapsule(value: hours, label: 'hrs', hue: widget.hue),
         _TickSeparator(hue: widget.hue),
@@ -675,8 +688,8 @@ class _TimeCapsule extends StatelessWidget {
                       color: live
                           ? hue
                           : emphasized
-                              ? AppColors.petalWhite
-                              : AppColors.petalWhite.withValues(alpha: 0.92),
+                          ? AppColors.petalWhite
+                          : AppColors.petalWhite.withValues(alpha: 0.92),
                     ),
                   ),
                 ),
@@ -827,7 +840,9 @@ class _CountdownFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final remaining = target.isAfter(now) ? target.difference(now) : Duration.zero;
+    final remaining = target.isAfter(now)
+        ? target.difference(now)
+        : Duration.zero;
     const window = Duration(days: 60);
     final fraction = (1 - remaining.inMilliseconds / window.inMilliseconds)
         .clamp(0.0, 1.0)
@@ -836,8 +851,8 @@ class _CountdownFooter extends StatelessWidget {
     final hoursLeft = remaining.inHours % 24;
     final label = daysLeft == 0
         ? (remaining.inHours == 0
-            ? '${remaining.inMinutes}m to go'
-            : '${remaining.inHours}h ${hoursLeft > 0 ? "" : ""}to go')
+              ? '${remaining.inMinutes}m to go'
+              : '${remaining.inHours}h ${hoursLeft > 0 ? "" : ""}to go')
         : '$daysLeft ${daysLeft == 1 ? 'day' : 'days'} to go';
     final isSoon = daysLeft <= 1;
 
@@ -901,7 +916,9 @@ class _CountdownFooter extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
           decoration: BoxDecoration(
-            color: isSoon ? hue.withValues(alpha: 0.16) : hue.withValues(alpha: 0.10),
+            color: isSoon
+                ? hue.withValues(alpha: 0.16)
+                : hue.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
               color: (isSoon ? hue : hue).withValues(alpha: 0.22),

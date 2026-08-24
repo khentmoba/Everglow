@@ -25,14 +25,20 @@ class _AddEventDialogState extends State<AddEventDialog> {
   bool _isSaving = false;
   TimeOfDay _selectedTime = const TimeOfDay(hour: 19, minute: 0);
   bool _isAllDay = false;
-  List<String> _attendees = []; // usernames
+  final List<String> _attendees = []; // usernames
 
   Future<void> _pickTime() async {
     final picked = await showTimePicker(
       context: context,
       initialTime: _selectedTime,
       builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(colorScheme: ColorScheme.dark(primary: AppTheme.deepRose, surface: AppTheme.velvet, onSurface: AppTheme.petalWhite)),
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: AppTheme.deepRose,
+            surface: AppTheme.velvet,
+            onSurface: AppTheme.petalWhite,
+          ),
+        ),
         child: child!,
       ),
     );
@@ -42,7 +48,13 @@ class _AddEventDialogState extends State<AddEventDialog> {
   DateTime get _combinedDate {
     final d = widget.selectedDay;
     if (_isAllDay) return DateTime(d.year, d.month, d.day);
-    return DateTime(d.year, d.month, d.day, _selectedTime.hour, _selectedTime.minute);
+    return DateTime(
+      d.year,
+      d.month,
+      d.day,
+      _selectedTime.hour,
+      _selectedTime.minute,
+    );
   }
 
   Future<void> _save() async {
@@ -62,7 +74,9 @@ class _AddEventDialogState extends State<AddEventDialog> {
         type: _selectedType,
         createdBy: username,
         recurring: _recurring,
-        location: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
+        location: _locationController.text.trim().isEmpty
+            ? null
+            : _locationController.text.trim(),
         attendees: _attendees,
         isAllDay: _isAllDay,
       );
@@ -103,8 +117,27 @@ class _AddEventDialogState extends State<AddEventDialog> {
       }),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(color: isSel ? AppTheme.deepRose.withValues(alpha: 0.25) : AppTheme.twilight, borderRadius: BorderRadius.circular(20), border: Border.all(color: isSel ? AppTheme.blushGold : AppTheme.blushGold.withValues(alpha: 0.15))),
-        child: Text(label, style: AppTypography.outfitWhite.copyWith(fontSize: 12, fontWeight: isSel ? FontWeight.bold : FontWeight.w500, color: isSel ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.7))),
+        decoration: BoxDecoration(
+          color: isSel
+              ? AppTheme.deepRose.withValues(alpha: 0.25)
+              : AppTheme.twilight,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSel
+                ? AppTheme.blushGold
+                : AppTheme.blushGold.withValues(alpha: 0.15),
+          ),
+        ),
+        child: Text(
+          label,
+          style: AppTypography.outfitWhite.copyWith(
+            fontSize: 12,
+            fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+            color: isSel
+                ? AppTheme.blushGold
+                : AppTheme.petalWhite.withValues(alpha: 0.7),
+          ),
+        ),
       ),
     );
   }
@@ -265,17 +298,42 @@ class _AddEventDialogState extends State<AddEventDialog> {
                       child: GestureDetector(
                         onTap: _isAllDay ? null : _pickTime,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
                           decoration: BoxDecoration(
-                            color: _isAllDay ? AppTheme.twilight.withValues(alpha: 0.5) : AppTheme.twilight,
+                            color: _isAllDay
+                                ? AppTheme.twilight.withValues(alpha: 0.5)
+                                : AppTheme.twilight,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.15)),
+                            border: Border.all(
+                              color: AppTheme.blushGold.withValues(alpha: 0.15),
+                            ),
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.access_time_rounded, size: 16, color: _isAllDay ? AppTheme.petalWhite.withValues(alpha: 0.3) : AppTheme.blushGold),
+                              Icon(
+                                Icons.access_time_rounded,
+                                size: 16,
+                                color: _isAllDay
+                                    ? AppTheme.petalWhite.withValues(alpha: 0.3)
+                                    : AppTheme.blushGold,
+                              ),
                               const SizedBox(width: 8),
-                              Text(_isAllDay ? 'All day' : _selectedTime.format(context), style: AppTypography.outfitWhite.copyWith(fontSize: 13, color: _isAllDay ? AppTheme.petalWhite.withValues(alpha: 0.4) : AppTheme.petalWhite)),
+                              Text(
+                                _isAllDay
+                                    ? 'All day'
+                                    : _selectedTime.format(context),
+                                style: AppTypography.outfitWhite.copyWith(
+                                  fontSize: 13,
+                                  color: _isAllDay
+                                      ? AppTheme.petalWhite.withValues(
+                                          alpha: 0.4,
+                                        )
+                                      : AppTheme.petalWhite,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -285,9 +343,46 @@ class _AddEventDialogState extends State<AddEventDialog> {
                     GestureDetector(
                       onTap: () => setState(() => _isAllDay = !_isAllDay),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(color: _isAllDay ? AppTheme.deepRose.withValues(alpha: 0.2) : AppTheme.twilight, borderRadius: BorderRadius.circular(12), border: Border.all(color: _isAllDay ? AppTheme.blushGold : AppTheme.blushGold.withValues(alpha: 0.15))),
-                        child: Row(children: [Icon(_isAllDay ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded, size: 16, color: _isAllDay ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.6)), const SizedBox(width: 6), Text('All-day', style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: _isAllDay ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.7)))]),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _isAllDay
+                              ? AppTheme.deepRose.withValues(alpha: 0.2)
+                              : AppTheme.twilight,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _isAllDay
+                                ? AppTheme.blushGold
+                                : AppTheme.blushGold.withValues(alpha: 0.15),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _isAllDay
+                                  ? Icons.check_box_rounded
+                                  : Icons.check_box_outline_blank_rounded,
+                              size: 16,
+                              color: _isAllDay
+                                  ? AppTheme.blushGold
+                                  : AppTheme.petalWhite.withValues(alpha: 0.6),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'All-day',
+                              style: AppTypography.outfitWhite.copyWith(
+                                fontSize: 12,
+                                color: _isAllDay
+                                    ? AppTheme.blushGold
+                                    : AppTheme.petalWhite.withValues(
+                                        alpha: 0.7,
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -296,15 +391,31 @@ class _AddEventDialogState extends State<AddEventDialog> {
                 // ── Location (Maps-inspired) ──
                 TextField(
                   controller: _locationController,
-                  style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
+                  style: AppTypography.outfitWhite.copyWith(
+                    color: AppTheme.petalWhite,
+                  ),
                   decoration: InputDecoration(
                     hintText: "Location (optional)",
-                    prefixIcon: Icon(Icons.place_outlined, size: 18, color: AppTheme.petalWhite.withValues(alpha: 0.6)),
-                    hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.65)),
+                    prefixIcon: Icon(
+                      Icons.place_outlined,
+                      size: 18,
+                      color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                    ),
+                    hintStyle: AppTypography.outfitWhite.copyWith(
+                      color: AppTheme.petalWhite.withValues(alpha: 0.65),
+                    ),
                     filled: true,
                     fillColor: AppTheme.twilight,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: AppTheme.blushGold.withValues(alpha: 0.2))),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppTheme.blushGold)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(
+                        color: AppTheme.blushGold.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: AppTheme.blushGold),
+                    ),
                     contentPadding: const EdgeInsets.all(16),
                   ),
                 ),
@@ -312,7 +423,13 @@ class _AddEventDialogState extends State<AddEventDialog> {
                 // ── Attendees (couple) ──
                 Row(
                   children: [
-                    Text("With", style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.petalWhite.withValues(alpha: 0.75))),
+                    Text(
+                      "With",
+                      style: AppTypography.outfitWhite.copyWith(
+                        fontSize: 12,
+                        color: AppTheme.petalWhite.withValues(alpha: 0.75),
+                      ),
+                    ),
                     const SizedBox(width: 10),
                     _buildAttendeeChip('khentsgdz', 'Khent'),
                     const SizedBox(width: 8),

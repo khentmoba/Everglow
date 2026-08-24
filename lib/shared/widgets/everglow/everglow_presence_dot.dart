@@ -32,9 +32,10 @@ class _EverglowPresenceDotState extends State<EverglowPresenceDot>
   @override
   void initState() {
     super.initState();
-    final shouldPulse = !AppMotion.reduced &&
+    final shouldPulse =
+        !AppMotion.reduced &&
         (widget.state == PresenceState.online ||
-         widget.state == PresenceState.doodle);
+            widget.state == PresenceState.doodle);
     if (shouldPulse) {
       _controller = AnimationController(
         vsync: this,
@@ -52,8 +53,8 @@ class _EverglowPresenceDotState extends State<EverglowPresenceDot>
   @override
   Widget build(BuildContext context) {
     final color = switch (widget.state) {
-      PresenceState.online  => AppColors.success,
-      PresenceState.doodle  => AppColors.warmAmber,
+      PresenceState.online => AppColors.success,
+      PresenceState.doodle => AppColors.warmAmber,
       PresenceState.lastSeen => AppColors.roseQuartz.withValues(alpha: 0.5),
       PresenceState.offline => AppColors.textDisabled,
     };
@@ -65,12 +66,7 @@ class _EverglowPresenceDotState extends State<EverglowPresenceDot>
         shape: BoxShape.circle,
         color: color,
         boxShadow: _controller != null
-            ? [
-                BoxShadow(
-                  blurRadius: 8,
-                  color: color.withValues(alpha: 0.4),
-                ),
-              ]
+            ? [BoxShadow(blurRadius: 8, color: color.withValues(alpha: 0.4))]
             : null,
       ),
     );
@@ -78,47 +74,38 @@ class _EverglowPresenceDotState extends State<EverglowPresenceDot>
     if (_controller != null) {
       dot = RepaintBoundary(
         child: AnimatedBuilder(
-        animation: _controller!,
-        builder: (_, child) {
-          final scale = 0.8 + 0.2 * _controller!.value;
-          final glowOpacity = 0.2 + 0.6 * _controller!.value;
-          return Container(
-            width: widget.size * 1.8,
-            height: widget.size * 1.8,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  blurRadius: 12 * glowOpacity,
-                  color: color.withValues(alpha: 0.3 * glowOpacity),
-                ),
-              ],
-            ),
-            child: Center(
-              child: Transform.scale(
-                scale: scale,
-                child: child,
+          animation: _controller!,
+          builder: (_, child) {
+            final scale = 0.8 + 0.2 * _controller!.value;
+            final glowOpacity = 0.2 + 0.6 * _controller!.value;
+            return Container(
+              width: widget.size * 1.8,
+              height: widget.size * 1.8,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    blurRadius: 12 * glowOpacity,
+                    color: color.withValues(alpha: 0.3 * glowOpacity),
+                  ),
+                ],
               ),
-            ),
-          );
-        },
-        child: Container(
-          width: widget.size,
-          height: widget.size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: color,
+              child: Center(
+                child: Transform.scale(scale: scale, child: child),
+              ),
+            );
+          },
+          child: Container(
+            width: widget.size,
+            height: widget.size,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: color),
           ),
-        ),
         ),
       );
     }
 
     if (widget.label != null) {
-      return Semantics(
-        label: widget.label,
-        child: dot,
-      );
+      return Semantics(label: widget.label, child: dot);
     }
 
     return ExcludeSemantics(child: dot);

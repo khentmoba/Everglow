@@ -96,7 +96,7 @@ class LilyPainter extends CustomPainter {
 
   void _drawBloom(Canvas canvas, Offset top, Paint paint) {
     paint.style = PaintingStyle.fill;
-    
+
     if (stage == 1) {
       // Small sprout/bud
       paint.color = Colors.green[200]!;
@@ -104,24 +104,32 @@ class LilyPainter extends CustomPainter {
     } else if (stage <= 3) {
       // Closed Bud
       paint.color = Colors.pink[100]!;
-      canvas.drawOval(Rect.fromCenter(center: top, width: 15, height: 25), paint);
+      canvas.drawOval(
+        Rect.fromCenter(center: top, width: 15, height: 25),
+        paint,
+      );
     } else {
       // Opening or Full Bloom
       final petalCount = stage == 4 ? 3 : 6;
       final petalSize = stage == 4 ? 20.0 : 35.0;
-      
+
       paint.color = Colors.pink[200]!.withValues(alpha: 0.9);
       for (int i = 0; i < petalCount; i++) {
         final angle = (2 * pi / petalCount) * i;
         canvas.save();
         canvas.translate(top.dx, top.dy);
         canvas.rotate(angle);
-        
+
         final petalPath = Path();
         petalPath.moveTo(0, 0);
-        petalPath.quadraticBezierTo(petalSize / 2, -petalSize, 0, -petalSize * 1.2);
+        petalPath.quadraticBezierTo(
+          petalSize / 2,
+          -petalSize,
+          0,
+          -petalSize * 1.2,
+        );
         petalPath.quadraticBezierTo(-petalSize / 2, -petalSize, 0, 0);
-        
+
         // Add glow if stage 5
         if (stage == 5) {
           final glowPaint = Paint()
@@ -129,11 +137,11 @@ class LilyPainter extends CustomPainter {
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
           canvas.drawPath(petalPath, glowPaint);
         }
-        
+
         canvas.drawPath(petalPath, paint);
         canvas.restore();
       }
-      
+
       // Center of lily
       paint.color = Colors.yellow[200]!;
       canvas.drawCircle(top, 5, paint);
@@ -142,6 +150,7 @@ class LilyPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant LilyPainter oldDelegate) {
-    return oldDelegate.stage != stage || oldDelegate.animationValue != animationValue;
+    return oldDelegate.stage != stage ||
+        oldDelegate.animationValue != animationValue;
   }
 }

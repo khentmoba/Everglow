@@ -12,12 +12,12 @@ void main() {
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         debugShowCheckedModeBanner: false,
         home: ColoredBox(
           color: AppColors.inkDeep,
           child: Stack(
-            children: const [
+            children: [
               Positioned.fill(child: DashboardAmbience()),
               Positioned.fill(child: DashboardCursorGlow()),
             ],
@@ -64,10 +64,10 @@ void main() {
                   ),
                 ),
                 const SizedBox(height: 24),
-                ShimmerTitle(
+                const ShimmerTitle(
                   child: Text(
                     'Forever In Bloom',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 40,
                       fontWeight: FontWeight.w700,
                       color: AppColors.petalWhite,
@@ -113,17 +113,13 @@ void main() {
         home: ColoredBox(
           color: AppColors.inkDeep,
           child: Stack(
-            children: [
-              Positioned.fill(child: DashboardCursorGlow()),
-            ],
+            children: [Positioned.fill(child: DashboardCursorGlow())],
           ),
         ),
       ),
     );
 
-    final gesture = await tester.createGesture(
-      kind: PointerDeviceKind.mouse,
-    );
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await gesture.addPointer(location: const Offset(120, 200));
     addTearDown(gesture.removePointer);
     await gesture.moveTo(const Offset(320, 260));

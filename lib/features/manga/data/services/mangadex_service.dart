@@ -29,9 +29,9 @@ class MangaDexService with ConnectivityAware {
   MangaDexService._internal();
 
   Map<String, String> get _headers => {
-        'User-Agent': 'Everglow/1.0 (https://github.com/everglow)',
-        'Accept': 'application/json',
-      };
+    'User-Agent': 'Everglow/1.0 (https://github.com/everglow)',
+    'Accept': 'application/json',
+  };
 
   Future<Map<String, String>> _authHeaders() async {
     try {
@@ -77,7 +77,8 @@ class MangaDexService with ConnectivityAware {
 
     // Paginate until we've fetched all chapters
     do {
-      final path = 'manga/$mangaId/feed'
+      final path =
+          'manga/$mangaId/feed'
           '?translatedLanguage[]=$language'
           '&limit=$limit'
           '&offset=$currentOffset'
@@ -88,9 +89,9 @@ class MangaDexService with ConnectivityAware {
           '&contentRating[]=erotica';
       try {
         final headers = await _authHeaders();
-        final response = await http.get(_proxied(path), headers: headers).timeout(
-              const Duration(seconds: 10),
-            );
+        final response = await http
+            .get(_proxied(path), headers: headers)
+            .timeout(const Duration(seconds: 10));
         if (response.statusCode == 200) {
           final body = json.decode(response.body) as Map<String, dynamic>;
           if (body['result'] != 'ok') break;
@@ -147,7 +148,7 @@ class MangaDexService with ConnectivityAware {
         scanlationGroup: group,
         publishAt:
             DateTime.tryParse((attrs['publishAt'] as String?) ?? '') ??
-                DateTime.now(),
+            DateTime.now(),
       );
     }).toList();
   }
@@ -314,21 +315,23 @@ class MangaDexService with ConnectivityAware {
     if (query.trim().isEmpty) return [];
     final offset = (page - 1) * limit;
     final lang = _normaliseLang(originalLanguage);
-    final buf = StringBuffer('manga?title=${Uri.encodeQueryComponent(query)}'
-        '&limit=$limit&offset=$offset'
-        '&includes[]=cover_art'
-        '&order[followedCount]=desc'
-        '&contentRating[]=safe'
-        '&contentRating[]=suggestive'
-        '&contentRating[]=erotica');
+    final buf = StringBuffer(
+      'manga?title=${Uri.encodeQueryComponent(query)}'
+      '&limit=$limit&offset=$offset'
+      '&includes[]=cover_art'
+      '&order[followedCount]=desc'
+      '&contentRating[]=safe'
+      '&contentRating[]=suggestive'
+      '&contentRating[]=erotica',
+    );
     if (lang != null && lang.isNotEmpty) {
       buf.write('&originalLanguage[]=$lang');
     }
     try {
       final headers = await _authHeaders();
-      final response = await http.get(_proxied(buf.toString()), headers: headers).timeout(
-            const Duration(seconds: 10),
-          );
+      final response = await http
+          .get(_proxied(buf.toString()), headers: headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         if (body['result'] != 'ok') return [];
@@ -352,20 +355,22 @@ class MangaDexService with ConnectivityAware {
   }) async {
     final offset = (page - 1) * limit;
     final lang = _normaliseLang(originalLanguage);
-    final buf = StringBuffer('manga?limit=$limit&offset=$offset'
-        '&includes[]=cover_art'
-        '&order[followedCount]=desc'
-        '&contentRating[]=safe'
-        '&contentRating[]=suggestive'
-        '&contentRating[]=erotica');
+    final buf = StringBuffer(
+      'manga?limit=$limit&offset=$offset'
+      '&includes[]=cover_art'
+      '&order[followedCount]=desc'
+      '&contentRating[]=safe'
+      '&contentRating[]=suggestive'
+      '&contentRating[]=erotica',
+    );
     if (lang != null && lang.isNotEmpty) {
       buf.write('&originalLanguage[]=$lang');
     }
     try {
       final headers = await _authHeaders();
-      final response = await http.get(_proxied(buf.toString()), headers: headers).timeout(
-            const Duration(seconds: 10),
-          );
+      final response = await http
+          .get(_proxied(buf.toString()), headers: headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         if (body['result'] != 'ok') return [];
@@ -389,20 +394,22 @@ class MangaDexService with ConnectivityAware {
   }) async {
     final offset = (page - 1) * limit;
     final lang = _normaliseLang(originalLanguage);
-    final buf = StringBuffer('manga?limit=$limit&offset=$offset'
-        '&includes[]=cover_art'
-        '&order[latestUploadedChapter]=desc'
-        '&contentRating[]=safe'
-        '&contentRating[]=suggestive'
-        '&contentRating[]=erotica');
+    final buf = StringBuffer(
+      'manga?limit=$limit&offset=$offset'
+      '&includes[]=cover_art'
+      '&order[latestUploadedChapter]=desc'
+      '&contentRating[]=safe'
+      '&contentRating[]=suggestive'
+      '&contentRating[]=erotica',
+    );
     if (lang != null && lang.isNotEmpty) {
       buf.write('&originalLanguage[]=$lang');
     }
     try {
       final headers = await _authHeaders();
-      final response = await http.get(_proxied(buf.toString()), headers: headers).timeout(
-            const Duration(seconds: 10),
-          );
+      final response = await http
+          .get(_proxied(buf.toString()), headers: headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         if (body['result'] != 'ok') return [];
@@ -428,9 +435,9 @@ class MangaDexService with ConnectivityAware {
     final path = 'at-home/server/$chapterId?forcePort443=false';
     try {
       final headers = await _authHeaders();
-      final response = await http.get(_proxied(path), headers: headers).timeout(
-            const Duration(seconds: 10),
-          );
+      final response = await http
+          .get(_proxied(path), headers: headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         if (body['result'] != 'ok') return null;
@@ -440,7 +447,7 @@ class MangaDexService with ConnectivityAware {
         final hash = chapter['hash'] as String? ?? '';
         final filenames =
             (chapter['data'] as List?)?.whereType<String>().toList() ??
-                const [];
+            const [];
         if (filenames.isEmpty) return null;
         return MangaChapterPages(
           chapterId: chapterId,
@@ -458,8 +465,7 @@ class MangaDexService with ConnectivityAware {
 
   /// Resolve page image URLs for a chapter, automatically proxying
   /// each image URL through `proxyMangaImage` for CORS-free display.
-  Future<MangaChapterPages?> getChapterPagesProxied(
-      String chapterId) async {
+  Future<MangaChapterPages?> getChapterPagesProxied(String chapterId) async {
     final pages = await getChapterPages(chapterId);
     if (pages == null) return null;
     // Replace direct URLs with proxied ones

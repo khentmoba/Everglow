@@ -1,12 +1,217 @@
-part of 'books_screen.dart';class _RankingTile extends StatelessWidget {  final BookItem item;  final int rank;  final VoidCallback onTap;  const _RankingTile({    required this.item,    required this.rank,    required this.onTap,  });  Color get _rankColor {    switch (rank) {      case 1:        return const Color(0xFFF0A500);      case 2:        return const Color(0xFFB0BEC5);      case 3:        return const Color(0xFFBF8040);      default:        return _cMuted;    }  }  @override  Widget build(BuildContext context) {    final isTop3 = rank <= 3;    return GestureDetector(      onTap: onTap,      child: AnimatedContainer(        duration: const Duration(milliseconds: 150),        padding: const EdgeInsets.all(10),        decoration: BoxDecoration(          color: _cCard.withValues(alpha: 0.5),          borderRadius: BorderRadius.circular(14),          border: Border.all(            color: isTop3                ? _rankColor.withValues(alpha: 0.3)                : _cRose.withValues(alpha: 0.07),            width: isTop3 ? 1.0 : 0.5,          ),        ),        child: Row(          children: [            SizedBox(              width: 38,              child: isTop3                  ? Container(                      width: 36,                      height: 36,                      decoration: BoxDecoration(                        shape: BoxShape.circle,                        color: _rankColor.withValues(alpha: 0.15),                        border: Border.all(                            color: _rankColor.withValues(alpha: 0.5),                            width: 1.5),                        boxShadow: [                          BoxShadow(                            color: _rankColor.withValues(alpha: 0.2),                            blurRadius: 8,                          ),                        ],                      ),                      alignment: Alignment.center,                      child: Text(                        '$rank',                        style: AppTypography.cormorantBlack.copyWith(fontSize: 18, color: _rankColor),                      ),                    )                  : Center(                      child: Text(                        '$rank',                        style: AppTypography.outfitBold.copyWith(fontSize: 14, color: _cMuted),                      ),                    ),            ),            const SizedBox(width: 10),            ClipRRect(              borderRadius: BorderRadius.circular(8),              child: SizedBox(                width: 44,                height: 62,                child: item.coverUrl.isNotEmpty                    ? Image.network(                        item.coverUrl,                        fit: BoxFit.cover,                        cacheWidth: 120,                      )                    : Container(color: _cCard),              ),            ),            const SizedBox(width: 12),            Expanded(              child: Column(                crossAxisAlignment: CrossAxisAlignment.start,                children: [                  Text(                    item.title,                    maxLines: 1,                    overflow: TextOverflow.ellipsis,                    style: AppTypography.outfitHeading.copyWith(color: _cWhite, fontSize: 13),                  ),                  if (item.author.isNotEmpty) ...[                    const SizedBox(height: 2),                    Text(                      item.author,                      maxLines: 1,                      overflow: TextOverflow.ellipsis,                      style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 11, fontStyle: FontStyle.italic),                    ),                  ],                  const SizedBox(height: 3),                  Row(                    children: [                      if (item.year.isNotEmpty) ...[                        Text(                          item.year,                          style: AppTypography.outfitBold.copyWith(color: _cGold, fontSize: 11),                        ),                        const SizedBox(width: 6),                      ],                      Container(                        padding: const EdgeInsets.symmetric(                            horizontal: 5, vertical: 1),                        decoration: BoxDecoration(                          color: _cDeepRose.withValues(alpha: 0.15),                          borderRadius: BorderRadius.circular(4),                        ),                        child: Text(                          'BOOK',                          style: AppTypography.outfitWhite.copyWith(color: _cDeepRose, fontSize: 8, fontWeight: FontWeight.bold),                        ),                      ),                    ],                  ),                ],              ),            ),            const Icon(Icons.chevron_right_rounded,                color: _cMuted, size: 18),          ],        ),      ),    );  }}class _RowAction extends StatelessWidget {  final IconData icon;  final String tooltip;  final Color color;  final VoidCallback? onTap;  const _RowAction({    required this.icon,    required this.tooltip,    required this.color,    required this.onTap,  });  @override  Widget build(BuildContext context) {    final enabled = onTap != null;    return Padding(      padding: const EdgeInsets.only(right: 10),      child: GestureDetector(        onTap: onTap,        child: Tooltip(          message: tooltip,          child: Opacity(            opacity: enabled ? 1.0 : 0.3,            child: Container(              width: 30,              height: 30,              decoration: BoxDecoration(                color: color.withValues(alpha: 0.12),                borderRadius: BorderRadius.circular(9),                border: Border.all(                  color: color.withValues(alpha: 0.3),                ),              ),              alignment: Alignment.center,              child: Icon(icon, color: color, size: 15),            ),          ),        ),      ),    );  }}
+part of 'books_screen.dart';
+
+class _RankingTile extends StatelessWidget {
+  final BookItem item;
+  final int rank;
+  final VoidCallback onTap;
+  const _RankingTile({
+    required this.item,
+    required this.rank,
+    required this.onTap,
+  });
+  Color get _rankColor {
+    switch (rank) {
+      case 1:
+        return const Color(0xFFF0A500);
+      case 2:
+        return const Color(0xFFB0BEC5);
+      case 3:
+        return const Color(0xFFBF8040);
+      default:
+        return _cMuted;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isTop3 = rank <= 3;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: _cCard.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isTop3
+                ? _rankColor.withValues(alpha: 0.3)
+                : _cRose.withValues(alpha: 0.07),
+            width: isTop3 ? 1.0 : 0.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 38,
+              child: isTop3
+                  ? Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _rankColor.withValues(alpha: 0.15),
+                        border: Border.all(
+                          color: _rankColor.withValues(alpha: 0.5),
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _rankColor.withValues(alpha: 0.2),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '$rank',
+                        style: AppTypography.cormorantBlack.copyWith(
+                          fontSize: 18,
+                          color: _rankColor,
+                        ),
+                      ),
+                    )
+                  : Center(
+                      child: Text(
+                        '$rank',
+                        style: AppTypography.outfitBold.copyWith(
+                          fontSize: 14,
+                          color: _cMuted,
+                        ),
+                      ),
+                    ),
+            ),
+            const SizedBox(width: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                width: 44,
+                height: 62,
+                child: item.coverUrl.isNotEmpty
+                    ? Image.network(
+                        item.coverUrl,
+                        fit: BoxFit.cover,
+                        cacheWidth: 120,
+                      )
+                    : Container(color: _cCard),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.outfitHeading.copyWith(
+                      color: _cWhite,
+                      fontSize: 13,
+                    ),
+                  ),
+                  if (item.author.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      item.author,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.outfitWhite.copyWith(
+                        color: _cMuted,
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      if (item.year.isNotEmpty) ...[
+                        Text(
+                          item.year,
+                          style: AppTypography.outfitBold.copyWith(
+                            color: _cGold,
+                            fontSize: 11,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                      ],
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _cDeepRose.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'BOOK',
+                          style: AppTypography.outfitWhite.copyWith(
+                            color: _cDeepRose,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: _cMuted, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RowAction extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final Color color;
+  final VoidCallback? onTap;
+  const _RowAction({
+    required this.icon,
+    required this.tooltip,
+    required this.color,
+    required this.onTap,
+  });
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Tooltip(
+          message: tooltip,
+          child: Opacity(
+            opacity: enabled ? 1.0 : 0.3,
+            child: Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(color: color.withValues(alpha: 0.3)),
+              ),
+              alignment: Alignment.center,
+              child: Icon(icon, color: color, size: 15),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ContinueReadingRail extends StatelessWidget {
   final List<BookItem> items;
   final ValueChanged<BookItem> onOpen;
 
-  const _ContinueReadingRail({
-    required this.items,
-    required this.onOpen,
-  });
+  const _ContinueReadingRail({required this.items, required this.onOpen});
 
   @override
   Widget build(BuildContext context) {
@@ -91,7 +296,9 @@ class _ContinueReadingRail extends StatelessWidget {
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: _cAmber,
                                       borderRadius: BorderRadius.circular(6),
@@ -225,8 +432,7 @@ class _BookResultRow extends StatelessWidget {
                           result.coverUrl,
                           fit: BoxFit.cover,
                           cacheWidth: 160,
-                          errorBuilder: (_, _, _) =>
-                              Container(color: _cBlack),
+                          errorBuilder: (_, _, _) => Container(color: _cBlack),
                         )
                       : Container(
                           color: _cBlack,

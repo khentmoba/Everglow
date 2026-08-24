@@ -92,7 +92,8 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
         if (mounted) {
           setState(() {
             _isLoading = false;
-            _loadError = result.error ??
+            _loadError =
+                result.error ??
                 'Could not load the book text from any available source.';
           });
         }
@@ -192,12 +193,14 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
   /// delimited by `*** START OF` / `*** END OF` markers that the
   /// Gutenberg convention uses.
   String _stripGutenbergBoilerplate(String raw) {
-    final startMatch = RegExp(r'\*\*\*\s*START OF (?:THE|THIS)?\s*PROJECT',
-            caseSensitive: false)
-        .firstMatch(raw);
-    final endMatch = RegExp(r'\*\*\*\s*END OF (?:THE|THIS)?\s*PROJECT',
-            caseSensitive: false)
-        .firstMatch(raw);
+    final startMatch = RegExp(
+      r'\*\*\*\s*START OF (?:THE|THIS)?\s*PROJECT',
+      caseSensitive: false,
+    ).firstMatch(raw);
+    final endMatch = RegExp(
+      r'\*\*\*\s*END OF (?:THE|THIS)?\s*PROJECT',
+      caseSensitive: false,
+    ).firstMatch(raw);
     if (startMatch == null || endMatch == null) return raw;
     return raw.substring(startMatch.end, endMatch.start);
   }
@@ -209,10 +212,10 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
   /// yield between each phase so the loading frame can paint.
   Future<List<BookChapter>> _splitChaptersYielded(String text) async {
     if (!kIsWeb) {
-      final raw = await compute(
-        _splitBookTextIsolate,
-        [text, widget.book.title],
-      );
+      final raw = await compute(_splitBookTextIsolate, [
+        text,
+        widget.book.title,
+      ]);
       return raw
           .map((entry) => BookChapter(title: entry[0], body: entry[1]))
           .toList();
@@ -226,10 +229,7 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
     if (stars.length >= 2) return stars;
     await Future<void>.delayed(Duration.zero);
     return [
-      BookChapter(
-        title: widget.book.title,
-        body: _normalizeWhitespace(text),
-      ),
+      BookChapter(title: widget.book.title, body: _normalizeWhitespace(text)),
     ];
   }
 
@@ -254,8 +254,7 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
       final header = text.substring(start, end);
       final headerLines = header.split('\n');
       final title = headerLines.first.trim();
-      final body = _normalizeWhitespace(
-          headerLines.skip(1).join('\n'));
+      final body = _normalizeWhitespace(headerLines.skip(1).join('\n'));
       if (body.trim().isEmpty) continue;
       chapters.add(BookChapter(title: title, body: body));
     }
@@ -272,15 +271,18 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
       final body = _normalizeWhitespace(parts[i]);
       if (body.trim().isEmpty) continue;
       // Use the first non-empty line as the chapter title.
-      final firstLine =
-          body.split('\n').firstWhere((l) => l.trim().isNotEmpty, orElse: () => '');
+      final firstLine = body
+          .split('\n')
+          .firstWhere((l) => l.trim().isNotEmpty, orElse: () => '');
       final title = firstLine.length > 80
           ? '${firstLine.substring(0, 80)}…'
           : firstLine;
-      chapters.add(BookChapter(
-        title: title.isEmpty ? 'Section ${chapters.length + 1}' : title,
-        body: body,
-      ));
+      chapters.add(
+        BookChapter(
+          title: title.isEmpty ? 'Section ${chapters.length + 1}' : title,
+          body: body,
+        ),
+      );
     }
     return chapters;
   }
@@ -293,5 +295,4 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
   }
 
   // ── UI ─────────────────────────────────────────────────────────────
-
 }

@@ -183,9 +183,7 @@ class _SubrowEmptyLine extends StatelessWidget {
             decoration: BoxDecoration(
               color: accent.color.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: accent.color.withValues(alpha: 0.18),
-              ),
+              border: Border.all(color: accent.color.withValues(alpha: 0.18)),
             ),
             child: Icon(
               Icons.nights_stay_outlined,

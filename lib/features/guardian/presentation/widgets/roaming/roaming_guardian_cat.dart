@@ -68,10 +68,12 @@ class RoamingGuardianCat extends StatelessWidget {
         // Walk hop; bigger, faster hops during zoomies.
         final bob = moving
             ? math.sin(
-                  controller.elapsed *
-                      (controller.activity == RoamingActivity.zoomies ? 13 : 9),
-                ) *
-                (controller.activity == RoamingActivity.zoomies ? 7 : 4)
+                    controller.elapsed *
+                        (controller.activity == RoamingActivity.zoomies
+                            ? 13
+                            : 9),
+                  ) *
+                  (controller.activity == RoamingActivity.zoomies ? 7 : 4)
             : 0.0;
 
         // Idle breathing + hover/drag lift.

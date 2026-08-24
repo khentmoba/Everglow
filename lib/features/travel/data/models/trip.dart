@@ -32,7 +32,11 @@ class Trip {
   });
 
   static TripStatus _parseStatus(dynamic v) {
-    if (v is String) for (final s in TripStatus.values) if (s.name == v) return s;
+    if (v is String) {
+      for (final s in TripStatus.values) {
+        if (s.name == v) return s;
+      }
+    }
     return TripStatus.planning;
   }
 
@@ -44,34 +48,40 @@ class Trip {
       description: data['description'] ?? '',
       coverUrl: data['coverUrl'] ?? '',
       startDate: (data['startDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      endDate: (data['endDate'] as Timestamp?)?.toDate() ?? DateTime.now().add(const Duration(days: 3)),
+      endDate:
+          (data['endDate'] as Timestamp?)?.toDate() ??
+          DateTime.now().add(const Duration(days: 3)),
       status: _parseStatus(data['status']),
       createdBy: data['createdBy'] ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       budgetEstimate: (data['budgetEstimate'] ?? 0).toDouble(),
       currency: data['currency'] ?? 'PHP',
-      memberIds: (data['memberIds'] as List<dynamic>? ?? ['khentsgdz', 'clairjassen']).map((e) => e.toString()).toList(),
+      memberIds:
+          (data['memberIds'] as List<dynamic>? ?? ['khentsgdz', 'clairjassen'])
+              .map((e) => e.toString())
+              .toList(),
     );
   }
 
   Map<String, dynamic> toFirestore() => {
-        'title': title,
-        'description': description,
-        'coverUrl': coverUrl,
-        'startDate': Timestamp.fromDate(startDate),
-        'endDate': Timestamp.fromDate(endDate),
-        'status': status.name,
-        'createdBy': createdBy,
-        'createdAt': Timestamp.fromDate(createdAt),
-        'budgetEstimate': budgetEstimate,
-        'currency': currency,
-        'memberIds': memberIds,
-        'searchKey': '${title.toLowerCase()} ${description.toLowerCase()}',
-      };
+    'title': title,
+    'description': description,
+    'coverUrl': coverUrl,
+    'startDate': Timestamp.fromDate(startDate),
+    'endDate': Timestamp.fromDate(endDate),
+    'status': status.name,
+    'createdBy': createdBy,
+    'createdAt': Timestamp.fromDate(createdAt),
+    'budgetEstimate': budgetEstimate,
+    'currency': currency,
+    'memberIds': memberIds,
+    'searchKey': '${title.toLowerCase()} ${description.toLowerCase()}',
+  };
 
   int get days => endDate.difference(startDate).inDays + 1;
 
-  bool get isUpcoming => status == TripStatus.upcoming || status == TripStatus.planning;
+  bool get isUpcoming =>
+      status == TripStatus.upcoming || status == TripStatus.planning;
 }
 
 enum PinCategory { stay, eat, sight, activity, transit }
@@ -104,7 +114,11 @@ class TripPin {
   });
 
   static PinCategory _parseCat(dynamic v) {
-    if (v is String) for (final c in PinCategory.values) if (c.name == v) return c;
+    if (v is String) {
+      for (final c in PinCategory.values) {
+        if (c.name == v) return c;
+      }
+    }
     return PinCategory.sight;
   }
 
@@ -126,17 +140,17 @@ class TripPin {
   }
 
   Map<String, dynamic> toFirestore() => {
-        'tripId': tripId,
-        'title': title,
-        'note': note,
-        'lat': lat,
-        'lng': lng,
-        'category': category.name,
-        'order': order,
-        'createdBy': createdBy,
-        if (visitedAt != null) 'visitedAt': Timestamp.fromDate(visitedAt!),
-        if (photoUrl != null) 'photoUrl': photoUrl,
-      };
+    'tripId': tripId,
+    'title': title,
+    'note': note,
+    'lat': lat,
+    'lng': lng,
+    'category': category.name,
+    'order': order,
+    'createdBy': createdBy,
+    if (visitedAt != null) 'visitedAt': Timestamp.fromDate(visitedAt!),
+    if (photoUrl != null) 'photoUrl': photoUrl,
+  };
 
   bool get isVisited => visitedAt != null;
 

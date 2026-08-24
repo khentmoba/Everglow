@@ -95,10 +95,7 @@ class _RoamingGuardianLayerState extends State<RoamingGuardianLayer> {
         duration: const Duration(milliseconds: 320),
         curve: Curves.easeInOut,
         builder: (context, opacity, child) {
-          return Opacity(
-            opacity: opacity.clamp(0.0, 1.0),
-            child: child,
-          );
+          return Opacity(opacity: opacity.clamp(0.0, 1.0), child: child);
         },
         child: _rendering
             ? RoamingGuardianCat(
@@ -111,7 +108,10 @@ class _RoamingGuardianLayerState extends State<RoamingGuardianLayer> {
   }
 
   /// VM-safe fallback used when no visual is injected (tests).
-  static Widget _placeholderVisual(BuildContext context, RoamingCatFrame frame) {
+  static Widget _placeholderVisual(
+    BuildContext context,
+    RoamingCatFrame frame,
+  ) {
     return Container(
       width: frame.catSize,
       height: frame.catSize,

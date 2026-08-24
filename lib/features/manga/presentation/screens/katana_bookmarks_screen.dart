@@ -41,7 +41,10 @@ class _KatanaBookmarksScreenState extends State<KatanaBookmarksScreen> {
     });
   }
 
-  Future<void> _openBookmark(KatanaBookmark bookmark, {required bool continueReading}) async {
+  Future<void> _openBookmark(
+    KatanaBookmark bookmark, {
+    required bool continueReading,
+  }) async {
     final detail = await _service.fetchMangaDetail(bookmark.slug);
     if (!mounted) return;
     final chapters = detail?.chapters ?? const <KatanaChapter>[];
@@ -101,40 +104,41 @@ class _KatanaBookmarksScreenState extends State<KatanaBookmarksScreen> {
                 child: _loading
                     ? const Center(
                         child: CircularProgressIndicator(
-                            color: KatanaColors.accent),
+                          color: KatanaColors.accent,
+                        ),
                       )
                     : user.isEmpty
-                        ? _buildEmpty(
-                            icon: Icons.person_off_outlined,
-                            title: 'Sign in to see bookmarks',
-                            subtitle: 'Your bookmarked manga will show up here.',
-                          )
-                        : _bookmarks.isEmpty
-                            ? _buildEmpty(
-                                icon: Icons.bookmark_border_rounded,
-                                title: 'No bookmarks yet',
-                                subtitle:
-                                    'Tap "Bookmark" on any manga to keep it here and continue where you left off.',
-                              )
-                            : ListView.builder(
-                                padding:
-                                    const EdgeInsets.fromLTRB(16, 14, 16, 60),
-                                itemCount: _bookmarks.length,
-                                itemBuilder: (context, index) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: _BookmarkCard(
-                                    bookmark: _bookmarks[index],
-                                    onContinue: () => _openBookmark(
-                                        _bookmarks[index],
-                                        continueReading: true),
-                                    onOpen: () => _openBookmark(
-                                        _bookmarks[index],
-                                        continueReading: false),
-                                    onRemove: () =>
-                                        _removeBookmark(_bookmarks[index]),
-                                  ),
-                                ),
-                              ),
+                    ? _buildEmpty(
+                        icon: Icons.person_off_outlined,
+                        title: 'Sign in to see bookmarks',
+                        subtitle: 'Your bookmarked manga will show up here.',
+                      )
+                    : _bookmarks.isEmpty
+                    ? _buildEmpty(
+                        icon: Icons.bookmark_border_rounded,
+                        title: 'No bookmarks yet',
+                        subtitle:
+                            'Tap "Bookmark" on any manga to keep it here and continue where you left off.',
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 60),
+                        itemCount: _bookmarks.length,
+                        itemBuilder: (context, index) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _BookmarkCard(
+                            bookmark: _bookmarks[index],
+                            onContinue: () => _openBookmark(
+                              _bookmarks[index],
+                              continueReading: true,
+                            ),
+                            onOpen: () => _openBookmark(
+                              _bookmarks[index],
+                              continueReading: false,
+                            ),
+                            onRemove: () => _removeBookmark(_bookmarks[index]),
+                          ),
+                        ),
+                      ),
               ),
             ),
           ),
@@ -158,11 +162,7 @@ class _KatanaBookmarksScreenState extends State<KatanaBookmarksScreen> {
             const SizedBox(height: 14),
             Text(title, style: KatanaType.heading),
             const SizedBox(height: 6),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: KatanaType.body,
-            ),
+            Text(subtitle, textAlign: TextAlign.center, style: KatanaType.body),
           ],
         ),
       ),
@@ -198,16 +198,20 @@ class _BookmarkCard extends StatelessWidget {
               child: bookmark.coverUrl.isEmpty
                   ? Container(
                       color: KatanaColors.border,
-                      child: const Icon(Icons.menu_book_rounded,
-                          color: KatanaColors.textLight),
+                      child: const Icon(
+                        Icons.menu_book_rounded,
+                        color: KatanaColors.textLight,
+                      ),
                     )
                   : KatanaNetworkImage(
                       bookmark.coverUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (_, _, _) => Container(
                         color: KatanaColors.border,
-                        child: const Icon(Icons.broken_image_rounded,
-                            color: KatanaColors.textLight),
+                        child: const Icon(
+                          Icons.broken_image_rounded,
+                          color: KatanaColors.textLight,
+                        ),
                       ),
                     ),
             ),
@@ -239,8 +243,10 @@ class _BookmarkCard extends StatelessWidget {
                           : KatanaColors.accent,
                     ),
                     if (bookmark.latestChapterTitle.isNotEmpty)
-                      _pill('Latest: ${bookmark.latestChapterTitle}',
-                          color: KatanaColors.textMuted),
+                      _pill(
+                        'Latest: ${bookmark.latestChapterTitle}',
+                        color: KatanaColors.textMuted,
+                      ),
                   ],
                 ),
                 if (bookmark.hasProgress) ...[
@@ -290,10 +296,7 @@ class _BookmarkCard extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: AppTypography.outfitBold.copyWith(
-          color: color,
-          fontSize: 10.5,
-        ),
+        style: AppTypography.outfitBold.copyWith(color: color, fontSize: 10.5),
       ),
     );
   }

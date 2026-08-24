@@ -44,11 +44,9 @@ class ComickService with ConnectivityAware {
   }
 
   Uri _proxied(Uri apiUri) {
-    final pathAndQuery = apiUri.path +
-        (apiUri.hasQuery ? '?${apiUri.query}' : '');
-    return Uri.parse(
-      '$_proxyUrl?path=${Uri.encodeComponent(pathAndQuery)}',
-    );
+    final pathAndQuery =
+        apiUri.path + (apiUri.hasQuery ? '?${apiUri.query}' : '');
+    return Uri.parse('$_proxyUrl?path=${Uri.encodeComponent(pathAndQuery)}');
   }
 
   // ── MAPPING HELPERS ──────────────────────────────────────
@@ -56,11 +54,16 @@ class ComickService with ConnectivityAware {
   /// Status: 1=Ongoing, 2=Completed, 3=Cancelled, 4=On Hiatus
   static String _mapStatus(int? status) {
     switch (status) {
-      case 1: return 'ongoing';
-      case 2: return 'completed';
-      case 3: return 'cancelled';
-      case 4: return 'on hiatus';
-      default: return '';
+      case 1:
+        return 'ongoing';
+      case 2:
+        return 'completed';
+      case 3:
+        return 'cancelled';
+      case 4:
+        return 'on hiatus';
+      default:
+        return '';
     }
   }
 
@@ -243,14 +246,14 @@ class ComickService with ConnectivityAware {
     if (country != null && country.isNotEmpty) {
       params['country'] = [country];
     }
-    final uri = Uri.parse('$_baseUrl/v1.0/search').replace(
-      queryParameters: params,
-    );
+    final uri = Uri.parse(
+      '$_baseUrl/v1.0/search',
+    ).replace(queryParameters: params);
     try {
       final headers = await _authHeaders();
-      final response = await http.get(_proxied(uri), headers: headers).timeout(
-            const Duration(seconds: 10),
-          );
+      final response = await http
+          .get(_proxied(uri), headers: headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as List? ?? [];
         return body
@@ -280,14 +283,14 @@ class ComickService with ConnectivityAware {
     if (country != null && country.isNotEmpty) {
       params['country'] = [country];
     }
-    final uri = Uri.parse('$_baseUrl/v1.0/search').replace(
-      queryParameters: params,
-    );
+    final uri = Uri.parse(
+      '$_baseUrl/v1.0/search',
+    ).replace(queryParameters: params);
     try {
       final headers = await _authHeaders();
-      final response = await http.get(_proxied(uri), headers: headers).timeout(
-            const Duration(seconds: 10),
-          );
+      final response = await http
+          .get(_proxied(uri), headers: headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as List? ?? [];
         return body
@@ -317,14 +320,14 @@ class ComickService with ConnectivityAware {
     if (country != null && country.isNotEmpty) {
       params['country'] = [country];
     }
-    final uri = Uri.parse('$_baseUrl/v1.0/search').replace(
-      queryParameters: params,
-    );
+    final uri = Uri.parse(
+      '$_baseUrl/v1.0/search',
+    ).replace(queryParameters: params);
     try {
       final headers = await _authHeaders();
-      final response = await http.get(_proxied(uri), headers: headers).timeout(
-            const Duration(seconds: 10),
-          );
+      final response = await http
+          .get(_proxied(uri), headers: headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as List? ?? [];
         return body
@@ -344,9 +347,9 @@ class ComickService with ConnectivityAware {
     final uri = Uri.parse('$_baseUrl/comic/$hid');
     try {
       final headers = await _authHeaders();
-      final response = await http.get(_proxied(uri), headers: headers).timeout(
-            const Duration(seconds: 10),
-          );
+      final response = await http
+          .get(_proxied(uri), headers: headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         return _mapDetail(body);
@@ -360,7 +363,8 @@ class ComickService with ConnectivityAware {
   /// Fetch chapter feed for a comic by its Comick hid.
   /// Returns chapters mapped to [MangaChapter]. Chapter page resolution
   /// still goes through MangaDex / Bato.to / MangaSee123 / MangaKakalot.
-  Future<List<MangaChapter>> getChapterFeed(String hid, {
+  Future<List<MangaChapter>> getChapterFeed(
+    String hid, {
     String language = 'en',
     int limit = 500,
   }) async {
@@ -373,9 +377,9 @@ class ComickService with ConnectivityAware {
     );
     try {
       final headers = await _authHeaders();
-      final response = await http.get(_proxied(uri), headers: headers).timeout(
-            const Duration(seconds: 10),
-          );
+      final response = await http
+          .get(_proxied(uri), headers: headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final body = json.decode(response.body) as Map<String, dynamic>;
         final chapters = body['chapters'] as List? ?? [];
@@ -395,9 +399,9 @@ class ComickService with ConnectivityAware {
             pages: (d['page'] as num?)?.toInt() ?? 0,
             translatedLanguage: d['lang'] as String? ?? language,
             scanlationGroup: groupName,
-            publishAt: DateTime.tryParse(
-              (d['publish_at'] as String?) ?? '',
-            ) ?? DateTime.now(),
+            publishAt:
+                DateTime.tryParse((d['publish_at'] as String?) ?? '') ??
+                DateTime.now(),
           );
         }).toList();
       }

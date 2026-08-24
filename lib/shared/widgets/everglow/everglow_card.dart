@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
@@ -35,6 +36,7 @@ class EverglowCard extends StatefulWidget {
 class _EverglowCardState extends State<EverglowCard> {
   bool _hovered = false;
   bool _pressed = false;
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +44,9 @@ class _EverglowCardState extends State<EverglowCard> {
     final effectiveScale = _pressed
         ? AppMotion.pressScale
         : (_hovered ? AppMotion.hoverScale : 1.0);
-    final effectiveTranslateY = _hovered && !_pressed ? AppMotion.hoverLift : 0.0;
+    final effectiveTranslateY = _hovered && !_pressed
+        ? AppMotion.hoverLift
+        : 0.0;
 
     Widget child = AnimatedContainer(
       duration: AppMotion.orZero(AppMotion.fast),
@@ -54,9 +58,14 @@ class _EverglowCardState extends State<EverglowCard> {
       decoration: BoxDecoration(
         color: widget.fillColor ?? AppColors.surfaceGlass,
         borderRadius: BorderRadius.circular(widget.radius),
-        border: Border.all(color: AppColors.border),
-        boxShadow: widget.boxShadow ??
-            (_hovered ? AppElevation.e3 : AppElevation.e2),
+        border: Border.all(
+          color: _focused
+              ? AppColors.blushGold.withValues(alpha: 0.65)
+              : AppColors.moonlight.withValues(alpha: 0.08),
+          width: _focused ? 1.4 : 1,
+        ),
+        boxShadow:
+            widget.boxShadow ?? (_hovered ? AppElevation.e3 : AppElevation.e2),
       ),
       child: widget.child,
     );
@@ -67,17 +76,31 @@ class _EverglowCardState extends State<EverglowCard> {
         label: widget.semanticLabel,
         child: FocusableActionDetector(
           onShowHoverHighlight: (h) => setState(() => _hovered = h),
+          onShowFocusHighlight: (f) => setState(() => _focused = f),
+          shortcuts: {
+            const SingleActivator(LogicalKeyboardKey.enter):
+                const ActivateIntent(),
+            const SingleActivator(LogicalKeyboardKey.space):
+                const ActivateIntent(),
+          },
+          actions: {
+            ActivateIntent: CallbackAction<ActivateIntent>(
+              onInvoke: (_) {
+                HapticFeedback.selectionClick();
+                widget.onTap!();
+                return null;
+              },
+            ),
+          },
           child: GestureDetector(
             onTapDown: (_) => setState(() => _pressed = true),
             onTapUp: (_) {
               setState(() => _pressed = false);
+              HapticFeedback.selectionClick();
               widget.onTap!();
             },
             onTapCancel: () => setState(() => _pressed = false),
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: child,
-            ),
+            child: MouseRegion(cursor: SystemMouseCursors.click, child: child),
           ),
         ),
       );

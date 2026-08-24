@@ -1,19 +1,39 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
 import '../../models/media_item.dart';
 
 /// Shared constants, Firestore access, and mapping helpers for all TMDB
 /// sub-services. Mix this into each sub-service alongside [ConnectivityAware]
 /// and [ErrorAware].
 mixin TMDBBase {
-  final String tmdbBaseUrl = 'https://api.themoviedb.org/3';
+  /// All metadata requests go through the app's authenticated Cloud Function
+  /// so the TMDB key remains server-side and is never compiled into web JS.
+  final String tmdbBaseUrl =
+      'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyTmdb';
   final String imageBaseUrl = 'https://image.tmdb.org/t/p/w500';
   final String imageBaseOriginal = 'https://image.tmdb.org/t/p/original';
   final String profileBaseUrl = 'https://image.tmdb.org/t/p/w185';
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
+  /// Sends a signed TMDB request. [http.get] cannot be used directly because
+  /// the Authorization header makes browsers issue an authenticated CORS call.
+  Future<http.Response> tmdbGet(Uri url) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final token = user == null ? null : await user.getIdToken();
+    if (token == null || token.isEmpty) {
+      throw StateError('TMDB requires an authenticated user');
+    }
+    return http
+        .get(url, headers: {'Authorization': 'Bearer $token'})
+        .timeout(const Duration(seconds: 12));
+  }
+
   /// Generic mapping helper: TMDB result -> MediaItem
-  MediaItem mapResultToMediaItem(Map<String, dynamic> item,
-      {String? forcedMediaType}) {
+  MediaItem mapResultToMediaItem(
+    Map<String, dynamic> item, {
+    String? forcedMediaType,
+  }) {
     final mediaType = forcedMediaType ?? item['media_type'] ?? 'movie';
     final title = mediaType == 'movie'
         ? (item['title'] ?? item['name'] ?? 'Unknown Title')
@@ -92,9 +112,12 @@ mixin TMDBBase {
     if (a == b || a.contains(b) || b.contains(a)) return true;
     final wordsA = a.split(' ');
     final wordsB = b.split(' ');
-    final overlap =
-        wordsA.where((w) => w.length > 2 && wordsB.contains(w)).length;
-    final minLen = wordsA.length < wordsB.length ? wordsA.length : wordsB.length;
+    final overlap = wordsA
+        .where((w) => w.length > 2 && wordsB.contains(w))
+        .length;
+    final minLen = wordsA.length < wordsB.length
+        ? wordsA.length
+        : wordsB.length;
     return overlap >= (minLen * 0.5).ceil();
   }
 }

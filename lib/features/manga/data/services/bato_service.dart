@@ -53,7 +53,8 @@ class BatoService with ConnectivityAware {
   /// so the request works on Flutter Web (CORS-safe).
   Uri _proxiedFetch(Uri uri) {
     return Uri.parse(
-        '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}');
+      '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}',
+    );
   }
 
   /// Search Bato.to by title and return the first matching series slug.
@@ -62,9 +63,9 @@ class BatoService with ConnectivityAware {
     final uri = Uri.parse('$_baseUrl/search?q=${Uri.encodeComponent(title)}');
     try {
       final headers = await _authHeaders();
-      final response = await http.get(_proxiedFetch(uri), headers: headers).timeout(
-            const Duration(seconds: 8),
-          );
+      final response = await http
+          .get(_proxiedFetch(uri), headers: headers)
+          .timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         // Look for series links matching /title/{slug}
         final linkRe = RegExp(
@@ -92,9 +93,9 @@ class BatoService with ConnectivityAware {
     final uri = Uri.parse('$_baseUrl/title/$slug');
     try {
       final headers = await _authHeaders();
-      final response = await http.get(_proxiedFetch(uri), headers: headers).timeout(
-            const Duration(seconds: 10),
-          );
+      final response = await http
+          .get(_proxiedFetch(uri), headers: headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         return _parseChapterList(response.body, slug);
       }
@@ -136,16 +137,18 @@ class BatoService with ConnectivityAware {
         chapterNum = numMatch?.group(1) ?? '';
       }
 
-      chapters.add(MangaChapter(
-        id: href,
-        title: title,
-        chapter: chapterNum,
-        volume: '',
-        pages: 0,
-        translatedLanguage: 'en',
-        scanlationGroup: 'Bato.to',
-        publishAt: DateTime.now(),
-      ));
+      chapters.add(
+        MangaChapter(
+          id: href,
+          title: title,
+          chapter: chapterNum,
+          volume: '',
+          pages: 0,
+          translatedLanguage: 'en',
+          scanlationGroup: 'Bato.to',
+          publishAt: DateTime.now(),
+        ),
+      );
     }
     return chapters;
   }
@@ -163,9 +166,9 @@ class BatoService with ConnectivityAware {
         : '$_baseUrl$chapterPath';
     try {
       final headers = await _authHeaders();
-      final response = await http.get(_proxiedFetch(Uri.parse(url)), headers: headers).timeout(
-            const Duration(seconds: 10),
-          );
+      final response = await http
+          .get(_proxiedFetch(Uri.parse(url)), headers: headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final imgRe = RegExp(
           r'<img[^>]*src="(https?://[^"]+)"[^>]*>',
@@ -180,8 +183,10 @@ class BatoService with ConnectivityAware {
         for (final m in matches) {
           final src = (m.group(1) ?? '').trim();
           if (src.isEmpty) continue;
-          if (!RegExp(r'\.(jpg|jpeg|png|webp|gif|bmp)(\?|$)', caseSensitive: false)
-              .hasMatch(src)) {
+          if (!RegExp(
+            r'\.(jpg|jpeg|png|webp|gif|bmp)(\?|$)',
+            caseSensitive: false,
+          ).hasMatch(src)) {
             continue;
           }
           if (excludeRe.hasMatch(src)) continue;

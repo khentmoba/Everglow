@@ -72,8 +72,9 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
                   color: Colors.transparent,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(16),
-                    onTap:
-                        _navigating ? null : () => _openParty(context, incoming),
+                    onTap: _navigating
+                        ? null
+                        : () => _openParty(context, incoming),
                     child: Container(
                       padding: const EdgeInsets.fromLTRB(12, 10, 40, 10),
                       decoration: BoxDecoration(
@@ -118,7 +119,12 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
                               children: [
                                 Text(
                                   'Join',
-                                  style: AppTypography.outfitWhite.copyWith(color: AppTheme.twilight, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+                                  style: AppTypography.outfitWhite.copyWith(
+                                    color: AppTheme.twilight,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.5,
+                                  ),
                                 ),
                                 const SizedBox(width: 4),
                                 const Icon(
@@ -185,7 +191,10 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
       child: Center(
         child: Text(
           initial,
-          style: AppTypography.cormorantExtraBold.copyWith(fontSize: 20, color: AppTheme.twilight),
+          style: AppTypography.cormorantExtraBold.copyWith(
+            fontSize: 20,
+            color: AppTheme.twilight,
+          ),
         ),
       ),
     );
@@ -199,7 +208,10 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
       children: [
         Text(
           '${incoming.callerName} started a watch party',
-          style: AppTypography.outfitHeading.copyWith(color: AppTheme.petalWhite, fontSize: 13),
+          style: AppTypography.outfitHeading.copyWith(
+            color: AppTheme.petalWhite,
+            fontSize: 13,
+          ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -208,7 +220,10 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
           hasTitle
               ? 'Watching ${incoming.mediaTitle}${_episodeSuffix(incoming)}'
               : 'Tap to join',
-          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.7), fontSize: 11),
+          style: AppTypography.outfitWhite.copyWith(
+            color: AppTheme.petalWhite.withValues(alpha: 0.7),
+            fontSize: 11,
+          ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),

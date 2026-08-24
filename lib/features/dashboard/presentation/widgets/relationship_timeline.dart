@@ -37,7 +37,7 @@ class _RelationshipTimelineState extends State<RelationshipTimeline> {
 
     // Find the index closest to today
     int closestIdx = 0;
-    Duration minDiff = Duration(days: 999999);
+    Duration minDiff = const Duration(days: 999999);
     for (int i = 0; i < milestones.length; i++) {
       final diff = milestones[i].date.difference(now).abs();
       if (diff < minDiff) {
@@ -347,7 +347,7 @@ class _TimelinePainter extends CustomPainter {
     // "Today" indicator
     // Find closest milestone to today and draw a pulsing dot
     int closestIdx = 0;
-    Duration minDiff = Duration(days: 999999);
+    Duration minDiff = const Duration(days: 999999);
     for (int i = 0; i < milestones.length; i++) {
       final diff = milestones[i].date.difference(today).abs();
       if (diff < minDiff) {
@@ -446,14 +446,14 @@ class _TimelineNode extends StatelessWidget {
                           width: 36,
                           height: 36,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Icon(
+                          errorBuilder: (_, _, _) => const Icon(
                             Icons.favorite_rounded,
                             size: 16,
                             color: AppTheme.roseQuartz,
                           ),
                         ),
                       )
-                    : Icon(
+                    : const Icon(
                         Icons.favorite_rounded,
                         size: 16,
                         color: AppTheme.roseQuartz,

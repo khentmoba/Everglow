@@ -13,7 +13,6 @@ class PartnerStatusIndicator extends StatelessWidget {
     final partnerUsername = authService.partnerUsername ?? '';
     final partnerName = authService.partnerName;
 
-
     return StreamBuilder<UserMood?>(
       stream: context.read<MoodService>().watchLatestMood(partnerUsername),
       builder: (context, snapshot) {
@@ -43,7 +42,8 @@ class _MoodHeart extends StatefulWidget {
   State<_MoodHeart> createState() => _MoodHeartState();
 }
 
-class _MoodHeartState extends State<_MoodHeart> with SingleTickerProviderStateMixin {
+class _MoodHeartState extends State<_MoodHeart>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _pulseAnimation;
 
@@ -55,9 +55,10 @@ class _MoodHeartState extends State<_MoodHeart> with SingleTickerProviderStateMi
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
 
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _pulseAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.2,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -73,32 +74,30 @@ class _MoodHeartState extends State<_MoodHeart> with SingleTickerProviderStateMi
 
     return RepaintBoundary(
       child: ScaleTransition(
-      scale: _pulseAnimation,
-      child: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: [
-            if (isAmazing)
-              const BoxShadow(
-                color: Colors.pinkAccent,
-                blurRadius: 10,
-                spreadRadius: 2,
-              ),
-            if (isStressed)
-              BoxShadow(
-                color: Colors.blue.withValues(alpha: 0.3),
-                blurRadius: 5,
-                spreadRadius: 1,
-              ),
-          ],
-        ),
-        child: Text(
-          widget.emoji,
-          style: TextStyle(
-            fontSize: isAmazing ? 28 : 20,
+        scale: _pulseAnimation,
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              if (isAmazing)
+                const BoxShadow(
+                  color: Colors.pinkAccent,
+                  blurRadius: 10,
+                  spreadRadius: 2,
+                ),
+              if (isStressed)
+                BoxShadow(
+                  color: Colors.blue.withValues(alpha: 0.3),
+                  blurRadius: 5,
+                  spreadRadius: 1,
+                ),
+            ],
+          ),
+          child: Text(
+            widget.emoji,
+            style: TextStyle(fontSize: isAmazing ? 28 : 20),
           ),
         ),
-      ),
       ),
     );
   }

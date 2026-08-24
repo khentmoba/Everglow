@@ -82,9 +82,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
     // The model often starts replies with blank lines; trim them for a
     // clean first line in the bubble (both while streaming and after).
     final bubbleText = widget.isUser ? widget.text : widget.text.trimLeft();
-    final displayText = widget.isUser
-        ? widget.text
-        : stripMarkdown(bubbleText);
+    final displayText = widget.isUser ? widget.text : stripMarkdown(bubbleText);
     final hasReasoning =
         widget.reasoning != null && widget.reasoning!.isNotEmpty;
 
@@ -161,8 +159,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   borderRadius: BorderRadius.only(
                     topLeft: Radius.circular(widget.isUser ? AppRadius.lg : 4),
                     topRight: Radius.circular(widget.isUser ? 4 : AppRadius.lg),
-                    bottomLeft: Radius.circular(AppRadius.lg),
-                    bottomRight: Radius.circular(AppRadius.lg),
+                    bottomLeft: const Radius.circular(AppRadius.lg),
+                    bottomRight: const Radius.circular(AppRadius.lg),
                   ),
                   border: widget.isUser
                       ? null
@@ -258,9 +256,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         ),
                       )
                     else if (widget.isStreaming && bubbleText.isEmpty)
-                      _StreamingPlaceholder(
-                        toolStatus: widget.toolStatus ?? '',
-                      )
+                      _StreamingPlaceholder(toolStatus: widget.toolStatus ?? '')
                     else
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -287,17 +283,31 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         child: _StreamingProgressBar(),
                       ),
                     // W5 citation footer — subtle source hint for assistant replies
-                    if (!widget.isUser && !widget.isStreaming && widget.text.length > 60)
+                    if (!widget.isUser &&
+                        !widget.isStreaming &&
+                        widget.text.length > 60)
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.shield_outlined, size: 10, color: AppColors.textDisabled.withValues(alpha: 0.5)),
+                            Icon(
+                              Icons.shield_outlined,
+                              size: 10,
+                              color: AppColors.textDisabled.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               'Mochi • private memory + Everglow context',
-                              style: AppTypography.bodySmall().copyWith(fontSize: 9, color: AppColors.textDisabled.withValues(alpha: 0.5), fontStyle: FontStyle.italic),
+                              style: AppTypography.bodySmall().copyWith(
+                                fontSize: 9,
+                                color: AppColors.textDisabled.withValues(
+                                  alpha: 0.5,
+                                ),
+                                fontStyle: FontStyle.italic,
+                              ),
                             ),
                           ],
                         ),
@@ -312,7 +322,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               Container(
                                 width: 6,
                                 height: 6,
-                                decoration: BoxDecoration(
+                                decoration: const BoxDecoration(
                                   color: AppColors.blushGold,
                                   shape: BoxShape.circle,
                                 ),
@@ -687,13 +697,22 @@ class _QuickReplyChips extends StatelessWidget {
   Widget build(BuildContext context) {
     final inner = SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: EdgeInsets.symmetric(horizontal: centered ? 24 : 12, vertical: 6),
+      padding: EdgeInsets.symmetric(
+        horizontal: centered ? 24 : 12,
+        vertical: 6,
+      ),
       child: Row(
         children: _chips.map((e) {
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: ActionChip(
-              label: Text(e.$1, style: AppTypography.bodySmall().copyWith(fontSize: 11, color: AppColors.textMedium)),
+              label: Text(
+                e.$1,
+                style: AppTypography.bodySmall().copyWith(
+                  fontSize: 11,
+                  color: AppColors.textMedium,
+                ),
+              ),
               backgroundColor: AppColors.surfaceGlass,
               side: BorderSide(color: AppColors.border),
               shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusFull),
@@ -704,7 +723,12 @@ class _QuickReplyChips extends StatelessWidget {
       ),
     );
     if (!centered) return inner;
-    return Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 760), child: inner));
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 760),
+        child: inner,
+      ),
+    );
   }
 }
 

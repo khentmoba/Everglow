@@ -17,10 +17,13 @@ void main() {
         label: 'test-stream',
       ).toList();
 
-      expect(result, equals([
-        [1, 2, 3],
-        [4, 5, 6],
-      ]));
+      expect(
+        result,
+        equals([
+          [1, 2, 3],
+          [4, 5, 6],
+        ]),
+      );
     });
 
     test('closes stream when it hangs beyond timeout', () async {
@@ -33,20 +36,20 @@ void main() {
       final errors = <Object>[];
 
       await withFirestoreTimeout(
-        hangingStream,
-        duration: const Duration(milliseconds: 100),
-        label: 'hanging-stream',
-      ).listen(
-        results.add,
-        onError: errors.add,
-      ).asFuture<void>().catchError((_) {});
+            hangingStream,
+            duration: const Duration(milliseconds: 100),
+            label: 'hanging-stream',
+          )
+          .listen(results.add, onError: errors.add)
+          .asFuture<void>()
+          .catchError((_) {});
 
       expect(results, isEmpty);
       // Stream should have closed (not errored) via timeout
     });
 
     test('handles empty stream correctly', () async {
-      final emptyStream = Stream<List<int>>.empty();
+      final emptyStream = const Stream<List<int>>.empty();
 
       final results = await withFirestoreTimeout(
         emptyStream,
@@ -57,29 +60,31 @@ void main() {
       expect(results, isEmpty);
     });
 
-    test('stays live after first event and keeps delivering later events',
-        () async {
-      final source = StreamController<int>();
-      final received = <int>[];
+    test(
+      'stays live after first event and keeps delivering later events',
+      () async {
+        final source = StreamController<int>();
+        final received = <int>[];
 
-      final subscription = withFirestoreTimeout(
-        source.stream,
-        duration: const Duration(milliseconds: 100),
-        label: 'live-stream',
-      ).listen(received.add);
+        final subscription = withFirestoreTimeout(
+          source.stream,
+          duration: const Duration(milliseconds: 100),
+          label: 'live-stream',
+        ).listen(received.add);
 
-      source.add(1);
-      // Wait longer than the timeout. Firestore snapshot streams are
-      // allowed to be quiet after the first emission, so this must not
-      // close the wrapped stream.
-      await Future<void>.delayed(const Duration(milliseconds: 250));
-      source.add(2);
-      await Future<void>.delayed(const Duration(milliseconds: 10));
+        source.add(1);
+        // Wait longer than the timeout. Firestore snapshot streams are
+        // allowed to be quiet after the first emission, so this must not
+        // close the wrapped stream.
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+        source.add(2);
+        await Future<void>.delayed(const Duration(milliseconds: 10));
 
-      await subscription.cancel();
-      await source.close();
+        await subscription.cancel();
+        await source.close();
 
-      expect(received, equals([1, 2]));
-    });
+        expect(received, equals([1, 2]));
+      },
+    );
   });
 }

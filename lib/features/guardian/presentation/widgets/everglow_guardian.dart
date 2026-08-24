@@ -46,13 +46,19 @@ class _EverglowGuardianState extends State<EverglowGuardian>
 
     _bounceAnimation = TweenSequence<double>([
       TweenSequenceItem(
-          tween:
-              Tween(begin: 1.0, end: 1.3).chain(CurveTween(curve: Curves.easeOut)),
-          weight: 30),
+        tween: Tween(
+          begin: 1.0,
+          end: 1.3,
+        ).chain(CurveTween(curve: Curves.easeOut)),
+        weight: 30,
+      ),
       TweenSequenceItem(
-          tween: Tween(begin: 1.3, end: 1.0)
-              .chain(CurveTween(curve: Curves.bounceOut)),
-          weight: 70),
+        tween: Tween(
+          begin: 1.3,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.bounceOut)),
+        weight: 70,
+      ),
     ]).animate(_reactionController);
 
     // Initial welcome
@@ -113,14 +119,15 @@ class _EverglowGuardianState extends State<EverglowGuardian>
             const SizedBox(height: 20),
             Row(
               children: [
-                const Icon(Icons.auto_awesome_rounded,
-                    color: AppTheme.blushGold, size: 20),
+                const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: AppTheme.blushGold,
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Talk to Guardian',
-                  style: AppTypography.outfitBold.copyWith(
-                    fontSize: 16,
-                  ),
+                  style: AppTypography.outfitBold.copyWith(fontSize: 16),
                 ),
                 const Spacer(),
                 GestureDetector(
@@ -130,10 +137,13 @@ class _EverglowGuardianState extends State<EverglowGuardian>
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       border: Border.all(
-                          color: AppTheme.blushGold.withValues(alpha: 0.6)),
+                        color: AppTheme.blushGold.withValues(alpha: 0.6),
+                      ),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -154,9 +164,7 @@ class _EverglowGuardianState extends State<EverglowGuardian>
                   child: TextField(
                     controller: _chatController,
                     autofocus: true,
-                    style: AppTypography.outfitWhite.copyWith(
-                      fontSize: 14,
-                    ),
+                    style: AppTypography.outfitWhite.copyWith(fontSize: 14),
                     decoration: InputDecoration(
                       hintText: 'Tell Guardian something...',
                       hintStyle: TextStyle(
@@ -170,7 +178,9 @@ class _EverglowGuardianState extends State<EverglowGuardian>
                         borderSide: BorderSide.none,
                       ),
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 18, vertical: 14),
+                        horizontal: 18,
+                        vertical: 14,
+                      ),
                     ),
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) => _sendChatMessage(),
@@ -217,10 +227,12 @@ class _EverglowGuardianState extends State<EverglowGuardian>
   void _createParticles() {
     setState(() {
       for (int i = 0; i < 8; i++) {
-        _particles.add(Particle(
-          angle: math.pi * 2 * (i / 8),
-          color: Colors.pink[100]!.withValues(alpha: 0.8),
-        ));
+        _particles.add(
+          Particle(
+            angle: math.pi * 2 * (i / 8),
+            color: Colors.pink[100]!.withValues(alpha: 0.8),
+          ),
+        );
       }
     });
 
@@ -237,21 +249,22 @@ class _EverglowGuardianState extends State<EverglowGuardian>
   Widget build(BuildContext context) {
     return RepaintBoundary(
       child: Consumer<GuardianController>(
-      builder: (context, controller, child) {
-        return GestureDetector(
-          onLongPress: () {
-            // Long press to toggle AI mode
-            controller.toggleAIMode();
-            if (controller.isAIMode) {
-              _createParticles();
-            }
-          },
-          child: Stack(
-            alignment: Alignment.center,
-            clipBehavior: Clip.none,
-            children: [
-              // Particles
-              ..._particles.map((p) => AnimatedPositioned(
+        builder: (context, controller, child) {
+          return GestureDetector(
+            onLongPress: () {
+              // Long press to toggle AI mode
+              controller.toggleAIMode();
+              if (controller.isAIMode) {
+                _createParticles();
+              }
+            },
+            child: Stack(
+              alignment: Alignment.center,
+              clipBehavior: Clip.none,
+              children: [
+                // Particles
+                ..._particles.map(
+                  (p) => AnimatedPositioned(
                     key: ValueKey(p.angle),
                     duration: const Duration(milliseconds: 800),
                     curve: Curves.easeOutCubic,
@@ -275,76 +288,77 @@ class _EverglowGuardianState extends State<EverglowGuardian>
                         ),
                       ),
                     ),
-                  )),
-
-              // AI Mode indicator ring
-              if (controller.isAIMode)
-                Positioned(
-                  bottom: -4,
-                  right: -4,
-                  child: Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: AppTheme.blushGold,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                          color: AppTheme.twilight, width: 2),
-                    ),
-                    child: const Icon(
-                      Icons.auto_awesome_rounded,
-                      color: AppTheme.petalWhite,
-                      size: 10,
-                    ),
                   ),
                 ),
 
-              // Thought Bubble
-              if (controller.isMessageVisible &&
-                  controller.currentMessage != null)
-                Positioned(
-                  bottom: 90,
-                  right: 0,
-                  child: TweenAnimationBuilder<double>(
-                    duration: const Duration(milliseconds: 300),
-                    tween: Tween(begin: 0.0, end: 1.0),
-                    builder: (context, value, child) {
-                      return Opacity(
-                        opacity: value,
+                // AI Mode indicator ring
+                if (controller.isAIMode)
+                  Positioned(
+                    bottom: -4,
+                    right: -4,
+                    child: Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: AppTheme.blushGold,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppTheme.twilight, width: 2),
+                      ),
+                      child: const Icon(
+                        Icons.auto_awesome_rounded,
+                        color: AppTheme.petalWhite,
+                        size: 10,
+                      ),
+                    ),
+                  ),
+
+                // Thought Bubble
+                if (controller.isMessageVisible &&
+                    controller.currentMessage != null)
+                  Positioned(
+                    bottom: 90,
+                    right: 0,
+                    child: TweenAnimationBuilder<double>(
+                      duration: const Duration(milliseconds: 300),
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      builder: (context, value, child) {
+                        return Opacity(
+                          opacity: value,
+                          child: Transform.scale(
+                            scale: value,
+                            alignment: Alignment.bottomRight,
+                            child: ThoughtBubble(
+                              message: controller.currentMessage!.content,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                // The Guardian
+                GestureDetector(
+                  onTap: _onTap,
+                  child: AnimatedBuilder(
+                    animation: Listenable.merge([
+                      _floatingAnimation,
+                      _bounceAnimation,
+                    ]),
+                    builder: (context, child) {
+                      return Transform.translate(
+                        offset: Offset(0, _floatingAnimation.value),
                         child: Transform.scale(
-                          scale: value,
-                          alignment: Alignment.bottomRight,
-                          child: ThoughtBubble(
-                              message: controller.currentMessage!.content),
+                          scale: _bounceAnimation.value,
+                          child: const CatVisuals(size: 80),
                         ),
                       );
                     },
                   ),
                 ),
-
-              // The Guardian
-              GestureDetector(
-                onTap: _onTap,
-                child: AnimatedBuilder(
-                  animation:
-                      Listenable.merge([_floatingAnimation, _bounceAnimation]),
-                  builder: (context, child) {
-                    return Transform.translate(
-                      offset: Offset(0, _floatingAnimation.value),
-                      child: Transform.scale(
-                        scale: _bounceAnimation.value,
-                        child: const CatVisuals(
-                          size: 80,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+              ],
+            ),
+          );
+        },
       ),
     );
   }

@@ -92,18 +92,14 @@ class RoamingCat3DEngine extends ChangeNotifier {
 
   void _decode(Uint8List pixels) {
     _decoding = true;
-    ui.decodeImageFromPixels(
-      pixels,
-      _width,
-      _height,
-      ui.PixelFormat.rgba8888,
-      (image) {
-        _decoding = false;
-        final old = _image;
-        _image = image;
-        old?.dispose();
-        notifyListeners();
-      },
-    );
+    ui.decodeImageFromPixels(pixels, _width, _height, ui.PixelFormat.rgba8888, (
+      image,
+    ) {
+      _decoding = false;
+      final old = _image;
+      _image = image;
+      old?.dispose();
+      notifyListeners();
+    });
   }
 }

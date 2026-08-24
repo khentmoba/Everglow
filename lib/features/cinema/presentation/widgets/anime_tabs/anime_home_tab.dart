@@ -18,55 +18,54 @@ import 'anime_models.dart';
 import '../../../../../core/theme/app_typography.dart';
 
 // ── Anime palette (subset used by the Home tab) ─────────────────
-const _cCard           = AppColors.animeCard;
-const _cRose           = AppColors.animeRose;
-const _cDeepRose       = AppColors.animeDeepRose;
-const _cGold           = AppColors.animeGold;
-const _cWhite          = AppColors.animeWhite;
-const _cMuted          = AppColors.animeMuted;
-const _cCyan           = AppColors.animeCyan;
-const _cMagenta        = AppColors.animeMagenta;
+const _cCard = AppColors.animeCard;
+const _cRose = AppColors.animeRose;
+const _cDeepRose = AppColors.animeDeepRose;
+const _cGold = AppColors.animeGold;
+const _cWhite = AppColors.animeWhite;
+const _cMuted = AppColors.animeMuted;
+const _cCyan = AppColors.animeCyan;
+const _cMagenta = AppColors.animeMagenta;
 const _cElectricPurple = AppColors.animeElectricPurple;
-const _cVibrantPink    = AppColors.animeVibrantPink;
+const _cVibrantPink = AppColors.animeVibrantPink;
 
 // Single source of truth for home-tab genre rail metadata.
-const _genreMeta = <String, ({
-  List<int> genreIds,
-  Color color,
-  IconData icon,
-  String subtitle,
-})>{
-  'Action & Adventure': (
-    genreIds: [1, 2],
-    color: Color(0xFFE57373),
-    icon: Icons.bolt_rounded,
-    subtitle: 'High-octane thrills and epic battles',
-  ),
-  'Romance': (
-    genreIds: [22],
-    color: Color(0xFFF06292),
-    icon: Icons.favorite_rounded,
-    subtitle: 'Love stories that warm the heart',
-  ),
-  'Fantasy & Isekai': (
-    genreIds: [10],
-    color: Color(0xFFBA68C8),
-    icon: Icons.auto_awesome_rounded,
-    subtitle: 'Otherworldly adventures and magic',
-  ),
-  'Comedy': (
-    genreIds: [4],
-    color: Color(0xFFFFD54F),
-    icon: Icons.theater_comedy_rounded,
-    subtitle: 'Laughs and good vibes',
-  ),
-  'Slice of Life': (
-    genreIds: [36],
-    color: Color(0xFFAED581),
-    icon: Icons.local_cafe_rounded,
-    subtitle: 'Quiet moments and everyday beauty',
-  ),
-};
+const _genreMeta =
+    <
+      String,
+      ({List<int> genreIds, Color color, IconData icon, String subtitle})
+    >{
+      'Action & Adventure': (
+        genreIds: [1, 2],
+        color: Color(0xFFE57373),
+        icon: Icons.bolt_rounded,
+        subtitle: 'High-octane thrills and epic battles',
+      ),
+      'Romance': (
+        genreIds: [22],
+        color: Color(0xFFF06292),
+        icon: Icons.favorite_rounded,
+        subtitle: 'Love stories that warm the heart',
+      ),
+      'Fantasy & Isekai': (
+        genreIds: [10],
+        color: Color(0xFFBA68C8),
+        icon: Icons.auto_awesome_rounded,
+        subtitle: 'Otherworldly adventures and magic',
+      ),
+      'Comedy': (
+        genreIds: [4],
+        color: Color(0xFFFFD54F),
+        icon: Icons.theater_comedy_rounded,
+        subtitle: 'Laughs and good vibes',
+      ),
+      'Slice of Life': (
+        genreIds: [36],
+        color: Color(0xFFAED581),
+        icon: Icons.local_cafe_rounded,
+        subtitle: 'Quiet moments and everyday beauty',
+      ),
+    };
 
 /// Home tab for the Anime screen.
 ///
@@ -159,7 +158,8 @@ class AnimeHomeTab extends StatelessWidget {
           for (var gi = 0; gi < genreRows.length; gi++) ...[
             StaggeredEntrance(
               index: homeSections.length + 3 + gi,
-              child: _buildGenreRow(context, 
+              child: _buildGenreRow(
+                context,
                 genreRows.keys.elementAt(gi),
                 genreRows.values.elementAt(gi),
               ),
@@ -278,7 +278,11 @@ class AnimeHomeTab extends StatelessWidget {
     );
   }
 
-  Widget _buildGenreRow(BuildContext context, String genreName, List<MediaItem> items) {
+  Widget _buildGenreRow(
+    BuildContext context,
+    String genreName,
+    List<MediaItem> items,
+  ) {
     if (items.isEmpty) return const SizedBox.shrink();
 
     final meta = _genreMeta[genreName];
@@ -362,9 +366,7 @@ class AnimeHomeTab extends StatelessWidget {
         title: m.title,
         subtitle: m.year.isNotEmpty ? m.year : 'Tap to explore',
         eyebrow: rank <= 3 ? '★ Top $rank' : 'Trending #$rank',
-        imageUrl: m.backdropUrl.isNotEmpty
-            ? m.backdropUrl
-            : m.posterPath,
+        imageUrl: m.backdropUrl.isNotEmpty ? m.backdropUrl : m.posterPath,
         posterUrl: m.posterPath,
         synopsis: m.synopsis,
         episodeCount: m.episodeCount,
@@ -401,7 +403,7 @@ class AnimeHomeTab extends StatelessWidget {
             )
           else
             const SizedBox(width: 48),
-          _AnimeLogo(size: 44),
+          const _AnimeLogo(size: 44),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -410,11 +412,19 @@ class AnimeHomeTab extends StatelessWidget {
               children: [
                 Text(
                   'Everglow Anime',
-                  style: AppTypography.cormorantBold.copyWith(fontSize: 26, height: 1.1, color: _cRose),
+                  style: AppTypography.cormorantBold.copyWith(
+                    fontSize: 26,
+                    height: 1.1,
+                    color: _cRose,
+                  ),
                 ),
                 Text(
                   'Discover · Watch · Collect',
-                  style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: _cCyan.withValues(alpha: 0.8), letterSpacing: 1.2),
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 11,
+                    color: _cCyan.withValues(alpha: 0.8),
+                    letterSpacing: 1.2,
+                  ),
                 ),
               ],
             ),
@@ -422,8 +432,7 @@ class AnimeHomeTab extends StatelessWidget {
           GestureDetector(
             onTap: onOpenSearch,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: _cCard.withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(20),
@@ -435,12 +444,14 @@ class AnimeHomeTab extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.search_rounded,
-                      color: _cMuted, size: 16),
+                  const Icon(Icons.search_rounded, color: _cMuted, size: 16),
                   const SizedBox(width: 8),
                   Text(
                     'Search anime...',
-                    style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: _cMuted),
+                    style: AppTypography.outfitWhite.copyWith(
+                      fontSize: 12,
+                      color: _cMuted,
+                    ),
                   ),
                 ],
               ),
@@ -490,26 +501,28 @@ class AnimeHomeTab extends StatelessWidget {
             decoration: BoxDecoration(
               color: _cCard.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: section.tint.withValues(alpha: 0.2),
-              ),
+              border: Border.all(color: section.tint.withValues(alpha: 0.2)),
             ),
             child: Row(
               children: [
-                Icon(Icons.cloud_off_rounded,
-                    color: _cMuted, size: 20),
+                const Icon(Icons.cloud_off_rounded, color: _cMuted, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Couldn\'t load ${section.title.toLowerCase()}',
-                    style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 13),
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: _cMuted,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
                 GestureDetector(
                   onTap: () => onRetryRow(section),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 8),
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: section.tint.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(20),
@@ -519,7 +532,10 @@ class AnimeHomeTab extends StatelessWidget {
                     ),
                     child: Text(
                       'Retry',
-                      style: AppTypography.outfitBold.copyWith(color: section.tint, fontSize: 12),
+                      style: AppTypography.outfitBold.copyWith(
+                        color: section.tint,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ),
@@ -541,7 +557,10 @@ class AnimeHomeTab extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: Text(
           'Nothing here yet. Search above to add your first anime!',
-          style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontStyle: FontStyle.italic),
+          style: AppTypography.outfitWhite.copyWith(
+            color: _cMuted,
+            fontStyle: FontStyle.italic,
+          ),
         ),
       );
     }
@@ -588,7 +607,10 @@ class AnimeHomeTab extends StatelessWidget {
     );
   }
 
-  Widget _buildContinueWatchingRow(BuildContext context, List<MediaItem> items) {
+  Widget _buildContinueWatchingRow(
+    BuildContext context,
+    List<MediaItem> items,
+  ) {
     if (items.isEmpty) return const SizedBox.shrink();
     final isDesktop = AppBreakpoint.isDesktop(context);
 
@@ -630,9 +652,7 @@ class AnimeHomeTab extends StatelessWidget {
                       Colors.black.withValues(alpha: 0.08),
                     ],
                   ),
-                  border: Border.all(
-                    color: _cCyan.withValues(alpha: 0.2),
-                  ),
+                  border: Border.all(color: _cCyan.withValues(alpha: 0.2)),
                   boxShadow: [
                     BoxShadow(
                       color: _cCyan.withValues(alpha: 0.06),
@@ -655,8 +675,7 @@ class AnimeHomeTab extends StatelessWidget {
                             item.posterPath,
                             fit: BoxFit.cover,
                             cacheWidth: 400,
-                            errorBuilder: (_, _, _) =>
-                                Container(color: _cCard),
+                            errorBuilder: (_, _, _) => Container(color: _cCard),
                           ),
                         )
                       else if (item.posterPath.isNotEmpty)
@@ -664,8 +683,7 @@ class AnimeHomeTab extends StatelessWidget {
                           item.posterPath,
                           fit: BoxFit.cover,
                           cacheWidth: 400,
-                          errorBuilder: (_, _, _) =>
-                              Container(color: _cCard),
+                          errorBuilder: (_, _, _) => Container(color: _cCard),
                         )
                       else
                         Container(color: _cCard),
@@ -692,7 +710,9 @@ class AnimeHomeTab extends StatelessWidget {
                             if (progressLabel != null)
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 3),
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
                                 decoration: BoxDecoration(
                                   color: _cCyan,
                                   borderRadius: BorderRadius.circular(8),
@@ -718,24 +738,40 @@ class AnimeHomeTab extends StatelessWidget {
                               item.title,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: AppTypography.cormorantBoldWhite.copyWith(fontSize: 16, height: 1.15),
+                              style: AppTypography.cormorantBoldWhite.copyWith(
+                                fontSize: 16,
+                                height: 1.15,
+                              ),
                             ),
                             if (item.year.isNotEmpty) ...[
                               const SizedBox(height: 4),
                               Text(
                                 item.year,
-                                style: AppTypography.outfitBold.copyWith(color: AppTheme.warmAmber, fontSize: 10),
+                                style: AppTypography.outfitBold.copyWith(
+                                  color: AppTheme.warmAmber,
+                                  fontSize: 10,
+                                ),
                               ),
                             ],
                             const SizedBox(height: 8),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(3),
                               child: LinearProgressIndicator(
-                                value: (episode != null && item.episodeCount != null && item.episodeCount! > 0)
-                                    ? (episode / item.episodeCount!).clamp(0.0, 1.0)
+                                value:
+                                    (episode != null &&
+                                        item.episodeCount != null &&
+                                        item.episodeCount! > 0)
+                                    ? (episode / item.episodeCount!).clamp(
+                                        0.0,
+                                        1.0,
+                                      )
                                     : 0.0,
-                                backgroundColor: Colors.white.withValues(alpha: 0.15),
-                                valueColor: AlwaysStoppedAnimation<Color>(_cCyan),
+                                backgroundColor: Colors.white.withValues(
+                                  alpha: 0.15,
+                                ),
+                                valueColor: const AlwaysStoppedAnimation<Color>(
+                                  _cCyan,
+                                ),
                                 minHeight: 3,
                               ),
                             ),
@@ -836,8 +872,11 @@ class _AnimeLogoState extends State<_AnimeLogo>
               ),
             ],
           ),
-          child: const Icon(Icons.auto_awesome_rounded,
-              color: _cWhite, size: 22),
+          child: const Icon(
+            Icons.auto_awesome_rounded,
+            color: _cWhite,
+            size: 22,
+          ),
         );
       },
     );

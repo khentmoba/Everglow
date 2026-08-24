@@ -69,18 +69,21 @@ class ShelfEmptyState extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: AppTypography.cormorantBoldWhite.copyWith(fontSize: 22, height: 1.2),
+              style: AppTypography.cormorantBoldWhite.copyWith(
+                fontSize: 22,
+                height: 1.2,
+              ),
             ),
             if (subtitle != null) ...[
               const SizedBox(height: 6),
               Text(
                 subtitle!,
                 textAlign: TextAlign.center,
-              style: AppTypography.outfitWhite.copyWith(
-                color: AppTheme.roseQuartz.withValues(alpha: 0.7),
-                fontSize: 13,
-                height: 1.5,
-              ),
+                style: AppTypography.outfitWhite.copyWith(
+                  color: AppTheme.roseQuartz.withValues(alpha: 0.7),
+                  fontSize: 13,
+                  height: 1.5,
+                ),
               ),
             ],
             if (ctaLabel != null && onCta != null) ...[
@@ -139,9 +142,13 @@ class _CtaButtonState extends State<_CtaButton> {
             duration: ShelfMotion.orZero(ShelfMotion.medium),
             curve: ShelfMotion.easeOutStrong,
             transform: Matrix4.identity()
-              ..translateByDouble(0.0, _hovered || _focused ? -1.5 : 0.0, 0.0, 1.0),
-            padding: const EdgeInsets.symmetric(
-                horizontal: 22, vertical: 14),
+              ..translateByDouble(
+                0.0,
+                _hovered || _focused ? -1.5 : 0.0,
+                0.0,
+                1.0,
+              ),
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [

@@ -68,14 +68,11 @@ class _AnniversaryMetricsState extends State<AnniversaryMetrics> {
   Widget build(BuildContext context) {
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 10, 24, 0),
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _SectionEyebrow(
-              animate: widget.animate,
-              notifier: _notifier,
-            ),
+            _SectionEyebrow(animate: widget.animate, notifier: _notifier),
             const SizedBox(height: 14),
             LayoutBuilder(
               builder: (context, constraints) {
@@ -229,9 +226,7 @@ class _AnniversaryMetricsState extends State<AnniversaryMetrics> {
                             fontSize: 11.5,
                             letterSpacing: 0.6,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.petalWhite.withValues(
-                              alpha: 0.78,
-                            ),
+                            color: AppColors.petalWhite.withValues(alpha: 0.78),
                           ),
                         ),
                         const SizedBox(width: 8),

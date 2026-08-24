@@ -54,7 +54,8 @@ class AnimexHomeCache {
       await prefs.setString(
         _cacheKey,
         json.encode({
-          for (final e in _rows.entries) e.key: e.value.map((i) => i.toJson()).toList(),
+          for (final e in _rows.entries)
+            e.key: e.value.map((i) => i.toJson()).toList(),
         }),
       );
     } catch (e) {

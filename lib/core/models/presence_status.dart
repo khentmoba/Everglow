@@ -31,10 +31,7 @@ class PresenceStatus {
     );
   }
 
-  factory PresenceStatus.fromFirestore(
-    String uid,
-    Map<String, dynamic> data,
-  ) {
+  factory PresenceStatus.fromFirestore(String uid, Map<String, dynamic> data) {
     return PresenceStatus(
       uid: uid,
       username: (data['username'] as String?) ?? '',

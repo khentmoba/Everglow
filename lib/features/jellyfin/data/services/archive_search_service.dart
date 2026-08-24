@@ -33,7 +33,8 @@ class ArchiveSearchService {
         return const [];
       }
       final body = json.decode(response.body) as Map<String, dynamic>;
-      final docs = ((body['response'] as Map<String, dynamic>?)?['docs'])
+      final docs =
+          ((body['response'] as Map<String, dynamic>?)?['docs'])
               as List<dynamic>? ??
           const [];
       return docs

@@ -113,7 +113,9 @@ Future<String> streamSseResponse({
       ac?.abort();
       xhr?.abort();
       if (!completer.isCompleted) {
-        completer.completeError(TimeoutException('AI request timed out', timeout));
+        completer.completeError(
+          TimeoutException('AI request timed out', timeout),
+        );
       }
     });
   }
@@ -169,8 +171,9 @@ Future<String> streamSseResponse({
       // chunk text goes through a separate buffer so it can be cleared without
       // ever touching the accumulated reply.
       final decodedBuffer = StringBuffer();
-      final decoderSink = const Utf8Decoder(allowMalformed: true)
-          .startChunkedConversion(_StringBufferSink(decodedBuffer));
+      final decoderSink = const Utf8Decoder(
+        allowMalformed: true,
+      ).startChunkedConversion(_StringBufferSink(decodedBuffer));
       try {
         while (true) {
           final chunk = await reader.read().toDart;

@@ -48,44 +48,24 @@ class AnimePreview extends StatelessWidget {
             icon: Icons.play_circle_fill_rounded,
           ),
           if (isCouple && partner != null && partner.isNotEmpty) ...[
-            _AnimeWatchingShelf(
-              userName: userName,
-              label: 'ME',
-              isSelf: true,
-            ),
+            _AnimeWatchingShelf(userName: userName, label: 'ME', isSelf: true),
             _AnimeWatchingShelf(
               userName: partner,
               label: partnerLabel,
               isSelf: false,
             ),
           ] else
-            _AnimeWatchingShelf(
-              userName: userName,
-              label: null,
-              isSelf: true,
-            ),
+            _AnimeWatchingShelf(userName: userName, label: null, isSelf: true),
           // ── FINISHED ──────────────────────────────────────────
           const _AnimeSectionLabel(
             label: 'FINISHED',
             icon: Icons.check_circle_rounded,
           ),
           if (isCouple && partner != null && partner.isNotEmpty) ...[
-            _AnimeShelf(
-              userName: userName,
-              label: 'ME',
-              isSelf: true,
-            ),
-            _AnimeShelf(
-              userName: partner,
-              label: partnerLabel,
-              isSelf: false,
-            ),
+            _AnimeShelf(userName: userName, label: 'ME', isSelf: true),
+            _AnimeShelf(userName: partner, label: partnerLabel, isSelf: false),
           ] else
-            _AnimeShelf(
-              userName: userName,
-              label: null,
-              isSelf: true,
-            ),
+            _AnimeShelf(userName: userName, label: null, isSelf: true),
         ],
       ),
     );
@@ -177,12 +157,14 @@ class _AnimeHeaderState extends State<_AnimeHeader> {
   }
 
   void _subscribe() {
-    _streamSub =
-        _service.getAnimeWatchListStream(widget.userName).listen((items) {
+    _streamSub = _service.getAnimeWatchListStream(widget.userName).listen((
+      items,
+    ) {
       // Count both watching and finished so the header never reads
       // "0 titles" while a watching-now row is populated.
-      final visible =
-          items.where((i) => i.isWatched || i.isCurrentlyWatching).toList();
+      final visible = items
+          .where((i) => i.isWatched || i.isCurrentlyWatching)
+          .toList();
       visible.sort((a, b) => b.addedAt.compareTo(a.addedAt));
       if (!mounted) return;
       setState(() => _items = visible);
@@ -245,9 +227,9 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
   }
 
   void _subscribe() {
-    _streamSub = _service
-        .getCurrentlyWatchingAnimeStream(widget.userName)
-        .listen((items) {
+    _streamSub = _service.getCurrentlyWatchingAnimeStream(widget.userName).listen((
+      items,
+    ) {
       // Already anime+watching filtered by the service; sort by most recent progress.
       final sorted = List<MediaItem>.from(items)
         ..sort((a, b) {
@@ -344,7 +326,7 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
         );
       }
       if (cards.isEmpty) {
-        return ShelfEmpty(
+        return const ShelfEmpty(
           accent: ShelfAccent.anime,
           message: 'No anime in progress. Start one to see it here!',
         );
@@ -400,8 +382,9 @@ class _AnimeShelfState extends State<_AnimeShelf> {
   }
 
   void _subscribe() {
-    _streamSub =
-        _service.getAnimeWatchListStream(widget.userName).listen((items) {
+    _streamSub = _service.getAnimeWatchListStream(widget.userName).listen((
+      items,
+    ) {
       final watched = items.where((i) => i.isWatched).toList();
       watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
       if (!mounted) return;
@@ -467,7 +450,7 @@ class _AnimeShelfState extends State<_AnimeShelf> {
         );
       }
       if (cards.isEmpty) {
-        return ShelfEmpty(
+        return const ShelfEmpty(
           accent: ShelfAccent.anime,
           message: 'No anime watched yet. Time for a binge!',
         );

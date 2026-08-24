@@ -8,9 +8,7 @@ void main() {
   testWidgets('passcode keypad is visible and tappable immediately', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: GatewayPage()),
-    );
+    await tester.pumpWidget(const MaterialApp(home: GatewayPage()));
 
     // The keypad must be clickable from the first frame, even before the
     // door entrance animation finishes.
@@ -25,9 +23,7 @@ void main() {
   testWidgets('keypad remains after the entrance animation completes', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: GatewayPage()),
-    );
+    await tester.pumpWidget(const MaterialApp(home: GatewayPage()));
 
     await tester.pump(const Duration(seconds: 2));
 

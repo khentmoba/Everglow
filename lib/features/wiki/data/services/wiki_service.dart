@@ -13,15 +13,54 @@ class WikiService {
   final String _books = 'wiki_books';
   final String _pages = 'wiki_pages';
 
-  Stream<List<WikiShelf>> watchShelves() => withFirestoreTimeout(_db.collection(_shelves).orderBy('order').snapshots().map((s) => s.docs.map((d) => WikiShelf.fromFirestore(d)).toList()), label: 'wiki-shelves');
+  Stream<List<WikiShelf>> watchShelves() => withFirestoreTimeout(
+    _db
+        .collection(_shelves)
+        .orderBy('order')
+        .snapshots()
+        .map((s) => s.docs.map((d) => WikiShelf.fromFirestore(d)).toList()),
+    label: 'wiki-shelves',
+  );
 
-  Stream<List<WikiBook>> watchBooks(String shelfId) => withFirestoreTimeout(_db.collection(_books).where('shelfId', isEqualTo: shelfId).orderBy('order').snapshots().map((s) => s.docs.map((d) => WikiBook.fromFirestore(d)).toList()), label: 'wiki-books-$shelfId');
+  Stream<List<WikiBook>> watchBooks(String shelfId) => withFirestoreTimeout(
+    _db
+        .collection(_books)
+        .where('shelfId', isEqualTo: shelfId)
+        .orderBy('order')
+        .snapshots()
+        .map((s) => s.docs.map((d) => WikiBook.fromFirestore(d)).toList()),
+    label: 'wiki-books-$shelfId',
+  );
 
-  Stream<List<WikiBook>> watchAllBooks() => withFirestoreTimeout(_db.collection(_books).orderBy('createdAt', descending: true).limit(50).snapshots().map((s) => s.docs.map((d) => WikiBook.fromFirestore(d)).toList()), label: 'wiki-books-all');
+  Stream<List<WikiBook>> watchAllBooks() => withFirestoreTimeout(
+    _db
+        .collection(_books)
+        .orderBy('createdAt', descending: true)
+        .limit(50)
+        .snapshots()
+        .map((s) => s.docs.map((d) => WikiBook.fromFirestore(d)).toList()),
+    label: 'wiki-books-all',
+  );
 
-  Stream<List<WikiPage>> watchPages(String bookId) => withFirestoreTimeout(_db.collection(_pages).where('bookId', isEqualTo: bookId).orderBy('updatedAt', descending: true).snapshots().map((s) => s.docs.map((d) => WikiPage.fromFirestore(d)).toList()), label: 'wiki-pages-$bookId');
+  Stream<List<WikiPage>> watchPages(String bookId) => withFirestoreTimeout(
+    _db
+        .collection(_pages)
+        .where('bookId', isEqualTo: bookId)
+        .orderBy('updatedAt', descending: true)
+        .snapshots()
+        .map((s) => s.docs.map((d) => WikiPage.fromFirestore(d)).toList()),
+    label: 'wiki-pages-$bookId',
+  );
 
-  Stream<List<WikiPage>> watchAllPages() => withFirestoreTimeout(_db.collection(_pages).orderBy('updatedAt', descending: true).limit(100).snapshots().map((s) => s.docs.map((d) => WikiPage.fromFirestore(d)).toList()), label: 'wiki-pages-all');
+  Stream<List<WikiPage>> watchAllPages() => withFirestoreTimeout(
+    _db
+        .collection(_pages)
+        .orderBy('updatedAt', descending: true)
+        .limit(100)
+        .snapshots()
+        .map((s) => s.docs.map((d) => WikiPage.fromFirestore(d)).toList()),
+    label: 'wiki-pages-all',
+  );
 
   Future<void> addShelf(WikiShelf shelf) async {
     try {
@@ -52,7 +91,10 @@ class WikiService {
 
   Future<void> updatePage(WikiPage page) async {
     try {
-      await _db.collection(_pages).doc(page.id).update({...page.toFirestore(), 'updatedAt': Timestamp.now()});
+      await _db.collection(_pages).doc(page.id).update({
+        ...page.toFirestore(),
+        'updatedAt': Timestamp.now(),
+      });
     } catch (e) {
       Logger.e('Error updating page', error: e);
     }
@@ -69,8 +111,13 @@ class WikiService {
   Future<void> deleteBook(String id) async {
     try {
       await _db.collection(_books).doc(id).delete();
-      final pages = await _db.collection(_pages).where('bookId', isEqualTo: id).get();
-      for (final d in pages.docs) await d.reference.delete();
+      final pages = await _db
+          .collection(_pages)
+          .where('bookId', isEqualTo: id)
+          .get();
+      for (final d in pages.docs) {
+        await d.reference.delete();
+      }
     } catch (e) {
       Logger.e('Error deleting book', error: e);
     }

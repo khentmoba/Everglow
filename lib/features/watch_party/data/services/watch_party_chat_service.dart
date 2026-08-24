@@ -21,7 +21,7 @@ class WatchPartyChatService {
   final FirebaseFirestore _db;
 
   WatchPartyChatService({FirebaseFirestore? firestore})
-      : _db = firestore ?? FirebaseFirestore.instance;
+    : _db = firestore ?? FirebaseFirestore.instance;
 
   static const String _collection = 'watch_party_chats';
   static const String _messagesSubcollection = 'messages';
@@ -41,28 +41,31 @@ class WatchPartyChatService {
         .limitToLast(200)
         .snapshots()
         .map((snapshot) {
-      final messages = <WatchPartyChatMessage>[];
-      for (final doc in snapshot.docs.reversed) {
-        try {
-          messages.add(WatchPartyChatMessage.fromFirestore(doc));
-        } catch (e) {
-          debugPrint('WatchPartyChatService: failed to parse ${doc.id}: $e');
-        }
-      }
-      return messages;
-    }).handleError((error) {
-      debugPrint('WatchPartyChatService stream error: $error');
-      if (error.toString().contains('permission-denied')) {
-        debugPrint(
-          'WatchPartyChatService: check firestore.rules for '
-          'watch_party_chats/{roomId}/messages.',
-        );
-      }
-      // Re-throw so the StreamBuilder's hasError branch shows the
-      // "Chat is unavailable" message instead of silently showing
-      // an empty list.
-      throw error;
-    });
+          final messages = <WatchPartyChatMessage>[];
+          for (final doc in snapshot.docs.reversed) {
+            try {
+              messages.add(WatchPartyChatMessage.fromFirestore(doc));
+            } catch (e) {
+              debugPrint(
+                'WatchPartyChatService: failed to parse ${doc.id}: $e',
+              );
+            }
+          }
+          return messages;
+        })
+        .handleError((error) {
+          debugPrint('WatchPartyChatService stream error: $error');
+          if (error.toString().contains('permission-denied')) {
+            debugPrint(
+              'WatchPartyChatService: check firestore.rules for '
+              'watch_party_chats/{roomId}/messages.',
+            );
+          }
+          // Re-throw so the StreamBuilder's hasError branch shows the
+          // "Chat is unavailable" message instead of silently showing
+          // an empty list.
+          throw error;
+        });
   }
 
   /// One-shot fetch used by the drawer to decide between "empty

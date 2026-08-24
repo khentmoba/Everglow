@@ -43,7 +43,9 @@ class MemoryPhoto {
       latitude: (data['latitude'] as num?)?.toDouble(),
       longitude: (data['longitude'] as num?)?.toDouble(),
       locationName: data['locationName'] as String?,
-      takenAt: data['takenAt'] != null ? _parseTimestamp(data['takenAt']) : null,
+      takenAt: data['takenAt'] != null
+          ? _parseTimestamp(data['takenAt'])
+          : null,
     );
   }
 
@@ -74,16 +76,24 @@ class MemoryPhoto {
     };
   }
 
-  MemoryPhoto copyWith({String? caption, List<String>? tags, double? latitude, double? longitude, String? locationName, DateTime? takenAt, bool clearLocation = false}) => MemoryPhoto(
-        id: id,
-        imageUrl: imageUrl,
-        caption: caption ?? this.caption,
-        uploadedBy: uploadedBy,
-        uploadedAt: uploadedAt,
-        tags: tags ?? this.tags,
-        latitude: clearLocation ? null : (latitude ?? this.latitude),
-        longitude: clearLocation ? null : (longitude ?? this.longitude),
-        locationName: clearLocation ? null : (locationName ?? this.locationName),
-        takenAt: takenAt ?? this.takenAt,
-      );
+  MemoryPhoto copyWith({
+    String? caption,
+    List<String>? tags,
+    double? latitude,
+    double? longitude,
+    String? locationName,
+    DateTime? takenAt,
+    bool clearLocation = false,
+  }) => MemoryPhoto(
+    id: id,
+    imageUrl: imageUrl,
+    caption: caption ?? this.caption,
+    uploadedBy: uploadedBy,
+    uploadedAt: uploadedAt,
+    tags: tags ?? this.tags,
+    latitude: clearLocation ? null : (latitude ?? this.latitude),
+    longitude: clearLocation ? null : (longitude ?? this.longitude),
+    locationName: clearLocation ? null : (locationName ?? this.locationName),
+    takenAt: takenAt ?? this.takenAt,
+  );
 }

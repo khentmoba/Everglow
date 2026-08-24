@@ -23,9 +23,7 @@ class CinemaVideoSources {
   /// Ordered cinema-only servers verified in live testing.
   static const List<VideoSourceConfig> cinemaOnly = [cineSrc];
 
-  static const Set<String> _cinemaIds = {
-    'flux-cinesrc',
-  };
+  static const Set<String> _cinemaIds = {'flux-cinesrc'};
 
   /// Returns the provider list for the cinema player.
   ///

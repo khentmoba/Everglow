@@ -31,7 +31,10 @@ class CelebrationDialog extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppTheme.velvet,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.25), width: 1.5),
+                border: Border.all(
+                  color: AppTheme.blushGold.withValues(alpha: 0.25),
+                  width: 1.5,
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: AppTheme.deepRose.withValues(alpha: 0.3),
@@ -51,13 +54,20 @@ class CelebrationDialog extends StatelessWidget {
                   const SizedBox(height: 24),
                   Text(
                     "You should...",
-                    style: AppTypography.outfitBold.copyWith(color: AppTheme.blushGold, fontSize: 16, letterSpacing: 1.2),
+                    style: AppTypography.outfitBold.copyWith(
+                      color: AppTheme.blushGold,
+                      fontSize: 16,
+                      letterSpacing: 1.2,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     title,
                     textAlign: TextAlign.center,
-                    style: AppTypography.cormorantBlack.copyWith(fontSize: 28, height: 1.2),
+                    style: AppTypography.cormorantBlack.copyWith(
+                      fontSize: 28,
+                      height: 1.2,
+                    ),
                   ),
                   const SizedBox(height: 32),
                   ElevatedButton(
@@ -76,7 +86,10 @@ class CelebrationDialog extends StatelessWidget {
                     ),
                     child: Text(
                       'Perfect!',
-                      style: AppTypography.outfitWhite.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: AppTypography.outfitWhite.copyWith(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -93,9 +106,11 @@ class CelebrationDialog extends StatelessWidget {
     final angle = (index / 15) * 2 * pi;
     final distance = 160.0 + random.nextDouble() * 60;
     final icon = index % 2 == 0 ? Icons.star : Icons.circle;
-    final color = index % 3 == 0 
-        ? AppTheme.roseQuartz.withValues(alpha: 0.7) 
-        : (index % 3 == 1 ? AppTheme.blushGold.withValues(alpha: 0.7) : AppTheme.softLavender.withValues(alpha: 0.7));
+    final color = index % 3 == 0
+        ? AppTheme.roseQuartz.withValues(alpha: 0.7)
+        : (index % 3 == 1
+              ? AppTheme.blushGold.withValues(alpha: 0.7)
+              : AppTheme.softLavender.withValues(alpha: 0.7));
 
     return FadeIn(
       delay: Duration(milliseconds: index * 50),
@@ -103,11 +118,7 @@ class CelebrationDialog extends StatelessWidget {
         delay: Duration(milliseconds: index * 50),
         child: Transform.translate(
           offset: Offset(cos(angle) * distance, sin(angle) * distance),
-          child: Icon(
-            icon,
-            color: color,
-            size: 12 + random.nextDouble() * 24,
-          ),
+          child: Icon(icon, color: color, size: 12 + random.nextDouble() * 24),
         ),
       ),
     );

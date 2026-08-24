@@ -58,10 +58,8 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
     super.dispose();
   }
 
-  List<OurBooksItem> get _readList =>
-      _items.where((i) => i.isRead).toList();
-  List<OurBooksItem> get _toReadList =>
-      _items.where((i) => !i.isRead).toList();
+  List<OurBooksItem> get _readList => _items.where((i) => i.isRead).toList();
+  List<OurBooksItem> get _toReadList => _items.where((i) => !i.isRead).toList();
 
   @override
   Widget build(BuildContext context) {
@@ -121,18 +119,18 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                   child: _isLoading
                       ? const Center(
                           child: CircularProgressIndicator(
-                              color: AppTheme.deepRose),
+                            color: AppTheme.deepRose,
+                          ),
                         )
                       : list.isEmpty
-                          ? _buildEmpty(_tab == 0)
-                          : ListView.builder(
-                              padding: const EdgeInsets.fromLTRB(
-                                  20, 8, 20, 120),
-                              physics: const BouncingScrollPhysics(),
-                              itemCount: list.length,
-                              itemBuilder: (context, i) =>
-                                  _buildRow(list[i], currentUser),
-                            ),
+                      ? _buildEmpty(_tab == 0)
+                      : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: list.length,
+                          itemBuilder: (context, i) =>
+                              _buildRow(list[i], currentUser),
+                        ),
                 ),
               ],
             ),
@@ -156,10 +154,14 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                 color: Colors.white.withValues(alpha: 0.02),
                 shape: BoxShape.circle,
                 border: Border.all(
-                    color: AppTheme.roseQuartz.withValues(alpha: 0.1)),
+                  color: AppTheme.roseQuartz.withValues(alpha: 0.1),
+                ),
               ),
-              child: const Icon(Icons.arrow_back_ios_new_rounded,
-                  color: AppTheme.roseQuartz, size: 18),
+              child: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: AppTheme.roseQuartz,
+                size: 18,
+              ),
             ),
           ),
           const Spacer(),
@@ -167,12 +169,16 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
             children: [
               Text(
                 'OUR BOOKS',
-                style: AppTypography.cormorantBlackWhite.copyWith(fontSize: 24, letterSpacing: 4, shadows: [
+                style: AppTypography.cormorantBlackWhite.copyWith(
+                  fontSize: 24,
+                  letterSpacing: 4,
+                  shadows: [
                     Shadow(
                       color: AppTheme.deepRose.withValues(alpha: 0.3),
                       blurRadius: 8,
                     ),
-                  ]),
+                  ],
+                ),
               ),
               const SizedBox(height: 2),
               Row(
@@ -191,7 +197,11 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                     currentUser == 'khentsgdz'
                         ? 'KHENT & CLAIR'
                         : 'CLAIR & KHENT',
-                    style: AppTypography.outfitHeading.copyWith(fontSize: 9, color: AppTheme.roseQuartz.withValues(alpha: 0.6), letterSpacing: 2.5),
+                    style: AppTypography.outfitHeading.copyWith(
+                      fontSize: 9,
+                      color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+                      letterSpacing: 2.5,
+                    ),
                   ),
                   const SizedBox(width: 6),
                   Container(
@@ -216,10 +226,14 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                 color: Colors.white.withValues(alpha: 0.02),
                 shape: BoxShape.circle,
                 border: Border.all(
-                    color: AppTheme.roseQuartz.withValues(alpha: 0.1)),
+                  color: AppTheme.roseQuartz.withValues(alpha: 0.1),
+                ),
               ),
-              child: const Icon(Icons.add_rounded,
-                  color: AppTheme.roseQuartz, size: 18),
+              child: const Icon(
+                Icons.add_rounded,
+                color: AppTheme.roseQuartz,
+                size: 18,
+              ),
             ),
           ),
         ],
@@ -236,7 +250,8 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
           color: Colors.white.withValues(alpha: 0.02),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-              color: AppTheme.roseQuartz.withValues(alpha: 0.05)),
+            color: AppTheme.roseQuartz.withValues(alpha: 0.05),
+          ),
         ),
         child: Row(
           children: [
@@ -278,8 +293,9 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color:
-                  active ? AppTheme.deepRose.withValues(alpha: 0.3) : Colors.transparent,
+              color: active
+                  ? AppTheme.deepRose.withValues(alpha: 0.3)
+                  : Colors.transparent,
               width: 1.0,
             ),
           ),
@@ -289,14 +305,17 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
               Flexible(
                 child: Text(
                   label,
-                  style: AppTypography.outfitHeading.copyWith(color: active ? AppTheme.petalWhite : AppTheme.roseQuartz, fontSize: 12, letterSpacing: 0.5),
+                  style: AppTypography.outfitHeading.copyWith(
+                    color: active ? AppTheme.petalWhite : AppTheme.roseQuartz,
+                    fontSize: 12,
+                    letterSpacing: 0.5,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(width: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: active
                       ? AppTheme.deepRose
@@ -310,7 +329,11 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                 ),
                 child: Text(
                   '$count',
-                  style: AppTypography.outfitWhite.copyWith(color: active ? AppTheme.petalWhite : AppTheme.roseQuartz, fontSize: 10, fontWeight: FontWeight.w800),
+                  style: AppTypography.outfitWhite.copyWith(
+                    color: active ? AppTheme.petalWhite : AppTheme.roseQuartz,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ],
@@ -374,7 +397,8 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                                   item.coverUrl,
                                   fit: BoxFit.cover,
                                   cacheWidth: 240,
-                                  errorBuilder: (_, _, _) => _posterPlaceholder(),
+                                  errorBuilder: (_, _, _) =>
+                                      _posterPlaceholder(),
                                 )
                               : _posterPlaceholder(),
                         ),
@@ -389,7 +413,12 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                             item.title,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontWeight: FontWeight.w800, fontSize: 15, height: 1.25),
+                            style: AppTypography.outfitWhite.copyWith(
+                              color: AppTheme.petalWhite,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                              height: 1.25,
+                            ),
                           ),
                           if (item.author.isNotEmpty) ...[
                             const SizedBox(height: 4),
@@ -397,8 +426,13 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                               'by ${item.author}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz
-                                    .withValues(alpha: 0.8), fontSize: 11, fontStyle: FontStyle.italic),
+                              style: AppTypography.outfitWhite.copyWith(
+                                color: AppTheme.roseQuartz.withValues(
+                                  alpha: 0.8,
+                                ),
+                                fontSize: 11,
+                                fontStyle: FontStyle.italic,
+                              ),
                             ),
                           ],
                           const SizedBox(height: 8),
@@ -407,20 +441,27 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                               if (item.year.isNotEmpty) ...[
                                 Text(
                                   item.year,
-                                  style: AppTypography.outfitHeading.copyWith(color: AppTheme.blushGold, fontSize: 12),
+                                  style: AppTypography.outfitHeading.copyWith(
+                                    color: AppTheme.blushGold,
+                                    fontSize: 12,
+                                  ),
                                 ),
                                 const SizedBox(width: 10),
                               ],
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 2),
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.deepRose
-                                      .withValues(alpha: 0.15),
+                                  color: AppTheme.deepRose.withValues(
+                                    alpha: 0.15,
+                                  ),
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
-                                    color: AppTheme.deepRose
-                                        .withValues(alpha: 0.4),
+                                    color: AppTheme.deepRose.withValues(
+                                      alpha: 0.4,
+                                    ),
                                     width: 0.5,
                                   ),
                                 ),
@@ -428,7 +469,12 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                                   item.readSourceLabel.isNotEmpty
                                       ? item.readSourceLabel.toUpperCase()
                                       : 'BOOK',
-                                  style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+                                  style: AppTypography.outfitWhite.copyWith(
+                                    color: AppTheme.roseQuartz,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.8,
+                                  ),
                                 ),
                               ),
                             ],
@@ -440,8 +486,7 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                             children: [
                               Expanded(
                                 child: _ReadButton(
-                                  label:
-                                      isMine ? 'I Read' : 'Clair Read',
+                                  label: isMine ? 'I Read' : 'Clair Read',
                                   read: isMine
                                       ? item.isReadByKhent
                                       : item.isReadByClair,
@@ -466,12 +511,13 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                                   width: 38,
                                   height: 38,
                                   decoration: BoxDecoration(
-                                    color: Colors.white
-                                        .withValues(alpha: 0.04),
+                                    color: Colors.white.withValues(alpha: 0.04),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
-                                        color: AppTheme.roseQuartz
-                                            .withValues(alpha: 0.25)),
+                                      color: AppTheme.roseQuartz.withValues(
+                                        alpha: 0.25,
+                                      ),
+                                    ),
                                   ),
                                   child: const Icon(
                                     Icons.delete_outline_rounded,
@@ -568,12 +614,7 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
           width: read ? 1.5 : 1.0,
         ),
         boxShadow: read
-            ? [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.2),
-                  blurRadius: 6,
-                ),
-              ]
+            ? [BoxShadow(color: color.withValues(alpha: 0.2), blurRadius: 6)]
             : null,
       ),
       child: Row(
@@ -583,23 +624,28 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
             width: 14,
             height: 14,
             decoration: BoxDecoration(
-              color: read
-                  ? color
-                  : AppTheme.roseQuartz.withValues(alpha: 0.4),
+              color: read ? color : AppTheme.roseQuartz.withValues(alpha: 0.4),
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
             child: Text(
               initial,
-              style: AppTypography.outfitWhite.copyWith(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900),
+              style: AppTypography.outfitWhite.copyWith(
+                color: Colors.white,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ),
           const SizedBox(width: 5),
           Text(
             label,
-            style: AppTypography.outfitHeading.copyWith(color: read
+            style: AppTypography.outfitHeading.copyWith(
+              color: read
                   ? Colors.white
-                  : AppTheme.roseQuartz.withValues(alpha: 0.7), fontSize: 10.5),
+                  : AppTheme.roseQuartz.withValues(alpha: 0.7),
+              fontSize: 10.5,
+            ),
           ),
         ],
       ),
@@ -610,8 +656,11 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
     return Container(
       color: const Color(0xFF12091A),
       child: const Center(
-        child: Icon(Icons.menu_book_rounded,
-            color: AppTheme.roseQuartz, size: 28),
+        child: Icon(
+          Icons.menu_book_rounded,
+          color: AppTheme.roseQuartz,
+          size: 28,
+        ),
       ),
     );
   }
@@ -628,8 +677,7 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
               iaId: book.iaId,
               workKey: book.workKey,
             ),
-            readSourceLabel:
-                BookItem.deriveReadSourceLabel(iaId: book.iaId),
+            readSourceLabel: BookItem.deriveReadSourceLabel(iaId: book.iaId),
           );
     context.push('/books/reader', extra: resolved);
   }
@@ -648,29 +696,37 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1C1228),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(
           'Remove from Our Books?',
           style: AppTypography.cormorantBold.copyWith(fontSize: 22),
         ),
         content: Text(
           'This will remove "${item.title}" from the shared list for both of you.',
-          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 13, height: 1.4),
+          style: AppTypography.outfitWhite.copyWith(
+            color: AppTheme.petalWhite,
+            fontSize: 13,
+            height: 1.4,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text(
               'Cancel',
-              style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz),
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppTheme.roseQuartz,
+              ),
             ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(
               'Remove',
-              style: AppTypography.outfitWhite.copyWith(color: AppTheme.deepRose, fontWeight: FontWeight.bold),
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppTheme.deepRose,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -700,7 +756,11 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                   ? 'No shared picks yet.\nSearch and add one to "Ours".'
                   : 'Nothing read together yet.\nYour first shared book awaits.',
               textAlign: TextAlign.center,
-              style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz, fontSize: 14, height: 1.5),
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppTheme.roseQuartz,
+                fontSize: 14,
+                height: 1.5,
+              ),
             ),
             if (isToReadTab) ...[
               const SizedBox(height: 24),
@@ -708,14 +768,16 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                 onTap: _openAddToOurBooks,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 12),
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: AppTheme.deepRose.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                        color:
-                            AppTheme.deepRose.withValues(alpha: 0.5),
-                        width: 1.0),
+                      color: AppTheme.deepRose.withValues(alpha: 0.5),
+                      width: 1.0,
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: AppTheme.deepRose.withValues(alpha: 0.25),
@@ -727,12 +789,19 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.add_rounded,
-                          color: AppTheme.roseQuartz, size: 18),
+                      const Icon(
+                        Icons.add_rounded,
+                        color: AppTheme.roseQuartz,
+                        size: 18,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         'Add a book to read together',
-                        style: AppTypography.outfitHeading.copyWith(color: AppTheme.petalWhite, fontSize: 13, letterSpacing: 0.4),
+                        style: AppTypography.outfitHeading.copyWith(
+                          color: AppTheme.petalWhite,
+                          fontSize: 13,
+                          letterSpacing: 0.4,
+                        ),
                       ),
                     ],
                   ),
@@ -783,9 +852,7 @@ class _ReadButton extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              read
-                  ? Icons.check_circle_rounded
-                  : Icons.menu_book_outlined,
+              read ? Icons.check_circle_rounded : Icons.menu_book_outlined,
               color: read ? Colors.white : color,
               size: 16,
             ),
@@ -794,7 +861,12 @@ class _ReadButton extends StatelessWidget {
               child: Text(
                 read ? '$label ✓' : label,
                 overflow: TextOverflow.ellipsis,
-                style: AppTypography.outfitHeading.copyWith(color: read ? Colors.white : Colors.white.withValues(alpha: 0.85), fontSize: 12),
+                style: AppTypography.outfitHeading.copyWith(
+                  color: read
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.85),
+                  fontSize: 12,
+                ),
               ),
             ),
           ],

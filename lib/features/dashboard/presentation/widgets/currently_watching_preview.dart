@@ -88,8 +88,9 @@ class _CurrentlyWatchingHeaderState extends State<_CurrentlyWatchingHeader> {
   }
 
   void _subscribe() {
-    _streamSub =
-        _service.getCurrentlyWatchingStream(widget.userName).listen((items) {
+    _streamSub = _service.getCurrentlyWatchingStream(widget.userName).listen((
+      items,
+    ) {
       // Keep anime out of the generic shelf — the Anime rail owns its own
       // watching row now so the two never duplicate the same title.
       final filtered = items.where((i) => !i.isAnime).toList();
@@ -156,8 +157,9 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
   }
 
   void _subscribe() {
-    _streamSub =
-        _service.getCurrentlyWatchingStream(widget.userName).listen((items) {
+    _streamSub = _service.getCurrentlyWatchingStream(widget.userName).listen((
+      items,
+    ) {
       final filtered = items.where((i) => !i.isAnime).toList();
       if (!mounted) return;
       setState(() {
@@ -249,7 +251,7 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
         );
       }
       if (cards.isEmpty) {
-        return ShelfEmpty(
+        return const ShelfEmpty(
           accent: ShelfAccent.cinema,
           message: 'Nothing playing right now. Start a movie or show!',
         );

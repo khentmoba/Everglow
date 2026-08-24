@@ -15,25 +15,75 @@ class VaultService {
   final String _collection = 'vault_entries';
 
   Stream<List<VaultEntry>> watchAll() => withFirestoreTimeout(
-        _db.collection(_collection).orderBy('uploadedAt', descending: true).limit(100).snapshots().map((s) => s.docs.map((d) => VaultEntry.fromFirestore(d)).toList()),
-        label: 'vault-all',
-      );
+    _db
+        .collection(_collection)
+        .orderBy('uploadedAt', descending: true)
+        .limit(100)
+        .snapshots()
+        .map((s) => s.docs.map((d) => VaultEntry.fromFirestore(d)).toList()),
+    label: 'vault-all',
+  );
 
   Stream<List<VaultEntry>> watchByFolder(String folder) => withFirestoreTimeout(
-        _db.collection(_collection).orderBy('uploadedAt', descending: true).limit(100).snapshots().map((s) => s.docs.map((d) => VaultEntry.fromFirestore(d)).where((e) => e.folder == folder).toList()),
-        label: 'vault-folder-$folder',
-      );
+    _db
+        .collection(_collection)
+        .orderBy('uploadedAt', descending: true)
+        .limit(100)
+        .snapshots()
+        .map(
+          (s) => s.docs
+              .map((d) => VaultEntry.fromFirestore(d))
+              .where((e) => e.folder == folder)
+              .toList(),
+        ),
+    label: 'vault-folder-$folder',
+  );
 
-  Future<VaultEntry?> uploadFile({required Uint8List bytes, required String fileName, required String mimeType, required String uploadedBy, required String userId, String folder = 'general', List<String> tags = const []}) async {
+  Future<VaultEntry?> uploadFile({
+    required Uint8List bytes,
+    required String fileName,
+    required String mimeType,
+    required String uploadedBy,
+    required String userId,
+    String folder = 'general',
+    List<String> tags = const [],
+  }) async {
     try {
-      final path = 'vault/$userId/${DateTime.now().millisecondsSinceEpoch}_$fileName';
+      final path =
+          'vault/$userId/${DateTime.now().millisecondsSinceEpoch}_$fileName';
       final ref = _storage.ref().child(path);
-      final task = await ref.putData(bytes, SettableMetadata(contentType: mimeType, cacheControl: 'public, max-age=604800'));
+      final task = await ref.putData(
+        bytes,
+        SettableMetadata(
+          contentType: mimeType,
+          cacheControl: 'public, max-age=604800',
+        ),
+      );
       final url = await task.ref.getDownloadURL();
-      final entry = VaultEntry(id: '', fileName: fileName, fileUrl: url, fileSize: bytes.length, mimeType: mimeType, uploadedBy: uploadedBy, uploadedAt: DateTime.now(), tags: tags, folder: folder);
+      final entry = VaultEntry(
+        id: '',
+        fileName: fileName,
+        fileUrl: url,
+        fileSize: bytes.length,
+        mimeType: mimeType,
+        uploadedBy: uploadedBy,
+        uploadedAt: DateTime.now(),
+        tags: tags,
+        folder: folder,
+      );
       final doc = await _db.collection(_collection).add(entry.toFirestore());
       Logger.i('Vault uploaded: $fileName → $url');
-      return VaultEntry(id: doc.id, fileName: fileName, fileUrl: url, fileSize: bytes.length, mimeType: mimeType, uploadedBy: uploadedBy, uploadedAt: DateTime.now(), tags: tags, folder: folder);
+      return VaultEntry(
+        id: doc.id,
+        fileName: fileName,
+        fileUrl: url,
+        fileSize: bytes.length,
+        mimeType: mimeType,
+        uploadedBy: uploadedBy,
+        uploadedAt: DateTime.now(),
+        tags: tags,
+        folder: folder,
+      );
     } catch (e) {
       Logger.e('Vault upload failed', error: e);
       return null;
@@ -57,7 +107,7 @@ class VaultService {
     final snap = await _db.collection(_collection).limit(200).get();
     final entries = snap.docs.map((d) => VaultEntry.fromFirestore(d)).toList();
     final total = entries.length;
-    final bytes = entries.fold<int>(0, (sum, e) => sum + e.fileSize);
+    final bytes = entries.fold<int>(0, (acc, e) => acc + e.fileSize);
     return {'count': total, 'bytes': bytes};
   }
 }

@@ -205,19 +205,53 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
               GestureDetector(
                 onTap: () => setState(() => _addLocation = !_addLocation),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
-                    color: _addLocation ? AppTheme.blushGold.withValues(alpha: 0.12) : AppTheme.twilight,
+                    color: _addLocation
+                        ? AppTheme.blushGold.withValues(alpha: 0.12)
+                        : AppTheme.twilight,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _addLocation ? AppTheme.blushGold : AppTheme.blushGold.withValues(alpha: 0.12)),
+                    border: Border.all(
+                      color: _addLocation
+                          ? AppTheme.blushGold
+                          : AppTheme.blushGold.withValues(alpha: 0.12),
+                    ),
                   ),
                   child: Row(
                     children: [
-                      Icon(_addLocation ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded, size: 18, color: _addLocation ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.6)),
+                      Icon(
+                        _addLocation
+                            ? Icons.check_box_rounded
+                            : Icons.check_box_outline_blank_rounded,
+                        size: 18,
+                        color: _addLocation
+                            ? AppTheme.blushGold
+                            : AppTheme.petalWhite.withValues(alpha: 0.6),
+                      ),
                       const SizedBox(width: 8),
-                      Icon(Icons.place_rounded, size: 16, color: _addLocation ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.6)),
+                      Icon(
+                        Icons.place_rounded,
+                        size: 16,
+                        color: _addLocation
+                            ? AppTheme.blushGold
+                            : AppTheme.petalWhite.withValues(alpha: 0.6),
+                      ),
                       const SizedBox(width: 6),
-                      Text('Pin location (Immich map)', style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: _addLocation ? AppTheme.blushGold : AppTheme.petalWhite.withValues(alpha: 0.7), fontWeight: _addLocation ? FontWeight.bold : FontWeight.w500)),
+                      Text(
+                        'Pin location (Immich map)',
+                        style: AppTypography.outfitWhite.copyWith(
+                          fontSize: 12,
+                          color: _addLocation
+                              ? AppTheme.blushGold
+                              : AppTheme.petalWhite.withValues(alpha: 0.7),
+                          fontWeight: _addLocation
+                              ? FontWeight.bold
+                              : FontWeight.w500,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -226,27 +260,109 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                 const SizedBox(height: 10),
                 TextField(
                   controller: _locationController,
-                  style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 13),
+                  style: AppTypography.outfitWhite.copyWith(
+                    color: AppTheme.petalWhite,
+                    fontSize: 13,
+                  ),
                   decoration: InputDecoration(
                     hintText: 'Place name — e.g., Kyoto, Our bench',
-                    hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.4), fontSize: 12),
-                    prefixIcon: Icon(Icons.label_rounded, size: 16, color: AppTheme.petalWhite.withValues(alpha: 0.5)),
+                    hintStyle: AppTypography.outfitWhite.copyWith(
+                      color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                      fontSize: 12,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.label_rounded,
+                      size: 16,
+                      color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                    ),
                     filled: true,
                     fillColor: AppTheme.twilight,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppTheme.blushGold.withValues(alpha: 0.15))),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: AppTheme.blushGold.withValues(alpha: 0.15),
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Expanded(child: TextField(controller: _latController, keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true), style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 12), decoration: InputDecoration(hintText: 'Latitude', hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.35), fontSize: 11), filled: true, fillColor: AppTheme.twilight, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)))),
+                    Expanded(
+                      child: TextField(
+                        controller: _latController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                          signed: true,
+                        ),
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: AppTheme.petalWhite,
+                          fontSize: 12,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Latitude',
+                          hintStyle: AppTypography.outfitWhite.copyWith(
+                            color: AppTheme.petalWhite.withValues(alpha: 0.35),
+                            fontSize: 11,
+                          ),
+                          filled: true,
+                          fillColor: AppTheme.twilight,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                        ),
+                      ),
+                    ),
                     const SizedBox(width: 8),
-                    Expanded(child: TextField(controller: _lngController, keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true), style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 12), decoration: InputDecoration(hintText: 'Longitude', hintStyle: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.35), fontSize: 11), filled: true, fillColor: AppTheme.twilight, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10)))),
+                    Expanded(
+                      child: TextField(
+                        controller: _lngController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                          signed: true,
+                        ),
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: AppTheme.petalWhite,
+                          fontSize: 12,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Longitude',
+                          hintStyle: AppTypography.outfitWhite.copyWith(
+                            color: AppTheme.petalWhite.withValues(alpha: 0.35),
+                            fontSize: 11,
+                          ),
+                          filled: true,
+                          fillColor: AppTheme.twilight,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 6),
-                Text('Tip: paste from Google Maps • leave empty to save without coords', style: AppTypography.outfitWhite.copyWith(fontSize: 10, color: AppTheme.petalWhite.withValues(alpha: 0.4))),
+                Text(
+                  'Tip: paste from Google Maps • leave empty to save without coords',
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 10,
+                    color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                  ),
+                ),
               ],
               const SizedBox(height: 24),
 

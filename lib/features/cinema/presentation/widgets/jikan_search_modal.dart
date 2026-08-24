@@ -75,8 +75,8 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
     var combined = results[0].isNotEmpty
         ? results[0]
         : results[1].isNotEmpty
-            ? results[1]
-            : <MediaItem>[];
+        ? results[1]
+        : <MediaItem>[];
 
     if (combined.isEmpty) {
       // Both primary backends failed — try TMDB as last resort.
@@ -106,7 +106,9 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
           backgroundColor: AppTheme.velvet,
           title: Text(
             'Add to Everglow?',
@@ -118,28 +120,39 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(16),
                 child: item.posterUrl.isNotEmpty
-                    ? Image.network(item.posterUrl, height: 150, fit: BoxFit.cover)
+                    ? Image.network(
+                        item.posterUrl,
+                        height: 150,
+                        fit: BoxFit.cover,
+                      )
                     : Container(height: 150, color: AppTheme.twilight),
               ),
               const SizedBox(height: 12),
               if (item.studio.isNotEmpty)
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: AppTheme.deepRose.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     item.studio,
-                    style: AppTypography.outfitBold.copyWith(fontSize: 10, color: AppTheme.deepRose),
+                    style: AppTypography.outfitBold.copyWith(
+                      fontSize: 10,
+                      color: AppTheme.deepRose,
+                    ),
                   ),
                 ),
               const SizedBox(height: 12),
               Text(
                 item.title,
                 textAlign: TextAlign.center,
-                style: AppTypography.outfitBold.copyWith(color: AppTheme.petalWhite),
+                style: AppTypography.outfitBold.copyWith(
+                  color: AppTheme.petalWhite,
+                ),
               ),
               const SizedBox(height: 16),
               Row(
@@ -183,7 +196,9 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
               onPressed: () => Navigator.pop(context),
               child: Text(
                 'Cancel',
-                style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6)),
+                style: AppTypography.outfitWhite.copyWith(
+                  color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+                ),
               ),
             ),
             ElevatedButton(
@@ -199,12 +214,15 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
                       SnackBar(
                         content: Text(
                           'Failed to add — please try again',
-                          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
+                          style: AppTypography.outfitWhite.copyWith(
+                            color: AppTheme.petalWhite,
+                          ),
                         ),
                         backgroundColor: Colors.redAccent,
                         behavior: SnackBarBehavior.floating,
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     );
                   }
@@ -216,12 +234,15 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
                     SnackBar(
                       content: Text(
                         successMessage,
-                        style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: AppTheme.petalWhite,
+                        ),
                       ),
                       backgroundColor: AppTheme.deepRose,
                       behavior: SnackBarBehavior.floating,
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   );
                   Navigator.pop(context); // Close search modal
@@ -230,11 +251,15 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.deepRose,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24)),
+                  borderRadius: BorderRadius.circular(24),
+                ),
               ),
               child: Text(
                 'Add',
-                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontWeight: FontWeight.bold),
+                style: AppTypography.outfitWhite.copyWith(
+                  color: AppTheme.petalWhite,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -273,20 +298,29 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
           TextField(
             controller: _searchController,
             onChanged: _onSearchChanged,
-            style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 16),
+            style: AppTypography.outfitWhite.copyWith(
+              color: AppTheme.petalWhite,
+              fontSize: 16,
+            ),
             decoration: InputDecoration(
               hintText: 'Search anime titles, studios, anything…',
-              hintStyle:
-                  AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite.withValues(alpha: 0.65), fontSize: 16),
+              hintStyle: AppTypography.outfitWhite.copyWith(
+                color: AppTheme.petalWhite.withValues(alpha: 0.65),
+                fontSize: 16,
+              ),
               prefixIcon: const Icon(Icons.search, color: AppTheme.roseQuartz),
               filled: true,
-              fillColor: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
+              fillColor: AppTheme.moonlight.withValues(
+                alpha: AppTheme.glassOpacity,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(20),
                 borderSide: BorderSide.none,
               ),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 15,
+              ),
             ),
           ),
           const SizedBox(height: 20),
@@ -294,26 +328,28 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
           Expanded(
             child: _isLoading
                 ? const Center(
-                    child:
-                        CircularProgressIndicator(color: AppTheme.roseQuartz))
+                    child: CircularProgressIndicator(
+                      color: AppTheme.roseQuartz,
+                    ),
+                  )
                 : _results.isEmpty
-                    ? _buildEmptyState()
-                    : GridView.builder(
-                        itemCount: _results.length,
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
+                ? _buildEmptyState()
+                : GridView.builder(
+                    itemCount: _results.length,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
                           childAspectRatio: 0.7,
                           crossAxisSpacing: 15,
                           mainAxisSpacing: 15,
                         ),
-                        itemBuilder: (context, index) {
-                          return MediaPosterCard(
-                            item: _results[index],
-                            onTap: () => _showAddDialog(_results[index]),
-                          );
-                        },
-                      ),
+                    itemBuilder: (context, index) {
+                      return MediaPosterCard(
+                        item: _results[index],
+                        onTap: () => _showAddDialog(_results[index]),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -324,14 +360,20 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(Icons.animation_rounded,
-            size: 60, color: AppTheme.roseQuartz.withValues(alpha: 0.2)),
+        Icon(
+          Icons.animation_rounded,
+          size: 60,
+          color: AppTheme.roseQuartz.withValues(alpha: 0.2),
+        ),
         const SizedBox(height: 16),
         Text(
           _searchController.text.isEmpty
               ? 'Start typing to find magic\u2026'
               : 'No anime found',
-          style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.6), fontSize: 16),
+          style: AppTypography.outfitWhite.copyWith(
+            color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+            fontSize: 16,
+          ),
         ),
         if (_errorMessage != null) ...[
           const SizedBox(height: 8),
@@ -340,7 +382,10 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
             child: Text(
               _errorMessage!,
               textAlign: TextAlign.center,
-              style: AppTypography.outfitWhite.copyWith(color: AppTheme.deepRose.withValues(alpha: 0.9), fontSize: 12),
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppTheme.deepRose.withValues(alpha: 0.9),
+                fontSize: 12,
+              ),
             ),
           ),
         ],

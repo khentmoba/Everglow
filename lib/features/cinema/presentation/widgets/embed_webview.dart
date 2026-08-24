@@ -207,10 +207,7 @@ class _EmbedWebViewState extends State<EmbedWebView> {
                   Text(
                     'Try again or switch to another source below.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: AppColors.textMuted,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                   ),
                   const SizedBox(height: 16),
                   OutlinedButton.icon(
@@ -248,6 +245,9 @@ class _EmbedWebViewState extends State<EmbedWebView> {
         child: AspectRatio(aspectRatio: ratio, child: player),
       );
     }
-    return ClipRRect(borderRadius: radius, child: SizedBox.expand(child: player));
+    return ClipRRect(
+      borderRadius: radius,
+      child: SizedBox.expand(child: player),
+    );
   }
 }

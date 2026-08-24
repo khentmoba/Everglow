@@ -12,12 +12,12 @@ import 'anime_models.dart';
 import '../../../../../core/theme/app_typography.dart';
 
 // ── Anime palette (subset used by the Browse tab) ───────────────
-const _cRose           = AppColors.animeRose;
-const _cMuted          = AppColors.animeMuted;
-const _cCyan           = AppColors.animeCyan;
-const _cMagenta        = AppColors.animeMagenta;
+const _cRose = AppColors.animeRose;
+const _cMuted = AppColors.animeMuted;
+const _cCyan = AppColors.animeCyan;
+const _cMagenta = AppColors.animeMagenta;
 const _cElectricPurple = AppColors.animeElectricPurple;
-const _cVibrantPink    = AppColors.animeVibrantPink;
+const _cVibrantPink = AppColors.animeVibrantPink;
 
 /// Browse / Discover tab for the Anime screen.
 ///
@@ -47,58 +47,70 @@ class AnimeBrowseTab extends StatelessWidget {
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 4),
-          sliver: SliverToBoxAdapter(child: Row(
-            children: [
-              Container(
-                width: 3,
-                height: 28,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [_cMagenta, _cCyan],
+          sliver: SliverToBoxAdapter(
+            child: Row(
+              children: [
+                Container(
+                  width: 3,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [_cMagenta, _cCyan],
+                    ),
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  borderRadius: BorderRadius.circular(2),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Browse',
-                style: AppTypography.cormorantBold.copyWith(fontSize: 28, color: _cRose),
-              ),
-              const Spacer(),
-              if (selectedCategoryId != null)
-                GestureDetector(
-                  onTap: onClearFilter,
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: _cMagenta.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: _cMagenta.withValues(alpha: 0.2),
+                const SizedBox(width: 12),
+                Text(
+                  'Browse',
+                  style: AppTypography.cormorantBold.copyWith(
+                    fontSize: 28,
+                    color: _cRose,
+                  ),
+                ),
+                const Spacer(),
+                if (selectedCategoryId != null)
+                  GestureDetector(
+                    onTap: onClearFilter,
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
                         ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.close_rounded,
-                              color: _cMagenta, size: 14),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Clear Filter',
-                            style: AppTypography.outfitBold.copyWith(color: _cMagenta, fontSize: 12),
+                        decoration: BoxDecoration(
+                          color: _cMagenta.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: _cMagenta.withValues(alpha: 0.2),
                           ),
-                        ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.close_rounded,
+                              color: _cMagenta,
+                              size: 14,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Clear Filter',
+                              style: AppTypography.outfitBold.copyWith(
+                                color: _cMagenta,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
-          ),
+              ],
+            ),
           ),
         ),
         SliverPadding(
@@ -106,13 +118,16 @@ class AnimeBrowseTab extends StatelessWidget {
           sliver: SliverToBoxAdapter(
             child: Text(
               'Filter by format, genre, status, or curated list.',
-              style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: _cRose.withValues(alpha: 0.6)),
+              style: AppTypography.outfitWhite.copyWith(
+                fontSize: 12,
+                color: _cRose.withValues(alpha: 0.6),
+              ),
             ),
           ),
         ),
         ...AnimeCategoryGroup.values.map(
-          (group) => SliverToBoxAdapter(
-              child: _buildBrowseGroup(context, group)),
+          (group) =>
+              SliverToBoxAdapter(child: _buildBrowseGroup(context, group)),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 16)),
         if (selectedCategoryId != null) ..._buildBrowseResultSlivers(context),
@@ -123,8 +138,9 @@ class AnimeBrowseTab extends StatelessWidget {
   // ── PRIVATE BUILD HELPERS ────────────────────────────────────────
 
   Widget _buildBrowseGroup(BuildContext context, AnimeCategoryGroup group) {
-    final options =
-        animeCategoryOptions.where((o) => o.group == group).toList();
+    final options = animeCategoryOptions
+        .where((o) => o.group == group)
+        .toList();
     final groupMeta = _groupMeta(group);
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
@@ -155,12 +171,19 @@ class AnimeBrowseTab extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   groupMeta.title,
-                  style: AppTypography.cormorantBold.copyWith(fontSize: 22, color: groupMeta.tint),
+                  style: AppTypography.cormorantBold.copyWith(
+                    fontSize: 22,
+                    color: groupMeta.tint,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   groupMeta.subtitle,
-                  style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: _cMuted, letterSpacing: 0.3),
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 11,
+                    color: _cMuted,
+                    letterSpacing: 0.3,
+                  ),
                 ),
               ],
             ),
@@ -218,12 +241,18 @@ class AnimeBrowseTab extends StatelessWidget {
                   children: [
                     Text(
                       option.label,
-                      style: AppTypography.cormorantBold.copyWith(fontSize: 22, color: option.color),
+                      style: AppTypography.cormorantBold.copyWith(
+                        fontSize: 22,
+                        color: option.color,
+                      ),
                     ),
                     if (row != null && !row.isLoading && row.items.isNotEmpty)
                       Text(
                         '${row.items.length} titles found',
-                        style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: _cMuted),
+                        style: AppTypography.outfitWhite.copyWith(
+                          fontSize: 12,
+                          color: _cMuted,
+                        ),
                       ),
                   ],
                 ),
@@ -238,8 +267,9 @@ class AnimeBrowseTab extends StatelessWidget {
           sliver: SliverGrid.builder(
             itemCount: 12,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount:
-                  isDesktop ? 6 : (AppBreakpoint.isTablet(context) ? 4 : 2),
+              crossAxisCount: isDesktop
+                  ? 6
+                  : (AppBreakpoint.isTablet(context) ? 4 : 2),
               childAspectRatio: 0.65,
               crossAxisSpacing: 14,
               mainAxisSpacing: 14,
@@ -264,19 +294,27 @@ class AnimeBrowseTab extends StatelessWidget {
                     ),
                     child: Column(
                       children: [
-                        Icon(Icons.cloud_off_rounded,
-                            color: _cMuted, size: 28),
+                        const Icon(
+                          Icons.cloud_off_rounded,
+                          color: _cMuted,
+                          size: 28,
+                        ),
                         const SizedBox(height: 12),
                         Text(
                           'Couldn\'t load results',
-                          style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 14),
+                          style: AppTypography.outfitWhite.copyWith(
+                            color: _cMuted,
+                            fontSize: 14,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         GestureDetector(
                           onTap: () => onSelectCategory(option),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 18, vertical: 10),
+                              horizontal: 18,
+                              vertical: 10,
+                            ),
                             decoration: BoxDecoration(
                               color: option.color.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(20),
@@ -286,7 +324,10 @@ class AnimeBrowseTab extends StatelessWidget {
                             ),
                             child: Text(
                               'Retry',
-                              style: AppTypography.outfitBold.copyWith(color: option.color, fontSize: 13),
+                              style: AppTypography.outfitBold.copyWith(
+                                color: option.color,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                         ),
@@ -308,8 +349,9 @@ class AnimeBrowseTab extends StatelessWidget {
           sliver: SliverGrid.builder(
             itemCount: row.items.length,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount:
-                  isDesktop ? 6 : (AppBreakpoint.isTablet(context) ? 4 : 2),
+              crossAxisCount: isDesktop
+                  ? 6
+                  : (AppBreakpoint.isTablet(context) ? 4 : 2),
               childAspectRatio: 0.65,
               crossAxisSpacing: 14,
               mainAxisSpacing: 14,

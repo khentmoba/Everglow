@@ -46,9 +46,8 @@ class TopMusicTrack {
     }
 
     final dynamic attr = json['@attr'];
-    final rank = int.tryParse(
-      attr is Map ? (attr['rank']?.toString() ?? '') : '',
-    ) ?? 0;
+    final rank =
+        int.tryParse(attr is Map ? (attr['rank']?.toString() ?? '') : '') ?? 0;
     final playCount = int.tryParse(json['playcount']?.toString() ?? '') ?? 0;
     final mbidValue = json['mbid'] as String?;
 

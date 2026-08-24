@@ -60,8 +60,10 @@ class BookCoverCard extends StatelessWidget {
                 right: 0,
                 bottom: 0,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.bottomCenter,
@@ -80,7 +82,11 @@ class BookCoverCard extends StatelessWidget {
                     children: [
                       Text(
                         item.title,
-                        style: AppTypography.outfitHeading.copyWith(color: Colors.white, fontSize: 12, height: 1.2),
+                        style: AppTypography.outfitHeading.copyWith(
+                          color: Colors.white,
+                          fontSize: 12,
+                          height: 1.2,
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -88,7 +94,11 @@ class BookCoverCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           item.author,
-                          style: AppTypography.outfitWhite.copyWith(color: Colors.white.withValues(alpha: 0.7), fontSize: 10, fontStyle: FontStyle.italic),
+                          style: AppTypography.outfitWhite.copyWith(
+                            color: Colors.white.withValues(alpha: 0.7),
+                            fontSize: 10,
+                            fontStyle: FontStyle.italic,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -103,14 +113,17 @@ class BookCoverCard extends StatelessWidget {
                   right: 8,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: badgeColor ?? Colors.deepPurple,
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: [
                         BoxShadow(
-                          color: (badgeColor ?? Colors.deepPurple)
-                              .withValues(alpha: 0.4),
+                          color: (badgeColor ?? Colors.deepPurple).withValues(
+                            alpha: 0.4,
+                          ),
                           blurRadius: 6,
                           offset: const Offset(0, 2),
                         ),
@@ -118,7 +131,12 @@ class BookCoverCard extends StatelessWidget {
                     ),
                     child: Text(
                       statusBadge!,
-                      style: AppTypography.outfitWhite.copyWith(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+                      style: AppTypography.outfitWhite.copyWith(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
                     ),
                   ),
                 ),
@@ -155,7 +173,10 @@ class BookCoverCard extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
-                style: AppTypography.outfitBold.copyWith(color: const Color(0xFFFFF5F5), fontSize: 10),
+                style: AppTypography.outfitBold.copyWith(
+                  color: const Color(0xFFFFF5F5),
+                  fontSize: 10,
+                ),
               ),
             ],
           ),

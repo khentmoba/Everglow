@@ -29,7 +29,7 @@ class GlassContainer extends StatelessWidget {
     final effectiveBlur = blur ?? AppTheme.glassBlur;
     final effectiveOpacity = opacity ?? AppTheme.glassOpacity;
     final effectiveRadius = borderRadius ?? BorderRadius.circular(24.0);
-    
+
     // Check for performance fallback
     final bool useBlur = effectiveBlur > 0 && !AppTheme.shouldReduceMotion;
 
@@ -38,12 +38,16 @@ class GlassContainer extends StatelessWidget {
       height: height,
       padding: padding,
       decoration: BoxDecoration(
-        color: AppTheme.moonlight.withValues(alpha: useBlur ? effectiveOpacity : 0.22),
-        borderRadius: effectiveRadius,
-        border: border ?? Border.all(
-          color: AppTheme.moonlight.withValues(alpha: 0.18),
-          width: 1.0,
+        color: AppTheme.moonlight.withValues(
+          alpha: useBlur ? effectiveOpacity : 0.22,
         ),
+        borderRadius: effectiveRadius,
+        border:
+            border ??
+            Border.all(
+              color: AppTheme.moonlight.withValues(alpha: 0.18),
+              width: 1.0,
+            ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.15),
@@ -66,11 +70,13 @@ class GlassContainer extends StatelessWidget {
       child: ClipRRect(
         borderRadius: effectiveRadius,
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: effectiveBlur, sigmaY: effectiveBlur),
+          filter: ImageFilter.blur(
+            sigmaX: effectiveBlur,
+            sigmaY: effectiveBlur,
+          ),
           child: container,
         ),
       ),
     );
   }
 }
-

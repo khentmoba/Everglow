@@ -58,8 +58,7 @@ class AppMotion {
       reduced ? Duration.zero : duration;
 
   /// Returns [curve] or [Curves.linear] when reduced.
-  static Curve orLinear(Curve curve) =>
-      reduced ? Curves.linear : curve;
+  static Curve orLinear(Curve curve) => reduced ? Curves.linear : curve;
 
   // ── Press / hover feedback ─────────────────────────────────
 

@@ -13,18 +13,27 @@ class MusicPersistenceService {
           .doc(status.username)
           .set(status.toMap());
     } catch (e) {
-      Logger.e('MusicPersistenceService: Error saving status for ${status.username}', error: e);
+      Logger.e(
+        'MusicPersistenceService: Error saving status for ${status.username}',
+        error: e,
+      );
     }
   }
 
   Future<MusicStatus?> getMusicStatus(String username) async {
     try {
-      final doc = await _firestore.collection(_collectionPath).doc(username).get();
+      final doc = await _firestore
+          .collection(_collectionPath)
+          .doc(username)
+          .get();
       if (doc.exists && doc.data() != null) {
         return MusicStatus.fromMap(doc.data()!);
       }
     } catch (e) {
-      Logger.e('MusicPersistenceService: Error getting status for $username', error: e);
+      Logger.e(
+        'MusicPersistenceService: Error getting status for $username',
+        error: e,
+      );
     }
     return null;
   }

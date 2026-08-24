@@ -17,13 +17,13 @@ import '../../../../../shared/widgets/shelf/shimmer_box.dart';
 import '../../../../../core/theme/app_typography.dart';
 
 // ── Anime palette (subset used by the Search tab) ───────────────
-const _cCard           = AppColors.animeCard;
-const _cWhite          = AppColors.animeWhite;
-const _cMuted          = AppColors.animeMuted;
-const _cCyan           = AppColors.animeCyan;
-const _cMagenta        = AppColors.animeMagenta;
+const _cCard = AppColors.animeCard;
+const _cWhite = AppColors.animeWhite;
+const _cMuted = AppColors.animeMuted;
+const _cCyan = AppColors.animeCyan;
+const _cMagenta = AppColors.animeMagenta;
 const _cElectricPurple = AppColors.animeElectricPurple;
-const _cGold           = AppColors.animeGold;
+const _cGold = AppColors.animeGold;
 
 /// Full-featured search tab for the Anime screen.
 ///
@@ -88,8 +88,8 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
     var combined = results[0].isNotEmpty
         ? results[0]
         : results[1].isNotEmpty
-            ? results[1]
-            : <MediaItem>[];
+        ? results[1]
+        : <MediaItem>[];
 
     if (combined.isEmpty) {
       combined = await _tmdbService.searchMedia(query);
@@ -150,13 +150,21 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(14),
                     child: item.posterUrl.isNotEmpty
-                        ? Image.network(item.posterUrl,
-                            width: 90, height: 130, fit: BoxFit.cover)
+                        ? Image.network(
+                            item.posterUrl,
+                            width: 90,
+                            height: 130,
+                            fit: BoxFit.cover,
+                          )
                         : Container(
-                            width: 90, height: 130,
+                            width: 90,
+                            height: 130,
                             color: AppTheme.twilight,
-                            child: const Icon(Icons.movie_rounded,
-                                color: AppTheme.roseQuartz, size: 32),
+                            child: const Icon(
+                              Icons.movie_rounded,
+                              color: AppTheme.roseQuartz,
+                              size: 32,
+                            ),
                           ),
                   ),
                   const SizedBox(width: 16),
@@ -166,25 +174,36 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                       children: [
                         Text(
                           'Add to Everglow?',
-                          style: AppTypography.outfitHeading.copyWith(color: AppTheme.roseQuartz, fontSize: 11, letterSpacing: 1.5),
+                          style: AppTypography.outfitHeading.copyWith(
+                            color: AppTheme.roseQuartz,
+                            fontSize: 11,
+                            letterSpacing: 1.5,
+                          ),
                         ),
                         const SizedBox(height: 6),
                         Text(
                           item.title,
-                          style: AppTypography.cormorantBoldWhite.copyWith(fontSize: 20),
+                          style: AppTypography.cormorantBoldWhite.copyWith(
+                            fontSize: 20,
+                          ),
                         ),
                         if (item.studio.isNotEmpty) ...[
                           const SizedBox(height: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: AppTheme.deepRose.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
                               item.studio,
-                              style: AppTypography.outfitBold.copyWith(fontSize: 10, color: AppTheme.deepRose),
+                              style: AppTypography.outfitBold.copyWith(
+                                fontSize: 10,
+                                color: AppTheme.deepRose,
+                              ),
                             ),
                           ),
                         ],
@@ -194,7 +213,11 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                             item.synopsis,
                             maxLines: 3,
                             overflow: TextOverflow.ellipsis,
-                            style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz.withValues(alpha: 0.7), fontSize: 12, height: 1.4),
+                            style: AppTypography.outfitWhite.copyWith(
+                              color: AppTheme.roseQuartz.withValues(alpha: 0.7),
+                              fontSize: 12,
+                              height: 1.4,
+                            ),
                           ),
                         ],
                       ],
@@ -246,7 +269,9 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                         alignment: Alignment.center,
                         child: Text(
                           'Cancel',
-                          style: AppTypography.outfitBold.copyWith(color: AppTheme.roseQuartz),
+                          style: AppTypography.outfitBold.copyWith(
+                            color: AppTheme.roseQuartz,
+                          ),
                         ),
                       ),
                     ),
@@ -267,12 +292,15 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                               SnackBar(
                                 content: Text(
                                   'Failed to add — please try again',
-                                  style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
+                                  style: AppTypography.outfitWhite.copyWith(
+                                    color: AppTheme.petalWhite,
+                                  ),
                                 ),
                                 backgroundColor: Colors.redAccent,
                                 behavior: SnackBarBehavior.floating,
                                 shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10)),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
                             );
                           }
@@ -283,12 +311,15 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                             SnackBar(
                               content: Text(
                                 '${item.title} added to Everglow!',
-                                style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
+                                style: AppTypography.outfitWhite.copyWith(
+                                  color: AppTheme.petalWhite,
+                                ),
                               ),
                               backgroundColor: AppTheme.deepRose,
                               behavior: SnackBarBehavior.floating,
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10)),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
                           );
                         }
@@ -315,12 +346,19 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.add_rounded,
-                                color: _cWhite, size: 18),
+                            const Icon(
+                              Icons.add_rounded,
+                              color: _cWhite,
+                              size: 18,
+                            ),
                             const SizedBox(width: 8),
                             Text(
                               'Add',
-                              style: AppTypography.outfitWhite.copyWith(color: _cWhite, fontWeight: FontWeight.bold, fontSize: 15),
+                              style: AppTypography.outfitWhite.copyWith(
+                                color: _cWhite,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
                             ),
                           ],
                         ),
@@ -363,13 +401,22 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon,
-                color: selected ? color : AppTheme.roseQuartz.withValues(alpha: 0.4),
-                size: 18),
+            Icon(
+              icon,
+              color: selected
+                  ? color
+                  : AppTheme.roseQuartz.withValues(alpha: 0.4),
+              size: 18,
+            ),
             const SizedBox(width: 8),
             Text(
               label,
-              style: AppTypography.outfitHeading.copyWith(color: selected ? color : AppTheme.roseQuartz.withValues(alpha: 0.5), fontSize: 13),
+              style: AppTypography.outfitHeading.copyWith(
+                color: selected
+                    ? color
+                    : AppTheme.roseQuartz.withValues(alpha: 0.5),
+                fontSize: 13,
+              ),
             ),
           ],
         ),
@@ -384,13 +431,18 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.search_off_rounded,
-              size: 60,
-              color: _cCyan.withValues(alpha: 0.2)),
+          Icon(
+            Icons.search_off_rounded,
+            size: 60,
+            color: _cCyan.withValues(alpha: 0.2),
+          ),
           const SizedBox(height: 16),
           Text(
             'No anime found',
-            style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 16),
+            style: AppTypography.outfitWhite.copyWith(
+              color: _cMuted,
+              fontSize: 16,
+            ),
           ),
           if (_searchErrorMessage != null) ...[
             const SizedBox(height: 8),
@@ -399,7 +451,10 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
               child: Text(
                 _searchErrorMessage!,
                 textAlign: TextAlign.center,
-                style: AppTypography.outfitWhite.copyWith(color: _cMagenta.withValues(alpha: 0.9), fontSize: 12),
+                style: AppTypography.outfitWhite.copyWith(
+                  color: _cMagenta.withValues(alpha: 0.9),
+                  fontSize: 12,
+                ),
               ),
             ),
           ],
@@ -413,18 +468,26 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.auto_awesome_rounded,
-              size: 60,
-              color: _cElectricPurple.withValues(alpha: 0.2)),
+          Icon(
+            Icons.auto_awesome_rounded,
+            size: 60,
+            color: _cElectricPurple.withValues(alpha: 0.2),
+          ),
           const SizedBox(height: 16),
           Text(
             'Start typing to find magic\u2026',
-            style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 16),
+            style: AppTypography.outfitWhite.copyWith(
+              color: _cMuted,
+              fontSize: 16,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             'Search thousands of anime from MyAnimeList and AniList',
-            style: AppTypography.outfitWhite.copyWith(color: _cMuted.withValues(alpha: 0.6), fontSize: 12),
+            style: AppTypography.outfitWhite.copyWith(
+              color: _cMuted.withValues(alpha: 0.6),
+              fontSize: 12,
+            ),
           ),
           const SizedBox(height: 28),
           _buildQuickSearchChips(),
@@ -459,9 +522,7 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
               decoration: BoxDecoration(
                 color: s.$3.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: s.$3.withValues(alpha: 0.25),
-                ),
+                border: Border.all(color: s.$3.withValues(alpha: 0.25)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -470,7 +531,10 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                   const SizedBox(width: 8),
                   Text(
                     s.$1,
-                    style: AppTypography.outfitBold.copyWith(color: s.$3, fontSize: 13),
+                    style: AppTypography.outfitBold.copyWith(
+                      color: s.$3,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
               ),
@@ -514,12 +578,20 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                 ),
               Text(
                 'Find Your Next Anime',
-                style: AppTypography.cormorantExtraBold.copyWith(fontSize: isDesktop ? 32 : 26, height: 1.1, color: _cWhite),
+                style: AppTypography.cormorantExtraBold.copyWith(
+                  fontSize: isDesktop ? 32 : 26,
+                  height: 1.1,
+                  color: _cWhite,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 'Search MyAnimeList or AniList by title. We auto-detect anime and add it to your library.',
-                style: AppTypography.outfitWhite.copyWith(fontSize: isDesktop ? 14 : 12, color: _cMuted, fontWeight: FontWeight.w400),
+                style: AppTypography.outfitWhite.copyWith(
+                  fontSize: isDesktop ? 14 : 12,
+                  color: _cMuted,
+                  fontWeight: FontWeight.w400,
+                ),
               ),
               const SizedBox(height: 20),
 
@@ -528,8 +600,7 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                 decoration: BoxDecoration(
                   color: _cCard,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                      color: _cCyan.withValues(alpha: 0.15)),
+                  border: Border.all(color: _cCyan.withValues(alpha: 0.15)),
                   boxShadow: [
                     BoxShadow(
                       color: _cMagenta.withValues(alpha: 0.08),
@@ -541,13 +612,18 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                 child: TextField(
                   controller: _searchController,
                   onChanged: _onSearchChanged,
-                  style: AppTypography.outfitWhite.copyWith(color: _cWhite, fontSize: 16),
+                  style: AppTypography.outfitWhite.copyWith(
+                    color: _cWhite,
+                    fontSize: 16,
+                  ),
                   decoration: InputDecoration(
                     hintText: 'Search anime titles, studios, anything\u2026',
-                    hintStyle:
-                        AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 16),
-                    prefixIcon: Padding(
-                      padding: const EdgeInsets.all(14),
+                    hintStyle: AppTypography.outfitWhite.copyWith(
+                      color: _cMuted,
+                      fontSize: 16,
+                    ),
+                    prefixIcon: const Padding(
+                      padding: EdgeInsets.all(14),
                       child: Icon(
                         Icons.search_rounded,
                         color: _cCyan,
@@ -556,7 +632,7 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                     ),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
-                            icon: Icon(
+                            icon: const Icon(
                               Icons.clear_rounded,
                               color: _cMuted,
                               size: 18,
@@ -599,39 +675,38 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                       mainAxisSpacing: 14,
                     ),
                     itemCount: 12,
-                    itemBuilder: (_, _) => const ShimmerBox(height: 220, radius: 14),
+                    itemBuilder: (_, _) =>
+                        const ShimmerBox(height: 220, radius: 14),
                   ),
                 )
               : _searchResults.isEmpty
-                  ? (_searchController.text.isEmpty
-                      ? _buildSearchLandingState()
-                      : _buildSearchEmptyState())
-                  : GridView.builder(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: horizontalPad),
-                      physics: const BouncingScrollPhysics(),
-                      gridDelegate:
-                          SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: isDesktop
-                            ? 6
-                            : (AppBreakpoint.isTablet(context) ? 4 : 2),
-                        childAspectRatio: 0.65,
-                        crossAxisSpacing: 14,
-                        mainAxisSpacing: 14,
-                      ),
-                      itemCount: _searchResults.length,
-                      itemBuilder: (context, index) {
-                        final item = _searchResults[index];
-                        return ShelfPosterCard(
-                          imageUrl: item.posterPath,
-                          title: item.title,
-                          subtitle: item.year.isNotEmpty ? item.year : null,
-                          badge: 'ANIME',
-                          badgeIcon: Icons.auto_awesome_rounded,
-                          onTap: () => _showAddDialog(item),
-                        );
-                      },
-                    ),
+              ? (_searchController.text.isEmpty
+                    ? _buildSearchLandingState()
+                    : _buildSearchEmptyState())
+              : GridView.builder(
+                  padding: EdgeInsets.symmetric(horizontal: horizontalPad),
+                  physics: const BouncingScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: isDesktop
+                        ? 6
+                        : (AppBreakpoint.isTablet(context) ? 4 : 2),
+                    childAspectRatio: 0.65,
+                    crossAxisSpacing: 14,
+                    mainAxisSpacing: 14,
+                  ),
+                  itemCount: _searchResults.length,
+                  itemBuilder: (context, index) {
+                    final item = _searchResults[index];
+                    return ShelfPosterCard(
+                      imageUrl: item.posterPath,
+                      title: item.title,
+                      subtitle: item.year.isNotEmpty ? item.year : null,
+                      badge: 'ANIME',
+                      badgeIcon: Icons.auto_awesome_rounded,
+                      onTap: () => _showAddDialog(item),
+                    );
+                  },
+                ),
         ),
       ],
     );

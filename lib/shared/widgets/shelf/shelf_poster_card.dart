@@ -119,25 +119,25 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                 ),
               ]
             : _hovered && !disabled && canHover
-                ? [
-                    BoxShadow(
-                      color: badgeColor.withValues(alpha: 0.5),
-                      blurRadius: 28,
-                      offset: const Offset(0, 14),
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      blurRadius: 12,
-                      offset: const Offset(0, 6),
-                    ),
-                  ]
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.4),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+            ? [
+                BoxShadow(
+                  color: badgeColor.withValues(alpha: 0.5),
+                  blurRadius: 28,
+                  offset: const Offset(0, 14),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ]
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
@@ -149,10 +149,8 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                 _resolvedImageUrl,
                 fit: BoxFit.cover,
                 cacheWidth: 400,
-                errorBuilder: (_, _, _) => _Placeholder(
-                  title: widget.title,
-                  accent: badgeColor,
-                ),
+                errorBuilder: (_, _, _) =>
+                    _Placeholder(title: widget.title, accent: badgeColor),
               )
             else
               _Placeholder(title: widget.title, accent: badgeColor),
@@ -206,8 +204,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
               right: 0,
               bottom: 0,
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.bottomCenter,
@@ -243,8 +240,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.outfitBold.copyWith(
-                          color: AppTheme.blushGold
-                              .withValues(alpha: 0.9),
+                          color: AppTheme.blushGold.withValues(alpha: 0.9),
                           fontSize: 11,
                           fontStyle: FontStyle.italic,
                         ),
@@ -261,7 +257,9 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                 right: 6,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 6, vertical: 3),
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: badgeColor.withValues(alpha: 0.92),
                     borderRadius: BorderRadius.circular(8),
@@ -277,8 +275,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (widget.badgeIcon != null) ...[
-                        Icon(widget.badgeIcon,
-                            color: Colors.white, size: 9),
+                        Icon(widget.badgeIcon, color: Colors.white, size: 9),
                         const SizedBox(width: 3),
                       ],
                       Text(
@@ -336,9 +333,12 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                   alignment: Alignment.center,
                   child: Text(
                     '${widget.rankNumber}',
-                    style: AppTypography.cormorantBlack.copyWith(fontSize: widget.rankNumber! <= 3 ? 15 : 12, color: widget.rankNumber! <= 3
+                    style: AppTypography.cormorantBlack.copyWith(
+                      fontSize: widget.rankNumber! <= 3 ? 15 : 12,
+                      color: widget.rankNumber! <= 3
                           ? AppTheme.velvet
-                          : AppTheme.blushGold),
+                          : AppTheme.blushGold,
+                    ),
                   ),
                 ),
               ),
@@ -352,39 +352,37 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
       enabled: !disabled,
       label: widget.semanticLabel ?? announcement,
       child: FocusableActionDetector(
-          enabled: !disabled,
-          onShowFocusHighlight: (show) =>
-              setState(() => _focused = show && !disabled),
-          mouseCursor: disabled
-              ? SystemMouseCursors.basic
-              : SystemMouseCursors.click,
-          child: GestureDetector(
-            onTapDown: disabled
-                ? null
-                : (_) => setState(() => _pressed = true),
-            onTapUp: disabled
+        enabled: !disabled,
+        onShowFocusHighlight: (show) =>
+            setState(() => _focused = show && !disabled),
+        mouseCursor: disabled
+            ? SystemMouseCursors.basic
+            : SystemMouseCursors.click,
+        child: GestureDetector(
+          onTapDown: disabled ? null : (_) => setState(() => _pressed = true),
+          onTapUp: disabled
+              ? null
+              : (_) {
+                  setState(() => _pressed = false);
+                  widget.onTap!();
+                },
+          onTapCancel: () => setState(() => _pressed = false),
+          child: MouseRegion(
+            cursor: disabled
+                ? SystemMouseCursors.basic
+                : SystemMouseCursors.click,
+            onEnter: disabled || !canHover
                 ? null
                 : (_) {
-                    setState(() => _pressed = false);
-                    widget.onTap!();
+                    setState(() => _hovered = true);
                   },
-            onTapCancel: () => setState(() => _pressed = false),
-            child: MouseRegion(
-              cursor: disabled
-                  ? SystemMouseCursors.basic
-                  : SystemMouseCursors.click,
-              onEnter: disabled || !canHover
-                  ? null
-                  : (_) {
-                      setState(() => _hovered = true);
-                    },
-              onExit: (_) {
-                setState(() => _hovered = false);
-              },
-              child: card,
-            ),
+            onExit: (_) {
+              setState(() => _hovered = false);
+            },
+            child: card,
           ),
         ),
+      ),
     );
   }
 }
@@ -397,14 +395,11 @@ class _Placeholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF2D1B33),
-            AppTheme.twilight,
-          ],
+          colors: [Color(0xFF2D1B33), AppTheme.twilight],
         ),
       ),
       child: Center(

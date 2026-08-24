@@ -21,10 +21,7 @@ class OurBooksService {
 
   Stream<List<OurBooksItem>> getOurBooksStream() {
     return withFirestoreTimeout(
-      _firestore
-          .collection(_collection)
-          .snapshots()
-          .map((snapshot) {
+      _firestore.collection(_collection).snapshots().map((snapshot) {
         final items = snapshot.docs
             .map((doc) => OurBooksItem.fromFirestore(doc.data(), doc.id))
             .toList();
@@ -47,12 +44,12 @@ class OurBooksService {
           .where('addedBy', isEqualTo: adder)
           .snapshots()
           .map((snapshot) {
-        final items = snapshot.docs
-            .map((doc) => OurBooksItem.fromFirestore(doc.data(), doc.id))
-            .toList();
-        items.sort((a, b) => b.addedAt.compareTo(a.addedAt));
-        return items;
-      }),
+            final items = snapshot.docs
+                .map((doc) => OurBooksItem.fromFirestore(doc.data(), doc.id))
+                .toList();
+            items.sort((a, b) => b.addedAt.compareTo(a.addedAt));
+            return items;
+          }),
       label: 'our-books-$adder',
     );
   }
@@ -64,25 +61,28 @@ class OurBooksService {
       if (raw == null) return [];
       final List decoded = json.decode(raw);
       return decoded
-          .map((data) => OurBooksItem(
-                id: data['id'] ?? '',
-                workKey: data['workKey'] ?? '',
-                editionKey: data['editionKey'] ?? '',
-                iaId: data['iaId'] ?? '',
-                title: data['title'] ?? '',
-                author: data['author'] ?? '',
-                coverUrl: data['coverUrl'] ?? '',
-                year: data['year'] ?? '',
-                subjects: (data['subjects'] as List?)
-                        ?.map((e) => e.toString())
-                        .toList() ??
-                    const <String>[],
-                addedBy: data['addedBy'] ?? '',
-                addedAt:
-                    DateTime.tryParse(data['addedAt'] ?? '') ?? DateTime.now(),
-                khentReadAt: _tryParse(data['khentReadAt']),
-                clairReadAt: _tryParse(data['clairReadAt']),
-              ))
+          .map(
+            (data) => OurBooksItem(
+              id: data['id'] ?? '',
+              workKey: data['workKey'] ?? '',
+              editionKey: data['editionKey'] ?? '',
+              iaId: data['iaId'] ?? '',
+              title: data['title'] ?? '',
+              author: data['author'] ?? '',
+              coverUrl: data['coverUrl'] ?? '',
+              year: data['year'] ?? '',
+              subjects:
+                  (data['subjects'] as List?)
+                      ?.map((e) => e.toString())
+                      .toList() ??
+                  const <String>[],
+              addedBy: data['addedBy'] ?? '',
+              addedAt:
+                  DateTime.tryParse(data['addedAt'] ?? '') ?? DateTime.now(),
+              khentReadAt: _tryParse(data['khentReadAt']),
+              clairReadAt: _tryParse(data['clairReadAt']),
+            ),
+          )
           .toList();
     } catch (e) {
       Logger.e('Error reading cached our_books', error: e);
@@ -93,8 +93,10 @@ class OurBooksService {
   Future<void> _writeCache(List<OurBooksItem> items) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final payload = json.encode(items
-          .map((i) => {
+      final payload = json.encode(
+        items
+            .map(
+              (i) => {
                 'id': i.id,
                 'workKey': i.workKey,
                 'editionKey': i.editionKey,
@@ -108,8 +110,10 @@ class OurBooksService {
                 'addedAt': i.addedAt.toIso8601String(),
                 'khentReadAt': i.khentReadAt?.toIso8601String(),
                 'clairReadAt': i.clairReadAt?.toIso8601String(),
-              })
-          .toList());
+              },
+            )
+            .toList(),
+      );
       await prefs.setString(_cacheKey, payload);
     } catch (e) {
       Logger.e('Error writing our_books cache', error: e);
@@ -136,7 +140,9 @@ class OurBooksService {
           .get();
       if (existing.docs.isNotEmpty) {
         return OurBooksItem.fromFirestore(
-            existing.docs.first.data(), existing.docs.first.id);
+          existing.docs.first.data(),
+          existing.docs.first.id,
+        );
       }
       final draft = OurBooksItem(
         id: '',
@@ -168,8 +174,7 @@ class OurBooksService {
       Logger.w('setReadFlag refused: $userName is not a couple user');
       return;
     }
-    final field =
-        userName == 'khentsgdz' ? 'khentReadAt' : 'clairReadAt';
+    final field = userName == 'khentsgdz' ? 'khentReadAt' : 'clairReadAt';
     try {
       final collection = _firestore.collection(_collection);
       final existing = await collection

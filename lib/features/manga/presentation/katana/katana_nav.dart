@@ -9,9 +9,9 @@ import '../screens/katana_search_results_screen.dart';
 
 /// Pushes a new Manga Katana screen on top of the manga section.
 void pushHome(BuildContext context) {
-  Navigator.of(context).popUntil(
-    (route) => route.settings.name == '/manga' || route.isFirst,
-  );
+  Navigator.of(
+    context,
+  ).popUntil((route) => route.settings.name == '/manga' || route.isFirst);
 }
 
 void pushDirectory(
@@ -67,22 +67,26 @@ void pushReader(
 }
 
 void pushBookmarks(BuildContext context) {
-  Navigator.of(context).push(
-    MaterialPageRoute(builder: (_) => const KatanaBookmarksScreen()),
-  );
+  Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => const KatanaBookmarksScreen()));
 }
 
 void pushGenres(BuildContext context) {
-  Navigator.of(context).push(
-    MaterialPageRoute(builder: (_) => const KatanaGenresScreen()),
-  );
+  Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => const KatanaGenresScreen()));
 }
 
-void pushSearchResults(BuildContext context, String query,
-    {String searchBy = 'm_name'}) {
+void pushSearchResults(
+  BuildContext context,
+  String query, {
+  String searchBy = 'm_name',
+}) {
   Navigator.of(context).push(
     MaterialPageRoute(
-      builder: (_) => KatanaSearchResultsScreen(query: query, searchBy: searchBy),
+      builder: (_) =>
+          KatanaSearchResultsScreen(query: query, searchBy: searchBy),
     ),
   );
 }

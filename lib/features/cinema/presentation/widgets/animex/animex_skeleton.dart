@@ -115,8 +115,8 @@ class AnimeXSpotlightSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16),
       child: Align(
         alignment: Alignment.bottomLeft,
         child: SizedBox(
@@ -125,18 +125,18 @@ class AnimeXSpotlightSkeleton extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const AnimeXSkeletonBox(width: 120, height: 20, radius: 4),
-              const SizedBox(height: 12),
-              const AnimeXSkeletonBox(width: 380, height: 60, radius: 4),
-              const SizedBox(height: 12),
-              const AnimeXSkeletonBox(width: 280, height: 14, radius: 4),
-              const SizedBox(height: 8),
-              const AnimeXSkeletonBox(width: 210, height: 14, radius: 4),
-              const SizedBox(height: 24),
+              AnimeXSkeletonBox(width: 120, height: 20, radius: 4),
+              SizedBox(height: 12),
+              AnimeXSkeletonBox(width: 380, height: 60, radius: 4),
+              SizedBox(height: 12),
+              AnimeXSkeletonBox(width: 280, height: 14, radius: 4),
+              SizedBox(height: 8),
+              AnimeXSkeletonBox(width: 210, height: 14, radius: 4),
+              SizedBox(height: 24),
               Row(
                 children: [
-                  const AnimeXSkeletonBox(width: 130, height: 42, radius: 6),
-                  const SizedBox(width: 12),
+                  AnimeXSkeletonBox(width: 130, height: 42, radius: 6),
+                  SizedBox(width: 12),
                   AnimeXSkeletonBox(
                     width: 100,
                     height: 42,

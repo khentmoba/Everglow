@@ -46,8 +46,7 @@ class _ShelfIconButtonState extends State<ShelfIconButton> {
       height: widget.size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: widget.background ??
-            AppTheme.moonlight.withValues(alpha: 0.06),
+        color: widget.background ?? AppTheme.moonlight.withValues(alpha: 0.06),
         border: Border.all(
           color: (_focused || _hovered)
               ? AppTheme.roseQuartz.withValues(alpha: 0.55)
@@ -67,7 +66,8 @@ class _ShelfIconButtonState extends State<ShelfIconButton> {
       alignment: Alignment.center,
       child: Icon(
         widget.icon,
-        color: widget.iconColor ??
+        color:
+            widget.iconColor ??
             AppTheme.roseQuartz.withValues(alpha: enabled ? 1 : 0.5),
         size: widget.size * 0.45,
       ),
@@ -76,9 +76,7 @@ class _ShelfIconButtonState extends State<ShelfIconButton> {
     final content = GestureDetector(
       onTap: enabled ? widget.onTap : null,
       child: MouseRegion(
-        cursor: enabled
-            ? SystemMouseCursors.click
-            : SystemMouseCursors.basic,
+        cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
         child: btn,
@@ -96,9 +94,7 @@ class _ShelfIconButtonState extends State<ShelfIconButton> {
         child: widget.tooltip != null
             ? Tooltip(
                 message: widget.tooltip!,
-                textStyle: AppTypography.outfitBold.copyWith(
-                  fontSize: 11,
-                ),
+                textStyle: AppTypography.outfitBold.copyWith(fontSize: 11),
                 decoration: BoxDecoration(
                   color: AppTheme.velvet,
                   borderRadius: BorderRadius.circular(8),

@@ -110,8 +110,10 @@ class _AnimeXSeasonalPageState extends State<AnimeXSeasonalPage> {
                   _fetch(page: 1);
                 },
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: _season == value
                         ? AnimeXTokens.accent
@@ -260,9 +262,7 @@ class _SeasonPagerButton extends StatelessWidget {
           label,
           style: dmSansStyle(
             size: 12.5,
-            color: enabled
-                ? AnimeXTokens.textPrimary
-                : AnimeXTokens.textMuted,
+            color: enabled ? AnimeXTokens.textPrimary : AnimeXTokens.textMuted,
             weight: FontWeight.w600,
           ),
         ),

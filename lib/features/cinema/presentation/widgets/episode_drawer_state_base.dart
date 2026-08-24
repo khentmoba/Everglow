@@ -68,11 +68,11 @@ abstract class _EpisodeDrawerStateBase extends State<EpisodeDrawer>
 
   int get _effectiveMalId => _resolvedMalId ?? widget.item.tmdbId;
 
-
   // Trailer state
   String? _trailerKey;
   bool _isLoadingTrailer = false;
   bool _isPlayingTrailer = false;
+
   /// True when playback started from a tap on the Watch Trailer button.
   /// Auto-play (drawer open) stays muted so browsers don't block it.
   bool _trailerUserInitiated = false;
@@ -88,7 +88,6 @@ abstract class _EpisodeDrawerStateBase extends State<EpisodeDrawer>
   // For header parallax/fade
   late AnimationController _fadeCtrl;
   late Animation<double> _fadeAnim;
-
 }
 
 abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
@@ -847,5 +846,4 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
       source: 'jikan',
     );
   }
-
 }

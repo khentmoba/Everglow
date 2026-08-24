@@ -93,13 +93,13 @@ class _PasscodeInputState extends State<PasscodeInput>
         return AnimatedContainer(
           duration: AppMotion.orZero(const Duration(milliseconds: 220)),
           curve: AppMotion.easeOutStrong,
-          margin: const EdgeInsets.symmetric(horizontal: 13),
-          width: isFilled ? 26 : 16,
-          height: 16,
+          margin: const EdgeInsets.symmetric(horizontal: 10),
+          width: isFilled ? 22 : 14,
+          height: 14,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: widget.isError
-                ? AppColors.error.withValues(alpha: 0.85)
+                ? AppColors.error.withValues(alpha: 0.70)
                 : (isFilled
                       ? AppColors.auroraGold
                       : AppColors.moonlight.withValues(alpha: 0.08)),
@@ -111,7 +111,7 @@ class _PasscodeInputState extends State<PasscodeInput>
                                   ? AppColors.error
                                   : AppColors.auroraGold)
                               .withValues(alpha: 0.7),
-                      blurRadius: 16,
+                      blurRadius: 12,
                       spreadRadius: 2,
                     ),
                   ]
@@ -202,13 +202,13 @@ class _KeyButtonState extends State<_KeyButton> {
             child: AnimatedContainer(
               duration: AppMotion.orZero(AppMotion.fast),
               curve: AppMotion.easeOutStrong,
-              width: 62,
-              height: 62,
+              width: 60,
+              height: 60,
               transform: Matrix4.identity()
                 ..scaleByDouble(
-                  _pressed ? 0.9 : (_hovered ? 1.07 : 1.0),
-                  _pressed ? 0.9 : (_hovered ? 1.07 : 1.0),
-                  _pressed ? 0.9 : (_hovered ? 1.07 : 1.0),
+                  _pressed ? 0.9 : (_hovered ? 1.04 : 1.0),
+                  _pressed ? 0.9 : (_hovered ? 1.04 : 1.0),
+                  _pressed ? 0.9 : (_hovered ? 1.04 : 1.0),
                   1.0,
                 ),
               decoration: BoxDecoration(

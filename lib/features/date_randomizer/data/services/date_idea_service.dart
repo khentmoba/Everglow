@@ -14,7 +14,7 @@ class DateIdeaService {
   /// Fetches all ideas from Firestore. Seeds the database if empty.
   Future<void> initialize() async {
     final snapshot = await _db.collection('date_ideas').get();
-    
+
     if (snapshot.docs.isEmpty) {
       await seedIdeas();
       // Fetch again after seeding
@@ -39,16 +39,18 @@ class DateIdeaService {
   /// Loads 1000+ ideas from assets and pushes them to Firestore in batches.
   Future<void> seedIdeas() async {
     try {
-      final String jsonString = await rootBundle.loadString('assets/data/date_ideas_seed.json');
+      final String jsonString = await rootBundle.loadString(
+        'assets/data/date_ideas_seed.json',
+      );
       final List<dynamic> data = jsonDecode(jsonString);
-      
+
       final collection = _db.collection('date_ideas');
-      
+
       // Process in batches of 500 (Firestore limit)
       for (var i = 0; i < data.length; i += 500) {
         final batch = _db.batch();
         final end = (i + 500 < data.length) ? i + 500 : data.length;
-        
+
         for (var j = i; j < end; j++) {
           final docRef = collection.doc();
           batch.set(docRef, {
@@ -56,7 +58,7 @@ class DateIdeaService {
             'createdAt': FieldValue.serverTimestamp(),
           });
         }
-        
+
         await batch.commit();
       }
     } catch (e) {

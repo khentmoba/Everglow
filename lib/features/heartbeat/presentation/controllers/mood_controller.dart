@@ -3,7 +3,7 @@ import '../../data/services/mood_service.dart';
 
 class MoodController extends ChangeNotifier {
   final MoodService _service;
-  
+
   bool _isCheckingIn = false;
   int? _selectedScore;
   bool _hasSubmittedToday = false;
@@ -46,7 +46,7 @@ class MoodController extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    
+
     _hasSubmittedToday = true;
     _isCheckingIn = false;
     notifyListeners();

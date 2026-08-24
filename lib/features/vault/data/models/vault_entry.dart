@@ -29,29 +29,36 @@ class VaultEntry {
       id: doc.id,
       fileName: data['fileName'] ?? '',
       fileUrl: data['fileUrl'] ?? '',
-      fileSize: (data['fileSize'] ?? 0) is int ? data['fileSize'] : int.tryParse(data['fileSize'].toString()) ?? 0,
+      fileSize: (data['fileSize'] ?? 0) is int
+          ? data['fileSize']
+          : int.tryParse(data['fileSize'].toString()) ?? 0,
       mimeType: data['mimeType'] ?? 'application/octet-stream',
       uploadedBy: data['uploadedBy'] ?? '',
-      uploadedAt: (data['uploadedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      tags: (data['tags'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
+      uploadedAt:
+          (data['uploadedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      tags: (data['tags'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList(),
       folder: data['folder'] ?? 'general',
     );
   }
 
   Map<String, dynamic> toFirestore() => {
-        'fileName': fileName,
-        'fileUrl': fileUrl,
-        'fileSize': fileSize,
-        'mimeType': mimeType,
-        'uploadedBy': uploadedBy,
-        'uploadedAt': Timestamp.fromDate(uploadedAt),
-        'tags': tags,
-        'folder': folder,
-      };
+    'fileName': fileName,
+    'fileUrl': fileUrl,
+    'fileSize': fileSize,
+    'mimeType': mimeType,
+    'uploadedBy': uploadedBy,
+    'uploadedAt': Timestamp.fromDate(uploadedAt),
+    'tags': tags,
+    'folder': folder,
+  };
 
   String get sizeLabel {
     if (fileSize < 1024) return '$fileSize B';
-    if (fileSize < 1024 * 1024) return '${(fileSize / 1024).toStringAsFixed(1)} KB';
+    if (fileSize < 1024 * 1024) {
+      return '${(fileSize / 1024).toStringAsFixed(1)} KB';
+    }
     return '${(fileSize / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 

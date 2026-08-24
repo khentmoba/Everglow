@@ -77,104 +77,103 @@ class _AiringCountdownChipState extends State<_AiringCountdownChip> {
   }
 }
 
+Widget _buildGenreChip(String name) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+    decoration: BoxDecoration(
+      color: AppColors.shimmerBase,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(
+        color: AppColors.moonlight.withValues(alpha: 0.14),
+        width: 1,
+      ),
+    ),
+    child: Text(
+      name,
+      style: AppTypography.outfitBold.copyWith(
+        color: AppColors.textMedium,
+        fontSize: 11,
+      ),
+    ),
+  );
+}
 
-  Widget _buildGenreChip(String name) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppColors.shimmerBase,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: AppColors.moonlight.withValues(alpha: 0.14),
-          width: 1,
-        ),
+Widget _buildEnhancedGenreChip(String name) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+    decoration: BoxDecoration(
+      color: AppColors.surfaceGlass,
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: AppColors.roseQuartz.withValues(alpha: 0.25)),
+    ),
+    child: Text(
+      name,
+      style: AppTypography.outfitBold.copyWith(
+        color: AppColors.roseQuartz.withValues(alpha: 0.95),
+        fontSize: 12,
       ),
-      child: Text(
-        name,
-        style: AppTypography.outfitBold.copyWith(
-          color: AppColors.textMedium,
-          fontSize: 11,
-        ),
-      ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildEnhancedGenreChip(String name) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceGlass,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.roseQuartz.withValues(alpha: 0.25)),
-      ),
-      child: Text(
-        name,
-        style: AppTypography.outfitBold.copyWith(
-          color: AppColors.roseQuartz.withValues(alpha: 0.95),
-          fontSize: 12,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEnhancedAnimeFactChip(String label, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.blushGold.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.blushGold.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: AppColors.blushGold, size: 12),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: AppTypography.outfitHeading.copyWith(
-              color: AppColors.blushGold,
-              fontSize: 10.5,
-              letterSpacing: 0.5,
-            ),
+Widget _buildEnhancedAnimeFactChip(String label, IconData icon) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+    decoration: BoxDecoration(
+      color: AppColors.blushGold.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: AppColors.blushGold.withValues(alpha: 0.3)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: AppColors.blushGold, size: 12),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: AppTypography.outfitHeading.copyWith(
+            color: AppColors.blushGold,
+            fontSize: 10.5,
+            letterSpacing: 0.5,
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAnimeFactChip(String label, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppColors.shimmerBase,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppColors.blushGold.withValues(alpha: 0.35),
-          width: 1,
         ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: AppColors.blushGold, size: 11),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: AppTypography.outfitHeading.copyWith(
-              color: AppColors.blushGold,
-              fontSize: 10,
-              letterSpacing: 0.4,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+      ],
+    ),
+  );
+}
 
-  Widget _buildAiringCountdownChip(int nextAiringAtSeconds, int? nextEpisode) {
-    return _AiringCountdownChip(
-      nextAiringAt: nextAiringAtSeconds,
-      nextEpisode: nextEpisode,
-    );
-  }
+Widget _buildAnimeFactChip(String label, IconData icon) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    decoration: BoxDecoration(
+      color: AppColors.shimmerBase,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(
+        color: AppColors.blushGold.withValues(alpha: 0.35),
+        width: 1,
+      ),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: AppColors.blushGold, size: 11),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: AppTypography.outfitHeading.copyWith(
+            color: AppColors.blushGold,
+            fontSize: 10,
+            letterSpacing: 0.4,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _buildAiringCountdownChip(int nextAiringAtSeconds, int? nextEpisode) {
+  return _AiringCountdownChip(
+    nextAiringAt: nextAiringAtSeconds,
+    nextEpisode: nextEpisode,
+  );
+}

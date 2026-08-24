@@ -4,8 +4,11 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_typography.dart';
 
-/// Glass page header for feature screens: back control, title, subtitle
-/// and trailing actions, all in one consistent shell.
+/// Glass page header for feature screens — cleaner v2.
+///
+/// Lighter, more breathable: flatter glass, subtler border, softer shadow,
+/// tighter vertical rhythm. Keeps Dusk Petal identity while removing the
+/// heavy gradient + hard shadow of v1.
 class EverglowFeatureHeader extends StatelessWidget {
   final String title;
   final String? subtitle;
@@ -27,53 +30,39 @@ class EverglowFeatureHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    final titleSize = width < 360 ? 19.0 : 22.0;
+    final titleSize = width < 360 ? 18.0 : 21.0;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppColors.moonlight.withValues(alpha: 0.10),
-              AppColors.inkDeep.withValues(alpha: 0.45),
-            ],
-          ),
+          color: AppColors.panelGlass,
           borderRadius: AppRadius.radiusXl,
           border: Border.all(
-            color: AppColors.moonlight.withValues(alpha: 0.14),
+            color: AppColors.moonlight.withValues(alpha: 0.11),
           ),
           boxShadow: [
             BoxShadow(
-              color: AppColors.inkDeep.withValues(alpha: 0.4),
+              color: AppColors.inkDeep.withValues(alpha: 0.20),
               blurRadius: 18,
-              offset: const Offset(0, 8),
+              offset: const Offset(0, 6),
             ),
           ],
         ),
         child: Row(
           children: [
             _BackButton(onBack: onBack),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             if (icon != null) ...[
               Container(
-                width: 38,
-                height: 38,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      hue.withValues(alpha: 0.26),
-                      hue.withValues(alpha: 0.08),
-                    ],
-                  ),
-                  border: Border.all(color: hue.withValues(alpha: 0.45)),
+                  color: hue.withValues(alpha: 0.13),
+                  border: Border.all(color: hue.withValues(alpha: 0.34)),
                 ),
-                child: Icon(icon, color: hue, size: 19),
+                child: Icon(icon, color: hue, size: 18),
               ),
               const SizedBox(width: 10),
             ],
@@ -87,20 +76,21 @@ class EverglowFeatureHeader extends StatelessWidget {
                     style: AppTypography.cormorantBold.copyWith(
                       fontSize: titleSize,
                       height: 1.0,
-                      letterSpacing: 0.4,
+                      letterSpacing: 0.3,
+                      color: AppColors.petalWhite,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (subtitle != null) ...[
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
                     Text(
                       subtitle!,
                       style: AppTypography.outfitWhite.copyWith(
-                        fontSize: 10.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w500,
-                        color: AppColors.petalWhite.withValues(alpha: 0.55),
-                        letterSpacing: 0.3,
+                        color: AppColors.petalWhite.withValues(alpha: 0.52),
+                        letterSpacing: 0.35,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -126,8 +116,9 @@ class _BackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final canPop = context.canPop();
     return Tooltip(
-      message: 'Back to dashboard',
+      message: canPop ? 'Back' : 'Dashboard',
       child: Semantics(
         button: true,
         label: 'Back',
@@ -137,26 +128,26 @@ class _BackButton extends StatelessWidget {
             onTap:
                 onBack ??
                 () {
-                  if (context.canPop()) {
+                  if (canPop) {
                     context.pop();
                   } else {
                     context.go('/dashboard');
                   }
                 },
             child: Container(
-              width: 38,
-              height: 38,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.moonlight.withValues(alpha: 0.10),
+                color: AppColors.moonlight.withValues(alpha: 0.08),
                 border: Border.all(
-                  color: AppColors.moonlight.withValues(alpha: 0.22),
+                  color: AppColors.moonlight.withValues(alpha: 0.16),
                 ),
               ),
               child: const Icon(
                 Icons.arrow_back_ios_new_rounded,
                 color: AppColors.roseQuartz,
-                size: 17,
+                size: 16,
               ),
             ),
           ),

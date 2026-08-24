@@ -143,7 +143,8 @@ class BucketItemCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (item.priority == BucketPriority.urgent || item.priority == BucketPriority.high)
+                      if (item.priority == BucketPriority.urgent ||
+                          item.priority == BucketPriority.high)
                         Positioned(
                           right: 0,
                           top: 0,
@@ -153,7 +154,10 @@ class BucketItemCard extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: _priorityColor(item.priority),
                               shape: BoxShape.circle,
-                              border: Border.all(color: AppTheme.velvet, width: 1.5),
+                              border: Border.all(
+                                color: AppTheme.velvet,
+                                width: 1.5,
+                              ),
                             ),
                           ),
                         ),
@@ -173,7 +177,9 @@ class BucketItemCard extends StatelessWidget {
                                 style: AppTypography.outfitBold.copyWith(
                                   fontSize: 14,
                                   color: isCompleted
-                                      ? AppTheme.petalWhite.withValues(alpha: 0.5)
+                                      ? AppTheme.petalWhite.withValues(
+                                          alpha: 0.5,
+                                        )
                                       : AppTheme.petalWhite,
                                   decoration: isCompleted
                                       ? TextDecoration.lineThrough
@@ -184,9 +190,14 @@ class BucketItemCard extends StatelessWidget {
                             if (item.priority != BucketPriority.medium)
                               Container(
                                 margin: const EdgeInsets.only(left: 6),
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: _priorityColor(item.priority).withValues(alpha: 0.18),
+                                  color: _priorityColor(
+                                    item.priority,
+                                  ).withValues(alpha: 0.18),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
@@ -216,23 +227,36 @@ class BucketItemCard extends StatelessWidget {
                           children: [
                             if (item.assignedTo != null) ...[
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: AppColors.auroraTeal.withValues(alpha: 0.15),
+                                  color: AppColors.auroraTeal.withValues(
+                                    alpha: 0.15,
+                                  ),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(
-                                      item.assignedTo == 'khentsgdz' ? Icons.person_rounded : Icons.favorite_rounded,
+                                      item.assignedTo == 'khentsgdz'
+                                          ? Icons.person_rounded
+                                          : Icons.favorite_rounded,
                                       size: 10,
                                       color: AppColors.auroraTeal,
                                     ),
                                     const SizedBox(width: 3),
                                     Text(
-                                      item.assignedTo == 'khentsgdz' ? 'Khent' : 'Clair',
-                                      style: AppTypography.outfitWhite.copyWith(fontSize: 10, color: AppColors.auroraTeal, fontWeight: FontWeight.bold),
+                                      item.assignedTo == 'khentsgdz'
+                                          ? 'Khent'
+                                          : 'Clair',
+                                      style: AppTypography.outfitWhite.copyWith(
+                                        fontSize: 10,
+                                        color: AppColors.auroraTeal,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -241,17 +265,26 @@ class BucketItemCard extends StatelessWidget {
                             ],
                             if (item.dueDate != null)
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: item.isOverdue
                                       ? Colors.redAccent.withValues(alpha: 0.15)
                                       : item.isDueSoon
-                                          ? AppTheme.warmAmber.withValues(alpha: 0.15)
-                                          : AppTheme.moonlight.withValues(alpha: 0.08),
+                                      ? AppTheme.warmAmber.withValues(
+                                          alpha: 0.15,
+                                        )
+                                      : AppTheme.moonlight.withValues(
+                                          alpha: 0.08,
+                                        ),
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
                                     color: item.isOverdue
-                                        ? Colors.redAccent.withValues(alpha: 0.3)
+                                        ? Colors.redAccent.withValues(
+                                            alpha: 0.3,
+                                          )
                                         : Colors.transparent,
                                   ),
                                 ),
@@ -259,27 +292,37 @@ class BucketItemCard extends StatelessWidget {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(
-                                      item.isOverdue ? Icons.warning_rounded : Icons.calendar_today_rounded,
+                                      item.isOverdue
+                                          ? Icons.warning_rounded
+                                          : Icons.calendar_today_rounded,
                                       size: 10,
                                       color: item.isOverdue
                                           ? Colors.redAccent
                                           : item.isDueSoon
-                                              ? AppTheme.warmAmber
-                                              : AppTheme.petalWhite.withValues(alpha: 0.6),
+                                          ? AppTheme.warmAmber
+                                          : AppTheme.petalWhite.withValues(
+                                              alpha: 0.6,
+                                            ),
                                     ),
                                     const SizedBox(width: 3),
                                     Text(
                                       item.isOverdue
                                           ? 'Overdue ${DateFormat.MMMd().format(item.dueDate!)}'
-                                          : DateFormat.MMMd().format(item.dueDate!),
+                                          : DateFormat.MMMd().format(
+                                              item.dueDate!,
+                                            ),
                                       style: AppTypography.outfitWhite.copyWith(
                                         fontSize: 10,
                                         color: item.isOverdue
                                             ? Colors.redAccent
                                             : item.isDueSoon
-                                                ? AppTheme.warmAmber
-                                                : AppTheme.petalWhite.withValues(alpha: 0.6),
-                                        fontWeight: item.isOverdue ? FontWeight.bold : FontWeight.w500,
+                                            ? AppTheme.warmAmber
+                                            : AppTheme.petalWhite.withValues(
+                                                alpha: 0.6,
+                                              ),
+                                        fontWeight: item.isOverdue
+                                            ? FontWeight.bold
+                                            : FontWeight.w500,
                                       ),
                                     ),
                                   ],
@@ -369,7 +412,10 @@ class BucketItemCard extends StatelessWidget {
               ),
               Row(
                 children: [
-                  Text(item.category.emoji, style: const TextStyle(fontSize: 24)),
+                  Text(
+                    item.category.emoji,
+                    style: const TextStyle(fontSize: 24),
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -378,14 +424,21 @@ class BucketItemCard extends StatelessWidget {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: _statusColor(item.status).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       '${item.status.emoji} ${item.status.displayName}',
-                      style: AppTypography.outfitWhite.copyWith(fontSize: 11, fontWeight: FontWeight.bold, color: _statusColor(item.status)),
+                      style: AppTypography.outfitWhite.copyWith(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: _statusColor(item.status),
+                      ),
                     ),
                   ),
                 ],
@@ -406,30 +459,72 @@ class BucketItemCard extends StatelessWidget {
                 runSpacing: 8,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: _priorityColor(item.priority).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: _priorityColor(item.priority).withValues(alpha: 0.3)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
                     ),
-                    child: Text('${item.priority.emoji} ${item.priority.displayName}', style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: _priorityColor(item.priority), fontWeight: FontWeight.bold)),
+                    decoration: BoxDecoration(
+                      color: _priorityColor(
+                        item.priority,
+                      ).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: _priorityColor(
+                          item.priority,
+                        ).withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Text(
+                      '${item.priority.emoji} ${item.priority.displayName}',
+                      style: AppTypography.outfitWhite.copyWith(
+                        fontSize: 11,
+                        color: _priorityColor(item.priority),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                   if (item.assignedTo != null)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(color: AppColors.auroraTeal.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
-                      child: Text(item.assignedTo == 'khentsgdz' ? '👤 Khent' : '💕 Clair', style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: AppColors.auroraTeal)),
-                    ),
-                  if (item.dueDate != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
-                        color: item.isOverdue ? Colors.redAccent.withValues(alpha: 0.12) : AppTheme.moonlight.withValues(alpha: 0.08),
+                        color: AppColors.auroraTeal.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        item.isOverdue ? '⚠️ Overdue ${DateFormat.yMMMd().format(item.dueDate!)}' : '📅 ${DateFormat.yMMMd().format(item.dueDate!)}',
-                        style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: item.isOverdue ? Colors.redAccent : AppTheme.petalWhite.withValues(alpha: 0.7)),
+                        item.assignedTo == 'khentsgdz'
+                            ? '👤 Khent'
+                            : '💕 Clair',
+                        style: AppTypography.outfitWhite.copyWith(
+                          fontSize: 11,
+                          color: AppColors.auroraTeal,
+                        ),
+                      ),
+                    ),
+                  if (item.dueDate != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: item.isOverdue
+                            ? Colors.redAccent.withValues(alpha: 0.12)
+                            : AppTheme.moonlight.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        item.isOverdue
+                            ? '⚠️ Overdue ${DateFormat.yMMMd().format(item.dueDate!)}'
+                            : '📅 ${DateFormat.yMMMd().format(item.dueDate!)}',
+                        style: AppTypography.outfitWhite.copyWith(
+                          fontSize: 11,
+                          color: item.isOverdue
+                              ? Colors.redAccent
+                              : AppTheme.petalWhite.withValues(alpha: 0.7),
+                        ),
                       ),
                     ),
                 ],
@@ -454,7 +549,13 @@ class BucketItemCard extends StatelessWidget {
               ],
               const SizedBox(height: 16),
               // Kanban move row (Vikunja)
-              Text('Move to', style: AppTypography.outfitBold.copyWith(fontSize: 11, color: AppTheme.petalWhite.withValues(alpha: 0.6))),
+              Text(
+                'Move to',
+                style: AppTypography.outfitBold.copyWith(
+                  fontSize: 11,
+                  color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                ),
+              ),
               const SizedBox(height: 8),
               Row(
                 children: BucketStatus.values.map((s) {
@@ -466,21 +567,47 @@ class BucketItemCard extends StatelessWidget {
                         onTap: isCurrent
                             ? null
                             : () async {
-                                await BucketListService().moveStatus(item.id, s, completedBy: currentUsername);
+                                await BucketListService().moveStatus(
+                                  item.id,
+                                  s,
+                                  completedBy: currentUsername,
+                                );
                                 if (ctx.mounted) Navigator.pop(ctx);
                               },
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           decoration: BoxDecoration(
-                            color: isCurrent ? _statusColor(s).withValues(alpha: 0.25) : AppTheme.twilight,
+                            color: isCurrent
+                                ? _statusColor(s).withValues(alpha: 0.25)
+                                : AppTheme.twilight,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: isCurrent ? _statusColor(s) : AppTheme.blushGold.withValues(alpha: 0.12)),
+                            border: Border.all(
+                              color: isCurrent
+                                  ? _statusColor(s)
+                                  : AppTheme.blushGold.withValues(alpha: 0.12),
+                            ),
                           ),
                           child: Column(
                             children: [
-                              Text(s.emoji, style: const TextStyle(fontSize: 18)),
+                              Text(
+                                s.emoji,
+                                style: const TextStyle(fontSize: 18),
+                              ),
                               const SizedBox(height: 2),
-                              Text(s.displayName, style: AppTypography.outfitWhite.copyWith(fontSize: 10, color: isCurrent ? _statusColor(s) : AppTheme.petalWhite.withValues(alpha: 0.7), fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500)),
+                              Text(
+                                s.displayName,
+                                style: AppTypography.outfitWhite.copyWith(
+                                  fontSize: 10,
+                                  color: isCurrent
+                                      ? _statusColor(s)
+                                      : AppTheme.petalWhite.withValues(
+                                          alpha: 0.7,
+                                        ),
+                                  fontWeight: isCurrent
+                                      ? FontWeight.bold
+                                      : FontWeight.w500,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -501,7 +628,12 @@ class BucketItemCard extends StatelessWidget {
                         final svc = BucketListService();
                         if (item.assignedTo == null) {
                           // assign to current user
-                          await svc.assign(item.id, currentUsername.isEmpty ? 'khentsgdz' : currentUsername);
+                          await svc.assign(
+                            item.id,
+                            currentUsername.isEmpty
+                                ? 'khentsgdz'
+                                : currentUsername,
+                          );
                         } else {
                           await svc.assign(item.id, null);
                         }
@@ -518,15 +650,28 @@ class BucketItemCard extends StatelessWidget {
                         final picked = await showDatePicker(
                           context: ctx,
                           initialDate: item.dueDate ?? DateTime.now(),
-                          firstDate: DateTime.now().subtract(const Duration(days: 1)),
-                          lastDate: DateTime.now().add(const Duration(days: 730)),
+                          firstDate: DateTime.now().subtract(
+                            const Duration(days: 1),
+                          ),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 730),
+                          ),
                           builder: (c, child) => Theme(
-                            data: Theme.of(c).copyWith(colorScheme: ColorScheme.dark(primary: AppTheme.deepRose, surface: AppTheme.velvet, onSurface: AppTheme.petalWhite)),
+                            data: Theme.of(c).copyWith(
+                              colorScheme: const ColorScheme.dark(
+                                primary: AppTheme.deepRose,
+                                surface: AppTheme.velvet,
+                                onSurface: AppTheme.petalWhite,
+                              ),
+                            ),
                             child: child!,
                           ),
                         );
                         if (picked != null) {
-                          await BucketListService().setDueDate(item.id, DateTime(picked.year, picked.month, picked.day));
+                          await BucketListService().setDueDate(
+                            item.id,
+                            DateTime(picked.year, picked.month, picked.day),
+                          );
                           if (ctx.mounted) Navigator.pop(ctx);
                         }
                       },
@@ -537,10 +682,15 @@ class BucketItemCard extends StatelessWidget {
                     child: _buildMiniEditButton(
                       label: item.dueDate == null ? 'No due' : 'Clear due',
                       icon: Icons.clear_rounded,
-                      onTap: item.dueDate == null ? null : () async {
-                        await BucketListService().setDueDate(item.id, null);
-                        if (ctx.mounted) Navigator.pop(ctx);
-                      },
+                      onTap: item.dueDate == null
+                          ? null
+                          : () async {
+                              await BucketListService().setDueDate(
+                                item.id,
+                                null,
+                              );
+                              if (ctx.mounted) Navigator.pop(ctx);
+                            },
                     ),
                   ),
                 ],
@@ -552,18 +702,38 @@ class BucketItemCard extends StatelessWidget {
                 children: BucketPriority.values.map((p) {
                   final isSel = item.priority == p;
                   return GestureDetector(
-                    onTap: isSel ? null : () async {
-                      await BucketListService().setPriority(item.id, p);
-                      if (ctx.mounted) Navigator.pop(ctx);
-                    },
+                    onTap: isSel
+                        ? null
+                        : () async {
+                            await BucketListService().setPriority(item.id, p);
+                            if (ctx.mounted) Navigator.pop(ctx);
+                          },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isSel ? _priorityColor(p).withValues(alpha: 0.2) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: isSel ? _priorityColor(p) : AppTheme.blushGold.withValues(alpha: 0.12)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
                       ),
-                      child: Text('${p.emoji} ${p.displayName}', style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: isSel ? _priorityColor(p) : AppTheme.petalWhite.withValues(alpha: 0.6), fontWeight: isSel ? FontWeight.bold : FontWeight.w500)),
+                      decoration: BoxDecoration(
+                        color: isSel
+                            ? _priorityColor(p).withValues(alpha: 0.2)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isSel
+                              ? _priorityColor(p)
+                              : AppTheme.blushGold.withValues(alpha: 0.12),
+                        ),
+                      ),
+                      child: Text(
+                        '${p.emoji} ${p.displayName}',
+                        style: AppTypography.outfitWhite.copyWith(
+                          fontSize: 11,
+                          color: isSel
+                              ? _priorityColor(p)
+                              : AppTheme.petalWhite.withValues(alpha: 0.6),
+                          fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+                        ),
+                      ),
                     ),
                   );
                 }).toList(),
@@ -575,22 +745,42 @@ class BucketItemCard extends StatelessWidget {
     );
   }
 
-  Widget _buildMiniEditButton({required String label, required IconData icon, VoidCallback? onTap}) {
+  Widget _buildMiniEditButton({
+    required String label,
+    required IconData icon,
+    VoidCallback? onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: onTap == null ? AppTheme.twilight.withValues(alpha: 0.5) : AppTheme.moonlight.withValues(alpha: 0.08),
+          color: onTap == null
+              ? AppTheme.twilight.withValues(alpha: 0.5)
+              : AppTheme.moonlight.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.12)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 14, color: onTap == null ? AppTheme.petalWhite.withValues(alpha: 0.3) : AppTheme.blushGold),
+            Icon(
+              icon,
+              size: 14,
+              color: onTap == null
+                  ? AppTheme.petalWhite.withValues(alpha: 0.3)
+                  : AppTheme.blushGold,
+            ),
             const SizedBox(width: 6),
-            Text(label, style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: onTap == null ? AppTheme.petalWhite.withValues(alpha: 0.3) : AppTheme.petalWhite.withValues(alpha: 0.8))),
+            Text(
+              label,
+              style: AppTypography.outfitWhite.copyWith(
+                fontSize: 11,
+                color: onTap == null
+                    ? AppTheme.petalWhite.withValues(alpha: 0.3)
+                    : AppTheme.petalWhite.withValues(alpha: 0.8),
+              ),
+            ),
           ],
         ),
       ),

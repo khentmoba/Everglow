@@ -59,15 +59,15 @@ class SimilarSection extends StatelessWidget {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: item.posterUrl.isNotEmpty
-                            ? Image.network(item.posterUrl,
-                                fit: BoxFit.cover)
+                            ? Image.network(item.posterUrl, fit: BoxFit.cover)
                             : Container(
                                 color: AppColors.shimmerBase,
                                 child: const Center(
                                   child: Icon(
-                                      Icons.movie_creation_outlined,
-                                      color: AppColors.mutedPurple,
-                                      size: 28),
+                                    Icons.movie_creation_outlined,
+                                    color: AppColors.mutedPurple,
+                                    size: 28,
+                                  ),
                                 ),
                               ),
                       ),
@@ -83,10 +83,11 @@ class SimilarSection extends StatelessWidget {
                   Text(
                     item.year.isNotEmpty
                         ? item.year
-                        : (item.mediaType == 'movie'
-                            ? 'Movie'
-                            : 'Series'),
-                    style: AppTypography.outfitWhite.copyWith(color: AppColors.mutedPurple, fontSize: 10),
+                        : (item.mediaType == 'movie' ? 'Movie' : 'Series'),
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: AppColors.mutedPurple,
+                      fontSize: 10,
+                    ),
                   ),
                 ],
               ),

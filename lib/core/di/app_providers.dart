@@ -39,14 +39,23 @@ final List<SingleChildWidget> appProviders = [
   Provider.value(value: _moodService),
   ChangeNotifierProvider(create: (_) => MoodController(_moodService)),
   ChangeNotifierProvider.value(value: _aiService),
-  ChangeNotifierProvider(create: (_) => GuardianController(_guardianService, moodService: _moodService, authService: _authService, aiService: _aiService)),
+  ChangeNotifierProvider(
+    create: (_) => GuardianController(
+      _guardianService,
+      moodService: _moodService,
+      authService: _authService,
+      aiService: _aiService,
+    ),
+  ),
   ChangeNotifierProvider.value(value: _spotifyAuth),
-  ChangeNotifierProvider(create: (_) {
-    _spotifyPlayer = SpotifyPlayerService(_spotifyAuth);
-    // Start listening to link status once auth is ready; actual init is lazy (needs user gesture)
-    _spotifyAuth.start();
-    return _spotifyPlayer;
-  }),
+  ChangeNotifierProvider(
+    create: (_) {
+      _spotifyPlayer = SpotifyPlayerService(_spotifyAuth);
+      // Start listening to link status once auth is ready; actual init is lazy (needs user gesture)
+      _spotifyAuth.start();
+      return _spotifyPlayer;
+    },
+  ),
   ChangeNotifierProvider(create: (_) => JukeboxProvider()),
   ChangeNotifierProvider(create: (_) => MusicStatsProvider()),
 ];

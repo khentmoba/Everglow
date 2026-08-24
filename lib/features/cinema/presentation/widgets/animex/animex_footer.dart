@@ -25,10 +25,7 @@ class AnimeXFooter extends StatelessWidget {
           builder: (context, constraints) {
             final isWide = constraints.maxWidth >= 640;
             final links = <Widget>[
-              _FooterLink(
-                label: 'DMCA',
-                onTap: () => controller.openDmca(),
-              ),
+              _FooterLink(label: 'DMCA', onTap: () => controller.openDmca()),
               const SizedBox(width: 20),
               _FooterLink(
                 label: 'Home',
@@ -37,10 +34,7 @@ class AnimeXFooter extends StatelessWidget {
               const SizedBox(width: 20),
               Text(
                 '© 2026 Everglow. For entertainment purposes only.',
-                style: dmSansStyle(
-                  size: 12,
-                  color: AnimeXTokens.textMuted,
-                ),
+                style: dmSansStyle(size: 12, color: AnimeXTokens.textMuted),
               ),
             ];
 
@@ -59,10 +53,7 @@ class AnimeXFooter extends StatelessWidget {
                     ),
                     Text(
                       'GLOW',
-                      style: bebasStyle(
-                        size: 19,
-                        color: AnimeXTokens.accent,
-                      ),
+                      style: bebasStyle(size: 19, color: AnimeXTokens.accent),
                     ),
                     const SizedBox(width: 10),
                     Text(

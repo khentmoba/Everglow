@@ -25,7 +25,7 @@ class FeatureSection extends StatefulWidget {
     this.trailing,
     required this.child,
     this.onTap,
-    this.padding = const EdgeInsets.all(16),
+    this.padding = const EdgeInsets.all(18),
   });
 
   @override
@@ -54,29 +54,29 @@ class _FeatureSectionState extends State<FeatureSection> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.white.withValues(alpha: 0.07),
-                AppColors.velvet.withValues(alpha: 0.68),
-                AppColors.inkDeep.withValues(alpha: 0.74),
+                Colors.white.withValues(alpha: 0.04),
+                AppColors.velvet.withValues(alpha: 0.52),
+                AppColors.inkDeep.withValues(alpha: 0.58),
               ],
               stops: const [0.0, 0.42, 1.0],
             ),
             borderRadius: AppRadius.radiusX2,
             border: Border.all(
               color: _hovered
-                  ? widget.hue.withValues(alpha: 0.48)
-                  : Colors.white.withValues(alpha: 0.08),
+                  ? widget.hue.withValues(alpha: 0.32)
+                  : Colors.white.withValues(alpha: 0.06),
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.42),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
+                color: Colors.black.withValues(alpha: 0.20),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
               ),
               BoxShadow(
-                color: widget.hue.withValues(alpha: _hovered ? 0.14 : 0.06),
-                blurRadius: 22,
-                spreadRadius: -4,
+                color: widget.hue.withValues(alpha: _hovered ? 0.10 : 0.04),
+                blurRadius: 18,
+                spreadRadius: -6,
               ),
             ],
           ),
@@ -93,7 +93,7 @@ class _FeatureSectionState extends State<FeatureSection> {
                     gradient: LinearGradient(
                       colors: [
                         Colors.transparent,
-                        widget.hue.withValues(alpha: 0.55),
+                        widget.hue.withValues(alpha: 0.28),
                         Colors.transparent,
                       ],
                     ),
@@ -129,8 +129,9 @@ class _FeatureSectionState extends State<FeatureSection> {
                                   style: AppTypography.outfitWhite.copyWith(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w500,
+                                    letterSpacing: 0.25,
                                     color: AppColors.petalWhite.withValues(
-                                      alpha: 0.55,
+                                      alpha: 0.52,
                                     ),
                                   ),
                                 ),
@@ -163,8 +164,8 @@ class _IconChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 40,
-      height: 40,
+      width: 42,
+      height: 42,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -172,7 +173,7 @@ class _IconChip extends StatelessWidget {
           colors: [hue.withValues(alpha: 0.26), hue.withValues(alpha: 0.08)],
         ),
         borderRadius: AppRadius.radiusMd,
-        border: Border.all(color: hue.withValues(alpha: 0.45), width: 1),
+        border: Border.all(color: hue.withValues(alpha: 0.32), width: 1),
         boxShadow: [
           BoxShadow(
             color: hue.withValues(alpha: 0.22),

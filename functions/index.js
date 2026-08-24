@@ -15,6 +15,11 @@ const {
   STALE_PRESENCE_MS,
   isStalePresence,
 } = require('./system_core.js');
+const { isValidPasscodeFormat } = require('./auth_core.js');
+const {
+  buildLastfmUpstream,
+  buildTmdbUpstream,
+} = require('./media_proxy_core.js');
 
 /** Mirrors `pubspec.yaml` / `lib/core/system/app_version.dart`. */
 const APP_VERSION = '6.0.0+1';
@@ -2251,6 +2256,84 @@ exports.health = functions.https.onRequest(async (req, res) => {
     uptimeSeconds: Math.round(process.uptime()),
     checks,
   });
+});
+
+/**
+ * Authenticated TMDB metadata proxy. The client supplies the normal TMDB path
+ * after /proxyTmdb (for example: /trending/all/week); any client api_key is
+ * ignored and replaced server-side so the browser bundle never contains it.
+ */
+exports.proxyTmdb = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.set('Cache-Control', 'private, no-store');
+
+  if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+  if (req.method !== 'GET') { res.status(405).json({ error: 'GET only' }); return; }
+
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
+
+  const apiKey = (process.env.TMDB_API_KEY || '').trim();
+  if (!apiKey) { res.status(503).json({ error: 'TMDB is not configured' }); return; }
+
+  let upstream;
+  try {
+    upstream = buildTmdbUpstream(req.path, req.query, apiKey);
+  } catch (_) {
+    res.status(400).json({ error: 'Invalid TMDB path' });
+    return;
+  }
+
+  try {
+    const response = await fetch(upstream, { signal: AbortSignal.timeout(12000) });
+    const body = await response.text();
+    res.status(response.statusCode)
+      .set('Content-Type', response.headers.get('content-type') || 'application/json')
+      .send(body);
+  } catch (e) {
+    console.warn('[proxyTmdb] failed:', e.message);
+    res.status(502).json({ error: 'TMDB request failed' });
+  }
+});
+
+/**
+ * Authenticated read-only Last.fm proxy. Only public catalog/user lookup
+ * methods are allowed; the API key stays in Cloud Functions.
+ */
+exports.proxyLastfm = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.set('Cache-Control', 'private, no-store');
+
+  if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+  if (req.method !== 'GET') { res.status(405).json({ error: 'GET only' }); return; }
+
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
+
+  const apiKey = (process.env.LASTFM_API_KEY || '').trim();
+  if (!apiKey) { res.status(503).json({ error: 'Last.fm is not configured' }); return; }
+
+  let upstream;
+  try {
+    upstream = buildLastfmUpstream(req.query, apiKey);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+    return;
+  }
+  try {
+    const response = await fetch(upstream, { signal: AbortSignal.timeout(12000) });
+    const body = await response.text();
+    res.status(response.statusCode)
+      .set('Content-Type', response.headers.get('content-type') || 'application/json')
+      .send(body);
+  } catch (e) {
+    console.warn('[proxyLastfm] failed:', e.message);
+    res.status(502).json({ error: 'Last.fm request failed' });
+  }
 });
 
 /**
@@ -5472,7 +5555,7 @@ exports.verifyPasscode=functions.https.onRequest(async(req,res)=>{
   const ip=((req.headers['x-forwarded-for']||'').split(',')[0]||req.ip||'x').trim();
   if(_pcHit(ip)){res.status(429).json({error:'Too many attempts'});return;}
   const code=String((req.body&&req.body.passcode)||req.query.passcode||'').trim();
-  if(!code||!/^\\d{4}$/.test(code)){res.status(400).json({error:'passcode required'});return;}
+  if(!code||!isValidPasscodeFormat(code)){res.status(400).json({error:'passcode required'});return;}
   const clair=(process.env.CLAIR_PASSCODE||'').trim();const khent=(process.env.KHENT_PASSCODE||'').trim();
   let username=null;if(clair&&code===clair)username='clairjassen';else if(khent&&code===khent)username='khentsgdz';else{res.status(401).json({error:'Invalid passcode'});return;}
   const emails={clairjassen:process.env.CLAIR_EMAIL||'',khentsgdz:process.env.KHENT_EMAIL||''};

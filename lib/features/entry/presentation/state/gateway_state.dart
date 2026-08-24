@@ -70,23 +70,35 @@ class GatewayNotifier extends ChangeNotifier {
     if (isClientCinemaCode) {
       _lastEnteredPasscode = _currentInput;
       updateState(GatewayState.unlocking);
-    } else if (verifyCouplePasscode != null) {
+      return;
+    }
+    if (verifyCouplePasscode != null) {
       try {
         final username = await verifyCouplePasscode!(_currentInput);
-        if (username != null && (username == 'khentsgdz' || username == 'clairjassen')) {
+        if (username != null &&
+            (username == 'khentsgdz' || username == 'clairjassen')) {
           _lastEnteredPasscode = _currentInput;
           updateState(GatewayState.unlocking);
           return;
         }
       } catch (_) {}
-      // Fallback: if server not configured or offline, allow client EnvConfig for dev.
-      final fallbackOk = (_currentInput == EnvConfig.clairPasscode && EnvConfig.clairPasscode.isNotEmpty) || (_currentInput == EnvConfig.khentPasscode && EnvConfig.khentPasscode.isNotEmpty);
-      if (fallbackOk) { _lastEnteredPasscode = _currentInput; updateState(GatewayState.unlocking); return; }
-      updateState(GatewayState.error);
-      // Wait for shake animation
-      await Future.delayed(const Duration(milliseconds: 500));
-      clearInput();
-      updateState(GatewayState.awaitingInput);
     }
+    // Fallback: if server not configured, offline, or verifier unwired,
+    // allow client EnvConfig for dev.
+    final fallbackOk =
+        (_currentInput == EnvConfig.clairPasscode &&
+            EnvConfig.clairPasscode.isNotEmpty) ||
+        (_currentInput == EnvConfig.khentPasscode &&
+            EnvConfig.khentPasscode.isNotEmpty);
+    if (fallbackOk) {
+      _lastEnteredPasscode = _currentInput;
+      updateState(GatewayState.unlocking);
+      return;
+    }
+    updateState(GatewayState.error);
+    // Wait for shake animation
+    await Future.delayed(const Duration(milliseconds: 500));
+    clearInput();
+    updateState(GatewayState.awaitingInput);
   }
 }

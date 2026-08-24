@@ -48,7 +48,8 @@ class EverglowAppBar extends StatelessWidget {
             if (title != null || titleWidget != null) ...[
               const SizedBox(width: AppSpacing.md),
               Expanded(
-                child: titleWidget ??
+                child:
+                    titleWidget ??
                     Text(
                       title!,
                       style: AppTypography.titleMedium(),
@@ -59,10 +60,12 @@ class EverglowAppBar extends StatelessWidget {
               const Spacer(),
 
             // Actions
-            ...actions.map((a) => Padding(
-              padding: const EdgeInsets.only(left: AppSpacing.sm),
-              child: a,
-            )),
+            ...actions.map(
+              (a) => Padding(
+                padding: const EdgeInsets.only(left: AppSpacing.sm),
+                child: a,
+              ),
+            ),
           ],
         ),
       ),

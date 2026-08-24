@@ -33,11 +33,12 @@ class AnimexStores extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final historyRaw = prefs.getString(_historyKey);
       if (historyRaw != null && historyRaw.isNotEmpty) {
-        _history = (json.decode(historyRaw) as List)
-            .whereType<Map<String, dynamic>>()
-            .map(AnimexHistoryEntry.fromJson)
-            .toList()
-          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+        _history =
+            (json.decode(historyRaw) as List)
+                .whereType<Map<String, dynamic>>()
+                .map(AnimexHistoryEntry.fromJson)
+                .toList()
+              ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       }
       final playlistsRaw = prefs.getString(_playlistsKey);
       if (playlistsRaw != null && playlistsRaw.isNotEmpty) {
@@ -166,11 +167,7 @@ class AnimexStores extends ChangeNotifier {
     return playlist;
   }
 
-  Future<void> updatePlaylist(
-    String id, {
-    String? name,
-    String? emoji,
-  }) async {
+  Future<void> updatePlaylist(String id, {String? name, String? emoji}) async {
     final index = _playlists.indexWhere((p) => p.id == id);
     if (index < 0) return;
     _playlists[index] = _playlists[index].copyWith(name: name, emoji: emoji);

@@ -34,10 +34,11 @@ void main() {
     });
 
     test('fromFirestore defaults to movie when mediaType is missing', () {
-      final parsed = MediaItem.fromFirestore(
-        {'title': 'X', 'tmdbId': 1, 'status': 'watching'},
-        'doc',
-      );
+      final parsed = MediaItem.fromFirestore({
+        'title': 'X',
+        'tmdbId': 1,
+        'status': 'watching',
+      }, 'doc');
       expect(parsed.isMovie, isTrue);
     });
   });

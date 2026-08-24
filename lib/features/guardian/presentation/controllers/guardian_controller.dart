@@ -13,7 +13,7 @@ class GuardianController extends ChangeNotifier {
   final GuardianService _service;
   final MoodService? _moodService;
   final AuthService? _authService;
-  AIService? _aiService;
+  final AIService? _aiService;
 
   GuardianState _state = GuardianState.idle;
   GuardianMessage? _currentMessage;
@@ -24,11 +24,14 @@ class GuardianController extends ChangeNotifier {
   int _messageCounter = 0;
   String? _lastUserMessage;
 
-  GuardianController(this._service,
-      {MoodService? moodService, AuthService? authService, AIService? aiService})
-      : _moodService = moodService,
-        _authService = authService,
-        _aiService = aiService;
+  GuardianController(
+    this._service, {
+    MoodService? moodService,
+    AuthService? authService,
+    AIService? aiService,
+  }) : _moodService = moodService,
+       _authService = authService,
+       _aiService = aiService;
 
   GuardianState get state => _state;
   GuardianMessage? get currentMessage => _currentMessage;
@@ -36,7 +39,6 @@ class GuardianController extends ChangeNotifier {
   bool get isMoodPromptVisible => _isMoodPromptVisible;
   bool get isAIMode => _isAIMode;
   String? get lastUserMessage => _lastUserMessage;
-
 
   /// Toggle AI chat mode on/off.
   void toggleAIMode() {
@@ -85,7 +87,7 @@ class GuardianController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final reply = await _aiService!.guardianChat(message);
+      final reply = await _aiService.guardianChat(message);
       if (!mounted) return;
 
       _state = GuardianState.reacting;
@@ -185,14 +187,18 @@ class GuardianController extends ChangeNotifier {
   Future<void> _showAIGreeting() async {
     try {
       final greeting = await _aiService!.quickAsk(
-        message: 'Say a warm, playful greeting to the couple using the app. Be natural and varied — 1-2 sentences. Use an emoji.',
-        systemPrompt: 'You are Everglow Guardian — a cute magical cat mascot. Respond warmly with personality.',
+        message:
+            'Say a warm, playful greeting to the couple using the app. Be natural and varied — 1-2 sentences. Use an emoji.',
+        systemPrompt:
+            'You are Everglow Guardian — a cute magical cat mascot. Respond warmly with personality.',
       );
 
       if (!mounted) return;
       _currentMessage = GuardianMessage(
         id: 'ai_greeting_${DateTime.now().millisecondsSinceEpoch}',
-        content: greeting.isNotEmpty ? greeting : '✨ Purring with love for you two!',
+        content: greeting.isNotEmpty
+            ? greeting
+            : '✨ Purring with love for you two!',
         category: 'ai',
         createdAt: DateTime.now(),
       );
@@ -218,7 +224,8 @@ class GuardianController extends ChangeNotifier {
     _messageCounter++;
 
     // Occasionally mention partner's mood (every 5-10 messages)
-    if (_moodService != null && _authService != null &&
+    if (_moodService != null &&
+        _authService != null &&
         _messageCounter % 7 == 0) {
       final auth = _authService;
       final moodSvc = _moodService;

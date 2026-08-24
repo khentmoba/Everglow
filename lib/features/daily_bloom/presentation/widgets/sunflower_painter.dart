@@ -28,10 +28,10 @@ class SunflowerPainter extends CustomPainter {
       height: potHeight,
     );
 
-    paint.shader = LinearGradient(
+    paint.shader = const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [const Color(0xFFA1887F), const Color(0xFF8D6E63)],
+      colors: [Color(0xFFA1887F), Color(0xFF8D6E63)],
     ).createShader(rect);
 
     canvas.drawRRect(
@@ -133,7 +133,12 @@ class SunflowerPainter extends CustomPainter {
 
         final petalPath = Path();
         petalPath.moveTo(0, 0);
-        petalPath.quadraticBezierTo(petalSize * 0.3, -petalSize * 0.6, 0, -petalSize);
+        petalPath.quadraticBezierTo(
+          petalSize * 0.3,
+          -petalSize * 0.6,
+          0,
+          -petalSize,
+        );
         petalPath.quadraticBezierTo(-petalSize * 0.3, -petalSize * 0.6, 0, 0);
         canvas.drawPath(petalPath, paint);
         canvas.restore();
@@ -164,6 +169,7 @@ class SunflowerPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant SunflowerPainter oldDelegate) {
-    return oldDelegate.stage != stage || oldDelegate.animationValue != animationValue;
+    return oldDelegate.stage != stage ||
+        oldDelegate.animationValue != animationValue;
   }
 }

@@ -306,9 +306,7 @@ class _CalendarGridState extends State<CalendarGrid> {
                     margin: const EdgeInsets.all(2),
                     height: 46,
                     decoration: BoxDecoration(
-                      gradient: isSelected
-                          ? AppTheme.roseGoldGradient
-                          : null,
+                      gradient: isSelected ? AppTheme.roseGoldGradient : null,
                       color: !isSelected && (isToday || isHovered)
                           ? AppColors.blushGold.withValues(
                               alpha: isToday ? 0.16 : 0.08,
@@ -378,8 +376,9 @@ class _CalendarGridState extends State<CalendarGrid> {
                                       color: calendarEventHue(e.type),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: calendarEventHue(e.type)
-                                              .withValues(alpha: 0.55),
+                                          color: calendarEventHue(
+                                            e.type,
+                                          ).withValues(alpha: 0.55),
                                           blurRadius: 4,
                                         ),
                                       ],
@@ -403,8 +402,9 @@ class _CalendarGridState extends State<CalendarGrid> {
 
   Widget _buildFooter() {
     final sel = widget.selectedDay;
-    final eventsForSel =
-        sel == null ? const <CalendarEvent>[] : _eventsForDay(sel);
+    final eventsForSel = sel == null
+        ? const <CalendarEvent>[]
+        : _eventsForDay(sel);
     final label = sel == null
         ? 'Tap a day to see its details'
         : DateFormat('EEEE, MMM d').format(sel);
@@ -414,9 +414,7 @@ class _CalendarGridState extends State<CalendarGrid> {
       decoration: BoxDecoration(
         color: AppColors.moonlight.withValues(alpha: 0.06),
         borderRadius: AppRadius.radiusMd,
-        border: Border.all(
-          color: AppColors.moonlight.withValues(alpha: 0.10),
-        ),
+        border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.10)),
       ),
       child: Row(
         children: [
@@ -437,10 +435,7 @@ class _CalendarGridState extends State<CalendarGrid> {
           ),
           if (eventsForSel.isNotEmpty)
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 2,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
                 color: AppColors.auroraRose.withValues(alpha: 0.14),
                 borderRadius: AppRadius.radiusFull,

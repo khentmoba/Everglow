@@ -43,10 +43,10 @@ class ScanlationService with ConnectivityAware {
   }
 
   Map<String, String> get _headers => {
-        'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'text/html,application/xhtml+xml',
-      };
+    'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'Accept': 'text/html,application/xhtml+xml',
+  };
 
   // ── PROVIDER DEFINITIONS ──────────────────────────────────
 
@@ -57,7 +57,8 @@ class ScanlationService with ConnectivityAware {
       // Series page: https://asurascans.com/manga/{slug}/
       seriesPath: '/manga/',
       // Chapter link regex — looks for <a> inside chapter list items
-      chapterHrefRe: r'<a[^>]*href="(https?://[^"]*?(?:chapter|ch)[-_][^"]*?\d+[^"]*?)"[^>]*>',
+      chapterHrefRe:
+          r'<a[^>]*href="(https?://[^"]*?(?:chapter|ch)[-_][^"]*?\d+[^"]*?)"[^>]*>',
       chapterNumRe: r'(?:chapter|ch)[-_](\d+(?:[.]\d+)?)',
       // Image regex for chapter pages
       imgSrcRe: r'<img[^>]*src="(https?://[^"]+)"[^>]*>',
@@ -69,7 +70,8 @@ class ScanlationService with ConnectivityAware {
       name: 'ReaperScans',
       baseUrl: 'https://reaperscans.com',
       seriesPath: '/series/',
-      chapterHrefRe: r'<a[^>]*href="(https?://[^"]*?(?:chapter|ch)[-_][^"]*?\d+[^"]*?)"[^>]*>',
+      chapterHrefRe:
+          r'<a[^>]*href="(https?://[^"]*?(?:chapter|ch)[-_][^"]*?\d+[^"]*?)"[^>]*>',
       chapterNumRe: r'(?:chapter|ch)[-_](\d+(?:[.]\d+)?)',
       imgSrcRe: r'<img[^>]*src="(https?://[^"]+)"[^>]*>',
       imgExclude: ['avatar', 'logo', 'icon', 'banner', 'header'],
@@ -79,7 +81,8 @@ class ScanlationService with ConnectivityAware {
       name: 'ArcaneScans',
       baseUrl: 'https://arcanescans.com',
       seriesPath: '/series/',
-      chapterHrefRe: r'<a[^>]*href="(https?://[^"]*?(?:chapter|ch)[-_][^"]*?\d+[^"]*?)"[^>]*>',
+      chapterHrefRe:
+          r'<a[^>]*href="(https?://[^"]*?(?:chapter|ch)[-_][^"]*?\d+[^"]*?)"[^>]*>',
       chapterNumRe: r'(?:chapter|ch)[-_](\d+(?:[.]\d+)?)',
       imgSrcRe: r'<img[^>]*src="(https?://[^"]+)"[^>]*>',
       imgExclude: ['avatar', 'logo', 'icon', 'banner', 'header'],
@@ -89,7 +92,8 @@ class ScanlationService with ConnectivityAware {
       name: 'FlameScans',
       baseUrl: 'https://flamescans.org',
       seriesPath: '/series/',
-      chapterHrefRe: r'<a[^>]*href="(https?://[^"]*?(?:chapter|ch)[-_][^"]*?\d+[^"]*?)"[^>]*>',
+      chapterHrefRe:
+          r'<a[^>]*href="(https?://[^"]*?(?:chapter|ch)[-_][^"]*?\d+[^"]*?)"[^>]*>',
       chapterNumRe: r'(?:chapter|ch)[-_](\d+(?:[.]\d+)?)',
       imgSrcRe: r'<img[^>]*src="(https?://[^"]+)"[^>]*>',
       imgExclude: ['avatar', 'logo', 'icon', 'banner', 'header'],
@@ -99,7 +103,8 @@ class ScanlationService with ConnectivityAware {
       name: 'LuminousScans',
       baseUrl: 'https://luminousscans.com',
       seriesPath: '/series/',
-      chapterHrefRe: r'<a[^>]*href="(https?://[^"]*?(?:chapter|ch)[-_][^"]*?\d+[^"]*?)"[^>]*>',
+      chapterHrefRe:
+          r'<a[^>]*href="(https?://[^"]*?(?:chapter|ch)[-_][^"]*?\d+[^"]*?)"[^>]*>',
       chapterNumRe: r'(?:chapter|ch)[-_](\d+(?:[.]\d+)?)',
       imgSrcRe: r'<img[^>]*src="(https?://[^"]+)"[^>]*>',
       imgExclude: ['avatar', 'logo', 'icon', 'banner', 'header'],
@@ -109,7 +114,8 @@ class ScanlationService with ConnectivityAware {
       name: 'VoidScans',
       baseUrl: 'https://void-scans.com',
       seriesPath: '/series/',
-      chapterHrefRe: r'<a[^>]*href="(https?://[^"]*?(?:chapter|ch)[-_][^"]*?\d+[^"]*?)"[^>]*>',
+      chapterHrefRe:
+          r'<a[^>]*href="(https?://[^"]*?(?:chapter|ch)[-_][^"]*?\d+[^"]*?)"[^>]*>',
       chapterNumRe: r'(?:chapter|ch)[-_](\d+(?:[.]\d+)?)',
       imgSrcRe: r'<img[^>]*src="(https?://[^"]+)"[^>]*>',
       imgExclude: ['avatar', 'logo', 'icon', 'banner', 'header'],
@@ -141,7 +147,8 @@ class ScanlationService with ConnectivityAware {
   /// Fetch chapters from all scanlation sites. Returns a combined
   /// list deduplicated by chapter number, ordered descending.
   Future<List<MangaChapter>> getChapterFeedFromAll(
-      Map<String, String> siteSlugs) async {
+    Map<String, String> siteSlugs,
+  ) async {
     final all = <MangaChapter>[];
     final seen = <String>{};
     for (final entry in siteSlugs.entries) {
@@ -168,7 +175,9 @@ class ScanlationService with ConnectivityAware {
   /// Resolve page image URLs for a chapter on a specific site.
   /// [chapterUrl] is the full URL to the chapter page.
   Future<MangaChapterPages?> getChapterPages(
-      String siteName, String chapterUrl) async {
+    String siteName,
+    String chapterUrl,
+  ) async {
     final site = _findSite(siteName);
     if (site == null) return null;
     try {
@@ -191,7 +200,9 @@ class ScanlationService with ConnectivityAware {
   /// Resolve pages for a chapter by searching across all known
   /// site slugs. Returns pages from the first site that responds.
   Future<MangaChapterPages?> getChapterPagesFromAll(
-      Map<String, String> siteSlugs, String chapterNumber) async {
+    Map<String, String> siteSlugs,
+    String chapterNumber,
+  ) async {
     final normalizedTarget = _normalizeChapterNum(chapterNumber);
     for (final entry in siteSlugs.entries) {
       final site = _findSite(entry.key);
@@ -238,7 +249,8 @@ class ScanlationService with ConnectivityAware {
   /// so the request works on Flutter Web (CORS-safe).
   Uri _proxiedFetch(Uri uri) {
     return Uri.parse(
-        '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}');
+      '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}',
+    );
   }
 
   _ScanSite? _findSite(String name) {
@@ -261,10 +273,9 @@ class ScanlationService with ConnectivityAware {
     for (final searchUrl in searchUrls) {
       try {
         final headers = await _authHeaders();
-        final response =
-            await http.get(_proxiedFetch(Uri.parse(searchUrl)), headers: headers).timeout(
-                  const Duration(seconds: 8),
-                );
+        final response = await http
+            .get(_proxiedFetch(Uri.parse(searchUrl)), headers: headers)
+            .timeout(const Duration(seconds: 8));
         if (response.statusCode != 200) continue;
 
         // Look for series links in search results
@@ -279,8 +290,10 @@ class ScanlationService with ConnectivityAware {
           final href = m.group(1) ?? '';
           // Filter to series paths (not chapters or other pages)
           if (href.contains(site.seriesPath) &&
-              !RegExp(r'chapter|ch[-_]?\d', caseSensitive: false)
-                  .hasMatch(href)) {
+              !RegExp(
+                r'chapter|ch[-_]?\d',
+                caseSensitive: false,
+              ).hasMatch(href)) {
             // Extract slug from URL
             final slug = href
                 .replaceFirst(site.baseUrl, '')
@@ -302,13 +315,12 @@ class ScanlationService with ConnectivityAware {
   }
 
   /// Scrape a series page for its chapter list.
-  Future<List<MangaChapter>> _getChapters(
-      _ScanSite site, String slug) async {
+  Future<List<MangaChapter>> _getChapters(_ScanSite site, String slug) async {
     final url = '${site.baseUrl}${site.seriesPath}$slug/';
     final headers = await _authHeaders();
-    final response = await http.get(_proxiedFetch(Uri.parse(url)), headers: headers).timeout(
-          const Duration(seconds: 8),
-        );
+    final response = await http
+        .get(_proxiedFetch(Uri.parse(url)), headers: headers)
+        .timeout(const Duration(seconds: 8));
     if (response.statusCode != 200) return [];
 
     final chapters = <MangaChapter>[];
@@ -326,52 +338,53 @@ class ScanlationService with ConnectivityAware {
       // Try to get chapter title from link text
       String title = '';
       final fullMatch = m.group(0) ?? '';
-      final textMatch =
-          RegExp(r'>([^<]+)<').firstMatch(fullMatch.substring(fullMatch.indexOf(href) + href.length));
+      final textMatch = RegExp(
+        r'>([^<]+)<',
+      ).firstMatch(fullMatch.substring(fullMatch.indexOf(href) + href.length));
       if (textMatch != null) {
         title = textMatch.group(1)?.trim() ?? '';
       }
 
-      chapters.add(MangaChapter(
-        id: href,
-        title: title,
-        chapter: chapterNum,
-        volume: '',
-        pages: 0,
-        translatedLanguage: 'en',
-        scanlationGroup: site.name,
-        publishAt: DateTime.now(),
-      ));
+      chapters.add(
+        MangaChapter(
+          id: href,
+          title: title,
+          chapter: chapterNum,
+          volume: '',
+          pages: 0,
+          translatedLanguage: 'en',
+          scanlationGroup: site.name,
+          publishAt: DateTime.now(),
+        ),
+      );
     }
 
     return chapters;
   }
 
   /// Scrape a chapter page for image URLs.
-  Future<List<String>> _getPageImages(
-      _ScanSite site, String chapterUrl) async {
+  Future<List<String>> _getPageImages(_ScanSite site, String chapterUrl) async {
     final uri = chapterUrl.startsWith('http')
         ? Uri.parse(chapterUrl)
         : Uri.parse('${site.baseUrl}/$chapterUrl');
     final headers = await _authHeaders();
-    final response = await http.get(_proxiedFetch(uri), headers: headers).timeout(
-          const Duration(seconds: 8),
-        );
+    final response = await http
+        .get(_proxiedFetch(uri), headers: headers)
+        .timeout(const Duration(seconds: 8));
     if (response.statusCode != 200) return [];
 
     final imgRe = RegExp(site.imgSrcRe, caseSensitive: false);
-    final excludeRe = RegExp(
-      site.imgExclude.join('|'),
-      caseSensitive: false,
-    );
+    final excludeRe = RegExp(site.imgExclude.join('|'), caseSensitive: false);
 
     final urls = <String>[];
     for (final m in imgRe.allMatches(response.body)) {
       final src = (m.group(1) ?? '').trim();
       if (src.isEmpty) continue;
       // Skip non-image URLs
-      if (!RegExp(r'\.(jpg|jpeg|png|webp|gif|bmp)(\?|$)', caseSensitive: false)
-          .hasMatch(src)) {
+      if (!RegExp(
+        r'\.(jpg|jpeg|png|webp|gif|bmp)(\?|$)',
+        caseSensitive: false,
+      ).hasMatch(src)) {
         continue;
       }
       // Skip excluded patterns (logos, avatars, etc.)
@@ -388,9 +401,10 @@ class ScanlationService with ConnectivityAware {
       for (final m in broadRe.allMatches(response.body)) {
         final src = (m.group(1) ?? '').trim();
         if (src.isEmpty) continue;
-        if (!RegExp(r'\.(jpg|jpeg|png|webp|gif|bmp)(\?|$)',
-                caseSensitive: false)
-            .hasMatch(src)) {
+        if (!RegExp(
+          r'\.(jpg|jpeg|png|webp|gif|bmp)(\?|$)',
+          caseSensitive: false,
+        ).hasMatch(src)) {
           continue;
         }
         if (excludeRe.hasMatch(src)) continue;

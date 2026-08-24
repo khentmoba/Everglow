@@ -14,17 +14,35 @@ class CookbookService {
   final String _mealPlansCol = 'meal_plans';
 
   Stream<List<Recipe>> watchAll() => withFirestoreTimeout(
-        _db.collection(_recipesCol).orderBy('createdAt', descending: true).limit(100).snapshots().map((s) => s.docs.map((d) => Recipe.fromFirestore(d)).toList()),
-        label: 'cookbook-all',
-      );
+    _db
+        .collection(_recipesCol)
+        .orderBy('createdAt', descending: true)
+        .limit(100)
+        .snapshots()
+        .map((s) => s.docs.map((d) => Recipe.fromFirestore(d)).toList()),
+    label: 'cookbook-all',
+  );
 
   Stream<List<Recipe>> watchFavorites() => withFirestoreTimeout(
-        _db.collection(_recipesCol).where('isFavorite', isEqualTo: true).orderBy('createdAt', descending: true).limit(50).snapshots().map((s) => s.docs.map((d) => Recipe.fromFirestore(d)).toList()),
-        label: 'cookbook-fav',
-      );
+    _db
+        .collection(_recipesCol)
+        .where('isFavorite', isEqualTo: true)
+        .orderBy('createdAt', descending: true)
+        .limit(50)
+        .snapshots()
+        .map((s) => s.docs.map((d) => Recipe.fromFirestore(d)).toList()),
+    label: 'cookbook-fav',
+  );
 
-  Stream<List<Recipe>> watchByCategory(RecipeCategory cat) => withFirestoreTimeout(
-        _db.collection(_recipesCol).where('category', isEqualTo: cat.name).orderBy('createdAt', descending: true).limit(50).snapshots().map((s) => s.docs.map((d) => Recipe.fromFirestore(d)).toList()),
+  Stream<List<Recipe>> watchByCategory(RecipeCategory cat) =>
+      withFirestoreTimeout(
+        _db
+            .collection(_recipesCol)
+            .where('category', isEqualTo: cat.name)
+            .orderBy('createdAt', descending: true)
+            .limit(50)
+            .snapshots()
+            .map((s) => s.docs.map((d) => Recipe.fromFirestore(d)).toList()),
         label: 'cookbook-${cat.name}',
       );
 
@@ -39,7 +57,10 @@ class CookbookService {
 
   Future<void> update(Recipe recipe) async {
     try {
-      await _db.collection(_recipesCol).doc(recipe.id).update(recipe.toFirestore());
+      await _db
+          .collection(_recipesCol)
+          .doc(recipe.id)
+          .update(recipe.toFirestore());
     } catch (e) {
       Logger.e('Error updating recipe', error: e);
     }
@@ -63,7 +84,9 @@ class CookbookService {
 
   Future<void> incrementCooked(String id, int current) async {
     try {
-      await _db.collection(_recipesCol).doc(id).update({'timesCooked': current + 1});
+      await _db.collection(_recipesCol).doc(id).update({
+        'timesCooked': current + 1,
+      });
     } catch (e) {
       Logger.e('Error incrementing cooked', error: e);
     }
@@ -82,15 +105,23 @@ class CookbookService {
         final res = await http.get(uri).timeout(const Duration(seconds: 6));
         if (res.statusCode == 200) {
           final body = res.body;
-          final titleMatch = RegExp(r'<title[^>]*>([^<]+)</title>', caseSensitive: false).firstMatch(body);
+          final titleMatch = RegExp(
+            r'<title[^>]*>([^<]+)</title>',
+            caseSensitive: false,
+          ).firstMatch(body);
           if (titleMatch != null) {
             title = _decodeHtml(titleMatch.group(1)?.trim() ?? title);
             if (title.length > 80) title = title.substring(0, 80);
           }
-          final descMatch = RegExp(r'<meta[^>]+name="description"[^>]+content="([^"]+)"', caseSensitive: false).firstMatch(body);
+          final descMatch = RegExp(
+            r'<meta[^>]+name="description"[^>]+content="([^"]+)"',
+            caseSensitive: false,
+          ).firstMatch(body);
           if (descMatch != null) {
             description = _decodeHtml(descMatch.group(1) ?? description);
-            if (description.length > 200) description = description.substring(0, 200);
+            if (description.length > 200) {
+              description = description.substring(0, 200);
+            }
           }
         }
       }
@@ -104,18 +135,36 @@ class CookbookService {
       sourceUrl: trimmed,
       createdBy: createdBy,
       createdAt: DateTime.now(),
-      ingredients: const [RecipeIngredient(name: 'Edit ingredients', amount: 'to taste')],
+      ingredients: const [
+        RecipeIngredient(name: 'Edit ingredients', amount: 'to taste'),
+      ],
       steps: const ['Edit steps — imported stub. Tap to edit.'],
       tags: const ['imported'],
     );
   }
 
-  String _decodeHtml(String s) => s.replaceAll('&amp;', '&').replaceAll('&quot;', '"').replaceAll('&#39;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>');
+  String _decodeHtml(String s) => s
+      .replaceAll('&amp;', '&')
+      .replaceAll('&quot;', '"')
+      .replaceAll('&#39;', "'")
+      .replaceAll('&lt;', '<')
+      .replaceAll('&gt;', '>');
 
   // Meal planner
   Stream<List<MealPlanEntry>> watchMealPlans({int days = 7}) {
     final start = DateTime.now().subtract(const Duration(days: 1));
-    return _db.collection(_mealPlansCol).where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(DateTime(start.year, start.month, start.day))).orderBy('date').limit(30).snapshots().map((s) => s.docs.map((d) => MealPlanEntry.fromFirestore(d)).toList());
+    return _db
+        .collection(_mealPlansCol)
+        .where(
+          'date',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(
+            DateTime(start.year, start.month, start.day),
+          ),
+        )
+        .orderBy('date')
+        .limit(30)
+        .snapshots()
+        .map((s) => s.docs.map((d) => MealPlanEntry.fromFirestore(d)).toList());
   }
 
   Future<void> addMealPlan(MealPlanEntry entry) async {
@@ -135,7 +184,10 @@ class CookbookService {
   }
 
   /// Generate shopping list: aggregate ingredients for upcoming meal plans.
-  Future<Map<String, String>> generateShoppingList(List<MealPlanEntry> plans, Map<String, Recipe> recipeMap) async {
+  Future<Map<String, String>> generateShoppingList(
+    List<MealPlanEntry> plans,
+    Map<String, Recipe> recipeMap,
+  ) async {
     final agg = <String, String>{};
     for (final plan in plans) {
       final recipe = recipeMap[plan.recipeId];

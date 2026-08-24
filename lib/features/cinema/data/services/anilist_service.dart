@@ -137,7 +137,10 @@ class AniListService with ConnectivityAware {
   /// Maps a Jikan `/anime/{id}` payload into an [AniListDetail] so the
   /// drawer can render when AniList is unavailable. Only the fields the
   /// UI actually reads are populated; the rest stay at their defaults.
-  AniListDetail _mapJikanDetail(Map<String, dynamic> j, {required int fallbackMalId}) {
+  AniListDetail _mapJikanDetail(
+    Map<String, dynamic> j, {
+    required int fallbackMalId,
+  }) {
     final images = j['images'] as Map<String, dynamic>?;
     final jpg = images?['jpg'] as Map<String, dynamic>?;
     String pickImage(String size) {
@@ -159,7 +162,8 @@ class AniListService with ConnectivityAware {
         .toList();
 
     final trailer = j['trailer'] as Map<String, dynamic>?;
-    final ytId = (trailer?['youtube_id'] as String?) ??
+    final ytId =
+        (trailer?['youtube_id'] as String?) ??
         ((trailer?['url'] as String?)?.split('v=').last ?? '');
     final trailerId = (ytId.isNotEmpty && ytId != 'null') ? ytId : null;
 
@@ -172,27 +176,32 @@ class AniListService with ConnectivityAware {
     return AniListDetail(
       id: 0,
       malId: malId,
-      titleEnglish: (j['title_english'] as String?) ?? (j['title'] as String?) ?? '',
+      titleEnglish:
+          (j['title_english'] as String?) ?? (j['title'] as String?) ?? '',
       titleRomaji: (j['title_japanese'] as String?) ?? '',
       titleNative: '',
       synopsis: _stripHtml((j['synopsis'] as String?) ?? ''),
-      coverImageUrl:
-          pickImage('large_image_url').isNotEmpty ? pickImage('large_image_url') : pickImage('image_url'),
+      coverImageUrl: pickImage('large_image_url').isNotEmpty
+          ? pickImage('large_image_url')
+          : pickImage('image_url'),
       bannerImageUrl: pickImage('extra_large_image_url'),
-      episodeCount:
-          (j['episodes'] is num) ? (j['episodes'] as num).toInt() : null,
-      duration: (j['duration'] as String?)
-              ?.replaceAll(RegExp(r'[^0-9]'), '')
-              .isNotEmpty == true
-          ? int.tryParse((j['duration'] as String).replaceAll(RegExp(r'[^0-9]'), ''))
+      episodeCount: (j['episodes'] is num)
+          ? (j['episodes'] as num).toInt()
+          : null,
+      duration:
+          (j['duration'] as String?)
+                  ?.replaceAll(RegExp(r'[^0-9]'), '')
+                  .isNotEmpty ==
+              true
+          ? int.tryParse(
+              (j['duration'] as String).replaceAll(RegExp(r'[^0-9]'), ''),
+            )
           : null,
       airingStatus: (j['status'] as String?) ?? '',
       format: (j['type'] as String?) ?? '',
       season: (j['season'] as String?),
       seasonYear: (j['year'] is num) ? (j['year'] as num).toInt() : null,
-      averageScore: (j['score'] is num)
-          ? (j['score'] as num).toDouble()
-          : null,
+      averageScore: (j['score'] is num) ? (j['score'] as num).toDouble() : null,
       genres: genres,
       studios: studioNames,
       trailerYoutubeId: trailerId,
@@ -202,7 +211,9 @@ class AniListService with ConnectivityAware {
       recommendations: const [],
       episodes: _mapJikanStreaming(
         malId: malId,
-        episodeCount: (j['episodes'] is num) ? (j['episodes'] as num).toInt() : null,
+        episodeCount: (j['episodes'] is num)
+            ? (j['episodes'] as num).toInt()
+            : null,
         airedFrom: airedFrom,
         airedTo: airedTo,
       ),
@@ -236,7 +247,8 @@ class AniListService with ConnectivityAware {
       titleRomaji: (title?['romaji'] as String?) ?? '',
       titleNative: (title?['native'] as String?) ?? '',
       synopsis: _stripHtml((m['description'] as String?) ?? ''),
-      coverImageUrl: (cover?['extraLarge'] as String?) ??
+      coverImageUrl:
+          (cover?['extraLarge'] as String?) ??
           (cover?['large'] as String?) ??
           (cover?['medium'] as String?) ??
           '',
@@ -245,9 +257,7 @@ class AniListService with ConnectivityAware {
       episodeCount: (m['episodes'] is num)
           ? (m['episodes'] as num).toInt()
           : null,
-      duration: (m['duration'] is num)
-          ? (m['duration'] as num).toInt()
-          : null,
+      duration: (m['duration'] is num) ? (m['duration'] as num).toInt() : null,
       airingStatus: (m['status'] as String?) ?? '',
       format: (m['format'] as String?) ?? '',
       season: m['season'] as String?,
@@ -257,9 +267,7 @@ class AniListService with ConnectivityAware {
       averageScore: (m['averageScore'] is num)
           ? (m['averageScore'] as num).toDouble() / 10
           : null,
-      genres: ((m['genres'] as List?) ?? const [])
-          .whereType<String>()
-          .toList(),
+      genres: ((m['genres'] as List?) ?? const []).whereType<String>().toList(),
       studios: studioNodes
           .whereType<Map<String, dynamic>>()
           .map((s) => (s['name'] as String?) ?? '')
@@ -271,12 +279,15 @@ class AniListService with ConnectivityAware {
       characters: _mapCharacters(m['characters'] as Map<String, dynamic>?),
       staff: _mapStaff(m['staff'] as Map<String, dynamic>?),
       relations: _mapRelations(m['relations'] as Map<String, dynamic>?),
-      recommendations:
-          _mapRecommendations(m['recommendations'] as Map<String, dynamic>?),
-      episodes: _mapEpisodes(m['streamingEpisodes'] as List?,
-          episodeCount: (m['episodes'] is num)
-              ? (m['episodes'] as num).toInt()
-              : null),
+      recommendations: _mapRecommendations(
+        m['recommendations'] as Map<String, dynamic>?,
+      ),
+      episodes: _mapEpisodes(
+        m['streamingEpisodes'] as List?,
+        episodeCount: (m['episodes'] is num)
+            ? (m['episodes'] as num).toInt()
+            : null,
+      ),
       nextAiringAt: _parseNextAiringAt(m['nextAiringEpisode']),
       nextAiringEpisode: _parseNextAiringEpisode(m['nextAiringEpisode']),
     );
@@ -295,10 +306,10 @@ class AniListService with ConnectivityAware {
         final vimage = (v['image'] as Map<String, dynamic>?) ?? const {};
         return AniListVoiceActor(
           id: (v['id'] as num?)?.toInt() ?? 0,
-          name: (vname['full'] as String?) ??
-              (vname['native'] as String?) ??
-              '',
-          imageUrl: (vimage['large'] as String?) ??
+          name:
+              (vname['full'] as String?) ?? (vname['native'] as String?) ?? '',
+          imageUrl:
+              (vimage['large'] as String?) ??
               (vimage['medium'] as String?) ??
               '',
           language: 'JAPANESE',
@@ -306,13 +317,13 @@ class AniListService with ConnectivityAware {
       }).toList();
       return AniListCharacter(
         id: (node['id'] as num?)?.toInt() ?? 0,
-        name: (name['full'] as String?) ??
+        name:
+            (name['full'] as String?) ??
             (name['native'] as String?) ??
             (name['first'] as String?) ??
             '',
-        imageUrl: (image['large'] as String?) ??
-            (image['medium'] as String?) ??
-            '',
+        imageUrl:
+            (image['large'] as String?) ?? (image['medium'] as String?) ?? '',
         role: (e['role'] as String?) ?? 'SUPPORTING',
         voiceActors: vas,
       );
@@ -328,7 +339,8 @@ class AniListService with ConnectivityAware {
       final image = (node['image'] as Map<String, dynamic>?) ?? const {};
       return AniListStaffMember(
         id: (node['id'] as num?)?.toInt() ?? 0,
-        name: (name['full'] as String?) ??
+        name:
+            (name['full'] as String?) ??
             (name['native'] as String?) ??
             (name['first'] as String?) ??
             '',
@@ -348,9 +360,8 @@ class AniListService with ConnectivityAware {
       return AniListRelated(
         id: (node['id'] as num?)?.toInt() ?? 0,
         malId: (node['idMal'] as num?)?.toInt(),
-        title: (title['english'] as String?) ??
-            (title['romaji'] as String?) ??
-            '',
+        title:
+            (title['english'] as String?) ?? (title['romaji'] as String?) ?? '',
         coverImageUrl:
             (cover['large'] as String?) ?? (cover['medium'] as String?) ?? '',
         relationType: (e['relationType'] as String?) ?? '',
@@ -359,22 +370,20 @@ class AniListService with ConnectivityAware {
     }).toList();
   }
 
-  List<AniListRecommended> _mapRecommendations(
-      Map<String, dynamic>? r) {
+  List<AniListRecommended> _mapRecommendations(Map<String, dynamic>? r) {
     if (r == null) return const [];
     final nodes = (r['nodes'] as List?) ?? const [];
     return nodes.whereType<Map<String, dynamic>>().map((n) {
-      final media = (n['mediaRecommendation'] as Map<String, dynamic>?) ??
-          const {};
+      final media =
+          (n['mediaRecommendation'] as Map<String, dynamic>?) ?? const {};
       final title = (media['title'] as Map<String, dynamic>?) ?? const {};
       final cover = (media['coverImage'] as Map<String, dynamic>?) ?? const {};
       final rating = n['rating'];
       return AniListRecommended(
         id: (media['id'] as num?)?.toInt() ?? 0,
         malId: (media['idMal'] as num?)?.toInt(),
-        title: (title['english'] as String?) ??
-            (title['romaji'] as String?) ??
-            '',
+        title:
+            (title['english'] as String?) ?? (title['romaji'] as String?) ?? '',
         coverImageUrl:
             (cover['large'] as String?) ?? (cover['medium'] as String?) ?? '',
         rating: rating is num ? rating.toInt() : null,
@@ -400,18 +409,21 @@ class AniListService with ConnectivityAware {
       for (final e in streaming.whereType<Map<String, dynamic>>()) {
         final title = e['title'] as String?;
         final thumb = e['thumbnail'] as String?;
-        out.add(AniListEpisode(
-          number: (e['number'] as num?)?.toInt() ?? (out.length + 1),
-          title: title,
-          titleRomaji: null,
-          synopsis: null,
-          airedAt: e['airingAt'] is num
-              ? DateTime.fromMillisecondsSinceEpoch(
-                  (e['airingAt'] as num).toInt() * 1000)
-              : null,
-          duration: null,
-          thumbnail: (thumb != null && thumb.isNotEmpty) ? thumb : null,
-        ));
+        out.add(
+          AniListEpisode(
+            number: (e['number'] as num?)?.toInt() ?? (out.length + 1),
+            title: title,
+            titleRomaji: null,
+            synopsis: null,
+            airedAt: e['airingAt'] is num
+                ? DateTime.fromMillisecondsSinceEpoch(
+                    (e['airingAt'] as num).toInt() * 1000,
+                  )
+                : null,
+            duration: null,
+            thumbnail: (thumb != null && thumb.isNotEmpty) ? thumb : null,
+          ),
+        );
       }
     }
     // Fill out any missing slots so the drawer has a complete list of
@@ -436,8 +448,7 @@ class AniListService with ConnectivityAware {
 
   /// Bypasses the cache. Used by the episode drawer's pull-to-refresh
   /// gesture when the user knows the data is stale.
-  Future<AniListDetail?> fetchDetailsFresh(
-      {int? anilistId, int? malId}) async {
+  Future<AniListDetail?> fetchDetailsFresh({int? anilistId, int? malId}) async {
     if (anilistId != null) _detailCache.remove(anilistId);
     if (malId != null) _detailCache.remove(-malId);
     return fetchDetails(anilistId: anilistId, malId: malId);
@@ -462,8 +473,11 @@ class AniListService with ConnectivityAware {
   /// Search anime by free-text query via AniList's GraphQL API.
   /// Returns [MediaItem]s compatible with the existing watchlist flow.
   /// Used as fallback when Jikan is unavailable.
-  Future<List<MediaItem>> searchAnime(String query,
-      {int page = 1, int limit = 25}) async {
+  Future<List<MediaItem>> searchAnime(
+    String query, {
+    int page = 1,
+    int limit = 25,
+  }) async {
     if (query.trim().isEmpty) return [];
     final data = await _postGraphQL(_searchQuery, {
       'search': query,
@@ -486,10 +500,12 @@ class AniListService with ConnectivityAware {
     final title = m['title'] as Map<String, dynamic>?;
     final titleEn = (title?['english'] as String?)?.trim();
     final titleRom = (title?['romaji'] as String?)?.trim();
-    final displayTitle = (titleEn?.isNotEmpty == true ? titleEn : titleRom) ?? 'Unknown Title';
+    final displayTitle =
+        (titleEn?.isNotEmpty == true ? titleEn : titleRom) ?? 'Unknown Title';
 
     final cover = m['coverImage'] as Map<String, dynamic>?;
-    final poster = (cover?['extraLarge'] as String?) ??
+    final poster =
+        (cover?['extraLarge'] as String?) ??
         (cover?['large'] as String?) ??
         (cover?['medium'] as String?) ??
         '';
@@ -638,11 +654,7 @@ class AniListService with ConnectivityAware {
     } else if (status == 'RELEASING') {
       items = await jikan.fetchTopAiring(page: page, limit: perPage);
     } else if (sort == 'SCORE_DESC') {
-      items = await jikan.fetchTopAnime(
-        type: 'tv',
-        page: page,
-        limit: perPage,
-      );
+      items = await jikan.fetchTopAnime(type: 'tv', page: page, limit: perPage);
     } else {
       items = await jikan.fetchTopAnime(
         type: 'tv',
@@ -678,16 +690,16 @@ class AniListService with ConnectivityAware {
       items = await TMDBSearchService().searchMedia(search);
     } else if (sort == 'SCORE_DESC') {
       items = await TMDBDiscoveryService().discoverAnime(
-            sortBy: 'vote_average.desc',
-            voteCountGte: 20,
-            page: page,
-          );
+        sortBy: 'vote_average.desc',
+        voteCountGte: 20,
+        page: page,
+      );
     } else if (status == 'RELEASING') {
       items = await TMDBDiscoveryService().discoverAnime(
-            sortBy: 'popularity.desc',
-            withStatus: 1, // TMDB airing-today status.
-            page: page,
-          );
+        sortBy: 'popularity.desc',
+        withStatus: 1, // TMDB airing-today status.
+        page: page,
+      );
     } else {
       items = await TMDBDiscoveryService().fetchTrendingAnime();
     }
@@ -745,17 +757,13 @@ class AniListService with ConnectivityAware {
     final daysBack = (todayIndex - weekday + 7) % 7;
     final start = today.subtract(Duration(days: daysBack));
     final end = start.add(const Duration(days: 7));
-    final data = await _postGraphQL(
-      _airingScheduleQuery,
-      {
-        'airingAtGreater': start.millisecondsSinceEpoch ~/ 1000,
-        'airingAtLesser': end.millisecondsSinceEpoch ~/ 1000,
-        'perPage': perPage,
-      },
-    );
+    final data = await _postGraphQL(_airingScheduleQuery, {
+      'airingAtGreater': start.millisecondsSinceEpoch ~/ 1000,
+      'airingAtLesser': end.millisecondsSinceEpoch ~/ 1000,
+      'perPage': perPage,
+    });
     final pageData = data?['Page'] as Map<String, dynamic>?;
-    final schedule =
-        (pageData?['airingSchedules'] as List?) ?? const [];
+    final schedule = (pageData?['airingSchedules'] as List?) ?? const [];
     final out = <AnimexScheduleEntry>[];
     for (final s in schedule.whereType<Map<String, dynamic>>()) {
       final airingAt = s['airingAt'];
@@ -768,18 +776,18 @@ class AniListService with ConnectivityAware {
       if (media == null) continue;
       final mapped = _mapAnimexMedia(media);
       if (mapped == null) continue;
-      out.add(AnimexScheduleEntry(
-        media: mapped.item,
-        episode: (s['episode'] as num?)?.toInt() ?? 1,
-        airingAt: airingTime,
-      ));
+      out.add(
+        AnimexScheduleEntry(
+          media: mapped.item,
+          episode: (s['episode'] as num?)?.toInt() ?? 1,
+          airingAt: airingTime,
+        ),
+      );
     }
     return out;
   }
 
-  ({MediaItem item, double score})? _mapAnimexMedia(
-    Map<String, dynamic> m,
-  ) {
+  ({MediaItem item, double score})? _mapAnimexMedia(Map<String, dynamic> m) {
     final id = (m['id'] as num?)?.toInt() ?? 0;
     if (id == 0) return null;
     final malId = (m['idMal'] as num?)?.toInt() ?? 0;
@@ -790,7 +798,8 @@ class AniListService with ConnectivityAware {
         (titleEn?.isNotEmpty == true ? titleEn : titleRom) ?? 'Unknown Title';
 
     final cover = m['coverImage'] as Map<String, dynamic>?;
-    final poster = (cover?['extraLarge'] as String?) ??
+    final poster =
+        (cover?['extraLarge'] as String?) ??
         (cover?['large'] as String?) ??
         (cover?['medium'] as String?) ??
         '';
@@ -803,7 +812,8 @@ class AniListService with ConnectivityAware {
     final studios = m['studios'] as Map<String, dynamic>?;
     String studioName = '';
     for (final s
-        in ((studios?['nodes'] as List?) ?? const []).whereType<Map<String, dynamic>>()) {
+        in ((studios?['nodes'] as List?) ?? const [])
+            .whereType<Map<String, dynamic>>()) {
       final name = s['name'] as String?;
       if (name != null && name.isNotEmpty) {
         studioName = name;

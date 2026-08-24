@@ -4,8 +4,8 @@ import 'package:everglow/core/theme/app_colors.dart';
 
 void main() {
   group('AppTheme tokens', () {
-    test('glassOpacity is 0.12', () {
-      expect(AppTheme.glassOpacity, 0.12);
+    test('glassOpacity is 0.08', () {
+      expect(AppTheme.glassOpacity, 0.08);
     });
 
     test('petalFieldOpacity is 0.08', () {

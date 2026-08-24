@@ -162,7 +162,7 @@ class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.screen_rotation_rounded,
                         color: AppTheme.roseQuartz,
                         size: 56,

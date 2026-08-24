@@ -61,7 +61,9 @@ class EpisodeListSection extends StatelessWidget {
             padding: EdgeInsets.all(32),
             child: Center(
               child: CircularProgressIndicator(
-                  color: AppColors.deepRose, strokeWidth: 2),
+                color: AppColors.deepRose,
+                strokeWidth: 2,
+              ),
             ),
           )
         else if (episodes.isEmpty)
@@ -84,11 +86,17 @@ class EpisodeListSection extends StatelessWidget {
           children: [
             Text(
               'Episodes',
-              style: AppTypography.cormorantExtraBoldWhite.copyWith(fontSize: 22),
+              style: AppTypography.cormorantExtraBoldWhite.copyWith(
+                fontSize: 22,
+              ),
             ),
             Text(
               'SELECT AN EPISODE TO PLAY',
-              style: AppTypography.outfitHeading.copyWith(fontSize: 9, color: AppColors.mutedPurple, letterSpacing: 2),
+              style: AppTypography.outfitHeading.copyWith(
+                fontSize: 9,
+                color: AppColors.mutedPurple,
+                letterSpacing: 2,
+              ),
             ),
           ],
         ),
@@ -99,15 +107,19 @@ class EpisodeListSection extends StatelessWidget {
             color: AppColors.shimmerBase,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-                color: AppColors.roseQuartz.withValues(alpha: 0.2)),
+              color: AppColors.roseQuartz.withValues(alpha: 0.2),
+            ),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<int>(
               value: selectedSeasonNumber,
               dropdownColor: AppColors.shimmerBase,
               isDense: true,
-              icon: const Icon(Icons.expand_more_rounded,
-                  color: AppColors.deepRose, size: 18),
+              icon: const Icon(
+                Icons.expand_more_rounded,
+                color: AppColors.deepRose,
+                size: 18,
+              ),
               style: AppTypography.outfitBold.copyWith(fontSize: 13),
               onChanged: (int? value) {
                 if (value != null) {
@@ -117,11 +129,12 @@ class EpisodeListSection extends StatelessWidget {
               items: seasons
                   .where((s) => s['season_number'] is int)
                   .map<DropdownMenuItem<int>>((s) {
-                return DropdownMenuItem<int>(
-                  value: s['season_number'] as int,
-                  child: Text(s['name'] ?? 'Season ${s['season_number']}'),
-                );
-              }).toList(),
+                    return DropdownMenuItem<int>(
+                      value: s['season_number'] as int,
+                      child: Text(s['name'] ?? 'Season ${s['season_number']}'),
+                    );
+                  })
+                  .toList(),
             ),
           ),
         ),
@@ -130,7 +143,8 @@ class EpisodeListSection extends StatelessWidget {
   }
 
   Widget _buildEpisodeTile(dynamic ep, int index) {
-    final epSeason = (ep['season_number'] as int?) ??
+    final epSeason =
+        (ep['season_number'] as int?) ??
         tmdbMatchedSeason ??
         selectedSeasonNumber ??
         1;
@@ -139,13 +153,14 @@ class EpisodeListSection extends StatelessWidget {
     final epOverview = ep['overview'] ?? '';
 
     final epStillPath = ep['still_path'];
-    final isFullUrl = epStillPath != null &&
+    final isFullUrl =
+        epStillPath != null &&
         (epStillPath.startsWith('http://') ||
             epStillPath.startsWith('https://'));
     final epStillUrl = epStillPath != null
         ? (isFullUrl
-            ? _proxyIfBlocked(epStillPath)
-            : 'https://image.tmdb.org/t/p/w300$epStillPath')
+              ? _proxyIfBlocked(epStillPath)
+              : 'https://image.tmdb.org/t/p/w300$epStillPath')
         : null;
 
     return EpisodeTile(
@@ -227,18 +242,16 @@ class _EpisodeTileState extends State<EpisodeTile> {
               ? AppColors.shimmerBase.withValues(alpha: 0.8)
               : AppColors.shimmerBase.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(16),
-          border:
-              Border.all(color: AppColors.roseQuartz.withValues(alpha: 0.08)),
+          border: Border.all(
+            color: AppColors.roseQuartz.withValues(alpha: 0.08),
+          ),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(15),
           child: Row(
             children: [
               // Left rail: thumbnail (when available) or numbered accent.
-              if (hasThumb)
-                _buildThumbnailRail()
-              else
-                _buildNumberedRail(),
+              if (hasThumb) _buildThumbnailRail() else _buildNumberedRail(),
               const SizedBox(width: 12),
               // Title + overview
               Expanded(
@@ -252,7 +265,10 @@ class _EpisodeTileState extends State<EpisodeTile> {
                         widget.epName,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: AppTypography.outfitHeading.copyWith(fontSize: 13, height: 1.25),
+                        style: AppTypography.outfitHeading.copyWith(
+                          fontSize: 13,
+                          height: 1.25,
+                        ),
                       ),
                       if (widget.epOverview.isNotEmpty) ...[
                         const SizedBox(height: 4),
@@ -260,7 +276,11 @@ class _EpisodeTileState extends State<EpisodeTile> {
                           widget.epOverview,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: AppTypography.outfitWhite.copyWith(color: AppColors.mutedPurple, fontSize: 11, height: 1.4),
+                          style: AppTypography.outfitWhite.copyWith(
+                            color: AppColors.mutedPurple,
+                            fontSize: 11,
+                            height: 1.4,
+                          ),
                         ),
                       ],
                     ],
@@ -274,8 +294,7 @@ class _EpisodeTileState extends State<EpisodeTile> {
               // The solo play preserves the existing tap behaviour;
               // the heart opens a watch-party directly.
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -286,12 +305,15 @@ class _EpisodeTileState extends State<EpisodeTile> {
                         color: AppColors.deepRose.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                         border: Border.all(
-                            color:
-                                AppColors.deepRose.withValues(alpha: 0.5),
-                            width: 1.2),
+                          color: AppColors.deepRose.withValues(alpha: 0.5),
+                          width: 1.2,
+                        ),
                       ),
-                      child: const Icon(Icons.play_arrow_rounded,
-                          color: AppColors.deepRose, size: 18),
+                      child: const Icon(
+                        Icons.play_arrow_rounded,
+                        color: AppColors.deepRose,
+                        size: 18,
+                      ),
                     ),
                   ],
                 ),
@@ -310,8 +332,7 @@ class _EpisodeTileState extends State<EpisodeTile> {
     return Container(
       width: 64,
       decoration: BoxDecoration(
-        color:
-            AppColors.deepRose.withValues(alpha: _pressed ? 0.2 : 0.12),
+        color: AppColors.deepRose.withValues(alpha: _pressed ? 0.2 : 0.12),
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(15),
           bottomLeft: Radius.circular(15),
@@ -320,7 +341,11 @@ class _EpisodeTileState extends State<EpisodeTile> {
       alignment: Alignment.center,
       child: Text(
         widget.epNum.toString().padLeft(2, '0'),
-        style: AppTypography.cormorantBlack.copyWith(fontSize: 28, height: 1, color: AppColors.deepRose),
+        style: AppTypography.cormorantBlack.copyWith(
+          fontSize: 28,
+          height: 1,
+          color: AppColors.deepRose,
+        ),
       ),
     );
   }
@@ -373,12 +398,16 @@ class _EpisodeTileState extends State<EpisodeTile> {
               bottom: 6,
               child: Text(
                 widget.epNum.toString().padLeft(2, '0'),
-                style: AppTypography.cormorantBlackWhite.copyWith(fontSize: 20, height: 1, shadows: [
+                style: AppTypography.cormorantBlackWhite.copyWith(
+                  fontSize: 20,
+                  height: 1,
+                  shadows: [
                     Shadow(
                       color: Colors.black.withValues(alpha: 0.8),
                       blurRadius: 6,
                     ),
-                  ]),
+                  ],
+                ),
               ),
             ),
           ],

@@ -71,90 +71,113 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
 
     // 1) Comick API — by hid if we have it
     if (_item.comickSlug.isNotEmpty) {
-      futures.add(_comickService
-          .getChapterFeed(_item.comickSlug)
-          .timeout(timeout, onTimeout: () => <MangaChapter>[]));
+      futures.add(
+        _comickService
+            .getChapterFeed(_item.comickSlug)
+            .timeout(timeout, onTimeout: () => <MangaChapter>[]),
+      );
     } else if (_item.comickId > 0 && _item.mangaId.isNotEmpty) {
-      futures.add(_comickService
-          .getChapterFeed(_item.mangaId)
-          .timeout(timeout, onTimeout: () => <MangaChapter>[]));
+      futures.add(
+        _comickService
+            .getChapterFeed(_item.mangaId)
+            .timeout(timeout, onTimeout: () => <MangaChapter>[]),
+      );
     }
 
     // 2) Comick API — search by title to find hid
     if (_item.comickSlug.isEmpty && _item.comickId == 0) {
       for (final title in titlesToTry) {
-        futures.add(_comickService
-            .search(query: title, limit: 1)
-            .timeout(timeout, onTimeout: () => <MangaItem>[])
-            .then((results) async {
-          if (results.isEmpty) return <MangaChapter>[];
-          final hid = results.first.comickSlug.isNotEmpty
-              ? results.first.comickSlug
-              : results.first.mangaId;
-          if (hid.isEmpty) return <MangaChapter>[];
-          return _comickService.getChapterFeed(hid);
-        }).timeout(timeout, onTimeout: () => <MangaChapter>[]));
+        futures.add(
+          _comickService
+              .search(query: title, limit: 1)
+              .timeout(timeout, onTimeout: () => <MangaItem>[])
+              .then((results) async {
+                if (results.isEmpty) return <MangaChapter>[];
+                final hid = results.first.comickSlug.isNotEmpty
+                    ? results.first.comickSlug
+                    : results.first.mangaId;
+                if (hid.isEmpty) return <MangaChapter>[];
+                return _comickService.getChapterFeed(hid);
+              })
+              .timeout(timeout, onTimeout: () => <MangaChapter>[]),
+        );
       }
     }
 
     // 3) MangaDex API
     final mangaDexId = _item.mangaKakalotId;
     if (mangaDexId.isNotEmpty) {
-      futures.add(_mangaDexService
-          .getChapterFeed(mangaDexId)
-          .timeout(timeout, onTimeout: () => <MangaChapter>[]));
+      futures.add(
+        _mangaDexService
+            .getChapterFeed(mangaDexId)
+            .timeout(timeout, onTimeout: () => <MangaChapter>[]),
+      );
     }
     if (_item.mangaId.isNotEmpty &&
         _item.mangaId != mangaDexId &&
         _item.comickId == 0) {
-      futures.add(_mangaDexService
-          .getChapterFeed(_item.mangaId)
-          .timeout(timeout, onTimeout: () => <MangaChapter>[]));
+      futures.add(
+        _mangaDexService
+            .getChapterFeed(_item.mangaId)
+            .timeout(timeout, onTimeout: () => <MangaChapter>[]),
+      );
     }
 
     // 4) MangaKakalot
     for (final title in titlesToTry) {
-      futures.add(_kakalotService
-          .searchByTitle(title)
-          .timeout(timeout, onTimeout: () => '')
-          .then((slug) async {
-        if (slug.isEmpty) return <MangaChapter>[];
-        return _kakalotService.getChapterFeed(slug);
-      }).timeout(timeout, onTimeout: () => <MangaChapter>[]));
+      futures.add(
+        _kakalotService
+            .searchByTitle(title)
+            .timeout(timeout, onTimeout: () => '')
+            .then((slug) async {
+              if (slug.isEmpty) return <MangaChapter>[];
+              return _kakalotService.getChapterFeed(slug);
+            })
+            .timeout(timeout, onTimeout: () => <MangaChapter>[]),
+      );
     }
 
     // 5) MangaKatana
     for (final title in titlesToTry) {
-      futures.add(_mangakatanaService
-          .searchByTitle(title)
-          .timeout(timeout, onTimeout: () => '')
-          .then((slug) async {
-        if (slug.isEmpty) return <MangaChapter>[];
-        return _mangakatanaService.getChapterFeed(slug);
-      }).timeout(timeout, onTimeout: () => <MangaChapter>[]));
+      futures.add(
+        _mangakatanaService
+            .searchByTitle(title)
+            .timeout(timeout, onTimeout: () => '')
+            .then((slug) async {
+              if (slug.isEmpty) return <MangaChapter>[];
+              return _mangakatanaService.getChapterFeed(slug);
+            })
+            .timeout(timeout, onTimeout: () => <MangaChapter>[]),
+      );
     }
 
     // 6) Scanlation sites — store slugs for later page resolution
-    futures.add(_scanlationService
-        .searchAll(_item.title)
-        .timeout(timeout, onTimeout: () => <String, String>{})
-        .then((slugs) async {
-      if (slugs.isNotEmpty && mounted) {
-        _scanlationSlugs = slugs;
-      }
-      if (slugs.isEmpty) return <MangaChapter>[];
-      return _scanlationService.getChapterFeedFromAll(slugs);
-    }).timeout(timeout, onTimeout: () => <MangaChapter>[]));
+    futures.add(
+      _scanlationService
+          .searchAll(_item.title)
+          .timeout(timeout, onTimeout: () => <String, String>{})
+          .then((slugs) async {
+            if (slugs.isNotEmpty && mounted) {
+              _scanlationSlugs = slugs;
+            }
+            if (slugs.isEmpty) return <MangaChapter>[];
+            return _scanlationService.getChapterFeedFromAll(slugs);
+          })
+          .timeout(timeout, onTimeout: () => <MangaChapter>[]),
+    );
 
     // 7) Bato.to
     for (final title in titlesToTry) {
-      futures.add(_batoService
-          .searchByTitle(title)
-          .timeout(timeout, onTimeout: () => '')
-          .then((slug) async {
-        if (slug.isEmpty) return <MangaChapter>[];
-        return _batoService.getChapterFeed(slug);
-      }).timeout(timeout, onTimeout: () => <MangaChapter>[]));
+      futures.add(
+        _batoService
+            .searchByTitle(title)
+            .timeout(timeout, onTimeout: () => '')
+            .then((slug) async {
+              if (slug.isEmpty) return <MangaChapter>[];
+              return _batoService.getChapterFeed(slug);
+            })
+            .timeout(timeout, onTimeout: () => <MangaChapter>[]),
+      );
     }
 
     // Pick source with most chapters
@@ -179,10 +202,9 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
   ) async {
     if (futures.isEmpty) return const [];
     final results = await Future.wait(
-      futures.map((f) => f.then(
-        (list) => list,
-        onError: (_) => <MangaChapter>[],
-      )),
+      futures.map(
+        (f) => f.then((list) => list, onError: (_) => <MangaChapter>[]),
+      ),
     );
 
     // Merge all chapters from all sources, deduplicated by normalized
@@ -297,39 +319,39 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                       controller: scrollController,
                       slivers: [
                         SliverPadding(
-                          padding:
-                              const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                          padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                           sliver: SliverToBoxAdapter(
-                              child: _buildDescription()),
+                            child: _buildDescription(),
+                          ),
                         ),
-                        const SliverToBoxAdapter(
-                            child: SizedBox(height: 24)),
+                        const SliverToBoxAdapter(child: SizedBox(height: 24)),
                         SliverPadding(
-                          padding:
-                              const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                           sliver: SliverToBoxAdapter(
-                              child: _buildChapterHeader()),
+                            child: _buildChapterHeader(),
+                          ),
                         ),
                         if (_isLoadingChapters)
                           const SliverToBoxAdapter(
                             child: Padding(
-                              padding:
-                                  EdgeInsets.symmetric(vertical: 32),
+                              padding: EdgeInsets.symmetric(vertical: 32),
                               child: Center(
                                 child: CircularProgressIndicator(
-                                    color: AppColors.deepRose),
+                                  color: AppColors.deepRose,
+                                ),
                               ),
                             ),
                           )
                         else if (_chapterError != null)
                           SliverToBoxAdapter(
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 24),
+                              padding: const EdgeInsets.symmetric(vertical: 24),
                               child: Center(
                                 child: Text(
                                   _chapterError!,
-                                  style: AppTypography.outfitWhite.copyWith(color: AppColors.textMuted),
+                                  style: AppTypography.outfitWhite.copyWith(
+                                    color: AppColors.textMuted,
+                                  ),
                                 ),
                               ),
                             ),
@@ -337,28 +359,27 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                         else if (_chapters.isEmpty)
                           SliverToBoxAdapter(
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 24),
+                              padding: const EdgeInsets.symmetric(vertical: 24),
                               child: Center(
                                 child: Text(
                                   'No English chapters available.',
-                                  style: AppTypography.outfitWhite.copyWith(color: AppColors.textMuted),
+                                  style: AppTypography.outfitWhite.copyWith(
+                                    color: AppColors.textMuted,
+                                  ),
                                 ),
                               ),
                             ),
                           )
                         else
                           SliverPadding(
-                            padding: const EdgeInsets.fromLTRB(
-                                20, 0, 20, 32),
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
                             sliver: SliverList.builder(
                               itemCount: _chapters.length,
                               itemBuilder: (context, index) {
                                 final c = _chapters[index];
                                 return _ChapterTile(
                                   chapter: c,
-                                  isLastRead:
-                                      _item.lastReadChapterId == c.id,
+                                  isLastRead: _item.lastReadChapterId == c.id,
                                   onTap: () => _openReader(c),
                                 );
                               },
@@ -403,8 +424,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
             Image.network(
               _mangaDexService.proxiedImageUrl(_item.coverUrl),
               fit: BoxFit.cover,
-              errorBuilder: (_, _, _) =>
-                  Container(color: AppColors.velvet),
+              errorBuilder: (_, _, _) => Container(color: AppColors.velvet),
             )
           else
             Container(color: AppColors.velvet),
@@ -434,7 +454,9 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: _typeColor.withValues(alpha: 0.25),
                           borderRadius: AppRadius.radiusXs,
@@ -444,21 +466,33 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                         ),
                         child: Text(
                           _item.contentType.toUpperCase(),
-                          style: AppTypography.outfitWhite.copyWith(color: AppColors.roseQuartz, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                          style: AppTypography.outfitWhite.copyWith(
+                            color: AppColors.roseQuartz,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
                         ),
                       ),
                       if (_item.status.isNotEmpty) ...[
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.blushGold.withValues(alpha: 0.2),
                             borderRadius: AppRadius.radiusXs,
                           ),
                           child: Text(
                             _item.status.toUpperCase(),
-                            style: AppTypography.outfitWhite.copyWith(color: AppColors.blushGold, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                            style: AppTypography.outfitWhite.copyWith(
+                              color: AppColors.blushGold,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
                           ),
                         ),
                       ],
@@ -474,7 +508,10 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
                         'by ${_item.author}',
-                        style: AppTypography.outfitWhite.copyWith(color: AppColors.textMuted, fontSize: 13),
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: AppColors.textMuted,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                 ],
@@ -494,8 +531,11 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                     color: Colors.black.withValues(alpha: 0.4),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.close,
-                      color: AppColors.petalWhite, size: 18),
+                  child: const Icon(
+                    Icons.close,
+                    color: AppColors.petalWhite,
+                    size: 18,
+                  ),
                 ),
               ),
             ),
@@ -524,37 +564,47 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
         children: [
           Text(
             'My Library',
-            style: AppTypography.outfitWhite.copyWith(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.0),
+            style: AppTypography.outfitWhite.copyWith(
+              color: AppColors.textMuted,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+            ),
           ),
           const SizedBox(height: 8),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: const [
-                _LibChip(value: 'reading', label: 'Reading'),
-                _LibChip(value: 'plan-to-read', label: 'Plan'),
-                _LibChip(value: 'completed', label: 'Completed'),
-                _LibChip(value: 'on-hold', label: 'Hold'),
-                _LibChip(value: 'dropped', label: 'Dropped'),
-              ].map((entry) {
-                final selected = _item.libraryStatus == entry.value;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(entry.label,
-                        style: AppTypography.outfitWhite.copyWith(fontSize: 12)),
-                    selected: selected,
-                    onSelected: (_) => _updateLibraryStatus(entry.value),
-                    selectedColor: AppColors.deepRose,
-                    backgroundColor: AppColors.velvet,
-                    labelStyle: TextStyle(
-                      color: selected
-                          ? AppColors.petalWhite
-                          : AppColors.textMuted,
-                    ),
-                  ),
-                );
-              }).toList(),
+              children:
+                  const [
+                    _LibChip(value: 'reading', label: 'Reading'),
+                    _LibChip(value: 'plan-to-read', label: 'Plan'),
+                    _LibChip(value: 'completed', label: 'Completed'),
+                    _LibChip(value: 'on-hold', label: 'Hold'),
+                    _LibChip(value: 'dropped', label: 'Dropped'),
+                  ].map((entry) {
+                    final selected = _item.libraryStatus == entry.value;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(
+                          entry.label,
+                          style: AppTypography.outfitWhite.copyWith(
+                            fontSize: 12,
+                          ),
+                        ),
+                        selected: selected,
+                        onSelected: (_) => _updateLibraryStatus(entry.value),
+                        selectedColor: AppColors.deepRose,
+                        backgroundColor: AppColors.velvet,
+                        labelStyle: TextStyle(
+                          color: selected
+                              ? AppColors.petalWhite
+                              : AppColors.textMuted,
+                        ),
+                      ),
+                    );
+                  }).toList(),
             ),
           ),
         ],
@@ -569,7 +619,12 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
       children: [
         Text(
           'Synopsis',
-          style: AppTypography.outfitWhite.copyWith(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.0),
+          style: AppTypography.outfitWhite.copyWith(
+            color: AppColors.textMuted,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.0,
+          ),
         ),
         const SizedBox(height: 8),
         Container(
@@ -603,7 +658,9 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
             children: _item.tags.map((tag) {
               return Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.moonlight.withValues(alpha: 0.10),
                   borderRadius: AppRadius.radiusFull,
@@ -613,7 +670,10 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                 ),
                 child: Text(
                   tag,
-                  style: AppTypography.outfitWhite.copyWith(color: AppColors.textMuted, fontSize: 10),
+                  style: AppTypography.outfitWhite.copyWith(
+                    color: AppColors.textMuted,
+                    fontSize: 10,
+                  ),
                 ),
               );
             }).toList(),
@@ -629,12 +689,20 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
       children: [
         Text(
           'Chapters',
-          style: AppTypography.outfitWhite.copyWith(color: AppColors.textMuted, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.0),
+          style: AppTypography.outfitWhite.copyWith(
+            color: AppColors.textMuted,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.0,
+          ),
         ),
         if (_chapters.isNotEmpty)
           Text(
             ' total',
-            style: AppTypography.outfitWhite.copyWith(color: AppColors.textDisabled, fontSize: 11),
+            style: AppTypography.outfitWhite.copyWith(
+              color: AppColors.textDisabled,
+              fontSize: 11,
+            ),
           ),
       ],
     );
@@ -690,10 +758,16 @@ class _ChapterTile extends StatelessWidget {
                   ),
                   child: Center(
                     child: isLastRead
-                        ? const Icon(Icons.bookmark,
-                            color: AppColors.deepRose, size: 18)
-                        : const Icon(Icons.menu_book_rounded,
-                            color: AppColors.roseQuartz, size: 18),
+                        ? const Icon(
+                            Icons.bookmark,
+                            color: AppColors.deepRose,
+                            size: 18,
+                          )
+                        : const Icon(
+                            Icons.menu_book_rounded,
+                            color: AppColors.roseQuartz,
+                            size: 18,
+                          ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -704,14 +778,20 @@ class _ChapterTile extends StatelessWidget {
                     children: [
                       Text(
                         chapter.displayTitle,
-                        style: AppTypography.outfitBold.copyWith(color: AppColors.textHigh, fontSize: 13),
+                        style: AppTypography.outfitBold.copyWith(
+                          color: AppColors.textHigh,
+                          fontSize: 13,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '${chapter.scanlationGroup.isNotEmpty ? "${chapter.scanlationGroup} • " : ""}${chapter.pages > 0 ? "${chapter.pages} pages" : "read"}',
-                        style: AppTypography.outfitWhite.copyWith(color: AppColors.textMuted, fontSize: 10),
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: AppColors.textMuted,
+                          fontSize: 10,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),

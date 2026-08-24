@@ -41,8 +41,7 @@ class CinemaWatchTogetherTab extends StatefulWidget {
   });
 
   @override
-  State<CinemaWatchTogetherTab> createState() =>
-      _CinemaWatchTogetherTabState();
+  State<CinemaWatchTogetherTab> createState() => _CinemaWatchTogetherTabState();
 }
 
 class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
@@ -69,7 +68,8 @@ class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
       setState(() {
         _loadingJellyfin = false;
         _jellyfinMovies = const [];
-        _jellyfinError = 'Jellyfin API key is not configured. '
+        _jellyfinError =
+            'Jellyfin API key is not configured. '
             'Add JELLYFIN_API_KEY to assets/env.txt, then refresh.';
       });
       return;
@@ -80,14 +80,15 @@ class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
       _loadingJellyfin = false;
       if (movies == null) {
         _jellyfinMovies = const [];
-        _jellyfinError = 'Could not reach Jellyfin at '
+        _jellyfinError =
+            'Could not reach Jellyfin at '
             '${_jellyfin.baseUrl}. Make sure the server is running and the '
             'API key is valid, then refresh.';
       } else {
         _jellyfinMovies = movies;
         _jellyfinError = movies.isEmpty
             ? 'Jellyfin is running, but no movies are indexed yet. '
-                'Add files to C:\\Users\\Admin\\Videos\\Movies and refresh.'
+                  'Add files to C:\\Users\\Admin\\Videos\\Movies and refresh.'
             : null;
       }
     });
@@ -112,8 +113,7 @@ class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
     final partnerName = auth.partnerName;
     final posterUrl = _jellyfin.posterUrlFor(item.id, tag: item.imageTag);
     final streamUrl = _jellyfin.streamUrlFor(item.id);
-    final subtitleIndex =
-        await _jellyfin.fetchDefaultSubtitleIndex(item.id);
+    final subtitleIndex = await _jellyfin.fetchDefaultSubtitleIndex(item.id);
     final subtitleUrl = subtitleIndex == null
         ? null
         : _jellyfin.subtitleUrlFor(item.id, subtitleIndex);
@@ -165,10 +165,8 @@ class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
       if (!mounted) return;
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => WatchPartyScreen(
-            initialRoom: roomWithServer,
-            isHost: true,
-          ),
+          builder: (_) =>
+              WatchPartyScreen(initialRoom: roomWithServer, isHost: true),
         ),
       );
     } catch (e) {
@@ -458,9 +456,7 @@ class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
                 isDesktop ? 48 : 16,
                 24,
               ),
-              sliver: SliverToBoxAdapter(
-                child: _buildEmptyWatchlist(context),
-              ),
+              sliver: SliverToBoxAdapter(child: _buildEmptyWatchlist(context)),
             )
           else
             SliverPadding(
@@ -478,7 +474,7 @@ class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
                   ),
                   childCount: widget.watchlist.length,
                 ),
-                gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                   maxCrossAxisExtent: 170,
                   mainAxisSpacing: 14,
                   crossAxisSpacing: 14,
@@ -607,10 +603,7 @@ class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
           GestureDetector(
             onTap: () => widget.onSwitchTab(3),
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 9,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
               decoration: BoxDecoration(
                 color: NetflixColors.accent.withValues(alpha: 0.16),
                 borderRadius: BorderRadius.circular(20),
@@ -631,5 +624,4 @@ class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
       ),
     );
   }
-
 }

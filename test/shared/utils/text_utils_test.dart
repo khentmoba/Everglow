@@ -84,16 +84,12 @@ void main() {
     });
 
     test('handles titles with years in parentheses', () {
-      final result = extractTitles(
-        '1. The Batman (2022) - great noir style',
-      );
+      final result = extractTitles('1. The Batman (2022) - great noir style');
       expect(result, ['The Batman']);
     });
 
     test('handles titles without years', () {
-      final result = extractTitles(
-        '1. Everything Everywhere All At Once',
-      );
+      final result = extractTitles('1. Everything Everywhere All At Once');
       expect(result, ['Everything Everywhere All At Once']);
     });
   });

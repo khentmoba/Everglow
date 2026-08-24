@@ -31,8 +31,8 @@ class JellyfinMediaItem {
       runTimeTicks: json['RunTimeTicks'] is num
           ? (json['RunTimeTicks'] as num).toInt()
           : null,
-      imageTag: (json['ImageTags'] as Map<String, dynamic>?)?['Primary']
-          as String?,
+      imageTag:
+          (json['ImageTags'] as Map<String, dynamic>?)?['Primary'] as String?,
     );
   }
 }

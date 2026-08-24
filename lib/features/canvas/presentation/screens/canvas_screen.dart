@@ -208,15 +208,12 @@ class _CanvasScreenState extends State<CanvasScreen> {
           ),
 
           // 4. Partner Doodle Presence Indicator
-          Positioned(
+          const Positioned(
             top: 8,
             left: 0,
             right: 0,
             child: Center(
-              child: SafeArea(
-                bottom: false,
-                child: const PartnerDoodleIndicator(),
-              ),
+              child: SafeArea(bottom: false, child: PartnerDoodleIndicator()),
             ),
           ),
         ],

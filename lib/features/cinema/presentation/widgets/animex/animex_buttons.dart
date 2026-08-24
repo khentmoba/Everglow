@@ -184,14 +184,20 @@ class _AnimeXGhostButtonState extends State<AnimeXGhostButton> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: _hover ? Colors.white.withValues(alpha: 0.06) : Colors.transparent,
+            color: _hover
+                ? Colors.white.withValues(alpha: 0.06)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(AnimeXTokens.radiusSm),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (widget.icon != null) ...[
-                Icon(widget.icon, size: 14, color: _hover ? Colors.white : widget.color),
+                Icon(
+                  widget.icon,
+                  size: 14,
+                  color: _hover ? Colors.white : widget.color,
+                ),
                 const SizedBox(width: 6),
               ],
               Text(
@@ -243,7 +249,7 @@ class _AnimeXWatchNowButtonState extends State<AnimeXWatchNowButton> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
+              const Icon(
                 Icons.play_arrow_rounded,
                 color: AnimeXTokens.bg,
                 size: 16,

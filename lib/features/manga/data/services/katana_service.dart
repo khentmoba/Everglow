@@ -35,10 +35,10 @@ class KatanaService {
   static const Duration _timeout = Duration(seconds: 14);
 
   Map<String, String> get _headers => const {
-        'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      };
+    'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  };
 
   Future<Map<String, String>> _authHeaders() async {
     try {
@@ -52,7 +52,8 @@ class KatanaService {
 
   Uri _proxiedFetch(Uri uri) {
     return Uri.parse(
-        '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}');
+      '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}',
+    );
   }
 
   /// Proxies a page image (covers and chapter pages) through the
@@ -67,8 +68,9 @@ class KatanaService {
   Future<String?> _fetchHtml(Uri uri) async {
     try {
       final headers = await _authHeaders();
-      final response =
-          await http.get(_proxiedFetch(uri), headers: headers).timeout(_timeout);
+      final response = await http
+          .get(_proxiedFetch(uri), headers: headers)
+          .timeout(_timeout);
       if (response.statusCode == 200 && response.body.isNotEmpty) {
         return response.body;
       }
@@ -91,8 +93,12 @@ class KatanaService {
 
     final hotStart = html.indexOf('Hot Manga');
     final latest = _parseExpandedItems(
-      _blocksOfClass(html, 'item',
-          start: html.indexOf('Latest Updates'), end: hotStart < 0 ? -1 : hotStart),
+      _blocksOfClass(
+        html,
+        'item',
+        start: html.indexOf('Latest Updates'),
+        end: hotStart < 0 ? -1 : hotStart,
+      ),
     );
 
     final hotBlocks = <String>[];
@@ -101,11 +107,7 @@ class KatanaService {
     }
     final hot = _parseHotItems(hotBlocks);
 
-    return KatanaHomeData(
-      latest: latest,
-      hot: hot,
-      genres: _parseGenres(html),
-    );
+    return KatanaHomeData(latest: latest, hot: hot, genres: _parseGenres(html));
   }
 
   // ── Directory / Latest / New / Genre / Author ───────────────────
@@ -145,8 +147,9 @@ class KatanaService {
         uri = Uri.parse('$_baseUrl/author/$key$pagePath');
         break;
       case 'search':
-        uri = Uri.parse('$_baseUrl$pagePath')
-            .replace(queryParameters: {'s': query, 'search_by': searchBy});
+        uri = Uri.parse(
+          '$_baseUrl$pagePath',
+        ).replace(queryParameters: {'s': query, 'search_by': searchBy});
         break;
       case 'directory':
       default:
@@ -155,22 +158,29 @@ class KatanaService {
     }
 
     if (mode == 'directory' || mode == 'genre' || mode == 'author') {
-      uri = uri.replace(queryParameters: {
-        'filter': '1',
-        // The site's filter JS joins checked include genres with ','
-        // but exclude genres with '_' — the server only honors the
-        // underscore form for multiple excludes.
-        'include': include.join(','),
-        'exclude': exclude.join('_'),
-        'genre_mode': genreMode,
-        'chapters': chapters,
-        'order_by': orderBy,
-      });
+      uri = uri.replace(
+        queryParameters: {
+          'filter': '1',
+          // The site's filter JS joins checked include genres with ','
+          // but exclude genres with '_' — the server only honors the
+          // underscore form for multiple excludes.
+          'include': include.join(','),
+          'exclude': exclude.join('_'),
+          'genre_mode': genreMode,
+          'chapters': chapters,
+          'order_by': orderBy,
+        },
+      );
     }
 
     final html = await _fetchHtml(uri);
     if (html == null) {
-      return KatanaPageResult(items: const [], page: page, hasNext: false, hasPrev: page > 1);
+      return KatanaPageResult(
+        items: const [],
+        page: page,
+        hasNext: false,
+        hasPrev: page > 1,
+      );
     }
 
     final isSearch = mode == 'search';
@@ -238,11 +248,16 @@ class KatanaService {
   /// Live suggestions for the header search box. Mirrors the site's
   /// autocomplete response: compact cover + title + latest chapter +
   /// authors. Requires at least 3 characters, like Manga Katana.
-  Future<List<KatanaManga>> fetchSuggestions(String query,
-      {String searchBy = 'm_name'}) async {
+  Future<List<KatanaManga>> fetchSuggestions(
+    String query, {
+    String searchBy = 'm_name',
+  }) async {
     if (query.trim().length < 3) return const [];
-    final html = await _fetchHtml(Uri.parse('$_baseUrl/')
-        .replace(queryParameters: {'s': query, 'search_by': searchBy}));
+    final html = await _fetchHtml(
+      Uri.parse(
+        '$_baseUrl/',
+      ).replace(queryParameters: {'s': query, 'search_by': searchBy}),
+    );
     if (html == null) return const [];
     final items = _parseCompactItems(_blocksOfClass(html, 'item'));
     return items.take(8).toList();
@@ -272,8 +287,11 @@ class KatanaService {
   /// as fallback). If the first server's array is empty we retry the
   /// `?sv=mk` and `?sv=3` variants exactly like the site's server
   /// switcher.
-  Future<List<String>> fetchChapterPages(String slug, String chapterId,
-      {String server = ''}) async {
+  Future<List<String>> fetchChapterPages(
+    String slug,
+    String chapterId, {
+    String server = '',
+  }) async {
     if (slug.isEmpty || chapterId.isEmpty) return const [];
     final uris = <Uri>[
       Uri.parse('$_baseUrl/manga/$slug/$chapterId$server'),
@@ -293,10 +311,16 @@ class KatanaService {
   static List<String> _parseImageArrays(String html) {
     final result = <String>[];
     for (final varName in ['thzq', 'ytaw']) {
-      final m = RegExp('var $varName=\\[(.*?)\\];', dotAll: true).firstMatch(html);
+      final m = RegExp(
+        'var $varName=\\[(.*?)\\];',
+        dotAll: true,
+      ).firstMatch(html);
       if (m == null) continue;
       for (final raw in m.group(1)!.split(',')) {
-        final url = raw.trim().replaceAll(RegExp(r"^'"), '').replaceAll(RegExp(r"'$"), '');
+        final url = raw
+            .trim()
+            .replaceAll(RegExp(r"^'"), '')
+            .replaceAll(RegExp(r"'$"), '');
         if (url.startsWith('http') && url.isNotEmpty && !result.contains(url)) {
           result.add(url);
         }
@@ -316,10 +340,13 @@ class KatanaService {
     return _bookmarks
         .where('userName', isEqualTo: userName)
         .snapshots()
-        .map((snap) => snap.docs
-            .map((d) => KatanaBookmark.fromFirestore(d.data(), d.id))
-            .toList()
-          ..sort((a, b) => b.addedAt.compareTo(a.addedAt)));
+        .map(
+          (snap) =>
+              snap.docs
+                  .map((d) => KatanaBookmark.fromFirestore(d.data(), d.id))
+                  .toList()
+                ..sort((a, b) => b.addedAt.compareTo(a.addedAt)),
+        );
   }
 
   Future<bool> isBookmarked(String slug, String userName) async {
@@ -464,8 +491,12 @@ class KatanaService {
 
   /// Finds balanced `<div class="item" ...>...</div>` blocks starting
   /// at or after [start].
-  static List<String> _blocksOfClass(String html, String className,
-      {int start = 0, int end = -1}) {
+  static List<String> _blocksOfClass(
+    String html,
+    String className, {
+    int start = 0,
+    int end = -1,
+  }) {
     final result = <String>[];
     final marker = '<div class="$className"';
     var pos = html.indexOf(marker, start);
@@ -499,8 +530,10 @@ class KatanaService {
   }
 
   String _clean(String html) {
-    final withoutTags =
-        html.replaceAll(RegExp(r'<[^>]+>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    final withoutTags = html
+        .replaceAll(RegExp(r'<[^>]+>'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
     return _unescape.convert(withoutTags);
   }
 
@@ -517,54 +550,69 @@ class KatanaService {
 
   KatanaManga? _parseExpandedItem(String block) {
     final idMatch = RegExp(r'data-id="(\d+)"').firstMatch(block);
-    final hrefMatch =
-        RegExp(r'href="https://mangakatana\.com/manga/([^"/]+)"').firstMatch(block);
+    final hrefMatch = RegExp(
+      r'href="https://mangakatana\.com/manga/([^"/]+)"',
+    ).firstMatch(block);
     if (hrefMatch == null) return null;
 
     final slug = hrefMatch.group(1)!;
     final id = idMatch?.group(1) ?? slug;
 
     final cover = _coverFrom(block);
-    final statusM = RegExp(r'class="status (ongoing|completed)"').firstMatch(block);
+    final statusM = RegExp(
+      r'class="status (ongoing|completed)"',
+    ).firstMatch(block);
     final status = statusM?.group(1) ?? 'ongoing';
 
     final titleM = RegExp(
-            r'<h3 class="title">.*?<a[^>]*href="[^"]*manga/[^"]+"[^>]*>([^<]+)</a>',
-            dotAll: true)
-        .firstMatch(block);
-    final title = titleM != null ? _unescape.convert(titleM.group(1)!.trim()) : slug;
+      r'<h3 class="title">.*?<a[^>]*href="[^"]*manga/[^"]+"[^>]*>([^<]+)</a>',
+      dotAll: true,
+    ).firstMatch(block);
+    final title = titleM != null
+        ? _unescape.convert(titleM.group(1)!.trim())
+        : slug;
 
-    final dateM = RegExp(r'<div class="date">.*?</div>', dotAll: true).firstMatch(block);
+    final dateM = RegExp(
+      r'<div class="date">.*?</div>',
+      dotAll: true,
+    ).firstMatch(block);
     final updateText = dateM != null ? _clean(dateM.group(0)!) : '';
 
-    final summaryM =
-        RegExp(r'<div class="summary[^"]*">(.*?)</div>', dotAll: true).firstMatch(block);
+    final summaryM = RegExp(
+      r'<div class="summary[^"]*">(.*?)</div>',
+      dotAll: true,
+    ).firstMatch(block);
     final summary = summaryM != null ? _clean(summaryM.group(1)!) : '';
 
     final genres = <KatanaGenre>[];
-    for (final g in RegExp(r'href="https://mangakatana\.com/genre/([a-z0-9-]+)"[^>]*>([^<]+)</a>')
-        .allMatches(block)) {
-      genres.add(KatanaGenre(
-        slug: g.group(1)!,
-        name: _unescape.convert(g.group(2)!.trim()),
-      ));
+    for (final g in RegExp(
+      r'href="https://mangakatana\.com/genre/([a-z0-9-]+)"[^>]*>([^<]+)</a>',
+    ).allMatches(block)) {
+      genres.add(
+        KatanaGenre(
+          slug: g.group(1)!,
+          name: _unescape.convert(g.group(2)!.trim()),
+        ),
+      );
     }
 
     final latest = _parseChapterLink(block);
 
     final recent = <KatanaChapter>[];
-    final chapterBlocks =
-        RegExp(r'<div class="chapter"><a href="[^"]*/(c[^"/]+|fc)"[^>]*>([^<]*)</a></div>'
-            r'\s*</div>\s*<div class="uk-width-2-10"><div class="update_time">([^<]*)</div>',
-            dotAll: true)
-            .allMatches(block);
+    final chapterBlocks = RegExp(
+      r'<div class="chapter"><a href="[^"]*/(c[^"/]+|fc)"[^>]*>([^<]*)</a></div>'
+      r'\s*</div>\s*<div class="uk-width-2-10"><div class="update_time">([^<]*)</div>',
+      dotAll: true,
+    ).allMatches(block);
     for (final m in chapterBlocks) {
-      recent.add(KatanaChapter(
-        id: m.group(1)!,
-        num: m.group(1) == 'fc' ? '' : m.group(1)!.substring(1),
-        title: _unescape.convert(m.group(2)!.trim()),
-        updateAt: _parseKatanaDate(m.group(3) ?? ''),
-      ));
+      recent.add(
+        KatanaChapter(
+          id: m.group(1)!,
+          num: m.group(1) == 'fc' ? '' : m.group(1)!.substring(1),
+          title: _unescape.convert(m.group(2)!.trim()),
+          updateAt: _parseKatanaDate(m.group(3) ?? ''),
+        ),
+      );
     }
 
     return KatanaManga(
@@ -583,12 +631,12 @@ class KatanaService {
 
   KatanaChapter? _parseChapterLink(String block) {
     final m = RegExp(
-            r'<a href="https://mangakatana\.com/manga/[^"]*/(c\d+)"[^>]*>([^<]*)</a>')
-        .firstMatch(block);
+      r'<a href="https://mangakatana\.com/manga/[^"]*/(c\d+)"[^>]*>([^<]*)</a>',
+    ).firstMatch(block);
     if (m == null) {
       final fc = RegExp(
-              r'<a href="https://mangakatana\.com/manga/[^"]*/fc"[^>]*>([^<]*)</a>')
-          .firstMatch(block);
+        r'<a href="https://mangakatana\.com/manga/[^"]*/fc"[^>]*>([^<]*)</a>',
+      ).firstMatch(block);
       if (fc == null) return null;
       return KatanaChapter(
         id: 'fc',
@@ -612,38 +660,48 @@ class KatanaService {
     final items = <KatanaManga>[];
     for (final block in blocks) {
       final hrefMatch = RegExp(
-              r'href="https://mangakatana\.com/manga/([^"/]+)"')
-          .firstMatch(block);
+        r'href="https://mangakatana\.com/manga/([^"/]+)"',
+      ).firstMatch(block);
       if (hrefMatch == null) continue;
       final slug = hrefMatch.group(1)!;
       final idMatch = RegExp(r'data-id="(\d+)"').firstMatch(block);
-      final titleM = RegExp(
-              r'<h3 class="title">\s*<a[^>]*>([^<]+)</a>', dotAll: true)
-          .firstMatch(block) ??
+      final titleM =
+          RegExp(
+            r'<h3 class="title">\s*<a[^>]*>([^<]+)</a>',
+            dotAll: true,
+          ).firstMatch(block) ??
           RegExp(r'class="title">([^<]+)</a>').firstMatch(block);
-      final chapterM = RegExp(r'href="[^"]*/(c\d+|fc)"[^>]*>(.*?)</a>',
-              dotAll: true)
-          .firstMatch(block);
+      final chapterM = RegExp(
+        r'href="[^"]*/(c\d+|fc)"[^>]*>(.*?)</a>',
+        dotAll: true,
+      ).firstMatch(block);
       final authors = <String>[];
-      for (final a in RegExp(r'class="author" href="[^"]*"[^>]*>([^<]+)</a>')
-          .allMatches(block)) {
+      for (final a in RegExp(
+        r'class="author" href="[^"]*"[^>]*>([^<]+)</a>',
+      ).allMatches(block)) {
         authors.add(_unescape.convert(a.group(1)!.trim()));
       }
       final chapterTitle = chapterM != null ? _clean(chapterM.group(2)!) : '';
-      items.add(KatanaManga(
-        slug: slug,
-        id: idMatch?.group(1) ?? slug,
-        title: titleM != null ? _unescape.convert(titleM.group(1)!.trim()) : slug,
-        coverUrl: _coverFrom(block),
-        latestChapter: chapterM != null
-            ? KatanaChapter(
-                id: chapterM.group(1)!,
-                num: chapterM.group(1) == 'fc' ? '' : chapterM.group(1)!.substring(1),
-                title: chapterTitle,
-              )
-            : null,
-        authors: authors,
-      ));
+      items.add(
+        KatanaManga(
+          slug: slug,
+          id: idMatch?.group(1) ?? slug,
+          title: titleM != null
+              ? _unescape.convert(titleM.group(1)!.trim())
+              : slug,
+          coverUrl: _coverFrom(block),
+          latestChapter: chapterM != null
+              ? KatanaChapter(
+                  id: chapterM.group(1)!,
+                  num: chapterM.group(1) == 'fc'
+                      ? ''
+                      : chapterM.group(1)!.substring(1),
+                  title: chapterTitle,
+                )
+              : null,
+          authors: authors,
+        ),
+      );
     }
     return items;
   }
@@ -653,41 +711,55 @@ class KatanaService {
   List<KatanaManga> _parseHotItems(List<String> blocks) {
     final items = <KatanaManga>[];
     for (final block in blocks) {
-      final hrefMatch =
-          RegExp(r'href="https://mangakatana\.com/manga/([^"/]+)"').firstMatch(block);
+      final hrefMatch = RegExp(
+        r'href="https://mangakatana\.com/manga/([^"/]+)"',
+      ).firstMatch(block);
       if (hrefMatch == null) continue;
       final slug = hrefMatch.group(1)!;
-      final titleM = RegExp(r'<h3 class="title"><a href="[^"]*"[^>]*>([^<]+)</a>')
-          .firstMatch(block);
-      final statusM = RegExp(r'class="status (ongoing|completed)"').firstMatch(block);
-      final chapterM = RegExp(r'<div class="chapter"><a href="[^"]*/(c[^"/]+|fc)"[^>]*>([^<]*)</a>')
-          .firstMatch(block);
+      final titleM = RegExp(
+        r'<h3 class="title"><a href="[^"]*"[^>]*>([^<]+)</a>',
+      ).firstMatch(block);
+      final statusM = RegExp(
+        r'class="status (ongoing|completed)"',
+      ).firstMatch(block);
+      final chapterM = RegExp(
+        r'<div class="chapter"><a href="[^"]*/(c[^"/]+|fc)"[^>]*>([^<]*)</a>',
+      ).firstMatch(block);
       final idMatch = RegExp(r'data-id="(\d+)"').firstMatch(block);
-      items.add(KatanaManga(
-        slug: slug,
-        id: idMatch?.group(1) ?? slug,
-        title: titleM != null ? _unescape.convert(titleM.group(1)!.trim()) : slug,
-        coverUrl: _coverFrom(block),
-        status: statusM?.group(1) ?? 'ongoing',
-        latestChapter: chapterM != null
-            ? KatanaChapter(
-                id: chapterM.group(1)!,
-                num: chapterM.group(1) == 'fc' ? '' : chapterM.group(1)!.substring(1),
-                title: _unescape.convert(chapterM.group(2)!.trim()),
-              )
-            : null,
-      ));
+      items.add(
+        KatanaManga(
+          slug: slug,
+          id: idMatch?.group(1) ?? slug,
+          title: titleM != null
+              ? _unescape.convert(titleM.group(1)!.trim())
+              : slug,
+          coverUrl: _coverFrom(block),
+          status: statusM?.group(1) ?? 'ongoing',
+          latestChapter: chapterM != null
+              ? KatanaChapter(
+                  id: chapterM.group(1)!,
+                  num: chapterM.group(1) == 'fc'
+                      ? ''
+                      : chapterM.group(1)!.substring(1),
+                  title: _unescape.convert(chapterM.group(2)!.trim()),
+                )
+              : null,
+        ),
+      );
     }
     return items;
   }
 
   String _coverFrom(String block) {
-    final webp = RegExp(r'<source srcset="(https://[^"]+\.webp)"')
-        .firstMatch(block);
+    final webp = RegExp(
+      r'<source srcset="(https://[^"]+\.webp)"',
+    ).firstMatch(block);
     if (webp != null) return webp.group(1)!;
     final img = RegExp(r'<img src="(https://[^"]+)"').firstMatch(block);
     if (img != null) return img.group(1)!;
-    final dataSrc = RegExp(r'<img data-src="(https://[^"]+)"').firstMatch(block);
+    final dataSrc = RegExp(
+      r'<img data-src="(https://[^"]+)"',
+    ).firstMatch(block);
     if (dataSrc != null) return dataSrc.group(1)!;
     return '';
   }
@@ -696,37 +768,43 @@ class KatanaService {
     final idMatch = RegExp(r'data-id="(\d+)"').firstMatch(html);
     final titleM = RegExp(r'<h1 class="heading">([^<]+)</h1>').firstMatch(html);
     final cover = _coverFrom(html);
-    final statusM = RegExp(r'class="d-cell-small value status (ongoing|completed)"')
-        .firstMatch(html);
-    final latestM = RegExp(r'class="d-cell-small value new_chap">([^<]+)</div>')
-        .firstMatch(html);
-    final updateM = RegExp(r'class="d-cell-small value updateAt">([^<]+)</div>')
-        .firstMatch(html);
+    final statusM = RegExp(
+      r'class="d-cell-small value status (ongoing|completed)"',
+    ).firstMatch(html);
+    final latestM = RegExp(
+      r'class="d-cell-small value new_chap">([^<]+)</div>',
+    ).firstMatch(html);
+    final updateM = RegExp(
+      r'class="d-cell-small value updateAt">([^<]+)</div>',
+    ).firstMatch(html);
 
     final altNames = <String>[];
     final altM = RegExp(
-            r'<div class="d-cell-small label">Alt name\(s\):</div>\s*<div class="d-cell-small value"><div class="alt_name">([^<]+)</div>',
-            dotAll: true)
-        .firstMatch(html);
+      r'<div class="d-cell-small label">Alt name\(s\):</div>\s*<div class="d-cell-small value"><div class="alt_name">([^<]+)</div>',
+      dotAll: true,
+    ).firstMatch(html);
     if (altM != null) {
-      altNames.addAll(_unescape
-          .convert(altM.group(1)!.trim())
-          .split(';')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty));
+      altNames.addAll(
+        _unescape
+            .convert(altM.group(1)!.trim())
+            .split(';')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty),
+      );
     }
 
     final authors = <String>[];
     final artists = <String>[];
     final authorM = RegExp(
-            r'<div class="d-cell-small label">Author\(s\) / Artist\(s\):</div>.*?</div>',
-            dotAll: true)
-        .firstMatch(html);
+      r'<div class="d-cell-small label">Author\(s\) / Artist\(s\):</div>.*?</div>',
+      dotAll: true,
+    ).firstMatch(html);
     if (authorM != null) {
       final section = authorM.group(0)!;
       var first = true;
-      for (final a in RegExp(r'<a class="author" href="[^"]*"[^>]*>([^<]+)</a>')
-          .allMatches(section)) {
+      for (final a in RegExp(
+        r'<a class="author" href="[^"]*"[^>]*>([^<]+)</a>',
+      ).allMatches(section)) {
         if (first) {
           authors.add(_unescape.convert(a.group(1)!.trim()));
         } else {
@@ -738,22 +816,25 @@ class KatanaService {
 
     final genres = <KatanaGenre>[];
     final genreSectionM = RegExp(
-            r'<div class="d-cell-small label">Genres:</div>.*?</div>', dotAll: true)
-        .firstMatch(html);
+      r'<div class="d-cell-small label">Genres:</div>.*?</div>',
+      dotAll: true,
+    ).firstMatch(html);
     final genreSection = genreSectionM?.group(0) ?? html;
     for (final g in RegExp(
-            r'href="https://mangakatana\.com/genre/([a-z0-9-]+)"[^>]*>([^<]+)</a>')
-        .allMatches(genreSection)) {
-      genres.add(KatanaGenre(
-        slug: g.group(1)!,
-        name: _unescape.convert(g.group(2)!.trim()),
-      ));
+      r'href="https://mangakatana\.com/genre/([a-z0-9-]+)"[^>]*>([^<]+)</a>',
+    ).allMatches(genreSection)) {
+      genres.add(
+        KatanaGenre(
+          slug: g.group(1)!,
+          name: _unescape.convert(g.group(2)!.trim()),
+        ),
+      );
     }
 
     final summaryM = RegExp(
-            r'<div class="summary">\s*<div class="label">Description</div>\s*<p>(.*?)</p>',
-            dotAll: true)
-        .firstMatch(html);
+      r'<div class="summary">\s*<div class="label">Description</div>\s*<p>(.*?)</p>',
+      dotAll: true,
+    ).firstMatch(html);
 
     final chapters = _parseChapterTable(html);
 
@@ -770,7 +851,11 @@ class KatanaService {
       authors: authors,
       artists: artists,
       latestChapter: latestM != null
-          ? KatanaChapter(id: 'latest', num: '', title: latestM.group(1)!.trim())
+          ? KatanaChapter(
+              id: 'latest',
+              num: '',
+              title: latestM.group(1)!.trim(),
+            )
           : null,
       updateAt: _parseRelativeTime(updateM?.group(1)?.trim() ?? ''),
       chapters: chapters,
@@ -779,22 +864,31 @@ class KatanaService {
 
   List<KatanaChapter> _parseChapterTable(String html) {
     final chapters = <KatanaChapter>[];
-    final rows = RegExp(r'<tr data-jump="\d+">.*?</tr>', dotAll: true).allMatches(html);
+    final rows = RegExp(
+      r'<tr data-jump="\d+">.*?</tr>',
+      dotAll: true,
+    ).allMatches(html);
     for (final row in rows) {
       final block = row.group(0)!;
-      final hrefM = RegExp(r'href="https://mangakatana\.com/manga/[^"]*/(c[^"/]+|fc)"')
-          .firstMatch(block);
+      final hrefM = RegExp(
+        r'href="https://mangakatana\.com/manga/[^"]*/(c[^"/]+|fc)"',
+      ).firstMatch(block);
       if (hrefM == null) continue;
       final id = hrefM.group(1)!;
-      final titleM = RegExp(r'<div class="chapter"><a[^>]*>([^<]*)</a>')
-          .firstMatch(block);
-      final timeM = RegExp(r'class="update_time">([^<]*)</div>').firstMatch(block);
-      chapters.add(KatanaChapter(
-        id: id,
-        num: id == 'fc' ? '' : id.substring(1),
-        title: _unescape.convert(titleM?.group(1)?.trim() ?? 'Chapter $id'),
-        updateAt: _parseKatanaDate(timeM?.group(1) ?? ''),
-      ));
+      final titleM = RegExp(
+        r'<div class="chapter"><a[^>]*>([^<]*)</a>',
+      ).firstMatch(block);
+      final timeM = RegExp(
+        r'class="update_time">([^<]*)</div>',
+      ).firstMatch(block);
+      chapters.add(
+        KatanaChapter(
+          id: id,
+          num: id == 'fc' ? '' : id.substring(1),
+          title: _unescape.convert(titleM?.group(1)?.trim() ?? 'Chapter $id'),
+          updateAt: _parseKatanaDate(timeM?.group(1) ?? ''),
+        ),
+      );
     }
     return chapters;
   }
@@ -804,7 +898,8 @@ class KatanaService {
   List<KatanaGenre> _parseGenres(String html) {
     final bySlug = <String, KatanaGenre>{};
     final chipRe = RegExp(
-        r'href="https://mangakatana\.com/genre/([a-z0-9-]+)">([^<]+)</a> <span>\((\d+)\)</span>');
+      r'href="https://mangakatana\.com/genre/([a-z0-9-]+)">([^<]+)</a> <span>\((\d+)\)</span>',
+    );
     for (final m in chipRe.allMatches(html)) {
       bySlug[m.group(1)!] = KatanaGenre(
         slug: m.group(1)!,
@@ -813,7 +908,8 @@ class KatanaService {
       );
     }
     final navRe = RegExp(
-        r'href="https://mangakatana\.com/genre/([a-z0-9-]+)" data-desc="([^"]*)"><h3 class="nav_label">([^<]+)</h3>');
+      r'href="https://mangakatana\.com/genre/([a-z0-9-]+)" data-desc="([^"]*)"><h3 class="nav_label">([^<]+)</h3>',
+    );
     for (final m in navRe.allMatches(html)) {
       final existing = bySlug[m.group(1)!];
       bySlug[m.group(1)!] = KatanaGenre(
@@ -834,16 +930,22 @@ class KatanaService {
     final m = RegExp(r'(\w{3})-(\d{1,2})-(\d{4})').firstMatch(raw);
     if (m == null) return null;
     const months = {
-      'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
-      'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12,
+      'Jan': 1,
+      'Feb': 2,
+      'Mar': 3,
+      'Apr': 4,
+      'May': 5,
+      'Jun': 6,
+      'Jul': 7,
+      'Aug': 8,
+      'Sep': 9,
+      'Oct': 10,
+      'Nov': 11,
+      'Dec': 12,
     };
     final month = months[m.group(1)];
     if (month == null) return null;
-    return DateTime(
-      int.parse(m.group(3)!),
-      month,
-      int.parse(m.group(2)!),
-    );
+    return DateTime(int.parse(m.group(3)!), month, int.parse(m.group(2)!));
   }
 
   /// Converts "58 minutes ago" / "2 hours ago" into a DateTime.
@@ -884,8 +986,18 @@ String formatKatanaTime(DateTime? time) {
     return d == 1 ? '1 day ago' : '$d days ago';
   }
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   return '${months[time.month - 1]}-${time.day.toString().padLeft(2, '0')}-${time.year}';
 }
@@ -898,5 +1010,8 @@ List<KatanaChapter> sortChaptersAscending(List<KatanaChapter> chapters) {
 }
 
 String katanaTextFromHtml(String html) {
-  return html.replaceAll(RegExp(r'<[^>]+>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+  return html
+      .replaceAll(RegExp(r'<[^>]+>'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
 }

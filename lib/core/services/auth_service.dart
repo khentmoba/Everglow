@@ -93,12 +93,8 @@ class AuthService extends ChangeNotifier {
     String email;
     String password;
 
-    if (username == 'clairjassen') {
-      email = EnvConfig.clairEmail;
-      password = EnvConfig.clairPassword;
-    } else if (username == 'khentsgdz') {
-      email = EnvConfig.khentEmail;
-      password = EnvConfig.khentPassword;
+    if (username == 'clairjassen' || username == 'khentsgdz') {
+      throw StateError('Couple access must use server passcode verification');
     } else if (username == 'breyan') {
       email = EnvConfig.breyanEmail;
       password = EnvConfig.breyanPassword;
@@ -172,6 +168,11 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  /// Sets a user-facing auth error without exposing underlying exceptions.
+  void setAuthError(String message) {
+    _lastAuthError = message;
+  }
+
   /// Writes/updates the /users/{uid} document and resolves the partner's UID
   /// dynamically from Firestore. This replaces the old hard-coded UID system
   /// and is resilient to account recreations.
@@ -212,9 +213,9 @@ class AuthService extends ChangeNotifier {
     try {
       final ownDoc = _auth.currentUser != null
           ? await FirebaseFirestore.instance
-              .collection('users')
-              .doc(_auth.currentUser!.uid)
-              .get()
+                .collection('users')
+                .doc(_auth.currentUser!.uid)
+                .get()
           : null;
       final storedPartner = ownDoc?.data()?['partnerUsername'] as String?;
       if (storedPartner != null && storedPartner.isNotEmpty) {
@@ -259,7 +260,15 @@ class AuthService extends ChangeNotifier {
   /// Returns username (khentsgdz/clairjassen) on success, null on bad code.
   Future<String?> verifyCouplePasscode(String passcode) async {
     try {
-      final resp = await http.post(Uri.parse('https://us-central1-everglow-1c6db.cloudfunctions.net/verifyPasscode'), headers: {'Content-Type': 'application/json'}, body: jsonEncode({'passcode': passcode})).timeout(const Duration(seconds: 10));
+      final resp = await http
+          .post(
+            Uri.parse(
+              'https://us-central1-everglow-1c6db.cloudfunctions.net/verifyPasscode',
+            ),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'passcode': passcode}),
+          )
+          .timeout(const Duration(seconds: 10));
       if (resp.statusCode != 200) return null;
       final data = jsonDecode(resp.body) as Map<String, dynamic>;
       final token = data['token'] as String?;
@@ -272,13 +281,22 @@ class AuthService extends ChangeNotifier {
       _lastAuthError = null;
       notifyListeners();
       return username;
-    } catch (e) { Logger.e('verifyCouplePasscode failed', error: e); return null; }
+    } catch (e) {
+      Logger.e('verifyCouplePasscode failed', error: e);
+      return null;
+    }
   }
 
   /// Direct login for Breyan/Octagram (client-verified, non-sensitive).
   Future<bool> loginCinemaWithPasscode(String passcode) async {
-    if (passcode == EnvConfig.breyanPasscode) { await loginWithPasscode('breyan'); return lastAuthError == null; }
-    if (passcode == EnvConfig.octagramPasscode) { await loginWithPasscode('octagram'); return lastAuthError == null; }
+    if (passcode == EnvConfig.breyanPasscode) {
+      await loginWithPasscode('breyan');
+      return lastAuthError == null;
+    }
+    if (passcode == EnvConfig.octagramPasscode) {
+      await loginWithPasscode('octagram');
+      return lastAuthError == null;
+    }
     return false;
   }
 

@@ -13,12 +13,12 @@ void main() {
               'album': {'#text': 'Preacher\'s Daughter'},
               'image': [
                 {'#text': 'url_small', 'size': 'small'},
-                {'#text': 'url_xl', 'size': 'extralarge'}
+                {'#text': 'url_xl', 'size': 'extralarge'},
               ],
-              '@attr': {'nowplaying': 'true'}
-            }
-          ]
-        }
+              '@attr': {'nowplaying': 'true'},
+            },
+          ],
+        },
       };
 
       final status = MusicStatus.fromJson(mockJson, 'khent');

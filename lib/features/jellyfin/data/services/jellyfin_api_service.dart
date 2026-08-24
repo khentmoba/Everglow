@@ -18,10 +18,7 @@ class JellyfinApiService {
   final String baseUrl;
   final String? apiKey;
 
-  const JellyfinApiService({
-    this.baseUrl = defaultBaseUrl,
-    this.apiKey,
-  });
+  const JellyfinApiService({this.baseUrl = defaultBaseUrl, this.apiKey});
 
   /// Resolves the key from an explicit constructor value or the runtime
   /// env setting. There is intentionally no hardcoded fallback.

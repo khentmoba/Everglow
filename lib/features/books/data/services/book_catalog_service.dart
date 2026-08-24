@@ -58,7 +58,11 @@ class BookCatalogService {
 
     final results = await Future.wait([
       _openLibrary.searchBooks(query).then(_fromOpenLibrary),
-      _gutenberg.search(query, language: _gutenbergLang(langCode), limit: limit),
+      _gutenberg.search(
+        query,
+        language: _gutenbergLang(langCode),
+        limit: limit,
+      ),
       _archive.search(query, language: langCode, limit: limit),
     ]);
 
@@ -99,9 +103,13 @@ class BookCatalogService {
         }
         final subjectsRaw = work['subjects'];
         final subjects = subjectsRaw is List
-            ? subjectsRaw.map((e) => e.toString()).where((s) => s.isNotEmpty).toList()
+            ? subjectsRaw
+                  .map((e) => e.toString())
+                  .where((s) => s.isNotEmpty)
+                  .toList()
             : const <String>[];
-        final publisher = (work['publishers'] is List &&
+        final publisher =
+            (work['publishers'] is List &&
                 (work['publishers'] as List).isNotEmpty)
             ? (work['publishers'] as List).first.toString()
             : '';
@@ -120,8 +128,10 @@ class BookCatalogService {
 
   /// Similar books: subject overlap via Open Library, falling back
   /// to the same author.
-  Future<List<BookSearchResult>> similar(BookSearchResult result,
-      {int limit = 10}) async {
+  Future<List<BookSearchResult>> similar(
+    BookSearchResult result, {
+    int limit = 10,
+  }) async {
     final queries = <String>[
       if (result.subjects.isNotEmpty) result.subjects.first,
       if (result.author.isNotEmpty) result.author,
@@ -129,10 +139,9 @@ class BookCatalogService {
     for (final query in queries) {
       final items = await _openLibrary.discoverBySubject(query, limit: limit);
       if (items.isNotEmpty) {
-        final mapped = _fromOpenLibrary(items)
-            .where((r) => r.id != result.id)
-            .take(limit)
-            .toList();
+        final mapped = _fromOpenLibrary(
+          items,
+        ).where((r) => r.id != result.id).take(limit).toList();
         if (mapped.isNotEmpty) return mapped;
       }
     }
@@ -148,8 +157,7 @@ class BookCatalogService {
 
   List<BookSearchResult> _fromOpenLibrary(List<BookItem> items) {
     return items.map((item) {
-      final gutenberg = item.iaId.startsWith('pg') &&
-              item.iaId.length > 2
+      final gutenberg = item.iaId.startsWith('pg') && item.iaId.length > 2
           ? int.tryParse(item.iaId.substring(2)) ?? 0
           : 0;
       final ia = !item.iaId.startsWith('pg') ? item.iaId : '';
@@ -174,12 +182,11 @@ class BookCatalogService {
                     'https://www.gutenberg.org/ebooks/$gutenberg.epub3.images',
               }
             : (ia.isNotEmpty
-                ? {
-                    'epub':
-                        'https://archive.org/download/$ia/$ia.epub',
-                    'pdf': 'https://archive.org/download/$ia/$ia.pdf',
-                  }
-                : const <String, String>{}),
+                  ? {
+                      'epub': 'https://archive.org/download/$ia/$ia.epub',
+                      'pdf': 'https://archive.org/download/$ia/$ia.pdf',
+                    }
+                  : const <String, String>{}),
         readCandidates: readUrl.isNotEmpty ? [readUrl] : const [],
       );
     }).toList();
@@ -206,10 +213,7 @@ class BookCatalogService {
 
   BookSearchResult _richer(BookSearchResult a, BookSearchResult b) {
     final downloads = <String, String>{...a.downloadUrls, ...b.downloadUrls};
-    final readCandidates = <String>[
-      ...a.readCandidates,
-      ...b.readCandidates,
-    ];
+    final readCandidates = <String>[...a.readCandidates, ...b.readCandidates];
     return a.copyWith(
       description: a.description.isEmpty ? b.description : a.description,
       publisher: a.publisher.isEmpty ? b.publisher : a.publisher,
@@ -242,7 +246,8 @@ class BookCatalogService {
   }) {
     return results.where((r) {
       if (filetype != null && filetype.isNotEmpty) {
-        final has = r.downloadUrls.containsKey(filetype) ||
+        final has =
+            r.downloadUrls.containsKey(filetype) ||
             r.filetype.toLowerCase() == filetype.toLowerCase();
         if (!has) return false;
       }
@@ -257,7 +262,9 @@ class BookCatalogService {
   }
 
   List<BookSearchResult> _applySort(
-      List<BookSearchResult> results, BookSort sort) {
+    List<BookSearchResult> results,
+    BookSort sort,
+  ) {
     final list = [...results];
     switch (sort) {
       case BookSort.relevant:

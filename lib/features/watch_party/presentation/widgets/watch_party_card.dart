@@ -190,7 +190,10 @@ class _WatchTogetherTicketState extends State<_WatchTogetherTicket> {
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFFE3EC),
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 1.2),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 1.2,
+                                ),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.white.withValues(alpha: 0.5),
@@ -213,13 +216,13 @@ class _WatchTogetherTicketState extends State<_WatchTogetherTicket> {
                               Flexible(
                                 child: Text(
                                   'Open Watch Together',
-                                  style:
-                                      AppTypography.cormorantExtraBold.copyWith(
-                                    fontSize: 18,
-                                    color: _cWhite,
-                                    height: 1.0,
-                                    letterSpacing: -0.2,
-                                  ),
+                                  style: AppTypography.cormorantExtraBold
+                                      .copyWith(
+                                        fontSize: 18,
+                                        color: _cWhite,
+                                        height: 1.0,
+                                        letterSpacing: -0.2,
+                                      ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -400,14 +403,21 @@ class _WatchPartyHeader extends StatelessWidget {
                   Flexible(
                     child: Text(
                       'Watch Together',
-                      style: AppTypography.cormorantBold.copyWith(fontSize: 24, height: 1.0, letterSpacing: 0.2),
+                      style: AppTypography.cormorantBold.copyWith(
+                        fontSize: 24,
+                        height: 1.0,
+                        letterSpacing: 0.2,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
@@ -425,7 +435,12 @@ class _WatchPartyHeader extends StatelessWidget {
                         const SizedBox(width: 3),
                         Text(
                           'NEW',
-                          style: AppTypography.outfitWhite.copyWith(color: _cGold, fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1.2),
+                          style: AppTypography.outfitWhite.copyWith(
+                            color: _cGold,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.2,
+                          ),
                         ),
                       ],
                     ),
@@ -435,7 +450,11 @@ class _WatchPartyHeader extends StatelessWidget {
               const SizedBox(height: 3),
               Text(
                 'MOVIE NIGHT IN REAL TIME',
-                style: AppTypography.outfitHeading.copyWith(color: _cMuted, fontSize: 10, letterSpacing: 1.5),
+                style: AppTypography.outfitHeading.copyWith(
+                  color: _cMuted,
+                  fontSize: 10,
+                  letterSpacing: 1.5,
+                ),
               ),
             ],
           ),

@@ -9,8 +9,10 @@ import '../../data/services/music_sync_service.dart';
 ///
 /// Exposes each user's all-time top 10 tracks and 5 most recent scrobbles.
 class MusicStatsProvider extends ChangeNotifier {
-  MusicStatsProvider({MusicSyncService? syncService})
-    : _syncService = syncService ?? MusicSyncService() {
+  MusicStatsProvider({
+    MusicSyncService? syncService,
+    Future<Uri> Function(Uri url)? signLastfmUrl,
+  }) : _syncService = syncService ?? MusicSyncService(signUrl: signLastfmUrl) {
     _khentUser = EnvConfig.lastfmUserKhent;
     _clairUser = EnvConfig.lastfmUserClair;
     _init();

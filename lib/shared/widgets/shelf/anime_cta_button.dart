@@ -47,8 +47,12 @@ class _AnimeCtaButtonState extends State<AnimeCtaButton> {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                AppColors.animeMagenta.withValues(alpha: _hovered ? 0.35 : 0.25),
-                AppColors.animeElectricPurple.withValues(alpha: _hovered ? 0.35 : 0.25),
+                AppColors.animeMagenta.withValues(
+                  alpha: _hovered ? 0.35 : 0.25,
+                ),
+                AppColors.animeElectricPurple.withValues(
+                  alpha: _hovered ? 0.35 : 0.25,
+                ),
               ],
             ),
             borderRadius: BorderRadius.circular(24),
@@ -73,14 +77,14 @@ class _AnimeCtaButtonState extends State<AnimeCtaButton> {
             children: [
               Icon(widget.icon, color: AppColors.animeWhite, size: 18),
               const SizedBox(width: 10),
-                Text(
-                  widget.label,
-                  style: AppTypography.outfitHeading.copyWith(
-                    color: AppColors.animeWhite,
-                    fontSize: 14,
-                    letterSpacing: 0.5,
-                  ),
+              Text(
+                widget.label,
+                style: AppTypography.outfitHeading.copyWith(
+                  color: AppColors.animeWhite,
+                  fontSize: 14,
+                  letterSpacing: 0.5,
                 ),
+              ),
             ],
           ),
         ),

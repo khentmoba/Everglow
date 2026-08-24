@@ -48,25 +48,27 @@ class _PlayerPillButtonState extends State<_PlayerPillButton> {
             ),
             decoration: BoxDecoration(
               color: accent
-                  ? AppColors.deepRose.withValues(
-                      alpha: _hovered ? 0.30 : 0.18)
+                  ? AppColors.deepRose.withValues(alpha: _hovered ? 0.30 : 0.18)
                   : AppColors.moonlight.withValues(
-                      alpha: _hovered ? 0.16 : 0.10),
+                      alpha: _hovered ? 0.16 : 0.10,
+                    ),
               borderRadius: BorderRadius.circular(AppRadius.full),
               border: Border.all(
                 color: accent
                     ? AppColors.deepRose.withValues(
-                        alpha: _hovered ? 0.85 : 0.55)
+                        alpha: _hovered ? 0.85 : 0.55,
+                      )
                     : AppColors.moonlight.withValues(alpha: 0.16),
                 width: 1,
               ),
               boxShadow: _hovered
                   ? [
                       BoxShadow(
-                        color: (accent
-                                ? AppColors.deepRose
-                                : AppColors.softLavender)
-                            .withValues(alpha: 0.22),
+                        color:
+                            (accent
+                                    ? AppColors.deepRose
+                                    : AppColors.softLavender)
+                                .withValues(alpha: 0.22),
                         blurRadius: 14,
                         offset: const Offset(0, 4),
                       ),
@@ -78,18 +80,14 @@ class _PlayerPillButtonState extends State<_PlayerPillButton> {
               children: [
                 Icon(
                   widget.icon,
-                  color: accent
-                      ? AppColors.roseQuartz
-                      : Colors.white70,
+                  color: accent ? AppColors.roseQuartz : Colors.white70,
                   size: 14,
                 ),
                 const SizedBox(width: 6),
                 Text(
                   widget.label,
                   style: AppTypography.outfitHeading.copyWith(
-                    color: accent
-                        ? AppColors.roseQuartz
-                        : Colors.white70,
+                    color: accent ? AppColors.roseQuartz : Colors.white70,
                     fontSize: 11,
                   ),
                 ),
@@ -163,9 +161,7 @@ class _PlayerIconButtonState extends State<_PlayerIconButton> {
             ),
             child: Icon(
               widget.icon,
-              color: _hovered
-                  ? AppColors.roseQuartz
-                  : Colors.white70,
+              color: _hovered ? AppColors.roseQuartz : Colors.white70,
               size: 16,
             ),
           ),
@@ -190,10 +186,7 @@ class _ProviderBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 6 : 12,
-        vertical: 6,
-      ),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 12, vertical: 6),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -340,9 +333,7 @@ class _PulsingDotState extends State<_PulsingDot>
 class _CinematicLoader extends StatefulWidget {
   final String providerName;
 
-  const _CinematicLoader({
-    required this.providerName,
-  });
+  const _CinematicLoader({required this.providerName});
 
   @override
   State<_CinematicLoader> createState() => _CinematicLoaderState();
@@ -455,10 +446,7 @@ class _CinematicLoaderState extends State<_CinematicLoader>
                       height: 3,
                       color: Colors.white.withValues(alpha: 0.08),
                       child: Align(
-                        alignment: Alignment(
-                          _controller.value * 2 - 1,
-                          0,
-                        ),
+                        alignment: Alignment(_controller.value * 2 - 1, 0),
                         child: Container(
                           width: 52,
                           height: 3,

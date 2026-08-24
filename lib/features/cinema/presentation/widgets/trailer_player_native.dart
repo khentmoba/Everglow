@@ -37,10 +37,7 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
       'modestbranding=1',
       'playsinline=1',
       'fs=1',
-      if (widget.loop) ...[
-        'loop=1',
-        'playlist=${widget.videoKey}',
-      ],
+      if (widget.loop) ...['loop=1', 'playlist=${widget.videoKey}'],
     ].join('&');
     return 'https://www.youtube.com/embed/${widget.videoKey}?$query';
   }

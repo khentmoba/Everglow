@@ -22,8 +22,10 @@ class AnimeXDmcaPage extends StatelessWidget {
             child: MouseRegion(
               cursor: SystemMouseCursors.click,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
@@ -60,10 +62,7 @@ class AnimeXDmcaPage extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           'Copyright & Takedown Notice',
-          style: dmSansStyle(
-            size: 13,
-            color: AnimeXTokens.textSecondary,
-          ),
+          style: dmSansStyle(size: 13, color: AnimeXTokens.textSecondary),
         ),
         const SizedBox(height: 24),
         Text(

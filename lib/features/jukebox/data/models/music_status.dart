@@ -28,14 +28,18 @@ class MusicStatus {
   });
 
   /// True when we have a resolved Spotify track (not just a search URL).
-  bool get hasSpotifyTrack => spotifyTrackId != null && spotifyTrackId!.isNotEmpty;
+  bool get hasSpotifyTrack =>
+      spotifyTrackId != null && spotifyTrackId!.isNotEmpty;
 
   String get resolvedSpotifyUrl => hasSpotifyTrack
       ? 'https://open.spotify.com/track/$spotifyTrackId'
       : spotifyUrl;
 
-  String? get embedUrl => spotifyEmbedUrl ??
-      (hasSpotifyTrack ? 'https://open.spotify.com/embed/track/$spotifyTrackId' : null);
+  String? get embedUrl =>
+      spotifyEmbedUrl ??
+      (hasSpotifyTrack
+          ? 'https://open.spotify.com/embed/track/$spotifyTrackId'
+          : null);
 
   factory MusicStatus.fromJson(Map<String, dynamic> json, String username) {
     final track = json['recenttracks']['track'][0];
@@ -70,7 +74,8 @@ class MusicStatus {
     final attr = track['@attr'];
     final nowPlaying = attr != null && attr['nowplaying'] == 'true';
 
-    final spotifySearchUrl = 'https://open.spotify.com/search/${Uri.encodeComponent("$artist $name")}';
+    final spotifySearchUrl =
+        'https://open.spotify.com/search/${Uri.encodeComponent("$artist $name")}';
 
     DateTime? date;
     if (track['date'] != null) {
@@ -117,7 +122,9 @@ class MusicStatus {
       imageUrl: map['imageUrl'],
       isPlaying: map['isPlaying'] ?? false,
       spotifyUrl: map['spotifyUrl'] ?? '',
-      timestamp: map['timestamp'] != null ? DateTime.tryParse(map['timestamp']) : null,
+      timestamp: map['timestamp'] != null
+          ? DateTime.tryParse(map['timestamp'])
+          : null,
       spotifyTrackId: map['spotifyTrackId'] as String?,
       spotifyEmbedUrl: map['spotifyEmbedUrl'] as String?,
       previewUrl: map['previewUrl'] as String?,

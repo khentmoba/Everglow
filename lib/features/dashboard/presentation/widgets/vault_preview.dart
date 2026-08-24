@@ -18,7 +18,9 @@ class VaultPreview extends StatelessWidget {
         final count = snap.data?['count'] ?? 0;
         final bytes = snap.data?['bytes'] ?? 0;
         final mb = (bytes / (1024 * 1024));
-        final mbStr = mb < 0.1 ? '${(bytes / 1024).toStringAsFixed(0)} KB' : '${mb.toStringAsFixed(1)} MB';
+        final mbStr = mb < 0.1
+            ? '${(bytes / 1024).toStringAsFixed(0)} KB'
+            : '${mb.toStringAsFixed(1)} MB';
         final limitMb = 500.0;
         final pct = (mb / limitMb).clamp(0.0, 1.0);
 
@@ -36,34 +38,40 @@ class VaultPreview extends StatelessWidget {
             trailing: const SectionChevron(hue: AppColors.auroraTeal),
             onTap: () => context.push('/vault'),
             child: count == 0
-                ? _EmptyVault(hue: AppColors.auroraTeal)
+                ? const _EmptyVault(hue: AppColors.auroraTeal)
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          _VaultTypeIcon(
-                              icon: Icons.image_rounded,
-                              hue: AppColors.auroraTeal,
-                              label: 'IMG'),
+                          const _VaultTypeIcon(
+                            icon: Icons.image_rounded,
+                            hue: AppColors.auroraTeal,
+                            label: 'IMG',
+                          ),
                           const SizedBox(width: 8),
-                          _VaultTypeIcon(
-                              icon: Icons.picture_as_pdf_rounded,
-                              hue: AppColors.warmAmber,
-                              label: 'PDF'),
+                          const _VaultTypeIcon(
+                            icon: Icons.picture_as_pdf_rounded,
+                            hue: AppColors.warmAmber,
+                            label: 'PDF',
+                          ),
                           const SizedBox(width: 8),
-                          _VaultTypeIcon(
-                              icon: Icons.video_file_rounded,
-                              hue: AppColors.softLavender,
-                              label: 'VID'),
+                          const _VaultTypeIcon(
+                            icon: Icons.video_file_rounded,
+                            hue: AppColors.softLavender,
+                            label: 'VID',
+                          ),
                           const Spacer(),
-                          Text(mbStr,
-                              style: AppTypography.outfitWhite.copyWith(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color:
-                                    AppColors.petalWhite.withValues(alpha: 0.55),
-                              )),
+                          Text(
+                            mbStr,
+                            style: AppTypography.outfitWhite.copyWith(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.petalWhite.withValues(
+                                alpha: 0.55,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -73,8 +81,9 @@ class VaultPreview extends StatelessWidget {
                           value: pct == 0 ? 0.04 : pct,
                           minHeight: 6,
                           backgroundColor: Colors.white.withValues(alpha: 0.07),
-                          valueColor:
-                              const AlwaysStoppedAnimation(AppColors.auroraTeal),
+                          valueColor: const AlwaysStoppedAnimation(
+                            AppColors.auroraTeal,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -98,7 +107,11 @@ class _VaultTypeIcon extends StatelessWidget {
   final IconData icon;
   final Color hue;
   final String label;
-  const _VaultTypeIcon({required this.icon, required this.hue, required this.label});
+  const _VaultTypeIcon({
+    required this.icon,
+    required this.hue,
+    required this.label,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -114,12 +127,14 @@ class _VaultTypeIcon extends StatelessWidget {
         children: [
           Icon(icon, size: 12, color: hue),
           const SizedBox(width: 4),
-          Text(label,
-              style: AppTypography.outfitBold.copyWith(
-                fontSize: 9,
-                letterSpacing: 0.6,
-                color: hue,
-              )),
+          Text(
+            label,
+            style: AppTypography.outfitBold.copyWith(
+              fontSize: 9,
+              letterSpacing: 0.6,
+              color: hue,
+            ),
+          ),
         ],
       ),
     );
@@ -154,17 +169,21 @@ class _EmptyVault extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Drop tickets, IDs, receipts',
-                    style: AppTypography.outfitWhite.copyWith(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.petalWhite.withValues(alpha: 0.75),
-                    )),
-                Text('Encrypted, just for you two.',
-                    style: AppTypography.outfitWhite.copyWith(
-                      fontSize: 10,
-                      color: AppColors.petalWhite.withValues(alpha: 0.45),
-                    )),
+                Text(
+                  'Drop tickets, IDs, receipts',
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.petalWhite.withValues(alpha: 0.75),
+                  ),
+                ),
+                Text(
+                  'Encrypted, just for you two.',
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 10,
+                    color: AppColors.petalWhite.withValues(alpha: 0.45),
+                  ),
+                ),
               ],
             ),
           ),

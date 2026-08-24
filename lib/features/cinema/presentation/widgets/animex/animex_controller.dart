@@ -52,8 +52,9 @@ class AnimeXController extends ChangeNotifier {
     if (userName.isEmpty) return;
     _watchlistSub?.cancel();
     _postersRefreshed = false;
-    _watchlistSub =
-        _tmdbService.getAnimeWatchListStream(userName).listen((items) async {
+    _watchlistSub = _tmdbService.getAnimeWatchListStream(userName).listen((
+      items,
+    ) async {
       var refreshed = items;
       if (!_postersRefreshed) {
         refreshed = await _tmdbService.refreshAnimePosters(items);

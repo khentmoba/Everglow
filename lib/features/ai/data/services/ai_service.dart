@@ -42,8 +42,9 @@ class AIService extends ChangeNotifier {
   /// rebuilding the whole conversation list on every SSE chunk.
   final ValueNotifier<int> draftRevisionNotifier = ValueNotifier<int>(0);
   final ValueNotifier<String> draftResponseNotifier = ValueNotifier<String>('');
-  final ValueNotifier<String> draftReasoningNotifier =
-      ValueNotifier<String>('');
+  final ValueNotifier<String> draftReasoningNotifier = ValueNotifier<String>(
+    '',
+  );
   final ValueNotifier<String> toolStatusNotifier = ValueNotifier<String>('');
 
   bool get isLoading => _isLoading;
@@ -96,18 +97,17 @@ class AIService extends ChangeNotifier {
       conversation = await _getOrCreateConversation(feature);
 
       // Add user message BEFORE notifying so the UI shows it immediately
-      conversation.messages.add(AIMessage(
-        role: 'user',
-        content: message,
-        imageUrls: imageUrls,
-      ));
+      conversation.messages.add(
+        AIMessage(role: 'user', content: message, imageUrls: imageUrls),
+      );
       _setConversation(feature, conversation);
       notifyListeners();
 
       // Gather context: if contextOverride is set, use it directly.
       // Otherwise, pass feature + caller to the server so it builds context
       // server-side (Firestore reads from GCP region are near-instant).
-      final context = contextOverride ?? ''; // server builds from feature+caller
+      final context =
+          contextOverride ?? ''; // server builds from feature+caller
 
       // Load permanent memories
       await _ensureMemoriesLoaded();
@@ -122,29 +122,43 @@ class AIService extends ChangeNotifier {
       if (stream) {
         // ── Streaming mode ─────────────────────────────
         reply = await _callProxyAIStream(
-          recentMessages, context, _memoryRepo.all, feature, caller, (
-          chunk,
-        ) {
-          _draftResponse += chunk;
-          draftResponseNotifier.value = _draftResponse;
-          draftRevisionNotifier.value++;
-        }, onReasoning: (reasoning) {
-          _draftReasoning += reasoning;
-          draftReasoningNotifier.value = _draftReasoning;
-          draftRevisionNotifier.value++;
-        }, onToolStatus: (status) {
-          _toolStatus = status;
-          toolStatusNotifier.value = status;
-          draftRevisionNotifier.value++;
-        }, onError: (error) {
-          _lastError = error;
-          _resetDraftState();
-          notifyListeners();
-        }, enableThinking: enableThinking);
+          recentMessages,
+          context,
+          _memoryRepo.all,
+          feature,
+          caller,
+          (chunk) {
+            _draftResponse += chunk;
+            draftResponseNotifier.value = _draftResponse;
+            draftRevisionNotifier.value++;
+          },
+          onReasoning: (reasoning) {
+            _draftReasoning += reasoning;
+            draftReasoningNotifier.value = _draftReasoning;
+            draftRevisionNotifier.value++;
+          },
+          onToolStatus: (status) {
+            _toolStatus = status;
+            toolStatusNotifier.value = status;
+            draftRevisionNotifier.value++;
+          },
+          onError: (error) {
+            _lastError = error;
+            _resetDraftState();
+            notifyListeners();
+          },
+          enableThinking: enableThinking,
+        );
         _resetDraftState();
       } else {
         // ── Non-streaming mode ─────────────────────────
-        reply = await _callProxyAI(recentMessages, context, _memoryRepo.all, feature, caller);
+        reply = await _callProxyAI(
+          recentMessages,
+          context,
+          _memoryRepo.all,
+          feature,
+          caller,
+        );
       }
 
       // Add assistant reply (skip empty replies, e.g. tool-only rounds that
@@ -153,7 +167,9 @@ class AIService extends ChangeNotifier {
         // Strip the model's leading blank lines/whitespace so the reply
         // starts right at the first real line instead of a visible gap.
         final cleaned = reply.trimLeft();
-        conversation.messages.add(AIMessage(role: 'assistant', content: cleaned));
+        conversation.messages.add(
+          AIMessage(role: 'assistant', content: cleaned),
+        );
       }
 
       // Publish the finished reply to the UI immediately so the loading
@@ -299,7 +315,10 @@ class AIService extends ChangeNotifier {
   // serverExtractAndSaveMemory in functions/index.js. Kept for manual
   // testing only; auto-call disabled to save an extra LLM round-trip.
   // ignore: unused_element
-  Future<void> _extractAndSaveMemories(String userMessage, String aiReply) async {
+  Future<void> _extractAndSaveMemories(
+    String userMessage,
+    String aiReply,
+  ) async {
     return; // no-op: server-side extraction handles this
   }
 
@@ -322,8 +341,10 @@ class AIService extends ChangeNotifier {
     try {
       final db = FirebaseFirestore.instance;
       final uid = author ?? _auth.currentUser?.uid ?? 'mochi';
-      final username = uid == 'khentsgdz' ? 'khentsgdz'
-          : uid == 'clairjassen' ? 'clairjassen'
+      final username = uid == 'khentsgdz'
+          ? 'khentsgdz'
+          : uid == 'clairjassen'
+          ? 'clairjassen'
           : 'mochi';
       await db.collection('starlight_jar').add({
         'content': content,
@@ -352,16 +373,23 @@ class AIService extends ChangeNotifier {
   Future<String> _callProxyAI(
     List<Map<String, dynamic>> messages,
     String context,
-    List<String> memories,
-    [String feature = '',
+    List<String> memories, [
+    String feature = '',
     String caller = '',
   ]) async {
     const maxRetries = 2;
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        return await _callProxyAIOnce(messages, context, memories, feature, caller);
+        return await _callProxyAIOnce(
+          messages,
+          context,
+          memories,
+          feature,
+          caller,
+        );
       } catch (e) {
-        final isTransient = e is SocketException ||
+        final isTransient =
+            e is SocketException ||
             e is TimeoutException ||
             (e is Exception && e.toString().contains('503')) ||
             (e is Exception && e.toString().contains('502')) ||
@@ -380,8 +408,8 @@ class AIService extends ChangeNotifier {
   Future<String> _callProxyAIOnce(
     List<Map<String, dynamic>> messages,
     String context,
-    List<String> memories,
-    [String feature = '',
+    List<String> memories, [
+    String feature = '',
     String caller = '',
   ]) async {
     final idToken = await _auth.currentUser?.getIdToken() ?? '';
@@ -449,7 +477,8 @@ class AIService extends ChangeNotifier {
           enableThinking: enableThinking,
         );
       } catch (e) {
-        final isTransient = e is SocketException ||
+        final isTransient =
+            e is SocketException ||
             e is TimeoutException ||
             (e is Exception && e.toString().contains('503')) ||
             (e is Exception && e.toString().contains('502')) ||
@@ -473,11 +502,9 @@ class AIService extends ChangeNotifier {
     void Function(String chunk) onChunk,
     void Function(String chunk)? onReasoning,
     void Function(String toolStatus)? onToolStatus,
-    void Function(String error)? onError,
-    {
+    void Function(String error)? onError, {
     bool enableThinking = true,
-    }
-  ) async {
+  }) async {
     final idToken = await _auth.currentUser?.getIdToken() ?? '';
     final body = jsonEncode({
       'messages': messages,

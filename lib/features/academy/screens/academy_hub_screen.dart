@@ -15,8 +15,8 @@ import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_elevation.dart';
-import '../../../shared/widgets/gamified_background.dart';
-import '../../../shared/widgets/glass_container.dart';
+import '../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../shared/widgets/everglow/everglow_card.dart';
 import '../../../core/utils/logger.dart';
 import '../../../core/theme/app_typography.dart';
 
@@ -280,79 +280,84 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: GamifiedBackground(
-        child: SafeArea(
-          child: Column(
-            children: [
-              const EverglowFeatureHeader(
-                title: 'Academy Hub',
-                subtitle: 'play, learn, compete',
-                icon: Icons.school_rounded,
-                hue: AppColors.softLavender,
-              ),
-              Expanded(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.x3),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (_isSearching) ...[
-                          const CircularProgressIndicator(
-                            color: AppTheme.deepRose,
-                          ),
-                          const SizedBox(height: AppSpacing.xl),
-                          Text(
-                            _statusMessage ?? '',
-                            style: AppTypography.outfitWhite.copyWith(
-                              color: AppTheme.roseQuartz,
+      body: Stack(
+        children: [
+          const Positioned.fill(
+            child: EverglowBackground(baseColor: AppColors.inkDeep),
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+                const EverglowFeatureHeader(
+                  title: 'Academy Hub',
+                  subtitle: 'play, learn, compete',
+                  icon: Icons.school_rounded,
+                  hue: AppColors.softLavender,
+                ),
+                Expanded(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.x3),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (_isSearching) ...[
+                            const CircularProgressIndicator(
+                              color: AppTheme.deepRose,
                             ),
-                          ),
-                          const SizedBox(height: AppSpacing.xl),
-                          TextButton(
-                            onPressed: () =>
-                                setState(() => _isSearching = false),
-                            child: Text(
-                              'Cancel Search',
-                              style: AppTypography.outfitWhite.copyWith(
-                                color: AppTheme.blushGold,
-                              ),
-                            ),
-                          ),
-                        ] else ...[
-                          _buildModeButton(
-                            'Solo Study',
-                            'Practice on your own',
-                            Icons.menu_book_rounded,
-                            () => _showCategoryPicker(
-                              _startSoloStudyWithCategory,
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.x2),
-                          _buildModeButton(
-                            '1v1 Challenge',
-                            'Race against your partner',
-                            Icons.bolt_rounded,
-                            () => _showCategoryPicker(_startMatchmaking),
-                          ),
-                          if (_statusMessage != null) ...[
                             const SizedBox(height: AppSpacing.xl),
                             Text(
-                              _statusMessage!,
+                              _statusMessage ?? '',
                               style: AppTypography.outfitWhite.copyWith(
-                                color: AppTheme.blushGold,
+                                color: AppTheme.roseQuartz,
                               ),
                             ),
+                            const SizedBox(height: AppSpacing.xl),
+                            TextButton(
+                              onPressed: () =>
+                                  setState(() => _isSearching = false),
+                              child: Text(
+                                'Cancel Search',
+                                style: AppTypography.outfitWhite.copyWith(
+                                  color: AppTheme.blushGold,
+                                ),
+                              ),
+                            ),
+                          ] else ...[
+                            _buildModeButton(
+                              'Solo Study',
+                              'Practice on your own',
+                              Icons.menu_book_rounded,
+                              () => _showCategoryPicker(
+                                _startSoloStudyWithCategory,
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.x2),
+                            _buildModeButton(
+                              '1v1 Challenge',
+                              'Race against your partner',
+                              Icons.bolt_rounded,
+                              () => _showCategoryPicker(_startMatchmaking),
+                            ),
+                            if (_statusMessage != null) ...[
+                              const SizedBox(height: AppSpacing.xl),
+                              Text(
+                                _statusMessage!,
+                                style: AppTypography.outfitWhite.copyWith(
+                                  color: AppTheme.blushGold,
+                                ),
+                              ),
+                            ],
                           ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -363,46 +368,53 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
     IconData icon,
     VoidCallback onTap,
   ) {
-    return InkWell(
+    return EverglowCard(
       onTap: onTap,
-      borderRadius: AppRadius.radiusX2,
-      child: GlassContainer(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        borderRadius: AppRadius.radiusX2,
-        border: Border.all(
-          color: AppTheme.blushGold.withValues(alpha: 0.2),
-          width: 1.0,
-        ),
-        opacity: AppTheme.glassOpacity,
-        child: Row(
-          children: [
-            Icon(icon, size: 40, color: AppTheme.deepRose),
-            const SizedBox(width: AppSpacing.xl),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: AppTypography.cormorantBold.copyWith(fontSize: 22),
-                  ),
-                  Text(
-                    subtitle,
-                    style: AppTypography.outfitWhite.copyWith(
-                      fontSize: 13,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.75),
-                    ),
-                  ),
-                ],
-              ),
+      padding: const EdgeInsets.all(18),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.deepRose.withValues(alpha: 0.12),
+              border: Border.all(color: AppColors.deepRose.withValues(alpha: 0.22)),
             ),
-            const Icon(
-              Icons.arrow_forward_ios,
-              color: AppTheme.blushGold,
-              size: 18,
+            child: Icon(icon, size: 22, color: AppColors.deepRose),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: AppTypography.cormorantBold.copyWith(fontSize: 20, height: 1.0),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 12,
+                    color: AppColors.petalWhite.withValues(alpha: 0.62),
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.moonlight.withValues(alpha: 0.08),
+              border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.12)),
+            ),
+            child: const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.blushGold, size: 14),
+          ),
+        ],
       ),
     );
   }
@@ -452,8 +464,8 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet>
         vsync: this,
       );
       for (int i = 0; i < widget.categories.length; i++) {
-        _fadeAnimations.add(AlwaysStoppedAnimation(1.0));
-        _slideAnimations.add(AlwaysStoppedAnimation(Offset.zero));
+        _fadeAnimations.add(const AlwaysStoppedAnimation(1.0));
+        _slideAnimations.add(const AlwaysStoppedAnimation(Offset.zero));
       }
     } else {
       _animController = AnimationController(

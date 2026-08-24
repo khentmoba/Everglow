@@ -45,7 +45,10 @@ class GalleryService {
     final Reference ref = _storage.ref().child(path);
     final UploadTask uploadTask = ref.putData(
       imageBytes,
-      SettableMetadata(contentType: _guessContentType(fileName), cacheControl: 'public, max-age=31536000'),
+      SettableMetadata(
+        contentType: _guessContentType(fileName),
+        cacheControl: 'public, max-age=31536000',
+      ),
     );
     final TaskSnapshot snapshot = await uploadTask;
     final String downloadUrl = await snapshot.ref.getDownloadURL();
@@ -58,9 +61,10 @@ class GalleryService {
       'uploadedAt': FieldValue.serverTimestamp(),
       'tags': tags,
       'monthDay': _monthDay(DateTime.now()),
-      if (latitude != null) 'latitude': latitude,
-      if (longitude != null) 'longitude': longitude,
-      if (locationName != null && locationName.isNotEmpty) 'locationName': locationName,
+      'latitude': ?latitude,
+      'longitude': ?longitude,
+      if (locationName != null && locationName.isNotEmpty)
+        'locationName': locationName,
       if (takenAt != null) 'takenAt': Timestamp.fromDate(takenAt),
     });
 
@@ -202,15 +206,26 @@ class GalleryService {
   Future<List<MemoryPhoto>> getPhotosFromThisWeek() async {
     final now = DateTime.now();
     try {
-      final all = await _db.collection(_collection).orderBy('uploadedAt', descending: true).limit(300).get();
+      final all = await _db
+          .collection(_collection)
+          .orderBy('uploadedAt', descending: true)
+          .limit(300)
+          .get();
       final photos = all.docs.map((d) => MemoryPhoto.fromFirestore(d)).toList();
       return photos.where((p) {
         if (p.uploadedAt.year == now.year) return false;
-        final thisYearAnniv = DateTime(now.year, p.uploadedAt.month, p.uploadedAt.day);
-        final diff = (thisYearAnniv.difference(DateTime(now.year, now.month, now.day)).inDays).abs();
+        final thisYearAnniv = DateTime(
+          now.year,
+          p.uploadedAt.month,
+          p.uploadedAt.day,
+        );
+        final diff =
+            (thisYearAnniv
+                    .difference(DateTime(now.year, now.month, now.day))
+                    .inDays)
+                .abs();
         return diff <= 3; // within 3 days => 7-day window
-      }).toList()
-        ..sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
+      }).toList()..sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
     } catch (e) {
       Logger.e("Error getting this-week photos", error: e);
       return [];
@@ -219,22 +234,42 @@ class GalleryService {
 
   /// All photos that have a pinned location — for map view (Immich map)
   Stream<List<MemoryPhoto>> getPhotosWithLocationStream() {
-    return _db.collection(_collection).orderBy('uploadedAt', descending: true).limit(100).snapshots().map(
-          (snap) => snap.docs.map((d) => MemoryPhoto.fromFirestore(d)).where((p) => p.hasLocation).toList(),
+    return _db
+        .collection(_collection)
+        .orderBy('uploadedAt', descending: true)
+        .limit(100)
+        .snapshots()
+        .map(
+          (snap) => snap.docs
+              .map((d) => MemoryPhoto.fromFirestore(d))
+              .where((p) => p.hasLocation)
+              .toList(),
         );
   }
 
   Future<List<MemoryPhoto>> getPhotosWithLocation() async {
     try {
-      final snap = await _db.collection(_collection).orderBy('uploadedAt', descending: true).limit(200).get();
-      return snap.docs.map((d) => MemoryPhoto.fromFirestore(d)).where((p) => p.hasLocation).toList();
+      final snap = await _db
+          .collection(_collection)
+          .orderBy('uploadedAt', descending: true)
+          .limit(200)
+          .get();
+      return snap.docs
+          .map((d) => MemoryPhoto.fromFirestore(d))
+          .where((p) => p.hasLocation)
+          .toList();
     } catch (e) {
       Logger.e("Error getting located photos", error: e);
       return [];
     }
   }
 
-  Future<void> updatePhotoLocation(String id, {double? lat, double? lng, String? locationName}) async {
+  Future<void> updatePhotoLocation(
+    String id, {
+    double? lat,
+    double? lng,
+    String? locationName,
+  }) async {
     try {
       final data = <String, dynamic>{};
       if (lat != null && lng != null) {

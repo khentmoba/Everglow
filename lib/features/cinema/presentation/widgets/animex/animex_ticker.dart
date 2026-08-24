@@ -44,7 +44,7 @@ class _AnimeXTickerState extends State<AnimeXTicker>
       onExit: (_) => setState(() => _paused = false),
       child: Container(
         height: 34,
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: AnimeXTokens.surface,
           border: Border(
             top: BorderSide(color: AnimeXTokens.border),
@@ -81,10 +81,7 @@ class _AnimeXTickerState extends State<AnimeXTicker>
         for (final item in widget.items) _tickerItem(context, item),
       ],
     );
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [once, once],
-    );
+    return Row(mainAxisSize: MainAxisSize.min, children: [once, once]);
   }
 
   Widget _tickerItem(BuildContext context, MediaItem item) {

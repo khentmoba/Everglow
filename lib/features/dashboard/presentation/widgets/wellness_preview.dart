@@ -15,7 +15,8 @@ class WellnessPreview extends StatelessWidget {
     return FutureBuilder<Map<String, int>>(
       future: service.getWeeklyStreaks(),
       builder: (context, snap) {
-        final data = snap.data ?? {'total': 0, 'completedToday': 0, 'avgStreak': 0};
+        final data =
+            snap.data ?? {'total': 0, 'completedToday': 0, 'avgStreak': 0};
         final total = data['total'] ?? 0;
         final done = data['completedToday'] ?? 0;
         final avg = data['avgStreak'] ?? 0;
@@ -35,7 +36,7 @@ class WellnessPreview extends StatelessWidget {
             trailing: const SectionChevron(hue: AppColors.auroraRose),
             onTap: () => context.push('/wellness'),
             child: total == 0
-                ? _EmptyWellness(hue: AppColors.auroraRose)
+                ? const _EmptyWellness(hue: AppColors.auroraRose)
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -45,8 +46,9 @@ class WellnessPreview extends StatelessWidget {
                           value: pct,
                           minHeight: 6,
                           backgroundColor: Colors.white.withValues(alpha: 0.08),
-                          valueColor:
-                              const AlwaysStoppedAnimation(AppColors.auroraRose),
+                          valueColor: const AlwaysStoppedAnimation(
+                            AppColors.auroraRose,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -61,7 +63,9 @@ class WellnessPreview extends StatelessWidget {
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: filled
-                                    ? AppColors.auroraRose.withValues(alpha: 0.92)
+                                    ? AppColors.auroraRose.withValues(
+                                        alpha: 0.92,
+                                      )
                                     : Colors.white.withValues(alpha: 0.07),
                                 border: Border.all(
                                   color: filled
@@ -74,38 +78,52 @@ class WellnessPreview extends StatelessWidget {
                                           color: AppColors.auroraRose
                                               .withValues(alpha: 0.35),
                                           blurRadius: 8,
-                                        )
+                                        ),
                                       ]
                                     : null,
                               ),
                               child: filled
-                                  ? const Icon(Icons.check_rounded,
-                                      size: 12, color: Colors.white)
+                                  ? const Icon(
+                                      Icons.check_rounded,
+                                      size: 12,
+                                      color: Colors.white,
+                                    )
                                   : null,
                             );
                           }),
                           const Spacer(),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
-                              color: AppColors.auroraRose.withValues(alpha: 0.12),
+                              color: AppColors.auroraRose.withValues(
+                                alpha: 0.12,
+                              ),
                               borderRadius: BorderRadius.circular(999),
                               border: Border.all(
-                                  color:
-                                      AppColors.auroraRose.withValues(alpha: 0.22)),
+                                color: AppColors.auroraRose.withValues(
+                                  alpha: 0.22,
+                                ),
+                              ),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.local_fire_department_rounded,
-                                    size: 12, color: AppColors.auroraRose),
+                                const Icon(
+                                  Icons.local_fire_department_rounded,
+                                  size: 12,
+                                  color: AppColors.auroraRose,
+                                ),
                                 const SizedBox(width: 4),
-                                Text('${avg}d',
-                                    style: AppTypography.outfitBold.copyWith(
-                                      fontSize: 11,
-                                      color: AppColors.auroraRose,
-                                    )),
+                                Text(
+                                  '${avg}d',
+                                  style: AppTypography.outfitBold.copyWith(
+                                    fontSize: 11,
+                                    color: AppColors.auroraRose,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -137,31 +155,39 @@ class _EmptyWellness extends StatelessWidget {
         children: [
           Row(
             children: List.generate(
-                3,
-                (i) => Container(
-                      margin: EdgeInsets.only(left: i == 0 ? 0 : 6),
-                      width: 26,
-                      height: 26,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withValues(alpha: 0.06),
-                        border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.10)),
-                      ),
-                      child: Icon(
-                        [Icons.self_improvement_rounded, Icons.water_drop_rounded, Icons.bedtime_rounded][i],
-                        size: 13,
-                        color: hue.withValues(alpha: 0.85),
-                      ),
-                    )),
+              3,
+              (i) => Container(
+                margin: EdgeInsets.only(left: i == 0 ? 0 : 6),
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.06),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.10),
+                  ),
+                ),
+                child: Icon(
+                  [
+                    Icons.self_improvement_rounded,
+                    Icons.water_drop_rounded,
+                    Icons.bedtime_rounded,
+                  ][i],
+                  size: 13,
+                  color: hue.withValues(alpha: 0.85),
+                ),
+              ),
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text('Build habits together — small wins, every day.',
-                style: AppTypography.outfitWhite.copyWith(
-                  fontSize: 11,
-                  color: AppColors.petalWhite.withValues(alpha: 0.60),
-                )),
+            child: Text(
+              'Build habits together — small wins, every day.',
+              style: AppTypography.outfitWhite.copyWith(
+                fontSize: 11,
+                color: AppColors.petalWhite.withValues(alpha: 0.60),
+              ),
+            ),
           ),
         ],
       ),

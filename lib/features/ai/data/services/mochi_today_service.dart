@@ -28,11 +28,13 @@ class TodaySnapshot {
 class MochiTodayService {
   final FirebaseFirestore _db;
 
-  MochiTodayService({FirebaseFirestore? db}) : _db = db ?? FirebaseFirestore.instance;
+  MochiTodayService({FirebaseFirestore? db})
+    : _db = db ?? FirebaseFirestore.instance;
 
   Future<TodaySnapshot> fetch({DateTime? now}) async {
     final current = now ?? DateTime.now();
-    final today = '${current.year.toString().padLeft(4, '0')}-'
+    final today =
+        '${current.year.toString().padLeft(4, '0')}-'
         '${current.month.toString().padLeft(2, '0')}-'
         '${current.day.toString().padLeft(2, '0')}';
     try {
@@ -66,15 +68,13 @@ class MochiTodayService {
 
       return TodaySnapshot(
         date: current,
-        moods: moodDocs
-            .map((doc) {
-              final data = doc.data();
-              return (
-                uid: (data['uid'] as String?) ?? 'someone',
-                mood: (data['mood'] as String?) ?? 'okay',
-              );
-            })
-            .toList(),
+        moods: moodDocs.map((doc) {
+          final data = doc.data();
+          return (
+            uid: (data['uid'] as String?) ?? 'someone',
+            mood: (data['mood'] as String?) ?? 'okay',
+          );
+        }).toList(),
         activities: activityDocs
             .map((doc) {
               final data = doc.data();

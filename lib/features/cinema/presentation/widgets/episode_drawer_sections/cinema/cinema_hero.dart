@@ -16,6 +16,7 @@ class CinemaHero extends StatelessWidget {
   final bool isLoadingTrailer;
   final bool isPlayingTrailer;
   final bool isMobile;
+
   /// True when the trailer started from a tap on the Watch Trailer button.
   /// Auto-play stays muted so browser autoplay policies don't block it.
   final bool trailerUserInitiated;
