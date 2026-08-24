@@ -43,7 +43,15 @@ function getAdmin() {
  */
 async function requireAuth(req, res) {
   const header = req.get('Authorization') || req.headers.authorization || '';
-  const idToken = String(header).replace(/^Bearer\s+/i, '');
+  let idToken = String(header).replace(/^Bearer\s+/i, '').trim();
+  if (!idToken) {
+    // Fallback to query-string token for clients that sign URLs via ?__auth=
+    // (e.g. MusicSyncService). Header takes precedence; query is checked only
+    // when the header is absent so logs do not contain credentials.
+    const qp = req.query || {};
+    const qToken = qp.__auth || qp.token || qp.auth || '';
+    idToken = String(qToken).trim();
+  }
   if (!idToken) {
     res.status(401).json({ error: 'Authentication required' });
     return null;
@@ -2292,7 +2300,7 @@ exports.proxyTmdb = functions.https.onRequest(async (req, res) => {
   try {
     const response = await fetch(upstream, { signal: AbortSignal.timeout(12000) });
     const body = await response.text();
-    res.status(response.statusCode)
+    res.status(response.status)
       .set('Content-Type', response.headers.get('content-type') || 'application/json')
       .send(body);
   } catch (e) {
@@ -2330,7 +2338,7 @@ exports.proxyLastfm = functions.https.onRequest(async (req, res) => {
   try {
     const response = await fetch(upstream, { signal: AbortSignal.timeout(12000) });
     const body = await response.text();
-    res.status(response.statusCode)
+    res.status(response.status)
       .set('Content-Type', response.headers.get('content-type') || 'application/json')
       .send(body);
   } catch (e) {
