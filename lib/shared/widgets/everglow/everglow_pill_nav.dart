@@ -6,6 +6,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_elevation.dart';
 import '../../../core/theme/app_motion.dart';
+import 'everglow_keyboard_activation.dart';
 
 /// Floating pill bottom navigation bar.
 ///
@@ -76,49 +77,52 @@ class _NavItem extends StatelessWidget {
       button: true,
       selected: selected,
       label: item.label,
-      child: GestureDetector(
-        onTap: onTap,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: AnimatedContainer(
-            duration: AppMotion.orZero(AppMotion.medium),
-            curve: AppMotion.easeOutStrong,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: selected
-                  ? AppColors.deepRose.withValues(alpha: 0.15)
-                  : Colors.transparent,
-              borderRadius: AppRadius.radiusFull,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedSwitcher(
-                  duration: AppMotion.orZero(AppMotion.fast),
-                  child: Icon(
-                    selected ? item.activeIcon : item.icon,
-                    key: ValueKey(selected),
-                    size: 22,
-                    color: selected
-                        ? AppColors.roseQuartz
-                        : AppColors.textMuted,
-                  ),
-                ),
-                if (selected) ...[
-                  const SizedBox(width: 8),
-                  AnimatedSize(
-                    duration: AppMotion.orZero(AppMotion.medium),
-                    curve: AppMotion.easeOutExpo,
-                    child: Text(
-                      item.label,
-                      style: AppTypography.labelLarge().copyWith(
-                        color: AppColors.roseQuartz,
-                        fontSize: 12,
-                      ),
+      child: EverglowKeyboardActivation(
+        onActivate: onTap,
+        child: GestureDetector(
+          onTap: onTap,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: AnimatedContainer(
+              duration: AppMotion.orZero(AppMotion.medium),
+              curve: AppMotion.easeOutStrong,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: selected
+                    ? AppColors.deepRose.withValues(alpha: 0.15)
+                    : Colors.transparent,
+                borderRadius: AppRadius.radiusFull,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedSwitcher(
+                    duration: AppMotion.orZero(AppMotion.fast),
+                    child: Icon(
+                      selected ? item.activeIcon : item.icon,
+                      key: ValueKey(selected),
+                      size: 22,
+                      color: selected
+                          ? AppColors.roseQuartz
+                          : AppColors.textMuted,
                     ),
                   ),
+                  if (selected) ...[
+                    const SizedBox(width: 8),
+                    AnimatedSize(
+                      duration: AppMotion.orZero(AppMotion.medium),
+                      curve: AppMotion.easeOutExpo,
+                      child: Text(
+                        item.label,
+                        style: AppTypography.labelLarge().copyWith(
+                          color: AppColors.roseQuartz,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
