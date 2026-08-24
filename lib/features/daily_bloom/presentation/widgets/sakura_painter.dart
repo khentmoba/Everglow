@@ -28,10 +28,10 @@ class SakuraPainter extends CustomPainter {
       height: potHeight,
     );
 
-    paint.shader = LinearGradient(
+    paint.shader = const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [const Color(0xFFD7CCC8), const Color(0xFFBCAAA4)],
+      colors: [Color(0xFFD7CCC8), Color(0xFFBCAAA4)],
     ).createShader(rect);
 
     canvas.drawRRect(
@@ -63,9 +63,12 @@ class SakuraPainter extends CustomPainter {
     final trunkPath = Path();
     trunkPath.moveTo(center.dx, center.dy);
     trunkPath.cubicTo(
-      center.dx + 8, center.dy - trunkHeight * 0.3,
-      center.dx - 5, center.dy - trunkHeight * 0.6,
-      center.dx + 3, center.dy - trunkHeight,
+      center.dx + 8,
+      center.dy - trunkHeight * 0.3,
+      center.dx - 5,
+      center.dy - trunkHeight * 0.6,
+      center.dx + 3,
+      center.dy - trunkHeight,
     );
     canvas.drawPath(trunkPath, paint);
 
@@ -78,8 +81,10 @@ class SakuraPainter extends CustomPainter {
       final rightBranch = Path();
       rightBranch.moveTo(branchBase.dx, branchBase.dy);
       rightBranch.quadraticBezierTo(
-        branchBase.dx + 20, branchBase.dy - 10,
-        branchBase.dx + 30, branchBase.dy - 20,
+        branchBase.dx + 20,
+        branchBase.dy - 10,
+        branchBase.dx + 30,
+        branchBase.dy - 20,
       );
       canvas.drawPath(rightBranch, paint);
 
@@ -87,8 +92,10 @@ class SakuraPainter extends CustomPainter {
       final leftBranch = Path();
       leftBranch.moveTo(branchBase.dx, branchBase.dy);
       leftBranch.quadraticBezierTo(
-        branchBase.dx - 18, branchBase.dy - 12,
-        branchBase.dx - 28, branchBase.dy - 18,
+        branchBase.dx - 18,
+        branchBase.dy - 12,
+        branchBase.dx - 28,
+        branchBase.dy - 18,
       );
       canvas.drawPath(leftBranch, paint);
 
@@ -98,16 +105,20 @@ class SakuraPainter extends CustomPainter {
         final rightSub = Path();
         rightSub.moveTo(branchBase.dx + 15, branchBase.dy - 10);
         rightSub.quadraticBezierTo(
-          branchBase.dx + 25, branchBase.dy - 25,
-          branchBase.dx + 22, branchBase.dy - 35,
+          branchBase.dx + 25,
+          branchBase.dy - 25,
+          branchBase.dx + 22,
+          branchBase.dy - 35,
         );
         canvas.drawPath(rightSub, paint);
 
         final leftSub = Path();
         leftSub.moveTo(branchBase.dx - 12, branchBase.dy - 10);
         leftSub.quadraticBezierTo(
-          branchBase.dx - 22, branchBase.dy - 22,
-          branchBase.dx - 20, branchBase.dy - 32,
+          branchBase.dx - 22,
+          branchBase.dy - 22,
+          branchBase.dx - 20,
+          branchBase.dy - 32,
         );
         canvas.drawPath(leftSub, paint);
       }
@@ -177,6 +188,7 @@ class SakuraPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant SakuraPainter oldDelegate) {
-    return oldDelegate.stage != stage || oldDelegate.animationValue != animationValue;
+    return oldDelegate.stage != stage ||
+        oldDelegate.animationValue != animationValue;
   }
 }

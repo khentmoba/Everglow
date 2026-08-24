@@ -56,7 +56,9 @@ class MochiWebBridge {
   }
 
   Future<String?> recognizeOnce({String lang = 'en-US'}) async {
-    final ctor = js.context['webkitSpeechRecognition'] ?? js.context['SpeechRecognition'];
+    final ctor =
+        js.context['webkitSpeechRecognition'] ??
+        js.context['SpeechRecognition'];
     if (ctor == null) return null;
     final completer = Completer<String?>();
     final rec = js.JsObject(ctor);
@@ -119,7 +121,8 @@ class MochiWebBridge {
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'medium';
           ctx.drawImage(img, 0, 0);
-          final isPng = bytes.length > 8 &&
+          final isPng =
+              bytes.length > 8 &&
               bytes[0] == 0x89 &&
               bytes[1] == 0x50 &&
               bytes[2] == 0x4E &&

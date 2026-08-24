@@ -118,7 +118,11 @@ class BucketListService {
   }
 
   /// Move item to any status (Kanban drag).
-  Future<void> moveStatus(String id, BucketStatus status, {String? completedBy}) async {
+  Future<void> moveStatus(
+    String id,
+    BucketStatus status, {
+    String? completedBy,
+  }) async {
     try {
       final data = <String, dynamic>{'status': status.name};
       if (status == BucketStatus.completed) {
@@ -139,9 +143,13 @@ class BucketListService {
   Future<void> assign(String id, String? username) async {
     try {
       if (username == null) {
-        await _db.collection(_collection).doc(id).update({'assignedTo': FieldValue.delete()});
+        await _db.collection(_collection).doc(id).update({
+          'assignedTo': FieldValue.delete(),
+        });
       } else {
-        await _db.collection(_collection).doc(id).update({'assignedTo': username});
+        await _db.collection(_collection).doc(id).update({
+          'assignedTo': username,
+        });
       }
       Logger.i('Assigned bucket item $id to ${username ?? "none"}');
     } catch (e) {
@@ -152,7 +160,9 @@ class BucketListService {
   /// Update priority.
   Future<void> setPriority(String id, BucketPriority priority) async {
     try {
-      await _db.collection(_collection).doc(id).update({'priority': priority.name});
+      await _db.collection(_collection).doc(id).update({
+        'priority': priority.name,
+      });
       Logger.i('Set priority $id -> ${priority.name}');
     } catch (e) {
       Logger.e('Error setting priority', error: e);
@@ -163,9 +173,13 @@ class BucketListService {
   Future<void> setDueDate(String id, DateTime? dueDate) async {
     try {
       if (dueDate == null) {
-        await _db.collection(_collection).doc(id).update({'dueDate': FieldValue.delete()});
+        await _db.collection(_collection).doc(id).update({
+          'dueDate': FieldValue.delete(),
+        });
       } else {
-        await _db.collection(_collection).doc(id).update({'dueDate': Timestamp.fromDate(dueDate)});
+        await _db.collection(_collection).doc(id).update({
+          'dueDate': Timestamp.fromDate(dueDate),
+        });
       }
       Logger.i('Set dueDate $id -> $dueDate');
     } catch (e) {
@@ -175,7 +189,9 @@ class BucketListService {
 
   /// Client-side filtered streams (no extra indexes needed for MVP).
   Stream<List<BucketItem>> watchAssignedTo(String username) {
-    return watchAll().map((items) => items.where((i) => i.assignedTo == username).toList());
+    return watchAll().map(
+      (items) => items.where((i) => i.assignedTo == username).toList(),
+    );
   }
 
   Stream<List<BucketItem>> watchOverdue() {

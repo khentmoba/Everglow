@@ -91,14 +91,21 @@ void main() {
 
     test('calendarEventTypeInfo has entry for every type', () {
       for (final type in CalendarEventType.values) {
-        expect(calendarEventTypeInfo.containsKey(type), isTrue,
-            reason: 'Missing info for ${type.name}');
+        expect(
+          calendarEventTypeInfo.containsKey(type),
+          isTrue,
+          reason: 'Missing info for ${type.name}',
+        );
       }
     });
 
     test('calendarEventTypeInfo has emoji and label for each type', () {
       calendarEventTypeInfo.forEach((type, info) {
-        expect(info.$1, isNotEmpty, reason: '${type.name} should have an emoji');
+        expect(
+          info.$1,
+          isNotEmpty,
+          reason: '${type.name} should have an emoji',
+        );
         expect(info.$2, isNotEmpty, reason: '${type.name} should have a label');
       });
     });

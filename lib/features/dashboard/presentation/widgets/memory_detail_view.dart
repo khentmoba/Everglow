@@ -43,7 +43,9 @@ class MemoryDetailOverlay extends StatelessWidget {
                     children: [
                       Text(
                         milestone.title,
-                        style: AppTypography.cormorantBold.copyWith(fontSize: 24),
+                        style: AppTypography.cormorantBold.copyWith(
+                          fontSize: 24,
+                        ),
                       ),
                       Text(
                         DateFormat('MMMM d, yyyy').format(milestone.date),
@@ -72,22 +74,36 @@ class MemoryDetailOverlay extends StatelessWidget {
                   if (milestone.author != null)
                     Container(
                       margin: const EdgeInsets.only(bottom: 24),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
-                        color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
+                        color: AppTheme.moonlight.withValues(
+                          alpha: AppTheme.glassOpacity,
+                        ),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppTheme.moonlight.withValues(alpha: 0.18), width: 1.0),
+                        border: Border.all(
+                          color: AppTheme.moonlight.withValues(alpha: 0.18),
+                          width: 1.0,
+                        ),
                       ),
                       child: Text(
                         "Memory by ${milestone.author} \u2661",
                         style: AppTypography.outfitWhite.copyWith(
-                          fontSize: 12, fontStyle: FontStyle.italic, color: AppTheme.blushGold,
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                          color: AppTheme.blushGold,
                         ),
                       ),
                     ),
                   Text(
                     milestone.description,
-                    style: AppTypography.outfitWhite.copyWith(fontSize: 16, height: 1.6, color: AppTheme.petalWhite),
+                    style: AppTypography.outfitWhite.copyWith(
+                      fontSize: 16,
+                      height: 1.6,
+                      color: AppTheme.petalWhite,
+                    ),
                   ),
                   const SizedBox(height: 40),
                 ],
@@ -101,7 +117,14 @@ class MemoryDetailOverlay extends StatelessWidget {
               children: [
                 const Icon(Icons.favorite, color: AppTheme.deepRose, size: 16),
                 const SizedBox(width: 8),
-                Text("Living Archive", style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppTheme.roseQuartz.withValues(alpha: 0.5), letterSpacing: 2)),
+                Text(
+                  "Living Archive",
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 12,
+                    color: AppTheme.roseQuartz.withValues(alpha: 0.5),
+                    letterSpacing: 2,
+                  ),
+                ),
                 const SizedBox(width: 8),
                 const Icon(Icons.favorite, color: AppTheme.deepRose, size: 16),
               ],
@@ -115,7 +138,10 @@ class MemoryDetailOverlay extends StatelessWidget {
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
       child: AppMotion.reduced
           ? dialogContent
-          : FadeInUp(duration: const Duration(milliseconds: 500), child: dialogContent),
+          : FadeInUp(
+              duration: const Duration(milliseconds: 500),
+              child: dialogContent,
+            ),
     );
   }
 }

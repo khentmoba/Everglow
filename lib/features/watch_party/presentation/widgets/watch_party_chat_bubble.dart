@@ -28,7 +28,8 @@ class WatchPartyChatBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final timeStr = DateFormat('h:mm a').format(timestamp);
-    final isToday = DateTime.now().day == timestamp.day &&
+    final isToday =
+        DateTime.now().day == timestamp.day &&
         DateTime.now().month == timestamp.month &&
         DateTime.now().year == timestamp.year;
 
@@ -37,21 +38,26 @@ class WatchPartyChatBubble extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 3.0),
         child: Column(
-          crossAxisAlignment:
-              isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: isMe
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
             if (!isMe)
               Padding(
                 padding: const EdgeInsets.only(left: 8, bottom: 2),
                 child: Text(
                   sender.toUpperCase(),
-                  style: AppTypography.outfitWhite.copyWith(fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.blushGold.withValues(alpha: 0.85), letterSpacing: 1.2),
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.blushGold.withValues(alpha: 0.85),
+                    letterSpacing: 1.2,
+                  ),
                 ),
               ),
             Container(
               constraints: const BoxConstraints(maxWidth: 240),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: isMe
                     ? AppTheme.deepRose
@@ -75,14 +81,24 @@ class WatchPartyChatBubble extends StatelessWidget {
                 children: [
                   Text(
                     text,
-                    style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite, fontSize: 13, height: 1.35),
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: AppTheme.petalWhite,
+                      fontSize: 13,
+                      height: 1.35,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    isToday ? timeStr : DateFormat('MMM d, h:mm a').format(timestamp),
-                    style: AppTypography.outfitWhite.copyWith(color: isMe
+                    isToday
+                        ? timeStr
+                        : DateFormat('MMM d, h:mm a').format(timestamp),
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: isMe
                           ? AppTheme.petalWhite.withValues(alpha: 0.7)
-                          : AppTheme.roseQuartz.withValues(alpha: 0.55), fontSize: 9, fontWeight: FontWeight.w500),
+                          : AppTheme.roseQuartz.withValues(alpha: 0.55),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ],
               ),

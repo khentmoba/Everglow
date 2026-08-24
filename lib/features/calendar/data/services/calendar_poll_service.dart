@@ -12,14 +12,25 @@ class CalendarPollService {
   final String _collection = 'calendar_polls';
 
   Stream<List<DatePoll>> watchAll() => withFirestoreTimeout(
-        _db.collection(_collection).orderBy('createdAt', descending: true).limit(50).snapshots().map((s) => s.docs.map((d) => DatePoll.fromFirestore(d)).toList()),
-        label: 'polls-all',
-      );
+    _db
+        .collection(_collection)
+        .orderBy('createdAt', descending: true)
+        .limit(50)
+        .snapshots()
+        .map((s) => s.docs.map((d) => DatePoll.fromFirestore(d)).toList()),
+    label: 'polls-all',
+  );
 
   Stream<List<DatePoll>> watchOpen() => withFirestoreTimeout(
-        _db.collection(_collection).where('status', isEqualTo: 'open').orderBy('createdAt', descending: true).limit(30).snapshots().map((s) => s.docs.map((d) => DatePoll.fromFirestore(d)).toList()),
-        label: 'polls-open',
-      );
+    _db
+        .collection(_collection)
+        .where('status', isEqualTo: 'open')
+        .orderBy('createdAt', descending: true)
+        .limit(30)
+        .snapshots()
+        .map((s) => s.docs.map((d) => DatePoll.fromFirestore(d)).toList()),
+    label: 'polls-open',
+  );
 
   Future<void> create(DatePoll poll) async {
     try {
@@ -32,7 +43,9 @@ class CalendarPollService {
 
   Future<void> vote(String pollId, String username, String optionId) async {
     try {
-      await _db.collection(_collection).doc(pollId).update({'votes.$username': optionId});
+      await _db.collection(_collection).doc(pollId).update({
+        'votes.$username': optionId,
+      });
       Logger.i('Vote $username -> $optionId on $pollId');
     } catch (e) {
       Logger.e('Error voting', error: e);
@@ -41,7 +54,9 @@ class CalendarPollService {
 
   Future<void> unvote(String pollId, String username) async {
     try {
-      await _db.collection(_collection).doc(pollId).update({'votes.$username': FieldValue.delete()});
+      await _db.collection(_collection).doc(pollId).update({
+        'votes.$username': FieldValue.delete(),
+      });
     } catch (e) {
       Logger.e('Error unvoting', error: e);
     }
@@ -49,7 +64,10 @@ class CalendarPollService {
 
   Future<void> close(String pollId, String? decidedOptionId) async {
     try {
-      await _db.collection(_collection).doc(pollId).update({'status': 'closed', if (decidedOptionId != null) 'decidedOptionId': decidedOptionId});
+      await _db.collection(_collection).doc(pollId).update({
+        'status': 'closed',
+        'decidedOptionId': ?decidedOptionId,
+      });
     } catch (e) {
       Logger.e('Error closing poll', error: e);
     }
@@ -57,7 +75,10 @@ class CalendarPollService {
 
   Future<void> reopen(String pollId) async {
     try {
-      await _db.collection(_collection).doc(pollId).update({'status': 'open', 'decidedOptionId': FieldValue.delete()});
+      await _db.collection(_collection).doc(pollId).update({
+        'status': 'open',
+        'decidedOptionId': FieldValue.delete(),
+      });
     } catch (e) {
       Logger.e('Error reopening poll', error: e);
     }

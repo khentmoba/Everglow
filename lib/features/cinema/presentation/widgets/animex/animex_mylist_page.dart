@@ -190,9 +190,17 @@ class _AnimeXMyListPageState extends State<AnimeXMyListPage> {
       children: [
         _Stat(label: 'Watching', count: watching, color: AnimeXTokens.success),
         const SizedBox(width: 10),
-        _Stat(label: 'Plan to Watch', count: toWatch, color: AnimeXTokens.accent),
+        _Stat(
+          label: 'Plan to Watch',
+          count: toWatch,
+          color: AnimeXTokens.accent,
+        ),
         const SizedBox(width: 10),
-        _Stat(label: 'Completed', count: watched, color: AnimeXTokens.accentWarm),
+        _Stat(
+          label: 'Completed',
+          count: watched,
+          color: AnimeXTokens.accentWarm,
+        ),
         const SizedBox(width: 10),
         _Stat(
           label: 'Total',
@@ -225,10 +233,14 @@ class _AnimeXMyListPageState extends State<AnimeXMyListPage> {
                 },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
-                    color: i == _source ? AnimeXTokens.accent : Colors.transparent,
+                    color: i == _source
+                        ? AnimeXTokens.accent
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
@@ -333,19 +345,13 @@ class _Stat extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Text(
-              '$count',
-              style: bebasStyle(size: 24, color: color),
-            ),
+            Text('$count', style: bebasStyle(size: 24, color: color)),
             const SizedBox(height: 3),
             Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: dmSansStyle(
-                size: 10.5,
-                color: AnimeXTokens.textSecondary,
-              ),
+              style: dmSansStyle(size: 10.5, color: AnimeXTokens.textSecondary),
             ),
           ],
         ),

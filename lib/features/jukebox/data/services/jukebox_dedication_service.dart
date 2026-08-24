@@ -15,7 +15,9 @@ class JukeboxDedicationService {
     String? message,
   }) async {
     try {
-      await _firestore.collection(_collection).add(
+      await _firestore
+          .collection(_collection)
+          .add(
             JukeboxDedication(
               id: '',
               fromUsername: fromUsername,
@@ -39,13 +41,23 @@ class JukeboxDedicationService {
         .orderBy('createdAt', descending: true)
         .limit(20)
         .snapshots()
-        .map((snap) => snap.docs.map((d) => JukeboxDedication.fromMap(d.id, d.data())).toList());
+        .map(
+          (snap) => snap.docs
+              .map((d) => JukeboxDedication.fromMap(d.id, d.data()))
+              .toList(),
+        );
   }
 
   Future<List<JukeboxDedication>> fetchRecent({int limit = 10}) async {
     try {
-      final snap = await _firestore.collection(_collection).orderBy('createdAt', descending: true).limit(limit).get();
-      return snap.docs.map((d) => JukeboxDedication.fromMap(d.id, d.data())).toList();
+      final snap = await _firestore
+          .collection(_collection)
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .get();
+      return snap.docs
+          .map((d) => JukeboxDedication.fromMap(d.id, d.data()))
+          .toList();
     } catch (e) {
       Logger.e('JukeboxDedicationService: fetch failed', error: e);
       return [];

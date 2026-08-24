@@ -55,8 +55,7 @@ class CinemaSidebar extends StatelessWidget {
       currentIndex == 2 && activeBrowseOption == 'collection-tv';
   bool get _isNewActive =>
       currentIndex == 2 && activeBrowseOption == 'collection-new';
-  bool get _isBrowseActive =>
-      currentIndex == 2 && activeBrowseOption == null;
+  bool get _isBrowseActive => currentIndex == 2 && activeBrowseOption == null;
 
   @override
   Widget build(BuildContext context) {
@@ -81,17 +80,12 @@ class CinemaSidebar extends StatelessWidget {
             ),
             decoration: BoxDecoration(
               border: Border(
-                bottom: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.06),
-                ),
+                bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
               ),
             ),
             child: isCollapsed
                 ? Center(
-                    child: _CollapseButton(
-                      isCollapsed: true,
-                      onTap: onToggle,
-                    ),
+                    child: _CollapseButton(isCollapsed: true, onTap: onToggle),
                   )
                 : Row(
                     children: [
@@ -125,10 +119,7 @@ class CinemaSidebar extends StatelessWidget {
                           ),
                         ),
                       ),
-                      _CollapseButton(
-                        isCollapsed: false,
-                        onTap: onToggle,
-                      ),
+                      _CollapseButton(isCollapsed: false, onTap: onToggle),
                     ],
                   ),
           ),
@@ -139,7 +130,7 @@ class CinemaSidebar extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
               children: [
                 if (!isCollapsed) ...[
-                  _SectionLabel(label: 'Browse'),
+                  const _SectionLabel(label: 'Browse'),
                   const SizedBox(height: 6),
                 ],
                 _SidebarEntry(
@@ -285,7 +276,7 @@ class CinemaSidebar extends StatelessWidget {
                 if (onDashboardTap != null) ...[
                   const SizedBox(height: 8),
                   if (!isCollapsed) ...[
-                    _SectionLabel(label: 'Everglow'),
+                    const _SectionLabel(label: 'Everglow'),
                     const SizedBox(height: 6),
                   ],
                   _SidebarEntry(
@@ -372,9 +363,7 @@ class CinemaSidebar extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  isCinemaOnlyUser
-                                      ? 'Cinema access'
-                                      : 'Member',
+                                  isCinemaOnlyUser ? 'Cinema access' : 'Member',
                                   style: AppTypography.outfitMuted.copyWith(
                                     fontSize: 11,
                                     color: NetflixColors.textSecondary,
@@ -392,8 +381,7 @@ class CinemaSidebar extends StatelessWidget {
                                 width: 32,
                                 height: 32,
                                 decoration: BoxDecoration(
-                                  color: Colors.white
-                                      .withValues(alpha: 0.06),
+                                  color: Colors.white.withValues(alpha: 0.06),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: const Icon(
@@ -513,8 +501,8 @@ class _SidebarEntryState extends State<_SidebarEntry> {
     final bg = active
         ? Colors.white.withValues(alpha: 0.08)
         : _hovered
-            ? Colors.white.withValues(alpha: 0.045)
-            : Colors.transparent;
+        ? Colors.white.withValues(alpha: 0.045)
+        : Colors.transparent;
     final iconColor = active
         ? Colors.white
         : Colors.white.withValues(alpha: 0.62);
@@ -589,10 +577,7 @@ class _SidebarEntryState extends State<_SidebarEntry> {
         child: Tooltip(message: widget.label, child: content),
       );
     }
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: content,
-    );
+    return Padding(padding: const EdgeInsets.only(bottom: 4), child: content);
   }
 }
 
@@ -772,10 +757,7 @@ class _AnimeEntryState extends State<_AnimeEntry> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 7,
-                  vertical: 3,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(999),
@@ -837,9 +819,7 @@ class _CinemaBackEntryState extends State<_CinemaBackEntry> {
                     ? Colors.white.withValues(alpha: 0.10)
                     : Colors.white.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.10),
-                ),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
               ),
               child: const Center(
                 child: Icon(
@@ -910,10 +890,7 @@ class _CinemaBackEntryState extends State<_CinemaBackEntry> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 7,
-                  vertical: 3,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(999),
@@ -929,7 +906,7 @@ class _CinemaBackEntryState extends State<_CinemaBackEntry> {
                       ),
                     ),
                     const SizedBox(width: 2),
-                    Icon(
+                    const Icon(
                       Icons.arrow_back_rounded,
                       size: 12,
                       color: Colors.white,

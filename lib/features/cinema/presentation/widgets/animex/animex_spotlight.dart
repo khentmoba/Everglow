@@ -71,10 +71,7 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
         fit: StackFit.expand,
         children: [
           for (var i = 0; i < items.length; i++)
-            _SlideLayer(
-              item: items[i],
-              visible: i == _index,
-            ),
+            _SlideLayer(item: items[i], visible: i == _index),
           // Left-to-right darkening so the bottom-left content stays legible.
           const DecoratedBox(
             decoration: BoxDecoration(
@@ -152,33 +149,32 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
     final isDesktop = size.width >= 768;
     return isDesktop
         ? size.height - AnimeXTokens.headerHeight
-        : size.height - AnimeXTokens.headerHeight - AnimeXTokens.mobileNavHeight;
+        : size.height -
+              AnimeXTokens.headerHeight -
+              AnimeXTokens.mobileNavHeight;
   }
 
   Widget _buildSkeleton() {
     return Container(
       height: _heroHeight(context),
       decoration: const BoxDecoration(color: AnimeXTokens.surface),
-      child: Stack(
+      child: const Stack(
         fit: StackFit.expand,
         children: [
-          const DecoratedBox(
+          DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Color(0x33000000),
-                  Color(0x8C000000),
-                ],
+                colors: [Color(0x33000000), Color(0x8C000000)],
               ),
             ),
           ),
           SafeArea(
             bottom: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 64),
-              child: const Align(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 64),
+              child: Align(
                 alignment: Alignment.bottomLeft,
                 child: AnimeXSpotlightSkeleton(),
               ),
@@ -238,7 +234,8 @@ class _SlideContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isAiring = item.airingStatus.toUpperCase().contains('RELEASING') ||
+    final isAiring =
+        item.airingStatus.toUpperCase().contains('RELEASING') ||
         item.airingStatus.toUpperCase().contains('AIRING');
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -250,9 +247,7 @@ class _SlideContent extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 12),
           decoration: const BoxDecoration(
             color: AnimeXTokens.accent,
-            borderRadius: BorderRadius.horizontal(
-              right: Radius.circular(2),
-            ),
+            borderRadius: BorderRadius.horizontal(right: Radius.circular(2)),
           ),
         ),
         Row(

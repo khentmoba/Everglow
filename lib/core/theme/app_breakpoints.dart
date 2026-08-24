@@ -7,8 +7,8 @@ import 'package:flutter/material.dart';
 class AppBreakpoint {
   AppBreakpoint._();
 
-  static const double mobile  = 600;
-  static const double tablet  = 1024;
+  static const double mobile = 600;
+  static const double tablet = 1024;
   static const double desktop = 1440;
 
   /// Returns the current breakpoint category.
@@ -47,8 +47,8 @@ class ResponsivePadding extends StatelessWidget {
   const ResponsivePadding({
     super.key,
     required this.child,
-    this.mobile  = 16,
-    this.tablet  = 32,
+    this.mobile = 16,
+    this.tablet = 32,
     this.desktop = 48,
   });
 
@@ -56,8 +56,8 @@ class ResponsivePadding extends StatelessWidget {
   Widget build(BuildContext context) {
     final bp = AppBreakpoint.of(context);
     final h = switch (bp) {
-      BreakpointSize.mobile  => mobile  ?? 16,
-      BreakpointSize.tablet  => tablet  ?? 32,
+      BreakpointSize.mobile => mobile ?? 16,
+      BreakpointSize.tablet => tablet ?? 32,
       BreakpointSize.desktop => desktop ?? 48,
     };
     return Padding(
@@ -83,8 +83,8 @@ class ResponsiveValue<T> {
   T of(BuildContext context) {
     final bp = AppBreakpoint.of(context);
     return switch (bp) {
-      BreakpointSize.mobile  => mobile,
-      BreakpointSize.tablet  => tablet,
+      BreakpointSize.mobile => mobile,
+      BreakpointSize.tablet => tablet,
       BreakpointSize.desktop => desktop,
     };
   }

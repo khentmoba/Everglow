@@ -90,9 +90,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
     if (mounted) Navigator.of(context).pop();
   }
 
-
   // ─── Build ────────────────────────────────────────────────────────
-
 
   void _selectProvider(VideoSourceConfig provider) {
     if (provider.id == _selectedProvider.id) return;
@@ -121,7 +119,6 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
     }
     return '$m:${s.toString().padLeft(2, '0')}';
   }
-
 
   Widget _buildHlsErrorCard() {
     return Container(
@@ -193,6 +190,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
       ),
     );
   }
+
   Widget _errorAction({
     required String label,
     required IconData icon,
@@ -225,6 +223,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
       ),
     );
   }
+
   Widget _buildErrorCard() {
     final active = _selectedProvider;
     final others = _providers.where((p) => p.id != active.id).toList();
@@ -364,4 +363,3 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
     );
   }
 }
-

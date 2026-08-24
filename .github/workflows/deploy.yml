@@ -40,32 +40,16 @@ jobs:
       - name: Analyze
         run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
+      - name: Test Flutter app
+        run: flutter test
+
       - name: Build web
         env:
-          CLAIR_EMAIL: ${{ secrets.CLAIR_EMAIL }}
-          CLAIR_PASSWORD: ${{ secrets.CLAIR_PASSWORD }}
-          KHENT_EMAIL: ${{ secrets.KHENT_EMAIL }}
-          KHENT_PASSWORD: ${{ secrets.KHENT_PASSWORD }}
-          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
-          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
-          JELLYFIN_API_KEY: ${{ secrets.JELLYFIN_API_KEY }}
           FCM_VAPID_KEY: ${{ secrets.FCM_VAPID_KEY }}
           SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
         run: |
-          REQUIRED=(CLAIR_EMAIL CLAIR_PASSWORD KHENT_EMAIL KHENT_PASSWORD TMDB_API_KEY LASTFM_API_KEY)
-          MISSING=()
-          for KEY in "${REQUIRED[@]}"; do
-            if [ -z "${!KEY}" ]; then
-              MISSING+=("$KEY")
-            fi
-          done
-          if [ ${#MISSING[@]} -gt 0 ]; then
-            echo "Missing required GitHub secrets: ${MISSING[*]}"
-            echo "Configure these secrets in the repository before deploying."
-            exit 1
-          fi
           ARGS=(flutter build web --release)
-          for KEY in CLAIR_EMAIL CLAIR_PASSWORD KHENT_EMAIL KHENT_PASSWORD TMDB_API_KEY LASTFM_API_KEY JELLYFIN_API_KEY FCM_VAPID_KEY SPOTIFY_CLIENT_ID; do
+          for KEY in FCM_VAPID_KEY SPOTIFY_CLIENT_ID; do
             VAL="${!KEY}"
             if [ -n "$VAL" ]; then
               ARGS+=(--dart-define="$KEY=$VAL")
@@ -80,15 +64,19 @@ jobs:
         working-directory: functions
         run: npm install
 
-      - name: Check functions syntax
+      - name: Test functions
         working-directory: functions
-        run: node --check index.js
+        run: |
+          npm test
+          node --check index.js
+          npm audit --omit=dev --audit-level=moderate
 
       - name: Deploy Cloud Functions, Firestore Rules & Storage
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB }}
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
           CLAIR_PASSCODE: ${{ secrets.CLAIR_PASSCODE }}
           KHENT_PASSCODE: ${{ secrets.KHENT_PASSCODE }}
           CLAIR_EMAIL: ${{ secrets.CLAIR_EMAIL }}
@@ -96,12 +84,19 @@ jobs:
           SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
           SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
         run: |
+          if [ -z "$TMDB_API_KEY" ] || [ -z "$LASTFM_API_KEY" ]; then
+            echo "TMDB_API_KEY and LASTFM_API_KEY are required for the authenticated media proxies."
+            exit 1
+          fi
           echo "$FIREBASE_SERVICE_ACCOUNT" > "$HOME"/firebase-sa.json
           if [ -n "$AGNES_API_KEY" ]; then
             echo "AGNES_API_KEY=${AGNES_API_KEY}" > functions/.env
           fi
           if [ -n "$TMDB_API_KEY" ]; then
             echo "TMDB_API_KEY=${TMDB_API_KEY}" >> functions/.env
+          fi
+          if [ -n "$LASTFM_API_KEY" ]; then
+            echo "LASTFM_API_KEY=${LASTFM_API_KEY}" >> functions/.env
           fi
           if [ -n "${CLAIR_PASSCODE:-}" ]; then echo "CLAIR_PASSCODE=${CLAIR_PASSCODE}" >> functions/.env; fi
           if [ -n "${KHENT_PASSCODE:-}" ]; then echo "KHENT_PASSCODE=${KHENT_PASSCODE}" >> functions/.env; fi

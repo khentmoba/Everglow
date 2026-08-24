@@ -19,9 +19,7 @@ String composeTodayRecap({
   if (moods.isEmpty) {
     parts.add('No mood logged yet today.');
   } else {
-    parts.add(
-      moods.map((m) => '${m.uid} feels ${m.mood}.').join(' '),
-    );
+    parts.add(moods.map((m) => '${m.uid} feels ${m.mood}.').join(' '));
   }
 
   if (activities.isNotEmpty) {

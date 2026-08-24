@@ -29,14 +29,38 @@ class AnimeXBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (Color fg, Color bg) = switch (kind) {
-      AnimeXBadgeKind.sub => (AnimeXTokens.success, AnimeXTokens.success.withValues(alpha: 0.15)),
-      AnimeXBadgeKind.dub => (AnimeXTokens.dubBlue, AnimeXTokens.dubBlue.withValues(alpha: 0.15)),
-      AnimeXBadgeKind.rating => (AnimeXTokens.accentWarm, AnimeXTokens.accentWarm.withValues(alpha: 0.15)),
-      AnimeXBadgeKind.airing => (AnimeXTokens.success, AnimeXTokens.success.withValues(alpha: 0.10)),
-      AnimeXBadgeKind.finished => (AnimeXTokens.textMuted, Colors.white.withValues(alpha: 0.06)),
-      AnimeXBadgeKind.upcoming => (AnimeXTokens.accent, AnimeXTokens.accent.withValues(alpha: 0.15)),
-      AnimeXBadgeKind.newBadge => (AnimeXTokens.success, AnimeXTokens.success.withValues(alpha: 0.15)),
-      AnimeXBadgeKind.episodes => (AnimeXTokens.textSecondary, Colors.white.withValues(alpha: 0.08)),
+      AnimeXBadgeKind.sub => (
+        AnimeXTokens.success,
+        AnimeXTokens.success.withValues(alpha: 0.15),
+      ),
+      AnimeXBadgeKind.dub => (
+        AnimeXTokens.dubBlue,
+        AnimeXTokens.dubBlue.withValues(alpha: 0.15),
+      ),
+      AnimeXBadgeKind.rating => (
+        AnimeXTokens.accentWarm,
+        AnimeXTokens.accentWarm.withValues(alpha: 0.15),
+      ),
+      AnimeXBadgeKind.airing => (
+        AnimeXTokens.success,
+        AnimeXTokens.success.withValues(alpha: 0.10),
+      ),
+      AnimeXBadgeKind.finished => (
+        AnimeXTokens.textMuted,
+        Colors.white.withValues(alpha: 0.06),
+      ),
+      AnimeXBadgeKind.upcoming => (
+        AnimeXTokens.accent,
+        AnimeXTokens.accent.withValues(alpha: 0.15),
+      ),
+      AnimeXBadgeKind.newBadge => (
+        AnimeXTokens.success,
+        AnimeXTokens.success.withValues(alpha: 0.15),
+      ),
+      AnimeXBadgeKind.episodes => (
+        AnimeXTokens.textSecondary,
+        Colors.white.withValues(alpha: 0.08),
+      ),
     };
 
     return Container(
@@ -119,19 +143,10 @@ AnimeXBadge statusBadge(String? status) {
     );
   }
   if (s.contains('FINISHED') || s.contains('COMPLETED')) {
-    return const AnimeXBadge(
-      label: 'Finished',
-      kind: AnimeXBadgeKind.finished,
-    );
+    return const AnimeXBadge(label: 'Finished', kind: AnimeXBadgeKind.finished);
   }
   if (s.contains('NOT_YET') || s.contains('UPCOMING')) {
-    return const AnimeXBadge(
-      label: 'Upcoming',
-      kind: AnimeXBadgeKind.upcoming,
-    );
+    return const AnimeXBadge(label: 'Upcoming', kind: AnimeXBadgeKind.upcoming);
   }
-  return const AnimeXBadge(
-    label: 'Unknown',
-    kind: AnimeXBadgeKind.episodes,
-  );
+  return const AnimeXBadge(label: 'Unknown', kind: AnimeXBadgeKind.episodes);
 }

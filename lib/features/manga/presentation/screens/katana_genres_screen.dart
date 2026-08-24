@@ -51,7 +51,8 @@ class _KatanaGenresScreenState extends State<KatanaGenresScreen> {
                 child: _loading
                     ? const Center(
                         child: CircularProgressIndicator(
-                            color: KatanaColors.accent),
+                          color: KatanaColors.accent,
+                        ),
                       )
                     : ListView(
                         padding: const EdgeInsets.all(16),
@@ -68,11 +69,11 @@ class _KatanaGenresScreenState extends State<KatanaGenresScreen> {
                             physics: const NeverScrollableScrollPhysics(),
                             gridDelegate:
                                 const SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: 330,
-                              childAspectRatio: 2.4,
-                              crossAxisSpacing: 10,
-                              mainAxisSpacing: 10,
-                            ),
+                                  maxCrossAxisExtent: 330,
+                                  childAspectRatio: 2.4,
+                                  crossAxisSpacing: 10,
+                                  mainAxisSpacing: 10,
+                                ),
                             itemCount: _genres.length,
                             itemBuilder: (context, index) {
                               final genre = _genres[index];
@@ -121,7 +122,9 @@ class _GenreCard extends StatelessWidget {
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 7, vertical: 2),
+                    horizontal: 7,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: KatanaColors.accent.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),

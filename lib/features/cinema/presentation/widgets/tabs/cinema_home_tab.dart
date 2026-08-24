@@ -44,6 +44,10 @@ class CinemaHomeTab extends StatelessWidget {
   final VoidCallback onRefresh;
   final void Function(MediaItem) onMediaTap;
   final void Function(MediaItem) onPlay;
+  final void Function(MediaItem)? onPlayItem;
+  final void Function(MediaItem, bool add)? onToggleListItem;
+  final void Function(MediaItem, double? rating)? onRateItem;
+  final bool Function(MediaItem)? isInList;
   final void Function(int) onSwitchTab;
 
   const CinemaHomeTab({
@@ -67,22 +71,34 @@ class CinemaHomeTab extends StatelessWidget {
     required this.onRefresh,
     required this.onMediaTap,
     required this.onPlay,
+    this.onPlayItem,
+    this.onToggleListItem,
+    this.onRateItem,
+    this.isInList,
     required this.onSwitchTab,
   });
 
-  double _continueProgress(MediaItem item) {
-    if (item.mediaType == 'tv') {
-      final ep = item.currentEpisode ?? 1;
-      return ((ep - 1) % 12) / 12;
-    }
-    return 0.12;
+  double? _continueProgress(MediaItem item) {
+    final position = item.currentTimestamp ?? 0;
+    final duration = item.durationSeconds ?? 0;
+    if (position <= 0 || duration <= 0) return null;
+    return (position / duration).clamp(0.0, 1.0);
   }
 
   String _continueSubtitle(MediaItem item) {
     if (item.mediaType == 'tv' && item.currentSeason != null) {
       return 'S${item.currentSeason} · E${item.currentEpisode ?? 1}';
     }
-    return 'Continue watching';
+    if ((item.currentTimestamp ?? 0) > 0) {
+      final minutes = item.currentTimestamp! ~/ 60;
+      final remaining =
+          item.durationSeconds != null &&
+              item.durationSeconds! > item.currentTimestamp!
+          ? ' · ${((item.durationSeconds! - item.currentTimestamp!) / 60).ceil()}m left'
+          : '';
+      return 'Resume at ${minutes}m$remaining';
+    }
+    return item.mediaType == 'tv' ? 'Next episode ready' : 'Play from start';
   }
 
   List<Widget> _genreRows() {
@@ -95,6 +111,10 @@ class CinemaHomeTab extends StatelessWidget {
             title: genreName,
             items: items,
             onTapItem: onMediaTap,
+            onPlayItem: onPlayItem,
+            onToggleListItem: onToggleListItem,
+            onRateItem: onRateItem,
+            isInList: isInList,
           ),
         ),
       );
@@ -118,7 +138,15 @@ class CinemaHomeTab extends StatelessWidget {
       if (items == null || items.isEmpty) return;
       rows.add(
         SliverToBoxAdapter(
-          child: NetflixRow(title: title, items: items, onTapItem: onMediaTap),
+          child: NetflixRow(
+            title: title,
+            items: items,
+            onTapItem: onMediaTap,
+            onPlayItem: onPlayItem,
+            onToggleListItem: onToggleListItem,
+            onRateItem: onRateItem,
+            isInList: isInList,
+          ),
         ),
       );
     });
@@ -139,6 +167,10 @@ class CinemaHomeTab extends StatelessWidget {
         items: items,
         ranked: ranked,
         onTapItem: onMediaTap,
+        onPlayItem: onPlayItem,
+        onToggleListItem: onToggleListItem,
+        onRateItem: onRateItem,
+        isInList: isInList,
       ),
     );
   }
@@ -171,6 +203,7 @@ class CinemaHomeTab extends StatelessWidget {
                 subtitleOf: _continueSubtitle,
                 progressOf: _continueProgress,
                 onTapItem: onMediaTap,
+                onPlayContinue: onPlayItem,
               ),
             ),
 
@@ -201,17 +234,6 @@ class CinemaHomeTab extends StatelessWidget {
 
           _row(title: 'Top Rated', items: topRatedMovies),
           _row(title: 'Popular Series', items: popularTVShows),
-
-          if (trendingGlobal.length >= 8)
-            _row(
-              title: 'Only on Netflix',
-              items: trendingGlobal.take(8).toList(),
-            ),
-          if (popularTVShows.length >= 8)
-            _row(
-              title: 'Only on Prime Video',
-              items: popularTVShows.take(8).toList(),
-            ),
 
           const SliverPadding(padding: EdgeInsets.only(bottom: 120)),
         ],

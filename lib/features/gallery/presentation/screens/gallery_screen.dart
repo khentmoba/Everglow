@@ -6,6 +6,7 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../../shared/widgets/everglow/everglow_segmented_control.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
@@ -43,29 +44,15 @@ class _GalleryScreenState extends State<GalleryScreen> {
     );
   }
 
-  Widget _buildTab(int index, String label, IconData icon) {
-    final isSel = _tabIndex == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _tabIndex = index),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(color: isSel ? AppColors.blushGold.withValues(alpha: 0.18) : Colors.transparent, borderRadius: BorderRadius.circular(14), border: Border.all(color: isSel ? AppColors.blushGold : Colors.transparent)),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(icon, size: 14, color: isSel ? AppColors.blushGold : AppColors.petalWhite.withValues(alpha: 0.6)), const SizedBox(width: 6), Text(label, style: AppTypography.outfitBold.copyWith(fontSize: 12, color: isSel ? AppColors.blushGold : AppColors.petalWhite.withValues(alpha: 0.6)))]),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          Positioned.fill(
+          const Positioned.fill(
             child: EverglowBackground(
               baseColor: AppColors.inkDeep,
-              glows: const [
+              glows: [
                 RadialGlow(
                   color: AppColors.deepRose,
                   alignment: Alignment(-0.7, -0.9),
@@ -92,13 +79,17 @@ class _GalleryScreenState extends State<GalleryScreen> {
                   hue: AppColors.roseQuartz,
                 ),
                 const SizedBox(height: 8),
-                // Tabs — Grid / Map (Immich) / This Week (past)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(color: AppColors.twilight, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.14))),
-                    child: Row(children: [_buildTab(0, 'Grid', Icons.grid_view_rounded), _buildTab(1, 'Map', Icons.map_rounded), _buildTab(2, 'Week', Icons.history_rounded)]),
+                  child: EverglowSegmentedControl(
+                    selectedIndex: _tabIndex,
+                    onChanged: (i) => setState(() => _tabIndex = i),
+                    activeColor: AppColors.roseQuartz,
+                    items: const [
+                      SegmentItem('Grid', Icons.grid_view_rounded),
+                      SegmentItem('Map', Icons.map_rounded),
+                      SegmentItem('Week', Icons.history_rounded),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -110,71 +101,80 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           stream: _galleryService.getPhotosWithLocationStream(),
                           builder: (context, snap) {
                             final photos = snap.data ?? [];
-                            if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: AppColors.deepRose, strokeWidth: 2));
+                            if (snap.connectionState ==
+                                ConnectionState.waiting) {
+                              return const Center(
+                                child: CircularProgressIndicator(
+                                  color: AppColors.deepRose,
+                                  strokeWidth: 2,
+                                ),
+                              );
+                            }
                             return GalleryMapView(photos: photos);
                           },
                         )
                       : _tabIndex == 2
-                          ? const ThisWeekView()
-                          : StreamBuilder<List<MemoryPhoto>>(
-                              stream: _searchQuery.isNotEmpty
-                                  ? _galleryService.searchPhotos(_searchQuery)
-                                  : _galleryService.getPhotosStream(),
-                              builder: (context, snapshot) {
-                                if (snapshot.connectionState == ConnectionState.waiting) {
-                                  return const EverglowSkeletonGrid(
-                                    count: 6,
+                      ? const ThisWeekView()
+                      : StreamBuilder<List<MemoryPhoto>>(
+                          stream: _searchQuery.isNotEmpty
+                              ? _galleryService.searchPhotos(_searchQuery)
+                              : _galleryService.getPhotosStream(),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const EverglowSkeletonGrid(
+                                count: 6,
+                                maxCrossAxisExtent: 220,
+                                itemHeight: 200,
+                                spacing: 10,
+                                childAspectRatio: 0.75,
+                              );
+                            }
+
+                            final photos = snapshot.data ?? [];
+                            if (photos.isEmpty) {
+                              return EverglowEmptyState(
+                                icon: Icons.photo_library_outlined,
+                                title: 'No memories yet',
+                                subtitle: 'Tap + to add your first photo',
+                                ctaLabel: 'Add Photo',
+                                onCta: _openAddPhoto,
+                              );
+                            }
+
+                            return GridView.builder(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 6,
+                              ),
+                              gridDelegate:
+                                  const SliverGridDelegateWithMaxCrossAxisExtent(
                                     maxCrossAxisExtent: 220,
-                                    itemHeight: 200,
-                                    spacing: 10,
-                                    childAspectRatio: 0.75,
-                                  );
-                                }
-
-                                final photos = snapshot.data ?? [];
-                                if (photos.isEmpty) {
-                                  return EverglowEmptyState(
-                                    icon: Icons.photo_library_outlined,
-                                    title: 'No memories yet',
-                                    subtitle: 'Tap + to add your first photo',
-                                    ctaLabel: 'Add Photo',
-                                    onCta: _openAddPhoto,
-                                  );
-                                }
-
-                                return GridView.builder(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 6,
+                                    mainAxisSpacing: 10,
+                                    crossAxisSpacing: 10,
+                                    childAspectRatio: 0.82,
                                   ),
-                                  gridDelegate:
-                                      const SliverGridDelegateWithMaxCrossAxisExtent(
-                                        maxCrossAxisExtent: 220,
-                                        mainAxisSpacing: 10,
-                                        crossAxisSpacing: 10,
-                                        childAspectRatio: 0.82,
+                              itemCount: photos.length,
+                              itemBuilder: (context, index) {
+                                final photo = photos[index];
+                                return _PhotoCard(
+                                  photo: photo,
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => PhotoViewerScreen(
+                                          photos: photos,
+                                          initialIndex: index,
+                                        ),
                                       ),
-                                  itemCount: photos.length,
-                                  itemBuilder: (context, index) {
-                                    final photo = photos[index];
-                                    return _PhotoCard(
-                                      photo: photo,
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => PhotoViewerScreen(
-                                              photos: photos,
-                                              initialIndex: index,
-                                            ),
-                                          ),
-                                        );
-                                      },
                                     );
                                   },
                                 );
                               },
-                            ),
+                            );
+                          },
+                        ),
                 ),
               ],
             ),
@@ -191,10 +191,10 @@ class _GalleryScreenState extends State<GalleryScreen> {
       child: AnimatedContainer(
         duration: AppMotion.orZero(AppMotion.fast),
         decoration: BoxDecoration(
-          color: AppColors.moonlight.withValues(alpha: 0.08),
+          color: AppColors.velvet.withValues(alpha: 0.38),
           borderRadius: AppRadius.radiusLg,
           border: Border.all(
-            color: AppColors.blushGold.withValues(alpha: 0.18),
+            color: AppColors.moonlight.withValues(alpha: 0.10),
           ),
         ),
         child: TextField(
@@ -214,9 +214,9 @@ class _GalleryScreenState extends State<GalleryScreen> {
               color: AppColors.petalWhite.withValues(alpha: 0.5),
               fontSize: 13,
             ),
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.search_rounded,
-              color: AppColors.blushGold,
+              color: AppColors.petalWhite.withValues(alpha: 0.42),
               size: 19,
             ),
             isDense: true,
@@ -368,9 +368,9 @@ class _PhotoCardState extends State<_PhotoCard> {
                     if (progress == null) return child;
                     return Container(
                       color: AppColors.twilight,
-                      child: const Center(
+                      child: Center(
                         child: CircularProgressIndicator(
-                          color: AppColors.blushGold,
+                          color: AppColors.petalWhite.withValues(alpha: 0.42),
                           strokeWidth: 2,
                         ),
                       ),
@@ -438,7 +438,7 @@ class _PhotoCardState extends State<_PhotoCard> {
                                 overflow: TextOverflow.ellipsis,
                                 style: AppTypography.outfitBold.copyWith(
                                   fontSize: 9,
-                                  color: AppColors.blushGold,
+                                  color: AppColors.petalWhite.withValues(alpha: 0.42),
                                 ),
                               ),
                             ),

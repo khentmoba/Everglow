@@ -24,19 +24,58 @@ class SpotifyConnectCard extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 28, height: 28,
-            decoration: BoxDecoration(color: const Color(0xFF1DB954), borderRadius: BorderRadius.circular(8)),
-            child: const Icon(Icons.music_note_rounded, size: 16, color: Colors.white),
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1DB954),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.music_note_rounded,
+              size: 16,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(isLinked ? 'Spotify linked' : 'Connect Spotify', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
-              Text(isLinked ? (auth.displayName ?? auth.spotifyUserId ?? 'Premium ✓') : 'For in-app playback (Duo required)',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11)),
-              if (player.deviceId != null) Text('Device: ${player.deviceId!.substring(0, 8)}…', style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 10)),
-              if (player.error != null) Text(player.error!, style: const TextStyle(color: Colors.redAccent, fontSize: 10)),
-            ]),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isLinked ? 'Spotify linked' : 'Connect Spotify',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+                Text(
+                  isLinked
+                      ? (auth.displayName ?? auth.spotifyUserId ?? 'Premium ✓')
+                      : 'For in-app playback (Duo required)',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 11,
+                  ),
+                ),
+                if (player.deviceId != null)
+                  Text(
+                    'Device: ${player.deviceId!.substring(0, 8)}…',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.45),
+                      fontSize: 10,
+                    ),
+                  ),
+                if (player.error != null)
+                  Text(
+                    player.error!,
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 10,
+                    ),
+                  ),
+              ],
+            ),
           ),
           const SizedBox(width: 10),
           if (!isLinked)
@@ -50,15 +89,46 @@ class SpotifyConnectCard extends StatelessWidget {
                   messenger.showSnackBar(SnackBar(content: Text(msg)));
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1DB954), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999))),
-              child: const Text('Link', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1DB954),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              child: const Text(
+                'Link',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+              ),
             )
           else
-            Row(mainAxisSize: MainAxisSize.min, children: [
-              if (!player.isConnected)
-                TextButton(onPressed: () => context.read<SpotifyPlayerService>().init(), child: const Text('Enable player', style: TextStyle(color: Color(0xFF1DB954), fontSize: 11))),
-              IconButton(icon: const Icon(Icons.logout_rounded, size: 18, color: Colors.white54), onPressed: () => auth.unlink(), tooltip: 'Unlink'),
-            ]),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!player.isConnected)
+                  TextButton(
+                    onPressed: () =>
+                        context.read<SpotifyPlayerService>().init(),
+                    child: const Text(
+                      'Enable player',
+                      style: TextStyle(color: Color(0xFF1DB954), fontSize: 11),
+                    ),
+                  ),
+                IconButton(
+                  icon: const Icon(
+                    Icons.logout_rounded,
+                    size: 18,
+                    color: Colors.white54,
+                  ),
+                  onPressed: () => auth.unlink(),
+                  tooltip: 'Unlink',
+                ),
+              ],
+            ),
         ],
       ),
     );

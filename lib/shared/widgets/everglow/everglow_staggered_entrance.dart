@@ -93,10 +93,7 @@ class _EverglowStaggeredEntranceState extends State<EverglowStaggeredEntrance> {
         final dy = widget.direction.dy * widget.offsetY * (1 - value);
         return Opacity(
           opacity: value,
-          child: Transform.translate(
-            offset: Offset(dx, dy),
-            child: child,
-          ),
+          child: Transform.translate(offset: Offset(dx, dy), child: child),
         );
       },
       child: widget.child,

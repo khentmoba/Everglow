@@ -155,10 +155,18 @@
         "source": "/api/proxyBookText",
         "function": "proxyBookText"
       },
-      {
-        "source": "/api/verifyPasscode",
-        "function": "verifyPasscode"
-      },
+    {
+      "source": "/api/verifyPasscode",
+      "function": "verifyPasscode"
+    },
+    {
+      "source": "/api/proxyTmdb",
+      "function": "proxyTmdb"
+    },
+    {
+      "source": "/api/proxyLastfm",
+      "function": "proxyLastfm"
+    },
       {
         "source": "/api/proxySpotifySearch",
         "function": "proxySpotifySearch"

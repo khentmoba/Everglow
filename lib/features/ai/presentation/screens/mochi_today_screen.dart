@@ -104,7 +104,8 @@ class _MochiTodayScreenState extends State<MochiTodayScreen> {
     }
     final snapshot = _snapshot!;
     final date = snapshot.date;
-    final dateLabel = '${date.year.toString().padLeft(4, '0')}-'
+    final dateLabel =
+        '${date.year.toString().padLeft(4, '0')}-'
         '${date.month.toString().padLeft(2, '0')}-'
         '${date.day.toString().padLeft(2, '0')}';
     final recap = composeTodayRecap(
@@ -168,11 +169,11 @@ class _MochiTodayScreenState extends State<MochiTodayScreen> {
                           labelStyle: AppTypography.outfitMedium.copyWith(
                             fontSize: 12,
                           ),
-                          backgroundColor:
-                              AppColors.auroraRose.withValues(alpha: 0.12),
+                          backgroundColor: AppColors.auroraRose.withValues(
+                            alpha: 0.12,
+                          ),
                           side: BorderSide(
-                            color:
-                                AppColors.auroraRose.withValues(alpha: 0.4),
+                            color: AppColors.auroraRose.withValues(alpha: 0.4),
                           ),
                         ),
                       )
@@ -219,16 +220,12 @@ class _MochiTodayScreenState extends State<MochiTodayScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (snapshot.watchlist.isNotEmpty)
-                ...snapshot.watchlist
-                    .map(
-                      (w) => Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                        child: Text(
-                          '🎬 $w',
-                          style: AppTypography.outfitMedium,
-                        ),
-                      ),
-                    )
+                ...snapshot.watchlist.map(
+                  (w) => Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    child: Text('🎬 $w', style: AppTypography.outfitMedium),
+                  ),
+                )
               else
                 const _EmptyLine('Watchlist is quiet right now.'),
               if (snapshot.starlight.isNotEmpty) ...[
@@ -236,10 +233,7 @@ class _MochiTodayScreenState extends State<MochiTodayScreen> {
                 ...snapshot.starlight.map(
                   (s) => Padding(
                     padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: Text(
-                      '✨ "$s"',
-                      style: AppTypography.outfitMedium,
-                    ),
+                    child: Text('✨ "$s"', style: AppTypography.outfitMedium),
                   ),
                 ),
               ],

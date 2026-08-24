@@ -51,19 +51,22 @@ class MangaKakalotService with ConnectivityAware {
   /// so the request works on Flutter Web (CORS-safe).
   Uri _proxiedFetch(Uri uri) {
     return Uri.parse(
-        '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}');
+      '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}',
+    );
   }
 
   /// Search MangaKakalot by title and return the manga slug
   /// (e.g. "manga-abc123456789").
   Future<String> searchByTitle(String title) async {
     if (title.trim().isEmpty) return '';
-    final uri = Uri.parse('$_baseUrl/search/story/${Uri.encodeComponent(title)}');
+    final uri = Uri.parse(
+      '$_baseUrl/search/story/${Uri.encodeComponent(title)}',
+    );
     try {
       final headers = await _authHeaders();
-      final response = await http.get(_proxiedFetch(uri), headers: headers).timeout(
-            const Duration(seconds: 8),
-          );
+      final response = await http
+          .get(_proxiedFetch(uri), headers: headers)
+          .timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final body = response.body;
         final hrefReg = RegExp(r'<a[^>]*href="([^"]*)"[^>]*>');
@@ -93,9 +96,9 @@ class MangaKakalotService with ConnectivityAware {
     final uri = Uri.parse('$_baseUrl/manga/$slug');
     try {
       final headers = await _authHeaders();
-      final response = await http.get(_proxiedFetch(uri), headers: headers).timeout(
-            const Duration(seconds: 10),
-          );
+      final response = await http
+          .get(_proxiedFetch(uri), headers: headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         return _parseChapterList(response.body, slug);
       }
@@ -117,19 +120,23 @@ class MangaKakalotService with ConnectivityAware {
       final text = m.group(2)?.trim() ?? '';
       if (href.isEmpty || !seen.add(href)) continue;
       final id = href.startsWith('/') ? href.substring(1) : href;
-      final numMatch = RegExp(r'chapter[_-]?([\d.]+)', caseSensitive: false)
-          .firstMatch(href);
+      final numMatch = RegExp(
+        r'chapter[_-]?([\d.]+)',
+        caseSensitive: false,
+      ).firstMatch(href);
       final chapterNum = numMatch?.group(1) ?? '';
-      chapters.add(MangaChapter(
-        id: id,
-        title: text,
-        chapter: chapterNum,
-        volume: '',
-        pages: 0,
-        translatedLanguage: 'en',
-        scanlationGroup: '',
-        publishAt: DateTime.now(),
-      ));
+      chapters.add(
+        MangaChapter(
+          id: id,
+          title: text,
+          chapter: chapterNum,
+          volume: '',
+          pages: 0,
+          translatedLanguage: 'en',
+          scanlationGroup: '',
+          publishAt: DateTime.now(),
+        ),
+      );
     }
     return chapters;
   }
@@ -144,9 +151,9 @@ class MangaKakalotService with ConnectivityAware {
     final uri = Uri.parse('$_baseUrl/$chapterId');
     try {
       final headers = await _authHeaders();
-      final response = await http.get(_proxiedFetch(uri), headers: headers).timeout(
-            const Duration(seconds: 10),
-          );
+      final response = await http
+          .get(_proxiedFetch(uri), headers: headers)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final imgReg = RegExp(r'<img[^>]*src="([^"]+)"[^>]*>');
         final matches = imgReg.allMatches(response.body);
@@ -200,13 +207,15 @@ class MangaKakalotService with ConnectivityAware {
           'addedAt': Timestamp.now(),
         });
       } else {
-        await collection.add(item
-            .copyWith(
-              libraryStatus: libraryStatus,
-              userName: userName,
-              addedAt: DateTime.now(),
-            )
-            .toFirestore());
+        await collection.add(
+          item
+              .copyWith(
+                libraryStatus: libraryStatus,
+                userName: userName,
+                addedAt: DateTime.now(),
+              )
+              .toFirestore(),
+        );
       }
     } catch (e) {
       Logger.e('Error saving to manga_library', error: e);
@@ -261,13 +270,14 @@ class MangaKakalotService with ConnectivityAware {
         .where('userName', isEqualTo: userName)
         .snapshots()
         .map((snapshot) {
-      final items = snapshot.docs
-          .map((doc) => MangaItem.fromFirestore(doc.data(), doc.id))
-          .toList()
-        ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
-      cacheLibrary(items, userName);
-      return items;
-    });
+          final items =
+              snapshot.docs
+                  .map((doc) => MangaItem.fromFirestore(doc.data(), doc.id))
+                  .toList()
+                ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
+          cacheLibrary(items, userName);
+          return items;
+        });
   }
 
   /// Per-user stream of titles the user is currently reading
@@ -282,13 +292,14 @@ class MangaKakalotService with ConnectivityAware {
         .where('userName', isEqualTo: userName)
         .snapshots()
         .map((snapshot) {
-      final items = snapshot.docs
-          .map((doc) => MangaItem.fromFirestore(doc.data(), doc.id))
-          .where((i) => i.isReading)
-          .toList()
-        ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
-      return items;
-    });
+          final items =
+              snapshot.docs
+                  .map((doc) => MangaItem.fromFirestore(doc.data(), doc.id))
+                  .where((i) => i.isReading)
+                  .toList()
+                ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
+          return items;
+        });
   }
 
   Stream<List<MangaItem>> getCoupleLibraryStream({
@@ -311,33 +322,36 @@ class MangaKakalotService with ConnectivityAware {
           .where('userName', isEqualTo: userA)
           .snapshots()
           .listen((snapshot) {
-        itemsA = snapshot.docs
-            .map((doc) => MangaItem.fromFirestore(doc.data(), doc.id))
-            .toList();
-        emit();
-      });
+            itemsA = snapshot.docs
+                .map((doc) => MangaItem.fromFirestore(doc.data(), doc.id))
+                .toList();
+            emit();
+          });
       subB = _firestore
           .collection('manga_library')
           .where('userName', isEqualTo: userB)
           .snapshots()
           .listen((snapshot) {
-        itemsB = snapshot.docs
-            .map((doc) => MangaItem.fromFirestore(doc.data(), doc.id))
-            .toList();
-        emit();
-      });
+            itemsB = snapshot.docs
+                .map((doc) => MangaItem.fromFirestore(doc.data(), doc.id))
+                .toList();
+            emit();
+          });
     };
 
     controller.onCancel = () async {
       await subA?.cancel();
       await subB?.cancel();
+      await controller.close();
     };
 
     return controller.stream;
   }
 
   static List<MangaItem> _mergeCoupleItems(
-      List<MangaItem> itemsA, List<MangaItem> itemsB) {
+    List<MangaItem> itemsA,
+    List<MangaItem> itemsB,
+  ) {
     final byId = <String, _MangaMergedEntry>{};
     for (final item in itemsA) {
       byId[item.mangaId] = _MangaMergedEntry(primary: item, partner: null);
@@ -348,7 +362,9 @@ class MangaKakalotService with ConnectivityAware {
         byId[item.mangaId] = _MangaMergedEntry(primary: item, partner: null);
       } else {
         byId[item.mangaId] = _MangaMergedEntry(
-            primary: existing.primary, partner: item);
+          primary: existing.primary,
+          partner: item,
+        );
       }
     }
 
@@ -364,8 +380,7 @@ class MangaKakalotService with ConnectivityAware {
         libraryStatus: status,
         addedAt: addedAt,
       );
-    }).toList()
-      ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
+    }).toList()..sort((a, b) => b.addedAt.compareTo(a.addedAt));
     return merged;
   }
 
@@ -389,26 +404,28 @@ class MangaKakalotService with ConnectivityAware {
     try {
       final prefs = await SharedPreferences.getInstance();
       final listJson = items
-          .map((item) => {
-                'id': item.id,
-                'mangaId': item.mangaId,
-                'title': item.title,
-                'author': item.author,
-                'artist': item.artist,
-                'description': item.description,
-                'coverUrl': item.coverUrl,
-                'year': item.year,
-                'status': item.status,
-                'originalLanguage': item.originalLanguage,
-                'contentRating': item.contentRating,
-                'tags': item.tags,
-                'userName': item.userName,
-                'addedAt': item.addedAt.toIso8601String(),
-                'libraryStatus': item.libraryStatus,
-                'lastReadChapterId': item.lastReadChapterId,
-                'lastReadPage': item.lastReadPage,
-                'altTitles': item.altTitles,
-              })
+          .map(
+            (item) => {
+              'id': item.id,
+              'mangaId': item.mangaId,
+              'title': item.title,
+              'author': item.author,
+              'artist': item.artist,
+              'description': item.description,
+              'coverUrl': item.coverUrl,
+              'year': item.year,
+              'status': item.status,
+              'originalLanguage': item.originalLanguage,
+              'contentRating': item.contentRating,
+              'tags': item.tags,
+              'userName': item.userName,
+              'addedAt': item.addedAt.toIso8601String(),
+              'libraryStatus': item.libraryStatus,
+              'lastReadChapterId': item.lastReadChapterId,
+              'lastReadPage': item.lastReadPage,
+              'altTitles': item.altTitles,
+            },
+          )
           .toList();
       await prefs.setString(_cacheKey(userName), json.encode(listJson));
     } catch (e) {
@@ -435,17 +452,19 @@ class MangaKakalotService with ConnectivityAware {
             status: data['status'] ?? '',
             originalLanguage: data['originalLanguage'] ?? 'ja',
             contentRating: data['contentRating'] ?? 'safe',
-            tags: (data['tags'] as List?)
-                    ?.map((e) => e.toString())
-                    .toList() ??
+            tags:
+                (data['tags'] as List?)?.map((e) => e.toString()).toList() ??
                 const [],
             userName: data['userName'] ?? userName,
-            addedAt: DateTime.tryParse(data['addedAt'] ?? '') ??
-                DateTime.now(),
+            addedAt: DateTime.tryParse(data['addedAt'] ?? '') ?? DateTime.now(),
             libraryStatus: data['libraryStatus'] ?? 'none',
             lastReadChapterId: data['lastReadChapterId'] ?? '',
             lastReadPage: (data['lastReadPage'] as num?)?.toInt() ?? 0,
-            altTitles: (data['altTitles'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+            altTitles:
+                (data['altTitles'] as List?)
+                    ?.map((e) => e.toString())
+                    .toList() ??
+                const [],
           );
         }).toList();
       }

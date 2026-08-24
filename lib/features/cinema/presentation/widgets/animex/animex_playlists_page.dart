@@ -56,7 +56,10 @@ class AnimeXPlaylistsPage extends StatelessWidget {
                 children: [
                   Text(
                     'Playlists',
-                    style: bebasStyle(size: 32, color: AnimeXTokens.textPrimary),
+                    style: bebasStyle(
+                      size: 32,
+                      color: AnimeXTokens.textPrimary,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -167,13 +170,11 @@ class AnimeXPlaylistsPage extends StatelessWidget {
                   filled: true,
                   fillColor: Colors.white.withValues(alpha: 0.05),
                   border: OutlineInputBorder(
-                    borderRadius:
-                        BorderRadius.circular(AnimeXTokens.radiusLg),
+                    borderRadius: BorderRadius.circular(AnimeXTokens.radiusLg),
                     borderSide: const BorderSide(color: AnimeXTokens.border),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius:
-                        BorderRadius.circular(AnimeXTokens.radiusLg),
+                    borderRadius: BorderRadius.circular(AnimeXTokens.radiusLg),
                     borderSide: const BorderSide(color: AnimeXTokens.border),
                   ),
                 ),
@@ -218,10 +219,7 @@ class AnimeXPlaylistsPage extends StatelessWidget {
               onPressed: () => Navigator.pop(dialogContext),
               child: Text(
                 'Cancel',
-                style: dmSansStyle(
-                  size: 13,
-                  color: AnimeXTokens.textSecondary,
-                ),
+                style: dmSansStyle(size: 13, color: AnimeXTokens.textSecondary),
               ),
             ),
             AnimeXPrimaryButton(
@@ -335,8 +333,7 @@ class AnimeXPlaylistsPage extends StatelessWidget {
                   filled: true,
                   fillColor: Colors.white.withValues(alpha: 0.05),
                   border: OutlineInputBorder(
-                    borderRadius:
-                        BorderRadius.circular(AnimeXTokens.radiusLg),
+                    borderRadius: BorderRadius.circular(AnimeXTokens.radiusLg),
                     borderSide: const BorderSide(color: AnimeXTokens.border),
                   ),
                 ),
@@ -380,10 +377,7 @@ class AnimeXPlaylistsPage extends StatelessWidget {
               onPressed: () => Navigator.pop(dialogContext),
               child: Text(
                 'Cancel',
-                style: dmSansStyle(
-                  size: 13,
-                  color: AnimeXTokens.textSecondary,
-                ),
+                style: dmSansStyle(size: 13, color: AnimeXTokens.textSecondary),
               ),
             ),
             AnimeXPrimaryButton(
@@ -470,10 +464,7 @@ class _PlaylistCard extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 '$count anime',
-                style: dmSansStyle(
-                  size: 12,
-                  color: AnimeXTokens.textSecondary,
-                ),
+                style: dmSansStyle(size: 12, color: AnimeXTokens.textSecondary),
               ),
             ],
           ),

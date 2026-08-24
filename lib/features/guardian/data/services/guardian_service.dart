@@ -19,7 +19,7 @@ class GuardianService {
   /// Seeds the database if empty.
   Future<void> initialize() async {
     final snapshot = await _db.collection('guardian_messages').get();
-    
+
     if (snapshot.docs.isEmpty) {
       await seedMessages();
       // Fetch again after seeding
@@ -40,7 +40,7 @@ class GuardianService {
     if (category != null) {
       pool = _cachedMessages.where((m) => m.category == category).toList();
     }
-    
+
     if (pool.isEmpty) return null;
     final random = Random();
     return pool[random.nextInt(pool.length)];
@@ -49,12 +49,14 @@ class GuardianService {
   /// Seeds initial messages from local JSON asset to Firestore.
   Future<void> seedMessages() async {
     try {
-      final String jsonString = await rootBundle.loadString('assets/data/guardian_messages_seed.json');
+      final String jsonString = await rootBundle.loadString(
+        'assets/data/guardian_messages_seed.json',
+      );
       final List<dynamic> data = jsonDecode(jsonString);
-      
+
       final collection = _db.collection('guardian_messages');
       final batch = _db.batch();
-      
+
       for (var item in data) {
         final docRef = collection.doc();
         batch.set(docRef, {
@@ -63,7 +65,7 @@ class GuardianService {
           'createdAt': FieldValue.serverTimestamp(),
         });
       }
-      
+
       await batch.commit();
     } catch (e) {
       Logger.e('Error seeding guardian messages', error: e);

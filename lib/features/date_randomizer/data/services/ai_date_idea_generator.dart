@@ -28,7 +28,8 @@ class AIDateIdeaGenerator {
 
       final result = await _aiService.quickAsk(
         message: prompt,
-        systemPrompt: 'You are a creative date planner. Generate unique, romantic date idea titles. Respond with ONLY the title text — no quotes, no markdown, no other text.',
+        systemPrompt:
+            'You are a creative date planner. Generate unique, romantic date idea titles. Respond with ONLY the title text — no quotes, no markdown, no other text.',
       );
 
       final title = result.trim().replaceAll('"', '').replaceAll("'", '');

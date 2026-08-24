@@ -65,15 +65,15 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
 
     return RepaintBoundary(
       child: MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: ClipRect(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return _buildContent(constraints.maxWidth);
-          },
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: ClipRect(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return _buildContent(constraints.maxWidth);
+            },
+          ),
         ),
-      ),
       ),
     );
   }

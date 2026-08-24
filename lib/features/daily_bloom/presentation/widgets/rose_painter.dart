@@ -28,10 +28,10 @@ class RosePainter extends CustomPainter {
       height: potHeight,
     );
 
-    paint.shader = LinearGradient(
+    paint.shader = const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [const Color(0xFFE8B4B8), const Color(0xFFD4899A)],
+      colors: [Color(0xFFE8B4B8), Color(0xFFD4899A)],
     ).createShader(rect);
 
     canvas.drawRRect(
@@ -124,10 +124,16 @@ class RosePainter extends CustomPainter {
     } else if (stage <= 3) {
       // Rose bud
       paint.color = const Color(0xFFE57373);
-      canvas.drawOval(Rect.fromCenter(center: top, width: 12, height: 20), paint);
+      canvas.drawOval(
+        Rect.fromCenter(center: top, width: 12, height: 20),
+        paint,
+      );
       // Sepals
       paint.color = const Color(0xFF4CAF50);
-      canvas.drawOval(Rect.fromCenter(center: top.translate(0, 8), width: 8, height: 6), paint);
+      canvas.drawOval(
+        Rect.fromCenter(center: top.translate(0, 8), width: 8, height: 6),
+        paint,
+      );
     } else {
       // Rose bloom — concentric petals
       final layers = stage == 4 ? 2 : 4;
@@ -153,13 +159,12 @@ class RosePainter extends CustomPainter {
           final petalPath = Path();
           petalPath.moveTo(0, 0);
           petalPath.quadraticBezierTo(
-            layerSize * 0.4, -layerSize * 0.7,
-            0, -layerSize,
+            layerSize * 0.4,
+            -layerSize * 0.7,
+            0,
+            -layerSize,
           );
-          petalPath.quadraticBezierTo(
-            -layerSize * 0.4, -layerSize * 0.7,
-            0, 0,
-          );
+          petalPath.quadraticBezierTo(-layerSize * 0.4, -layerSize * 0.7, 0, 0);
           canvas.drawPath(petalPath, paint);
           canvas.restore();
         }
@@ -181,6 +186,7 @@ class RosePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant RosePainter oldDelegate) {
-    return oldDelegate.stage != stage || oldDelegate.animationValue != animationValue;
+    return oldDelegate.stage != stage ||
+        oldDelegate.animationValue != animationValue;
   }
 }

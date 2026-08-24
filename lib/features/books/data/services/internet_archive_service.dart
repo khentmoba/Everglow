@@ -14,8 +14,7 @@ class InternetArchiveService {
   factory InternetArchiveService() => _instance;
   InternetArchiveService._internal();
 
-  static const String _searchBase =
-      'https://archive.org/advancedsearch.php';
+  static const String _searchBase = 'https://archive.org/advancedsearch.php';
   static const String _downloadBase = 'https://archive.org/download';
   static const String _metadataBase = 'https://archive.org/metadata';
   static const String _imgBase = 'https://archive.org/services/img';
@@ -39,14 +38,16 @@ class InternetArchiveService {
     final langClause = (language != null && language.isNotEmpty)
         ? ' AND language:($language)'
         : '';
-    final uri = Uri.parse(_searchBase).replace(queryParameters: {
-      'q': '(${query.trim()}) AND mediatype:texts$langClause',
-      'fl[]': fl.join(','),
-      'sort[]': 'downloads desc',
-      'rows': '$limit',
-      'page': '1',
-      'output': 'json',
-    });
+    final uri = Uri.parse(_searchBase).replace(
+      queryParameters: {
+        'q': '(${query.trim()}) AND mediatype:texts$langClause',
+        'fl[]': fl.join(','),
+        'sort[]': 'downloads desc',
+        'rows': '$limit',
+        'page': '1',
+        'output': 'json',
+      },
+    );
     try {
       final response = await http.get(uri);
       if (response.statusCode == 200) {
@@ -67,7 +68,9 @@ class InternetArchiveService {
   Future<BookSearchResult?> fetchMetadata(BookSearchResult result) async {
     if (result.iaId.isEmpty) return result;
     try {
-      final response = await http.get(Uri.parse('$_metadataBase/${result.iaId}'));
+      final response = await http.get(
+        Uri.parse('$_metadataBase/${result.iaId}'),
+      );
       if (response.statusCode != 200) return result;
       final data = json.decode(response.body) as Map<String, dynamic>;
       final meta = data['metadata'] as Map<String, dynamic>? ?? const {};
@@ -84,8 +87,15 @@ class InternetArchiveService {
         final name = (file['name'] as String?) ?? '';
         final ext = _extensionOf(name).toLowerCase();
         if (ext.isEmpty || name.contains('_djvu')) continue;
-        if (['txt', 'epub', 'pdf', 'mobi', 'azw3', 'html', 'fb2']
-            .contains(ext)) {
+        if ([
+          'txt',
+          'epub',
+          'pdf',
+          'mobi',
+          'azw3',
+          'html',
+          'fb2',
+        ].contains(ext)) {
           downloadUrls.putIfAbsent(
             ext,
             () => '$_downloadBase/${result.iaId}/$name',
@@ -96,10 +106,10 @@ class InternetArchiveService {
       final primaryExt = result.filetype.isNotEmpty
           ? result.filetype
           : (downloadUrls.containsKey('epub')
-              ? 'epub'
-              : (downloadUrls.containsKey('txt')
-                  ? 'txt'
-                  : (downloadUrls.containsKey('pdf') ? 'pdf' : '')));
+                ? 'epub'
+                : (downloadUrls.containsKey('txt')
+                      ? 'txt'
+                      : (downloadUrls.containsKey('pdf') ? 'pdf' : '')));
       final sizeMb = _itemSizeMb(meta['item_size']);
 
       return result.copyWith(
@@ -156,10 +166,7 @@ class InternetArchiveService {
   String _extractDescription(dynamic raw) {
     if (raw is String) return raw.trim();
     if (raw is List) {
-      return raw
-          .map((e) => e.toString())
-          .join('\n\n')
-          .trim();
+      return raw.map((e) => e.toString()).join('\n\n').trim();
     }
     if (raw is Map && raw['value'] is String) {
       return (raw['value'] as String).trim();

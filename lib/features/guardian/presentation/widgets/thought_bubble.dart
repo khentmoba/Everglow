@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 
 class ThoughtBubble extends StatelessWidget {
   final String message;
@@ -12,11 +13,11 @@ class ThoughtBubble extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         constraints: const BoxConstraints(maxWidth: 150),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.9),
+          color: AppColors.petalWhite.withValues(alpha: 0.92),
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: Colors.pink[100]!.withValues(alpha: 0.3),
+              color: AppColors.deepRose.withValues(alpha: 0.12),
               blurRadius: 15,
               offset: const Offset(0, 6),
             ),
@@ -41,7 +42,9 @@ class ThoughtBubble extends StatelessWidget {
               bottom: -25,
               right: 20,
               child: CustomPaint(
-                painter: TrianglePainter(color: Colors.white.withValues(alpha: 0.9)),
+                painter: TrianglePainter(
+                  color: AppColors.petalWhite.withValues(alpha: 0.92),
+                ),
                 size: const Size(15, 15),
               ),
             ),

@@ -103,11 +103,20 @@ class JournalEntry {
       updatedAt: _parseTs(data['updatedAt'] ?? data['createdAt']),
       category: _parseCategory(data['category']),
       mood: _parseMood(data['mood']),
-      tags: (data['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? const [],
+      tags:
+          (data['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
+          const [],
       isPinned: data['isPinned'] ?? false,
       isLocked: data['isLocked'] ?? false,
       coverColor: data['coverColor'],
-      wordCount: data['wordCount'] ?? content.toString().trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length,
+      wordCount:
+          data['wordCount'] ??
+          content
+              .toString()
+              .trim()
+              .split(RegExp(r'\s+'))
+              .where((w) => w.isNotEmpty)
+              .length,
     );
   }
 
@@ -126,11 +135,14 @@ class JournalEntry {
       if (coverColor != null) 'coverColor': coverColor,
       'wordCount': wordCount,
       'monthDay': _monthDay(createdAt),
-      'searchKey': '${title.toLowerCase()} ${content.toLowerCase().substring(0, content.length > 500 ? 500 : content.length)}'.toLowerCase(),
+      'searchKey':
+          '${title.toLowerCase()} ${content.toLowerCase().substring(0, content.length > 500 ? 500 : content.length)}'
+              .toLowerCase(),
     };
   }
 
-  static String _monthDay(DateTime d) => '${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  static String _monthDay(DateTime d) =>
+      '${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   JournalEntry copyWith({
     String? title,
@@ -166,5 +178,6 @@ class JournalEntry {
   }
 
   bool get isLong => wordCount > 200;
-  String get preview => content.length > 120 ? '${content.substring(0, 120)}…' : content;
+  String get preview =>
+      content.length > 120 ? '${content.substring(0, 120)}…' : content;
 }

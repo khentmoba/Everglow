@@ -12,15 +12,31 @@ class BudgetService {
   final String _col = 'budget_transactions';
 
   Stream<List<BudgetTransaction>> watchAll() => withFirestoreTimeout(
-        _db.collection(_col).orderBy('date', descending: true).limit(100).snapshots().map((s) => s.docs.map((d) => BudgetTransaction.fromFirestore(d)).toList()),
-        label: 'budget-all',
-      );
+    _db
+        .collection(_col)
+        .orderBy('date', descending: true)
+        .limit(100)
+        .snapshots()
+        .map(
+          (s) => s.docs.map((d) => BudgetTransaction.fromFirestore(d)).toList(),
+        ),
+    label: 'budget-all',
+  );
 
   Stream<List<BudgetTransaction>> watchMonth(DateTime month) {
     final start = DateTime(month.year, month.month, 1);
     final end = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
     return withFirestoreTimeout(
-      _db.collection(_col).where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start)).where('date', isLessThanOrEqualTo: Timestamp.fromDate(end)).orderBy('date', descending: true).snapshots().map((s) => s.docs.map((d) => BudgetTransaction.fromFirestore(d)).toList()),
+      _db
+          .collection(_col)
+          .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+          .where('date', isLessThanOrEqualTo: Timestamp.fromDate(end))
+          .orderBy('date', descending: true)
+          .snapshots()
+          .map(
+            (s) =>
+                s.docs.map((d) => BudgetTransaction.fromFirestore(d)).toList(),
+          ),
       label: 'budget-month',
     );
   }
@@ -57,7 +73,14 @@ class BudgetService {
     }
     final khentOwes = khentShare - khentPaid;
     final clairOwes = clairShare - clairPaid;
-    return {'khentsgdz': khentOwes, 'clairjassen': clairOwes, 'khentPaid': khentPaid, 'clairPaid': clairPaid, 'khentShare': khentShare, 'clairShare': clairShare};
+    return {
+      'khentsgdz': khentOwes,
+      'clairjassen': clairOwes,
+      'khentPaid': khentPaid,
+      'clairPaid': clairPaid,
+      'khentShare': khentShare,
+      'clairShare': clairShare,
+    };
   }
 
   Map<String, double> byCategory(List<BudgetTransaction> txs) {

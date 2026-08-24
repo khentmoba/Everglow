@@ -19,7 +19,7 @@ class KatanaGenresSidebar extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          KatanaSectionHeader(title: 'Genres'),
+          const KatanaSectionHeader(title: 'Genres'),
           const SizedBox(height: 10),
           GridView.builder(
             shrinkWrap: true,
@@ -34,7 +34,8 @@ class KatanaGenresSidebar extends StatelessWidget {
             itemBuilder: (context, index) {
               final genre = genres[index];
               return InkWell(
-                onTap: () => pushGenreDirectory(context, genre.slug, genre.name),
+                onTap: () =>
+                    pushGenreDirectory(context, genre.slug, genre.name),
                 borderRadius: BorderRadius.circular(4),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),

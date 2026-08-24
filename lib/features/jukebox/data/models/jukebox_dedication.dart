@@ -23,14 +23,14 @@ class JukeboxDedication {
   });
 
   Map<String, dynamic> toMap() => {
-        'fromUsername': fromUsername,
-        'toUsername': toUsername,
-        'trackName': trackName,
-        'artistName': artistName,
-        'imageUrl': imageUrl,
-        'message': message,
-        'createdAt': Timestamp.fromDate(createdAt),
-      };
+    'fromUsername': fromUsername,
+    'toUsername': toUsername,
+    'trackName': trackName,
+    'artistName': artistName,
+    'imageUrl': imageUrl,
+    'message': message,
+    'createdAt': Timestamp.fromDate(createdAt),
+  };
 
   factory JukeboxDedication.fromMap(String id, Map<String, dynamic> map) {
     final ts = map['createdAt'];

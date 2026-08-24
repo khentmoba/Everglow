@@ -15,12 +15,9 @@ import '../widgets/netflix/netflix_nav_bar.dart';
 
 import '../widgets/tabs/cinema_home_tab.dart'
     show CinemaHomeTab, featuredGenres;
-import '../widgets/tabs/cinema_search_tab.dart'
-    show CinemaSearchTab;
-import '../widgets/tabs/cinema_browse_tab.dart'
-    show CinemaBrowseTab;
-import '../widgets/tabs/cinema_library_tab.dart'
-    show CinemaLibraryTab;
+import '../widgets/tabs/cinema_search_tab.dart' show CinemaSearchTab;
+import '../widgets/tabs/cinema_browse_tab.dart' show CinemaBrowseTab;
+import '../widgets/tabs/cinema_library_tab.dart' show CinemaLibraryTab;
 import '../../../watch_party/presentation/widgets/cinema_watch_together_tab.dart';
 
 // ─────────────────────────────────────────────────────────────────────
@@ -51,8 +48,8 @@ class _CinemaScreenState extends State<CinemaScreen> {
   String? _pendingBrowseOption;
 
   // ── Sidebar state ──────────────────────────────────────────────
-  bool _sidebarCollapsed = false;
   bool _mobileSidebarOpen = false;
+  bool _desktopScrolled = false;
 
   StreamSubscription<List<MediaItem>>? _watchlistSubscription;
 
@@ -141,8 +138,9 @@ class _CinemaScreenState extends State<CinemaScreen> {
   void _splitWatchlists() {
     // Cinema's rails should never surface anime — the anime shelf owns it
     // now (including its own Watching Now row on the dashboard).
-    _watchedList =
-        _watchlist.where((item) => item.isWatched && !item.isAnime).toList();
+    _watchedList = _watchlist
+        .where((item) => item.isWatched && !item.isAnime)
+        .toList();
     _watchingList = _watchlist
         .where((item) => item.isCurrentlyWatching && !item.isAnime)
         .toList();
@@ -379,6 +377,46 @@ class _CinemaScreenState extends State<CinemaScreen> {
     _showMediaDetails(item);
   }
 
+  void _playMedia(MediaItem item) {
+    if (item.mediaType == 'movie') {
+      context.push(
+        '/cinema/video/${item.tmdbId}?type=movie'
+        '&title=${Uri.encodeComponent(item.title)}&anime=false'
+        '${(item.currentTimestamp ?? 0) > 0 ? '&start=${item.currentTimestamp}' : ''}',
+      );
+      return;
+    }
+    final season = item.currentSeason ?? 1;
+    final episode = item.currentEpisode ?? 1;
+    final start = item.currentTimestamp ?? 0;
+    context.push(
+      '/cinema/video/${item.tmdbId}?type=tv'
+      '&title=${Uri.encodeComponent(item.title)}&anime=false'
+      '&season=$season&episode=$episode'
+      '${start > 0 ? '&start=$start' : ''}',
+    );
+  }
+
+  Future<void> _toggleListItem(MediaItem item, bool add) async {
+    final userName = context.read<AuthService>().currentUser ?? '';
+    if (userName.isEmpty) return;
+    try {
+      await _tmdbService.setListMembership(item, userName, add: add);
+    } catch (e) {
+      debugPrint('[Cinema] Failed to update list membership: $e');
+    }
+  }
+
+  Future<void> _rateItem(MediaItem item, double? rating) async {
+    final userName = context.read<AuthService>().currentUser ?? '';
+    if (userName.isEmpty) return;
+    try {
+      await _tmdbService.setUserRating(item, userName, rating: rating);
+    } catch (e) {
+      debugPrint('[Cinema] Failed to save title rating: $e');
+    }
+  }
+
   void _onNavSelect(int tab, String? browseOptionId) {
     if (browseOptionId != null) {
       _openBrowse(browseOptionId);
@@ -388,13 +426,8 @@ class _CinemaScreenState extends State<CinemaScreen> {
   }
 
   void _toggleSidebar() {
-    final isDesktop = MediaQuery.sizeOf(context).width >= 1024;
     HapticFeedback.selectionClick();
-    if (isDesktop) {
-      setState(() => _sidebarCollapsed = !_sidebarCollapsed);
-    } else {
-      setState(() => _mobileSidebarOpen = !_mobileSidebarOpen);
-    }
+    setState(() => _mobileSidebarOpen = !_mobileSidebarOpen);
   }
 
   void _handleSidebarSelect(int tab, String? browseOptionId) {
@@ -402,6 +435,15 @@ class _CinemaScreenState extends State<CinemaScreen> {
       setState(() => _mobileSidebarOpen = false);
     }
     _onNavSelect(tab, browseOptionId);
+  }
+
+  bool _onScrollNotification(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) return false;
+    final scrolled = notification.metrics.pixels > 12;
+    if (scrolled != _desktopScrolled) {
+      setState(() => _desktopScrolled = scrolled);
+    }
+    return false;
   }
 
   @override
@@ -413,12 +455,15 @@ class _CinemaScreenState extends State<CinemaScreen> {
     final userName = auth.currentUser ?? '';
 
     // Sidebar widget (reused for both layouts, just different toggle behavior)
-    Widget buildSidebar({required bool collapsed, required VoidCallback onToggle}) {
+    Widget buildSidebar({
+      required bool collapsed,
+      required VoidCallback onToggle,
+    }) {
       final router = GoRouter.of(context);
       return CinemaSidebar(
         currentIndex: _currentIndex,
         activeBrowseOption: _pendingBrowseOption,
-        isCollapsed: collapsed,
+        isCollapsed: false,
         onToggle: onToggle,
         onSelect: _handleSidebarSelect,
         onAnimeTap: () {
@@ -441,12 +486,14 @@ class _CinemaScreenState extends State<CinemaScreen> {
       );
     }
 
-    // Main cinema content — sidebar is now the single nav source.
+    // Main cinema content. The desktop top bar overlays it so the hero
+    // can remain full bleed, just like the streaming-service pattern.
     Widget buildCinemaContent() {
-      return Stack(
+      return NotificationListener<ScrollNotification>(
+        onNotification: _onScrollNotification,
+        child: Stack(
           children: [
             const ColoredBox(color: NetflixColors.background),
-            // Content
             IndexedStack(
               index: _currentIndex,
               children: [
@@ -470,21 +517,39 @@ class _CinemaScreenState extends State<CinemaScreen> {
                   onRefresh: _fetchHomeData,
                   onMediaTap: _showMediaDetails,
                   onPlay: _playNow,
+                  onPlayItem: _playMedia,
+                  onToggleListItem: _toggleListItem,
+                  onRateItem: _rateItem,
+                  isInList: (item) =>
+                      _watchlist.any((saved) => saved.tmdbId == item.tmdbId),
                   onSwitchTab: _switchTab,
                 ),
                 CinemaSearchTab(
                   trendingGlobal: _trendingGlobal,
                   onMediaTap: _showMediaDetails,
+                  onPlayItem: _playMedia,
+                  onToggleListItem: _toggleListItem,
+                  onRateItem: _rateItem,
+                  isInList: (item) =>
+                      _watchlist.any((saved) => saved.tmdbId == item.tmdbId),
                   onSwitchTab: _switchTab,
                 ),
                 CinemaBrowseTab(
                   key: ValueKey('browse-$_browseSeed'),
                   initialOptionId: _pendingBrowseOption,
                   onMediaTap: _showMediaDetails,
+                  onPlayItem: _playMedia,
+                  onToggleListItem: _toggleListItem,
+                  onRateItem: _rateItem,
+                  isInList: (item) =>
+                      _watchlist.any((saved) => saved.tmdbId == item.tmdbId),
                 ),
                 CinemaLibraryTab(
                   watchlist: _watchlist,
                   onMediaTap: _showMediaDetails,
+                  onPlayItem: _playMedia,
+                  onToggleListItem: _toggleListItem,
+                  onRateItem: _rateItem,
                   onSwitchTab: _switchTab,
                 ),
                 CinemaWatchTogetherTab(
@@ -494,31 +559,27 @@ class _CinemaScreenState extends State<CinemaScreen> {
                 ),
               ],
             ),
-            // Mobile hamburger — opens the overlay sidebar
             if (!isDesktop && !_mobileSidebarOpen)
               Positioned(
                 top: 0,
-                left: 0,
+                right: 0,
                 child: SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.only(left: 12, top: 10),
+                    padding: const EdgeInsets.only(right: 12, top: 10),
                     child: Material(
                       color: const Color(0xFF14101A),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        side: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.10),
-                        ),
+                      shape: const CircleBorder(
+                        side: BorderSide(color: Color(0x1AFFFFFF)),
                       ),
                       elevation: 8,
                       child: InkWell(
                         onTap: _toggleSidebar,
-                        borderRadius: BorderRadius.circular(10),
+                        customBorder: const CircleBorder(),
                         child: const SizedBox(
                           width: 42,
                           height: 42,
                           child: Icon(
-                            Icons.menu_rounded,
+                            Icons.person_outline_rounded,
                             color: Colors.white,
                             size: 22,
                           ),
@@ -529,26 +590,45 @@ class _CinemaScreenState extends State<CinemaScreen> {
                 ),
               ),
           ],
+        ),
       );
     }
 
-    // ── Desktop: persistent collapsible rail ──────────────────────
+    // ── Desktop: transparent-to-solid catalog top bar ─────────────
     if (isDesktop) {
       return Scaffold(
         backgroundColor: NetflixColors.background,
         extendBody: true,
-        body: Row(
+        body: Stack(
           children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 260),
-              curve: Curves.easeOutCubic,
-              width: _sidebarCollapsed ? 72 : 260,
-              child: buildSidebar(
-                collapsed: _sidebarCollapsed,
-                onToggle: _toggleSidebar,
+            buildCinemaContent(),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: NetflixCinemaTopBar(
+                currentIndex: _currentIndex,
+                scrolled: _desktopScrolled,
+                onSelect: _onNavSelect,
+                onAnimeTap: () => GoRouter.of(context).go('/anime'),
+                onDashboardTap: isCoupleUser
+                    ? () => GoRouter.of(context).go('/dashboard')
+                    : null,
+                onLogout: () async {
+                  final router = GoRouter.of(context);
+                  await auth.logout();
+                  if (!mounted) return;
+                  router.go('/');
+                },
+                userName: userName,
+                links: const [
+                  NetflixNavLink('Home', 0),
+                  NetflixNavLink('New & Popular', 2, 'collection-new'),
+                  NetflixNavLink('My List', 3),
+                  NetflixNavLink('Search', 1),
+                ],
               ),
             ),
-            Expanded(child: buildCinemaContent()),
           ],
         ),
       );
@@ -566,9 +646,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
             Positioned.fill(
               child: GestureDetector(
                 onTap: () => setState(() => _mobileSidebarOpen = false),
-                child: Container(
-                  color: Colors.black.withValues(alpha: 0.55),
-                ),
+                child: Container(color: Colors.black.withValues(alpha: 0.55)),
               ),
             ),
             // Drawer panel — slides in from the left
@@ -583,8 +661,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
                   width: 280,
                   child: buildSidebar(
                     collapsed: false,
-                    onToggle: () =>
-                        setState(() => _mobileSidebarOpen = false),
+                    onToggle: () => setState(() => _mobileSidebarOpen = false),
                   ),
                 ),
               ),

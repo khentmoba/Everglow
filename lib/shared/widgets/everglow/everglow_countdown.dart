@@ -145,7 +145,9 @@ class _EverglowCountdownState extends State<EverglowCountdown> {
     if (days > 0) {
       text = '${days}d ${hours}h ${minutes}m';
     } else if (hours > 0) {
-      text = showSec ? '${hours}h ${minutes}m ${seconds}s' : '${hours}h ${minutes}m';
+      text = showSec
+          ? '${hours}h ${minutes}m ${seconds}s'
+          : '${hours}h ${minutes}m';
     } else {
       text = '${minutes}m ${seconds}s';
     }
@@ -251,9 +253,7 @@ class _UnitBlock extends StatelessWidget {
         children: [
           Text(
             value.toString().padLeft(2, '0'),
-            style: AppTypography.outfitHeading.copyWith(
-              fontSize: 22,
-            ),
+            style: AppTypography.outfitHeading.copyWith(fontSize: 22),
           ),
           const SizedBox(height: 2),
           Text(

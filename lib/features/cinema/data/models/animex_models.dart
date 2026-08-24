@@ -58,16 +58,16 @@ class AnimexHistoryEntry {
   });
 
   Map<String, dynamic> toJson() => {
-        'key': key,
-        if (anilistId != null) 'anilistId': anilistId,
-        'malId': malId,
-        'title': title,
-        'coverUrl': coverUrl,
-        'episode': episode,
-        'durationSeconds': durationSeconds,
-        'episodeMinutes': episodeMinutes,
-        'updatedAt': updatedAt.millisecondsSinceEpoch,
-      };
+    'key': key,
+    if (anilistId != null) 'anilistId': anilistId,
+    'malId': malId,
+    'title': title,
+    'coverUrl': coverUrl,
+    'episode': episode,
+    'durationSeconds': durationSeconds,
+    'episodeMinutes': episodeMinutes,
+    'updatedAt': updatedAt.millisecondsSinceEpoch,
+  };
 
   factory AnimexHistoryEntry.fromJson(Map<String, dynamic> json) {
     return AnimexHistoryEntry(
@@ -117,12 +117,12 @@ class AnimexPlaylist {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'emoji': emoji,
-        'createdAt': createdAt.millisecondsSinceEpoch,
-        'items': items.map((e) => e.toJson()).toList(),
-      };
+    'id': id,
+    'name': name,
+    'emoji': emoji,
+    'createdAt': createdAt.millisecondsSinceEpoch,
+    'items': items.map((e) => e.toJson()).toList(),
+  };
 
   factory AnimexPlaylist.fromJson(Map<String, dynamic> json) {
     final rawItems = json['items'] as List? ?? const [];
@@ -159,13 +159,13 @@ class AnimexPlaylistItem {
   });
 
   Map<String, dynamic> toJson() => {
-        if (anilistId != null) 'anilistId': anilistId,
-        'malId': malId,
-        'title': title,
-        'coverUrl': coverUrl,
-        'year': year,
-        'format': format,
-      };
+    if (anilistId != null) 'anilistId': anilistId,
+    'malId': malId,
+    'title': title,
+    'coverUrl': coverUrl,
+    'year': year,
+    'format': format,
+  };
 
   factory AnimexPlaylistItem.fromJson(Map<String, dynamic> json) {
     return AnimexPlaylistItem(

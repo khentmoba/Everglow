@@ -19,7 +19,8 @@ class BouncyButton extends StatefulWidget {
   State<BouncyButton> createState() => _BouncyButtonState();
 }
 
-class _BouncyButtonState extends State<BouncyButton> with SingleTickerProviderStateMixin {
+class _BouncyButtonState extends State<BouncyButton>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
 
@@ -30,9 +31,10 @@ class _BouncyButtonState extends State<BouncyButton> with SingleTickerProviderSt
       duration: const Duration(milliseconds: 150),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: widget.scaleFactor).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: widget.scaleFactor,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -63,13 +65,10 @@ class _BouncyButtonState extends State<BouncyButton> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     return RepaintBoundary(
       child: GestureDetector(
-      onTapDown: _handleTapDown,
-      onTapUp: _handleTapUp,
-      onTapCancel: _handleTapCancel,
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: widget.child,
-      ),
+        onTapDown: _handleTapDown,
+        onTapUp: _handleTapUp,
+        onTapCancel: _handleTapCancel,
+        child: ScaleTransition(scale: _scaleAnimation, child: widget.child),
       ),
     );
   }

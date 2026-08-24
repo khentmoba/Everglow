@@ -52,7 +52,10 @@ class _KatanaHeaderState extends State<KatanaHeader> {
     }
     setState(() => _searching = true);
     _debounce = Timer(const Duration(milliseconds: 450), () async {
-      final results = await _service.fetchSuggestions(query, searchBy: _searchBy);
+      final results = await _service.fetchSuggestions(
+        query,
+        searchBy: _searchBy,
+      );
       if (!mounted || _searchController.text.trim() != query.trim()) return;
       setState(() {
         _suggestions = results;
@@ -106,8 +109,11 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                     child: IconButton(
                       onPressed: _handleBack,
                       visualDensity: VisualDensity.compact,
-                      icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                          size: 18, color: KatanaColors.textMuted),
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 18,
+                        color: KatanaColors.textMuted,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -161,12 +167,21 @@ class _KatanaHeaderState extends State<KatanaHeader> {
               child: Row(
                 children: [
                   _navItem(KatanaNav.home, 'Home', () => pushHome(context)),
-                  _navItem(KatanaNav.latest, 'Latest update',
-                      () => pushDirectory(context, mode: 'latest')),
-                  _navItem(KatanaNav.directory, 'Manga Directory',
-                      () => pushDirectory(context)),
-                  _navItem(KatanaNav.newManga, 'New Manga',
-                      () => pushDirectory(context, mode: 'new')),
+                  _navItem(
+                    KatanaNav.latest,
+                    'Latest update',
+                    () => pushDirectory(context, mode: 'latest'),
+                  ),
+                  _navItem(
+                    KatanaNav.directory,
+                    'Manga Directory',
+                    () => pushDirectory(context),
+                  ),
+                  _navItem(
+                    KatanaNav.newManga,
+                    'New Manga',
+                    () => pushDirectory(context, mode: 'new'),
+                  ),
                   _buildGenresNav(),
                   if (!desktop) ...[
                     const SizedBox(width: 8),
@@ -198,8 +213,11 @@ class _KatanaHeaderState extends State<KatanaHeader> {
               ),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.auto_awesome_rounded,
-                color: Colors.white, size: 19),
+            child: const Icon(
+              Icons.auto_awesome_rounded,
+              color: Colors.white,
+              size: 19,
+            ),
           ),
           const SizedBox(width: 8),
           Text.rich(
@@ -266,13 +284,14 @@ class _KatanaHeaderState extends State<KatanaHeader> {
           _searchController.text.isEmpty
               ? GestureDetector(
                   onTap: () => setState(() {
-                    _searchBy =
-                        _searchBy == 'm_name' ? 'author' : 'm_name';
+                    _searchBy = _searchBy == 'm_name' ? 'author' : 'm_name';
                   }),
                   child: Container(
                     margin: const EdgeInsets.only(right: 4),
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: KatanaColors.surface,
                       borderRadius: BorderRadius.circular(4),
@@ -285,8 +304,11 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                           _searchBy == 'm_name' ? 'Manga Name' : 'Author',
                           style: KatanaType.small,
                         ),
-                        const Icon(Icons.arrow_drop_down_rounded,
-                            size: 16, color: KatanaColors.textMuted),
+                        const Icon(
+                          Icons.arrow_drop_down_rounded,
+                          size: 16,
+                          color: KatanaColors.textMuted,
+                        ),
                       ],
                     ),
                   ),
@@ -294,8 +316,11 @@ class _KatanaHeaderState extends State<KatanaHeader> {
               : IconButton(
                   onPressed: _submitSearch,
                   visualDensity: VisualDensity.compact,
-                  icon: const Icon(Icons.arrow_forward_rounded,
-                      size: 17, color: KatanaColors.accent),
+                  icon: const Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 17,
+                    color: KatanaColors.accent,
+                  ),
                 ),
         ],
       ),
@@ -314,40 +339,45 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: KatanaColors.accent),
+                      strokeWidth: 2,
+                      color: KatanaColors.accent,
+                    ),
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Text('Searching...', style: KatanaType.small),
                 ],
               ),
             )
           : _suggestions.isEmpty
-              ? Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text('No matches found.', style: KatanaType.small),
-                )
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final item in _suggestions) _suggestionTile(item),
-                    const Divider(height: 1, color: KatanaColors.border),
-                    InkWell(
-                      onTap: _submitSearch,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.search,
-                                size: 15, color: KatanaColors.accent),
-                            const SizedBox(width: 6),
-                            Text('View all results', style: KatanaType.accent),
-                          ],
+          ? Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text('No matches found.', style: KatanaType.small),
+            )
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final item in _suggestions) _suggestionTile(item),
+                const Divider(height: 1, color: KatanaColors.border),
+                InkWell(
+                  onTap: _submitSearch,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.search,
+                          size: 15,
+                          color: KatanaColors.accent,
                         ),
-                      ),
+                        const SizedBox(width: 6),
+                        Text('View all results', style: KatanaType.accent),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
+              ],
+            ),
     );
   }
 
@@ -422,8 +452,11 @@ class _KatanaHeaderState extends State<KatanaHeader> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.bookmark_rounded,
-              size: 18, color: KatanaColors.accent),
+          const Icon(
+            Icons.bookmark_rounded,
+            size: 18,
+            color: KatanaColors.accent,
+          ),
           const SizedBox(width: 4),
           Text('Bookmarks', style: KatanaType.accent),
         ],
@@ -442,7 +475,11 @@ class _KatanaHeaderState extends State<KatanaHeader> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.person_rounded, size: 16, color: KatanaColors.textMuted),
+          const Icon(
+            Icons.person_rounded,
+            size: 16,
+            color: KatanaColors.textMuted,
+          ),
           const SizedBox(width: 6),
           Text(
             user.isEmpty ? 'Guest' : user,
@@ -482,9 +519,7 @@ class _KatanaHeaderState extends State<KatanaHeader> {
   }
 
   Widget _buildGenresNav() {
-    return _GenresDropdown(
-      child: _navItem(KatanaNav.genres, 'Genres', () {}),
-    );
+    return _GenresDropdown(child: _navItem(KatanaNav.genres, 'Genres', () {}));
   }
 }
 
@@ -561,7 +596,9 @@ class _GenresDropdownState extends State<_GenresDropdown> {
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2, color: KatanaColors.accent),
+                              strokeWidth: 2,
+                              color: KatanaColors.accent,
+                            ),
                           ),
                         ),
                       )
@@ -573,26 +610,34 @@ class _GenresDropdownState extends State<_GenresDropdown> {
                             InkWell(
                               onTap: () {
                                 setState(() => _open = false);
-                                pushGenreDirectory(context, genre.slug,
-                                    genre.name);
+                                pushGenreDirectory(
+                                  context,
+                                  genre.slug,
+                                  genre.name,
+                                );
                               },
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 7),
+                                  horizontal: 14,
+                                  vertical: 7,
+                                ),
                                 child: Row(
                                   children: [
                                     Expanded(
                                       child: Text(
                                         genre.name,
-                                        style: AppTypography.outfitWhite.copyWith(
-                                          color: KatanaColors.text,
-                                          fontSize: 13,
-                                        ),
+                                        style: AppTypography.outfitWhite
+                                            .copyWith(
+                                              color: KatanaColors.text,
+                                              fontSize: 13,
+                                            ),
                                       ),
                                     ),
                                     if (genre.count > 0)
-                                      Text('(${genre.count})',
-                                          style: KatanaType.small),
+                                      Text(
+                                        '(${genre.count})',
+                                        style: KatanaType.small,
+                                      ),
                                   ],
                                 ),
                               ),

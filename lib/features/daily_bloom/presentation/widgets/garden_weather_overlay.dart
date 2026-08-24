@@ -60,29 +60,29 @@ class _GardenWeatherOverlayState extends State<GardenWeatherOverlay>
   Widget build(BuildContext context) {
     return RepaintBoundary(
       child: IgnorePointer(
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, _) {
-          // Update particle positions
-          for (final p in _particles) {
-            p.y += p.speed;
-            p.x += p.drift;
-            p.rotation += p.rotSpeed;
-            if (p.y > 1.2) {
-              p.y = -0.1;
-              p.x = _random.nextDouble();
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) {
+            // Update particle positions
+            for (final p in _particles) {
+              p.y += p.speed;
+              p.x += p.drift;
+              p.rotation += p.rotSpeed;
+              if (p.y > 1.2) {
+                p.y = -0.1;
+                p.x = _random.nextDouble();
+              }
             }
-          }
 
-          return CustomPaint(
-            size: Size.infinite,
-            painter: _WeatherPainter(
-              particles: _particles,
-              season: widget.season,
-            ),
-          );
-        },
-      ),
+            return CustomPaint(
+              size: Size.infinite,
+              painter: _WeatherPainter(
+                particles: _particles,
+                season: widget.season,
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -137,7 +137,9 @@ class _WeatherPainter extends CustomPainter {
           break;
 
         case 2: // Summer — sun rays (subtle)
-          paint.color = const Color(0xFFFFD54F).withValues(alpha: p.opacity * 0.3);
+          paint.color = const Color(
+            0xFFFFD54F,
+          ).withValues(alpha: p.opacity * 0.3);
           canvas.drawCircle(Offset(dx, dy), p.size * 0.8, paint);
           break;
 

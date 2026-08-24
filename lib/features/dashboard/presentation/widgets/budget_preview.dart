@@ -26,8 +26,8 @@ class BudgetPreview extends StatelessWidget {
         final owesStr = settled
             ? 'All settled'
             : khentOwes > 0
-                ? 'Khent owes ₱${khentOwes.toStringAsFixed(0)}'
-                : 'Clair owes ₱${clairOwes.toStringAsFixed(0)}';
+            ? 'Khent owes ₱${khentOwes.toStringAsFixed(0)}'
+            : 'Clair owes ₱${clairOwes.toStringAsFixed(0)}';
 
         final subtitle = txs.isEmpty
             ? 'No transactions this month'
@@ -57,7 +57,7 @@ class BudgetPreview extends StatelessWidget {
             trailing: const SectionChevron(hue: AppColors.warmAmber),
             onTap: () => context.push('/budget'),
             child: txs.isEmpty
-                ? _EmptyBudget(hue: AppColors.warmAmber)
+                ? const _EmptyBudget(hue: AppColors.warmAmber)
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -70,7 +70,10 @@ class BudgetPreview extends StatelessWidget {
                             children: [
                               for (int i = 0; i < topCats.length; i++)
                                 Expanded(
-                                  flex: (topCats[i].value * 100).round().clamp(1, 100),
+                                  flex: (topCats[i].value * 100).round().clamp(
+                                    1,
+                                    100,
+                                  ),
                                   child: Container(
                                     color: catColors[i % catColors.length],
                                   ),
@@ -94,14 +97,17 @@ class BudgetPreview extends StatelessWidget {
                           for (int i = 0; i < topCats.length; i++)
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 5),
+                                horizontal: 8,
+                                vertical: 5,
+                              ),
                               decoration: BoxDecoration(
                                 color: catColors[i % catColors.length]
                                     .withValues(alpha: 0.13),
                                 borderRadius: BorderRadius.circular(999),
                                 border: Border.all(
-                                    color: catColors[i % catColors.length]
-                                        .withValues(alpha: 0.22)),
+                                  color: catColors[i % catColors.length]
+                                      .withValues(alpha: 0.22),
+                                ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -128,8 +134,9 @@ class BudgetPreview extends StatelessWidget {
                                     style: AppTypography.outfitWhite.copyWith(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w600,
-                                      color: AppColors.petalWhite
-                                          .withValues(alpha: 0.75),
+                                      color: AppColors.petalWhite.withValues(
+                                        alpha: 0.75,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -141,13 +148,17 @@ class BudgetPreview extends StatelessWidget {
                         const SizedBox(height: 10),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 7),
+                            horizontal: 10,
+                            vertical: 7,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.warmAmber.withValues(alpha: 0.09),
                             borderRadius: AppRadius.radiusSm,
                             border: Border.all(
-                                color:
-                                    AppColors.warmAmber.withValues(alpha: 0.18)),
+                              color: AppColors.warmAmber.withValues(
+                                alpha: 0.18,
+                              ),
+                            ),
                           ),
                           child: Row(
                             children: [
@@ -156,11 +167,15 @@ class BudgetPreview extends StatelessWidget {
                                 height: 22,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: AppColors.warmAmber
-                                      .withValues(alpha: 0.18),
+                                  color: AppColors.warmAmber.withValues(
+                                    alpha: 0.18,
+                                  ),
                                 ),
-                                child: Icon(Icons.handshake_rounded,
-                                    size: 12, color: AppColors.warmAmber),
+                                child: const Icon(
+                                  Icons.handshake_rounded,
+                                  size: 12,
+                                  color: AppColors.warmAmber,
+                                ),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
@@ -172,12 +187,15 @@ class BudgetPreview extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              Text('${txs.length} tx',
-                                  style: AppTypography.outfitWhite.copyWith(
-                                    fontSize: 10,
-                                    color: AppColors.petalWhite
-                                        .withValues(alpha: 0.45),
-                                  )),
+                              Text(
+                                '${txs.length} tx',
+                                style: AppTypography.outfitWhite.copyWith(
+                                  fontSize: 10,
+                                  color: AppColors.petalWhite.withValues(
+                                    alpha: 0.45,
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -206,23 +224,31 @@ class _EmptyBudget extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.receipt_long_rounded, size: 18, color: hue.withValues(alpha: 0.85)),
+          Icon(
+            Icons.receipt_long_rounded,
+            size: 18,
+            color: hue.withValues(alpha: 0.85),
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Track date nights & groceries',
-                    style: AppTypography.outfitWhite.copyWith(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.petalWhite.withValues(alpha: 0.75),
-                    )),
-                Text('Split fairly — no mental math.',
-                    style: AppTypography.outfitWhite.copyWith(
-                      fontSize: 10,
-                      color: AppColors.petalWhite.withValues(alpha: 0.45),
-                    )),
+                Text(
+                  'Track date nights & groceries',
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.petalWhite.withValues(alpha: 0.75),
+                  ),
+                ),
+                Text(
+                  'Split fairly — no mental math.',
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 10,
+                    color: AppColors.petalWhite.withValues(alpha: 0.45),
+                  ),
+                ),
               ],
             ),
           ),

@@ -82,7 +82,10 @@ class _JukeboxWidgetState extends State<JukeboxWidget>
           alignment: Alignment.topCenter,
           children: [
             AnimatedBuilder(
-              animation: Listenable.merge([_ambientController, _entranceController]),
+              animation: Listenable.merge([
+                _ambientController,
+                _entranceController,
+              ]),
               builder: (context, child) {
                 final e = CurvedAnimation(
                   parent: _entranceController,
@@ -142,7 +145,9 @@ class _JukeboxWidgetState extends State<JukeboxWidget>
                             child: _GlowOrb(
                               color: AppColors.deepRose,
                               size: 180,
-                              t: (_ambientController.value * 2 * math.pi) % (2 * math.pi),
+                              t:
+                                  (_ambientController.value * 2 * math.pi) %
+                                  (2 * math.pi),
                             ),
                           ),
                           Positioned(
@@ -151,13 +156,14 @@ class _JukeboxWidgetState extends State<JukeboxWidget>
                             child: _GlowOrb(
                               color: AppColors.auroraLilac,
                               size: 220,
-                              t: (_ambientController.value * 2 * math.pi + 1.2) % (2 * math.pi),
+                              t:
+                                  (_ambientController.value * 2 * math.pi +
+                                      1.2) %
+                                  (2 * math.pi),
                             ),
                           ),
                           Positioned.fill(
-                            child: CustomPaint(
-                              painter: _GrainPainter(),
-                            ),
+                            child: CustomPaint(painter: _GrainPainter()),
                           ),
                           Positioned.fill(
                             child: DecoratedBox(
@@ -198,8 +204,12 @@ class _JukeboxWidgetState extends State<JukeboxWidget>
                                 child: MusicCard(
                                   status: status,
                                   title: title,
-                                  vinylWidget: VinylRecord(isPlaying: status.isPlaying),
-                                  marqueeWidget: status.trackName.length > 22 && status.isPlaying
+                                  vinylWidget: VinylRecord(
+                                    isPlaying: status.isPlaying,
+                                  ),
+                                  marqueeWidget:
+                                      status.trackName.length > 22 &&
+                                          status.isPlaying
                                       ? SizedBox(
                                           height: 24,
                                           child: Marquee(
@@ -211,13 +221,20 @@ class _JukeboxWidgetState extends State<JukeboxWidget>
                                               letterSpacing: -0.2,
                                             ),
                                             scrollAxis: Axis.horizontal,
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             blankSpace: 32.0,
                                             velocity: 28.0,
-                                            pauseAfterRound: const Duration(seconds: 1),
-                                            accelerationDuration: const Duration(seconds: 1),
+                                            pauseAfterRound: const Duration(
+                                              seconds: 1,
+                                            ),
+                                            accelerationDuration:
+                                                const Duration(seconds: 1),
                                             accelerationCurve: Curves.linear,
-                                            decelerationDuration: const Duration(milliseconds: 500),
+                                            decelerationDuration:
+                                                const Duration(
+                                                  milliseconds: 500,
+                                                ),
                                             decelerationCurve: Curves.easeOut,
                                           ),
                                         )
@@ -229,18 +246,34 @@ class _JukeboxWidgetState extends State<JukeboxWidget>
                             if (isMobile) {
                               return Column(
                                 children: [
-                                  buildCard(khentStatus, 'Khent is vibing to...'),
+                                  buildCard(
+                                    khentStatus,
+                                    'Khent is vibing to...',
+                                  ),
                                   const SizedBox(height: 14),
-                                  buildCard(clairStatus, 'Clair is vibing to...'),
+                                  buildCard(
+                                    clairStatus,
+                                    'Clair is vibing to...',
+                                  ),
                                 ],
                               );
                             } else {
                               return Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(child: buildCard(khentStatus, 'Khent is vibing to...')),
+                                  Expanded(
+                                    child: buildCard(
+                                      khentStatus,
+                                      'Khent is vibing to...',
+                                    ),
+                                  ),
                                   const SizedBox(width: 14),
-                                  Expanded(child: buildCard(clairStatus, 'Clair is vibing to...')),
+                                  Expanded(
+                                    child: buildCard(
+                                      clairStatus,
+                                      'Clair is vibing to...',
+                                    ),
+                                  ),
                                 ],
                               );
                             }
@@ -270,8 +303,22 @@ class _JukeboxWidgetState extends State<JukeboxWidget>
     final double height = size.height;
     final Path path = Path();
     path.moveTo(0.5 * width, height * 0.35);
-    path.cubicTo(0.2 * width, height * 0.1, -0.2 * width, height * 0.6, 0.5 * width, height);
-    path.cubicTo(1.2 * width, height * 0.6, 0.8 * width, height * 0.1, 0.5 * width, height * 0.35);
+    path.cubicTo(
+      0.2 * width,
+      height * 0.1,
+      -0.2 * width,
+      height * 0.6,
+      0.5 * width,
+      height,
+    );
+    path.cubicTo(
+      1.2 * width,
+      height * 0.6,
+      0.8 * width,
+      height * 0.1,
+      0.5 * width,
+      height * 0.35,
+    );
     path.close();
     return path;
   }
@@ -292,7 +339,10 @@ class _JukeboxHeaderState extends State<_JukeboxHeader>
   @override
   void initState() {
     super.initState();
-    _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600))..repeat(reverse: true);
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    )..repeat(reverse: true);
   }
 
   @override
@@ -326,10 +376,18 @@ class _JukeboxHeaderState extends State<_JukeboxHeader>
             ),
             borderRadius: BorderRadius.circular(11),
             boxShadow: [
-              BoxShadow(color: AppColors.deepRose.withValues(alpha: 0.35), blurRadius: 14, spreadRadius: -2),
+              BoxShadow(
+                color: AppColors.deepRose.withValues(alpha: 0.35),
+                blurRadius: 14,
+                spreadRadius: -2,
+              ),
             ],
           ),
-          child: const Icon(Icons.graphic_eq_rounded, size: 18, color: Colors.white),
+          child: const Icon(
+            Icons.graphic_eq_rounded,
+            size: 18,
+            color: Colors.white,
+          ),
         ),
         const SizedBox(width: 10),
         Column(
@@ -346,7 +404,9 @@ class _JukeboxHeaderState extends State<_JukeboxHeader>
               ),
             ),
             Text(
-              widget.eitherLive ? 'Live from Last.fm' : 'What we\'re listening to',
+              widget.eitherLive
+                  ? 'Live from Last.fm'
+                  : 'What we\'re listening to',
               style: TextStyle(
                 fontFamily: 'Outfit',
                 fontSize: 11,
@@ -382,10 +442,19 @@ class _JukeboxHeaderState extends State<_JukeboxHeader>
                     width: 7,
                     height: 7,
                     decoration: BoxDecoration(
-                      color: widget.eitherLive ? AppColors.success : AppColors.mutedPurple.withValues(alpha: 0.8),
+                      color: widget.eitherLive
+                          ? AppColors.success
+                          : AppColors.mutedPurple.withValues(alpha: 0.8),
                       shape: BoxShape.circle,
                       boxShadow: widget.eitherLive
-                          ? [BoxShadow(color: AppColors.success.withValues(alpha: 0.55 + t * 0.25), blurRadius: 8)]
+                          ? [
+                              BoxShadow(
+                                color: AppColors.success.withValues(
+                                  alpha: 0.55 + t * 0.25,
+                                ),
+                                blurRadius: 8,
+                              ),
+                            ]
                           : null,
                     ),
                   ),
@@ -397,7 +466,9 @@ class _JukeboxHeaderState extends State<_JukeboxHeader>
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.9,
-                      color: widget.eitherLive ? AppColors.success : AppColors.petalWhite.withValues(alpha: 0.5),
+                      color: widget.eitherLive
+                          ? AppColors.success
+                          : AppColors.petalWhite.withValues(alpha: 0.5),
                     ),
                   ),
                 ],

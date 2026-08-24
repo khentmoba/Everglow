@@ -39,7 +39,8 @@ class TopAlbum {
       if (sel is Map) imgUrl = sel['#text'] as String?;
     }
     final attr = json['@attr'];
-    final rank = int.tryParse(attr is Map ? (attr['rank']?.toString() ?? '') : '') ?? 0;
+    final rank =
+        int.tryParse(attr is Map ? (attr['rank']?.toString() ?? '') : '') ?? 0;
     final playCount = int.tryParse(json['playcount']?.toString() ?? '') ?? 0;
     final url = json['url'] as String? ?? '';
     final mbid = json['mbid'] as String?;

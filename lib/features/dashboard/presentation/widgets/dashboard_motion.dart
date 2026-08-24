@@ -371,7 +371,7 @@ class _AmbiencePainter extends CustomPainter {
   void _initParticles() {
     _bands
       ..add(
-        _AuroraBand(
+        const _AuroraBand(
           baseY: 0.24,
           amp: 0.10,
           wave: 0.55,
@@ -383,7 +383,7 @@ class _AmbiencePainter extends CustomPainter {
         ),
       )
       ..add(
-        _AuroraBand(
+        const _AuroraBand(
           baseY: 0.52,
           amp: 0.11,
           wave: 0.35,
@@ -395,7 +395,7 @@ class _AmbiencePainter extends CustomPainter {
         ),
       )
       ..add(
-        _AuroraBand(
+        const _AuroraBand(
           baseY: 0.80,
           amp: 0.08,
           wave: 0.70,
@@ -704,14 +704,14 @@ class _HaloPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.7
         ..strokeCap = StrokeCap.round
-        ..shader = SweepGradient(
-          colors: const [
+        ..shader = const SweepGradient(
+          colors: [
             Colors.transparent,
             AppColors.auroraRose,
             AppColors.blushGold,
             Colors.transparent,
           ],
-          stops: const [0.0, 0.18, 0.42, 0.6],
+          stops: [0.0, 0.18, 0.42, 0.6],
         ).createShader(Rect.fromCircle(center: Offset.zero, radius: radius)),
     );
     canvas.restore();

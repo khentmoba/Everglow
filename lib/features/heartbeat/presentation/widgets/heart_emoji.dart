@@ -18,7 +18,8 @@ class HeartEmoji extends StatefulWidget {
   State<HeartEmoji> createState() => _HeartEmojiState();
 }
 
-class _HeartEmojiState extends State<HeartEmoji> with SingleTickerProviderStateMixin {
+class _HeartEmojiState extends State<HeartEmoji>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
 
@@ -29,9 +30,10 @@ class _HeartEmojiState extends State<HeartEmoji> with SingleTickerProviderStateM
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.3).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.3,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
 
     if (widget.isSelected) {
       _controller.forward();
@@ -58,40 +60,38 @@ class _HeartEmojiState extends State<HeartEmoji> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     return RepaintBoundary(
       child: ScaleTransition(
-      scale: _scaleAnimation,
-      child: Material(
-        color: Colors.transparent,
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: Semantics(
-          button: true,
-          label: 'Mood ${widget.emoji}${widget.isSelected ? ", selected" : ""}',
-          child: InkWell(
-            onTap: widget.onTap,
-          splashColor: widget.glowColor.withValues(alpha: 0.3),
-          highlightColor: widget.glowColor.withValues(alpha: 0.1),
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: widget.isSelected
-                  ? [
-                      BoxShadow(
-                        color: widget.glowColor.withValues(alpha: 0.5),
-                        blurRadius: 15,
-                        spreadRadius: 5,
-                      ),
-                    ]
-                  : [],
-            ),
-            child: Text(
-              widget.emoji,
-              style: const TextStyle(fontSize: 32),
+        scale: _scaleAnimation,
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: Semantics(
+            button: true,
+            label:
+                'Mood ${widget.emoji}${widget.isSelected ? ", selected" : ""}',
+            child: InkWell(
+              onTap: widget.onTap,
+              splashColor: widget.glowColor.withValues(alpha: 0.18),
+              highlightColor: widget.glowColor.withValues(alpha: 0.06),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: widget.isSelected
+                      ? [
+                          BoxShadow(
+                            color: widget.glowColor.withValues(alpha: 0.5),
+                            blurRadius: 15,
+                            spreadRadius: 5,
+                          ),
+                        ]
+                      : [],
+                ),
+                child: Text(widget.emoji, style: const TextStyle(fontSize: 32)),
+              ),
             ),
           ),
-         ),
-       ),
-      ),
+        ),
       ),
     );
   }

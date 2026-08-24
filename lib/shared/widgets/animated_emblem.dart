@@ -19,7 +19,8 @@ class AnimatedEmblem extends StatefulWidget {
   State<AnimatedEmblem> createState() => _AnimatedEmblemState();
 }
 
-class _AnimatedEmblemState extends State<AnimatedEmblem> with SingleTickerProviderStateMixin {
+class _AnimatedEmblemState extends State<AnimatedEmblem>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _glowAnimation;
 
@@ -31,9 +32,10 @@ class _AnimatedEmblemState extends State<AnimatedEmblem> with SingleTickerProvid
       vsync: this,
     )..repeat(reverse: true);
 
-    _glowAnimation = Tween<double>(begin: 2.0, end: 10.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _glowAnimation = Tween<double>(
+      begin: 2.0,
+      end: 10.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -48,39 +50,39 @@ class _AnimatedEmblemState extends State<AnimatedEmblem> with SingleTickerProvid
 
     return RepaintBoundary(
       child: AnimatedBuilder(
-      animation: _glowAnimation,
-      builder: (context, child) {
-        return Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: widget.glow
-                ? [
-                    BoxShadow(
-                      color: effectiveColor.withValues(alpha: 0.3),
-                      blurRadius: _glowAnimation.value * 2,
-                      spreadRadius: _glowAnimation.value / 2,
-                    ),
-                  ]
-                : [],
-          ),
-          child: Icon(
-            widget.icon,
-            size: widget.size,
-            color: effectiveColor,
-            shadows: [
-              Shadow(
-                color: AppTheme.blushGold.withValues(alpha: 0.65),
-                blurRadius: _glowAnimation.value,
-              ),
-              const Shadow(
-                color: Colors.white24,
-                blurRadius: 1,
-                offset: Offset(1, 1),
-              ),
-            ],
-          ),
-        );
-      },
+        animation: _glowAnimation,
+        builder: (context, child) {
+          return Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: widget.glow
+                  ? [
+                      BoxShadow(
+                        color: effectiveColor.withValues(alpha: 0.3),
+                        blurRadius: _glowAnimation.value * 2,
+                        spreadRadius: _glowAnimation.value / 2,
+                      ),
+                    ]
+                  : [],
+            ),
+            child: Icon(
+              widget.icon,
+              size: widget.size,
+              color: effectiveColor,
+              shadows: [
+                Shadow(
+                  color: AppTheme.blushGold.withValues(alpha: 0.65),
+                  blurRadius: _glowAnimation.value,
+                ),
+                const Shadow(
+                  color: Colors.white24,
+                  blurRadius: 1,
+                  offset: Offset(1, 1),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

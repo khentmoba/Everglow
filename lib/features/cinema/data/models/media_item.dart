@@ -1,5 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+double? _userRatingFromJson(Map<String, dynamic> json) =>
+    json['userRating'] is num ? (json['userRating'] as num).toDouble() : null;
+
 class MediaItem {
   final String id;
   final int tmdbId;
@@ -59,6 +62,12 @@ class MediaItem {
   /// section's rating chips. `null` for TMDB-sourced items.
   final double? score;
 
+  /// Current viewer's rating. `-1` is thumbs down and `1` is thumbs up.
+  final double? userRating;
+
+  /// When the current viewer last changed their rating.
+  final DateTime? ratedAt;
+
   /// Season the user is currently on (TV series / anime only).
   final int? currentSeason;
 
@@ -67,6 +76,10 @@ class MediaItem {
 
   /// Timestamp in seconds into the movie / current episode.
   final int? currentTimestamp;
+
+  /// Duration in seconds for the movie / current episode, when reported
+  /// by an embed. Required to render a truthful playback-progress bar.
+  final int? durationSeconds;
 
   /// When the progress was last updated.
   final DateTime? progressUpdatedAt;
@@ -92,9 +105,12 @@ class MediaItem {
     this.studio = '',
     this.genres = const [],
     this.score,
+    this.userRating,
+    this.ratedAt,
     this.currentSeason,
     this.currentEpisode,
     this.currentTimestamp,
+    this.durationSeconds,
     this.progressUpdatedAt,
   });
 
@@ -178,7 +194,9 @@ class MediaItem {
   String get watchedDisplay {
     if (status == 'watched-khent') return 'Watched by Khent';
     if (status == 'watched-clair') return 'Watched by Clair';
-    if (status == 'watched-both' || status == 'watched') return 'Watched by Both';
+    if (status == 'watched-both' || status == 'watched') {
+      return 'Watched by Both';
+    }
     if (status == 'watched-self') return 'Watched';
     if (status == 'watching-khent') return 'Khent Watching';
     if (status == 'watching-clair') return 'Clair Watching';
@@ -212,7 +230,10 @@ class MediaItem {
     return 'Mine';
   }
 
-  factory MediaItem.fromFirestore(Map<String, dynamic> data, String documentId) {
+  factory MediaItem.fromFirestore(
+    Map<String, dynamic> data,
+    String documentId,
+  ) {
     return MediaItem(
       id: documentId,
       tmdbId: data['tmdbId'] ?? 0,
@@ -228,7 +249,9 @@ class MediaItem {
       source: data['source'] ?? 'tmdb',
       anilistId: data['anilistId'] is int ? data['anilistId'] as int : null,
       synopsis: data['synopsis'] ?? '',
-      episodeCount: data['episodeCount'] is int ? data['episodeCount'] as int : null,
+      episodeCount: data['episodeCount'] is int
+          ? data['episodeCount'] as int
+          : null,
       airingStatus: data['airingStatus'] ?? '',
       format: data['format'] ?? '',
       studio: data['studio'] ?? '',
@@ -236,9 +259,22 @@ class MediaItem {
           ? List<String>.from(data['genres'].whereType<String>())
           : const [],
       score: data['score'] is num ? (data['score'] as num).toDouble() : null,
-      currentSeason: data['currentSeason'] is int ? data['currentSeason'] as int : null,
-      currentEpisode: data['currentEpisode'] is int ? data['currentEpisode'] as int : null,
-      currentTimestamp: data['currentTimestamp'] is int ? data['currentTimestamp'] as int : null,
+      userRating: data['userRating'] is num
+          ? (data['userRating'] as num).toDouble()
+          : null,
+      ratedAt: _parseDateTime(data['ratedAt']),
+      currentSeason: data['currentSeason'] is int
+          ? data['currentSeason'] as int
+          : null,
+      currentEpisode: data['currentEpisode'] is int
+          ? data['currentEpisode'] as int
+          : null,
+      currentTimestamp: data['currentTimestamp'] is int
+          ? data['currentTimestamp'] as int
+          : null,
+      durationSeconds: data['durationSeconds'] is int
+          ? data['durationSeconds'] as int
+          : null,
       progressUpdatedAt: _parseDateTime(data['progressUpdatedAt']),
     );
   }
@@ -280,10 +316,14 @@ class MediaItem {
       'studio': studio,
       if (genres.isNotEmpty) 'genres': genres,
       if (score != null) 'score': score,
+      if (userRating != null) 'userRating': userRating,
+      if (ratedAt != null) 'ratedAt': Timestamp.fromDate(ratedAt!),
       if (currentSeason != null) 'currentSeason': currentSeason,
       if (currentEpisode != null) 'currentEpisode': currentEpisode,
       if (currentTimestamp != null) 'currentTimestamp': currentTimestamp,
-      if (progressUpdatedAt != null) 'progressUpdatedAt': Timestamp.fromDate(progressUpdatedAt!),
+      if (durationSeconds != null) 'durationSeconds': durationSeconds,
+      if (progressUpdatedAt != null)
+        'progressUpdatedAt': Timestamp.fromDate(progressUpdatedAt!),
     };
   }
 
@@ -307,6 +347,8 @@ class MediaItem {
       'studio': studio,
       if (genres.isNotEmpty) 'genres': genres,
       if (score != null) 'score': score,
+      if (userRating != null) 'userRating': userRating,
+      if (ratedAt != null) 'ratedAt': ratedAt!.millisecondsSinceEpoch,
       'addedAt': addedAt.millisecondsSinceEpoch,
     };
   }
@@ -336,6 +378,10 @@ class MediaItem {
           ? List<String>.from(json['genres']!.whereType<String>())
           : const [],
       score: (json['score'] as num?)?.toDouble(),
+      userRating: _userRatingFromJson(json),
+      ratedAt: json['ratedAt'] is int
+          ? DateTime.fromMillisecondsSinceEpoch(json['ratedAt'] as int)
+          : null,
     );
   }
 
@@ -360,9 +406,12 @@ class MediaItem {
     String? studio,
     List<String>? genres,
     double? score,
+    double? userRating,
+    DateTime? ratedAt,
     int? currentSeason,
     int? currentEpisode,
     int? currentTimestamp,
+    int? durationSeconds,
     DateTime? progressUpdatedAt,
   }) {
     return MediaItem(
@@ -386,9 +435,12 @@ class MediaItem {
       studio: studio ?? this.studio,
       genres: genres ?? this.genres,
       score: score ?? this.score,
+      userRating: userRating ?? this.userRating,
+      ratedAt: ratedAt ?? this.ratedAt,
       currentSeason: currentSeason ?? this.currentSeason,
       currentEpisode: currentEpisode ?? this.currentEpisode,
       currentTimestamp: currentTimestamp ?? this.currentTimestamp,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
       progressUpdatedAt: progressUpdatedAt ?? this.progressUpdatedAt,
     );
   }

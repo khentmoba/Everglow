@@ -74,10 +74,9 @@ class _BookDetailScreenState extends State<BookDetailScreen>
       final ia = _item.iaId.isNotEmpty && !_item.iaId.startsWith('pg')
           ? _item.iaId
           : '';
-      final gutenberg =
-          _item.iaId.startsWith('pg') && _item.iaId.length > 2
-              ? int.tryParse(_item.iaId.substring(2)) ?? 0
-              : 0;
+      final gutenberg = _item.iaId.startsWith('pg') && _item.iaId.length > 2
+          ? int.tryParse(_item.iaId.substring(2)) ?? 0
+          : 0;
       _result = BookSearchResult(
         title: _item.title,
         author: _item.author,
@@ -130,10 +129,10 @@ class _BookDetailScreenState extends State<BookDetailScreen>
       final candidates = result.readCandidates.isNotEmpty
           ? result.readCandidates
           : (result.gutenbergId > 0
-              ? [
-                  'https://www.gutenberg.org/cache/epub/${result.gutenbergId}/pg${result.gutenbergId}.txt',
-                ]
-              : const <String>[]);
+                ? [
+                    'https://www.gutenberg.org/cache/epub/${result.gutenbergId}/pg${result.gutenbergId}.txt',
+                  ]
+                : const <String>[]);
       return result.copyWith(readCandidates: candidates).toBookItem();
     }
     return _item;
@@ -315,9 +314,10 @@ class _BookDetailScreenState extends State<BookDetailScreen>
     final cover = result?.coverUrl ?? _item.coverUrl;
     final meta = (result?.metaLine.isNotEmpty == true)
         ? result!.metaLine
-        : [_item.year, _item.readSourceLabel]
-            .where((e) => e.isNotEmpty)
-            .join(' · ');
+        : [
+            _item.year,
+            _item.readSourceLabel,
+          ].where((e) => e.isNotEmpty).join(' · ');
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Row(
@@ -333,8 +333,7 @@ class _BookDetailScreenState extends State<BookDetailScreen>
                       cover,
                       fit: BoxFit.cover,
                       cacheWidth: 600,
-                      errorBuilder: (_, _, _) =>
-                          Container(color: _cCard),
+                      errorBuilder: (_, _, _) => Container(color: _cCard),
                     )
                   : Container(
                       color: _cCard,
@@ -402,10 +401,7 @@ class _BookDetailScreenState extends State<BookDetailScreen>
       if (result?.ratingCount != null) {
         return Text(
           '${result!.ratingCount} downloads',
-          style: AppTypography.outfitBold.copyWith(
-            color: _cGold,
-            fontSize: 11,
-          ),
+          style: AppTypography.outfitBold.copyWith(color: _cGold, fontSize: 11),
         );
       }
       return const SizedBox.shrink();
@@ -478,10 +474,11 @@ class _BookDetailScreenState extends State<BookDetailScreen>
 
   Widget _buildActionBar() {
     final canListen =
-        _result?.readCandidates.isNotEmpty == true || _item.readSourceUrl.isNotEmpty;
+        _result?.readCandidates.isNotEmpty == true ||
+        _item.readSourceUrl.isNotEmpty;
     final canRead = canListen;
-    final canDownload = _result?.downloadUrls.isNotEmpty == true ||
-        _item.iaId.isNotEmpty;
+    final canDownload =
+        _result?.downloadUrls.isNotEmpty == true || _item.iaId.isNotEmpty;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
       child: Row(
@@ -571,8 +568,7 @@ class _BookDetailScreenState extends State<BookDetailScreen>
         }
         final entry = entries[index];
         final ext = entry.key.toUpperCase();
-        final fileName =
-            '${_sanitizeFileName(_item.title)}.$ext';
+        final fileName = '${_sanitizeFileName(_item.title)}.$ext';
         return Container(
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -622,19 +618,19 @@ class _BookDetailScreenState extends State<BookDetailScreen>
                 ),
               ),
               TextButton(
-                onPressed: () =>
-                    downloadUrl(entry.value, filename: fileName),
+                onPressed: () => downloadUrl(entry.value, filename: fileName),
                 style: TextButton.styleFrom(
                   backgroundColor: _cDeepRose,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 8),
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                child: const Text('Download',
-                    style: TextStyle(fontSize: 11.5)),
+                child: const Text('Download', style: TextStyle(fontSize: 11.5)),
               ),
             ],
           ),
@@ -671,8 +667,7 @@ class _BookDetailScreenState extends State<BookDetailScreen>
   Widget _buildTechnicalTab() {
     final result = _result;
     final rows = <(String, String)>[
-      if ((result?.language ?? '').isNotEmpty)
-        ('Language', result!.language),
+      if ((result?.language ?? '').isNotEmpty) ('Language', result!.language),
       if ((result?.filetype ?? '').isNotEmpty)
         ('File type', result!.filetype.toUpperCase()),
       if (result?.sizeMb != null && result!.sizeMb! > 0)
@@ -742,12 +737,13 @@ class _BookDetailScreenState extends State<BookDetailScreen>
                 .map(
                   (s) => Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 5),
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: _cCard,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color: _cRose.withValues(alpha: 0.12)),
+                      border: Border.all(color: _cRose.withValues(alpha: 0.12)),
                     ),
                     child: Text(
                       s,
@@ -770,10 +766,7 @@ class _BookDetailScreenState extends State<BookDetailScreen>
       return const Padding(
         padding: EdgeInsets.all(24),
         child: Center(
-          child: CircularProgressIndicator(
-            color: _cDeepRose,
-            strokeWidth: 2.5,
-          ),
+          child: CircularProgressIndicator(color: _cDeepRose, strokeWidth: 2.5),
         ),
       );
     }
@@ -807,7 +800,10 @@ class _BookDetailScreenState extends State<BookDetailScreen>
                   context,
                   MaterialPageRoute(
                     builder: (_) => BookDetailScreen(
-                      args: BookDetailArgs(item: book.toBookItem(), result: book),
+                      args: BookDetailArgs(
+                        item: book.toBookItem(),
+                        result: book,
+                      ),
                     ),
                   ),
                 );
@@ -819,4 +815,3 @@ class _BookDetailScreenState extends State<BookDetailScreen>
     );
   }
 }
-

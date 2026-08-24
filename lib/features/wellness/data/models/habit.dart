@@ -32,12 +32,20 @@ class Habit {
   });
 
   static HabitCategory _parseCat(dynamic v) {
-    if (v is String) for (final c in HabitCategory.values) if (c.name == v) return c;
+    if (v is String) {
+      for (final c in HabitCategory.values) {
+        if (c.name == v) return c;
+      }
+    }
     return HabitCategory.health;
   }
 
   static HabitFrequency _parseFreq(dynamic v) {
-    if (v is String) for (final f in HabitFrequency.values) if (f.name == v) return f;
+    if (v is String) {
+      for (final f in HabitFrequency.values) {
+        if (f.name == v) return f;
+      }
+    }
     return HabitFrequency.daily;
   }
 
@@ -51,7 +59,13 @@ class Habit {
       frequency: _parseFreq(data['frequency']),
       createdBy: data['createdBy'] ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      completedDates: (data['completedDates'] as List<dynamic>? ?? []).map((e) => e is Timestamp ? e.toDate() : DateTime.tryParse(e.toString()) ?? DateTime.now()).toList(),
+      completedDates: (data['completedDates'] as List<dynamic>? ?? [])
+          .map(
+            (e) => e is Timestamp
+                ? e.toDate()
+                : DateTime.tryParse(e.toString()) ?? DateTime.now(),
+          )
+          .toList(),
       streak: data['streak'] ?? 0,
       longestStreak: data['longestStreak'] ?? 0,
       isActive: data['isActive'] ?? true,
@@ -59,33 +73,46 @@ class Habit {
   }
 
   Map<String, dynamic> toFirestore() => {
-        'title': title,
-        'description': description,
-        'category': category.name,
-        'frequency': frequency.name,
-        'createdBy': createdBy,
-        'createdAt': Timestamp.fromDate(createdAt),
-        'completedDates': completedDates.map((d) => Timestamp.fromDate(DateTime(d.year, d.month, d.day))).toList(),
-        'streak': streak,
-        'longestStreak': longestStreak,
-        'isActive': isActive,
-      };
+    'title': title,
+    'description': description,
+    'category': category.name,
+    'frequency': frequency.name,
+    'createdBy': createdBy,
+    'createdAt': Timestamp.fromDate(createdAt),
+    'completedDates': completedDates
+        .map((d) => Timestamp.fromDate(DateTime(d.year, d.month, d.day)))
+        .toList(),
+    'streak': streak,
+    'longestStreak': longestStreak,
+    'isActive': isActive,
+  };
 
-  bool isCompletedOn(DateTime day) => completedDates.any((d) => d.year == day.year && d.month == day.month && d.day == day.day);
+  bool isCompletedOn(DateTime day) => completedDates.any(
+    (d) => d.year == day.year && d.month == day.month && d.day == day.day,
+  );
 
   bool get isCompletedToday => isCompletedOn(DateTime.now());
 
-  Habit copyWith({String? title, String? description, HabitCategory? category, HabitFrequency? frequency, List<DateTime>? completedDates, int? streak, int? longestStreak, bool? isActive}) => Habit(
-        id: id,
-        title: title ?? this.title,
-        description: description ?? this.description,
-        category: category ?? this.category,
-        frequency: frequency ?? this.frequency,
-        createdBy: createdBy,
-        createdAt: createdAt,
-        completedDates: completedDates ?? this.completedDates,
-        streak: streak ?? this.streak,
-        longestStreak: longestStreak ?? this.longestStreak,
-        isActive: isActive ?? this.isActive,
-      );
+  Habit copyWith({
+    String? title,
+    String? description,
+    HabitCategory? category,
+    HabitFrequency? frequency,
+    List<DateTime>? completedDates,
+    int? streak,
+    int? longestStreak,
+    bool? isActive,
+  }) => Habit(
+    id: id,
+    title: title ?? this.title,
+    description: description ?? this.description,
+    category: category ?? this.category,
+    frequency: frequency ?? this.frequency,
+    createdBy: createdBy,
+    createdAt: createdAt,
+    completedDates: completedDates ?? this.completedDates,
+    streak: streak ?? this.streak,
+    longestStreak: longestStreak ?? this.longestStreak,
+    isActive: isActive ?? this.isActive,
+  );
 }

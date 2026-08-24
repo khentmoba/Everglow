@@ -15,6 +15,10 @@ class NetflixRow extends StatefulWidget {
   final String title;
   final List<MediaItem> items;
   final void Function(MediaItem) onTapItem;
+  final void Function(MediaItem)? onPlayItem;
+  final void Function(MediaItem, bool add)? onToggleListItem;
+  final void Function(MediaItem, double? rating)? onRateItem;
+  final bool Function(MediaItem)? isInList;
   final EdgeInsetsGeometry? padding;
 
   /// Renders Top-10 numerals next to the first ten posters.
@@ -25,6 +29,10 @@ class NetflixRow extends StatefulWidget {
     required this.title,
     required this.items,
     required this.onTapItem,
+    this.onPlayItem,
+    this.onToggleListItem,
+    this.onRateItem,
+    this.isInList,
     this.padding,
     this.ranked = false,
   });
@@ -106,7 +114,7 @@ class _NetflixRowState extends State<NetflixRow> {
     final overlay = Overlay.of(context);
     final screen = MediaQuery.sizeOf(context);
     final width = (screen.width * 0.26).clamp(300.0, 360.0);
-    final height = width * 0.5625 + 178;
+    final height = width * 0.5625 + 218;
     final offset = positionHoverPreview(
       anchor: rect,
       previewSize: Size(width, height),
@@ -130,10 +138,14 @@ class _NetflixRowState extends State<NetflixRow> {
           child: NetflixHoverPreview(
             item: item,
             width: width,
+            inList: widget.isInList?.call(item) ?? false,
             onTap: () {
               _removePreview();
               widget.onTapItem(item);
             },
+            onPlay: () => widget.onPlayItem?.call(item),
+            onToggleList: (add) => widget.onToggleListItem?.call(item, add),
+            onRate: (rating) => widget.onRateItem?.call(item, rating),
           ),
         ),
       ),
@@ -180,7 +192,11 @@ class _NetflixRowState extends State<NetflixRow> {
           ),
           child: Text(
             widget.title,
-            style: AppTypography.outfitHeading.copyWith(color: NetflixColors.textPrimary, fontSize: isDesktop ? 20 : 17, letterSpacing: 0),
+            style: AppTypography.outfitHeading.copyWith(
+              color: NetflixColors.textPrimary,
+              fontSize: isDesktop ? 20 : 17,
+              letterSpacing: 0,
+            ),
           ),
         ),
         SizedBox(
@@ -245,7 +261,12 @@ class NetflixContinueRow extends StatefulWidget {
   final List<MediaItem> items;
   final void Function(MediaItem) onTapItem;
   final String Function(MediaItem) subtitleOf;
-  final double Function(MediaItem) progressOf;
+  final double? Function(MediaItem) progressOf;
+  final void Function(MediaItem)? onPlayContinue;
+  final void Function(MediaItem)? onPlayItem;
+  final void Function(MediaItem, bool add)? onToggleListItem;
+  final void Function(MediaItem, double? rating)? onRateItem;
+  final bool Function(MediaItem)? isInList;
 
   const NetflixContinueRow({
     super.key,
@@ -253,6 +274,11 @@ class NetflixContinueRow extends StatefulWidget {
     required this.onTapItem,
     required this.subtitleOf,
     required this.progressOf,
+    this.onPlayContinue,
+    this.onPlayItem,
+    this.onToggleListItem,
+    this.onRateItem,
+    this.isInList,
   });
 
   @override
@@ -294,7 +320,7 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
       final overlay = Overlay.of(context);
       final screen = MediaQuery.sizeOf(context);
       final width = (screen.width * 0.26).clamp(300.0, 360.0);
-      final height = width * 0.5625 + 178;
+      final height = width * 0.5625 + 218;
       final offset = positionHoverPreview(
         anchor: rect,
         previewSize: Size(width, height),
@@ -317,10 +343,14 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
             child: NetflixHoverPreview(
               item: item,
               width: width,
+              inList: widget.isInList?.call(item) ?? false,
               onTap: () {
                 _removePreview();
                 widget.onTapItem(item);
               },
+              onPlay: () => widget.onPlayItem?.call(item),
+              onToggleList: (add) => widget.onToggleListItem?.call(item, add),
+              onRate: (rating) => widget.onRateItem?.call(item, rating),
             ),
           ),
         ),
@@ -356,7 +386,10 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
           ),
           child: Text(
             'Continue Watching',
-            style: AppTypography.outfitHeading.copyWith(color: NetflixColors.textPrimary, fontSize: isDesktop ? 20 : 17),
+            style: AppTypography.outfitHeading.copyWith(
+              color: NetflixColors.textPrimary,
+              fontSize: isDesktop ? 20 : 17,
+            ),
           ),
         ),
         SizedBox(
@@ -380,7 +413,14 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
                   item: item,
                   subtitle: widget.subtitleOf(item),
                   progress: widget.progressOf(item),
-                  onTap: () => widget.onTapItem(item),
+                  onTap: () {
+                    final play = widget.onPlayContinue;
+                    if (play != null) {
+                      play(item);
+                    } else {
+                      widget.onTapItem(item);
+                    }
+                  },
                   onHover: isDesktop ? _onCardHover : null,
                 );
               },

@@ -35,10 +35,10 @@ class VoiceChatOverlay extends StatelessWidget {
   }
 
   Widget _buildPill(BuildContext context, VoiceChatState state) {
-      return ValueListenableBuilder<bool>(
-        valueListenable: service.isMuted,
-        builder: (_, muted, _) {
-          final isConnecting = state == VoiceChatState.calling;
+    return ValueListenableBuilder<bool>(
+      valueListenable: service.isMuted,
+      builder: (_, muted, _) {
+        final isConnecting = state == VoiceChatState.calling;
         final color = isConnecting ? _cMuted : (muted ? _cDeepRose : _cGreen);
 
         return GestureDetector(
@@ -62,8 +62,9 @@ class VoiceChatOverlay extends StatelessWidget {
                     boxShadow: !isConnecting
                         ? [
                             BoxShadow(
-                                color: color.withValues(alpha: 0.6),
-                                blurRadius: 6)
+                              color: color.withValues(alpha: 0.6),
+                              blurRadius: 6,
+                            ),
                           ]
                         : null,
                   ),
@@ -75,13 +76,16 @@ class VoiceChatOverlay extends StatelessWidget {
                   size: 14,
                 ),
                 const SizedBox(width: 4),
-            Text(
-              isConnecting
-                  ? 'Voice...'
-                  : muted
+                Text(
+                  isConnecting
+                      ? 'Voice...'
+                      : muted
                       ? 'Muted'
                       : 'Live',
-                  style: AppTypography.outfitHeading.copyWith(color: Colors.white, fontSize: 11),
+                  style: AppTypography.outfitHeading.copyWith(
+                    color: Colors.white,
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ),
@@ -114,12 +118,18 @@ class VoiceChatOverlay extends StatelessWidget {
             const SizedBox(height: 20),
             Text(
               'Voice Chat',
-              style: AppTypography.cormorantBold.copyWith(fontSize: 20, color: Colors.white),
+              style: AppTypography.cormorantBold.copyWith(
+                fontSize: 20,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               'Talking with $partnerName',
-              style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 12),
+              style: AppTypography.outfitWhite.copyWith(
+                color: _cMuted,
+                fontSize: 12,
+              ),
             ),
             const SizedBox(height: 24),
             ValueListenableBuilder<bool>(
@@ -185,7 +195,10 @@ class VoiceChatOverlay extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             label,
-            style: AppTypography.outfitBold.copyWith(color: Colors.white, fontSize: 11),
+            style: AppTypography.outfitBold.copyWith(
+              color: Colors.white,
+              fontSize: 11,
+            ),
           ),
         ],
       ),

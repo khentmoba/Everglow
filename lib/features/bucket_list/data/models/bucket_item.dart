@@ -54,7 +54,8 @@ class BucketItem {
 
   // Phase 1 — Kanban/chores additions (Donetick/Vikunja).
   final BucketPriority priority;
-  final String? assignedTo; // username: khentsgdz / clairjassen / null = unassigned
+  final String?
+  assignedTo; // username: khentsgdz / clairjassen / null = unassigned
   final DateTime? dueDate;
 
   const BucketItem({
@@ -167,9 +168,14 @@ class BucketItem {
   bool get isDueSoon {
     if (dueDate == null || status == BucketStatus.completed) return false;
     final now = DateTime.now();
-    final diff = dueDate!.difference(DateTime(now.year, now.month, now.day)).inDays;
+    final diff = dueDate!
+        .difference(DateTime(now.year, now.month, now.day))
+        .inDays;
     return diff >= 0 && diff <= 2;
   }
 
-  bool get isChore => assignedTo != null || priority != BucketPriority.medium || dueDate != null;
+  bool get isChore =>
+      assignedTo != null ||
+      priority != BucketPriority.medium ||
+      dueDate != null;
 }

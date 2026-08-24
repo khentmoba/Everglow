@@ -68,8 +68,10 @@ class _MemoryBookScreenState extends State<MemoryBookScreen> {
     final query = _query.trim().toLowerCase();
     if (query.isNotEmpty) {
       facts = facts.where((f) {
-        final haystack = '${f.fact} ${f.subject ?? ''} '
-            '${f.object ?? ''} ${f.category}'.toLowerCase();
+        final haystack =
+            '${f.fact} ${f.subject ?? ''} '
+                    '${f.object ?? ''} ${f.category}'
+                .toLowerCase();
         return haystack.contains(query);
       }).toList();
     }
@@ -135,7 +137,9 @@ class _MemoryBookScreenState extends State<MemoryBookScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final onThisDay = _facts.where((f) => f.isOnThisDay(DateTime.now())).toList();
+    final onThisDay = _facts
+        .where((f) => f.isOnThisDay(DateTime.now()))
+        .toList();
     return Scaffold(
       backgroundColor: AppColors.twilight,
       body: Stack(
@@ -252,9 +256,7 @@ class _MemoryBookScreenState extends State<MemoryBookScreen> {
             selectedColor: AppColors.softLavender.withValues(alpha: 0.25),
             backgroundColor: AppColors.surfaceGlass,
             side: BorderSide(
-              color: selected
-                  ? AppColors.softLavender
-                  : AppColors.border,
+              color: selected ? AppColors.softLavender : AppColors.border,
             ),
             shape: AppRadius.shapeXl,
           );
@@ -282,9 +284,7 @@ class _MemoryBookScreenState extends State<MemoryBookScreen> {
           ],
         ),
         borderRadius: AppRadius.radiusLg,
-        border: Border.all(
-          color: AppColors.auroraGold.withValues(alpha: 0.55),
-        ),
+        border: Border.all(color: AppColors.auroraGold.withValues(alpha: 0.55)),
       ),
       child: Row(
         children: [
@@ -447,9 +447,7 @@ class _MemoryCard extends StatelessWidget {
             icon: Icon(
               fact.pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
               size: 18,
-              color: fact.pinned
-                  ? AppColors.auroraGold
-                  : AppColors.textMuted,
+              color: fact.pinned ? AppColors.auroraGold : AppColors.textMuted,
             ),
           ),
           IconButton(
@@ -567,7 +565,10 @@ class _AddMemoryDialogState extends State<_AddMemoryDialog> {
               );
               if (picked != null) setState(() => _occurredAt = picked);
             },
-            icon: const Icon(Icons.event_rounded, color: AppColors.softLavender),
+            icon: const Icon(
+              Icons.event_rounded,
+              color: AppColors.softLavender,
+            ),
             label: Text(
               _occurredAt == null
                   ? 'Add a date (optional)'

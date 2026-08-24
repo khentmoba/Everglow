@@ -13,20 +13,20 @@ class AIMessage {
   }) : timestamp = timestamp ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
-        'role': role,
-        'content': content,
-        'timestamp': timestamp.toIso8601String(),
-        if (imageUrls.isNotEmpty) 'imageUrls': imageUrls,
-      };
+    'role': role,
+    'content': content,
+    'timestamp': timestamp.toIso8601String(),
+    if (imageUrls.isNotEmpty) 'imageUrls': imageUrls,
+  };
 
   factory AIMessage.fromJson(Map<String, dynamic> json) => AIMessage(
-        role: json['role'] ?? 'user',
-        content: json['content'] ?? '',
-        timestamp: json['timestamp'] != null
-            ? DateTime.parse(json['timestamp'])
-            : DateTime.now(),
-        imageUrls: (json['imageUrls'] as List?)?.cast<String>() ?? [],
-      );
+    role: json['role'] ?? 'user',
+    content: json['content'] ?? '',
+    timestamp: json['timestamp'] != null
+        ? DateTime.parse(json['timestamp'])
+        : DateTime.now(),
+    imageUrls: (json['imageUrls'] as List?)?.cast<String>() ?? [],
+  );
 
   /// Returns the payload for the Agnes API.
   /// If images are present, uses the multimodal content array format.
@@ -52,7 +52,8 @@ class AIMessage {
 /// A conversation thread for a specific AI feature.
 class AIConversation {
   final String id;
-  final String feature; // 'assistant', 'guardian', 'recommendations', 'date_ideas'
+  final String
+  feature; // 'assistant', 'guardian', 'recommendations', 'date_ideas'
   final List<AIMessage> messages;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -63,31 +64,31 @@ class AIConversation {
     List<AIMessage>? messages,
     DateTime? createdAt,
     DateTime? updatedAt,
-  })  : messages = messages ?? [],
-        createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now();
+  }) : messages = messages ?? [],
+       createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'feature': feature,
-        'messages': messages.map((m) => m.toJson()).toList(),
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
-      };
+    'id': id,
+    'feature': feature,
+    'messages': messages.map((m) => m.toJson()).toList(),
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+  };
 
-  factory AIConversation.fromJson(Map<String, dynamic> json) =>
-      AIConversation(
-        id: json['id'] ?? '',
-        feature: json['feature'] ?? 'assistant',
-        messages: (json['messages'] as List?)
-                ?.map((m) => AIMessage.fromJson(m as Map<String, dynamic>))
-                .toList() ??
-            [],
-        createdAt: json['createdAt'] != null
-            ? DateTime.parse(json['createdAt'])
-            : DateTime.now(),
-        updatedAt: json['updatedAt'] != null
-            ? DateTime.parse(json['updatedAt'])
-            : DateTime.now(),
-      );
+  factory AIConversation.fromJson(Map<String, dynamic> json) => AIConversation(
+    id: json['id'] ?? '',
+    feature: json['feature'] ?? 'assistant',
+    messages:
+        (json['messages'] as List?)
+            ?.map((m) => AIMessage.fromJson(m as Map<String, dynamic>))
+            .toList() ??
+        [],
+    createdAt: json['createdAt'] != null
+        ? DateTime.parse(json['createdAt'])
+        : DateTime.now(),
+    updatedAt: json['updatedAt'] != null
+        ? DateTime.parse(json['updatedAt'])
+        : DateTime.now(),
+  );
 }

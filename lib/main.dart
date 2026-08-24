@@ -67,7 +67,7 @@ void _zoneErrorHandler(Object error, StackTrace stack) {
       // debugPrint is throttled in release; keep an unfiltered console
       // trail for production web debugging.
       // ignore: avoid_print
-      print('[Unhandled] $error\n$stack');
+      Logger.e('[Unhandled]', error: error, stackTrace: stack);
     }
   }
 }

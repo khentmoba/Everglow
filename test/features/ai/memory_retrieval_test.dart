@@ -73,20 +73,14 @@ void main() {
   group('MemoryTriviaGenerator', () {
     test('generates grounded multiple choice questions', () {
       const generator = MemoryTriviaGenerator();
-      final questions = generator.generate(
-        facts,
-        count: 3,
-        random: _seed(),
-      );
+      final questions = generator.generate(facts, count: 3, random: _seed());
       expect(questions.length, 3);
       for (final question in questions) {
         expect(question.choices.length, greaterThanOrEqualTo(2));
         expect(question.answerIndex, inInclusiveRange(0, 3));
         expect(question.explanation, isNotEmpty);
         expect(
-          question.explanation.contains(
-            question.choices[question.answerIndex],
-          ),
+          question.explanation.contains(question.choices[question.answerIndex]),
           isTrue,
           reason: 'Answer must come from the real memory',
         );

@@ -38,22 +38,10 @@ class CinemaPreview extends StatelessWidget {
           _CinemaHeader(userName: userName),
           const AIRecommendations(title: "Mochi's Picks"),
           if (isCouple && partner != null && partner.isNotEmpty) ...[
-            _CinemaShelf(
-              userName: userName,
-              label: 'ME',
-              isSelf: true,
-            ),
-            _CinemaShelf(
-              userName: partner,
-              label: partnerLabel,
-              isSelf: false,
-            ),
+            _CinemaShelf(userName: userName, label: 'ME', isSelf: true),
+            _CinemaShelf(userName: partner, label: partnerLabel, isSelf: false),
           ] else
-            _CinemaShelf(
-              userName: userName,
-              label: null,
-              isSelf: true,
-            ),
+            _CinemaShelf(userName: userName, label: null, isSelf: true),
         ],
       ),
     );
@@ -91,8 +79,7 @@ class _CinemaHeaderState extends State<_CinemaHeader> {
 
   void _subscribe() {
     _streamSub = _service.getWatchListStream(widget.userName).listen((items) {
-      final watched =
-          items.where((i) => i.isWatched && !i.isAnime).toList();
+      final watched = items.where((i) => i.isWatched && !i.isAnime).toList();
       watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
       if (!mounted) return;
       setState(() => _items = watched);
@@ -155,8 +142,7 @@ class _CinemaShelfState extends State<_CinemaShelf> {
 
   void _subscribe() {
     _streamSub = _service.getWatchListStream(widget.userName).listen((items) {
-      final watched =
-          items.where((i) => i.isWatched && !i.isAnime).toList();
+      final watched = items.where((i) => i.isWatched && !i.isAnime).toList();
       watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
       if (!mounted) return;
       setState(() {
@@ -219,7 +205,7 @@ class _CinemaShelfState extends State<_CinemaShelf> {
         );
       }
       if (cards.isEmpty) {
-        return ShelfEmpty(
+        return const ShelfEmpty(
           accent: ShelfAccent.cinema,
           message: 'No movies watched yet. Start a movie night!',
         );

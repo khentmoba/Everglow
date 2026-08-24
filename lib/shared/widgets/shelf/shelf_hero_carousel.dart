@@ -208,9 +208,8 @@ class _HeroSlide extends StatelessWidget {
                     item.imageUrl,
                     fit: BoxFit.cover,
                     cacheWidth: 900,
-                    errorBuilder: (_, _, _) => Container(
-                      color: AppTheme.velvet,
-                    ),
+                    errorBuilder: (_, _, _) =>
+                        Container(color: AppTheme.velvet),
                   )
                 else
                   Container(color: AppTheme.velvet),
@@ -254,7 +253,9 @@ class _HeroSlide extends StatelessWidget {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: item.accent,
                           borderRadius: BorderRadius.circular(20),
@@ -274,12 +275,16 @@ class _HeroSlide extends StatelessWidget {
                         item.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: AppTypography.cormorantBlackWhite.copyWith(fontSize: 26, height: 1.1, shadows: [
+                        style: AppTypography.cormorantBlackWhite.copyWith(
+                          fontSize: 26,
+                          height: 1.1,
+                          shadows: [
                             Shadow(
                               color: Colors.black.withValues(alpha: 0.6),
                               blurRadius: 12,
                             ),
-                          ]),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -287,8 +292,7 @@ class _HeroSlide extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.outfitWhite.copyWith(
-                          color: AppTheme.roseQuartz
-                              .withValues(alpha: 0.85),
+                          color: AppTheme.roseQuartz.withValues(alpha: 0.85),
                           fontSize: 12,
                           height: 1.3,
                         ),
@@ -328,15 +332,16 @@ class _DotIndicator extends StatelessWidget {
           width: isActive ? 22 : 5,
           height: 5,
           decoration: BoxDecoration(
-            color:
-                isActive ? accent : AppTheme.roseQuartz.withValues(alpha: 0.3),
+            color: isActive
+                ? accent
+                : AppTheme.roseQuartz.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(3),
             boxShadow: isActive
                 ? [
                     BoxShadow(
                       color: accent.withValues(alpha: 0.6),
                       blurRadius: 8,
-                    )
+                    ),
                   ]
                 : null,
           ),

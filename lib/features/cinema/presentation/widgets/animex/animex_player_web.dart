@@ -178,8 +178,10 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     }).toJS;
     web.window.addEventListener('message', _onMessage);
 
-    ui_web.platformViewRegistry
-        .registerViewFactory(_viewType, (int viewId) => _wrapper);
+    ui_web.platformViewRegistry.registerViewFactory(
+      _viewType,
+      (int viewId) => _wrapper,
+    );
   }
 
   @override
@@ -257,10 +259,7 @@ Future<void> showAnimexTrailer(
   await showDialog<void>(
     context: context,
     barrierColor: const Color(0xE0000000),
-    builder: (_) => AnimeXTrailerModal(
-      title: title,
-      youtubeId: trailerId!,
-    ),
+    builder: (_) => AnimeXTrailerModal(title: title, youtubeId: trailerId!),
   );
 }
 

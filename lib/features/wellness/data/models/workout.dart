@@ -26,7 +26,11 @@ class Workout {
   });
 
   static WorkoutCategory _parseCat(dynamic v) {
-    if (v is String) for (final c in WorkoutCategory.values) if (c.name == v) return c;
+    if (v is String) {
+      for (final c in WorkoutCategory.values) {
+        if (c.name == v) return c;
+      }
+    }
     return WorkoutCategory.other;
   }
 
@@ -37,22 +41,28 @@ class Workout {
       title: data['title'] ?? '',
       notes: data['notes'] ?? '',
       category: _parseCat(data['category']),
-      durationMinutes: (data['durationMinutes'] ?? 30) is int ? data['durationMinutes'] : int.tryParse(data['durationMinutes'].toString()) ?? 30,
-      calories: (data['calories'] ?? 0) is int ? data['calories'] : int.tryParse(data['calories'].toString()) ?? 0,
+      durationMinutes: (data['durationMinutes'] ?? 30) is int
+          ? data['durationMinutes']
+          : int.tryParse(data['durationMinutes'].toString()) ?? 30,
+      calories: (data['calories'] ?? 0) is int
+          ? data['calories']
+          : int.tryParse(data['calories'].toString()) ?? 0,
       createdBy: data['createdBy'] ?? '',
       date: (data['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      tags: (data['tags'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
+      tags: (data['tags'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList(),
     );
   }
 
   Map<String, dynamic> toFirestore() => {
-        'title': title,
-        'notes': notes,
-        'category': category.name,
-        'durationMinutes': durationMinutes,
-        'calories': calories,
-        'createdBy': createdBy,
-        'date': Timestamp.fromDate(date),
-        'tags': tags,
-      };
+    'title': title,
+    'notes': notes,
+    'category': category.name,
+    'durationMinutes': durationMinutes,
+    'calories': calories,
+    'createdBy': createdBy,
+    'date': Timestamp.fromDate(date),
+    'tags': tags,
+  };
 }

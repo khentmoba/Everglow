@@ -51,8 +51,7 @@ class _KatanaSearchResultsScreenState extends State<KatanaSearchResultsScreen> {
         query: widget.query,
         searchBy: _searchBy,
       );
-      final genres =
-          _genres.isEmpty ? await _service.fetchGenres() : _genres;
+      final genres = _genres.isEmpty ? await _service.fetchGenres() : _genres;
       if (mounted) {
         setState(() {
           _items = result.items;
@@ -104,9 +103,7 @@ class _KatanaSearchResultsScreenState extends State<KatanaSearchResultsScreen> {
                             width: 330,
                             child: ListView(
                               padding: const EdgeInsets.fromLTRB(0, 14, 0, 40),
-                              children: [
-                                KatanaGenresSidebar(genres: _genres),
-                              ],
+                              children: [KatanaGenresSidebar(genres: _genres)],
                             ),
                           ),
                         ],
@@ -200,8 +197,11 @@ class _KatanaSearchResultsScreenState extends State<KatanaSearchResultsScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.search_off_rounded,
-                size: 46, color: KatanaColors.textLight),
+            const Icon(
+              Icons.search_off_rounded,
+              size: 46,
+              color: KatanaColors.textLight,
+            ),
             const SizedBox(height: 12),
             Text('No results found.', style: KatanaType.body),
           ],
@@ -211,8 +211,8 @@ class _KatanaSearchResultsScreenState extends State<KatanaSearchResultsScreen> {
     final columns = MediaQuery.sizeOf(context).width >= 1400
         ? 3
         : MediaQuery.sizeOf(context).width >= 700
-            ? 2
-            : 1;
+        ? 2
+        : 1;
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -293,8 +293,10 @@ class _SearchResultCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded,
-                  color: KatanaColors.textLight),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: KatanaColors.textLight,
+              ),
             ],
           ),
         ),

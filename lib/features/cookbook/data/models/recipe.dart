@@ -23,9 +23,17 @@ class RecipeIngredient {
 
   const RecipeIngredient({required this.name, required this.amount, this.note});
 
-  factory RecipeIngredient.fromMap(Map<String, dynamic> m) => RecipeIngredient(name: m['name'] ?? '', amount: m['amount'] ?? '', note: m['note']);
+  factory RecipeIngredient.fromMap(Map<String, dynamic> m) => RecipeIngredient(
+    name: m['name'] ?? '',
+    amount: m['amount'] ?? '',
+    note: m['note'],
+  );
 
-  Map<String, dynamic> toMap() => {'name': name, 'amount': amount, if (note != null) 'note': note};
+  Map<String, dynamic> toMap() => {
+    'name': name,
+    'amount': amount,
+    if (note != null) 'note': note,
+  };
 }
 
 class Recipe {
@@ -69,14 +77,18 @@ class Recipe {
 
   static RecipeCategory _parseCategory(dynamic v) {
     if (v is String) {
-      for (final c in RecipeCategory.values) if (c.name == v) return c;
+      for (final c in RecipeCategory.values) {
+        if (c.name == v) return c;
+      }
     }
     return RecipeCategory.other;
   }
 
   static RecipeDifficulty _parseDifficulty(dynamic v) {
     if (v is String) {
-      for (final d in RecipeDifficulty.values) if (d.name == v) return d;
+      for (final d in RecipeDifficulty.values) {
+        if (d.name == v) return d;
+      }
     }
     return RecipeDifficulty.easy;
   }
@@ -91,11 +103,24 @@ class Recipe {
       sourceUrl: data['sourceUrl'],
       category: _parseCategory(data['category']),
       difficulty: _parseDifficulty(data['difficulty']),
-      cookMinutes: (data['cookMinutes'] ?? 30) is int ? data['cookMinutes'] : int.tryParse(data['cookMinutes'].toString()) ?? 30,
-      servings: (data['servings'] ?? 2) is int ? data['servings'] : int.tryParse(data['servings'].toString()) ?? 2,
-      ingredients: (data['ingredients'] as List<dynamic>? ?? []).map((e) => RecipeIngredient.fromMap(Map<String, dynamic>.from(e as Map))).toList(),
-      steps: (data['steps'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
-      tags: (data['tags'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
+      cookMinutes: (data['cookMinutes'] ?? 30) is int
+          ? data['cookMinutes']
+          : int.tryParse(data['cookMinutes'].toString()) ?? 30,
+      servings: (data['servings'] ?? 2) is int
+          ? data['servings']
+          : int.tryParse(data['servings'].toString()) ?? 2,
+      ingredients: (data['ingredients'] as List<dynamic>? ?? [])
+          .map(
+            (e) =>
+                RecipeIngredient.fromMap(Map<String, dynamic>.from(e as Map)),
+          )
+          .toList(),
+      steps: (data['steps'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList(),
+      tags: (data['tags'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList(),
       createdBy: data['createdBy'] ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       isFavorite: data['isFavorite'] ?? false,
@@ -105,44 +130,62 @@ class Recipe {
   }
 
   Map<String, dynamic> toFirestore() => {
-        'title': title,
-        'description': description,
-        if (imageUrl != null) 'imageUrl': imageUrl,
-        if (sourceUrl != null) 'sourceUrl': sourceUrl,
-        'category': category.name,
-        'difficulty': difficulty.name,
-        'cookMinutes': cookMinutes,
-        'servings': servings,
-        'ingredients': ingredients.map((i) => i.toMap()).toList(),
-        'steps': steps,
-        'tags': tags,
-        'createdBy': createdBy,
-        'createdAt': Timestamp.fromDate(createdAt),
-        'isFavorite': isFavorite,
-        if (rating != null) 'rating': rating,
-        'timesCooked': timesCooked,
-        'searchKey': '${title.toLowerCase()} ${description.toLowerCase()} ${tags.join(' ').toLowerCase()}',
-      };
+    'title': title,
+    'description': description,
+    if (imageUrl != null) 'imageUrl': imageUrl,
+    if (sourceUrl != null) 'sourceUrl': sourceUrl,
+    'category': category.name,
+    'difficulty': difficulty.name,
+    'cookMinutes': cookMinutes,
+    'servings': servings,
+    'ingredients': ingredients.map((i) => i.toMap()).toList(),
+    'steps': steps,
+    'tags': tags,
+    'createdBy': createdBy,
+    'createdAt': Timestamp.fromDate(createdAt),
+    'isFavorite': isFavorite,
+    if (rating != null) 'rating': rating,
+    'timesCooked': timesCooked,
+    'searchKey':
+        '${title.toLowerCase()} ${description.toLowerCase()} ${tags.join(' ').toLowerCase()}',
+  };
 
-  Recipe copyWith({String? title, String? description, String? imageUrl, bool clearImage = false, String? sourceUrl, RecipeCategory? category, RecipeDifficulty? difficulty, int? cookMinutes, int? servings, List<RecipeIngredient>? ingredients, List<String>? steps, List<String>? tags, bool? isFavorite, double? rating, bool clearRating = false, int? timesCooked}) => Recipe(
-        id: id,
-        title: title ?? this.title,
-        description: description ?? this.description,
-        imageUrl: clearImage ? null : (imageUrl ?? this.imageUrl),
-        sourceUrl: sourceUrl ?? this.sourceUrl,
-        category: category ?? this.category,
-        difficulty: difficulty ?? this.difficulty,
-        cookMinutes: cookMinutes ?? this.cookMinutes,
-        servings: servings ?? this.servings,
-        ingredients: ingredients ?? this.ingredients,
-        steps: steps ?? this.steps,
-        tags: tags ?? this.tags,
-        createdBy: createdBy,
-        createdAt: createdAt,
-        isFavorite: isFavorite ?? this.isFavorite,
-        rating: clearRating ? null : (rating ?? this.rating),
-        timesCooked: timesCooked ?? this.timesCooked,
-      );
+  Recipe copyWith({
+    String? title,
+    String? description,
+    String? imageUrl,
+    bool clearImage = false,
+    String? sourceUrl,
+    RecipeCategory? category,
+    RecipeDifficulty? difficulty,
+    int? cookMinutes,
+    int? servings,
+    List<RecipeIngredient>? ingredients,
+    List<String>? steps,
+    List<String>? tags,
+    bool? isFavorite,
+    double? rating,
+    bool clearRating = false,
+    int? timesCooked,
+  }) => Recipe(
+    id: id,
+    title: title ?? this.title,
+    description: description ?? this.description,
+    imageUrl: clearImage ? null : (imageUrl ?? this.imageUrl),
+    sourceUrl: sourceUrl ?? this.sourceUrl,
+    category: category ?? this.category,
+    difficulty: difficulty ?? this.difficulty,
+    cookMinutes: cookMinutes ?? this.cookMinutes,
+    servings: servings ?? this.servings,
+    ingredients: ingredients ?? this.ingredients,
+    steps: steps ?? this.steps,
+    tags: tags ?? this.tags,
+    createdBy: createdBy,
+    createdAt: createdAt,
+    isFavorite: isFavorite ?? this.isFavorite,
+    rating: clearRating ? null : (rating ?? this.rating),
+    timesCooked: timesCooked ?? this.timesCooked,
+  );
 }
 
 class MealPlanEntry {
@@ -153,7 +196,14 @@ class MealPlanEntry {
   final String meal; // breakfast/lunch/dinner
   final String plannedBy;
 
-  const MealPlanEntry({required this.id, required this.recipeId, required this.recipeTitle, required this.date, this.meal = 'dinner', required this.plannedBy});
+  const MealPlanEntry({
+    required this.id,
+    required this.recipeId,
+    required this.recipeTitle,
+    required this.date,
+    this.meal = 'dinner',
+    required this.plannedBy,
+  });
 
   factory MealPlanEntry.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -167,5 +217,11 @@ class MealPlanEntry {
     );
   }
 
-  Map<String, dynamic> toFirestore() => {'recipeId': recipeId, 'recipeTitle': recipeTitle, 'date': Timestamp.fromDate(DateTime(date.year, date.month, date.day)), 'meal': meal, 'plannedBy': plannedBy};
+  Map<String, dynamic> toFirestore() => {
+    'recipeId': recipeId,
+    'recipeTitle': recipeTitle,
+    'date': Timestamp.fromDate(DateTime(date.year, date.month, date.day)),
+    'meal': meal,
+    'plannedBy': plannedBy,
+  };
 }

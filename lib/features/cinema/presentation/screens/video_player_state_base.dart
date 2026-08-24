@@ -2,6 +2,7 @@ part of 'video_player_screen_web.dart';
 
 abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
   bool _isLoading = true;
+
   /// Set to true when the iframe fires `error`, returns no response
   /// within [_loadTimeout], or fails three URL-form retries. The error
   /// card takes over from the spinner in that case.
@@ -13,6 +14,9 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
   Timer? _loadTimer;
   Timer? _contentCheckTimer;
   JSFunction? _messageListener;
+  Timer? _progressHeartbeatTimer;
+  int _playbackPositionSeconds = 0;
+  int _playbackDurationSeconds = 0;
 
   /// Tracks whether we've saved the initial "watching" status for this
   /// playback session so we don't spam Firestore on every rebuild.
@@ -103,7 +107,9 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     // Load the user's saved default source, or fall back to the
     // first recommended source from the service.
     final srcList = _selectableProviders;
-    _selectedProvider = srcList.isNotEmpty ? srcList.first : _sourceService.defaultSource;
+    _selectedProvider = srcList.isNotEmpty
+        ? srcList.first
+        : _sourceService.defaultSource;
     _loadSavedDefaultSource();
     _currentUserName = context.read<AuthService>().currentUser ?? '';
 
@@ -114,7 +120,9 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
       if (!mounted) return;
       final newList = _selectableProviders;
       if (newList.isNotEmpty && _iframeFailed) {
-        debugPrint('[VideoPlayerScreen] Providers updated from Firestore — retrying');
+        debugPrint(
+          '[VideoPlayerScreen] Providers updated from Firestore — retrying',
+        );
         _failedProviderIds.clear();
         _selectedProvider = newList.first;
         setState(() {
@@ -196,8 +204,9 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     _messageListener = _buildMessageListener();
     web.window.addEventListener('message', _messageListener);
 
-_currentSeason = widget.season ?? 1;
+    _currentSeason = widget.season ?? 1;
     _currentEpisode = widget.episode ?? 1;
+    _playbackPositionSeconds = widget.startSeconds ?? 0;
 
     // For anime we don't have a TMDB id on the MediaItem — the slot
     // holds the MAL id. Resolve MAL→TMDB via ani.zip, then set the
@@ -209,8 +218,10 @@ _currentSeason = widget.season ?? 1;
       _iframe.src = _buildPlayerUrl(_selectedProvider);
     }
 
-    ui_web.platformViewRegistry
-        .registerViewFactory(_viewType, (int viewId) => _iframe);
+    ui_web.platformViewRegistry.registerViewFactory(
+      _viewType,
+      (int viewId) => _iframe,
+    );
 
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
@@ -244,7 +255,9 @@ _currentSeason = widget.season ?? 1;
     _loadTimer?.cancel();
     _contentCheckTimer?.cancel();
     if (!mounted) return;
-    debugPrint('[VideoPlayerScreen] Provider "${_selectedProvider.id}" failed (url: ${_buildPlayerUrl(_selectedProvider)})');
+    debugPrint(
+      '[VideoPlayerScreen] Provider "${_selectedProvider.id}" failed (url: ${_buildPlayerUrl(_selectedProvider)})',
+    );
     _failedProviderIds.add(_selectedProvider.id);
     _tryNextProvider();
   }
@@ -253,6 +266,9 @@ _currentSeason = widget.season ?? 1;
   /// Rebuilds the iframe URL for the new episode and resets loading state.
   void _onEpisodeChanged(int episode) {
     if (episode == _currentEpisode) return;
+    _progressHeartbeatTimer?.cancel();
+    _playbackPositionSeconds = 0;
+    _playbackDurationSeconds = 0;
     setState(() {
       _currentEpisode = episode;
       _isLoading = true;
@@ -271,6 +287,9 @@ _currentSeason = widget.season ?? 1;
   /// Called when the user picks a different season from [EpisodeNavigator].
   void _onSeasonChanged(int season) {
     if (season == _currentSeason) return;
+    _progressHeartbeatTimer?.cancel();
+    _playbackPositionSeconds = 0;
+    _playbackDurationSeconds = 0;
     setState(() {
       _currentSeason = season;
       _currentEpisode = 1;
@@ -301,7 +320,9 @@ _currentSeason = widget.season ?? 1;
       try {
         userName = context.read<AuthService>().currentUser ?? '';
       } catch (e) {
-        debugPrint('[VideoPlayerScreen] Failed to read AuthService for username: $e');
+        debugPrint(
+          '[VideoPlayerScreen] Failed to read AuthService for username: $e',
+        );
       }
     }
     if (userName.isEmpty) return;
@@ -327,7 +348,10 @@ _currentSeason = widget.season ?? 1;
       // movie docs get their stale season/episode fields cleared.
       season: widget.mediaType == 'tv' ? _currentSeason : null,
       episode: widget.mediaType == 'tv' ? _currentEpisode : null,
-      timestamp: 0,
+      timestamp: _playbackPositionSeconds,
+      durationSeconds: _playbackDurationSeconds > 0
+          ? _playbackDurationSeconds
+          : null,
       status: status,
     );
   }
@@ -379,11 +403,74 @@ _currentSeason = widget.season ?? 1;
         final type = map['type'];
         if (type == 'MEDIA_DATA' || type == 'PLAYER_EVENT') {
           _contentCheckTimer?.cancel();
+          final playback = _extractPlayback(map);
+          if (playback != null && mounted) {
+            final position = playback.$1;
+            final duration = playback.$2;
+            if (position != _playbackPositionSeconds ||
+                duration != _playbackDurationSeconds) {
+              setState(() {
+                _playbackPositionSeconds = position;
+                _playbackDurationSeconds = duration;
+              });
+              _startProgressHeartbeat();
+            }
+          }
         }
       } catch (e) {
-        debugPrint('[VideoPlayerScreen] Cross-origin postMessage parse error: $e');
+        debugPrint(
+          '[VideoPlayerScreen] Cross-origin postMessage parse error: $e',
+        );
       } // ignore cross-origin / parse errors
     }).toJS;
+  }
+
+  (int, int)? _extractPlayback(dynamic value) {
+    if (value is List) {
+      for (final child in value) {
+        final found = _extractPlayback(child);
+        if (found != null) return found;
+      }
+      return null;
+    }
+    if (value is! Map) return null;
+
+    var position = -1;
+    var duration = 0;
+    value.forEach((key, child) {
+      final name = key.toString().replaceAll('_', '').toLowerCase();
+      if (child is num && child >= 0) {
+        if (name == 'currenttime' || name == 'position' || name == 'time') {
+          position = child.round();
+        } else if (name == 'duration') {
+          duration = child.round();
+        }
+      }
+    });
+
+    if (position >= 0 && duration > 0) return (position, duration);
+    for (final child in value.values) {
+      final found = _extractPlayback(child);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
+  void _startProgressHeartbeat() {
+    _progressHeartbeatTimer?.cancel();
+    _progressHeartbeatTimer = Timer(const Duration(seconds: 15), () async {
+      if (!mounted || _playbackPositionSeconds <= 0) return;
+      await TMDBService().heartbeatProgress(
+        widget.tmdbId,
+        _currentUserName,
+        season: widget.mediaType == 'tv' ? _currentSeason : null,
+        episode: widget.mediaType == 'tv' ? _currentEpisode : null,
+        timestamp: _playbackPositionSeconds,
+        durationSeconds: _playbackDurationSeconds > 0
+            ? _playbackDurationSeconds
+            : null,
+      );
+    });
   }
 
   /// Returns the expected postMessage origin for a given provider.
@@ -421,7 +508,9 @@ _currentSeason = widget.season ?? 1;
       orElse: () => null,
     );
     if (next != null) {
-      debugPrint('[VideoPlayerScreen] Trying next provider: "${next.id}" (${_failedProviderIds.length} failed so far)');
+      debugPrint(
+        '[VideoPlayerScreen] Trying next provider: "${next.id}" (${_failedProviderIds.length} failed so far)',
+      );
       setState(() {
         _selectedProvider = next;
         _isLoading = true;
@@ -433,7 +522,9 @@ _currentSeason = widget.season ?? 1;
       });
       _iframe.src = _buildPlayerUrl(next);
     } else {
-      debugPrint('[VideoPlayerScreen] All ${_selectableProviders.length} providers failed — showing error card');
+      debugPrint(
+        '[VideoPlayerScreen] All ${_selectableProviders.length} providers failed — showing error card',
+      );
       setState(() => _iframeFailed = true);
     }
   }
@@ -532,6 +623,7 @@ _currentSeason = widget.season ?? 1;
   void dispose() {
     _loadTimer?.cancel();
     _contentCheckTimer?.cancel();
+    _progressHeartbeatTimer?.cancel();
     if (_serviceListener != null) {
       _sourceService.removeListener(_serviceListener!);
     }
@@ -574,9 +666,8 @@ _currentSeason = widget.season ?? 1;
   /// (either passed via [widget.malId] or, for backwards compat, the
   /// `tmdbId` slot which Jikan's mapper reuses for MAL ids). For
   /// non-anime items it's the TMDB id.
-  int get _externalId => widget.isAnime
-      ? (widget.malId ?? widget.tmdbId)
-      : widget.tmdbId;
+  int get _externalId =>
+      widget.isAnime ? (widget.malId ?? widget.tmdbId) : widget.tmdbId;
 
   /// The TMDB id we resolved from the MAL id for anime playback.
   /// Populated by [_bootstrapAnime] on init; null when the lookup
@@ -597,6 +688,7 @@ _currentSeason = widget.season ?? 1;
       id: id.toString(),
       season: _currentSeason,
       episode: _currentEpisode,
+      startSeconds: widget.startSeconds,
     );
   }
 
@@ -606,5 +698,4 @@ _currentSeason = widget.season ?? 1;
   String _externalOpenUrl() {
     return _buildPlayerUrl(_activeProvider);
   }
-
 }

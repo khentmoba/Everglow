@@ -43,32 +43,29 @@ void main() {
       );
 
       expect(providers.map((p) => p.id).toList(), ['videasy', 'movish']);
-      expect(
-        providers.any((p) => p.id.startsWith('flux-')),
-        isFalse,
-      );
+      expect(providers.any((p) => p.id.startsWith('flux-')), isFalse);
     });
 
-    test('deduplicates a cinema-only id already present in the shared list', () {
-      const remoteCineSrc = VideoSourceConfig(
-        id: 'flux-cinesrc',
-        name: 'Remote CineSrc',
-        shortName: 'Remote',
-        movieUrl: 'https://example.com/movie/',
-        tvUrl: 'https://example.com/tv/',
-      );
+    test(
+      'deduplicates a cinema-only id already present in the shared list',
+      () {
+        const remoteCineSrc = VideoSourceConfig(
+          id: 'flux-cinesrc',
+          name: 'Remote CineSrc',
+          shortName: 'Remote',
+          movieUrl: 'https://example.com/movie/',
+          tvUrl: 'https://example.com/tv/',
+        );
 
-      final providers = CinemaVideoSources.selectable(
-        [remoteCineSrc, ...sharedSources],
-        isAnime: false,
-      );
+        final providers = CinemaVideoSources.selectable([
+          remoteCineSrc,
+          ...sharedSources,
+        ], isAnime: false);
 
-      expect(
-        providers.where((p) => p.id == 'flux-cinesrc').length,
-        1,
-      );
-      expect(providers.first.name, 'Remote CineSrc');
-    });
+        expect(providers.where((p) => p.id == 'flux-cinesrc').length, 1);
+        expect(providers.first.name, 'Remote CineSrc');
+      },
+    );
   });
 
   group('CinemaVideoSources.buildUrl', () {

@@ -157,7 +157,6 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
   /// doesn't expose a provider switcher — we just cycle through the
   /// list internally on iframe error.
   List<VideoSourceConfig> get _providers => _sourceService.providers;
-
 }
 
 abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
@@ -442,20 +441,23 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
 
   void _startHeartbeat() {
     _heartbeatTimer?.cancel();
-    _heartbeatTimer = Timer.periodic(_WatchPartyScreenStateBase._heartbeatInterval, (_) async {
-      if (!mounted) return;
-      final t = _estimatedLocalTime();
-      final s = _hostExplicitlyPaused ? 'paused' : 'playing';
-      debugPrint(
-        'WatchPartyScreen heartbeat: state=$s time=$t anchorTime=$_anchorTime anchorEpoch=$_anchorEpoch hostPaused=$_hostExplicitlyPaused',
-      );
-      await _service.heartbeat(
-        roomId: _room.id,
-        state: s,
-        currentTime: t,
-        updatedBy: _myUid,
-      );
-    });
+    _heartbeatTimer = Timer.periodic(
+      _WatchPartyScreenStateBase._heartbeatInterval,
+      (_) async {
+        if (!mounted) return;
+        final t = _estimatedLocalTime();
+        final s = _hostExplicitlyPaused ? 'paused' : 'playing';
+        debugPrint(
+          'WatchPartyScreen heartbeat: state=$s time=$t anchorTime=$_anchorTime anchorEpoch=$_anchorEpoch hostPaused=$_hostExplicitlyPaused',
+        );
+        await _service.heartbeat(
+          roomId: _room.id,
+          state: s,
+          currentTime: t,
+          updatedBy: _myUid,
+        );
+      },
+    );
   }
 
   /// Anime bootstrap: look up the TMDB id for the MAL id via ani.zip,
@@ -674,10 +676,13 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
   void _startContentCheck() {
     if (_selectedProvider.id != 'vidlink') return;
     _contentCheckTimer?.cancel();
-    _contentCheckTimer = Timer(_WatchPartyScreenStateBase._contentCheckTimeout, () {
-      if (!mounted) return;
-      _onIframeLoadError();
-    });
+    _contentCheckTimer = Timer(
+      _WatchPartyScreenStateBase._contentCheckTimeout,
+      () {
+        if (!mounted) return;
+        _onIframeLoadError();
+      },
+    );
   }
 
   /// Returns the expected postMessage origin for a given provider.
@@ -921,4 +926,3 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     Navigator.of(context).pop();
   }
 }
-

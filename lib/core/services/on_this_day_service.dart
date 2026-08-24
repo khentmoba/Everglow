@@ -65,7 +65,18 @@ class OnThisDayService {
       final photos = await _galleryService.getPhotosFromThisWeek();
       final cinemaWeek = await _getGalleryMemoriesForWeek();
       final all = <OnThisDayMemory>[
-        ...photos.map((p) => OnThisDayMemory(source: OnThisDaySource.gallery, date: p.uploadedAt, title: p.caption.isNotEmpty ? p.caption : 'A photo memory', subtitle: p.locationName != null ? '📍 ${p.locationName}' : 'Gallery • This week', imageUrl: GalleryService.displayUrl(p.imageUrl), original: p)),
+        ...photos.map(
+          (p) => OnThisDayMemory(
+            source: OnThisDaySource.gallery,
+            date: p.uploadedAt,
+            title: p.caption.isNotEmpty ? p.caption : 'A photo memory',
+            subtitle: p.locationName != null
+                ? '📍 ${p.locationName}'
+                : 'Gallery • This week',
+            imageUrl: GalleryService.displayUrl(p.imageUrl),
+            original: p,
+          ),
+        ),
         ...cinemaWeek,
       ]..sort((a, b) => b.date.compareTo(a.date));
       return all;

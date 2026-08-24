@@ -59,7 +59,9 @@ class _KatanaDirectoryScreenState extends State<KatanaDirectoryScreen> {
   }
 
   bool get _showFilter =>
-      widget.mode == 'directory' || widget.mode == 'genre' || widget.mode == 'author';
+      widget.mode == 'directory' ||
+      widget.mode == 'genre' ||
+      widget.mode == 'author';
 
   String get _title {
     if (widget.title.isNotEmpty) return widget.title;
@@ -210,10 +212,7 @@ class _KatanaDirectoryScreenState extends State<KatanaDirectoryScreen> {
                     ? Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            flex: 7,
-                            child: _buildMain(),
-                          ),
+                          Expanded(flex: 7, child: _buildMain()),
                           const SizedBox(width: 16),
                           SizedBox(
                             width: 330,
@@ -300,12 +299,18 @@ class _KatanaDirectoryScreenState extends State<KatanaDirectoryScreen> {
         children: [
           GestureDetector(
             onTap: () => pushHome(context),
-            child: const Icon(Icons.home_rounded,
-                size: 15, color: KatanaColors.textMuted),
+            child: const Icon(
+              Icons.home_rounded,
+              size: 15,
+              color: KatanaColors.textMuted,
+            ),
           ),
           const SizedBox(width: 6),
-          const Icon(Icons.chevron_right_rounded,
-              size: 15, color: KatanaColors.textLight),
+          const Icon(
+            Icons.chevron_right_rounded,
+            size: 15,
+            color: KatanaColors.textLight,
+          ),
           const SizedBox(width: 4),
           Expanded(
             child: Text(
@@ -342,12 +347,19 @@ class _KatanaDirectoryScreenState extends State<KatanaDirectoryScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_off_rounded,
-                size: 46, color: KatanaColors.textLight),
+            const Icon(
+              Icons.cloud_off_rounded,
+              size: 46,
+              color: KatanaColors.textLight,
+            ),
             const SizedBox(height: 12),
             Text(_error!, style: KatanaType.body),
             const SizedBox(height: 12),
-            KatanaButton(label: 'Retry', icon: Icons.refresh_rounded, onTap: _load),
+            KatanaButton(
+              label: 'Retry',
+              icon: Icons.refresh_rounded,
+              onTap: _load,
+            ),
           ],
         ),
       );
@@ -357,8 +369,11 @@ class _KatanaDirectoryScreenState extends State<KatanaDirectoryScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.search_off_rounded,
-                size: 46, color: KatanaColors.textLight),
+            const Icon(
+              Icons.search_off_rounded,
+              size: 46,
+              color: KatanaColors.textLight,
+            ),
             const SizedBox(height: 12),
             Text('No manga match these filters.', style: KatanaType.body),
           ],

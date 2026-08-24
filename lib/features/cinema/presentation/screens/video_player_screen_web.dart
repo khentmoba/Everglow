@@ -29,6 +29,7 @@ class VideoPlayerScreen extends StatefulWidget {
   final String mediaType; // 'movie' or 'tv'
   final int? season;
   final int? episode;
+  final int? startSeconds;
   final String title;
 
   /// When true, the player uses the MAL-id-based embed (vidsrc.to's
@@ -47,6 +48,7 @@ class VideoPlayerScreen extends StatefulWidget {
     required this.mediaType,
     this.season,
     this.episode,
+    this.startSeconds,
     required this.title,
     this.isAnime = false,
     this.malId,
@@ -85,14 +87,16 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                                 .toDouble();
                         if (_iframeFailed) {
                           return ConstrainedBox(
-                            constraints:
-                                BoxConstraints(maxHeight: maxPlayerHeight),
+                            constraints: BoxConstraints(
+                              maxHeight: maxPlayerHeight,
+                            ),
                             child: _buildErrorCard(context),
                           );
                         }
                         return ConstrainedBox(
-                          constraints:
-                              BoxConstraints(maxHeight: maxPlayerHeight),
+                          constraints: BoxConstraints(
+                            maxHeight: maxPlayerHeight,
+                          ),
                           child: RepaintBoundary(
                             child: Center(
                               child: AspectRatio(
@@ -147,10 +151,7 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
     final compact = MediaQuery.sizeOf(context).width < 560;
     return Container(
       height: 56,
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 10 : 16,
-        vertical: 8,
-      ),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 16, vertical: 8),
       decoration: BoxDecoration(
         color: AppColors.inkDeep,
         border: Border(
@@ -221,58 +222,93 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
 
   Widget _buildMetadataSection() {
     final genres = _details?['genres'] as List?;
-    final genreNames = genres?.map((g) => g is Map ? (g['name']?.toString() ?? '') : g.toString()).where((n) => n.isNotEmpty).toList();
+    final genreNames = genres
+        ?.map((g) => g is Map ? (g['name']?.toString() ?? '') : g.toString())
+        .where((n) => n.isNotEmpty)
+        .toList();
     final overview = (_details?['overview'] ?? '') as String;
     final ratingNum = _details?['vote_average'] as num?;
     final rating = ratingNum?.toDouble().toStringAsFixed(1);
     final runtime = _details?['runtime'] as int?;
     final epRun = _details?['episode_run_time'] as List?;
-    final effRuntime = runtime ?? (epRun != null && epRun.isNotEmpty ? epRun.first as int? : null);
+    final effRuntime =
+        runtime ??
+        (epRun != null && epRun.isNotEmpty ? epRun.first as int? : null);
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, 0),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        AppSpacing.lg,
+        AppSpacing.xl,
+        0,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            _metaBadge(
-              Icons.source_rounded,
-              _selectedProvider.shortName,
-              accent: true,
-            ),
-            _metaBadge(
-              widget.mediaType == 'movie'
-                  ? Icons.movie_rounded
-                  : Icons.tv_rounded,
-              widget.mediaType == 'movie' ? 'Movie' : 'TV Show',
-              tint: AppColors.softLavender,
-            ),
-            if (widget.mediaType == 'tv')
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
               _metaBadge(
-                Icons.layers_rounded,
-                'S$_currentSeason E$_currentEpisode',
-                tint: AppColors.moonlight,
+                Icons.source_rounded,
+                _selectedProvider.shortName,
+                accent: true,
               ),
-            if (rating != null)
               _metaBadge(
-                Icons.star_rounded,
-                '$rating/10',
-                tint: AppColors.blushGold,
-              ),
-            if (effRuntime != null && effRuntime > 0)
-              _metaBadge(
-                Icons.schedule_rounded,
-                '${effRuntime}m',
+                widget.mediaType == 'movie'
+                    ? Icons.movie_rounded
+                    : Icons.tv_rounded,
+                widget.mediaType == 'movie' ? 'Movie' : 'TV Show',
                 tint: AppColors.softLavender,
               ),
-          ]),
+              if (widget.mediaType == 'tv')
+                _metaBadge(
+                  Icons.layers_rounded,
+                  'S$_currentSeason E$_currentEpisode',
+                  tint: AppColors.moonlight,
+                ),
+              if (rating != null)
+                _metaBadge(
+                  Icons.star_rounded,
+                  '$rating/10',
+                  tint: AppColors.blushGold,
+                ),
+              if (effRuntime != null && effRuntime > 0)
+                _metaBadge(
+                  Icons.schedule_rounded,
+                  '${effRuntime}m',
+                  tint: AppColors.softLavender,
+                ),
+            ],
+          ),
           if (genreNames != null && genreNames.isNotEmpty) ...[
             const SizedBox(height: 10),
-            Wrap(spacing: 6, runSpacing: 6, children: genreNames.take(5).map((g) => Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: AppColors.surfaceGlass, borderRadius: BorderRadius.circular(AppRadius.xs)),
-              child: Text(g, style: AppTypography.outfitWhite.copyWith(color: AppColors.textMuted, fontSize: 11)),
-            )).toList()),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: genreNames
+                  .take(5)
+                  .map(
+                    (g) => Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceGlass,
+                        borderRadius: BorderRadius.circular(AppRadius.xs),
+                      ),
+                      child: Text(
+                        g,
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: AppColors.textMuted,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
           ],
           if (overview.isNotEmpty) ...[
             const SizedBox(height: 14),
@@ -300,7 +336,9 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: accent ? AppColors.deepRose.withValues(alpha: 0.15) : AppColors.surfaceGlass,
+        color: accent
+            ? AppColors.deepRose.withValues(alpha: 0.15)
+            : AppColors.surfaceGlass,
         borderRadius: BorderRadius.circular(AppRadius.xs),
         border: Border.all(
           color: accent
@@ -317,21 +355,24 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
               ]
             : null,
       ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(
-          icon,
-          color: accent ? AppColors.roseQuartz : chipColor,
-          size: 13,
-        ),
-        const SizedBox(width: 5),
-        Text(
-          label,
-          style: AppTypography.outfitHeading.copyWith(
-            color: accent ? AppColors.roseQuartz : AppColors.textMedium,
-            fontSize: 11,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: accent ? AppColors.roseQuartz : chipColor,
+            size: 13,
           ),
-        ),
-      ]),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: AppTypography.outfitHeading.copyWith(
+              color: accent ? AppColors.roseQuartz : AppColors.textMedium,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -341,7 +382,12 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
 
   Widget _buildServerSelectorSection() {
     return Padding(
-      padding: EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, 0),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        AppSpacing.lg,
+        AppSpacing.xl,
+        0,
+      ),
       child: GestureDetector(
         onTap: () => _showProviderSheet(),
         child: Container(
@@ -423,10 +469,7 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
 
     if (!isSelectable) return badge;
 
-    return GestureDetector(
-      onTap: () => _showProviderSheet(),
-      child: badge,
-    );
+    return GestureDetector(onTap: () => _showProviderSheet(), child: badge);
   }
 
   void _showProviderSheet() {
@@ -524,10 +567,12 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                                 height: 30,
                                 decoration: BoxDecoration(
                                   color: isSelected
-                                      ? AppColors.deepRose
-                                          .withValues(alpha: 0.2)
-                                      : AppColors.moonlight
-                                          .withValues(alpha: 0.08),
+                                      ? AppColors.deepRose.withValues(
+                                          alpha: 0.2,
+                                        )
+                                      : AppColors.moonlight.withValues(
+                                          alpha: 0.08,
+                                        ),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
@@ -581,14 +626,13 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                                             '${p.name} set as default',
                                           ),
                                           duration: const Duration(seconds: 2),
-                                          behavior:
-                                              SnackBarBehavior.floating,
+                                          behavior: SnackBarBehavior.floating,
                                           backgroundColor: AppTheme.deepRose,
                                         ),
                                       );
                                     }
                                   },
-                                  child: Tooltip(
+                                  child: const Tooltip(
                                     message: 'Set as default source',
                                     child: Icon(
                                       Icons.star_border_rounded,
@@ -659,19 +703,30 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
           Text(
             'This title isn\'t available on ${active.shortName}.',
             textAlign: TextAlign.center,
-            style: AppTypography.outfitHeading.copyWith(color: Colors.white, fontSize: 15),
+            style: AppTypography.outfitHeading.copyWith(
+              color: Colors.white,
+              fontSize: 15,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             'The embed returned a 404 or didn\'t respond. Try a different source below.',
             textAlign: TextAlign.center,
-            style: AppTypography.outfitMuted.copyWith(color: Colors.white60, fontSize: 12),
+            style: AppTypography.outfitMuted.copyWith(
+              color: Colors.white60,
+              fontSize: 12,
+            ),
           ),
           const SizedBox(height: 24),
           if (others.isNotEmpty) ...[
             Text(
               'Try another source',
-              style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.5),
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppTheme.roseQuartz,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.5,
+              ),
             ),
             const SizedBox(height: 10),
             Wrap(
@@ -679,44 +734,49 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
               runSpacing: 10,
               alignment: WrapAlignment.center,
               children: others
-                  .map((p) => GestureDetector(
-                        onTap: () => _selectProvider(p),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: AppTheme.deepRose.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(AppRadius.full),
-                            border: Border.all(
-                                color: AppTheme.deepRose
-                                    .withValues(alpha: 0.5),
-                                width: 1),
-                            boxShadow: [
-                              BoxShadow(
-                                color:
-                                    AppTheme.deepRose.withValues(alpha: 0.18),
-                                blurRadius: 14,
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.play_circle_outline_rounded,
-                                color: AppTheme.roseQuartz,
-                                size: 17,
-                              ),
-                              const SizedBox(width: 7),
-                              Text(
-                                p.name,
-                                style: AppTypography.outfitHeading.copyWith(
-                                    color: Colors.white, fontSize: 12),
-                              ),
-                            ],
-                          ),
+                  .map(
+                    (p) => GestureDetector(
+                      onTap: () => _selectProvider(p),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
                         ),
-                      ))
+                        decoration: BoxDecoration(
+                          color: AppTheme.deepRose.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(AppRadius.full),
+                          border: Border.all(
+                            color: AppTheme.deepRose.withValues(alpha: 0.5),
+                            width: 1,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.deepRose.withValues(alpha: 0.18),
+                              blurRadius: 14,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.play_circle_outline_rounded,
+                              color: AppTheme.roseQuartz,
+                              size: 17,
+                            ),
+                            const SizedBox(width: 7),
+                            Text(
+                              p.name,
+                              style: AppTypography.outfitHeading.copyWith(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
                   .toList(),
             ),
           ],
@@ -729,10 +789,7 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
               }
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 13,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
               decoration: BoxDecoration(
                 gradient: AppTheme.roseGoldGradient,
                 borderRadius: BorderRadius.circular(AppRadius.full),
@@ -777,4 +834,3 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
 
 /// Glass pill button used by the player top bar. Gives desktop hover and
 /// touch press feedback while keeping the same tap behavior as before.
-

@@ -101,17 +101,22 @@ class VideoSourceService extends ChangeNotifier {
         final sourcesRaw = data['sources'] as List<dynamic>?;
         if (sourcesRaw != null && sourcesRaw.isNotEmpty) {
           _providers = sourcesRaw
-              .map((e) => VideoSourceConfig.fromFirestore(
-                    e as Map<String, dynamic>,
-                  ))
+              .map(
+                (e) =>
+                    VideoSourceConfig.fromFirestore(e as Map<String, dynamic>),
+              )
               .toList();
           _loading = false;
-          debugPrint('[VideoSourceService] Loaded ${_providers!.length} sources from Firestore');
+          debugPrint(
+            '[VideoSourceService] Loaded ${_providers!.length} sources from Firestore',
+          );
           notifyListeners();
           return;
         }
       }
-      debugPrint('[VideoSourceService] Firestore doc missing or empty — using hardcoded defaults');
+      debugPrint(
+        '[VideoSourceService] Firestore doc missing or empty — using hardcoded defaults',
+      );
     } catch (e) {
       debugPrint('[VideoSourceService] Firestore fetch failed: $e');
     }
@@ -126,7 +131,7 @@ class VideoSourceService extends ChangeNotifier {
   // Hardcoded fallback defaults (mirrors the old 9-provider list)
   // ---------------------------------------------------------------------------
   static final List<VideoSourceConfig> _hardcodedDefaults = [
-    VideoSourceConfig(
+    const VideoSourceConfig(
       id: 'videasy',
       name: 'Videasy',
       shortName: 'Videasy',
@@ -135,7 +140,7 @@ class VideoSourceService extends ChangeNotifier {
       tvUrl: 'https://player.videasy.net/tv/',
       isRecommended: true,
     ),
-    VideoSourceConfig(
+    const VideoSourceConfig(
       id: 'movish',
       name: 'Movish',
       shortName: 'Movish',
@@ -145,7 +150,7 @@ class VideoSourceService extends ChangeNotifier {
       isRecommended: true,
       sandboxSafe: true,
     ),
-    VideoSourceConfig(
+    const VideoSourceConfig(
       id: 'vidbolt',
       name: 'VidBolt',
       shortName: 'VidBolt',
@@ -155,7 +160,7 @@ class VideoSourceService extends ChangeNotifier {
       isRecommended: true,
       sandboxSafe: true,
     ),
-    VideoSourceConfig(
+    const VideoSourceConfig(
       id: 'vsembed',
       name: 'VsEmbed',
       shortName: 'VsEmbed',
@@ -163,7 +168,7 @@ class VideoSourceService extends ChangeNotifier {
       movieUrl: 'https://vsembed.ru/embed/movie/',
       tvUrl: 'https://vsembed.ru/embed/',
     ),
-    VideoSourceConfig(
+    const VideoSourceConfig(
       id: 'vidrock',
       name: 'VidRock',
       shortName: 'VidRock',
@@ -171,7 +176,7 @@ class VideoSourceService extends ChangeNotifier {
       movieUrl: 'https://vidrock.ru/movie/',
       tvUrl: 'https://vidrock.ru/tv/',
     ),
-    VideoSourceConfig(
+    const VideoSourceConfig(
       id: '111movies',
       name: '111Movies',
       shortName: '111Movies',
@@ -179,7 +184,7 @@ class VideoSourceService extends ChangeNotifier {
       movieUrl: 'https://111movies.com/movie/',
       tvUrl: 'https://111movies.com/tv/',
     ),
-    VideoSourceConfig(
+    const VideoSourceConfig(
       id: 'vidsrc',
       name: 'VidSrc',
       shortName: 'VidSrc',
@@ -187,7 +192,7 @@ class VideoSourceService extends ChangeNotifier {
       movieUrl: 'https://vidsrc.to/embed/movie/',
       tvUrl: 'https://vidsrc.to/embed/tv/',
     ),
-    VideoSourceConfig(
+    const VideoSourceConfig(
       id: 'multiembed',
       name: 'MultiEmbed',
       shortName: 'MultiEmbed',

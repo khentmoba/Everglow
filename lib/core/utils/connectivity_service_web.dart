@@ -27,23 +27,28 @@ class ConnectivityService {
     if (_initialized) return;
     _initialized = true;
 
-    web.window.addEventListener('online', (web.Event _) {
-      _controller.add(true);
-    }.toJS);
+    web.window.addEventListener(
+      'online',
+      (web.Event _) {
+        _controller.add(true);
+      }.toJS,
+    );
 
-    web.window.addEventListener('offline', (web.Event _) {
-      _controller.add(false);
-    }.toJS);
+    web.window.addEventListener(
+      'offline',
+      (web.Event _) {
+        _controller.add(false);
+      }.toJS,
+    );
   }
 
   /// One-shot connectivity check by attempting to fetch a tiny resource.
   /// More reliable than `navigator.onLine` which can report false positives.
   Future<bool> checkConnectivity() async {
     try {
-      final response = await web.window.fetch(
-        '/favicon.ico'.toJS,
-        web.RequestInit(method: 'HEAD'),
-      ).toDart;
+      final response = await web.window
+          .fetch('/favicon.ico'.toJS, web.RequestInit(method: 'HEAD'))
+          .toDart;
       return response.status == 200;
     } catch (e) {
       debugPrint('[ConnectivityService] Check failed: $e');

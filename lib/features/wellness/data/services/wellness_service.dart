@@ -15,14 +15,27 @@ class WellnessService {
 
   // Habits
   Stream<List<Habit>> watchHabits() => withFirestoreTimeout(
-        _db.collection(_habitsCol).orderBy('createdAt', descending: true).limit(50).snapshots().map((s) => s.docs.map((d) => Habit.fromFirestore(d)).toList()),
-        label: 'habits-all',
-      );
+    _db
+        .collection(_habitsCol)
+        .orderBy('createdAt', descending: true)
+        .limit(50)
+        .snapshots()
+        .map((s) => s.docs.map((d) => Habit.fromFirestore(d)).toList()),
+    label: 'habits-all',
+  );
 
   Stream<List<Habit>> watchActiveHabits() => withFirestoreTimeout(
-        _db.collection(_habitsCol).snapshots().map((s) => s.docs.map((d) => Habit.fromFirestore(d)).where((h) => h.isActive).toList()),
-        label: 'habits-active',
-      );
+    _db
+        .collection(_habitsCol)
+        .snapshots()
+        .map(
+          (s) => s.docs
+              .map((d) => Habit.fromFirestore(d))
+              .where((h) => h.isActive)
+              .toList(),
+        ),
+    label: 'habits-active',
+  );
 
   Future<void> addHabit(Habit habit) async {
     try {
@@ -33,7 +46,10 @@ class WellnessService {
     }
   }
 
-  Future<void> toggleCompleteToday(String habitId, String currentUsername) async {
+  Future<void> toggleCompleteToday(
+    String habitId,
+    String currentUsername,
+  ) async {
     try {
       final doc = await _db.collection(_habitsCol).doc(habitId).get();
       if (!doc.exists) return;
@@ -43,13 +59,22 @@ class WellnessService {
       List<DateTime> updated;
       int newStreak;
       if (habit.isCompletedToday) {
-        updated = habit.completedDates.where((d) => !(d.year == todayKey.year && d.month == todayKey.month && d.day == todayKey.day)).toList();
+        updated = habit.completedDates
+            .where(
+              (d) =>
+                  !(d.year == todayKey.year &&
+                      d.month == todayKey.month &&
+                      d.day == todayKey.day),
+            )
+            .toList();
         newStreak = (habit.streak > 0 ? habit.streak - 1 : 0);
       } else {
         updated = [...habit.completedDates, todayKey];
         newStreak = habit.streak + 1;
       }
-      final longest = newStreak > habit.longestStreak ? newStreak : habit.longestStreak;
+      final longest = newStreak > habit.longestStreak
+          ? newStreak
+          : habit.longestStreak;
       await _db.collection(_habitsCol).doc(habitId).update({
         'completedDates': updated.map((d) => Timestamp.fromDate(d)).toList(),
         'streak': newStreak,
@@ -79,12 +104,23 @@ class WellnessService {
 
   // Workouts — wger
   Stream<List<Workout>> watchWorkouts() => withFirestoreTimeout(
-        _db.collection(_workoutsCol).orderBy('date', descending: true).limit(50).snapshots().map((s) => s.docs.map((d) => Workout.fromFirestore(d)).toList()),
-        label: 'workouts-all',
-      );
+    _db
+        .collection(_workoutsCol)
+        .orderBy('date', descending: true)
+        .limit(50)
+        .snapshots()
+        .map((s) => s.docs.map((d) => Workout.fromFirestore(d)).toList()),
+    label: 'workouts-all',
+  );
 
-  Stream<List<Workout>> watchRecentWorkouts({int limit = 7}) => withFirestoreTimeout(
-        _db.collection(_workoutsCol).orderBy('date', descending: true).limit(limit).snapshots().map((s) => s.docs.map((d) => Workout.fromFirestore(d)).toList()),
+  Stream<List<Workout>> watchRecentWorkouts({int limit = 7}) =>
+      withFirestoreTimeout(
+        _db
+            .collection(_workoutsCol)
+            .orderBy('date', descending: true)
+            .limit(limit)
+            .snapshots()
+            .map((s) => s.docs.map((d) => Workout.fromFirestore(d)).toList()),
         label: 'workouts-recent',
       );
 
@@ -107,11 +143,21 @@ class WellnessService {
 
   // Stats
   Future<Map<String, int>> getWeeklyStreaks() async {
-    final snap = await _db.collection(_habitsCol).where('isActive', isEqualTo: true).get();
+    final snap = await _db
+        .collection(_habitsCol)
+        .where('isActive', isEqualTo: true)
+        .get();
     final habits = snap.docs.map((d) => Habit.fromFirestore(d)).toList();
     final total = habits.length;
     final completedToday = habits.where((h) => h.isCompletedToday).length;
-    final avgStreak = habits.isEmpty ? 0 : (habits.map((h) => h.streak).reduce((a, b) => a + b) / habits.length).round();
-    return {'total': total, 'completedToday': completedToday, 'avgStreak': avgStreak};
+    final avgStreak = habits.isEmpty
+        ? 0
+        : (habits.map((h) => h.streak).reduce((a, b) => a + b) / habits.length)
+              .round();
+    return {
+      'total': total,
+      'completedToday': completedToday,
+      'avgStreak': avgStreak,
+    };
   }
 }

@@ -185,11 +185,11 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
 
   void _showEmptyJarMessage() {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text("No stars in the jar yet — drop one first!"),
+      const SnackBar(
+        content: Text("No stars in the jar yet — drop one first!"),
         backgroundColor: AppTheme.velvet,
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
+        duration: Duration(seconds: 2),
       ),
     );
   }
@@ -714,7 +714,6 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
       ),
     );
   }
-
 }
 
 class _StarMotion {
@@ -798,11 +797,9 @@ class _JarStarFieldPainter extends CustomPainter {
           cos(tY * 2 * pi * 0.43 + m.phaseY * 1.3) * m.ampY * 0.25;
       final dx = rawDx.clamp(jarLeft, jarRight - maxSize);
       final dy = rawDy.clamp(jarTop, jarBottom - maxSize);
-      final rotation =
-          m.baseRotation + sin(t * 2 * pi * m.rotSpeed) * 0.5;
-      final opacity =
-          (0.55 + sin(t * 2 * pi * 2.3 + m.twinklePhase) * 0.35)
-              .clamp(0.0, 1.0);
+      final rotation = m.baseRotation + sin(t * 2 * pi * m.rotSpeed) * 0.5;
+      final opacity = (0.55 + sin(t * 2 * pi * 2.3 + m.twinklePhase) * 0.35)
+          .clamp(0.0, 1.0);
       final scale = 0.85 + sin(t * 2 * pi * 1.2 + m.phaseX) * 0.15;
 
       final paint = Paint()

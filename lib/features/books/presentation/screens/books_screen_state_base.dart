@@ -14,8 +14,9 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
   List<BookItem> _trendingRankings = [];
   final Map<String, List<BookItem>> _subjectLists = {};
   bool _isLoadingHome = true;
-  final PageController _carouselController =
-      PageController(viewportFraction: 0.88);
+  final PageController _carouselController = PageController(
+    viewportFraction: 0.88,
+  );
   int _carouselPage = 0;
   Timer? _carouselTimer;
 
@@ -207,10 +208,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
 
   void _showBookDetails(BookItem item) {
     HapticFeedback.lightImpact();
-    context.push(
-      '/books/detail',
-      extra: BookDetailArgs(item: item),
-    );
+    context.push('/books/detail', extra: BookDetailArgs(item: item));
   }
 
   void _switchTab(int index) {
@@ -225,7 +223,6 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
     });
   }
 
-
   Widget _buildSearchFilters() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
@@ -238,13 +235,14 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
             child: Row(
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: _cCard,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                        color: _cRose.withValues(alpha: 0.12)),
+                    border: Border.all(color: _cRose.withValues(alpha: 0.12)),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<BookSort>(
@@ -254,8 +252,11 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
                         color: _cWhite,
                         fontSize: 11.5,
                       ),
-                      icon: const Icon(Icons.expand_more_rounded,
-                          color: _cMuted, size: 16),
+                      icon: const Icon(
+                        Icons.expand_more_rounded,
+                        color: _cMuted,
+                        size: 16,
+                      ),
                       items: const [
                         DropdownMenuItem(
                           value: BookSort.relevant,
@@ -309,8 +310,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
                       onTap: () {
                         HapticFeedback.selectionClick();
                         setState(() {
-                          _searchFiletype =
-                              _searchFiletype == ft ? null : ft;
+                          _searchFiletype = _searchFiletype == ft ? null : ft;
                         });
                         if (_searchController.text.trim().isNotEmpty) {
                           _performSearch(_searchController.text.trim());
@@ -339,7 +339,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
                       color: _cAmber,
                       selected:
                           (lang == 'All' && _searchLanguage == null) ||
-                              _searchLanguage == lang,
+                          _searchLanguage == lang,
                       onTap: () {
                         HapticFeedback.selectionClick();
                         setState(() {
@@ -358,6 +358,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
       ),
     );
   }
+
   IconData _filetypeIcon(String ft) {
     switch (ft) {
       case 'pdf':
@@ -374,6 +375,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
         return Icons.insert_drive_file_rounded;
     }
   }
+
   void _showRowDownload(BookSearchResult result) {
     showModalBottomSheet(
       context: context,
@@ -462,6 +464,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
       ),
     );
   }
+
   void _shareResult(BookSearchResult result) async {
     HapticFeedback.selectionClick();
     String url = '';
@@ -472,20 +475,19 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
     } else if (result.workKey.isNotEmpty) {
       url = 'https://openlibrary.org${result.workKey}';
     }
-    await Clipboard.setData(
-        ClipboardData(text: '$url\n${result.title}'));
+    await Clipboard.setData(ClipboardData(text: '$url\n${result.title}'));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text('Link copied'),
         backgroundColor: _cDeepRose,
         behavior: SnackBarBehavior.floating,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         duration: const Duration(seconds: 2),
       ),
     );
   }
+
   Future<void> _saveResult(BookSearchResult result) async {
     HapticFeedback.selectionClick();
     final userName = context.read<AuthService>().currentUser ?? '';
@@ -500,8 +502,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
       );
       return;
     }
-    await _service.saveToReadList(
-        result.toBookItem(), 'to-read', userName);
+    await _service.saveToReadList(result.toBookItem(), 'to-read', userName);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(

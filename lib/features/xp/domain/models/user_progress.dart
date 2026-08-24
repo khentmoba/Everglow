@@ -21,7 +21,8 @@ class UserProgress {
       xpTotal: map['xpTotal'] ?? 0,
       level: map['level'] ?? 1,
       streak: map['streak'] ?? 0,
-      lastActivity: (map['lastActivity'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      lastActivity:
+          (map['lastActivity'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 

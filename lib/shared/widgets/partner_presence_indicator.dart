@@ -110,15 +110,16 @@ class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator> {
     required Color color,
     required bool dim,
   }) {
-    final style = (widget.textStyle ??
-            AppTypography.outfitWhite.copyWith(
-              color: AppTheme.roseQuartz.withValues(alpha: 0.5),
-              fontSize: 10,
-            ))
-        .copyWith(
-      color: dim ? AppTheme.roseQuartz.withValues(alpha: 0.5) : color,
-      fontWeight: dim ? FontWeight.w400 : FontWeight.w500,
-    );
+    final style =
+        (widget.textStyle ??
+                AppTypography.outfitWhite.copyWith(
+                  color: AppTheme.roseQuartz.withValues(alpha: 0.5),
+                  fontSize: 10,
+                ))
+            .copyWith(
+              color: dim ? AppTheme.roseQuartz.withValues(alpha: 0.5) : color,
+              fontWeight: dim ? FontWeight.w400 : FontWeight.w500,
+            );
 
     if (!widget.showDot) {
       return Text(label, style: style);
@@ -137,7 +138,8 @@ class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator> {
   Widget _buildText(BuildContext context, String text, {required bool dim}) {
     return Text(
       text,
-      style: widget.textStyle ??
+      style:
+          widget.textStyle ??
           AppTypography.outfitWhite.copyWith(
             color: AppTheme.roseQuartz.withValues(alpha: 0.5),
             fontSize: 10,

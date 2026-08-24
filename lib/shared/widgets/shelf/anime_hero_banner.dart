@@ -156,204 +156,209 @@ class _HeroBannerSlide extends StatelessWidget {
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: item.accent.withValues(alpha: 0.15),
-                blurRadius: 40,
-                offset: const Offset(0, 16),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.6),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // Blurred backdrop image
-                if (item.imageUrl.isNotEmpty)
-                  Transform.scale(
-                    scale: 1.1,
-                    child: ImageFiltered(
-                      imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: Image.network(
-                        item.imageUrl,
-                        fit: BoxFit.cover,
-                        cacheWidth: 1200,
-                        errorBuilder: (_, _, _) => Container(
-                          color: AppTheme.velvet,
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  Container(color: AppTheme.velvet),
-
-                // Dark wash overlay for contrast
-                Container(
-                  color: Colors.black.withValues(alpha: 0.55),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: item.accent.withValues(alpha: 0.15),
+                  blurRadius: 40,
+                  offset: const Offset(0, 16),
                 ),
-
-                // Bottom gradient
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.transparent,
-                        const Color(0xFF080810).withValues(alpha: 0.4),
-                        const Color(0xFF080810).withValues(alpha: 0.88),
-                        const Color(0xFF080810).withValues(alpha: 0.98),
-                      ],
-                      stops: const [0.0, 0.3, 0.55, 0.78, 1.0],
-                    ),
-                  ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
                 ),
-
-                // Left gradient for text legibility
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: [
-                        const Color(0xFF080810).withValues(alpha: 0.65),
-                        const Color(0xFF080810).withValues(alpha: 0.3),
-                        Colors.transparent,
-                      ],
-                      stops: const [0.0, 0.45, 0.75],
-                    ),
-                  ),
-                ),
-
-                // Content
-                Positioned(
-                  bottom: 0,
-                  left: isDesktop ? 48 : 24,
-                  right: isDesktop ? 260 : 140,
-                  top: isDesktop ? 48 : 24,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Eyebrow
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: item.accent,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          (item.eyebrow ?? 'TRENDING').toUpperCase(),
-                          style: AppTypography.outfitHeading.copyWith(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.4,
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: isDesktop ? 16 : 10),
-
-                      // Title
-                      Text(
-                        item.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                          style: AppTypography.cormorantBlackWhite.copyWith(fontSize: isDesktop ? 40 : 28, height: 1.05, shadows: [
-                            Shadow(
-                              color: Colors.black.withValues(alpha: 0.7),
-                              blurRadius: 16,
-                            ),
-                          ]),
-                      ),
-
-                      // Subtitle (English title / year)
-                      if (item.subtitle.isNotEmpty) ...[
-                        SizedBox(height: isDesktop ? 8 : 4),
-                        Text(
-                          item.subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.outfitWhite.copyWith(
-                            color: AppTheme.roseQuartz
-                                .withValues(alpha: 0.85),
-                            fontSize: isDesktop ? 15 : 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-
-                      // Synopsis
-                      if (item.synopsis != null &&
-                          item.synopsis!.isNotEmpty) ...[
-                        SizedBox(height: isDesktop ? 16 : 10),
-                        Text(
-                          item.synopsis!,
-                          maxLines: isDesktop ? 4 : 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.outfitWhite.copyWith(
-                            color: Colors.white.withValues(alpha: 0.6),
-                            fontSize: isDesktop ? 13 : 11,
-                            height: 1.5,
-                          ),
-                        ),
-                      ],
-
-                      const Spacer(),
-
-                      // Metadata chips
-                      _MetadataChips(item: item),
-
-                      SizedBox(height: isDesktop ? 16 : 10),
-
-                      // Action buttons
-                      Row(
-                        children: [
-                          _ActionButton(
-                            label: 'Watch now',
-                            icon: Icons.play_arrow_rounded,
-                            primary: true,
-                            accent: item.accent,
-                            onTap: item.onTap,
-                          ),
-                          const SizedBox(width: 12),
-                          _ActionButton(
-                            label: 'Queue',
-                            icon: Icons.add_rounded,
-                            primary: false,
-                            accent: item.accent,
-                            onTap: item.onTap,
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: isDesktop ? 0 : 8),
-                    ],
-                  ),
-                ),
-
-                // Floating cover poster (right side)
-                if (isDesktop)
-                  Positioned(
-                    right: 48,
-                    bottom: 48,
-                    child: _FloatingPoster(posterUrl: item.posterUrl),
-                  ),
               ],
             ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Blurred backdrop image
+                  if (item.imageUrl.isNotEmpty)
+                    Transform.scale(
+                      scale: 1.1,
+                      child: ImageFiltered(
+                        imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Image.network(
+                          item.imageUrl,
+                          fit: BoxFit.cover,
+                          cacheWidth: 1200,
+                          errorBuilder: (_, _, _) =>
+                              Container(color: AppTheme.velvet),
+                        ),
+                      ),
+                    )
+                  else
+                    Container(color: AppTheme.velvet),
+
+                  // Dark wash overlay for contrast
+                  Container(color: Colors.black.withValues(alpha: 0.55)),
+
+                  // Bottom gradient
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.transparent,
+                          const Color(0xFF080810).withValues(alpha: 0.4),
+                          const Color(0xFF080810).withValues(alpha: 0.88),
+                          const Color(0xFF080810).withValues(alpha: 0.98),
+                        ],
+                        stops: const [0.0, 0.3, 0.55, 0.78, 1.0],
+                      ),
+                    ),
+                  ),
+
+                  // Left gradient for text legibility
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          const Color(0xFF080810).withValues(alpha: 0.65),
+                          const Color(0xFF080810).withValues(alpha: 0.3),
+                          Colors.transparent,
+                        ],
+                        stops: const [0.0, 0.45, 0.75],
+                      ),
+                    ),
+                  ),
+
+                  // Content
+                  Positioned(
+                    bottom: 0,
+                    left: isDesktop ? 48 : 24,
+                    right: isDesktop ? 260 : 140,
+                    top: isDesktop ? 48 : 24,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Eyebrow
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: item.accent,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            (item.eyebrow ?? 'TRENDING').toUpperCase(),
+                            style: AppTypography.outfitHeading.copyWith(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.4,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: isDesktop ? 16 : 10),
+
+                        // Title
+                        Text(
+                          item.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.cormorantBlackWhite.copyWith(
+                            fontSize: isDesktop ? 40 : 28,
+                            height: 1.05,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withValues(alpha: 0.7),
+                                blurRadius: 16,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Subtitle (English title / year)
+                        if (item.subtitle.isNotEmpty) ...[
+                          SizedBox(height: isDesktop ? 8 : 4),
+                          Text(
+                            item.subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.outfitWhite.copyWith(
+                              color: AppTheme.roseQuartz.withValues(
+                                alpha: 0.85,
+                              ),
+                              fontSize: isDesktop ? 15 : 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+
+                        // Synopsis
+                        if (item.synopsis != null &&
+                            item.synopsis!.isNotEmpty) ...[
+                          SizedBox(height: isDesktop ? 16 : 10),
+                          Text(
+                            item.synopsis!,
+                            maxLines: isDesktop ? 4 : 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.outfitWhite.copyWith(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              fontSize: isDesktop ? 13 : 11,
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
+
+                        const Spacer(),
+
+                        // Metadata chips
+                        _MetadataChips(item: item),
+
+                        SizedBox(height: isDesktop ? 16 : 10),
+
+                        // Action buttons
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 8,
+                          children: [
+                            _ActionButton(
+                              label: 'Watch now',
+                              icon: Icons.play_arrow_rounded,
+                              primary: true,
+                              accent: item.accent,
+                              onTap: item.onTap,
+                            ),
+                            _ActionButton(
+                              label: 'Queue',
+                              icon: Icons.add_rounded,
+                              primary: false,
+                              accent: item.accent,
+                              onTap: item.onTap,
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: isDesktop ? 0 : 8),
+                      ],
+                    ),
+                  ),
+
+                  // Floating cover poster (right side)
+                  if (isDesktop)
+                    Positioned(
+                      right: 48,
+                      bottom: 48,
+                      child: _FloatingPoster(posterUrl: item.posterUrl),
+                    ),
+                ],
+              ),
+            ),
           ),
-        ),
         ),
       ),
     );
@@ -405,8 +410,10 @@ class _FloatingPoster extends StatelessWidget {
               errorBuilder: (_, _, _) => Container(
                 color: AppTheme.velvet,
                 child: const Center(
-                  child: Icon(Icons.broken_image_rounded,
-                      color: Colors.white38),
+                  child: Icon(
+                    Icons.broken_image_rounded,
+                    color: Colors.white38,
+                  ),
                 ),
               ),
             ),
@@ -438,37 +445,27 @@ class _MetadataChips extends StatelessWidget {
     final chips = <_MetaChip>[];
 
     if (item.episodeCount != null) {
-      chips.add(_MetaChip(
-        icon: Icons.movie_rounded,
-        label: '${item.episodeCount} eps',
-      ));
+      chips.add(
+        _MetaChip(icon: Icons.movie_rounded, label: '${item.episodeCount} eps'),
+      );
     }
     if (item.format != null && item.format!.isNotEmpty) {
-      chips.add(_MetaChip(
-        icon: Icons.tv_rounded,
-        label: item.format!,
-      ));
+      chips.add(_MetaChip(icon: Icons.tv_rounded, label: item.format!));
     }
     if (item.year.isNotEmpty) {
-      chips.add(_MetaChip(
-        icon: Icons.calendar_today_rounded,
-        label: item.year,
-      ));
+      chips.add(
+        _MetaChip(icon: Icons.calendar_today_rounded, label: item.year),
+      );
     }
     if (item.airingStatus != null && item.airingStatus!.isNotEmpty) {
-      chips.add(_MetaChip(
-        icon: Icons.live_tv_rounded,
-        label: item.airingStatus!,
-      ));
+      chips.add(
+        _MetaChip(icon: Icons.live_tv_rounded, label: item.airingStatus!),
+      );
     }
 
     if (chips.isEmpty) return const SizedBox.shrink();
 
-    return Wrap(
-      spacing: 8,
-      runSpacing: 6,
-      children: chips,
-    );
+    return Wrap(spacing: 8, runSpacing: 6, children: chips);
   }
 }
 
@@ -494,11 +491,15 @@ class _MetaChip extends StatelessWidget {
         children: [
           Icon(icon, size: 12, color: Colors.white.withValues(alpha: 0.6)),
           const SizedBox(width: 5),
-          Text(
-            label,
-            style: AppTypography.outfitBold.copyWith(
-              color: Colors.white.withValues(alpha: 0.75),
-              fontSize: 11,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.outfitBold.copyWith(
+                color: Colors.white.withValues(alpha: 0.75),
+                fontSize: 11,
+              ),
             ),
           ),
         ],
@@ -529,43 +530,43 @@ class _ActionButton extends StatelessWidget {
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: AnimatedContainer(
-        duration: ShelfMotion.orZero(const Duration(milliseconds: 200)),
-        curve: ShelfMotion.easeOutStrong,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: BoxDecoration(
-          color: primary
-              ? accent
-              : Colors.white.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(24),
-          border: primary
-              ? null
-              : Border.all(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  width: 1,
-                ),
-          boxShadow: primary
-              ? [
-                  BoxShadow(
-                    color: accent.withValues(alpha: 0.35),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
+          duration: ShelfMotion.orZero(const Duration(milliseconds: 200)),
+          curve: ShelfMotion.easeOutStrong,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: BoxDecoration(
+            color: primary ? accent : Colors.white.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(24),
+            border: primary
+                ? null
+                : Border.all(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    width: 1,
                   ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 18, color: Colors.white),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: AppTypography.outfitHeading.copyWith(
-                fontSize: 13,
+            boxShadow: primary
+                ? [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.35),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: Colors.white),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.outfitHeading.copyWith(fontSize: 13),
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
         ),
       ),
     );
@@ -595,15 +596,14 @@ class _DotIndicator extends StatelessWidget {
           width: isActive ? 22 : 5,
           height: 5,
           decoration: BoxDecoration(
-            color:
-                isActive ? accent : Colors.white.withValues(alpha: 0.2),
+            color: isActive ? accent : Colors.white.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(3),
             boxShadow: isActive
                 ? [
                     BoxShadow(
                       color: accent.withValues(alpha: 0.6),
                       blurRadius: 8,
-                    )
+                    ),
                   ]
                 : null,
           ),

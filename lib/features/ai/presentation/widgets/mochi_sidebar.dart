@@ -65,11 +65,15 @@ class _MochiSidebarState extends State<MochiSidebar> {
       final live = ai.assistantConversation;
       final hasLiveMessages = live != null && live.messages.isNotEmpty;
       if (hasLiveMessages) {
-        final preview = live.messages.firstWhere(
-          (m) => m.role == 'user',
-          orElse: () => live.messages.first,
-        ).content;
-        final title = preview.length > 56 ? '${preview.substring(0, 56)}…' : preview;
+        final preview = live.messages
+            .firstWhere(
+              (m) => m.role == 'user',
+              orElse: () => live.messages.first,
+            )
+            .content;
+        final title = preview.length > 56
+            ? '${preview.substring(0, 56)}…'
+            : preview;
         final liveSession = AISession(
           id: '__live__',
           feature: live.feature,
@@ -81,7 +85,9 @@ class _MochiSidebarState extends State<MochiSidebar> {
         );
         // Avoid showing a duplicate of the most recent archived session.
         final hasLiveDup = sessions.any(
-          (s) => s.messageCount == liveSession.messageCount && s.title == liveSession.title,
+          (s) =>
+              s.messageCount == liveSession.messageCount &&
+              s.title == liveSession.title,
         );
         if (!hasLiveDup) sessions = [liveSession, ...sessions];
         _activeSessionId ??= '__live__';
@@ -89,7 +95,8 @@ class _MochiSidebarState extends State<MochiSidebar> {
         // No live messages → new chat state. Clear stale active highlight if it
         // pointed to a deleted session or the synthetic live entry.
         if (_activeSessionId == '__live__' ||
-            (_activeSessionId != null && !sessions.any((s) => s.id == _activeSessionId))) {
+            (_activeSessionId != null &&
+                !sessions.any((s) => s.id == _activeSessionId))) {
           _activeSessionId = null;
         }
       }
@@ -129,8 +136,12 @@ class _MochiSidebarState extends State<MochiSidebar> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.velvet,
-        title: Text('Delete conversation?',
-            style: AppTypography.titleMedium().copyWith(color: AppColors.textHigh)),
+        title: Text(
+          'Delete conversation?',
+          style: AppTypography.titleMedium().copyWith(
+            color: AppColors.textHigh,
+          ),
+        ),
         content: Text(
           'This will permanently delete this conversation.',
           style: AppTypography.bodySmall().copyWith(color: AppColors.textMuted),
@@ -142,7 +153,10 @@ class _MochiSidebarState extends State<MochiSidebar> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: AppColors.error)),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: AppColors.error),
+            ),
           ),
         ],
       ),
@@ -159,7 +173,10 @@ class _MochiSidebarState extends State<MochiSidebar> {
           setState(() => _activeSessionId = null);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Conversation deleted', style: AppTypography.bodySmall()),
+              content: Text(
+                'Conversation deleted',
+                style: AppTypography.bodySmall(),
+              ),
               backgroundColor: AppColors.surfaceGlass,
               behavior: SnackBarBehavior.floating,
               duration: const Duration(seconds: 2),
@@ -175,7 +192,10 @@ class _MochiSidebarState extends State<MochiSidebar> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Conversation deleted', style: AppTypography.bodySmall()),
+              content: Text(
+                'Conversation deleted',
+                style: AppTypography.bodySmall(),
+              ),
               backgroundColor: AppColors.surfaceGlass,
               behavior: SnackBarBehavior.floating,
               duration: const Duration(seconds: 2),
@@ -187,7 +207,10 @@ class _MochiSidebarState extends State<MochiSidebar> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to delete: $e', style: AppTypography.bodySmall()),
+            content: Text(
+              'Failed to delete: $e',
+              style: AppTypography.bodySmall(),
+            ),
             backgroundColor: AppColors.deepRose.withValues(alpha: 0.9),
           ),
         );
@@ -200,9 +223,11 @@ class _MochiSidebarState extends State<MochiSidebar> {
     final q = _query.trim().toLowerCase();
     if (q.isEmpty) return _sessions;
     return _sessions
-        .where((s) =>
-            s.title.toLowerCase().contains(q) ||
-            (s.summary ?? '').toLowerCase().contains(q))
+        .where(
+          (s) =>
+              s.title.toLowerCase().contains(q) ||
+              (s.summary ?? '').toLowerCase().contains(q),
+        )
         .toList();
   }
 
@@ -263,30 +288,32 @@ class _MochiSidebarState extends State<MochiSidebar> {
 
     if (!widget.isOpen) return const SizedBox.shrink();
 
-    return Stack(children: [
-      GestureDetector(
-        onTap: widget.onClose,
-        child: Container(color: Colors.black.withValues(alpha: 0.5)),
-      ),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: _SidebarPanel(
-          searchCtl: _searchCtl,
-          query: _query,
-          onQueryChanged: (v) => setState(() => _query = v),
-          sessions: _filtered,
-          isLoading: _isLoading,
-          grouped: _groupByDate(_filtered),
-          activeId: _activeSessionId,
-          onNewChat: widget.onNewChat,
-          onClose: widget.onClose,
-          onSwitch: _switchSession,
-          onDelete: _deleteSession,
-          onRefresh: _loadSessions,
-          desktop: false,
+    return Stack(
+      children: [
+        GestureDetector(
+          onTap: widget.onClose,
+          child: Container(color: Colors.black.withValues(alpha: 0.5)),
         ),
-      ),
-    ]);
+        Align(
+          alignment: Alignment.centerLeft,
+          child: _SidebarPanel(
+            searchCtl: _searchCtl,
+            query: _query,
+            onQueryChanged: (v) => setState(() => _query = v),
+            sessions: _filtered,
+            isLoading: _isLoading,
+            grouped: _groupByDate(_filtered),
+            activeId: _activeSessionId,
+            onNewChat: widget.onNewChat,
+            onClose: widget.onClose,
+            onSwitch: _switchSession,
+            onDelete: _deleteSession,
+            onRefresh: _loadSessions,
+            desktop: false,
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -337,7 +364,10 @@ class _SidebarPanel extends StatelessWidget {
       child: Column(
         children: [
           _buildHeader(context),
-          Divider(height: 1, color: AppColors.blushGold.withValues(alpha: 0.06)),
+          Divider(
+            height: 1,
+            color: AppColors.blushGold.withValues(alpha: 0.06),
+          ),
           _buildSearch(context),
           _buildNewChatButton(),
           Padding(
@@ -355,11 +385,18 @@ class _SidebarPanel extends StatelessWidget {
                 const Spacer(),
                 IconButton(
                   onPressed: onRefresh,
-                  icon: Icon(Icons.refresh_rounded, color: AppColors.textMuted, size: 18),
+                  icon: Icon(
+                    Icons.refresh_rounded,
+                    color: AppColors.textMuted,
+                    size: 18,
+                  ),
                   tooltip: 'Refresh',
                   splashRadius: 18,
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+                  constraints: const BoxConstraints.tightFor(
+                    width: 28,
+                    height: 28,
+                  ),
                 ),
               ],
             ),
@@ -373,36 +410,46 @@ class _SidebarPanel extends StatelessWidget {
                     ),
                   )
                 : sessions.isEmpty
-                    ? _buildEmpty(query.isNotEmpty)
-                    : ListView(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        children: grouped.entries.map((entry) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                child: Text(
-                                  entry.key,
-                                  style: AppTypography.bodySmall().copyWith(
-                                    color: AppColors.textMuted.withValues(alpha: 0.6),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.5,
-                                  ),
+                ? _buildEmpty(query.isNotEmpty)
+                : ListView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    children: grouped.entries.map((entry) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 6,
+                            ),
+                            child: Text(
+                              entry.key,
+                              style: AppTypography.bodySmall().copyWith(
+                                color: AppColors.textMuted.withValues(
+                                  alpha: 0.6,
                                 ),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.5,
                               ),
-                              ...entry.value.map((session) => _SessionItem(
-                                    session: session,
-                                    isActive: session.id == activeId,
-                                    onTap: () => onSwitch(session),
-                                    onDelete: () => onDelete(session),
-                                  )),
-                              const SizedBox(height: 8),
-                            ],
-                          );
-                        }).toList(),
-                      ),
+                            ),
+                          ),
+                          ...entry.value.map(
+                            (session) => _SessionItem(
+                              session: session,
+                              isActive: session.id == activeId,
+                              onTap: () => onSwitch(session),
+                              onDelete: () => onDelete(session),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                      );
+                    }).toList(),
+                  ),
           ),
           if (desktop)
             Padding(
@@ -444,7 +491,11 @@ class _SidebarPanel extends StatelessWidget {
           if (!desktop)
             IconButton(
               onPressed: onClose,
-              icon: Icon(Icons.close_rounded, color: AppColors.textMuted, size: 20),
+              icon: Icon(
+                Icons.close_rounded,
+                color: AppColors.textMuted,
+                size: 20,
+              ),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             )
@@ -456,7 +507,11 @@ class _SidebarPanel extends StatelessWidget {
                 borderRadius: AppRadius.radiusSm,
                 child: Padding(
                   padding: const EdgeInsets.all(6),
-                  child: Icon(Icons.close_rounded, color: AppColors.textMuted, size: 18),
+                  child: Icon(
+                    Icons.close_rounded,
+                    color: AppColors.textMuted,
+                    size: 18,
+                  ),
                 ),
               ),
             ),
@@ -474,21 +529,34 @@ class _SidebarPanel extends StatelessWidget {
         style: AppTypography.bodySmall().copyWith(color: AppColors.textMedium),
         decoration: InputDecoration(
           hintText: 'Search conversations',
-          hintStyle: AppTypography.bodySmall().copyWith(color: AppColors.textDisabled),
-          prefixIcon: Icon(Icons.search_rounded, size: 18, color: AppColors.textMuted),
+          hintStyle: AppTypography.bodySmall().copyWith(
+            color: AppColors.textDisabled,
+          ),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            size: 18,
+            color: AppColors.textMuted,
+          ),
           suffixIcon: query.isNotEmpty
               ? IconButton(
                   onPressed: () {
                     searchCtl.clear();
                     onQueryChanged('');
                   },
-                  icon: Icon(Icons.close_rounded, size: 16, color: AppColors.textMuted),
+                  icon: Icon(
+                    Icons.close_rounded,
+                    size: 16,
+                    color: AppColors.textMuted,
+                  ),
                 )
               : null,
           isDense: true,
           filled: true,
           fillColor: AppColors.surfaceGlass,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 10,
+          ),
           border: OutlineInputBorder(
             borderRadius: AppRadius.radiusLg,
             borderSide: BorderSide(color: AppColors.border),
@@ -499,7 +567,9 @@ class _SidebarPanel extends StatelessWidget {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: AppRadius.radiusLg,
-            borderSide: BorderSide(color: AppColors.blushGold.withValues(alpha: 0.35)),
+            borderSide: BorderSide(
+              color: AppColors.blushGold.withValues(alpha: 0.35),
+            ),
           ),
         ),
       ),
@@ -524,7 +594,11 @@ class _SidebarPanel extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(Icons.add_rounded, color: AppColors.petalWhite, size: 18),
+              const Icon(
+                Icons.add_rounded,
+                color: AppColors.petalWhite,
+                size: 18,
+              ),
               const SizedBox(width: 10),
               Text(
                 'New conversation',
@@ -534,7 +608,11 @@ class _SidebarPanel extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              Icon(Icons.edit_rounded, color: AppColors.petalWhite.withValues(alpha: 0.9), size: 16),
+              Icon(
+                Icons.edit_rounded,
+                color: AppColors.petalWhite.withValues(alpha: 0.9),
+                size: 16,
+              ),
             ],
           ),
         ),
@@ -549,8 +627,11 @@ class _SidebarPanel extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.chat_bubble_outline_rounded,
-                color: AppColors.textDisabled, size: 28),
+            Icon(
+              Icons.chat_bubble_outline_rounded,
+              color: AppColors.textDisabled,
+              size: 28,
+            ),
             const SizedBox(height: 10),
             Text(
               searching
@@ -585,10 +666,13 @@ class _SessionItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final timeStr = DateFormat('h:mm a').format(session.createdAt);
-    final isToday = DateTime.now().day == session.createdAt.day &&
+    final isToday =
+        DateTime.now().day == session.createdAt.day &&
         DateTime.now().month == session.createdAt.month &&
         DateTime.now().year == session.createdAt.year;
-    final dateStr = isToday ? timeStr : DateFormat('MMM d').format(session.createdAt);
+    final dateStr = isToday
+        ? timeStr
+        : DateFormat('MMM d').format(session.createdAt);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
@@ -623,44 +707,52 @@ class _SessionItem extends StatelessWidget {
                           color: isActive
                               ? AppColors.textHigh
                               : AppColors.textMedium,
-                          fontWeight:
-                              isActive ? FontWeight.w600 : FontWeight.normal,
+                          fontWeight: isActive
+                              ? FontWeight.w600
+                              : FontWeight.normal,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
-                      Row(children: [
-                        if (session.hasSummary)
-                          Container(
-                            margin: const EdgeInsets.only(right: 6),
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppColors.blushGold.withValues(alpha: 0.14),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              'summary',
-                              style: AppTypography.bodySmall().copyWith(
-                                color: AppColors.blushGold,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.4,
+                      Row(
+                        children: [
+                          if (session.hasSummary)
+                            Container(
+                              margin: const EdgeInsets.only(right: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.blushGold.withValues(
+                                  alpha: 0.14,
+                                ),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                'summary',
+                                style: AppTypography.bodySmall().copyWith(
+                                  color: AppColors.blushGold,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.4,
+                                ),
                               ),
                             ),
-                          ),
-                        Expanded(
-                          child: Text(
-                            '$dateStr · ${session.messageCount} messages',
-                            style: AppTypography.bodySmall().copyWith(
-                              color: AppColors.textDisabled,
-                              fontSize: 10,
+                          Expanded(
+                            child: Text(
+                              '$dateStr · ${session.messageCount} messages',
+                              style: AppTypography.bodySmall().copyWith(
+                                color: AppColors.textDisabled,
+                                fontSize: 10,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ]),
+                        ],
+                      ),
                     ],
                   ),
                 ),

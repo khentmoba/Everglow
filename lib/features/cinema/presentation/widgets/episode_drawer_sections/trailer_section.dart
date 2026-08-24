@@ -148,12 +148,17 @@ class TrailerSection extends StatelessWidget {
             children: [
               Text(
                 cleanTitle(title),
-                style: AppTypography.cormorantBlack.copyWith(fontSize: isMobile ? 30 : 42, height: 1.1, shadows: [
+                style: AppTypography.cormorantBlack.copyWith(
+                  fontSize: isMobile ? 30 : 42,
+                  height: 1.1,
+                  shadows: [
                     Shadow(
                       color: Colors.black.withValues(alpha: 0.7),
                       blurRadius: 16,
                     ),
-                  ], color: Colors.white),
+                  ],
+                  color: Colors.white,
+                ),
               ),
               const SizedBox(height: 6),
               Row(
@@ -161,21 +166,31 @@ class TrailerSection extends StatelessWidget {
                   if (double.tryParse(rating) != null) ...[
                     Text(
                       '${(double.parse(rating) * 10).round()}% Match',
-                      style: AppTypography.outfitHeading.copyWith(color: const Color(0xFF7ED69A), fontSize: 13),
+                      style: AppTypography.outfitHeading.copyWith(
+                        color: const Color(0xFF7ED69A),
+                        fontSize: 13,
+                      ),
                     ),
                     dot(),
                   ],
                   if (year.isNotEmpty) ...[
                     Text(
                       year,
-                      style: AppTypography.outfitWhite.copyWith(color: Colors.white.withValues(alpha: 0.75), fontSize: 12.5, fontWeight: FontWeight.w500),
+                      style: AppTypography.outfitWhite.copyWith(
+                        color: Colors.white.withValues(alpha: 0.75),
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     dot(),
                   ],
                   if (runtime != null) ...[
                     Text(
                       '${runtime}m',
-                      style: AppTypography.outfitWhite.copyWith(color: Colors.white.withValues(alpha: 0.75), fontSize: 12.5),
+                      style: AppTypography.outfitWhite.copyWith(
+                        color: Colors.white.withValues(alpha: 0.75),
+                        fontSize: 12.5,
+                      ),
                     ),
                     dot(),
                   ],
@@ -192,7 +207,11 @@ class TrailerSection extends StatelessWidget {
                     ),
                     child: Text(
                       'HD',
-                      style: AppTypography.outfitHeading.copyWith(color: Colors.white.withValues(alpha: 0.9), fontSize: 9, letterSpacing: 0.5),
+                      style: AppTypography.outfitHeading.copyWith(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 9,
+                        letterSpacing: 0.5,
+                      ),
                     ),
                   ),
                 ],
@@ -238,7 +257,11 @@ class TrailerSection extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     'Close Trailer',
-                    style: AppTypography.outfitWhite.copyWith(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -297,7 +320,12 @@ class TrailerSection extends StatelessWidget {
                     const SizedBox(width: 6),
                     Text(
                       'Watch Trailer',
-                      style: AppTypography.outfitWhite.copyWith(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5),
+                      style: AppTypography.outfitWhite.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        letterSpacing: 0.5,
+                      ),
                     ),
                   ],
                 ),
@@ -338,7 +366,11 @@ class TrailerSection extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   'No preview available',
-                  style: AppTypography.outfitBold.copyWith(color: AppColors.mutedPurple, fontSize: 11, letterSpacing: 1.2),
+                  style: AppTypography.outfitBold.copyWith(
+                    color: AppColors.mutedPurple,
+                    fontSize: 11,
+                    letterSpacing: 1.2,
+                  ),
                 ),
               ],
             ),

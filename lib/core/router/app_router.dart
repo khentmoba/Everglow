@@ -48,11 +48,15 @@ GoRouter createAppRouter() => GoRouter(
     // Not authed -> bounce to gate
     if (!authed && !isPublic) return '/';
     // Cinema-only users should not land on couple dashboard
-    if (authed && di.authService.isCinemaOnlyUser && loc.startsWith('/dashboard')) return '/cinema';
+    if (authed &&
+        di.authService.isCinemaOnlyUser &&
+        loc.startsWith('/dashboard')) {
+      return '/cinema';
+    }
     return null;
   },
-  // legacy export: keep appRouter for existing imports
 
+  // legacy export: keep appRouter for existing imports
   initialLocation: '/',
   debugLogDiagnostics: false,
   routes: [

@@ -47,7 +47,7 @@ class _LetterArchiveSearchDelegate extends StatelessWidget {
         ),
       ),
       body: notes.isEmpty
-          ? EverglowEmptyState(
+          ? const EverglowEmptyState(
               icon: Icons.search_off_rounded,
               title: 'No letters found',
             )
@@ -97,10 +97,10 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
       ),
       body: Stack(
         children: [
-          Positioned.fill(
+          const Positioned.fill(
             child: EverglowBackground(
               baseColor: AppColors.inkDeep,
-              glows: const [
+              glows: [
                 RadialGlow(
                   color: AppColors.auroraGold,
                   alignment: Alignment(-0.7, -0.9),
@@ -512,7 +512,11 @@ class _CountdownBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.lock_clock_rounded, size: 12, color: AppTheme.blushGold),
+          const Icon(
+            Icons.lock_clock_rounded,
+            size: 12,
+            color: AppTheme.blushGold,
+          ),
           const SizedBox(width: 4),
           Text(
             text,

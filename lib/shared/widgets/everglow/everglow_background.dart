@@ -21,14 +21,14 @@ class EverglowBackground extends StatefulWidget {
       RadialGlow(
         color: AppColors.deepRose,
         alignment: Alignment(-0.7, -0.85),
-        size: 0.85,
-        opacity: 0.16,
+        size: 0.80,
+        opacity: 0.06,
       ),
       RadialGlow(
         color: AppColors.softLavender,
         alignment: Alignment(0.85, 0.95),
-        size: 0.75,
-        opacity: 0.10,
+        size: 0.70,
+        opacity: 0.06,
       ),
     ],
     this.showPetals = false,
@@ -84,47 +84,47 @@ class _EverglowBackgroundState extends State<EverglowBackground>
   Widget build(BuildContext context) {
     return RepaintBoundary(
       child: SizedBox.expand(
-      child: IgnorePointer(
-        child: ExcludeSemantics(
-          child: Container(
-            decoration: BoxDecoration(
-              color: widget.baseColor,
-              backgroundBlendMode: BlendMode.srcOver,
-            ),
-            child: Stack(
-              children: [
-                // Radial glows
-                for (final g in widget.glows)
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: RadialGradient(
-                          center: g.alignment,
-                          radius: g.size,
-                          colors: [
-                            g.color.withValues(alpha: g.opacity),
-                            g.color.withValues(alpha: 0),
-                          ],
-                          stops: const [0.0, 1.0],
+        child: IgnorePointer(
+          child: ExcludeSemantics(
+            child: Container(
+              decoration: BoxDecoration(
+                color: widget.baseColor,
+                backgroundBlendMode: BlendMode.srcOver,
+              ),
+              child: Stack(
+                children: [
+                  // Radial glows
+                  for (final g in widget.glows)
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: RadialGradient(
+                            center: g.alignment,
+                            radius: g.size,
+                            colors: [
+                              g.color.withValues(alpha: g.opacity),
+                              g.color.withValues(alpha: 0),
+                            ],
+                            stops: const [0.0, 1.0],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                // Optional animated petal overlay (only when not reduced)
-                if (widget.showPetals && _controller != null)
-                  Positioned.fill(
-                    child: AnimatedBuilder(
-                      animation: _controller!,
-                      builder: (_, _) => CustomPaint(
-                        painter: _PetalPainter(_controller!.value),
+                  // Optional animated petal overlay (only when not reduced)
+                  if (widget.showPetals && _controller != null)
+                    Positioned.fill(
+                      child: AnimatedBuilder(
+                        animation: _controller!,
+                        builder: (_, _) => CustomPaint(
+                          painter: _PetalPainter(_controller!.value),
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -164,6 +164,5 @@ class _PetalPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _PetalPainter old) =>
-      old.progress != progress;
+  bool shouldRepaint(covariant _PetalPainter old) => old.progress != progress;
 }

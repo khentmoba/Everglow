@@ -53,14 +53,11 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
     if (!mounted) return;
     if (details != null) {
       final rawSeasons = (details['seasons'] as List?) ?? [];
-      _seasons = rawSeasons
-          .map((s) => s as Map<String, dynamic>)
-          .where((s) {
-            final seasonNum = s['season_number'];
-            // Filter out season 0 (specials) unless it's the only one
-            return seasonNum is int && seasonNum > 0;
-          })
-          .toList();
+      _seasons = rawSeasons.map((s) => s as Map<String, dynamic>).where((s) {
+        final seasonNum = s['season_number'];
+        // Filter out season 0 (specials) unless it's the only one
+        return seasonNum is int && seasonNum > 0;
+      }).toList();
     }
     setState(() => _isLoadingSeasons = false);
     if (_seasons.isNotEmpty) {
@@ -114,19 +111,28 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
                 const SizedBox(width: 8),
                 Text(
                   'Episodes',
-                  style: AppTypography.outfitHeading.copyWith(color: Colors.white, fontSize: 13),
+                  style: AppTypography.outfitHeading.copyWith(
+                    color: Colors.white,
+                    fontSize: 13,
+                  ),
                 ),
                 if (!_isLoadingSeasons && _seasons.isNotEmpty) ...[
                   const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       'S$_selectedSeason',
-                      style: AppTypography.outfitBold.copyWith(color: Colors.white54, fontSize: 10),
+                      style: AppTypography.outfitBold.copyWith(
+                        color: Colors.white54,
+                        fontSize: 10,
+                      ),
                     ),
                   ),
                 ],
@@ -217,7 +223,10 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
               ),
               child: Text(
                 name,
-                style: AppTypography.outfitHeading.copyWith(color: isSelected ? const Color(0xFFC2185B) : Colors.white70, fontSize: 11),
+                style: AppTypography.outfitHeading.copyWith(
+                  color: isSelected ? const Color(0xFFC2185B) : Colors.white70,
+                  fontSize: 11,
+                ),
               ),
             ),
           );
@@ -272,7 +281,8 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
                               '$_imageBase$stillPath',
                               fit: BoxFit.cover,
                               cacheWidth: 360,
-                              errorBuilder: (_, _, _) => _buildPlaceholder(epNum),
+                              errorBuilder: (_, _, _) =>
+                                  _buildPlaceholder(epNum),
                             )
                           : _buildPlaceholder(epNum),
                     ),
@@ -292,15 +302,20 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
                               ),
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? const Color(0xFFC2185B).withValues(alpha: 0.25)
+                                    ? const Color(
+                                        0xFFC2185B,
+                                      ).withValues(alpha: 0.25)
                                     : Colors.white.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(3),
                               ),
                               child: Text(
                                 'E$epNum',
-                                style: AppTypography.outfitHeading.copyWith(fontSize: 8, color: isSelected
+                                style: AppTypography.outfitHeading.copyWith(
+                                  fontSize: 8,
+                                  color: isSelected
                                       ? const Color(0xFFC2185B)
-                                      : Colors.white54),
+                                      : Colors.white54,
+                                ),
                               ),
                             ),
                           ],
@@ -310,7 +325,10 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
                           name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppTypography.outfitBold.copyWith(fontSize: 10, color: Colors.white),
+                          style: AppTypography.outfitBold.copyWith(
+                            fontSize: 10,
+                            color: Colors.white,
+                          ),
                         ),
                       ],
                     ),
@@ -330,7 +348,11 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
       alignment: Alignment.center,
       child: Text(
         'E$epNum',
-        style: AppTypography.outfitWhite.copyWith(color: Colors.white24, fontSize: 20, fontWeight: FontWeight.w800),
+        style: AppTypography.outfitWhite.copyWith(
+          color: Colors.white24,
+          fontSize: 20,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }

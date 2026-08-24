@@ -13,6 +13,7 @@ String buildVideoSourceUrl(
   required String id,
   required int season,
   required int episode,
+  int? startSeconds,
 }) {
   final cinemaUrl = CinemaVideoSources.buildUrl(
     provider,
@@ -21,12 +22,13 @@ String buildVideoSourceUrl(
     season: season,
     episode: episode,
   );
-  if (cinemaUrl != null) return cinemaUrl;
+  if (cinemaUrl != null) {
+    return _withStartSeconds(cinemaUrl, startSeconds);
+  }
 
   final movieBase = provider.movieUrl;
   final tvBase = provider.tvUrl;
-  final isVideasy =
-      movieBase.contains('videasy') || tvBase.contains('videasy');
+  final isVideasy = movieBase.contains('videasy') || tvBase.contains('videasy');
 
   if (mediaType == 'tv') {
     if (tvBase.contains('vidsrc.to')) {
@@ -40,9 +42,10 @@ String buildVideoSourceUrl(
     } else {
       final separator = tvBase.endsWith('/') ? '' : '/';
       final base = '$tvBase$separator$id/$season/$episode';
-      return isVideasy
+      final url = isVideasy
           ? '$base?autoplay=true&nextButton=true&episodeSelector=true'
           : base;
+      return _withStartSeconds(url, startSeconds);
     }
   }
 
@@ -50,9 +53,19 @@ String buildVideoSourceUrl(
     return '$movieBase$id&tmdb=1';
   }
   final separator =
-      movieBase.endsWith('/') || movieBase.contains('?') || movieBase.contains('=')
-          ? ''
-          : '/';
+      movieBase.endsWith('/') ||
+          movieBase.contains('?') ||
+          movieBase.contains('=')
+      ? ''
+      : '/';
   final base = '$movieBase$separator$id';
-  return isVideasy ? '$base?autoplay=true' : base;
+  final base2 = isVideasy ? '$base?autoplay=true' : base;
+  return _withStartSeconds(base2, startSeconds);
+}
+
+String _withStartSeconds(String url, int? startSeconds) {
+  if (startSeconds == null || startSeconds <= 0) return url;
+  return url.contains('?')
+      ? '$url&start=$startSeconds'
+      : '$url?start=$startSeconds';
 }

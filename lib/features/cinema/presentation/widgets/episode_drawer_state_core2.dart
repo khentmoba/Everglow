@@ -106,7 +106,8 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
           );
         }
 
-        final isBoth = newStatus == 'watched-both' || newStatus == 'watching-both';
+        final isBoth =
+            newStatus == 'watched-both' || newStatus == 'watching-both';
         await _tmdbService.saveToWatchList(
           resolvedItem,
           newStatus,
@@ -220,7 +221,6 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
     );
   }
 
-
   void _playMovie() {
     final id = _isAnimeSourced ? _effectiveMalId : widget.item.tmdbId;
     final malIdParam = _isAnimeSourced ? '&malId=$_effectiveMalId' : '';
@@ -252,6 +252,4 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
   // ═══════════════════════════════════════════════════════════════
   // BUILD
   // ═══════════════════════════════════════════════════════════════
-
 }
-

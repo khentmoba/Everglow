@@ -14,9 +14,9 @@ void main() {
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: const ColoredBox(
+        home: ColoredBox(
           color: AppColors.inkDeep,
           child: Stack(
             children: [
