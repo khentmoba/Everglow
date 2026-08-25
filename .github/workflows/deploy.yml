@@ -107,7 +107,7 @@ jobs:
           if [ -n "${SPOTIFY_CLIENT_ID:-}" ]; then echo "SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}" >> functions/.env; fi
           if [ -n "${SPOTIFY_CLIENT_SECRET:-}" ]; then echo "SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}" >> functions/.env; fi
           GOOGLE_APPLICATION_CREDENTIALS="$HOME"/firebase-sa.json \
-          firebase deploy --only functions,firestore:rules,firestore:indexes,storage --project everglow-1c6db
+          firebase deploy --only functions,firestore:rules,firestore:indexes,storage --project everglow-1c6db --force
 
       - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0.9.0
