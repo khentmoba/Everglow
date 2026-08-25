@@ -23,7 +23,7 @@ flutter build web @dartDefines
 if ($LASTEXITCODE -ne 0) { Write-Host "Build failed"; exit 1 }
 
 Write-Host "Deploying to Firebase..."
-firebase deploy --only functions,hosting,firestore:rules,storage
+firebase deploy --only functions,hosting,firestore:rules,storage --force
 if ($LASTEXITCODE -ne 0) { Write-Host "Deploy failed"; exit 1 }
 
 # Read version info for the final message
