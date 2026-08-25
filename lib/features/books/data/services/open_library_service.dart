@@ -267,6 +267,23 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
       Logger.w('saveToReadList: userName is empty');
       return;
     }
+    // Guard: non-couple users may only use generic statuses.
+    const coupleStatuses = {
+      'read-khent',
+      'read-clair',
+      'read-both',
+      'watching-khent',
+      'watching-clair',
+      'watching-both',
+      'watched-khent',
+      'watched-clair',
+      'watched-both',
+    };
+    final isCouple = userName == 'khentsgdz' || userName == 'clairjassen';
+    if (!isCouple && coupleStatuses.contains(status)) {
+      Logger.w("saveToReadList: blocked partner status '$status' for $userName");
+      return;
+    }
     try {
       final collection = _firestore.collection('read_list');
       final existing = await collection

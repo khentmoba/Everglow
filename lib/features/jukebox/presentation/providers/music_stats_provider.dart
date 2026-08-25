@@ -189,55 +189,79 @@ class MusicStatsProvider extends ChangeNotifier {
 
   /// Replaces missing (or placeholder) top-track artwork with the track's
   /// real album art from `track.getinfo`. Runs in the background so the
-  /// leaderboard renders immediately.
+  /// leaderboard renders immediately. Batched with concurrency=4 so 10 tracks
+  /// don't take 10×RTT serially.
   Future<void> _enrichTopTrackArtwork(List<TopMusicTrack> tracks) async {
-    var changed = false;
+    final indices = <int>[];
     for (var i = 0; i < tracks.length; i++) {
-      final track = tracks[i];
-      if (track.imageUrl != null) continue;
-      final artwork = await _artworkFor(
-        track.artistName,
-        track.trackName,
-        mbid: track.mbid,
-      );
-      if (_disposed || artwork == null) continue;
-      if (!identical(tracks[i], track)) continue;
-      if (tracks[i].imageUrl == artwork) continue;
-      tracks[i] = TopMusicTrack(
-        rank: track.rank,
-        trackName: track.trackName,
-        artistName: track.artistName,
-        playCount: track.playCount,
-        imageUrl: artwork,
-        spotifyUrl: track.spotifyUrl,
-        mbid: track.mbid,
-      );
-      changed = true;
+      if (tracks[i].imageUrl == null) indices.add(i);
+    }
+    if (indices.isEmpty) return;
+    const concurrency = 4;
+    var changed = false;
+    for (var c = 0; c < indices.length; c += concurrency) {
+      final chunk = indices.skip(c).take(concurrency).toList();
+      final results = await Future.wait(chunk.map((idx) async {
+        final track = tracks[idx];
+        final artwork = await _artworkFor(
+          track.artistName,
+          track.trackName,
+          mbid: track.mbid,
+        );
+        return (idx: idx, track: track, artwork: artwork);
+      }));
+      for (final r in results) {
+        if (_disposed || r.artwork == null) continue;
+        if (!identical(tracks[r.idx], r.track)) continue;
+        if (tracks[r.idx].imageUrl == r.artwork) continue;
+        tracks[r.idx] = TopMusicTrack(
+          rank: r.track.rank,
+          trackName: r.track.trackName,
+          artistName: r.track.artistName,
+          playCount: r.track.playCount,
+          imageUrl: r.artwork,
+          spotifyUrl: r.track.spotifyUrl,
+          mbid: r.track.mbid,
+        );
+        changed = true;
+      }
     }
     if (changed) _safeNotify();
   }
 
   /// Same enrichment as [_enrichTopTrackArtwork] but for recent scrobbles.
+  /// Batched for the same reason.
   Future<void> _enrichRecentTrackArtwork(List<MusicStatus> tracks) async {
-    var changed = false;
+    final indices = <int>[];
     for (var i = 0; i < tracks.length; i++) {
-      final status = tracks[i];
-      if (status.imageUrl != null) continue;
-      final artwork = await _artworkFor(status.artistName, status.trackName);
-      if (_disposed || artwork == null) continue;
-      if (!identical(tracks[i], status)) continue;
-      if (tracks[i].imageUrl == artwork) continue;
-      tracks[i] = MusicStatus(
-        username: status.username,
-        trackName: status.trackName,
-        artistName: status.artistName,
-        albumName: status.albumName,
-        imageUrl: artwork,
-        isPlaying: status.isPlaying,
-        spotifyUrl: status.spotifyUrl,
-        timestamp: status.timestamp,
-      );
-      changed = true;
+      if (tracks[i].imageUrl == null) indices.add(i);
+    }
+    if (indices.isEmpty) return;
+    const concurrency = 4;
+    var changed = false;
+    for (var c = 0; c < indices.length; c += concurrency) {
+      final chunk = indices.skip(c).take(concurrency).toList();
+      final results = await Future.wait(chunk.map((idx) async {
+        final status = tracks[idx];
+        final artwork = await _artworkFor(status.artistName, status.trackName);
+        return (idx: idx, status: status, artwork: artwork);
+      }));
+      for (final r in results) {
+        if (_disposed || r.artwork == null) continue;
+        if (!identical(tracks[r.idx], r.status)) continue;
+        if (tracks[r.idx].imageUrl == r.artwork) continue;
+        tracks[r.idx] = MusicStatus(
+          username: r.status.username,
+          trackName: r.status.trackName,
+          artistName: r.status.artistName,
+          albumName: r.status.albumName,
+          imageUrl: r.artwork,
+          isPlaying: r.status.isPlaying,
+          spotifyUrl: r.status.spotifyUrl,
+          timestamp: r.status.timestamp,
+        );
+        changed = true;
+      }
     }
     if (changed) _safeNotify();
   }

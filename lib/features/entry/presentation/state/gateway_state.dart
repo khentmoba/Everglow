@@ -56,11 +56,11 @@ class GatewayNotifier extends ChangeNotifier {
   void _validatePasscode() async {
     updateState(GatewayState.evaluating);
 
-    // Small delay to feel intentional
-    await Future.delayed(const Duration(milliseconds: 500));
+    // Brief pause to feel intentional but not sluggish
+    await Future.delayed(const Duration(milliseconds: 220));
 
     // Breyan/Octagram stay client-verified (non-sensitive).
-    // Khent/Clair are server-verified (verifyPasscode) — never trust
+    // Khent/Clair are server-verified (verifyPasscode) - never trust
     // a client 0221/0938 fallback in JS.
     final clientPasscodes = <String>{
       if (EnvConfig.breyanPasscode.isNotEmpty) EnvConfig.breyanPasscode,

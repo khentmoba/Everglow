@@ -53,19 +53,18 @@ class JukeboxProvider extends ChangeNotifier {
   }
 
   Future<void> _fetchAndSync(String khent, String clair) async {
+    final futures = <Future<void>>[];
     if (khent.isNotEmpty) {
-      final khentStatus = await _apiService.fetchRecentTrack(khent);
-      if (khentStatus != null) {
-        await _persistenceService.saveMusicStatus(khentStatus);
-      }
+      futures.add(_apiService.fetchRecentTrack(khent).then((s) {
+        if (s != null) return _persistenceService.saveMusicStatus(s);
+      }));
     }
-
     if (clair.isNotEmpty) {
-      final clairStatus = await _apiService.fetchRecentTrack(clair);
-      if (clairStatus != null) {
-        await _persistenceService.saveMusicStatus(clairStatus);
-      }
+      futures.add(_apiService.fetchRecentTrack(clair).then((s) {
+        if (s != null) return _persistenceService.saveMusicStatus(s);
+      }));
     }
+    if (futures.isNotEmpty) await Future.wait(futures);
   }
 
   @override

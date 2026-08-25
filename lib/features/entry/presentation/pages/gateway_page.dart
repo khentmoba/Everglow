@@ -1,8 +1,9 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../dashboard/presentation/screens/dashboard_screen.dart';
 import '../../../dashboard/domain/models/milestone.dart';
+import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../cinema/data/services/tmdb_service.dart';
 import '../../../../core/config/env_config.dart';
 import 'package:provider/provider.dart';
@@ -180,59 +181,53 @@ class _GatewayPageState extends State<GatewayPage> {
       };
       final isCinemaOnlyAccess = cinemaOnlyPasscodes.contains(passcode);
 
-      try {
-        // Khent/Clair are already signed in by verifyPasscode (custom token);
-        // there is intentionally no client-side credential fallback.
-        if (passcode == EnvConfig.clairPasscode ||
-            passcode == EnvConfig.khentPasscode) {
-          if (authService.currentUser == null) {
-            authService.setAuthError('Server verification failed. Try again.');
-          }
-        } else if (passcode == EnvConfig.breyanPasscode) {
-          // Breyan's cinema-only access: own user, isolated data
-          await authService.loginWithPasscode('breyan');
-        } else if (passcode == EnvConfig.octagramPasscode) {
-          // Octagram's cinema-only access: own user, isolated data
-          await authService.loginWithPasscode('octagram');
-        } else {
-          await authService.ensureAuthenticated();
+      Future<void> authTask;
+      if (passcode == EnvConfig.breyanPasscode) {
+        authTask = authService.loginWithPasscode('breyan');
+      } else if (passcode == EnvConfig.octagramPasscode) {
+        authTask = authService.loginWithPasscode('octagram');
+      } else if (passcode == EnvConfig.clairPasscode ||
+          passcode == EnvConfig.khentPasscode) {
+        if (authService.currentUser == null) {
+          authService.setAuthError('Server verification failed. Try again.');
         }
-        // Backfill userName on legacy watch_list items (idempotent).
-        // Runs for every passcode so cinema-only profiles' fresh start
-        // and any future re-login also covers it.
-        await TMDBService().migrateWatchListOwnership();
-
-        // Seed milestone memories after authentication succeeds
-        _seedDataOnce();
-      } catch (e) {
-        Logger.e("Error during passcode login", error: e);
-        try {
-          await authService.ensureAuthenticated();
-        } catch (e) {
-          debugPrint('[GatewayPage] ensureAuthenticated fallback failed: $e');
-        }
+        authTask = Future.value();
+      } else {
+        authTask = authService.ensureAuthenticated();
       }
 
-      // Show auth error if any (non-blocking, user still proceeds)
-      if (authService.lastAuthError != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              authService.lastAuthError!,
-              style: const TextStyle(color: Colors.white),
+      unawaited(authTask.then((_) {
+        unawaited(TMDBService().migrateWatchListOwnership().catchError((e) {
+          Logger.e('Watchlist migration background error', error: e);
+          return 0;
+        }));
+        unawaited(_seedDataOnce().catchError((e) {
+          Logger.e('Seeding background error', error: e);
+        }));
+      }).catchError((e) {
+        Logger.e('Error during passcode login', error: e);
+        unawaited(authService.ensureAuthenticated().catchError((_) {}));
+      }).whenComplete(() {
+        if (authService.lastAuthError != null && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                authService.lastAuthError!,
+                style: const TextStyle(color: Colors.white),
+              ),
+              backgroundColor: Colors.orange.shade700,
+              duration: const Duration(seconds: 4),
+              behavior: SnackBarBehavior.floating,
             ),
-            backgroundColor: Colors.orange.shade700,
-            duration: const Duration(seconds: 4),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+          );
+        }
+      }));
 
-      // Let the door unlock animation play for 1.5s, then route.
-      // For cinema-only profiles, skip the dashboard reveal entirely and
-      // push cinema directly while the gateway is still in `unlocking`
-      // state — that way the dashboard is never rendered behind the door.
-      Future.delayed(const Duration(milliseconds: 1500), () {
+      final navDelay = Future.delayed(const Duration(milliseconds: 900));
+      Future.wait([
+        navDelay,
+        authTask.catchError((_) {}),
+      ]).then((_) {
         if (!mounted || _hasNavigated) return;
         if (isCinemaOnlyAccess) {
           _hasNavigated = true;
@@ -242,7 +237,7 @@ class _GatewayPageState extends State<GatewayPage> {
         }
       });
     } else if (newState == GatewayState.revealingSite) {
-      Future.delayed(const Duration(milliseconds: 2000), () {
+      Future.delayed(const Duration(milliseconds: 1100), () {
         if (mounted) _notifier.updateState(GatewayState.complete);
       });
     } else if (newState == GatewayState.complete) {
@@ -411,11 +406,55 @@ class _GatewayPageState extends State<GatewayPage> {
     final isRevealing =
         state == GatewayState.revealingSite || state == GatewayState.complete;
 
+    // Lightweight placeholder — mirrors Dashboard's EverglowBackground so the
+    // door reveal feels continuous, but doesn't open any Firestore streams.
+    // The old code mounted a full DashboardScreen here, which was disposed
+    // 1100ms later when `go('/dashboard')` mounted a second instance and
+    // caused the XP bar (and every other stream) to flash shrink->show.
     return AnimatedOpacity(
       opacity: isRevealing ? 1.0 : 0.0,
       duration: const Duration(milliseconds: 500),
       child: isRevealing
-          ? const DashboardScreen(animate: true)
+          ? const Stack(
+              children: [
+                Positioned.fill(
+                  child: EverglowBackground(
+                    baseColor: AppColors.inkDeep,
+                    glows: [
+                      RadialGlow(
+                        color: AppColors.deepRose,
+                        alignment: Alignment(-0.7, -0.85),
+                        size: 0.9,
+                        opacity: 0.14,
+                      ),
+                      RadialGlow(
+                        color: AppColors.softLavender,
+                        alignment: Alignment(0.85, 0.95),
+                        size: 0.8,
+                        opacity: 0.10,
+                      ),
+                      RadialGlow(
+                        color: AppColors.auroraGold,
+                        alignment: Alignment(0.1, 0.45),
+                        size: 0.6,
+                        opacity: 0.05,
+                      ),
+                    ],
+                    showPetals: false,
+                  ),
+                ),
+                Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.deepRose,
+                    ),
+                  ),
+                ),
+              ],
+            )
           : const SizedBox.shrink(),
     );
   }
