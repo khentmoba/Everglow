@@ -99,8 +99,9 @@ class _DashboardScreenState extends State<DashboardScreen>
         final authService = context.read<AuthService>();
         final gardenProvider = context.read<GardenProvider>();
 
-        if (authService.user != null) {
-          gardenProvider.updateUserId(authService.user!.uid);
+        final uid = authService.uid;
+        if (uid != null && uid.isNotEmpty) {
+          gardenProvider.updateUserId(uid);
           gardenProvider.recordInteraction();
         }
 
@@ -232,6 +233,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     int delayMs = 900,
     double heightAfter = 32,
     double placeholderHeight = 220,
+    int deferMs = 0,
   }) {
     final Widget animated;
     if (!widget.animate) {
@@ -252,6 +254,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     return SliverToBoxAdapter(
       child: DeferredSection(
         placeholderHeight: placeholderHeight,
+        deferMs: deferMs,
         child: animated,
       ),
     );
@@ -354,7 +357,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                               vertical: 8,
                             ),
                             child: Selector<AuthService, String?>(
-                              selector: (_, auth) => auth.user?.uid,
+                              selector: (_, auth) => auth.uid,
                               builder: (context, uid, _) =>
                                   XpProgressSection(uid: uid),
                             ),
@@ -401,6 +404,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           const OnThisDayCard(),
                           delayMs: 800,
                           placeholderHeight: 190,
+                          deferMs: 0,
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
@@ -410,12 +414,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                           delayMs: 850,
                           heightAfter: 16,
                           placeholderHeight: 300,
+                          deferMs: 0,
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 16)),
                         _animatedSliver(
                           const LetterboxView(),
                           delayMs: 900,
                           placeholderHeight: 210,
+                          deferMs: 0,
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 32)),
                         _animatedSliver(
@@ -425,6 +431,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           ),
                           delayMs: 950,
                           placeholderHeight: 320,
+                          deferMs: 80,
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 32)),
                         _animatedSliver(
@@ -434,6 +441,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           ),
                           delayMs: 1000,
                           placeholderHeight: 420,
+                          deferMs: 160,
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 32)),
                         _animatedSliver(
@@ -442,6 +450,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           ),
                           delayMs: 1050,
                           placeholderHeight: 280,
+                          deferMs: 240,
                         ),
                         SliverToBoxAdapter(
                           child: SizedBox(
@@ -454,30 +463,35 @@ class _DashboardScreenState extends State<DashboardScreen>
                           const CurrentlyWatchingPreview(),
                           delayMs: 1080,
                           placeholderHeight: 260,
+                          deferMs: 320,
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 16)),
                         _animatedSliver(
                           const WatchPartyCard(),
                           delayMs: 1100,
                           placeholderHeight: 190,
+                          deferMs: 400,
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 16)),
                         _animatedSliver(
                           const CinemaPreview(),
                           delayMs: 1100,
                           placeholderHeight: 300,
+                          deferMs: 480,
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 16)),
                         _animatedSliver(
                           const AnimePreview(),
                           delayMs: 1130,
                           placeholderHeight: 300,
+                          deferMs: 560,
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 16)),
                         _animatedSliver(
                           const BooksPreview(),
                           delayMs: 1150,
                           placeholderHeight: 300,
+                          deferMs: 640,
                         ),
                         SliverToBoxAdapter(
                           child: SizedBox(
@@ -490,18 +504,21 @@ class _DashboardScreenState extends State<DashboardScreen>
                           const GalleryPreview(),
                           delayMs: 1170,
                           placeholderHeight: 200,
+                          deferMs: 720,
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 16)),
                         _animatedSliver(
                           const CalendarPreview(),
                           delayMs: 1175,
                           placeholderHeight: 220,
+                          deferMs: 800,
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 16)),
                         _animatedSliver(
                           const MangaPreview(),
                           delayMs: 1180,
                           placeholderHeight: 300,
+                          deferMs: 880,
                         ),
                         SliverToBoxAdapter(
                           child: SizedBox(

@@ -80,10 +80,29 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
 
   Future<void> _updateStatus(String newStatus) async {
     HapticFeedback.selectionClick();
-    final userName = context.read<AuthService>().currentUser ?? '';
+    final auth = context.read<AuthService>();
+    final userName = auth.currentUser ?? '';
     if (userName.isEmpty) {
       _showSnack('Please sign in to manage your list');
       return;
+    }
+    // Guard: only couple may set Khent/Clair/Both statuses.
+    if (!auth.isCoupleUser && _currentStatus != newStatus) {
+      const partnerStatuses = {
+        'read-khent',
+        'read-clair',
+        'read-both',
+        'watching-khent',
+        'watching-clair',
+        'watching-both',
+        'watched-khent',
+        'watched-clair',
+        'watched-both',
+      };
+      if (partnerStatuses.contains(newStatus)) {
+        _showSnack('This status is only available to Khent & Clair');
+        return;
+      }
     }
     if (_currentStatus == newStatus) {
       setState(() => _currentStatus = '');
@@ -323,7 +342,7 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
   }
 
   Widget _buildStatusSection() {
-    final isCinemaOnly = context.watch<AuthService>().isCinemaOnlyUser;
+    final isCouple = context.watch<AuthService>().isCoupleUser;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
       child: Column(
@@ -362,14 +381,7 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
                   icon: Icons.bookmark_rounded,
                 ),
                 const SizedBox(width: 8),
-                if (isCinemaOnly) ...[
-                  _buildStatusChip(
-                    'Read',
-                    'read-self',
-                    icon: Icons.check_circle_rounded,
-                    activeColor: const Color(0xFF2E7D32),
-                  ),
-                ] else ...[
+                if (isCouple) ...[
                   _buildStatusChip(
                     'Khent Read',
                     'read-khent',
@@ -388,6 +400,13 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
                     'Both Read',
                     'read-both',
                     icon: Icons.people_rounded,
+                    activeColor: const Color(0xFF2E7D32),
+                  ),
+                ] else ...[
+                  _buildStatusChip(
+                    'Read',
+                    'read-self',
+                    icon: Icons.check_circle_rounded,
                     activeColor: const Color(0xFF2E7D32),
                   ),
                 ],

@@ -68,6 +68,7 @@ class MusicStatsSection extends StatelessWidget {
                 recentTracks: provider.clairRecentTracks,
                 totalPlays: provider.clairTotalPlays,
                 isLeader: provider.isClairLeader,
+                isClair: true,
               ),
             ],
           ),
@@ -84,6 +85,7 @@ class _MusicStatsBlock extends StatelessWidget {
   final List<MusicStatus> recentTracks;
   final int totalPlays;
   final bool isLeader;
+  final bool isClair;
 
   const _MusicStatsBlock({
     required this.displayName,
@@ -92,11 +94,12 @@ class _MusicStatsBlock extends StatelessWidget {
     required this.recentTracks,
     required this.totalPlays,
     required this.isLeader,
+    this.isClair = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         LeaderboardHeader(
@@ -104,6 +107,7 @@ class _MusicStatsBlock extends StatelessWidget {
           username: username,
           totalPlays: totalPlays,
           isLeader: isLeader,
+          isClair: isClair,
         ),
         const SizedBox(height: AppSpacing.lg),
         if (topTracks.isEmpty)
@@ -123,6 +127,7 @@ class _MusicStatsBlock extends StatelessWidget {
                       track: topTracks[i],
                       username: username,
                       maxPlays: maxPlays,
+                      isPink: isClair,
                     ),
                     if (i != topTracks.length - 1)
                       Padding(
@@ -143,6 +148,7 @@ class _MusicStatsBlock extends StatelessWidget {
           icon: Icons.history_rounded,
           title: 'Recently Heard',
           subtitle: "$username's latest 5 scrobbles",
+          isPink: isClair,
         ),
         const SizedBox(height: AppSpacing.lg),
         if (recentTracks.isEmpty)
@@ -154,6 +160,27 @@ class _MusicStatsBlock extends StatelessWidget {
           ],
       ],
     );
+    if (!isClair) return content;
+    // Clair gets a subtle rose-pink card so her board is instantly distinct.
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: AppColors.auroraRose.withValues(alpha: 0.06),
+        border: Border.all(
+          color: AppColors.auroraRose.withValues(alpha: 0.14),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.auroraRose.withValues(alpha: 0.10),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: content,
+    );
   }
 }
 
@@ -161,11 +188,13 @@ class _SectionHeader extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
+  final bool isPink;
 
   const _SectionHeader({
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.isPink = false,
   });
 
   @override
@@ -180,17 +209,28 @@ class _SectionHeader extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                AppColors.blushGold.withValues(alpha: 0.18),
-                AppColors.blushGold.withValues(alpha: 0.05),
-              ],
+              colors: isPink
+                  ? [
+                      AppColors.auroraRose.withValues(alpha: 0.20),
+                      AppColors.cinemaPink.withValues(alpha: 0.10),
+                    ]
+                  : [
+                      AppColors.blushGold.withValues(alpha: 0.18),
+                      AppColors.blushGold.withValues(alpha: 0.05),
+                    ],
             ),
             border: Border.all(
-              color: AppColors.blushGold.withValues(alpha: 0.45),
+              color: isPink
+                  ? AppColors.auroraRose.withValues(alpha: 0.45)
+                  : AppColors.blushGold.withValues(alpha: 0.45),
               width: 1,
             ),
           ),
-          child: Icon(icon, size: 18, color: AppColors.blushGold),
+          child: Icon(
+            icon,
+            size: 18,
+            color: isPink ? AppColors.auroraRose : AppColors.blushGold,
+          ),
         ),
         const SizedBox(width: AppSpacing.md),
         Expanded(
@@ -214,7 +254,7 @@ class _SectionHeader extends StatelessWidget {
                 style: AppTypography.outfitMedium.copyWith(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.blushGold,
+                  color: isPink ? AppColors.auroraRose : AppColors.blushGold,
                   letterSpacing: 1.6,
                 ),
               ),

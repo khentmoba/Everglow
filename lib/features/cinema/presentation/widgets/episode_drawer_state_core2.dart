@@ -27,6 +27,31 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
       _showSnack('Please sign in to manage your watchlist');
       return;
     }
+    // ── Guard: only couple users may set partner-specific statuses.
+    // Non-couple profiles (Breyan, Octagram, guests, or any unknown user)
+    // default to the generic statuses. This is defense-in-depth even when
+    // the UI correctly hides the chips — it blocks direct calls / stale
+    // taps from writing Khent/Clair semantics into Firestore. Removal
+    // (tapping the already-selected chip) is still allowed so stale
+    // partner data can be cleared.
+    if (!auth.isCoupleUser &&
+        _currentStatus != newStatus) {
+      const partnerStatuses = {
+        'watching-khent',
+        'watching-clair',
+        'watching-both',
+        'watched-khent',
+        'watched-clair',
+        'watched-both',
+      };
+      if (partnerStatuses.contains(newStatus)) {
+        Logger.w(
+          "[Status] Blocked partner-specific status '$newStatus' for non-couple user $userName",
+        );
+        if (mounted) _showSnack('This status is only available to Khent & Clair');
+        return;
+      }
+    }
     // Save the previous status so we can revert locally if the Firestore
     // write fails. Without this, a network error in isAnimeByTmdbId or
     // saveToWatchList would leave the chip highlighted (from the early

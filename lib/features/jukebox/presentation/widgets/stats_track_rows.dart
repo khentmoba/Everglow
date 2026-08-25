@@ -14,22 +14,34 @@ class TopTrackRow extends StatelessWidget {
   final TopMusicTrack track;
   final String username;
   final int maxPlays;
+  final bool isPink;
 
   const TopTrackRow({
     super.key,
     required this.track,
     required this.username,
     required this.maxPlays,
+    this.isPink = false,
   });
 
   bool get _isPodium => track.rank <= 3;
 
-  Color get _podiumColor => switch (track.rank) {
-    1 => AppColors.auroraGold,
-    2 => const Color(0xFFB9BBFF),
-    3 => const Color(0xFFE8A87C),
-    _ => AppColors.blushGold,
-  };
+  Color get _podiumColor {
+    if (isPink) {
+      return switch (track.rank) {
+        1 => AppColors.cinemaPink,
+        2 => AppColors.roseQuartz,
+        3 => AppColors.softLavender,
+        _ => AppColors.auroraRose,
+      };
+    }
+    return switch (track.rank) {
+      1 => AppColors.auroraGold,
+      2 => const Color(0xFFB9BBFF),
+      3 => const Color(0xFFE8A87C),
+      _ => AppColors.blushGold,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,9 +49,9 @@ class TopTrackRow extends StatelessWidget {
       height: _isPodium ? 66 : 62,
       child: Row(
         children: [
-          _RankBadge(rank: track.rank),
+          _RankBadge(rank: track.rank, isPink: isPink),
           const SizedBox(width: AppSpacing.md),
-          _PodiumArtwork(imageUrl: track.imageUrl, rank: track.rank),
+          _PodiumArtwork(imageUrl: track.imageUrl, rank: track.rank, isPink: isPink),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
@@ -70,7 +82,7 @@ class TopTrackRow extends StatelessWidget {
                     ),
                     if (_isPodium) ...[
                       const SizedBox(width: 6),
-                      _PodiumTag(rank: track.rank),
+                      _PodiumTag(rank: track.rank, isPink: isPink),
                     ],
                   ],
                 ),
@@ -103,6 +115,7 @@ class TopTrackRow extends StatelessWidget {
             playCount: track.playCount,
             color: _podiumColor,
             isPodium: _isPodium,
+            isPink: isPink,
           ),
         ],
       ),
@@ -125,24 +138,43 @@ class TopTrackRow extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: switch (track.rank) {
-                1 => [
-                  AppColors.auroraGold.withValues(alpha: 0.22),
-                  const Color(0xFF6B4E00).withValues(alpha: 0.22),
-                  AppColors.inkDeep.withValues(alpha: 0.35),
-                ],
-                2 => [
-                  const Color(0xFFD8D6F0).withValues(alpha: 0.22),
-                  const Color(0xFF3A3566).withValues(alpha: 0.22),
-                  AppColors.inkDeep.withValues(alpha: 0.32),
-                ],
-                3 => [
-                  const Color(0xFFE8A87C).withValues(alpha: 0.22),
-                  const Color(0xFF6B3A14).withValues(alpha: 0.22),
-                  AppColors.inkDeep.withValues(alpha: 0.30),
-                ],
-                _ => [Colors.transparent, Colors.transparent],
-              },
+              colors: isPink
+                  ? switch (track.rank) {
+                      1 => [
+                        AppColors.cinemaPink.withValues(alpha: 0.22),
+                        AppColors.deepRose.withValues(alpha: 0.20),
+                        AppColors.inkDeep.withValues(alpha: 0.32),
+                      ],
+                      2 => [
+                        AppColors.roseQuartz.withValues(alpha: 0.20),
+                        AppColors.plum.withValues(alpha: 0.22),
+                        AppColors.inkDeep.withValues(alpha: 0.30),
+                      ],
+                      3 => [
+                        AppColors.softLavender.withValues(alpha: 0.20),
+                        const Color(0xFF5B2A4A).withValues(alpha: 0.20),
+                        AppColors.inkDeep.withValues(alpha: 0.28),
+                      ],
+                      _ => [Colors.transparent, Colors.transparent],
+                    }
+                  : switch (track.rank) {
+                      1 => [
+                        AppColors.auroraGold.withValues(alpha: 0.22),
+                        const Color(0xFF6B4E00).withValues(alpha: 0.22),
+                        AppColors.inkDeep.withValues(alpha: 0.35),
+                      ],
+                      2 => [
+                        const Color(0xFFD8D6F0).withValues(alpha: 0.22),
+                        const Color(0xFF3A3566).withValues(alpha: 0.22),
+                        AppColors.inkDeep.withValues(alpha: 0.32),
+                      ],
+                      3 => [
+                        const Color(0xFFE8A87C).withValues(alpha: 0.22),
+                        const Color(0xFF6B3A14).withValues(alpha: 0.22),
+                        AppColors.inkDeep.withValues(alpha: 0.30),
+                      ],
+                      _ => [Colors.transparent, Colors.transparent],
+                    },
             ),
             border: Border.all(
               color: _podiumColor.withValues(alpha: 0.48),
@@ -211,15 +243,23 @@ class TopTrackRow extends StatelessWidget {
 
 class _PodiumTag extends StatelessWidget {
   final int rank;
-  const _PodiumTag({required this.rank});
+  final bool isPink;
+  const _PodiumTag({required this.rank, this.isPink = false});
   @override
   Widget build(BuildContext context) {
-    final c = switch (rank) {
-      1 => AppColors.auroraGold,
-      2 => const Color(0xFFB9BBFF),
-      3 => const Color(0xFFE8A87C),
-      _ => AppColors.blushGold,
-    };
+    final c = isPink
+        ? switch (rank) {
+            1 => AppColors.cinemaPink,
+            2 => AppColors.roseQuartz,
+            3 => AppColors.softLavender,
+            _ => AppColors.auroraRose,
+          }
+        : switch (rank) {
+            1 => AppColors.auroraGold,
+            2 => const Color(0xFFB9BBFF),
+            3 => const Color(0xFFE8A87C),
+            _ => AppColors.blushGold,
+          };
     final label = switch (rank) {
       1 => '#1',
       2 => '#2',
@@ -301,10 +341,12 @@ class _PlayCountPill extends StatelessWidget {
   final int playCount;
   final Color color;
   final bool isPodium;
+  final bool isPink;
   const _PlayCountPill({
     required this.playCount,
     required this.color,
     required this.isPodium,
+    this.isPink = false,
   });
   @override
   Widget build(BuildContext context) {
@@ -318,7 +360,7 @@ class _PlayCountPill extends StatelessWidget {
             style: AppTypography.cormorantHeading.copyWith(
               fontSize: 18,
               height: 1.0,
-              color: AppColors.blushGold,
+              color: isPink ? AppColors.roseQuartz : AppColors.blushGold,
             ),
           ),
           const SizedBox(height: 3),
@@ -327,7 +369,7 @@ class _PlayCountPill extends StatelessWidget {
             style: AppTypography.outfitMedium.copyWith(
               fontSize: 9,
               fontWeight: FontWeight.w600,
-              color: AppColors.textMuted,
+              color: isPink ? AppColors.roseQuartz.withValues(alpha: 0.72) : AppColors.textMuted,
               letterSpacing: 1.3,
             ),
           ),
@@ -382,16 +424,24 @@ class _PlayCountPill extends StatelessWidget {
 class _PodiumArtwork extends StatelessWidget {
   final String? imageUrl;
   final int rank;
-  const _PodiumArtwork({this.imageUrl, required this.rank});
+  final bool isPink;
+  const _PodiumArtwork({this.imageUrl, required this.rank, this.isPink = false});
   @override
   Widget build(BuildContext context) {
     final isPodium = rank <= 3;
-    final borderColor = switch (rank) {
-      1 => AppColors.auroraGold.withValues(alpha: 0.90),
-      2 => const Color(0xFFD8D6F0).withValues(alpha: 0.75),
-      3 => const Color(0xFFE8A87C).withValues(alpha: 0.75),
-      _ => AppColors.moonlight.withValues(alpha: 0.14),
-    };
+    final borderColor = isPink
+        ? switch (rank) {
+            1 => AppColors.cinemaPink.withValues(alpha: 0.90),
+            2 => AppColors.roseQuartz.withValues(alpha: 0.75),
+            3 => AppColors.softLavender.withValues(alpha: 0.75),
+            _ => AppColors.moonlight.withValues(alpha: 0.14),
+          }
+        : switch (rank) {
+            1 => AppColors.auroraGold.withValues(alpha: 0.90),
+            2 => const Color(0xFFD8D6F0).withValues(alpha: 0.75),
+            3 => const Color(0xFFE8A87C).withValues(alpha: 0.75),
+            _ => AppColors.moonlight.withValues(alpha: 0.14),
+          };
     final size = isPodium ? 50.0 : 46.0;
     final art = Container(
       width: size,
@@ -461,12 +511,19 @@ class _PodiumArtwork extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: switch (rank) {
-                  1 => [const Color(0xFFFFF3B0), AppColors.auroraGold],
-                  2 => [const Color(0xFFF0F0FF), const Color(0xFFB8B9D6)],
-                  3 => [const Color(0xFFFFD7B5), const Color(0xFFC47A3A)],
-                  _ => [Colors.white, Colors.white],
-                },
+                colors: isPink
+                    ? switch (rank) {
+                        1 => [const Color(0xFFFFE4EC), AppColors.cinemaPink],
+                        2 => [const Color(0xFFFFE4EC), AppColors.roseQuartz],
+                        3 => [const Color(0xFFF0E6FF), AppColors.softLavender],
+                        _ => [Colors.white, Colors.white],
+                      }
+                    : switch (rank) {
+                        1 => [const Color(0xFFFFF3B0), AppColors.auroraGold],
+                        2 => [const Color(0xFFF0F0FF), const Color(0xFFB8B9D6)],
+                        3 => [const Color(0xFFFFD7B5), const Color(0xFFC47A3A)],
+                        _ => [Colors.white, Colors.white],
+                      },
               ),
               border: Border.all(
                 color: Colors.white.withValues(alpha: 0.85),
@@ -487,9 +544,9 @@ class _PodiumArtwork extends StatelessWidget {
                 _ => Icons.star_rounded,
               },
               size: 11,
-              color: rank == 1
-                  ? const Color(0xFF6B4E00)
-                  : const Color(0xFF2A2340),
+              color: isPink
+                  ? (rank == 1 ? const Color(0xFF6B0F2A) : const Color(0xFF2A2340))
+                  : (rank == 1 ? const Color(0xFF6B4E00) : const Color(0xFF2A2340)),
             ),
           ),
         ),
@@ -599,10 +656,34 @@ class RecentTrackRow extends StatelessWidget {
 
 class _RankBadge extends StatelessWidget {
   final int rank;
-  const _RankBadge({required this.rank});
+  final bool isPink;
+  const _RankBadge({required this.rank, this.isPink = false});
   @override
   Widget build(BuildContext context) {
-    if (rank <= 3) return _PodiumBadge(rank: rank);
+    if (rank <= 3) return _PodiumBadge(rank: rank, isPink: isPink);
+    if (isPink) {
+      return Container(
+        width: 32,
+        height: 32,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: AppColors.auroraRose.withValues(alpha: 0.10),
+          border: Border.all(
+            color: AppColors.auroraRose.withValues(alpha: 0.35),
+            width: 1,
+          ),
+        ),
+        child: Text(
+          '$rank',
+          style: AppTypography.cormorantHeading.copyWith(
+            fontSize: 16,
+            height: 1.0,
+            color: AppColors.roseQuartz,
+          ),
+        ),
+      );
+    }
     return Container(
       width: 32,
       height: 32,
@@ -629,31 +710,43 @@ class _RankBadge extends StatelessWidget {
 
 class _PodiumBadge extends StatelessWidget {
   final int rank;
-  const _PodiumBadge({required this.rank});
+  final bool isPink;
+  const _PodiumBadge({required this.rank, this.isPink = false});
   @override
   Widget build(BuildContext context) {
-    final (Color glow, List<Color> grad, IconData icon) = switch (rank) {
-      1 => (
-        AppColors.auroraGold,
-        [
-          const Color(0xFFFFF6CC),
-          const Color(0xFFF5C97B),
-          const Color(0xFFC49A2B),
-        ],
-        Icons.emoji_events_rounded,
-      ),
-      2 => (
-        const Color(0xFFB9BBFF),
-        [Colors.white, const Color(0xFFD8D6F0), const Color(0xFF9A98C2)],
-        Icons.workspace_premium_rounded,
-      ),
-      3 => (
-        const Color(0xFFE8A87C),
-        [
-          const Color(0xFFFFE0C2),
-          const Color(0xFFE8A87C),
-          const Color(0xFF8B5A2B),
-        ],
+    final (Color glow, List<Color> grad, IconData icon) = isPink
+        ? switch (rank) {
+            1 => (
+              AppColors.cinemaPink,
+              [const Color(0xFFFFE4EC), const Color(0xFFFF8FAB), AppColors.cinemaPink],
+              Icons.favorite_rounded,
+            ),
+            2 => (
+              AppColors.roseQuartz,
+              [Colors.white, AppColors.roseQuartz, const Color(0xFFB76B8A)],
+              Icons.favorite_rounded,
+            ),
+            3 => (
+              AppColors.softLavender,
+              [const Color(0xFFF0E6FF), AppColors.softLavender, const Color(0xFF8A5A8A)],
+              Icons.favorite_rounded,
+            ),
+            _ => (AppColors.auroraRose, [Colors.white, Colors.white], Icons.star_rounded),
+          }
+        : switch (rank) {
+            1 => (
+              AppColors.auroraGold,
+              [const Color(0xFFFFF6CC), const Color(0xFFF5C97B), const Color(0xFFC49A2B)],
+              Icons.emoji_events_rounded,
+            ),
+            2 => (
+              const Color(0xFFB9BBFF),
+              [Colors.white, const Color(0xFFD8D6F0), const Color(0xFF9A98C2)],
+              Icons.workspace_premium_rounded,
+            ),
+            3 => (
+              const Color(0xFFE8A87C),
+              [const Color(0xFFFFE0C2), const Color(0xFFE8A87C), const Color(0xFF8B5A2B)],
         Icons.military_tech_rounded,
       ),
       _ => (

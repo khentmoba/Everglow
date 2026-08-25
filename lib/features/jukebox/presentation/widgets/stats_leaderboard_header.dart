@@ -17,6 +17,7 @@ class LeaderboardHeader extends StatelessWidget {
   final String username;
   final int totalPlays;
   final bool isLeader;
+  final bool isClair;
 
   const LeaderboardHeader({
     super.key,
@@ -24,12 +25,18 @@ class LeaderboardHeader extends StatelessWidget {
     required this.username,
     required this.totalPlays,
     required this.isLeader,
+    this.isClair = false,
   });
+
+  bool get _isPink => isClair;
 
   @override
   Widget build(BuildContext context) {
     final hasTotal = totalPlays > 0;
     final formatted = NumberFormat.decimalPattern().format(totalPlays);
+    final Color accentGold = AppColors.auroraGold;
+    final Color accentPinkLight = AppColors.auroraRose;
+    final Color championAccent = _isPink ? accentPinkLight : accentGold;
     final headerRow = LayoutBuilder(
       builder: (context, constraints) {
         final isNarrow = constraints.maxWidth < 380;
@@ -50,7 +57,7 @@ class LeaderboardHeader extends StatelessWidget {
                         shadows: isLeader
                             ? [
                                 Shadow(
-                                  color: AppColors.auroraGold.withValues(
+                                  color: championAccent.withValues(
                                     alpha: 0.35,
                                   ),
                                   blurRadius: 12,
@@ -62,7 +69,7 @@ class LeaderboardHeader extends StatelessWidget {
                   ),
                   if (isLeader) ...[
                     const SizedBox(width: 6),
-                    const _HeaderCrownSparkle(),
+                    _HeaderCrownSparkle(isPink: _isPink),
                   ],
                 ],
               ),
@@ -74,7 +81,7 @@ class LeaderboardHeader extends StatelessWidget {
                 style: AppTypography.outfitMedium.copyWith(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.blushGold,
+                  color: _isPink ? AppColors.auroraRose : AppColors.blushGold,
                   letterSpacing: 1.6,
                 ),
               ),
@@ -87,10 +94,14 @@ class LeaderboardHeader extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (hasTotal)
-              _TotalListensPill(countText: formatted, isLeader: isLeader),
+              _TotalListensPill(
+                countText: formatted,
+                isLeader: isLeader,
+                isPink: _isPink,
+              ),
             if (isLeader) ...[
               SizedBox(height: hasTotal ? 6 : 0),
-              const _ChampionBadge(),
+              _ChampionBadge(isPink: _isPink),
             ],
           ],
         );
@@ -102,7 +113,7 @@ class LeaderboardHeader extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  _LeaderboardIcon(isLeader: isLeader),
+                  _LeaderboardIcon(isLeader: isLeader, isPink: _isPink),
                   const SizedBox(width: AppSpacing.md),
                   titleColumn,
                 ],
@@ -116,7 +127,7 @@ class LeaderboardHeader extends StatelessWidget {
         return Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _LeaderboardIcon(isLeader: isLeader),
+            _LeaderboardIcon(isLeader: isLeader, isPink: _isPink),
             const SizedBox(width: AppSpacing.md),
             titleColumn,
             const SizedBox(width: AppSpacing.md),
@@ -145,12 +156,12 @@ class LeaderboardHeader extends StatelessWidget {
               ],
             ),
             border: Border.all(
-              color: AppColors.auroraGold.withValues(alpha: 0.55),
+              color: championAccent.withValues(alpha: 0.55),
               width: 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color: AppColors.auroraGold.withValues(alpha: 0.22),
+                color: championAccent.withValues(alpha: 0.22),
                 blurRadius: 20,
                 offset: const Offset(0, 6),
               ),
@@ -166,7 +177,7 @@ class LeaderboardHeader extends StatelessWidget {
               Positioned.fill(
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(18),
-                  child: const _ChampionShimmer(color: AppColors.auroraGold),
+                  child: _ChampionShimmer(color: championAccent),
                 ),
               ),
               Padding(
@@ -177,20 +188,20 @@ class LeaderboardHeader extends StatelessWidget {
           ),
         ),
         // Floating sparkles that orbit the champion header.
-        const Positioned(
+        Positioned(
           top: -7,
           right: 10,
-          child: StatsSparkleBadge(color: AppColors.auroraGold),
+          child: StatsSparkleBadge(color: championAccent),
         ),
-        const Positioned(
+        Positioned(
           top: -5,
           right: 32,
-          child: _PulsingDot(color: AppColors.auroraGold, size: 5),
+          child: _PulsingDot(color: championAccent, size: 5),
         ),
-        const Positioned(
+        Positioned(
           bottom: -5,
           left: 18,
-          child: _PulsingDot(color: AppColors.auroraGold, size: 3.5),
+          child: _PulsingDot(color: championAccent, size: 3.5),
         ),
       ],
     );
@@ -199,11 +210,44 @@ class LeaderboardHeader extends StatelessWidget {
 
 class _LeaderboardIcon extends StatelessWidget {
   final bool isLeader;
-  const _LeaderboardIcon({required this.isLeader});
+  final bool isPink;
+  const _LeaderboardIcon({required this.isLeader, this.isPink = false});
 
   @override
   Widget build(BuildContext context) {
     if (!isLeader) {
+      if (isPink) {
+        return Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.auroraRose.withValues(alpha: 0.22),
+                AppColors.cinemaPink.withValues(alpha: 0.14),
+              ],
+            ),
+            border: Border.all(
+              color: AppColors.auroraRose.withValues(alpha: 0.55),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.auroraRose.withValues(alpha: 0.18),
+                blurRadius: 12,
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.leaderboard_rounded,
+            size: 18,
+            color: AppColors.auroraRose,
+          ),
+        );
+      }
       return Container(
         width: 38,
         height: 38,
@@ -226,6 +270,36 @@ class _LeaderboardIcon extends StatelessWidget {
           Icons.leaderboard_rounded,
           size: 18,
           color: AppColors.blushGold,
+        ),
+      );
+    }
+    if (isPink) {
+      return Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFFFE4EC), Color(0xFFFF8FAB), Color(0xFFE91E8C)],
+          ),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.78),
+            width: 1.4,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.auroraRose.withValues(alpha: 0.45),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Icon(
+          Icons.emoji_events_rounded,
+          size: 20,
+          color: Color(0xFF6B0F2A),
         ),
       );
     }
@@ -261,7 +335,8 @@ class _LeaderboardIcon extends StatelessWidget {
 }
 
 class _HeaderCrownSparkle extends StatefulWidget {
-  const _HeaderCrownSparkle();
+  final bool isPink;
+  const _HeaderCrownSparkle({this.isPink = false});
   @override
   State<_HeaderCrownSparkle> createState() => _HeaderCrownSparkleState();
 }
@@ -296,10 +371,10 @@ class _HeaderCrownSparkleState extends State<_HeaderCrownSparkle>
           begin: 0.9,
           end: 1.1,
         ).animate(CurvedAnimation(parent: _c, curve: Curves.easeInOut)),
-        child: const Icon(
+        child: Icon(
           Icons.auto_awesome_rounded,
           size: 14,
-          color: AppColors.auroraGold,
+          color: widget.isPink ? AppColors.auroraRose : AppColors.auroraGold,
         ),
       ),
     );
@@ -309,11 +384,71 @@ class _HeaderCrownSparkleState extends State<_HeaderCrownSparkle>
 class _TotalListensPill extends StatelessWidget {
   final String countText;
   final bool isLeader;
-  const _TotalListensPill({required this.countText, required this.isLeader});
+  final bool isPink;
+  const _TotalListensPill({required this.countText, required this.isLeader, this.isPink = false});
 
   @override
   Widget build(BuildContext context) {
     if (isLeader) {
+      if (isPink) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.auroraRose.withValues(alpha: 0.22),
+                AppColors.cinemaPink.withValues(alpha: 0.10),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(99),
+            border: Border.all(
+              color: AppColors.auroraRose.withValues(alpha: 0.48),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.auroraRose.withValues(alpha: 0.20),
+                blurRadius: 12,
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.headset_rounded,
+                size: 12,
+                color: AppColors.auroraRose,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                countText,
+                style: AppTypography.outfitBold.copyWith(
+                  fontSize: 12,
+                  height: 1,
+                  color: AppColors.auroraRose,
+                  shadows: [
+                    Shadow(
+                      color: AppColors.auroraRose.withValues(alpha: 0.30),
+                      blurRadius: 8,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'listens',
+                style: AppTypography.outfitMedium.copyWith(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.auroraRose.withValues(alpha: 0.85),
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
@@ -372,6 +507,48 @@ class _TotalListensPill extends StatelessWidget {
         ),
       );
     }
+    if (isPink) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.auroraRose.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(
+            color: AppColors.auroraRose.withValues(alpha: 0.22),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.headset_rounded,
+              size: 12,
+              color: AppColors.auroraRose,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              countText,
+              style: AppTypography.outfitBold.copyWith(
+                fontSize: 12,
+                height: 1,
+                color: AppColors.roseQuartz,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'listens',
+              style: AppTypography.outfitMedium.copyWith(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: AppColors.roseQuartz.withValues(alpha: 0.78),
+                letterSpacing: 0.8,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -416,7 +593,8 @@ class _TotalListensPill extends StatelessWidget {
 }
 
 class _ChampionBadge extends StatefulWidget {
-  const _ChampionBadge();
+  final bool isPink;
+  const _ChampionBadge({this.isPink = false});
   @override
   State<_ChampionBadge> createState() => _ChampionBadgeState();
 }
@@ -453,14 +631,20 @@ class _ChampionBadgeState extends State<_ChampionBadge>
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFFFFF6CC),
-                  Color(0xFFF5C97B),
-                  Color(0xFFC49A2B),
-                ],
+                colors: widget.isPink
+                    ? const [
+                        Color(0xFFFFE4EC),
+                        Color(0xFFFF8FAB),
+                        Color(0xFFE91E8C),
+                      ]
+                    : const [
+                        Color(0xFFFFF6CC),
+                        Color(0xFFF5C97B),
+                        Color(0xFFC49A2B),
+                      ],
               ),
               borderRadius: BorderRadius.circular(99),
               border: Border.all(
@@ -469,7 +653,7 @@ class _ChampionBadgeState extends State<_ChampionBadge>
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.auroraGold.withValues(alpha: glow),
+                  color: (widget.isPink ? AppColors.auroraRose : AppColors.auroraGold).withValues(alpha: glow),
                   blurRadius: 16,
                   offset: const Offset(0, 3),
                 ),
@@ -494,15 +678,15 @@ class _ChampionBadgeState extends State<_ChampionBadge>
                 height: 16,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFF6B4E00).withValues(alpha: 0.14),
+                  color: (widget.isPink ? const Color(0xFF6B0F2A) : const Color(0xFF6B4E00)).withValues(alpha: 0.14),
                   border: Border.all(
-                    color: const Color(0xFF6B4E00).withValues(alpha: 0.22),
+                    color: (widget.isPink ? const Color(0xFF6B0F2A) : const Color(0xFF6B4E00)).withValues(alpha: 0.22),
                   ),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.emoji_events_rounded,
                   size: 10,
-                  color: Color(0xFF6B4E00),
+                  color: widget.isPink ? const Color(0xFF6B0F2A) : const Color(0xFF6B4E00),
                 ),
               ),
               const SizedBox(width: 5),
@@ -511,16 +695,15 @@ class _ChampionBadgeState extends State<_ChampionBadge>
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 11,
                   height: 1,
-                  color: const Color(0xFF6B4E00),
+                  color: widget.isPink ? const Color(0xFF6B0F2A) : const Color(0xFF6B4E00),
                   letterSpacing: 0.9,
                 ),
               ),
               const SizedBox(width: 4),
-              // Tiny sparkle next to text for extra flair.
-              const Icon(
+              Icon(
                 Icons.auto_awesome_rounded,
                 size: 9,
-                color: Color(0xFF6B4E00),
+                color: widget.isPink ? const Color(0xFF6B0F2A) : const Color(0xFF6B4E00),
               ),
             ],
           ),

@@ -10,7 +10,11 @@ class LetterboxService {
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // Stream of all notes, shared globally, ordered by unlock date
+  // Stream of all notes, shared globally, ordered by unlock date.
+  // Wrapped with timeout so UI never hangs on web navigation.
+  // Individual doc parse errors are swallowed so one malformed letter
+  // does not kill the entire rail (the bug that left Letterbox empty
+  // after a bad write).
   Stream<List<HiddenNote>> get notes {
     return withFirestoreTimeout(
       _db
@@ -18,9 +22,15 @@ class LetterboxService {
           .orderBy('unlockDate', descending: false)
           .snapshots()
           .map((snapshot) {
-            return snapshot.docs
-                .map((doc) => HiddenNote.fromFirestore(doc))
-                .toList();
+            final out = <HiddenNote>[];
+            for (final doc in snapshot.docs) {
+              try {
+                out.add(HiddenNote.fromFirestore(doc));
+              } catch (e) {
+                Logger.e('Letterbox: skipping malformed note ${doc.id}', error: e);
+              }
+            }
+            return out;
           }),
       label: 'letterbox-notes',
     );
@@ -49,15 +59,21 @@ class LetterboxService {
   // Ensure the notes collection has at least one sample note if empty.
   // Unlike seedInitialNotes() this does NOT clear existing data.
   Future<void> ensureSeeded() async {
-    final existing = await _db.collection('notes').limit(1).get();
-    if (existing.docs.isNotEmpty) return;
-    final data = {
-      'title': 'My Favorite Number',
-      'content': '1111',
-      'unlockDate': Timestamp.fromDate(DateTime.now()),
-      'isRead': false,
-    };
-    await _db.collection('notes').add(data);
+    try {
+      final existing = await _db.collection('notes').limit(1).get();
+      if (existing.docs.isNotEmpty) return;
+      final data = {
+        'title': 'My Favorite Number',
+        'content': '1111',
+        'unlockDate': Timestamp.fromDate(DateTime.now()),
+        'isRead': false,
+      };
+      await _db.collection('notes').add(data);
+      Logger.i('Letterbox: seeded initial sample note');
+    } catch (e) {
+      // Permission denied for cinema-only users is expected; swallow.
+      Logger.e('Letterbox ensureSeeded failed (likely permission)', error: e);
+    }
   }
 
   // Seed the collection with sample data
@@ -74,7 +90,7 @@ class LetterboxService {
     final data = {
       'title': 'My Favorite Number',
       'content': '1111',
-      'unlockDate': Timestamp.fromDate(DateTime.now()), // Unlock immediately
+      'unlockDate': Timestamp.fromDate(DateTime.now()),
       'isRead': false,
     };
 
