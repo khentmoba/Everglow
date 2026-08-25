@@ -25,14 +25,40 @@ class MusicSyncService {
   final String _baseUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyLastfm';
 
+  // ── Process-wide token cache shared across JukeboxProvider + MusicStatsProvider ──
+  // Without this, 8 concurrent proxyLastfm calls on dashboard boot each pay
+  // `getIdToken()` independently, serializing behind the auth bridge.
+  static String? _cachedToken;
+  static DateTime? _cachedAt;
+  static Future<String?>? _inFlightToken;
+
+  Future<String?> _getTokenCached() async {
+    final now = DateTime.now();
+    if (_cachedToken != null &&
+        _cachedAt != null &&
+        now.difference(_cachedAt!).inMinutes < 4) {
+      return _cachedToken;
+    }
+    if (_inFlightToken != null) return _inFlightToken!;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return null;
+    _inFlightToken = user.getIdToken();
+    try {
+      _cachedToken = await _inFlightToken;
+      _cachedAt = DateTime.now();
+      return _cachedToken;
+    } finally {
+      _inFlightToken = null;
+    }
+  }
+
   Future<http.Response> _getWithAuth(Uri url) async {
     final signUrl = _signUrl;
     if (signUrl != null) {
       final signed = await signUrl(url);
       return _client.get(signed).timeout(const Duration(seconds: 10));
     }
-    final user = FirebaseAuth.instance.currentUser;
-    final token = user == null ? null : await user.getIdToken();
+    final token = await _getTokenCached();
     if (token == null || token.isEmpty) {
       throw StateError('Last.fm requires an authenticated user');
     }

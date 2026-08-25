@@ -69,6 +69,7 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
   final LetterboxService _service = LetterboxService();
   _LetterFilter _filter = _LetterFilter.all;
   final String _searchQuery = '';
+  int _streamVersion = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -168,17 +169,26 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
               // Letter list
               Expanded(
                 child: StreamBuilder<List<HiddenNote>>(
+                  key: ValueKey(_streamVersion),
                   stream: _service.notes,
                   builder: (context, snapshot) {
                     if (snapshot.hasError) {
                       return EverglowErrorState(
                         message: 'Could not load letters',
-                        onRetry: () => setState(() {}),
+                        onRetry: () => setState(() => _streamVersion++),
                         icon: Icons.mail_outline_rounded,
                       );
                     }
 
-                    if (!snapshot.hasData) {
+                    if (snapshot.connectionState == ConnectionState.done && !snapshot.hasData) {
+                      return EverglowErrorState(
+                        message: 'Could not load letters',
+                        onRetry: () => setState(() => _streamVersion++),
+                        icon: Icons.cloud_off_rounded,
+                      );
+                    }
+
+                    if (!snapshot.hasData && snapshot.connectionState == ConnectionState.waiting) {
                       return ListView.builder(
                         padding: const EdgeInsets.all(16),
                         itemCount: 5,
@@ -255,7 +265,17 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
   }
 
   void _openSearch(BuildContext context) async {
-    final allNotes = await _service.notes.first;
+    List<HiddenNote> allNotes;
+    try {
+      allNotes = await _service.notes.first;
+    } catch (e) {
+      if (!mounted) return;
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not load letters: $e')),
+      );
+      return;
+    }
     if (!mounted) return;
 
     final filtered = allNotes.where((n) {

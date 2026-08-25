@@ -2274,7 +2274,7 @@ exports.health = functions.https.onRequest(async (req, res) => {
  * after /proxyTmdb (for example: /trending/all/week); any client api_key is
  * ignored and replaced server-side so the browser bundle never contains it.
  */
-exports.proxyTmdb = functions.https.onRequest(async (req, res) => {
+exports.proxyTmdb = functions.runWith({ minInstances: 1 }).https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -2313,7 +2313,7 @@ exports.proxyTmdb = functions.https.onRequest(async (req, res) => {
  * Authenticated read-only Last.fm proxy. Only public catalog/user lookup
  * methods are allowed; the API key stays in Cloud Functions.
  */
-exports.proxyLastfm = functions.https.onRequest(async (req, res) => {
+exports.proxyLastfm = functions.runWith({ minInstances: 1 }).https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');

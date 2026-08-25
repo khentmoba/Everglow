@@ -21,13 +21,28 @@ class HiddenNote {
   }
 
   factory HiddenNote.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    // Safe parsing: missing or malformed unlockDate falls back to now (unlocked)
+    // so the letter is at least visible rather than crashing the whole stream.
+    DateTime unlockDate;
+    final rawDate = data['unlockDate'];
+    if (rawDate is Timestamp) {
+      unlockDate = rawDate.toDate();
+    } else if (rawDate is DateTime) {
+      unlockDate = rawDate;
+    } else {
+      unlockDate = DateTime.now();
+    }
+
+    final rawRead = data['isRead'];
+    final isRead = rawRead is bool ? rawRead : false;
+
     return HiddenNote(
       id: doc.id,
-      title: data['title'] ?? '',
-      content: data['content'] ?? '',
-      unlockDate: (data['unlockDate'] as Timestamp).toDate(),
-      isRead: data['isRead'] ?? false,
+      title: (data['title'] as String?) ?? '',
+      content: (data['content'] as String?) ?? '',
+      unlockDate: unlockDate,
+      isRead: isRead,
     );
   }
 

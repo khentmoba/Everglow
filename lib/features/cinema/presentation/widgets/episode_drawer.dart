@@ -291,39 +291,15 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
             style: AppTypography.outfitHeading.copyWith(fontSize: 15),
           ),
           const SizedBox(height: 10),
-          // Cinema-only profiles (Breyan, Octagram) only get generic
-          // "Want to Watch" / "Watched" — never the partner-specific chips,
-          // which would leak Khent/Clair semantics.
+          // Only couple users (Khent/Clair) get the partner-specific chips;
+          // everyone else (Breyan, Octagram, guests) gets the generic
+          // \"Want to Watch\" / \"Currently Watching\" / \"Watched\" set so
+          // Khent/Clair semantics never leak.
           Builder(
             builder: (context) {
-              final isCinemaOnly = context
-                  .watch<AuthService>()
-                  .isCinemaOnlyUser;
-              final chips = isCinemaOnly
+              final isCouple = context.watch<AuthService>().isCoupleUser;
+              final chips = isCouple
                   ? Row(
-                      children: [
-                        _buildStatusChip(
-                          'Want to Watch',
-                          'to-watch',
-                          icon: Icons.bookmark_rounded,
-                        ),
-                        const SizedBox(width: 8),
-                        _buildStatusChip(
-                          'Currently Watching',
-                          'watching-self',
-                          icon: Icons.play_circle_filled_rounded,
-                          activeColor: const Color(0xFFFF6D00),
-                        ),
-                        const SizedBox(width: 8),
-                        _buildStatusChip(
-                          'Watched',
-                          'watched-self',
-                          icon: Icons.check_circle_rounded,
-                          activeColor: const Color(0xFF2E7D32),
-                        ),
-                      ],
-                    )
-                  : Row(
                       children: [
                         _buildStatusChip(
                           'Want to Watch',
@@ -370,6 +346,29 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                           'Both Watched',
                           'watched-both',
                           icon: Icons.people_rounded,
+                          activeColor: const Color(0xFF2E7D32),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        _buildStatusChip(
+                          'Want to Watch',
+                          'to-watch',
+                          icon: Icons.bookmark_rounded,
+                        ),
+                        const SizedBox(width: 8),
+                        _buildStatusChip(
+                          'Currently Watching',
+                          'watching-self',
+                          icon: Icons.play_circle_filled_rounded,
+                          activeColor: const Color(0xFFFF6D00),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildStatusChip(
+                          'Watched',
+                          'watched-self',
+                          icon: Icons.check_circle_rounded,
                           activeColor: const Color(0xFF2E7D32),
                         ),
                       ],
@@ -702,32 +701,9 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
   Widget _buildCinemaStatusArea() {
     return Builder(
       builder: (context) {
-        final isCinemaOnly = context.watch<AuthService>().isCinemaOnlyUser;
-        final chips = isCinemaOnly
+        final isCouple = context.watch<AuthService>().isCoupleUser;
+        final chips = isCouple
             ? Row(
-                children: [
-                  _buildEnhancedStatusChip(
-                    'Want to Watch',
-                    'to-watch',
-                    icon: Icons.bookmark_rounded,
-                  ),
-                  const SizedBox(width: 8),
-                  _buildEnhancedStatusChip(
-                    'Currently Watching',
-                    'watching-self',
-                    icon: Icons.play_circle_filled_rounded,
-                    activeColor: AppColors.cinemaOrange,
-                  ),
-                  const SizedBox(width: 8),
-                  _buildEnhancedStatusChip(
-                    'Watched',
-                    'watched-self',
-                    icon: Icons.check_circle_rounded,
-                    activeColor: AppColors.cinemaGreen,
-                  ),
-                ],
-              )
-            : Row(
                 children: [
                   _buildEnhancedStatusChip(
                     'Want to Watch',
@@ -774,6 +750,29 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                     'Both Watched',
                     'watched-both',
                     icon: Icons.people_rounded,
+                    activeColor: AppColors.cinemaGreen,
+                  ),
+                ],
+              )
+            : Row(
+                children: [
+                  _buildEnhancedStatusChip(
+                    'Want to Watch',
+                    'to-watch',
+                    icon: Icons.bookmark_rounded,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildEnhancedStatusChip(
+                    'Currently Watching',
+                    'watching-self',
+                    icon: Icons.play_circle_filled_rounded,
+                    activeColor: AppColors.cinemaOrange,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildEnhancedStatusChip(
+                    'Watched',
+                    'watched-self',
+                    icon: Icons.check_circle_rounded,
                     activeColor: AppColors.cinemaGreen,
                   ),
                 ],

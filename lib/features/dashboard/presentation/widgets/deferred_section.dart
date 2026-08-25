@@ -1,16 +1,24 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
 /// Keeps a heavy dashboard section out of the tree until the scroll view
 /// brings it near the viewport, so its Firestore streams and image loads only
 /// start when the user actually approaches it.
+///
+/// A per-section [deferMs] staggers below-the-fold subscriptions so the
+/// critical first paint (XP, Coming Up, Letterbox) gets the Firestore
+/// WebChannel first. Without staggering, 13+ `snapshots()` all contend for
+/// the single WebChannel + rule `get(/users/{uid})` in the same tick.
 class DeferredSection extends StatefulWidget {
   final Widget child;
   final double placeholderHeight;
+  final int deferMs;
 
   const DeferredSection({
     super.key,
     required this.child,
     this.placeholderHeight = 220,
+    this.deferMs = 0,
   });
 
   @override
@@ -22,6 +30,7 @@ class _DeferredSectionState extends State<DeferredSection> {
   ScrollableState? _scrollable;
   bool _visible = false;
   bool _checkScheduled = false;
+  Timer? _deferTimer;
 
   @override
   void initState() {
@@ -43,6 +52,7 @@ class _DeferredSectionState extends State<DeferredSection> {
 
   @override
   void dispose() {
+    _deferTimer?.cancel();
     _scrollable?.position.removeListener(_onScroll);
     super.dispose();
   }
@@ -64,9 +74,18 @@ class _DeferredSectionState extends State<DeferredSection> {
     final top = box.localToGlobal(Offset.zero).dy;
     final bottom = top + box.size.height;
     final viewportHeight = MediaQuery.sizeOf(context).height;
-    if (top < viewportHeight + 500 && bottom > -500) {
+    // Wider pre-load margin (900) keeps scroll smooth, but `deferMs` ensures
+    // far-below-fold sections don't all subscribe in the same microtask as
+    // the critical first-fold sections.
+    if (top < viewportHeight + 900 && bottom > -500) {
       _scrollable?.position.removeListener(_onScroll);
-      setState(() => _visible = true);
+      if (widget.deferMs > 0) {
+        _deferTimer = Timer(Duration(milliseconds: widget.deferMs), () {
+          if (mounted) setState(() => _visible = true);
+        });
+      } else {
+        setState(() => _visible = true);
+      }
     }
   }
 

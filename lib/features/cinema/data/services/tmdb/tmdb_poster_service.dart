@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../../../../../core/utils/connectivity_aware.dart';
 import '../../../../../core/utils/error_aware.dart';
 import '../../../../../core/utils/logger.dart';
@@ -38,38 +39,44 @@ class TMDBPosterService with TMDBBase, ConnectivityAware, ErrorAware {
 
     final aniZipService = AniZipService();
     final updated = List<MediaItem>.from(items);
-    for (final item in needsPoster) {
-      try {
-        // If the source is jikan, tmdbId is actually a MAL ID — resolve
-        // the real TMDB ID first.
-        var tmdbId = item.tmdbId;
-        if (item.source == 'jikan') {
-          final resolved = await aniZipService.fetchTmdbId(item.tmdbId);
-          if (resolved == null) continue;
-          tmdbId = resolved;
-        }
 
-        final details = await _detailsService.fetchMediaDetails(
-          tmdbId,
-          item.mediaType,
-        );
-        if (details == null) continue;
-        final tmdbTitle =
-            (details['name'] as String?) ?? (details['title'] as String?) ?? '';
-        if (!titlesMatch(item.title, tmdbTitle)) continue;
-        final posterPath = details['poster_path'] as String?;
-        if (posterPath == null || posterPath.isEmpty) continue;
-        final posterUrl = '$imageBaseUrl$posterPath';
-        final idx = updated.indexWhere((u) => u.id == item.id);
-        if (idx != -1) {
-          updated[idx] = updated[idx].copyWith(posterPath: posterUrl);
+    // Batch with concurrency=4 so 10 posters don't take 10×RTT serially.
+    // Each task handles its own errors; Firestore writes are fire-and-forget.
+    const concurrency = 4;
+    for (var i = 0; i < needsPoster.length; i += concurrency) {
+      final chunk = needsPoster.skip(i).take(concurrency).toList();
+      await Future.wait(chunk.map((item) async {
+        try {
+          var tmdbId = item.tmdbId;
+          if (item.source == 'jikan') {
+            final resolved = await aniZipService.fetchTmdbId(item.tmdbId);
+            if (resolved == null) return;
+            tmdbId = resolved;
+          }
+          final details = await _detailsService.fetchMediaDetails(
+            tmdbId,
+            item.mediaType,
+          );
+          if (details == null) return;
+          final tmdbTitle =
+              (details['name'] as String?) ?? (details['title'] as String?) ?? '';
+          if (!titlesMatch(item.title, tmdbTitle)) return;
+          final posterPath = details['poster_path'] as String?;
+          if (posterPath == null || posterPath.isEmpty) return;
+          final posterUrl = '$imageBaseUrl$posterPath';
+          final idx = updated.indexWhere((u) => u.id == item.id);
+          if (idx != -1) {
+            updated[idx] = updated[idx].copyWith(posterPath: posterUrl);
+          }
+          // Don't block the batch on a single Firestore write.
+          unawaited(firestore
+              .collection('watch_list')
+              .doc(item.id)
+              .update({'posterPath': posterUrl}).catchError((_) {}));
+        } catch (e) {
+          Logger.e('TMDB Backfill Poster Error for ${item.title}', error: e);
         }
-        await firestore.collection('watch_list').doc(item.id).update({
-          'posterPath': posterUrl,
-        });
-      } catch (e) {
-        Logger.e('TMDB Backfill Poster Error for ${item.title}', error: e);
-      }
+      }));
     }
     return updated;
   }
@@ -90,33 +97,34 @@ class TMDBPosterService with TMDBBase, ConnectivityAware, ErrorAware {
 
     final aniListService = AniListService();
     final updated = List<MediaItem>.from(items);
-    for (final item in needsRefresh) {
-      try {
-        final detail = await aniListService.fetchDetailsWithFallback(
-          malId: item.tmdbId,
-        );
-        final correctPoster = detail?.coverImageUrl;
-        if (correctPoster == null || correctPoster.isEmpty) continue;
-        if (correctPoster == item.posterPath) continue;
-
-        // Verify the AniList title matches the stored title to avoid
-        // saving a wrong poster when tmdbId isn't actually a MAL ID.
-        final anilistTitle = detail?.titleEnglish ?? detail?.titleRomaji ?? '';
-        if (anilistTitle.isNotEmpty && !titlesMatch(item.title, anilistTitle)) {
-          continue;
+    const concurrency = 4;
+    for (var i = 0; i < needsRefresh.length; i += concurrency) {
+      final chunk = needsRefresh.skip(i).take(concurrency).toList();
+      await Future.wait(chunk.map((item) async {
+        try {
+          final detail = await aniListService.fetchDetailsWithFallback(
+            malId: item.tmdbId,
+          );
+          final correctPoster = detail?.coverImageUrl;
+          if (correctPoster == null || correctPoster.isEmpty) return;
+          if (correctPoster == item.posterPath) return;
+          final anilistTitle = detail?.titleEnglish ?? detail?.titleRomaji ?? '';
+          if (anilistTitle.isNotEmpty &&
+              !titlesMatch(item.title, anilistTitle)) {
+            return;
+          }
+          final idx = updated.indexWhere((u) => u.id == item.id);
+          if (idx != -1) {
+            updated[idx] = updated[idx].copyWith(posterPath: correctPoster);
+          }
+          unawaited(firestore.collection('watch_list').doc(item.id).update({
+            'posterPath': correctPoster,
+            'source': 'jikan',
+          }).catchError((_) {}));
+        } catch (e) {
+          Logger.e('Refresh anime poster error for ${item.title}', error: e);
         }
-
-        final idx = updated.indexWhere((u) => u.id == item.id);
-        if (idx != -1) {
-          updated[idx] = updated[idx].copyWith(posterPath: correctPoster);
-        }
-        await firestore.collection('watch_list').doc(item.id).update({
-          'posterPath': correctPoster,
-          'source': 'jikan',
-        });
-      } catch (e) {
-        Logger.e('Refresh anime poster error for ${item.title}', error: e);
-      }
+      }));
     }
     return updated;
   }

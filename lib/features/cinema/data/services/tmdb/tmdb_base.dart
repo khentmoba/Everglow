@@ -1,7 +1,40 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import '../../models/media_item.dart';
+
+/// Process-wide ID token cache shared by all TMDB sub-services.
+///
+/// `getIdToken()` is the main bottleneck on dashboard boot — 6+ Last.fm
+/// and TMDB calls fire concurrently, each calling it independently. Firebase
+/// already caches the JWT for ~1h, but the async call still pays a bridge
+/// + storage lookup. This coalesces concurrent callers onto one in-flight
+/// future and caches the result for 4 minutes.
+String? _tmdbCachedToken;
+DateTime? _tmdbCachedAt;
+Future<String?>? _tmdbInFlight;
+
+Future<String?> _getIdTokenCached() async {
+  final now = DateTime.now();
+  if (_tmdbCachedToken != null &&
+      _tmdbCachedAt != null &&
+      now.difference(_tmdbCachedAt!).inMinutes < 4) {
+    return _tmdbCachedToken;
+  }
+  if (_tmdbInFlight != null) return _tmdbInFlight!;
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return null;
+  _tmdbInFlight = user.getIdToken();
+  try {
+    _tmdbCachedToken = await _tmdbInFlight;
+    _tmdbCachedAt = DateTime.now();
+    return _tmdbCachedToken;
+  } finally {
+    _tmdbInFlight = null;
+  }
+}
 
 /// Shared constants, Firestore access, and mapping helpers for all TMDB
 /// sub-services. Mix this into each sub-service alongside [ConnectivityAware]
@@ -19,8 +52,7 @@ mixin TMDBBase {
   /// Sends a signed TMDB request. [http.get] cannot be used directly because
   /// the Authorization header makes browsers issue an authenticated CORS call.
   Future<http.Response> tmdbGet(Uri url) async {
-    final user = FirebaseAuth.instance.currentUser;
-    final token = user == null ? null : await user.getIdToken();
+    final token = await _getIdTokenCached();
     if (token == null || token.isEmpty) {
       throw StateError('TMDB requires an authenticated user');
     }
