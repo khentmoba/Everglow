@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../cinema/data/models/media_item.dart';
 import '../../../cinema/presentation/widgets/netflix/netflix_colors.dart';
 import '../../../cinema/presentation/widgets/netflix/netflix_nav_bar.dart';

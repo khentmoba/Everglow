@@ -8,6 +8,7 @@ import '../../features/calendar/presentation/routes/calendar_routes.dart';
 import '../../features/canvas/presentation/routes/canvas_routes.dart';
 import '../../features/chat/presentation/routes/chat_routes.dart';
 import '../../features/cinema/presentation/routes/cinema_routes.dart';
+import '../../features/anime/presentation/routes/anime_routes.dart';
 import '../../features/daily_bloom/presentation/routes/garden_routes.dart';
 import '../../features/dashboard/presentation/routes/dashboard_routes.dart';
 import '../../features/entry/presentation/routes/entry_routes.dart';
@@ -63,6 +64,7 @@ GoRouter createAppRouter() => GoRouter(
     ...gatewayRoutes,
     ...dashboardRoutes,
     ...cinemaRoutes,
+    ...animeRoutes,
     ...booksRoutes,
     ...mangaRoutes,
     ...academyRoutes,

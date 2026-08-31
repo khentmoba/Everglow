@@ -167,7 +167,7 @@ class TrailerSection extends StatelessWidget {
                     Text(
                       '${(double.parse(rating) * 10).round()}% Match',
                       style: AppTypography.outfitHeading.copyWith(
-                        color: const Color(0xFF7ED69A),
+                        color: AppColors.cinemaMatch,
                         fontSize: 13,
                       ),
                     ),

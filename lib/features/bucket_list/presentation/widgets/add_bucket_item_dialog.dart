@@ -3,6 +3,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../data/models/bucket_item.dart';
 import '../../data/services/bucket_list_service.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_colors.dart';
 
 /// Dialog for adding a new bucket list item.
 class AddBucketItemDialog extends StatefulWidget {
@@ -411,7 +412,7 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                       gradient: LinearGradient(
                         colors: _saving
                             ? [AppTheme.moonlight, AppTheme.moonlight]
-                            : [AppTheme.deepRose, const Color(0xFF8E1444)],
+                            : [AppTheme.deepRose, AppColors.rosePressed],
                       ),
                       borderRadius: BorderRadius.circular(14),
                     ),

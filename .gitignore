@@ -82,3 +82,10 @@ android/
 build_apk.ps1
 firebase.json.bak
 web/table_tennis/index.html.bak
+
+# One-off local scripts and outputs (not part of the app)
+/_gen_*.py
+/create_assignment.py
+/create_single.py
+/output/
+/Assignment_Datasheet_Ne555_HCSR04_Original.docx

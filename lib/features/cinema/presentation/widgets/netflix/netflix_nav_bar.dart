@@ -132,6 +132,7 @@ class NetflixCinemaTopBar extends StatelessWidget {
   final VoidCallback onLogout;
   final String userName;
   final bool scrolled;
+  final bool showAnime;
 
   const NetflixCinemaTopBar({
     super.key,
@@ -143,6 +144,7 @@ class NetflixCinemaTopBar extends StatelessWidget {
     required this.onLogout,
     required this.userName,
     this.scrolled = false,
+    this.showAnime = true,
   });
 
   @override
@@ -231,6 +233,7 @@ class NetflixCinemaTopBar extends StatelessWidget {
                 onLogout: onLogout,
                 onAnimeTap: onAnimeTap,
                 onDashboardTap: onDashboardTap,
+                showAnime: showAnime,
               ),
             ],
           ),
@@ -301,12 +304,14 @@ class _ProfileButton extends StatelessWidget {
   final VoidCallback onLogout;
   final VoidCallback onAnimeTap;
   final VoidCallback? onDashboardTap;
+  final bool showAnime;
 
   const _ProfileButton({
     required this.userName,
     required this.onLogout,
     required this.onAnimeTap,
     this.onDashboardTap,
+    this.showAnime = true,
   });
 
   @override
@@ -324,7 +329,8 @@ class _ProfileButton extends StatelessWidget {
       itemBuilder: (context) => [
         if (onDashboardTap != null)
           const PopupMenuItem(value: 'dashboard', child: Text('Dashboard')),
-        const PopupMenuItem(value: 'anime', child: Text('Anime')),
+        if (showAnime)
+          const PopupMenuItem(value: 'anime', child: Text('Anime')),
         const PopupMenuItem(value: 'logout', child: Text('Logout')),
       ],
       child: Container(

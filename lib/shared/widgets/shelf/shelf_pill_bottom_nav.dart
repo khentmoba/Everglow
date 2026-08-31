@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_typography.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import 'motion.dart';
 
@@ -41,7 +42,7 @@ class ShelfPillBottomNav extends StatelessWidget {
         MediaQuery.paddingOf(context).bottom + 12,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1228),
+        color: AppColors.animeCard,
         borderRadius: BorderRadius.circular(28),
         border: Border.all(color: AppTheme.roseQuartz.withValues(alpha: 0.1)),
         boxShadow: [

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../data/models/book_item.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_colors.dart';
 
 /// Reusable book cover card. Designed for grid placement (search
 /// results, our-books list, etc.) — portrait orientation with a
@@ -153,7 +154,7 @@ class BookCoverCard extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF2D1B33), Color(0xFF1A1A2E)],
+          colors: [AppColors.velvet, AppColors.twilight],
         ),
       ),
       child: Center(
@@ -164,7 +165,7 @@ class BookCoverCard extends StatelessWidget {
             children: [
               const Icon(
                 Icons.menu_book_rounded,
-                color: Color(0xFFF4C2C2),
+                color: AppColors.roseQuartz,
                 size: 36,
               ),
               const SizedBox(height: 8),
@@ -174,7 +175,7 @@ class BookCoverCard extends StatelessWidget {
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
                 style: AppTypography.outfitBold.copyWith(
-                  color: const Color(0xFFFFF5F5),
+                  color: AppColors.petalWhite,
                   fontSize: 10,
                 ),
               ),

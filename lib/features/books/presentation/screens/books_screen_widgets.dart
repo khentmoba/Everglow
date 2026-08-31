@@ -12,11 +12,11 @@ class _RankingTile extends StatelessWidget {
   Color get _rankColor {
     switch (rank) {
       case 1:
-        return const Color(0xFFF0A500);
+        return AppColors.warmAmber;
       case 2:
-        return const Color(0xFFB0BEC5);
+        return AppColors.rankSilver;
       case 3:
-        return const Color(0xFFBF8040);
+        return AppColors.rankBronze;
       default:
         return _cMuted;
     }
@@ -534,13 +534,13 @@ class _BookResultRow extends StatelessWidget {
                         _RowAction(
                           icon: Icons.download_rounded,
                           tooltip: 'Download',
-                          color: const Color(0xFF2E7D32),
+                          color: AppColors.cinemaGreen,
                           onTap: onDownload,
                         ),
                         _RowAction(
                           icon: Icons.share_rounded,
                           tooltip: 'Share',
-                          color: const Color(0xFF1976D2),
+                          color: AppColors.cinemaBlue,
                           onTap: onShare,
                         ),
                         _RowAction(

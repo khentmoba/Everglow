@@ -17,6 +17,7 @@ import '../widgets/chapter_list.dart';
 import '../../../../core/utils/logger.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_colors.dart';
 part 'reader_widgets.dart';
 part 'reader_screen_state_base.dart';
 
@@ -839,7 +840,7 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
             if (formats.isEmpty)
               const Text(
                 'No downloadable file available for this title.',
-                style: TextStyle(color: Color(0xFF8A7A92), fontSize: 13),
+                style: TextStyle(color: AppColors.mutedPurple, fontSize: 13),
               )
             else
               for (final entry in formats.entries)

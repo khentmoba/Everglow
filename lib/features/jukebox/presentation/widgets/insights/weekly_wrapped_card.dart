@@ -43,7 +43,7 @@ class WeeklyWrappedCard extends StatelessWidget {
             borderRadius: AppRadius.radiusX2,
             gradient: LinearGradient(
               colors: [
-                const Color(0xFF2D1B33).withValues(alpha: 0.96),
+                AppColors.velvet.withValues(alpha: 0.96),
                 const Color(0xFF1A0F2A).withValues(alpha: 0.98),
               ],
               begin: Alignment.topLeft,

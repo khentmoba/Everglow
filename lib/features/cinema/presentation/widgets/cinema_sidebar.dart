@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_typography.dart';
 import 'netflix/netflix_colors.dart';
+import '../../../../core/theme/app_colors.dart';
 
 /// Collapsible sidebar for the Cinema section.
 ///
@@ -94,7 +95,7 @@ class CinemaSidebar extends StatelessWidget {
                         height: 30,
                         decoration: BoxDecoration(
                           color: isAnimeActive
-                              ? const Color(0xFFC2185B)
+                              ? AppColors.deepRose
                               : NetflixColors.accent,
                           shape: BoxShape.circle,
                         ),
@@ -115,7 +116,7 @@ class CinemaSidebar extends StatelessWidget {
                           style: AppTypography.cormorantExtraBold.copyWith(
                             fontSize: 17,
                             letterSpacing: 0.4,
-                            color: const Color(0xFFF4C2C2),
+                            color: AppColors.roseQuartz,
                           ),
                         ),
                       ),
@@ -223,54 +224,55 @@ class CinemaSidebar extends StatelessWidget {
                   },
                 ),
 
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 14,
-                    horizontal: 8,
+                // ── Anime / Cinema switch — only for cinema-only users (breyan / octagram)
+                if (isCinemaOnlyUser) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 14,
+                      horizontal: 8,
+                    ),
+                    child: Divider(
+                      height: 1,
+                      color: Colors.white.withValues(alpha: 0.08),
+                    ),
                   ),
-                  child: Divider(
-                    height: 1,
-                    color: Colors.white.withValues(alpha: 0.08),
-                  ),
-                ),
-
-                // ── Anime / Cinema cross-link ────────────────────────
-                if (!isCollapsed) ...[
-                  _SectionLabel(
-                    label: isAnimeActive ? 'Anime Discover' : 'Discover',
-                  ),
-                  const SizedBox(height: 6),
-                ],
-                if (isAnimeActive) ...[
-                  _AnimeEntry(
-                    isCollapsed: isCollapsed,
-                    active: true,
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      onAnimeTap();
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  _CinemaBackEntry(
-                    isCollapsed: isCollapsed,
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      if (onCinemaTap != null) {
-                        onCinemaTap!();
-                      } else {
-                        onSelect(0, null);
-                      }
-                    },
-                  ),
-                ] else ...[
-                  _AnimeEntry(
-                    isCollapsed: isCollapsed,
-                    active: false,
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      onAnimeTap();
-                    },
-                  ),
+                  if (!isCollapsed) ...[
+                    _SectionLabel(
+                      label: isAnimeActive ? 'Anime Discover' : 'Discover',
+                    ),
+                    const SizedBox(height: 6),
+                  ],
+                  if (isAnimeActive) ...[
+                    _AnimeEntry(
+                      isCollapsed: isCollapsed,
+                      active: true,
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        onAnimeTap();
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    _CinemaBackEntry(
+                      isCollapsed: isCollapsed,
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        if (onCinemaTap != null) {
+                          onCinemaTap!();
+                        } else {
+                          onSelect(0, null);
+                        }
+                      },
+                    ),
+                  ] else ...[
+                    _AnimeEntry(
+                      isCollapsed: isCollapsed,
+                      active: false,
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        onAnimeTap();
+                      },
+                    ),
+                  ],
                 ],
 
                 if (onDashboardTap != null) ...[
@@ -336,7 +338,7 @@ class CinemaSidebar extends StatelessWidget {
                             child: const Icon(
                               Icons.logout_rounded,
                               size: 18,
-                              color: Color(0xFFB9A9C2),
+                              color: AppColors.cinemaTextDim,
                             ),
                           ),
                         ),
@@ -387,7 +389,7 @@ class CinemaSidebar extends StatelessWidget {
                                 child: const Icon(
                                   Icons.chevron_left_rounded,
                                   size: 18,
-                                  color: Color(0xFFB9A9C2),
+                                  color: AppColors.cinemaTextDim,
                                 ),
                               ),
                             ),
@@ -613,8 +615,8 @@ class _AnimeEntryState extends State<_AnimeEntry> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: _hovered
-                      ? const [Color(0xFFC2185B), Color(0xFF8E2F5A)]
-                      : const [Color(0xFFB3124A), Color(0xFF7A2442)],
+                      ? const [AppColors.deepRose, Color(0xFF8E2F5A)]
+                      : const [Color(0xFFB3124A), AppColors.roseDepths],
                 ),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
@@ -625,7 +627,7 @@ class _AnimeEntryState extends State<_AnimeEntry> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFC2185B).withValues(alpha: 0.28),
+                    color: AppColors.deepRose.withValues(alpha: 0.28),
                     blurRadius: 14,
                     offset: const Offset(0, 4),
                   ),
@@ -655,7 +657,7 @@ class _AnimeEntryState extends State<_AnimeEntry> {
                           color: Colors.white,
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: const Color(0xFF7A2442),
+                            color: AppColors.roseDepths,
                             width: 1.2,
                           ),
                         ),
@@ -683,7 +685,7 @@ class _AnimeEntryState extends State<_AnimeEntry> {
               end: Alignment.bottomRight,
               colors: _hovered
                   ? const [Color(0xFFD11A5E), Color(0xFF9A2E58)]
-                  : const [Color(0xFFC2185B), Color(0xFF7A2442)],
+                  : const [AppColors.deepRose, AppColors.roseDepths],
             ),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
@@ -694,7 +696,7 @@ class _AnimeEntryState extends State<_AnimeEntry> {
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFC2185B).withValues(alpha: 0.30),
+                color: AppColors.deepRose.withValues(alpha: 0.30),
                 blurRadius: 16,
                 offset: const Offset(0, 6),
               ),
@@ -934,7 +936,7 @@ class _UserAvatar extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFFC2185B), Color(0xFF7A2442)],
+          colors: [AppColors.deepRose, AppColors.roseDepths],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -978,13 +980,13 @@ class _FooterButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 16, color: const Color(0xFFB9A9C2)),
+            Icon(icon, size: 16, color: AppColors.cinemaTextDim),
             const SizedBox(width: 8),
             Text(
               label,
               style: AppTypography.outfitHeading.copyWith(
                 fontSize: 12.5,
-                color: const Color(0xFFB9A9C2),
+                color: AppColors.cinemaTextDim,
               ),
             ),
           ],

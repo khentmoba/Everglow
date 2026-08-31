@@ -91,7 +91,7 @@ class OnThisDayMusicCard extends StatelessWidget {
             borderRadius: AppRadius.radiusX2,
             gradient: LinearGradient(
               colors: [
-                const Color(0xFF2E203E).withValues(alpha: 0.96),
+                AppColors.silk.withValues(alpha: 0.96),
                 AppColors.inkDeep.withValues(alpha: 0.96),
               ],
               begin: Alignment.topLeft,
@@ -120,7 +120,7 @@ class OnThisDayMusicCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: const LinearGradient(
-                        colors: [Color(0xFFE8D5B7), Color(0xFFF5C97B)],
+                        colors: [AppColors.blushGold, AppColors.auroraGold],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -131,7 +131,7 @@ class OnThisDayMusicCard extends StatelessWidget {
                     child: const Icon(
                       Icons.auto_awesome_rounded,
                       size: 18,
-                      color: Color(0xFF6B4E00),
+                      color: AppColors.goldShadow,
                     ),
                   ),
                   const SizedBox(width: 10),

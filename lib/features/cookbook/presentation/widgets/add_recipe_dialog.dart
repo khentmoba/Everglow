@@ -777,7 +777,7 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                       gradient: LinearGradient(
                         colors: _saving
                             ? [AppColors.moonlight, AppColors.moonlight]
-                            : [AppColors.deepRose, const Color(0xFF8E1444)],
+                            : [AppColors.deepRose, AppColors.rosePressed],
                       ),
                       borderRadius: BorderRadius.circular(14),
                     ),

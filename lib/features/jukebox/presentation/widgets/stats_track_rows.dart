@@ -37,8 +37,8 @@ class TopTrackRow extends StatelessWidget {
     }
     return switch (track.rank) {
       1 => AppColors.auroraGold,
-      2 => const Color(0xFFB9BBFF),
-      3 => const Color(0xFFE8A87C),
+      2 => AppColors.rankSilverCool,
+      3 => AppColors.rankBronzeWarm,
       _ => AppColors.blushGold,
     };
   }
@@ -160,7 +160,7 @@ class TopTrackRow extends StatelessWidget {
                   : switch (track.rank) {
                       1 => [
                         AppColors.auroraGold.withValues(alpha: 0.22),
-                        const Color(0xFF6B4E00).withValues(alpha: 0.22),
+                        AppColors.goldShadow.withValues(alpha: 0.22),
                         AppColors.inkDeep.withValues(alpha: 0.35),
                       ],
                       2 => [
@@ -169,7 +169,7 @@ class TopTrackRow extends StatelessWidget {
                         AppColors.inkDeep.withValues(alpha: 0.32),
                       ],
                       3 => [
-                        const Color(0xFFE8A87C).withValues(alpha: 0.22),
+                        AppColors.rankBronzeWarm.withValues(alpha: 0.22),
                         const Color(0xFF6B3A14).withValues(alpha: 0.22),
                         AppColors.inkDeep.withValues(alpha: 0.30),
                       ],
@@ -256,8 +256,8 @@ class _PodiumTag extends StatelessWidget {
           }
         : switch (rank) {
             1 => AppColors.auroraGold,
-            2 => const Color(0xFFB9BBFF),
-            3 => const Color(0xFFE8A87C),
+            2 => AppColors.rankSilverCool,
+            3 => AppColors.rankBronzeWarm,
             _ => AppColors.blushGold,
           };
     final label = switch (rank) {
@@ -439,7 +439,7 @@ class _PodiumArtwork extends StatelessWidget {
         : switch (rank) {
             1 => AppColors.auroraGold.withValues(alpha: 0.90),
             2 => const Color(0xFFD8D6F0).withValues(alpha: 0.75),
-            3 => const Color(0xFFE8A87C).withValues(alpha: 0.75),
+            3 => AppColors.rankBronzeWarm.withValues(alpha: 0.75),
             _ => AppColors.moonlight.withValues(alpha: 0.14),
           };
     final size = isPodium ? 50.0 : 46.0;
@@ -513,9 +513,9 @@ class _PodiumArtwork extends StatelessWidget {
                 end: Alignment.bottomRight,
                 colors: isPink
                     ? switch (rank) {
-                        1 => [const Color(0xFFFFE4EC), AppColors.cinemaPink],
-                        2 => [const Color(0xFFFFE4EC), AppColors.roseQuartz],
-                        3 => [const Color(0xFFF0E6FF), AppColors.softLavender],
+                        1 => [AppColors.blushTint, AppColors.cinemaPink],
+                        2 => [AppColors.blushTint, AppColors.roseQuartz],
+                        3 => [AppColors.moonlight, AppColors.softLavender],
                         _ => [Colors.white, Colors.white],
                       }
                     : switch (rank) {
@@ -545,8 +545,8 @@ class _PodiumArtwork extends StatelessWidget {
               },
               size: 11,
               color: isPink
-                  ? (rank == 1 ? const Color(0xFF6B0F2A) : const Color(0xFF2A2340))
-                  : (rank == 1 ? const Color(0xFF6B4E00) : const Color(0xFF2A2340)),
+                  ? (rank == 1 ? AppColors.roseDark : const Color(0xFF2A2340))
+                  : (rank == 1 ? AppColors.goldShadow : const Color(0xFF2A2340)),
             ),
           ),
         ),
@@ -718,7 +718,7 @@ class _PodiumBadge extends StatelessWidget {
         ? switch (rank) {
             1 => (
               AppColors.cinemaPink,
-              [const Color(0xFFFFE4EC), const Color(0xFFFF8FAB), AppColors.cinemaPink],
+              [AppColors.blushTint, const Color(0xFFFF8FAB), AppColors.cinemaPink],
               Icons.favorite_rounded,
             ),
             2 => (
@@ -728,7 +728,7 @@ class _PodiumBadge extends StatelessWidget {
             ),
             3 => (
               AppColors.softLavender,
-              [const Color(0xFFF0E6FF), AppColors.softLavender, const Color(0xFF8A5A8A)],
+              [AppColors.moonlight, AppColors.softLavender, const Color(0xFF8A5A8A)],
               Icons.favorite_rounded,
             ),
             _ => (AppColors.auroraRose, [Colors.white, Colors.white], Icons.star_rounded),
@@ -736,17 +736,17 @@ class _PodiumBadge extends StatelessWidget {
         : switch (rank) {
             1 => (
               AppColors.auroraGold,
-              [const Color(0xFFFFF6CC), const Color(0xFFF5C97B), const Color(0xFFC49A2B)],
+              [const Color(0xFFFFF6CC), AppColors.auroraGold, const Color(0xFFC49A2B)],
               Icons.emoji_events_rounded,
             ),
             2 => (
-              const Color(0xFFB9BBFF),
+              AppColors.rankSilverCool,
               [Colors.white, const Color(0xFFD8D6F0), const Color(0xFF9A98C2)],
               Icons.workspace_premium_rounded,
             ),
             3 => (
-              const Color(0xFFE8A87C),
-              [const Color(0xFFFFE0C2), const Color(0xFFE8A87C), const Color(0xFF8B5A2B)],
+              AppColors.rankBronzeWarm,
+              [const Color(0xFFFFE0C2), AppColors.rankBronzeWarm, const Color(0xFF8B5A2B)],
         Icons.military_tech_rounded,
       ),
       _ => (

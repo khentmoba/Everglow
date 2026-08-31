@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_colors.dart';
 
 /// A single "chapter" derived from a fetched book's plain text. The
 /// chapter splitter in the reader service produces a list of these.
@@ -36,7 +37,7 @@ class ChapterList extends StatelessWidget {
             width: 24,
             height: 24,
             child: CircularProgressIndicator(
-              color: Color(0xFFC2185B),
+              color: AppColors.deepRose,
               strokeWidth: 2,
             ),
           ),
@@ -49,7 +50,7 @@ class ChapterList extends StatelessWidget {
         child: Text(
           'No chapter structure detected. The full text will load as a single passage when you start reading.',
           style: AppTypography.outfitWhite.copyWith(
-            color: const Color(0xFF8A7A92),
+            color: AppColors.mutedPurple,
             fontSize: 13,
             height: 1.5,
           ),
@@ -94,13 +95,13 @@ class _ChapterTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: isCurrent
-              ? const Color(0xFFC2185B).withValues(alpha: 0.15)
+              ? AppColors.deepRose.withValues(alpha: 0.15)
               : Colors.white.withValues(alpha: 0.02),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isCurrent
-                ? const Color(0xFFC2185B).withValues(alpha: 0.6)
-                : const Color(0xFFF4C2C2).withValues(alpha: 0.07),
+                ? AppColors.deepRose.withValues(alpha: 0.6)
+                : AppColors.roseQuartz.withValues(alpha: 0.07),
             width: 1.0,
           ),
         ),
@@ -112,7 +113,7 @@ class _ChapterTile extends StatelessWidget {
               height: 32,
               decoration: BoxDecoration(
                 color: isCurrent
-                    ? const Color(0xFFC2185B).withValues(alpha: 0.25)
+                    ? AppColors.deepRose.withValues(alpha: 0.25)
                     : Colors.white.withValues(alpha: 0.04),
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -122,8 +123,8 @@ class _ChapterTile extends StatelessWidget {
                 style: AppTypography.cormorantBlack.copyWith(
                   fontSize: 16,
                   color: isCurrent
-                      ? const Color(0xFFF4C2C2)
-                      : const Color(0xFF8A7A92),
+                      ? AppColors.roseQuartz
+                      : AppColors.mutedPurple,
                 ),
               ),
             ),
@@ -136,8 +137,8 @@ class _ChapterTile extends StatelessWidget {
                     chapter.title,
                     style: AppTypography.outfitHeading.copyWith(
                       color: isCurrent
-                          ? const Color(0xFFFFF5F5)
-                          : const Color(0xFFF4C2C2),
+                          ? AppColors.petalWhite
+                          : AppColors.roseQuartz,
                       fontSize: 13,
                     ),
                     maxLines: 2,
@@ -147,7 +148,7 @@ class _ChapterTile extends StatelessWidget {
                   Text(
                     _preview(chapter.body),
                     style: AppTypography.outfitWhite.copyWith(
-                      color: const Color(0xFF8A7A92),
+                      color: AppColors.mutedPurple,
                       fontSize: 11,
                       height: 1.4,
                     ),
@@ -160,7 +161,7 @@ class _ChapterTile extends StatelessWidget {
             if (isCurrent)
               const Icon(
                 Icons.play_arrow_rounded,
-                color: Color(0xFFF4C2C2),
+                color: AppColors.roseQuartz,
                 size: 18,
               ),
           ],

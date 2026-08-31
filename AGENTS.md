@@ -40,7 +40,7 @@ lib/
     heartbeat/               # Daily mood tracking (mood picker, partner status)
     guardian/                # Animated cat mascot with AI-powered messages
     academy/                 # Trivia game — 8 categories, solo study, 1v1 matches
-    ai/                      # AI assistant (Groq API via SSE streaming), conversation repo, memory repo
+    ai/                      # AI assistant (Agnes 2.5 Flash via SSE streaming on proxyAIv2/Cloud Run), conversation repo, memory repo
     books/                   # Open Library discovery + in-app reader + shared "Our Books" list
     bucket_list/             # Shared bucket list kanban (todo / doing / done)
     budget/                  # Couple finances - transactions, monthly budgets, expense split
@@ -71,7 +71,7 @@ lib/
   firebase_options.dart      # Generated Firebase config
 
 web/                         # PWA manifest, index.html, favicon, service worker
-functions/index.js           # Cloud Functions: proxyBookText, proxyMangaImage, proxyAI
+functions/index.js           # Cloud Functions: proxyBookText, proxyManga*, proxyAI/proxyAIv2 (Agnes 2.5 Flash), proxyTmdb, proxyLastfm, agnesImage + 15 schedules/triggers
 ac-relay/server.js           # WebRTC signaling server for watch-party voice chat
 ```
 
@@ -100,5 +100,5 @@ ac-relay/server.js           # WebRTC signaling server for watch-party voice cha
 - Do **not** read or expose `assets/env.txt` — it contains secrets (API keys, emails, passwords).
 - Firebase emulators config is in `firebase.json` — ports 9099–9499.
 - `deploy.ps1` auto-generates `web/sw.js` with a version-commit build stamp before deploying.
-- The AI feature uses Groq (qwen/qwen3.6-27b) via SSE streaming — see memory docs for tuning details.
+- The AI feature uses Agnes 2.5 Flash (apihub.agnes-ai.com) via SSE streaming on proxyAIv2 (Cloud Run) — 512K context, 120K input budget, 11 function tools, thinking mode. See memory docs for tuning details.
 - ac-relay is a separate Node.js WebRTC signaling server, not deployed with Firebase — run independently if voice chat is needed.

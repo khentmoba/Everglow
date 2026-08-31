@@ -4,7 +4,7 @@ import '../../../../../core/utils/error_aware.dart';
 import '../../../../../core/utils/logger.dart';
 import '../../models/media_item.dart';
 import '../ani_zip_service.dart';
-import '../anilist_service.dart';
+import '../../../../anime/data/services/anilist_service.dart';
 import 'tmdb_base.dart';
 import 'tmdb_details_service.dart';
 

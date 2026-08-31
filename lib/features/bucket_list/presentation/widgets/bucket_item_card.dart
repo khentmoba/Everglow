@@ -799,7 +799,7 @@ class BucketItemCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [AppTheme.deepRose, Color(0xFF8E1444)],
+            colors: [AppTheme.deepRose, AppColors.rosePressed],
           ),
           borderRadius: BorderRadius.circular(12),
         ),

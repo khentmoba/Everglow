@@ -54,6 +54,36 @@ class AppColors {
   static const Color cinemaAmber = Color(0xFFFF9800); // both-watching accent
   static const Color cinemaBlue = Color(0xFF1976D2); // Khent watched accent
 
+  // Ranking / hover accents (shared shelf widgets)
+  static const Color rankGold = warmAmber; // #1 tile accent
+  static const Color rankSilver = Color(0xFFB0BEC5); // #2 tile accent
+  static const Color rankBronze = Color(0xFFBF8040); // #3 tile accent
+  static const Color hoverSurface = Color(0xFF141418); // hover preview panel
+
+  // Interactive rose states (pressed/gradient stops of deepRose)
+  static const Color rosePressed = Color(0xFF8E1444);
+  static const Color roseDark = Color(0xFF6B0F2A);
+  static const Color roseDepths = Color(0xFF7A2442);
+
+  // Gold accents (auroraGold shadows and pressed stops)
+  static const Color goldShadow = Color(0xFF6B4E00);
+
+  // Cool leaderboard ranks (jukebox insights)
+  static const Color rankSilverCool = Color(0xFFB9BBFF);
+  static const Color rankBronzeWarm = Color(0xFFE8A87C);
+
+  // Cinema sidebar text + blush gradient tint
+  static const Color cinemaTextDim = Color(0xFFB9A9C2);
+  static const Color blushTint = Color(0xFFFFE4EC);
+
+  // Vibrant accent (flower painters, category markers)
+  static const Color accentPink = Color(0xFFE91E63);
+
+  // Scrim overlays (alpha-carrying; use as-is, not with withValues)
+  static const Color scrimLight = Color(0x33000000);
+  static const Color scrimMedium = Color(0x59000000);
+  static const Color scrimStrong = Color(0x66000000);
+
   // ── Semantic colors ────────────────────────────────────────
   static const Color success = Color(0xFF4ADE80); // online presence
   static const Color error = Color(0xFFE5739B); // on-palette rose-red

@@ -4,6 +4,7 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
+import '../../../../core/theme/app_colors.dart';
 
 /// Small circular HUD button rendered as a real DOM element (via
 /// [HtmlElementView]) so that it sits ABOVE any sibling iframe
@@ -142,11 +143,11 @@ class _WebOverlayButtonState extends State<WebOverlayButton> {
             color: Colors.black.withValues(alpha: 0.45),
             shape: BoxShape.circle,
             border: Border.all(
-              color: const Color(0xFFFFF5F5).withValues(alpha: 0.25),
+              color: AppColors.petalWhite.withValues(alpha: 0.25),
               width: 1.0,
             ),
           ),
-          child: Icon(widget.icon, color: const Color(0xFFFFF5F5), size: 22),
+          child: Icon(widget.icon, color: AppColors.petalWhite, size: 22),
         ),
       );
     }
@@ -204,8 +205,8 @@ class WebOverlayTextButton extends StatefulWidget {
     this.tooltip,
     this.busy = false,
     this.gradient = const [
-      Color(0xFFF0A500), // warmAmber
-      Color(0xFFC2185B), // deepRose
+      AppColors.warmAmber, // warmAmber
+      AppColors.deepRose, // deepRose
     ],
     this.borderColor,
     this.fullWidth = true,
@@ -391,17 +392,17 @@ class _WebOverlayTextButtonState extends State<WebOverlayTextButton> {
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
-                    color: Color(0xFFFFF5F5),
+                    color: AppColors.petalWhite,
                     strokeWidth: 2.5,
                   ),
                 )
               else if (widget.icon != null)
-                Icon(widget.icon, color: const Color(0xFFFFF5F5), size: 24),
+                Icon(widget.icon, color: AppColors.petalWhite, size: 24),
               const SizedBox(width: 12),
               Text(
                 widget.label,
                 style: const TextStyle(
-                  color: Color(0xFFFFF5F5),
+                  color: AppColors.petalWhite,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 3,
                   fontSize: 18,
@@ -452,7 +453,7 @@ class WebOverlayPill extends StatefulWidget {
     this.leadingIconColor,
     this.background = const Color(0x73000000),
     this.borderColor = const Color(0x2EFFF5F5),
-    this.textColor = const Color(0xFFFFF5F5),
+    this.textColor = AppColors.petalWhite,
     this.expand = true,
   });
 

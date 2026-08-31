@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../data/services/voice_chat_service.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_colors.dart';
 
-const _cCard = Color(0xFF1C1228);
-const _cDeepRose = Color(0xFFC2185B);
-const _cGreen = Color(0xFF4ADE80);
-const _cMuted = Color(0xFF8A7A92);
+const _cCard = AppColors.shimmerBase;
+const _cDeepRose = AppColors.deepRose;
+const _cGreen = AppColors.success;
+const _cMuted = AppColors.mutedPurple;
 
 class VoiceChatOverlay extends StatelessWidget {
   final VoiceChatService service;

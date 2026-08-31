@@ -9,18 +9,18 @@ class ReaderTheme {
 
   static const dark = ReaderTheme._(
     'Night',
-    Color(0xFF1A1A2E),
-    Color(0xFFF0E6FF),
+    AppColors.twilight,
+    AppColors.moonlight,
   );
   static const sepia = ReaderTheme._(
     'Sepia',
-    Color(0xFF1C1228),
-    Color(0xFFE8D5B7),
+    AppColors.shimmerBase,
+    AppColors.blushGold,
   );
   static const light = ReaderTheme._(
     'Light',
-    Color(0xFFFFF5F5),
-    Color(0xFF1A1A2E),
+    AppColors.petalWhite,
+    AppColors.twilight,
   );
 
   static const values = [dark, sepia, light];
@@ -194,7 +194,7 @@ class _ListenSheetState extends State<_ListenSheet> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: const LinearGradient(
-                        colors: [AppTheme.deepRose, Color(0xFF8E1444)],
+                        colors: [AppTheme.deepRose, AppColors.rosePressed],
                       ),
                       boxShadow: [
                         BoxShadow(

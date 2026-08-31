@@ -27,17 +27,17 @@ abstract final class NetflixColors {
   static const Color textPrimary = AppColors.petalWhite;
 
   /// Secondary text - rose-tinted gray.
-  static const Color textSecondary = Color(0xFFB9A9C2);
+  static const Color textSecondary = AppColors.cinemaTextDim;
 
   /// Muted / tertiary text.
   static const Color textMuted = AppColors.mutedPurple;
 
   /// "Match" percentage color - Netflix uses green here; a soft mint
   /// keeps the same semantic without importing a foreign hue family.
-  static const Color match = Color(0xFF7ED69A);
+  static const Color match = AppColors.cinemaMatch;
 
   /// Hover overlay scrim.
-  static const Color hoverScrim = Color(0x33000000);
+  static const Color hoverScrim = AppColors.scrimLight;
 
   /// Bottom nav / sheet hairline.
   static Color get hairline => AppColors.moonlight.withValues(alpha: 0.14);

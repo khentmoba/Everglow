@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_typography.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import 'motion.dart';
 
@@ -44,7 +45,7 @@ class ShelfHoverPreview extends StatelessWidget {
         color: Colors.transparent,
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF141418),
+            color: AppColors.hoverSurface,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: accent.withValues(alpha: 0.18), width: 1),
             boxShadow: [

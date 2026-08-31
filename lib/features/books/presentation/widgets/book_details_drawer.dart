@@ -8,6 +8,7 @@ import '../../data/models/book_item.dart';
 import '../../data/services/open_library_service.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_colors.dart';
 
 /// Re-derive a fully-resolved [BookItem] before opening the reader.
 /// Stale Firestore documents may carry an empty `readSourceUrl`
@@ -321,7 +322,7 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
       width: 3,
       height: 3,
       decoration: const BoxDecoration(
-        color: Color(0xFF8A7A92),
+        color: AppColors.mutedPurple,
         shape: BoxShape.circle,
       ),
     ),
@@ -386,28 +387,28 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
                     'Khent Read',
                     'read-khent',
                     icon: Icons.person_rounded,
-                    activeColor: const Color(0xFF1976D2),
+                    activeColor: AppColors.cinemaBlue,
                   ),
                   const SizedBox(width: 8),
                   _buildStatusChip(
                     'Clair Read',
                     'read-clair',
                     icon: Icons.favorite_rounded,
-                    activeColor: const Color(0xFFE91E8C),
+                    activeColor: AppColors.cinemaPink,
                   ),
                   const SizedBox(width: 8),
                   _buildStatusChip(
                     'Both Read',
                     'read-both',
                     icon: Icons.people_rounded,
-                    activeColor: const Color(0xFF2E7D32),
+                    activeColor: AppColors.cinemaGreen,
                   ),
                 ] else ...[
                   _buildStatusChip(
                     'Read',
                     'read-self',
                     icon: Icons.check_circle_rounded,
-                    activeColor: const Color(0xFF2E7D32),
+                    activeColor: AppColors.cinemaGreen,
                   ),
                 ],
               ],
@@ -533,7 +534,7 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
         decoration: BoxDecoration(
           gradient: hasSource
               ? const LinearGradient(
-                  colors: [AppTheme.deepRose, Color(0xFF8E1444)],
+                  colors: [AppTheme.deepRose, AppColors.rosePressed],
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                 )

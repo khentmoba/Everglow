@@ -5,11 +5,11 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/logger.dart';
-import '../../data/models/anilist_detail.dart';
+import '../../../anime/data/models/anilist_detail.dart';
 import '../../data/models/media_item.dart';
 import '../../data/services/ani_zip_service.dart';
-import '../../data/services/anilist_service.dart';
-import '../../data/services/jikan_service.dart';
+import '../../../anime/data/services/anilist_service.dart';
+import '../../../anime/data/services/jikan_service.dart';
 import '../../data/services/tmdb_service.dart';
 import '../../../../core/services/auth_service.dart';
 import 'package:go_router/go_router.dart';
@@ -311,42 +311,42 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                           'Khent Watching',
                           'watching-khent',
                           icon: Icons.play_circle_filled_rounded,
-                          activeColor: const Color(0xFFFF6D00),
+                          activeColor: AppColors.cinemaOrange,
                         ),
                         const SizedBox(width: 8),
                         _buildStatusChip(
                           'Clair Watching',
                           'watching-clair',
                           icon: Icons.play_circle_filled_rounded,
-                          activeColor: const Color(0xFFE91E8C),
+                          activeColor: AppColors.cinemaPink,
                         ),
                         const SizedBox(width: 8),
                         _buildStatusChip(
                           'Both Watching',
                           'watching-both',
                           icon: Icons.people_rounded,
-                          activeColor: const Color(0xFFFF9800),
+                          activeColor: AppColors.cinemaAmber,
                         ),
                         const SizedBox(width: 8),
                         _buildStatusChip(
                           'Khent Watched',
                           'watched-khent',
                           icon: Icons.person_rounded,
-                          activeColor: const Color(0xFF1976D2),
+                          activeColor: AppColors.cinemaBlue,
                         ),
                         const SizedBox(width: 8),
                         _buildStatusChip(
                           'Clair Watched',
                           'watched-clair',
                           icon: Icons.favorite_rounded,
-                          activeColor: const Color(0xFFE91E8C),
+                          activeColor: AppColors.cinemaPink,
                         ),
                         const SizedBox(width: 8),
                         _buildStatusChip(
                           'Both Watched',
                           'watched-both',
                           icon: Icons.people_rounded,
-                          activeColor: const Color(0xFF2E7D32),
+                          activeColor: AppColors.cinemaGreen,
                         ),
                       ],
                     )
@@ -362,14 +362,14 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                           'Currently Watching',
                           'watching-self',
                           icon: Icons.play_circle_filled_rounded,
-                          activeColor: const Color(0xFFFF6D00),
+                          activeColor: AppColors.cinemaOrange,
                         ),
                         const SizedBox(width: 8),
                         _buildStatusChip(
                           'Watched',
                           'watched-self',
                           icon: Icons.check_circle_rounded,
-                          activeColor: const Color(0xFF2E7D32),
+                          activeColor: AppColors.cinemaGreen,
                         ),
                       ],
                     );

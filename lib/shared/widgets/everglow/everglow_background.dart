@@ -37,7 +37,7 @@ class EverglowBackground extends StatefulWidget {
   /// Cinema/anime variant with darker glows.
   const EverglowBackground.cinema({
     super.key,
-    this.baseColor = const Color(0xFF080810),
+    this.baseColor = AppColors.animeBackground,
     this.glows = const [
       RadialGlow(
         color: AppColors.deepRose,

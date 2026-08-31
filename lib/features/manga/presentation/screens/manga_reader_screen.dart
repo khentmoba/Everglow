@@ -394,7 +394,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
   void _openChapterPicker() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppColors.twilight,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),

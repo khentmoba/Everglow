@@ -34,7 +34,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
     {
       'name': 'Romance',
       'icon': Icons.favorite_rounded,
-      'color': const Color(0xFFE91E63),
+      'color': AppColors.accentPink,
     },
     {
       'name': 'Mystery',
@@ -44,7 +44,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
     {
       'name': 'Science Fiction',
       'icon': Icons.rocket_launch_rounded,
-      'color': const Color(0xFF00BCD4),
+      'color': AppColors.animeCyan,
     },
     {
       'name': 'Fantasy',
@@ -54,7 +54,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
     {
       'name': 'Classics',
       'icon': Icons.menu_book_rounded,
-      'color': const Color(0xFFE8C97A),
+      'color': AppColors.animeGold,
     },
     {
       'name': 'Adventure',
@@ -64,12 +64,12 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
     {
       'name': 'Horror',
       'icon': Icons.brightness_3_rounded,
-      'color': const Color(0xFF1A1A2E),
+      'color': AppColors.twilight,
     },
     {
       'name': 'Poetry',
       'icon': Icons.auto_awesome_motion_outlined,
-      'color': const Color(0xFFD4B5D6),
+      'color': AppColors.softLavender,
     },
   ];
 

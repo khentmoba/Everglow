@@ -178,7 +178,7 @@ class _ActivePartyCard extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [NetflixColors.accent, Color(0xFF8E1444)],
+                        colors: [NetflixColors.accent, AppColors.rosePressed],
                       ),
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -290,7 +290,7 @@ class _WatchTogetherStage extends StatelessWidget {
                           gradient: const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [NetflixColors.accent, Color(0xFF8E1444)],
+                            colors: [NetflixColors.accent, AppColors.rosePressed],
                           ),
                           shape: BoxShape.circle,
                           boxShadow: [

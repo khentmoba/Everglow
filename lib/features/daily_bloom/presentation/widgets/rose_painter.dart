@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 
 class RosePainter extends CustomPainter {
   final int stage;
@@ -146,7 +147,7 @@ class RosePainter extends CustomPainter {
 
         paint.color = Color.lerp(
           const Color(0xFFEF5350),
-          const Color(0xFFE91E63),
+          AppColors.accentPink,
           layer / layers,
         )!.withValues(alpha: layerAlpha);
 
@@ -177,7 +178,7 @@ class RosePainter extends CustomPainter {
       // Glow for stage 5
       if (stage == 5) {
         final glowPaint = Paint()
-          ..color = const Color(0xFFE91E63).withValues(alpha: 0.3)
+          ..color = AppColors.accentPink.withValues(alpha: 0.3)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
         canvas.drawCircle(top, 15, glowPaint);
       }

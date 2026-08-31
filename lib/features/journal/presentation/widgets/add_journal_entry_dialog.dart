@@ -434,7 +434,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                       gradient: LinearGradient(
                         colors: _saving
                             ? [AppTheme.moonlight, AppTheme.moonlight]
-                            : [AppColors.deepRose, const Color(0xFF8E1444)],
+                            : [AppColors.deepRose, AppColors.rosePressed],
                       ),
                       borderRadius: BorderRadius.circular(14),
                     ),

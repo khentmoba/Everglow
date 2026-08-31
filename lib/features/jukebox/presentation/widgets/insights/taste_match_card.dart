@@ -87,7 +87,7 @@ class TasteMatchCard extends StatelessWidget {
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               gradient: const LinearGradient(
-                                colors: [Color(0xFFFF7AA2), Color(0xFFB79CED)],
+                                colors: [Color(0xFFFF7AA2), AppColors.auroraLilac],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
@@ -364,7 +364,7 @@ class _ScoreRingState extends State<_ScoreRing>
                   child: const Icon(
                     Icons.auto_awesome_rounded,
                     size: 10,
-                    color: Color(0xFF6B4E00),
+                    color: AppColors.goldShadow,
                   ),
                 ),
               ),
@@ -396,8 +396,8 @@ class _RingPainter extends CustomPainter {
       ..shader = const SweepGradient(
         colors: [
           Color(0xFFFF7AA2),
-          Color(0xFFF5C97B),
-          Color(0xFFB79CED),
+          AppColors.auroraGold,
+          AppColors.auroraLilac,
           Color(0xFFFF7AA2),
         ],
         startAngle: -math.pi / 2,

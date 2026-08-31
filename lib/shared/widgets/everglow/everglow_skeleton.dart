@@ -73,9 +73,9 @@ class _EverglowSkeletonState extends State<EverglowSkeleton>
               begin: Alignment(-1.0 + 2.0 * _controller!.value, 0),
               end: Alignment(-0.5 + 2.0 * _controller!.value, 0),
               colors: const [
-                Color(0xFF1C1228),
-                Color(0xFF2A1F3A),
-                Color(0xFF1C1228),
+                AppColors.shimmerBase,
+                AppColors.shimmerHighlight,
+                AppColors.shimmerBase,
               ],
               stops: const [0.0, 0.5, 1.0],
             ),
