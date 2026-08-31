@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 
 class SakuraPainter extends CustomPainter {
   final int stage;
@@ -182,7 +183,7 @@ class SakuraPainter extends CustomPainter {
     }
 
     // Center pistil
-    paint.color = const Color(0xFFE91E63);
+    paint.color = AppColors.accentPink;
     canvas.drawCircle(center, 2, paint);
   }
 

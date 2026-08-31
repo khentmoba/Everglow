@@ -31,13 +31,13 @@ part 'watch_party_state_base.dart';
 part 'watch_party_state_core2.dart';
 
 // ─── Color tokens (mirror cinema_screen.dart / episode_drawer.dart) ──
-const _cRose = Color(0xFFF4C2C2);
-const _cCard = Color(0xFF1C1228);
-const _cDeepRose = Color(0xFFC2185B);
-const _cAmber = Color(0xFFF0A500);
-const _cWhite = Color(0xFFFFF5F5);
-const _cMuted = Color(0xFF8A7A92);
-const _cGreen = Color(0xFF4ADE80);
+const _cRose = AppColors.roseQuartz;
+const _cCard = AppColors.shimmerBase;
+const _cDeepRose = AppColors.deepRose;
+const _cAmber = AppColors.warmAmber;
+const _cWhite = AppColors.petalWhite;
+const _cMuted = AppColors.mutedPurple;
+const _cGreen = AppColors.success;
 
 /// Real-time synchronized playback screen for the couple.
 ///
@@ -591,7 +591,7 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
                 ),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [_cDeepRose, Color(0xFF8E1444)],
+                    colors: [_cDeepRose, AppColors.rosePressed],
                   ),
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [

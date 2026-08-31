@@ -13,19 +13,19 @@ import '../../../../core/theme/app_typography.dart';
 enum ShelfAccent {
   cinema(
     label: 'Cinema',
-    color: Color(0xFFF4C2C2), // roseQuartz
-    glow: Color(0xFFC2185B), // deepRose
+    color: AppColors.roseQuartz, // roseQuartz
+    glow: AppColors.deepRose, // deepRose
     icon: Icons.local_movies_outlined,
   ),
   anime(
     label: 'Anime',
-    color: Color(0xFFD4B5D6), // softLavender
+    color: AppColors.softLavender, // softLavender
     glow: Color(0xFF8E5DA0),
     icon: Icons.auto_awesome_outlined,
   ),
   books(
     label: 'Books',
-    color: Color(0xFFF0A500), // warmAmber
+    color: AppColors.warmAmber, // warmAmber
     glow: Color(0xFFB87800),
     icon: Icons.menu_book_rounded,
   ),
@@ -37,7 +37,7 @@ enum ShelfAccent {
   ),
   gallery(
     label: 'Gallery',
-    color: Color(0xFFF4C2C2), // roseQuartz
+    color: AppColors.roseQuartz, // roseQuartz
     glow: Color(0xFF880E4F), // deep magenta
     icon: Icons.photo_library_outlined,
   );
@@ -500,7 +500,7 @@ class _ShelfCardState extends State<ShelfCard> {
                         colors: [
                           Color(0xE8000000),
                           Color(0xAA000000),
-                          Color(0x33000000),
+                          AppColors.scrimLight,
                           Color(0x00000000),
                         ],
                         stops: [0.0, 0.38, 0.72, 1.0],
@@ -519,7 +519,7 @@ class _ShelfCardState extends State<ShelfCard> {
                             letterSpacing: 0.1,
                             shadows: const [
                               Shadow(color: Color(0xDD000000), blurRadius: 6),
-                              Shadow(color: Color(0x66000000), blurRadius: 12),
+                              Shadow(color: AppColors.scrimStrong, blurRadius: 12),
                             ],
                           ),
                           maxLines: 2,

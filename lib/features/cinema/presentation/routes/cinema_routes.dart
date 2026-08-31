@@ -1,6 +1,5 @@
 import 'package:go_router/go_router.dart';
 
-import '../screens/anime_screen.dart';
 import '../screens/cinema_screen.dart';
 import '../screens/video_player_screen.dart';
 
@@ -28,5 +27,4 @@ final List<GoRoute> cinemaRoutes = [
       ),
     ],
   ),
-  GoRoute(path: '/anime', builder: (_, _) => const AnimeScreen()),
 ];

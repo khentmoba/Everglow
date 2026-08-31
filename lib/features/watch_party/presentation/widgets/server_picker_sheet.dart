@@ -5,16 +5,17 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/watch_party_server.dart';
 import '../../data/services/watch_party_server_service.dart';
+import '../../../../core/theme/app_colors.dart';
 
-const _cRose = Color(0xFFF4C2C2);
-const _cCard = Color(0xFF1C1228);
-const _cDeepRose = Color(0xFFC2185B);
-const _cGold = Color(0xFFE8C97A);
-const _cGreen = Color(0xFF4ADE80);
-const _cTeal = Color(0xFF7EE8D2);
-const _cAmber = Color(0xFFF0A500);
-const _cWhite = Color(0xFFFFF5F5);
-const _cMuted = Color(0xFF8A7A92);
+const _cRose = AppColors.roseQuartz;
+const _cCard = AppColors.shimmerBase;
+const _cDeepRose = AppColors.deepRose;
+const _cGold = AppColors.animeGold;
+const _cGreen = AppColors.success;
+const _cTeal = AppColors.auroraTeal;
+const _cAmber = AppColors.warmAmber;
+const _cWhite = AppColors.petalWhite;
+const _cMuted = AppColors.mutedPurple;
 
 /// Bottom sheet that lets the host (or partner) choose which playback
 /// server the room uses, plus connect a new self-hosted server.
@@ -472,7 +473,7 @@ class _ServerPickerSheetState extends State<ServerPickerSheet> {
             padding: const EdgeInsets.symmetric(vertical: 13),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [_cDeepRose, Color(0xFF8E1444)],
+                colors: [_cDeepRose, AppColors.rosePressed],
               ),
               borderRadius: BorderRadius.circular(14),
             ),

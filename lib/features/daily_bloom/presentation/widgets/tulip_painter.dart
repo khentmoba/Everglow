@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 
 class TulipPainter extends CustomPainter {
   final int stage;
@@ -103,7 +104,7 @@ class TulipPainter extends CustomPainter {
       canvas.drawCircle(top, 4, paint);
     } else if (stage <= 3) {
       // Tulip bud — elongated
-      paint.color = const Color(0xFFE91E63);
+      paint.color = AppColors.accentPink;
       canvas.drawOval(
         Rect.fromCenter(
           center: top,
@@ -118,7 +119,7 @@ class TulipPainter extends CustomPainter {
       final cupHeight = stage == 4 ? 22.0 : 30.0;
 
       // Back petals (darker)
-      paint.color = const Color(0xFFC2185B);
+      paint.color = AppColors.deepRose;
       final backPath = Path();
       backPath.moveTo(top.dx - cupWidth / 2, top.dy);
       backPath.quadraticBezierTo(
@@ -137,7 +138,7 @@ class TulipPainter extends CustomPainter {
       canvas.drawPath(backPath, paint);
 
       // Front petals (lighter)
-      paint.color = const Color(0xFFE91E63);
+      paint.color = AppColors.accentPink;
       final frontPath = Path();
       frontPath.moveTo(top.dx - cupWidth * 0.4, top.dy);
       frontPath.quadraticBezierTo(
@@ -157,7 +158,7 @@ class TulipPainter extends CustomPainter {
 
       if (stage == 5) {
         final glowPaint = Paint()
-          ..color = const Color(0xFFE91E63).withValues(alpha: 0.25)
+          ..color = AppColors.accentPink.withValues(alpha: 0.25)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
         canvas.drawCircle(top.translate(0, -cupHeight / 2), 18, glowPaint);
       }

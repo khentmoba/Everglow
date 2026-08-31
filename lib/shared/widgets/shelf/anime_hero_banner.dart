@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_breakpoints.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_typography.dart';
 import 'shelf_hero_carousel.dart';
@@ -208,9 +209,9 @@ class _HeroBannerSlide extends StatelessWidget {
                         colors: [
                           Colors.transparent,
                           Colors.transparent,
-                          const Color(0xFF080810).withValues(alpha: 0.4),
-                          const Color(0xFF080810).withValues(alpha: 0.88),
-                          const Color(0xFF080810).withValues(alpha: 0.98),
+                          AppColors.animeBackground.withValues(alpha: 0.4),
+                          AppColors.animeBackground.withValues(alpha: 0.88),
+                          AppColors.animeBackground.withValues(alpha: 0.98),
                         ],
                         stops: const [0.0, 0.3, 0.55, 0.78, 1.0],
                       ),
@@ -224,8 +225,8 @@ class _HeroBannerSlide extends StatelessWidget {
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                         colors: [
-                          const Color(0xFF080810).withValues(alpha: 0.65),
-                          const Color(0xFF080810).withValues(alpha: 0.3),
+                          AppColors.animeBackground.withValues(alpha: 0.65),
+                          AppColors.animeBackground.withValues(alpha: 0.3),
                           Colors.transparent,
                         ],
                         stops: const [0.0, 0.45, 0.75],

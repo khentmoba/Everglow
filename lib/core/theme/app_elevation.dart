@@ -12,7 +12,7 @@ class AppElevation {
   // ── Black shadow scale ─────────────────────────────────────
 
   static const List<BoxShadow> e1 = [
-    BoxShadow(blurRadius: 8, offset: Offset(0, 2), color: Color(0x33000000)),
+    BoxShadow(blurRadius: 8, offset: Offset(0, 2), color: AppColors.scrimLight),
   ];
   static const List<BoxShadow> e2 = [
     BoxShadow(blurRadius: 16, offset: Offset(0, 6), color: Color(0x40000000)),
@@ -21,7 +21,7 @@ class AppElevation {
     BoxShadow(blurRadius: 24, offset: Offset(0, 10), color: Color(0x4D000000)),
   ];
   static const List<BoxShadow> e4 = [
-    BoxShadow(blurRadius: 32, offset: Offset(0, 14), color: Color(0x59000000)),
+    BoxShadow(blurRadius: 32, offset: Offset(0, 14), color: AppColors.scrimMedium),
   ];
 
   // ── Romantic glow accents ──────────────────────────────────

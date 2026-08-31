@@ -23,17 +23,18 @@ import '../../../../shared/widgets/shelf/staggered_entrance.dart';
 import '../../../../core/theme/app_breakpoints.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_colors.dart';
 part 'books_screen_widgets.dart';
 part 'books_screen_state_base.dart';
 
-const _cBlack = Color(0xFF080810);
-const _cCard = Color(0xFF1C1228);
-const _cRose = Color(0xFFF4C2C2);
-const _cDeepRose = Color(0xFFC2185B);
-const _cGold = Color(0xFFE8C97A);
-const _cAmber = Color(0xFFF0A500);
-const _cWhite = Color(0xFFFFF5F5);
-const _cMuted = Color(0xFF8A7A92);
+const _cBlack = AppColors.animeBackground;
+const _cCard = AppColors.shimmerBase;
+const _cRose = AppColors.roseQuartz;
+const _cDeepRose = AppColors.deepRose;
+const _cGold = AppColors.animeGold;
+const _cAmber = AppColors.warmAmber;
+const _cWhite = AppColors.petalWhite;
+const _cMuted = AppColors.mutedPurple;
 
 /// Main entry for the books feature. Four-tab IndexedStack
 /// (Home, Search, To Read, Read) with a custom glassmorphic bottom
@@ -850,13 +851,13 @@ class _BooksScreenState extends _BooksScreenStateBase {
   Color _readBadgeColor(String status) {
     switch (status) {
       case 'read-clair':
-        return const Color(0xFFE91E8C);
+        return AppColors.cinemaPink;
       case 'read-khent':
-        return const Color(0xFF1976D2);
+        return AppColors.cinemaBlue;
       case 'read-both':
       case 'read':
       default:
-        return const Color(0xFF2E7D32);
+        return AppColors.cinemaGreen;
     }
   }
 

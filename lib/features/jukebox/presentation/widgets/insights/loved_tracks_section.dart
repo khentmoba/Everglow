@@ -86,7 +86,7 @@ class _LovedTracksSectionState extends State<LovedTracksSection> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: const LinearGradient(
-                        colors: [Color(0xFFFF6F91), Color(0xFFE91E8C)],
+                        colors: [AppColors.auroraRose, AppColors.cinemaPink],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),

@@ -109,7 +109,7 @@ class DiscoveryRaceCard extends StatelessWidget {
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
-                        colors: [Color(0xFFF5C97B), Color(0xFFFF7AA2)],
+                        colors: [AppColors.auroraGold, Color(0xFFFF7AA2)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -156,7 +156,7 @@ class DiscoveryRaceCard extends StatelessWidget {
                       child: _Podium(
                         entry: entries[1],
                         height: 72,
-                        color: const Color(0xFFB9BBFF),
+                        color: AppColors.rankSilverCool,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -173,7 +173,7 @@ class DiscoveryRaceCard extends StatelessWidget {
                       child: _Podium(
                         entry: entries.length > 2 ? entries[2] : entries[1],
                         height: 64,
-                        color: const Color(0xFFE8A87C),
+                        color: AppColors.rankBronzeWarm,
                       ),
                     ),
                   ],
@@ -300,7 +300,7 @@ class _Podium extends StatelessWidget {
                 ? Icons.emoji_events_rounded
                 : Icons.workspace_premium_rounded,
             size: 22,
-            color: isFirst ? const Color(0xFF6B4E00) : Colors.white,
+            color: isFirst ? AppColors.goldShadow : Colors.white,
           ),
         ),
         const SizedBox(height: 6),

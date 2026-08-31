@@ -95,7 +95,7 @@ class MergedTimeline extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF7EE8D2), Color(0xFFB79CED)],
+                        colors: [AppColors.auroraTeal, AppColors.auroraLilac],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),

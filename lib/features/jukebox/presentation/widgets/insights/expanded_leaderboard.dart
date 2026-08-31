@@ -92,7 +92,7 @@ class _ExpandedLeaderboardState extends State<ExpandedLeaderboard>
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
-                        colors: [Color(0xFFE8D5B7), Color(0xFFB79CED)],
+                        colors: [AppColors.blushGold, AppColors.auroraLilac],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -277,8 +277,8 @@ class _ExpandedLeaderboardState extends State<ExpandedLeaderboard>
       final isPodium = item.rank <= 3;
       final color = switch (item.rank) {
         1 => AppColors.auroraGold,
-        2 => const Color(0xFFB9BBFF),
-        3 => const Color(0xFFE8A87C),
+        2 => AppColors.rankSilverCool,
+        3 => AppColors.rankBronzeWarm,
         _ => AppColors.blushGold,
       };
       return GestureDetector(
@@ -361,8 +361,8 @@ class _ExpandedLeaderboardState extends State<ExpandedLeaderboard>
       final isPodium = item.rank <= 3;
       final color = switch (item.rank) {
         1 => AppColors.auroraGold,
-        2 => const Color(0xFFB9BBFF),
-        3 => const Color(0xFFE8A87C),
+        2 => AppColors.rankSilverCool,
+        3 => AppColors.rankBronzeWarm,
         _ => AppColors.auroraLilac,
       };
       return SizedBox(
@@ -560,8 +560,8 @@ class _Rank extends StatelessWidget {
     if (rank <= 3) {
       final c = switch (rank) {
         1 => AppColors.auroraGold,
-        2 => const Color(0xFFB9BBFF),
-        3 => const Color(0xFFE8A87C),
+        2 => AppColors.rankSilverCool,
+        3 => AppColors.rankBronzeWarm,
         _ => AppColors.blushGold,
       };
       return Container(

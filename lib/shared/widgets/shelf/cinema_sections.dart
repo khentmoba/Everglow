@@ -120,10 +120,10 @@ class _ForYouCardState extends State<_ForYouCard> {
                             fit: BoxFit.cover,
                             cacheWidth: 400,
                             errorBuilder: (_, _, _) =>
-                                Container(color: const Color(0xFF1C1228)),
+                                Container(color: AppColors.animeCard),
                           )
                         else
-                          Container(color: const Color(0xFF1C1228)),
+                          Container(color: AppColors.animeCard),
                         // Hover overlay
                         if (_hovered)
                           Container(color: Colors.black.withValues(alpha: 0.1)),
@@ -325,11 +325,11 @@ class _RankingTileState extends State<_RankingTile> {
   Color get _rankColor {
     switch (widget.rank) {
       case 1:
-        return const Color(0xFFF0A500);
+        return AppColors.rankGold;
       case 2:
-        return const Color(0xFFB0BEC5);
+        return AppColors.rankSilver;
       case 3:
-        return const Color(0xFFBF8040);
+        return AppColors.rankBronze;
       default:
         return AppColors.textMuted;
     }
@@ -349,8 +349,8 @@ class _RankingTileState extends State<_RankingTile> {
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: _hovered
-                ? const Color(0xFF1C1228).withValues(alpha: 0.8)
-                : const Color(0xFF1C1228).withValues(alpha: 0.5),
+                ? AppColors.animeCard.withValues(alpha: 0.8)
+                : AppColors.animeCard.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isTop3
@@ -414,9 +414,9 @@ class _RankingTileState extends State<_RankingTile> {
                           fit: BoxFit.cover,
                           cacheWidth: 150,
                           errorBuilder: (_, _, _) =>
-                              Container(color: const Color(0xFF1C1228)),
+                              Container(color: AppColors.animeCard),
                         )
-                      : Container(color: const Color(0xFF1C1228)),
+                      : Container(color: AppColors.animeCard),
                 ),
               ),
               const SizedBox(width: 12),
@@ -623,9 +623,9 @@ class _ProviderRowWidget extends StatelessWidget {
                                   fit: BoxFit.cover,
                                   cacheWidth: 300,
                                   errorBuilder: (_, _, _) =>
-                                      Container(color: const Color(0xFF1C1228)),
+                                      Container(color: AppColors.animeCard),
                                 )
-                              : Container(color: const Color(0xFF1C1228)),
+                              : Container(color: AppColors.animeCard),
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -793,10 +793,10 @@ class _ContinueCard extends StatelessWidget {
                   fit: BoxFit.cover,
                   cacheWidth: 900,
                   errorBuilder: (_, _, _) =>
-                      Container(color: const Color(0xFF1C1228)),
+                      Container(color: AppColors.animeCard),
                 )
               else
-                Container(color: const Color(0xFF1C1228)),
+                Container(color: AppColors.animeCard),
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
