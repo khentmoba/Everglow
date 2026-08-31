@@ -154,19 +154,8 @@ class _MochiScreenState extends State<MochiScreen> {
       _scrollToBottom();
     } catch (e) {
       if (!mounted) return;
-      final msg = e.toString().replaceFirst('Exception: ', '');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Mochi couldn\'t respond: $msg',
-            style: AppTypography.bodySmall(),
-          ),
-          backgroundColor: AppColors.deepRose.withValues(alpha: 0.9),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLg),
-          margin: const EdgeInsets.all(AppSpacing.lg),
-        ),
-      );
+      // Error already surfaced via AIService.lastError -> _ErrorBanner; avoid duplicate SnackBar covering composer.
+      debugPrint('[Mochi] send failed: $e');
     } finally {
       if (mounted) setState(() => _isSending = false);
     }
