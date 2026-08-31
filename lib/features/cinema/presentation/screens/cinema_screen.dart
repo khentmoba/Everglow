@@ -621,6 +621,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
                   router.go('/');
                 },
                 userName: userName,
+                showAnime: isCinemaOnlyUser,
                 links: const [
                   NetflixNavLink('Home', 0),
                   NetflixNavLink('New & Popular', 2, 'collection-new'),

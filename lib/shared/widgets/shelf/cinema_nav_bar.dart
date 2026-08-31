@@ -118,8 +118,8 @@ class _CinemaTopNavState extends State<_CinemaTopNav> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              const Color(0xFF080810).withValues(alpha: 0.92),
-              const Color(0xFF080810).withValues(alpha: 0.0),
+              AppColors.animeBackground.withValues(alpha: 0.92),
+              AppColors.animeBackground.withValues(alpha: 0.0),
             ],
           ),
         ),
@@ -415,7 +415,7 @@ class _CinemaBottomNav extends StatelessWidget {
         MediaQuery.paddingOf(context).bottom + 12,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1228),
+        color: AppColors.animeCard,
         borderRadius: BorderRadius.circular(28),
         border: Border.all(color: AppTheme.roseQuartz.withValues(alpha: 0.1)),
         boxShadow: [

@@ -151,7 +151,7 @@ class LeaderboardHeader extends StatelessWidget {
               end: Alignment.bottomRight,
               colors: [
                 AppColors.auroraGold.withValues(alpha: 0.20),
-                const Color(0xFF6B4E00).withValues(alpha: 0.18),
+                AppColors.goldShadow.withValues(alpha: 0.18),
                 AppColors.inkDeep.withValues(alpha: 0.28),
               ],
             ),
@@ -282,7 +282,7 @@ class _LeaderboardIcon extends StatelessWidget {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFFFFE4EC), Color(0xFFFF8FAB), Color(0xFFE91E8C)],
+            colors: [AppColors.blushTint, Color(0xFFFF8FAB), AppColors.cinemaPink],
           ),
           border: Border.all(
             color: Colors.white.withValues(alpha: 0.78),
@@ -299,7 +299,7 @@ class _LeaderboardIcon extends StatelessWidget {
         child: const Icon(
           Icons.emoji_events_rounded,
           size: 20,
-          color: Color(0xFF6B0F2A),
+          color: AppColors.roseDark,
         ),
       );
     }
@@ -311,7 +311,7 @@ class _LeaderboardIcon extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFFFF6CC), Color(0xFFF5C97B), Color(0xFFC49A2B)],
+          colors: [Color(0xFFFFF6CC), AppColors.auroraGold, Color(0xFFC49A2B)],
         ),
         border: Border.all(
           color: Colors.white.withValues(alpha: 0.78),
@@ -328,7 +328,7 @@ class _LeaderboardIcon extends StatelessWidget {
       child: const Icon(
         Icons.emoji_events_rounded,
         size: 20,
-        color: Color(0xFF6B4E00),
+        color: AppColors.goldShadow,
       ),
     );
   }
@@ -636,13 +636,13 @@ class _ChampionBadgeState extends State<_ChampionBadge>
                 end: Alignment.bottomRight,
                 colors: widget.isPink
                     ? const [
-                        Color(0xFFFFE4EC),
+                        AppColors.blushTint,
                         Color(0xFFFF8FAB),
-                        Color(0xFFE91E8C),
+                        AppColors.cinemaPink,
                       ]
                     : const [
                         Color(0xFFFFF6CC),
-                        Color(0xFFF5C97B),
+                        AppColors.auroraGold,
                         Color(0xFFC49A2B),
                       ],
               ),
@@ -678,15 +678,15 @@ class _ChampionBadgeState extends State<_ChampionBadge>
                 height: 16,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: (widget.isPink ? const Color(0xFF6B0F2A) : const Color(0xFF6B4E00)).withValues(alpha: 0.14),
+                  color: (widget.isPink ? AppColors.roseDark : AppColors.goldShadow).withValues(alpha: 0.14),
                   border: Border.all(
-                    color: (widget.isPink ? const Color(0xFF6B0F2A) : const Color(0xFF6B4E00)).withValues(alpha: 0.22),
+                    color: (widget.isPink ? AppColors.roseDark : AppColors.goldShadow).withValues(alpha: 0.22),
                   ),
                 ),
                 child: Icon(
                   Icons.emoji_events_rounded,
                   size: 10,
-                  color: widget.isPink ? const Color(0xFF6B0F2A) : const Color(0xFF6B4E00),
+                  color: widget.isPink ? AppColors.roseDark : AppColors.goldShadow,
                 ),
               ),
               const SizedBox(width: 5),
@@ -695,7 +695,7 @@ class _ChampionBadgeState extends State<_ChampionBadge>
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 11,
                   height: 1,
-                  color: widget.isPink ? const Color(0xFF6B0F2A) : const Color(0xFF6B4E00),
+                  color: widget.isPink ? AppColors.roseDark : AppColors.goldShadow,
                   letterSpacing: 0.9,
                 ),
               ),
@@ -703,7 +703,7 @@ class _ChampionBadgeState extends State<_ChampionBadge>
               Icon(
                 Icons.auto_awesome_rounded,
                 size: 9,
-                color: widget.isPink ? const Color(0xFF6B0F2A) : const Color(0xFF6B4E00),
+                color: widget.isPink ? AppColors.roseDark : AppColors.goldShadow,
               ),
             ],
           ),

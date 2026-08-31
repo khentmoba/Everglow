@@ -11,6 +11,7 @@ import '../../data/services/our_books_service.dart';
 import '../widgets/ol_search_modal.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_colors.dart';
 
 /// Shared couple list. Mirrors `OurCinemaScreen` from the cinema
 /// feature.
@@ -107,7 +108,7 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
               child: Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color(0xFF1976D2).withValues(alpha: 0.05),
+                  color: AppColors.cinemaBlue.withValues(alpha: 0.05),
                 ),
               ),
             ),
@@ -491,8 +492,8 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                                       ? item.isReadByKhent
                                       : item.isReadByClair,
                                   color: isMine
-                                      ? const Color(0xFF1976D2)
-                                      : const Color(0xFFE91E8C),
+                                      ? AppColors.cinemaBlue
+                                      : AppColors.cinemaPink,
                                   onTap: () {
                                     _service.setReadFlag(
                                       workKey: item.workKey,
@@ -549,12 +550,12 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF1976D2), Color(0xFFE91E8C)],
+            colors: [AppColors.cinemaBlue, AppColors.cinemaPink],
           ),
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFE91E8C).withValues(alpha: 0.3),
+              color: AppColors.cinemaPink.withValues(alpha: 0.3),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -583,14 +584,14 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
           initial: 'K',
           label: 'Khent',
           read: khentRead,
-          color: const Color(0xFF1976D2),
+          color: AppColors.cinemaBlue,
         ),
         const SizedBox(width: 8),
         _buildAvatarBadge(
           initial: 'C',
           label: 'Clair',
           read: clairRead,
-          color: const Color(0xFFE91E8C),
+          color: AppColors.cinemaPink,
         ),
       ],
     );
@@ -654,7 +655,7 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
 
   Widget _posterPlaceholder() {
     return Container(
-      color: const Color(0xFF12091A),
+      color: AppColors.deepBlack,
       child: const Center(
         child: Icon(
           Icons.menu_book_rounded,
@@ -695,7 +696,7 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1C1228),
+        backgroundColor: AppColors.shimmerBase,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(
           'Remove from Our Books?',

@@ -90,7 +90,7 @@ class _DoodleBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = isActive
-        ? const Color(0xFFF0A500)
+        ? AppTheme.warmAmber
         : AppTheme.roseQuartz.withValues(alpha: 0.7);
 
     return AnimatedContainer(

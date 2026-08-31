@@ -60,7 +60,7 @@ class HeatmapSection extends StatelessWidget {
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
-                        colors: [Color(0xFF7EE8D2), Color(0xFF4ADE80)],
+                        colors: [AppColors.auroraTeal, AppColors.success],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),

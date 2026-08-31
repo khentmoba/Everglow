@@ -57,6 +57,13 @@ _Previous releases: [v5.3.0](https://github.com/khentmoba/Everglow/releases/tag/
 | **Starlight Jar** | Drop gratitude notes and memories into a virtual jar | 1.1.0 / 6.0.0 |
 | **Relationship Timeline** | Visual timeline of relationship milestones on the dashboard | **6.0.0** |
 | **Upcoming Countdowns** | Countdown timers to next special day on the dashboard | **6.0.0** |
+| **Budget** | Couple finances — transactions, monthly budgets, expense split | **6.0.0** |
+| **Cookbook** | Shared recipe collection with Firestore persistence | **6.0.0** |
+| **Journal** | Shared journal with locked/private entries and tags | **6.0.0** |
+| **Travel** | Shared trips — itinerary pins, atlas map view, reorderable stops | **6.0.0** |
+| **Vault** | Private file vault (Firebase Storage) | **6.0.0** |
+| **Wellness** | Habits + workout tracking with streaks | **6.0.0** |
+| **Wiki** | Shared worldbuilding/wiki pages | **6.0.0** |
 
 ### Entertainment
 
@@ -69,6 +76,7 @@ _Previous releases: [v5.3.0](https://github.com/khentmoba/Everglow/releases/tag/
 | **Jukebox** | Live music status from Last.fm for both partners | 1.1.0 |
 | **Academy** | Trivia game with 8 categories, solo study, and 1v1 challenges | 1.1.0 |
 | **Canvas** | Collaborative drawing with real-time Firestore sync | 1.1.0 |
+| **Jellyfin** | Jellyfin media server integration + party downloads | 6.0.0 |
 
 ### Play Zone
 
@@ -105,11 +113,11 @@ _Previous releases: [v5.3.0](https://github.com/khentmoba/Everglow/releases/tag/
 | **Backend** | Firebase (Auth, Firestore, Storage, Hosting, Cloud Functions, FCM) |
 | **State Management** | Provider (ChangeNotifierProvider, Selector) |
 | **Routing** | go_router |
-| **External APIs** | TMDB, Open Library, OpenTDB, Last.fm, Jikan (MyAnimeList), AniList GraphQL |
+| **External APIs** | TMDB, Open Library, OpenTDB, Last.fm, Jikan, AniList, MangaDex, Comick, MangaKakalot, Mangasee123, Bato, Spotify, Jellyfin |
 | **Real-Time** | Firestore snapshots (chat, canvas, presence, watchlist, multiplayer) |
 | **Voice Chat** | WebRTC via ac-relay signaling server |
 | **AI** | Agnes 2.5 Flash via SSE streaming with 11 function-calling tools |
-| **Cloud Functions** | CORS proxies for MangaDex, MangaKakalot, MangaKatana, Comick, anime CDNs, Open Library |
+| **Cloud Functions** | Authenticated proxies (TMDB, Last.fm, Spotify, manga, anime, Open Library) + AI (Agnes) + schedules/triggers |
 | **Notifications** | Firebase Cloud Messaging (FCM) with topic subscriptions |
 
 ---
@@ -121,36 +129,48 @@ lib/
   main.dart                          # Entry point, Provider setup, NotificationService, PresenceService
   core/
     audio/                           # Sound effects (just_audio)
-    config/                          # EnvConfig with hardcoded API key fallbacks
-    constants/                       # API keys
+    config/env_config.dart          # EnvConfig — dotenv / --dart-define, debug-only fallbacks
+    di/                              # Composition root (appProviders) + app shell (AppRoot)
     models/                          # Shared models (PresenceStatus)
-    router/                          # GoRouter — all routes defined here
-    services/                        # NotificationService (FCM)
+    router/app_router.dart           # GoRouter composition root; feature routes under each feature
+    services/                        # AuthService, PresenceService, StorageService, NotificationService
+    system/                          # AppBootstrap, AppVersion, HealthService
     theme/                           # Dusk Petal design system (colors, typography, spacing, etc.)
+    utils/                           # Logger, Firestore stream helpers, connectivity
   features/
-    entry/                           # Passcode gateway (Clair, Khent, Breyan, Octagram)
-    dashboard/                       # Main hub + preview cards + timeline + countdowns
-    heartbeat/                       # Daily mood tracking
-    guardian/                        # Animated cat mascot
-    academy/                         # Trivia game
-    ai/                              # Mochi AI assistant (Groq + function calling)
-    books/                           # Book discovery & reader (Open Library)
-    bucket_list/                     # Shared couple bucket list ★ NEW v6.0.0
-    calendar/                        # Shared couple calendar ★ NEW v6.0.0
-    canvas/                          # Collaborative drawing + doodle presence
-    cinema/                          # Movie/anime watchlist (TMDB, multi-provider, trailers)
-    chat/                            # Private couple chat
+    academy/                         # Trivia game — 8 categories, solo study, 1v1 matches
+    ai/                              # Mochi AI assistant (Agnes 2.5 Flash + 11 function tools via apihub.agnes-ai.com)
+    books/                           # Book discovery & reader (Open Library) + Our Books list
+    bucket_list/                     # Shared bucket list kanban (todo / doing / done)
+    budget/                          # Couple finances — transactions, monthly budgets, expense split
+    calendar/                        # Shared calendar + date polls (Rallly-style voting)
+    canvas/                          # Collaborative drawing (real-time Firestore sync)
+    chat/                            # Sanctuary private couple chat (real-time)
+    cinema/                          # Watchlist — TMDB, multi-provider video, trailers, episode drawer
+    cookbook/                        # Shared recipe collection
     daily_bloom/                     # Virtual garden (5 plant types, seasonal, shared)
-    date_randomizer/                 # Date idea generator
-    gallery/                         # Shared photo gallery ★ NEW v6.0.0
-    jukebox/                         # Music sync (Last.fm)
-    manga/                           # Manga library (MangaDex, Comick, MangaKakalot)
-    play_zone/                       # Games hub + Table Tennis multiplayer
+    dashboard/                       # Main hub — anniversary counter, milestone cards, previews
+    date_randomizer/                 # Date idea generator (1000+ ideas, shake gesture)
+    entry/                           # Passcode gateway (0221=Clair, 0938=Khent, 9132=Breyan, 8080=Octagram)
+    gallery/                         # Photo gallery with map view + memories
+    guardian/                        # Animated cat mascot with AI-powered messages
+    heartbeat/                       # Daily mood tracking (mood picker, partner status)
+    jellyfin/                        # Jellyfin media server integration + party downloads
+    journal/                         # Shared journal with locked/private entries and tags
+    jukebox/                         # Last.fm + Spotify sync, listen-along, insights
+    manga/                           # Manga library — MangaDex, Bato, Comick, Mangakakalot, Mangasee123
+    play_zone/                       # Games hub + Table Tennis (WebGL + Firestore multiplayer)
     starlight_jar/                   # Gratitude notes jar
-    watch_party/                     # Watch party with WebRTC voice chat
-    xp/                              # Gamification system
-  services/                          # AuthService, PresenceService, StorageService
-  shared/widgets/                    # Design system widgets + shelf UI components
+    travel/                          # Shared trips — itinerary pins, atlas map, reorderable stops
+    vault/                           # Private file vault (Firebase Storage)
+    watch_party/                     # Watch party with WebRTC voice chat (ac-relay)
+    wellness/                        # Habits + workout tracking with streaks
+    wiki/                            # Shared worldbuilding/wiki pages
+    xp/                              # XP/leveling system
+  shared/
+    utils/text_utils.dart            # stripMarkdown, extractTitles
+    widgets/everglow/                # Design system: EverglowButton, EverglowCard, EverglowScaffold, etc.
+    widgets/shelf/                   # Shelf UI: ShelfPosterCard, ShelfHeroCarousel, CinemaNavBar, etc.
   firebase_options.dart              # Generated Firebase config
 functions/
   index.js                           # Cloud Functions: proxies + AI (Mochi) + scheduled tasks
@@ -223,7 +243,16 @@ The workflow:
 | `proxyMangaDex` | CORS proxy for MangaDex catalog API |
 | `proxyComick` | CORS proxy for Comick catalog API |
 | `proxyAnimeImage` | CORS proxy for anime CDN thumbnails (Crunchyroll, Funimation) |
-| `proxyAI` | Mochi AI proxy with Agnes 2.5 Flash backend + 11 function-calling tools |
+| `proxyGalleryImage` | CORS proxy for gallery + Firebase Storage images |
+| `proxyScanlation` / `proxyFetchHtml` / `proxyEmbed` | CORS proxies for scanlation sites + generic HTML/embed fetch |
+| `proxyVideoStream` / `proxyWatchStream` | Video stream proxies with allow-list + SSRF guard |
+| `proxyTmdb` | Authenticated TMDB proxy (server-side API key, ID-token required) |
+| `proxyLastfm` | Authenticated Last.fm proxy (server-side API key) |
+| `proxySpotifySearch` / `spotifyExchange` / `spotifyRefresh` / `spotifyCurrentlyPlaying` | Spotify OAuth + search + playback |
+| `proxyAI` / `proxyAIv2` | Mochi AI proxy — Agnes 2.5 Flash (apihub.agnes-ai.com) via SSE streaming, 512K context, 11 tools |
+| `agnesImage` | Agnes image generation proxy (`agnes-image-2.0-flash`) |
+| `verifyPasscode` | Server-verified passcode login (Khent/Clair) |
+| `health` | Public liveness + Firestore reachability |
 
 ## Release History
 

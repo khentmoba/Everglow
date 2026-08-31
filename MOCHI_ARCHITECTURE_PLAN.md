@@ -1,8 +1,11 @@
-# Mochi Agent Architecture Plan
+# Mochi Agent Architecture Plan — ARCHIVED (Implemented with Agnes)
+
+> **Historical note (2026-08):** This plan was written for Groq (`openai/gpt-oss-120b` / `qwen/qwen3.6-27b`). Everglow has since migrated to **Agnes 2.5 Flash** via `https://apihub.agnes-ai.com` (`proxyAI`/`proxyAIv2` on Cloud Run, `AGNES_API_KEY`, 512K context, `AGNES_INPUT_TOKEN_BUDGET=120000`). `MOCHI_ARCHITECTURE_PLAN.md` is retained for context — phase checklists below map to the current Agnes implementation.
+
 
 ## Summary
 
-Transform Mochi from a single-shot chatbot into a real agent with custom tool execution, an agentic loop, smarter memory, and proactive behavior. The model stays `openai/gpt-oss-120b` via Groq — all improvements are architectural.
+Transform Mochi from a single-shot chatbot into a real agent with custom tool execution, an agentic loop, smarter memory, and proactive behavior. The model is now `agnes-2.5-flash` via Agnes (apihub.agnes-ai.com) — all improvements were architectural and are now live on `proxyAI`/`proxyAIv2`.
 
 ---
 
@@ -33,11 +36,11 @@ Define `MOCHI_TOOLS` array with OpenAI-compatible function schemas:
 
 ### 1C. Agent Loop (`functions/index.js`)
 
-Replace the single Groq call with a loop:
+Replace the single Agnes call with a loop:
 
 ```
 while (round < MAX_TOOL_ROUNDS = 5):
-  call Groq with stream: true
+  call Agnes (apihub.agnes-ai.com) with stream: true
   accumulate response (content + tool_calls)
   if no tool_calls → stream content to client → DONE
   if tool_calls → execute each tool → append results → loop
@@ -61,7 +64,7 @@ Add tool awareness to Mochi's persona:
 
 ### Token Budget Adjustment
 
-Tool schemas add ~1000 tokens. Increase `GROQ_INPUT_TOKEN_BUDGET` from 6000 to 7000 (Groq's actual limit is 8000).
+Tool schemas add ~1000 tokens. Increase `Agnes_INPUT_TOKEN_BUDGET` to 120000 (Agnes 2.5 Flash offers 512K context; tool schemas ~1K).
 
 ### Files Modified
 | File | Change |
@@ -119,7 +122,7 @@ Replace keyword-triggered extraction with always-on LLM extraction:
 
 ### 3A. Daily Digest (8:00 AM PHT)
 
-`mochiDailyDigest` — Cloud Scheduler → gather context → call Groq for a short digest → FCM push to both users.
+`mochiDailyDigest` — Cloud Scheduler → gather context → call Agnes for a short digest → FCM push to both users.
 
 ### 3B. Mood Check-In (8:00 PM PHT)
 
@@ -152,7 +155,7 @@ After the agent loop produces a final response, extract quoted/capitalized title
 
 ### 4B. Self-Healing Regeneration
 
-If hallucinated titles found, append a correction message and re-call Groq (1 extra round):
+If hallucinated titles found, append a correction message and re-call Agnes (1 extra round):
 > "These titles don't exist on TMDB: X, Y. Please replace with real titles. Use search_movies tool."
 
 ### Files Modified
@@ -168,7 +171,7 @@ If hallucinated titles found, append a correction message and re-call Groq (1 ex
 
 ### 5A. Replace Local Summarization (`ai_conversation_repo.dart`)
 
-Replace `_buildLocalSummary` (keyword extraction) with `_buildLLMSummary` (Groq call). Runs only on session archival (~every 20 messages).
+Replace `_buildLocalSummary` (keyword extraction) with `_buildLLMSummary` (Agnes call). Runs only on session archival (~every 20 messages).
 
 ### 5B. Session Compression
 
@@ -210,7 +213,7 @@ Week 5: Phase 4 + 5 in parallel
 | Conversation | ~2000 | ~2000 | ~2000 |
 | **Total** | **~6000** | **~7000** | **~6700** |
 
-Groq's actual limit is 8000 — we're safe.
+Agnes 2.5 Flash offers 512K context — we're safe (budget 120K).
 
 ---
 

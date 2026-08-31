@@ -9,12 +9,13 @@ import '../../data/services/watch_party_chat_service.dart';
 import '../../data/services/temporary_chat_service.dart';
 import '../screens/watch_party_screen.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_colors.dart';
 
-const _cDeepRose = Color(0xFFC2185B);
-const _cGold = Color(0xFFE8C97A);
-const _cAmber = Color(0xFFF0A500);
-const _cVelvet = Color(0xFF12091A);
-const _cWhite = Color(0xFFFFF5F5);
+const _cDeepRose = AppColors.deepRose;
+const _cGold = AppColors.animeGold;
+const _cAmber = AppColors.warmAmber;
+const _cVelvet = AppColors.deepBlack;
+const _cWhite = AppColors.petalWhite;
 
 /// Compact "Watch Together" button. Tap to start (or join) a watch
 /// party. Renders differently depending on whether a party is already
@@ -238,7 +239,7 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
               height: 56,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [_cDeepRose, Color(0xFF8E1444)],
+                  colors: [_cDeepRose, AppColors.rosePressed],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),

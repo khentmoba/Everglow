@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_colors.dart';
+
 /// Wraps a horizontally-scrolling child and adds a soft fade on the
 /// trailing edge — the visual "there's more here" hint that the
 /// material/motion-craft guides both call out. Pairs well with
@@ -14,7 +16,7 @@ class ScrollEdgeFade extends StatelessWidget {
     super.key,
     required this.child,
     this.fadeWidth = 36,
-    this.fadeColor = const Color(0xFF080810),
+    this.fadeColor = AppColors.animeBackground,
     this.scrollDirection = Axis.horizontal,
   });
 

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_colors.dart';
+
 /// Reusable shimmer placeholder. Pulses a soft highlight across a
 /// dark velvet surface so it reads as "loading" without needing
 /// structure to be inferred. Used by Cinema, Anime, Books, and Manga
@@ -16,8 +18,8 @@ class ShimmerBox extends StatefulWidget {
     this.width,
     required this.height,
     this.radius = 12,
-    this.base = const Color(0xFF1C1228),
-    this.highlight = const Color(0xFF2A1F3A),
+    this.base = AppColors.shimmerBase,
+    this.highlight = AppColors.shimmerHighlight,
   });
 
   @override
@@ -98,8 +100,8 @@ class ShimmerPosterRow extends StatelessWidget {
     this.count = 6,
     this.padding = const EdgeInsets.symmetric(horizontal: 20),
     this.radius = 12,
-    this.base = const Color(0xFF1C1228),
-    this.highlight = const Color(0xFF2A1F3A),
+    this.base = AppColors.shimmerBase,
+    this.highlight = AppColors.shimmerHighlight,
   });
 
   @override

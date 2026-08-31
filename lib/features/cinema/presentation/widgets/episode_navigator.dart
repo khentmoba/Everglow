@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/services/tmdb_service.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_colors.dart';
 
 /// Horizontal scrollable season selector + episode grid for TV content.
 /// Fetches season/episode data from TMDB and lets the user pick an episode
@@ -212,19 +213,19 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? const Color(0xFFC2185B).withValues(alpha: 0.2)
+                    ? AppColors.deepRose.withValues(alpha: 0.2)
                     : Colors.white.withValues(alpha: 0.04),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: isSelected
-                      ? const Color(0xFFC2185B).withValues(alpha: 0.6)
+                      ? AppColors.deepRose.withValues(alpha: 0.6)
                       : Colors.white.withValues(alpha: 0.1),
                 ),
               ),
               child: Text(
                 name,
                 style: AppTypography.outfitHeading.copyWith(
-                  color: isSelected ? const Color(0xFFC2185B) : Colors.white70,
+                  color: isSelected ? AppColors.deepRose : Colors.white70,
                   fontSize: 11,
                 ),
               ),
@@ -256,12 +257,12 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
               width: 180,
               decoration: BoxDecoration(
                 color: isSelected
-                    ? const Color(0xFFC2185B).withValues(alpha: 0.12)
+                    ? AppColors.deepRose.withValues(alpha: 0.12)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: isSelected
-                      ? const Color(0xFFC2185B).withValues(alpha: 0.5)
+                      ? AppColors.deepRose.withValues(alpha: 0.5)
                       : Colors.white.withValues(alpha: 0.08),
                 ),
               ),
@@ -313,7 +314,7 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
                                 style: AppTypography.outfitHeading.copyWith(
                                   fontSize: 8,
                                   color: isSelected
-                                      ? const Color(0xFFC2185B)
+                                      ? AppColors.deepRose
                                       : Colors.white54,
                                 ),
                               ),
@@ -344,7 +345,7 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
 
   Widget _buildPlaceholder(int epNum) {
     return Container(
-      color: const Color(0xFF1C1228),
+      color: AppColors.shimmerBase,
       alignment: Alignment.center,
       child: Text(
         'E$epNum',
@@ -366,7 +367,7 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
           height: 24,
           child: CircularProgressIndicator(
             strokeWidth: 2,
-            color: Color(0xFFC2185B),
+            color: AppColors.deepRose,
           ),
         ),
       ),

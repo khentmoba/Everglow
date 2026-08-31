@@ -46,7 +46,7 @@ class EverglowScaffold extends StatelessWidget {
     this.navIndex,
     this.onNavTap,
     this.extendBody = true,
-    this.backgroundColor = const Color(0xFF080810),
+    this.backgroundColor = AppColors.animeBackground,
     this.showPetals = false,
     this.centerMaxWidth,
   }) : glows = const [

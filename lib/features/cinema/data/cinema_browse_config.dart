@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 /// Groups of browse options used by the Cinema Browse tab.
 enum BrowseCategoryGroup { collection, genre, decade, language, sort }
@@ -57,7 +58,7 @@ final List<BrowseCategoryOption> cinemaBrowseOptions = [
     id: 'collection-movies',
     label: 'Movies',
     icon: Icons.movie_rounded,
-    color: Color(0xFFC2185B),
+    color: AppColors.deepRose,
     group: BrowseCategoryGroup.collection,
     mediaType: 'movie',
     sortBy: 'popularity.desc',
@@ -66,7 +67,7 @@ final List<BrowseCategoryOption> cinemaBrowseOptions = [
     id: 'collection-tv',
     label: 'TV Shows',
     icon: Icons.tv_rounded,
-    color: Color(0xFFC2185B),
+    color: AppColors.deepRose,
     group: BrowseCategoryGroup.collection,
     mediaType: 'tv',
     sortBy: 'popularity.desc',
@@ -75,7 +76,7 @@ final List<BrowseCategoryOption> cinemaBrowseOptions = [
     id: 'collection-new',
     label: 'New & Popular',
     icon: Icons.local_fire_department_rounded,
-    color: Color(0xFFF0A500),
+    color: AppColors.warmAmber,
     group: BrowseCategoryGroup.collection,
     mediaType: 'movie',
     yearGte: 2025,
@@ -158,7 +159,7 @@ final List<BrowseCategoryOption> cinemaBrowseOptions = [
     id: 'lang-ja',
     label: 'Japanese',
     icon: Icons.language_rounded,
-    color: Color(0xFFE91E63),
+    color: AppColors.accentPink,
     group: BrowseCategoryGroup.language,
     mediaType: 'tv',
     withOriginalLanguage: 'ja',
@@ -240,7 +241,7 @@ final List<BrowseCategoryOption> cinemaBrowseOptions = [
     id: 'sort-popular',
     label: 'Popular',
     icon: Icons.trending_up_rounded,
-    color: Color(0xFFF0A500),
+    color: AppColors.warmAmber,
     group: BrowseCategoryGroup.sort,
     sortBy: 'popularity.desc',
   ),
@@ -248,7 +249,7 @@ final List<BrowseCategoryOption> cinemaBrowseOptions = [
     id: 'sort-rated',
     label: 'Top Rated',
     icon: Icons.star_rounded,
-    color: Color(0xFFE8C97A),
+    color: AppColors.animeGold,
     group: BrowseCategoryGroup.sort,
     sortBy: 'vote_average.desc',
     voteCountGte: 200,
@@ -359,7 +360,7 @@ List<BrowseCategoryOption> get _movieGenreOptions => [
     id: 'genre-movie-10749',
     label: 'Romance',
     icon: Icons.favorite_rounded,
-    color: Color(0xFFE91E63),
+    color: AppColors.accentPink,
     group: BrowseCategoryGroup.genre,
     mediaType: 'movie',
     genreId: 10749,
@@ -368,7 +369,7 @@ List<BrowseCategoryOption> get _movieGenreOptions => [
     id: 'genre-movie-878',
     label: 'Sci-Fi',
     icon: Icons.rocket_launch_rounded,
-    color: Color(0xFF00BCD4),
+    color: AppColors.animeCyan,
     group: BrowseCategoryGroup.genre,
     mediaType: 'movie',
     genreId: 878,
@@ -510,14 +511,14 @@ BrowseGroupMeta browseGroupMeta(BrowseCategoryGroup group) {
         title: 'Collections',
         subtitle: 'CURATED PICKS',
         icon: Icons.local_fire_department_rounded,
-        tint: Color(0xFFC2185B),
+        tint: AppColors.deepRose,
       );
     case BrowseCategoryGroup.genre:
       return const BrowseGroupMeta(
         title: 'Genres',
         subtitle: 'EXPLORE BY CATEGORY',
         icon: Icons.category_rounded,
-        tint: Color(0xFFC2185B),
+        tint: AppColors.deepRose,
       );
     case BrowseCategoryGroup.decade:
       return const BrowseGroupMeta(
@@ -538,7 +539,7 @@ BrowseGroupMeta browseGroupMeta(BrowseCategoryGroup group) {
         title: 'Sort',
         subtitle: 'ORDER BY',
         icon: Icons.sort_rounded,
-        tint: Color(0xFFF0A500),
+        tint: AppColors.warmAmber,
       );
   }
 }

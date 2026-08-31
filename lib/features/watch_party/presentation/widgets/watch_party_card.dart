@@ -4,11 +4,12 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_colors.dart';
 
-const _cDeepRose = Color(0xFFC2185B);
-const _cGold = Color(0xFFE8C97A);
-const _cMuted = Color(0xFF8A7A92);
-const _cWhite = Color(0xFFFFF5F5);
+const _cDeepRose = AppColors.deepRose;
+const _cGold = AppColors.animeGold;
+const _cMuted = AppColors.mutedPurple;
+const _cWhite = AppColors.petalWhite;
 
 /// Dashboard tile for the Watch Together feature. Mirrors the
 /// shelf-card visual language of the Cinema / Anime / Books rails
@@ -374,7 +375,7 @@ class _WatchPartyHeader extends StatelessWidget {
           height: 38,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [_cDeepRose, Color(0xFF8E1444)],
+              colors: [_cDeepRose, AppColors.rosePressed],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),

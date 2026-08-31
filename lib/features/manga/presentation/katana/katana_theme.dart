@@ -11,7 +11,7 @@ abstract final class KatanaColors {
   static const Color surface = Color(0xFF1B1424); // elevated night card
   static const Color surfaceAlt = Color(0xFF241B2E); // hover / alternate
   static const Color border = Color(0xFF362A3D); // soft plum line
-  static const Color text = Color(0xFFFFF5F5); // petal white
+  static const Color text = AppColors.petalWhite; // petal white
   static const Color textMuted = Color(0xFFCDB8CE); // rose-tinted secondary
   static const Color textLight = Color(0xFF8E7A94); // quiet text
   static const Color accent = AppColors.auroraRose; // vivid Everglow rose

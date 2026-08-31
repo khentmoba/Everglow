@@ -49,7 +49,7 @@ flowchart LR
   subgraph External
     TMDB[TMDB]
     OL[Open Library]
-    GROQ[Groq / Agnes LLM]
+    AGNES[Agnes 2.5 Flash LLM]
     LF[Last.fm]
     MD[MangaDex / Bato / Comick / etc.]
     REL[ac-relay WebRTC signaling]
@@ -66,7 +66,7 @@ flowchart LR
   FN --> M
   FN --> TMDB
   FN --> OL
-  FN --> GROQ
+  FN --> AGNES
   FN --> LF
   FN --> MD
   K --> REL
@@ -242,9 +242,9 @@ sequenceDiagram
   participant C as Mochi client
   participant F as proxyAI / proxyAIv2
   participant DB as Firestore
-  participant L as Groq / Agnes LLM
+  participant L as Agnes 2.5 Flash LLM
 
-  C->>F: POST /api/proxyAI {messages, feature}
+  C->>F: POST /api/proxyAI(v2) {messages, feature, caller} -> apihub.agnes-ai.com
   F->>DB: fetch user context + ranked memories
   F->>L: stream request with tool schemas
   loop max tool rounds
@@ -326,11 +326,11 @@ Errors follow `{error: string}` with conventional status codes: `400` shape,
 
 | Provider | Use | Key handling |
 |----------|-----|--------------|
-| Groq / Agnes | AI chat + image gen | server-side env only |
-| TMDB | cinema/anime metadata | client `EnvConfig` fallback today; server proxy when moving to wider tenancy |
+| Agnes 2.5 Flash (apihub.agnes-ai.com) | AI chat + image gen — 512K context, 120K input budget, 11 tool calls, thinking | server-side AGNES_API_KEY only |
+| TMDB | cinema/anime metadata | server-side via `proxyTmdb` (authenticated, ID-token required) |
 | Open Library | book text | `proxyBookText` server fetch |
 | MangaDex / Bato / Comick / Mangakakalot / Mangasee123 | manga catalog + images | allow-listed host proxies |
-| Last.fm | music status | read-only public key |
+| Last.fm | music status | server-side via `proxyLastfm` (authenticated) |
 | ac-relay | WebRTC signaling | standalone Node server, not deployed to Firebase |
 
 ## 7. Database Schema
