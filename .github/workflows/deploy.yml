@@ -85,6 +85,7 @@ jobs:
           KHENT_EMAIL: ${{ secrets.KHENT_EMAIL }}
           SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
           SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+          TINYFISH_API_KEY: ${{ secrets.TINYFISH_API_KEY }}
         run: |
           if [ -z "$TMDB_API_KEY" ] || [ -z "$LASTFM_API_KEY" ]; then
             echo "TMDB_API_KEY and LASTFM_API_KEY are required for the authenticated media proxies."
@@ -106,6 +107,7 @@ jobs:
           if [ -n "${KHENT_EMAIL:-}" ]; then echo "KHENT_EMAIL=${KHENT_EMAIL}" >> functions/.env; fi
           if [ -n "${SPOTIFY_CLIENT_ID:-}" ]; then echo "SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}" >> functions/.env; fi
           if [ -n "${SPOTIFY_CLIENT_SECRET:-}" ]; then echo "SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}" >> functions/.env; fi
+          if [ -n "${TINYFISH_API_KEY:-}" ]; then echo "TINYFISH_API_KEY=${TINYFISH_API_KEY}" >> functions/.env; fi
           GOOGLE_APPLICATION_CREDENTIALS="$HOME"/firebase-sa.json \
           firebase deploy --only functions,firestore:rules,firestore:indexes,storage --project everglow-1c6db --force
 

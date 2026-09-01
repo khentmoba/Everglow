@@ -478,6 +478,8 @@ const _EXTERNAL_CACHE_TTLS = {
   books: 30 * 60 * 1000,
   anime: 10 * 60 * 1000,
   trending: 10 * 60 * 1000,
+  web_search: 15 * 60 * 1000,
+  web_page: 30 * 60 * 1000,
 };
 function _getExternalCache(key, ttlMs) {
   const entry = _externalCache.get(key);
@@ -1423,6 +1425,10 @@ You have access to custom tools:
 - get_bucket_list — Read bucket list
 - get_journal_entries — Read journal
 - get_trips — Read trips
+- web_search — Search the web for current info, news, prices, or anything not covered by other tools
+- read_web_page — Fetch and read the full content of a web page (up to 3 URLs)
+
+**When to use web_search:** If a question needs current or recent information (news, prices, schedules, release dates, restaurant hours, anything that changes), use web_search rather than guessing from training knowledge. Then use read_web_page on the most promising result if the snippets are not enough. Prefer the other custom tools (TMDB, Open Library, Jikan, Spotify) when the question maps to those services.
 
 ## Image Understanding
 You can analyze images sent by the user. When you receive images:
@@ -1882,6 +1888,45 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
             category: { type: 'string', enum: ['fact', 'preference', 'dislike', 'goal', 'date', 'habit'], description: 'Optional new category' },
           },
           required: ['memory_id', 'fact'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'web_search',
+        description: 'Search the web for current information, news, prices, facts, or anything not covered by other tools. Use when they ask about recent events, current info, or topics outside Everglow\'s own data. Returns ranked results with titles, snippets, and URLs.',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Search query (keywords or natural language)' },
+            domain_type: { type: 'string', enum: ['web', 'news', 'research_paper'], description: 'Search type (default: web). Use "news" for recent articles with dates.' },
+            recency_minutes: { type: 'number', description: 'Only return results newer than this many minutes (e.g. 1440 for last 24h). Cannot combine with after_date/before_date.' },
+            after_date: { type: 'string', description: 'Only return results after this date (YYYY-MM-DD).' },
+            before_date: { type: 'string', description: 'Only return results before this date (YYYY-MM-DD).' },
+            location: { type: 'string', description: 'Country code for geo-relevant results (e.g. "PH", "US"). Default: PH.' },
+            include_domains: { type: 'string', description: 'Comma-separated domains to restrict results to (e.g. "github.com,arxiv.org").' },
+            exclude_domains: { type: 'string', description: 'Comma-separated domains to exclude (e.g. "pinterest.com,quora.com").' },
+          },
+          required: ['query'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'read_web_page',
+        description: 'Fetch and read the full content of one or more web pages (up to 3). Use after web_search when a snippet is not enough to answer well.',
+        parameters: {
+          type: 'object',
+          properties: {
+            urls: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'URLs to fetch (1-3)',
+            },
+          },
+          required: ['urls'],
         },
       },
     },
@@ -3464,6 +3509,76 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
                 return { id: d.id, title: v.title||'', start: v.startDate?.toDate?.()?.toISOString()?.slice(0,10)||null, end: v.endDate?.toDate?.()?.toISOString()?.slice(0,10)||null, status: v.status||'planning' };
               });
               return JSON.stringify({ trips, count: trips.length });
+            }
+            case 'web_search': {
+              const apiKey = (process.env.TINYFISH_API_KEY || '').trim();
+              if (!apiKey) return JSON.stringify({ error: 'Web search is not configured on the server yet.' });
+              const query = String(args.query || '').trim();
+              if (!query) return JSON.stringify({ error: 'No search query provided' });
+              const location = String(args.location || 'PH').trim().toUpperCase();
+              const language = 'en';
+              const params = new URLSearchParams({ query, location, language });
+              if (args.domain_type) params.set('domain_type', String(args.domain_type));
+              if (args.recency_minutes) params.set('recency_minutes', String(Math.max(1, Math.floor(Number(args.recency_minutes)))));
+              if (args.after_date && /^\d{4}-\d{2}-\d{2}$/.test(String(args.after_date))) params.set('after_date', String(args.after_date));
+              if (args.before_date && /^\d{4}-\d{2}-\d{2}$/.test(String(args.before_date))) params.set('before_date', String(args.before_date));
+              if (args.include_domains) params.set('include_domains', String(args.include_domains));
+              if (args.exclude_domains) params.set('exclude_domains', String(args.exclude_domains));
+              const searchKey = `websearch:${params.toString()}`;
+              let searchData;
+              const cachedSearch = _getExternalCache(searchKey, _EXTERNAL_CACHE_TTLS.web_search);
+              if (cachedSearch) {
+                searchData = cachedSearch;
+              } else {
+                const searchRes = await fetch(`https://api.search.tinyfish.ai?${params.toString()}`, {
+                  headers: { 'X-API-Key': apiKey },
+                });
+                if (searchRes.status === 401 || searchRes.status === 403) return JSON.stringify({ error: 'Web search API key is invalid or forbidden.' });
+                if (searchRes.status === 402) return JSON.stringify({ error: 'Web search account needs a top-up at agent.tinyfish.ai/wallet.' });
+                if (searchRes.status === 429) return JSON.stringify({ error: 'Web search rate limit hit — try again in a minute.' });
+                if (!searchRes.ok) return JSON.stringify({ error: `Web search failed (HTTP ${searchRes.status}).` });
+                searchData = await searchRes.json();
+                _setExternalCache(searchKey, searchData);
+              }
+              const results = (searchData.results || []).slice(0, 8).map(r => ({
+                title: r.title || '',
+                url: r.url || '',
+                snippet: (r.snippet || '').slice(0, 300),
+                site: r.site_name || '',
+                date: r.date || null,
+              }));
+              return JSON.stringify({ query, results, total: searchData.total_results || results.length });
+            }
+            case 'read_web_page': {
+              const apiKey = (process.env.TINYFISH_API_KEY || '').trim();
+              if (!apiKey) return JSON.stringify({ error: 'Web page reading is not configured on the server yet.' });
+              const urlsRaw = Array.isArray(args.urls) ? args.urls : [args.urls];
+              const urls = urlsRaw.map(u => String(u || '').trim()).filter(u => /^https?:\/\//i.test(u)).slice(0, 3);
+              if (urls.length === 0) return JSON.stringify({ error: 'No valid http(s) URLs provided' });
+              const fetchKey = `webpage:${urls.join('|')}`;
+              let fetchData;
+              const cachedPage = _getExternalCache(fetchKey, _EXTERNAL_CACHE_TTLS.web_page);
+              if (cachedPage) {
+                fetchData = cachedPage;
+              } else {
+                const fetchRes = await fetch('https://api.fetch.tinyfish.ai', {
+                  method: 'POST',
+                  headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ urls, format: 'markdown' }),
+                });
+                if (fetchRes.status === 401 || fetchRes.status === 403) return JSON.stringify({ error: 'Web page reading API key is invalid or forbidden.' });
+                if (fetchRes.status === 429) return JSON.stringify({ error: 'Web page reading rate limit hit — try again in a minute.' });
+                if (!fetchRes.ok) return JSON.stringify({ error: `Web page reading failed (HTTP ${fetchRes.status}).` });
+                fetchData = await fetchRes.json();
+                _setExternalCache(fetchKey, fetchData);
+              }
+              const pages = (fetchData.results || []).map(r => ({
+                url: r.url || '',
+                title: r.title || '',
+                content: (r.text || '').slice(0, 6000),
+              }));
+              const pageErrors = (fetchData.errors || []).map(e => ({ url: e.url || '', error: e.error || 'unknown' }));
+              return JSON.stringify({ pages, errors: pageErrors });
             }
             default:
               return JSON.stringify({ error: `Unknown tool: ${toolName}` });
