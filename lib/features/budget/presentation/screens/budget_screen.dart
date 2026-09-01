@@ -6,6 +6,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
+import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../../../shared/widgets/everglow/everglow_segmented_control.dart';
 import '../../data/models/budget_transaction.dart';
@@ -52,12 +53,12 @@ class _BudgetScreenState extends State<BudgetScreen> {
                   icon: Icons.account_balance_wallet_rounded,
                   hue: AppColors.warmAmber,
                   actions: [
-                    IconButton(
+                    EverglowIconButton(
+                      icon: Icons.add_rounded,
                       onPressed: () => _showAddDialog(auth),
-                      icon: const Icon(
-                        Icons.add_rounded,
-                        color: AppColors.blushGold,
-                      ),
+                      semanticLabel: 'Add transaction',
+                      tooltip: 'Add',
+                      iconColor: AppColors.blushGold,
                     ),
                   ],
                 ),

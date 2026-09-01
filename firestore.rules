@@ -185,6 +185,7 @@ service cloud.firestore {
     match /wiki_books/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
     match /wiki_pages/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
     match /budget_transactions/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /budget_limits/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
     match /our_cinema/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
     match /our_books/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
     match /read_list/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
@@ -279,3 +280,4 @@ function isValidVoiceRoomShape(data) {
       (!('offer' in data) || data.offer is string) &&
       (!('answer' in data) || data.answer is string);
 }
+

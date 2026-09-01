@@ -46,10 +46,12 @@ class EverglowSegmentedControl extends StatelessWidget {
                 onActivate: () => onChanged(i),
                 child: GestureDetector(
                   onTap: () => onChanged(i),
-                  child: AnimatedContainer(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 44),
+                    child: AnimatedContainer(
                     duration: AppMotion.orZero(AppMotion.fast),
                     curve: AppMotion.easeOutStrong,
-                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    padding: const EdgeInsets.symmetric(vertical: 13),
                     decoration: BoxDecoration(
                       color: isSel
                           ? activeColor.withValues(alpha: 0.16)
@@ -91,6 +93,7 @@ class EverglowSegmentedControl extends StatelessWidget {
                         ),
                       ],
                     ),
+                  ),
                   ),
                 ),
               ),

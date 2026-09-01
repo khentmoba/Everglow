@@ -3,6 +3,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../../shared/widgets/everglow/everglow_background.dart';
 import '../models/academy_question.dart';
 
@@ -145,10 +146,8 @@ class _SoloStudyScreenState extends State<SoloStudyScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          IconButton(
+          EverglowIconButton.close(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.close_rounded, color: AppColors.roseQuartz),
-            tooltip: 'Close',
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),

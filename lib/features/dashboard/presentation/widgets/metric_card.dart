@@ -4,7 +4,11 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_typography.dart';
 
-/// Anniversary counter tile: editorial glass, big gold numeral, heirloom details.
+/// Anniversary counter tile — distilled.
+///
+/// Keeps romance, drops weight: smaller numeral, single shadow,
+/// no watermark, calmer gold. The live seconds no longer pulses;
+/// the whole row reads as a quiet heirloom, not a scoreboard.
 class MetricCard extends StatelessWidget {
   final String label;
   final int value;
@@ -24,166 +28,82 @@ class MetricCard extends StatelessWidget {
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.velvet.withValues(alpha: 0.96),
-            AppColors.inkDeep.withValues(alpha: 0.98),
-          ],
-        ),
-        borderRadius: AppRadius.radiusX2,
+        color: AppColors.velvet.withValues(alpha: 0.72),
+        borderRadius: AppRadius.radiusXl,
         border: Border.all(
-          color: AppColors.moonlight.withValues(alpha: 0.14),
+          color: AppColors.moonlight.withValues(alpha: 0.10),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.inkDeep.withValues(alpha: 0.55),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
-          ),
-          BoxShadow(
-            color: AppColors.auroraGold.withValues(alpha: 0.08),
-            blurRadius: 28,
-            spreadRadius: -12,
+            color: AppColors.inkDeep.withValues(alpha: 0.32),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Stack(
         children: [
+          // Hairline — single, muted, no glow even for seconds
           Positioned(
             top: 0,
-            left: 14,
-            right: 14,
+            left: 18,
+            right: 18,
             child: Container(
               height: 1,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
                     Colors.transparent,
-                    AppColors.blushGold.withValues(alpha: pulse ? 0.85 : 0.55),
+                    AppColors.blushGold.withValues(alpha: 0.32),
                     Colors.transparent,
                   ],
-                ),
-                boxShadow: pulse
-                    ? [
-                        BoxShadow(
-                          color: AppColors.blushGold.withValues(alpha: 0.35),
-                          blurRadius: 8,
-                        ),
-                      ]
-                    : null,
-              ),
-            ),
-          ),
-          Positioned(
-            right: 8,
-            bottom: 2,
-            child: IgnorePointer(
-              child: Text(
-                value.toString().padLeft(2, '0'),
-                style: AppTypography.cormorantBlackWhite.copyWith(
-                  fontSize: 56,
-                  height: 1.0,
-                  letterSpacing: -1.5,
-                  color: AppColors.petalWhite.withValues(alpha: 0.06),
-                ),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.white.withValues(alpha: 0.055),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.55],
                 ),
               ),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+            padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (pulse)
-                      Container(
-                        width: 6,
-                        height: 6,
-                        margin: const EdgeInsets.only(right: 8),
-                        decoration: BoxDecoration(
-                          color: AppColors.auroraRose,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.auroraRose.withValues(
-                                alpha: 0.6,
-                              ),
-                              blurRadius: 8,
-                            ),
-                          ],
-                        ),
+                AnimatedSwitcher(
+                  duration: AppMotion.orZero(
+                    const Duration(milliseconds: 300),
+                  ),
+                  transitionBuilder: (child, animation) {
+                    final curved = CurvedAnimation(
+                      parent: animation,
+                      curve: AppMotion.easeOutExpo,
+                    );
+                    return FadeTransition(
+                      opacity: curved,
+                      child: ScaleTransition(
+                        scale: Tween(begin: 1.08, end: 1.0).animate(curved),
+                        child: child,
                       ),
-                    AnimatedSwitcher(
-                      duration: AppMotion.orZero(
-                        const Duration(milliseconds: 360),
-                      ),
-                      transitionBuilder: (child, animation) {
-                        final curved = CurvedAnimation(
-                          parent: animation,
-                          curve: AppMotion.easeOutExpo,
-                        );
-                        return FadeTransition(
-                          opacity: curved,
-                          child: ScaleTransition(
-                            scale: Tween(begin: 1.18, end: 1.0).animate(curved),
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: Text(
-                        value.toString().padLeft(2, '0'),
-                        key: ValueKey<int>(value),
-                        style: AppTypography.cormorantExtraBold.copyWith(
-                          color: pulse
-                              ? AppColors.petalWhite
-                              : AppColors.auroraGold,
-                          fontSize: pulse ? 36 : 42,
-                          height: 1.0,
-                          letterSpacing: -1.2,
-                          shadows: [
-                            BoxShadow(
-                              color:
-                                  (pulse
-                                          ? AppColors.auroraRose
-                                          : AppColors.auroraGold)
-                                      .withValues(alpha: 0.45),
-                              blurRadius: 16,
-                            ),
-                          ],
-                        ),
-                      ),
+                    );
+                  },
+                  child: Text(
+                    value.toString().padLeft(2, '0'),
+                    key: ValueKey<int>(value),
+                    style: AppTypography.cormorantExtraBold.copyWith(
+                      color: AppColors.auroraGold.withValues(alpha: 0.96),
+                      fontSize: 34,
+                      height: 1.0,
+                      letterSpacing: -0.8,
                     ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Container(
-                  width: 22,
+                  width: 18,
                   height: 1,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
                         Colors.transparent,
-                        AppColors.blushGold.withValues(alpha: 0.5),
+                        AppColors.blushGold.withValues(alpha: 0.35),
                         Colors.transparent,
                       ],
                     ),
@@ -193,9 +113,9 @@ class MetricCard extends StatelessWidget {
                 Text(
                   label.toUpperCase(),
                   style: AppTypography.outfitHeading.copyWith(
-                    color: AppColors.roseQuartz.withValues(alpha: 0.72),
-                    fontSize: 10,
-                    letterSpacing: 2.6,
+                    color: AppColors.roseQuartz.withValues(alpha: 0.62),
+                    fontSize: 9,
+                    letterSpacing: 2.2,
                     fontWeight: FontWeight.w700,
                   ),
                 ),

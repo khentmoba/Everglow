@@ -25,6 +25,7 @@ Future<String> streamSseResponse({
   required void Function(String chunk) onChunk,
   void Function(String chunk)? onReasoning,
   void Function(String toolStatus)? onToolStatus,
+  void Function(Map<String, dynamic> result)? onToolResult,
   void Function(String error)? onError,
   Duration timeout = const Duration(seconds: 120),
 }) async {
@@ -57,6 +58,7 @@ Future<String> streamSseResponse({
         onChunk,
         onReasoning: onReasoning,
         onToolStatus: onToolStatus,
+        onToolResult: onToolResult,
         onError: onError,
       );
     }
@@ -285,6 +287,7 @@ void _processSseData(
   void Function(String chunk) onChunk, {
   void Function(String chunk)? onReasoning,
   void Function(String toolStatus)? onToolStatus,
+  void Function(Map<String, dynamic> result)? onToolResult,
   void Function(String error)? onError,
 }) {
   if (data == '[DONE]') return;
@@ -299,9 +302,15 @@ void _processSseData(
       fullResponse.write(content);
       onChunk(content);
     }
-    final toolStatus = parsed['tool_status'] as String? ?? '';
+        final toolStatus = parsed['tool_status'] as String? ?? '';
     if (toolStatus.isNotEmpty && onToolStatus != null) {
       onToolStatus(toolStatus);
+    }
+    final toolResult = parsed['tool_result'];
+    if (toolResult is Map<String, dynamic> && onToolResult != null) {
+      onToolResult(toolResult);
+    } else if (toolResult is Map && onToolResult != null) {
+      onToolResult(Map<String, dynamic>.from(toolResult));
     }
     final error = parsed['error'] as String? ?? '';
     if (error.isNotEmpty && onError != null) {

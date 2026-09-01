@@ -4,6 +4,7 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 
 import '../../data/services/mochi_today_service.dart';
@@ -98,8 +99,9 @@ class _MochiTodayScreenState extends State<MochiTodayScreen> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.auroraGold),
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: EverglowSkeleton(height: 120, radius: 16),
       );
     }
     final snapshot = _snapshot!;

@@ -27,10 +27,11 @@ class EverglowPillNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
-
+    final leftInset = MediaQuery.paddingOf(context).left;
+    final rightInset = MediaQuery.paddingOf(context).right;
     return Positioned(
-      left: 20,
-      right: 20,
+      left: 16 + leftInset,
+      right: 16 + rightInset,
       bottom: bottomPadding + 12,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -83,10 +84,12 @@ class _NavItem extends StatelessWidget {
           onTap: onTap,
           child: MouseRegion(
             cursor: SystemMouseCursors.click,
-            child: AnimatedContainer(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+              child: AnimatedContainer(
               duration: AppMotion.orZero(AppMotion.medium),
               curve: AppMotion.easeOutStrong,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: selected
                     ? AppColors.deepRose.withValues(alpha: 0.15)
@@ -122,6 +125,7 @@ class _NavItem extends StatelessWidget {
                     ),
                   ],
                 ],
+              ),
               ),
             ),
           ),
