@@ -61,10 +61,15 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
   void initState() {
     super.initState();
     _starNotesStream = _service.getStarNotes();
-    _starNotesSub = _starNotesStream.listen((notes) {
-      if (!mounted) return;
-      setState(() => _notes = notes);
-    });
+    _starNotesSub = _starNotesStream.listen(
+      (notes) {
+        if (!mounted) return;
+        setState(() => _notes = notes);
+      },
+      onError: (Object e) {
+        if (mounted) setState(() => _notes = const []);
+      },
+    );
     _shakeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -259,9 +264,8 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Stack(
-        children: [
+    return Stack(
+      children: [
           // Confetti for surprise reveal
           Align(
             alignment: Alignment.topCenter,
@@ -652,8 +656,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
             ),
           ),
         ],
-      ),
-    );
+      );
   }
 
   // ── Helpers ──

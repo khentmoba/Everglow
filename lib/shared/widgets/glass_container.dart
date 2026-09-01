@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
@@ -31,8 +32,11 @@ class GlassContainer extends StatelessWidget {
     final effectiveOpacity = opacity ?? AppTheme.glassOpacity;
     final effectiveRadius = borderRadius ?? BorderRadius.circular(24.0);
 
-    // Check for performance fallback
-    final bool useBlur = effectiveBlur > 0 && !AppTheme.shouldReduceMotion;
+    // Web: BackdropFilter renders as opaque grey/white rectangle on HTML
+    // renderer and on some CanvasKit/SkWasm builds (see GlassJar comment).
+    // Disable blur on web and fall back to solid translucent fill.
+    final bool useBlur =
+        effectiveBlur > 0 && !AppTheme.shouldReduceMotion && !kIsWeb;
 
     Widget container = Container(
       width: width,
