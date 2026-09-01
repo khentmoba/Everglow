@@ -18,7 +18,7 @@ class TimelineView extends StatefulWidget {
 class _TimelineViewState extends State<TimelineView> {
   final PageController _pageController = PageController(
     viewportFraction: 0.85,
-    initialPage: 5000,
+    initialPage: 0,
   );
   Timer? _autoScrollTimer;
   final MilestoneService _milestoneService = MilestoneService();
@@ -152,6 +152,7 @@ class _TimelineViewState extends State<TimelineView> {
 
               return PageView.builder(
                 controller: _pageController,
+                itemCount: milestones.length > 1 ? 10000 : milestones.length,
                 itemBuilder: (context, index) {
                   final milestone = milestones[index % milestones.length];
 
@@ -163,7 +164,7 @@ class _TimelineViewState extends State<TimelineView> {
                         value = (_pageController.page! - index).abs();
                         value = (1 - (value * 0.15)).clamp(0.0, 1.0);
                       } else {
-                        value = (index == 5000) ? 1.0 : 0.85;
+                        value = (index == 0) ? 1.0 : 0.85;
                       }
 
                       return Center(

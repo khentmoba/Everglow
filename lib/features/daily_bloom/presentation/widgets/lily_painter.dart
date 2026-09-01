@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 class LilyPainter extends CustomPainter {
   final int stage;
@@ -134,7 +135,7 @@ class LilyPainter extends CustomPainter {
         if (stage == 5) {
           final glowPaint = Paint()
             ..color = Colors.pink[50]!.withValues(alpha: 0.5)
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+            ..maskFilter = kIsWeb ? null : const MaskFilter.blur(BlurStyle.normal, 10);
           canvas.drawPath(petalPath, glowPaint);
         }
 

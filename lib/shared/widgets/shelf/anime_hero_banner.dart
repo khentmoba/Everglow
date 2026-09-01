@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ui' show ImageFilter;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_breakpoints.dart';
 import '../../../core/theme/app_colors.dart';
@@ -182,16 +183,24 @@ class _HeroBannerSlide extends StatelessWidget {
                   if (item.imageUrl.isNotEmpty)
                     Transform.scale(
                       scale: 1.1,
-                      child: ImageFiltered(
-                        imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: Image.network(
-                          item.imageUrl,
-                          fit: BoxFit.cover,
-                          cacheWidth: 1200,
-                          errorBuilder: (_, _, _) =>
-                              Container(color: AppColors.velvet),
-                        ),
-                      ),
+                      child: kIsWeb
+                          ? Image.network(
+                              item.imageUrl,
+                              fit: BoxFit.cover,
+                              cacheWidth: 1200,
+                              errorBuilder: (_, _, _) =>
+                                  Container(color: AppColors.velvet),
+                            )
+                          : ImageFiltered(
+                              imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                              child: Image.network(
+                                item.imageUrl,
+                                fit: BoxFit.cover,
+                                cacheWidth: 1200,
+                                errorBuilder: (_, _, _) =>
+                                    Container(color: AppColors.velvet),
+                              ),
+                            ),
                     )
                   else
                     Container(color: AppColors.velvet),
@@ -386,18 +395,28 @@ class _FloatingPoster extends StatelessWidget {
             bottom: -8,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: ImageFiltered(
-                imageFilter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                child: Opacity(
-                  opacity: 0.5,
-                  child: Image.network(
-                    posterUrl,
-                    fit: BoxFit.cover,
-                    cacheWidth: 400,
-                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                  ),
-                ),
-              ),
+              child: kIsWeb
+                  ? Opacity(
+                      opacity: 0.5,
+                      child: Image.network(
+                        posterUrl,
+                        fit: BoxFit.cover,
+                        cacheWidth: 400,
+                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                      ),
+                    )
+                  : ImageFiltered(
+                      imageFilter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                      child: Opacity(
+                        opacity: 0.5,
+                        child: Image.network(
+                          posterUrl,
+                          fit: BoxFit.cover,
+                          cacheWidth: 400,
+                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                        ),
+                      ),
+                    ),
             ),
           ),
           // Main poster

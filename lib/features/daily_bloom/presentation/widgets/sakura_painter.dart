@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../../../../core/theme/app_colors.dart';
 
 class SakuraPainter extends CustomPainter {
@@ -157,7 +158,7 @@ class SakuraPainter extends CustomPainter {
         // Falling petals effect
         final glowPaint = Paint()
           ..color = const Color(0xFFF8BBD0).withValues(alpha: 0.2)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 20);
+          ..maskFilter = kIsWeb ? null : const MaskFilter.blur(BlurStyle.normal, 20);
         canvas.drawCircle(branchTop.translate(5, -15), 35, glowPaint);
       }
     }
