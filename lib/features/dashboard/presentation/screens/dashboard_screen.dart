@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_breakpoints.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../cinema/data/services/tmdb_service.dart';
 import 'package:animate_do/animate_do.dart';
@@ -69,7 +70,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   int _heartbeatRetryCount = 0;
   static const int _maxHeartbeatRetries = 5;
   final ScrollController _scrollController = ScrollController();
-  bool _quickExpanded = false;
   final Map<String, GlobalKey> _sectionKeys = {
     'zone-today': GlobalKey(),
     'zone-together': GlobalKey(),
@@ -237,8 +237,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     int deferMs = 0,
     bool hero = false,
   }) {
+    // Product motion: hero gets single FadeInDown, zone content defers via DeferredSection only (no per-sliver stagger)
     final Widget animated;
-    if (!widget.animate) {
+    if (!widget.animate || !hero) {
       animated = child;
     } else if (AppMotion.reduced) {
       animated = TweenAnimationBuilder<double>(
@@ -248,18 +249,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         child: child,
       );
     } else {
-      if (hero) {
-        animated = FadeInUp(
-          delay: Duration(milliseconds: delayMs),
-          child: child,
-        );
-      } else {
-        animated = FadeInUp(
-          delay: Duration(milliseconds: (delayMs % 220)),
-          duration: const Duration(milliseconds: 380),
-          child: child,
-        );
-      }
+      animated = FadeInDown(duration: const Duration(milliseconds: 700), child: child);
     }
     return SliverToBoxAdapter(
       child: DeferredSection(
@@ -345,7 +335,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         // Header
                         SliverToBoxAdapter(
                           child: Padding(
-                            padding: const EdgeInsets.fromLTRB(24, 64, 24, 32),
+                            padding: EdgeInsets.fromLTRB(AppSpacing.pageH(context), 48, AppSpacing.pageH(context), 24),
                             child: widget.animate
                                 ? (AppMotion.reduced
                                       ? _buildHeader(context)
@@ -394,11 +384,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                         // Anniversary Metrics Grid
                         AnniversaryMetrics(animate: widget.animate),
 
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
-                            child: DashboardJumpBar(onJump: _jumpTo),
-                          ),
+                        SliverPersistentHeader(
+                          pinned: true,
+                          delegate: _JumpBarDelegate(child: DashboardJumpBar(onJump: _jumpTo)),
                         ),
 
                         const SliverToBoxAdapter(child: SizedBox(height: 12)),
@@ -520,77 +508,85 @@ class _DashboardScreenState extends State<DashboardScreen>
                           placeholderHeight: 68,
                         ),
                         _animatedSliver(
-                          const DashboardPair(
-                            left: Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 0),
-                              child: JukeboxWidget(),
-                            ),
-                            right: Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 0),
-                              child: MusicStatsSection(),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Center(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 640),
+                                child: const JukeboxWidget(),
+                              ),
                             ),
                           ),
                           delayMs: 620,
                           placeholderHeight: 380,
                           deferMs: 420,
                         ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                        _animatedSliver(
+                          const Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: MusicStatsSection(),
+                          ),
+                          delayMs: 625,
+                          placeholderHeight: 560,
+                          deferMs: 440,
+                        ),
                         _animatedSliver(
                           RandomizerCard(
-                            service: context.read<DateIdeaService>(),
+                              service: context.read<DateIdeaService>(),
+                            ),
+                            delayMs: 640,
+                            placeholderHeight: 280,
+                            deferMs: 460,
                           ),
-                          delayMs: 640,
-                          placeholderHeight: 280,
-                          deferMs: 460,
-                        ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
-                        _animatedSliver(
-                          const DashboardPair(
-                            left: CurrentlyWatchingPreview(),
-                            right: WatchPartyCard(),
+                          const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                          _animatedSliver(
+                            const DashboardPair(
+                              left: CurrentlyWatchingPreview(),
+                              right: WatchPartyCard(),
+                            ),
+                            delayMs: 660,
+                            placeholderHeight: 260,
+                            deferMs: 500,
                           ),
-                          delayMs: 660,
-                          placeholderHeight: 260,
-                          deferMs: 500,
-                        ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
-                        _animatedSliver(
-                          const CinemaPreview(),
-                          delayMs: 680,
-                          placeholderHeight: 300,
-                          deferMs: 540,
-                        ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
-                        _animatedSliver(
-                          const AnimePreview(),
-                          delayMs: 700,
-                          placeholderHeight: 300,
-                          deferMs: 580,
-                        ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
-                        _animatedSliver(
-                          const BooksPreview(),
-                          delayMs: 720,
-                          placeholderHeight: 300,
-                          deferMs: 620,
-                        ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
-                        _animatedSliver(
-                          const MangaPreview(),
-                          delayMs: 740,
-                          placeholderHeight: 300,
-                          deferMs: 660,
-                        ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
-                        _animatedSliver(
-                          const DashboardPair(
-                            left: AcademyPortalCard(),
-                            right: PlayZonePortalCard(),
+                          const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                          _animatedSliver(
+                            const CinemaPreview(),
+                            delayMs: 680,
+                            placeholderHeight: 300,
+                            deferMs: 540,
                           ),
-                          delayMs: 760,
-                          placeholderHeight: 200,
-                          deferMs: 700,
-                        ),
+                          const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                          _animatedSliver(
+                            const AnimePreview(),
+                            delayMs: 700,
+                            placeholderHeight: 300,
+                            deferMs: 580,
+                          ),
+                          const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                          _animatedSliver(
+                            const BooksPreview(),
+                            delayMs: 720,
+                            placeholderHeight: 300,
+                            deferMs: 620,
+                          ),
+                          const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                          _animatedSliver(
+                            const MangaPreview(),
+                            delayMs: 740,
+                            placeholderHeight: 300,
+                            deferMs: 660,
+                          ),
+                          const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                          _animatedSliver(
+                            const DashboardPair(
+                              left: AcademyPortalCard(),
+                              right: PlayZonePortalCard(),
+                            ),
+                            delayMs: 760,
+                            placeholderHeight: 200,
+                            deferMs: 700,
+                          ),
                         const SliverToBoxAdapter(child: SizedBox(height: 110)),
                       ],
                     ),
@@ -939,58 +935,15 @@ class _DashboardScreenState extends State<DashboardScreen>
       ),
     ];
 
-    final visible = _quickExpanded ? [...primary, ...more] : primary;
+    final visible = [...primary, ...more];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            const Expanded(
-              child: EverglowSectionHeader(
-                label: 'Quick Access',
-                icon: Icons.grid_view_rounded,
-                hue: AppColors.blushGold,
-              ),
-            ),
-            const SizedBox(width: 10),
-            GestureDetector(
-              onTap: () => setState(() => _quickExpanded = !_quickExpanded),
-              child: AnimatedContainer(
-                duration: AppMotion.orZero(AppMotion.fast),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                decoration: BoxDecoration(
-                  color: _quickExpanded
-                      ? AppColors.deepRose.withValues(alpha: 0.14)
-                      : AppColors.moonlight.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: _quickExpanded
-                        ? AppColors.deepRose.withValues(alpha: 0.28)
-                        : AppColors.moonlight.withValues(alpha: 0.10),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _quickExpanded ? Icons.expand_less_rounded : Icons.apps_rounded,
-                      size: 14,
-                      color: _quickExpanded ? AppColors.roseQuartz : AppColors.blushGold,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      _quickExpanded ? 'Less' : 'More (${more.length})',
-                      style: AppTypography.outfitBold.copyWith(
-                        fontSize: 11,
-                        color: _quickExpanded ? AppColors.roseQuartz : AppColors.blushGold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+        const EverglowSectionHeader(
+          label: 'Quick Access',
+          icon: Icons.grid_view_rounded,
+          hue: AppColors.blushGold,
         ),
         const SizedBox(height: 14),
         LayoutBuilder(
@@ -1014,3 +967,24 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 }
+
+class _JumpBarDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  const _JumpBarDelegate({required this.child});
+  @override
+  double get minExtent => 68;
+  @override
+  double get maxExtent => 68;
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: AppColors.inkDeep.withValues(alpha: 0.92),
+      padding: const EdgeInsets.fromLTRB(24, 10, 24, 8),
+      alignment: Alignment.center,
+      child: child,
+    );
+  }
+  @override
+  bool shouldRebuild(covariant _JumpBarDelegate oldDelegate) => false;
+}
+

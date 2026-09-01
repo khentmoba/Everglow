@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -293,13 +294,34 @@ class _CalendarGridState extends State<CalendarGrid> {
             final isHovered = _hoveredDay == dayNumber;
             final isWeekend = colIndex >= 5;
 
+            final semLabel = events.isEmpty
+                ? DateFormat('EEEE, MMMM d, y').format(day)
+                : '${DateFormat('EEEE, MMMM d, y').format(day)}, ${events.length} ${events.length == 1 ? 'event' : 'events'}';
             return Expanded(
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                onEnter: (_) => setState(() => _hoveredDay = dayNumber),
-                onExit: (_) => setState(() => _hoveredDay = null),
-                child: GestureDetector(
-                  onTap: () => widget.onDaySelected(day),
+              child: Semantics(
+                button: true,
+                label: semLabel,
+                selected: isSelected,
+                child: FocusableActionDetector(
+                  mouseCursor: SystemMouseCursors.click,
+                  onShowFocusHighlight: (f) => setState(() => _hoveredDay = f ? dayNumber : null),
+                  onShowHoverHighlight: (h) => setState(() => _hoveredDay = h ? dayNumber : null),
+                  shortcuts: const {
+                    SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+                    SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+                  },
+                  actions: {
+                    ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
+                      widget.onDaySelected(day);
+                      return null;
+                    }),
+                  },
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    onEnter: (_) => setState(() => _hoveredDay = dayNumber),
+                    onExit: (_) => setState(() => _hoveredDay = null),
+                    child: GestureDetector(
+                      onTap: () => widget.onDaySelected(day),
                   child: AnimatedContainer(
                     duration: AppMotion.orZero(AppMotion.fast),
                     curve: AppMotion.easeOutStrong,
@@ -389,6 +411,8 @@ class _CalendarGridState extends State<CalendarGrid> {
                           ),
                         ],
                       ],
+                    ),
+                  ),
                     ),
                   ),
                 ),

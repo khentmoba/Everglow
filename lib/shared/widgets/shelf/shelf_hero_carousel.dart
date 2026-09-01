@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 
-import '../../../core/theme/app_theme.dart';
 
 /// Item the [ShelfHeroCarousel] can render.
 class ShelfHeroItem {
@@ -31,7 +31,7 @@ class ShelfHeroItem {
     required this.subtitle,
     required this.imageUrl,
     this.eyebrow,
-    this.accent = AppTheme.deepRose,
+    this.accent = AppColors.deepRose,
     this.onTap,
     this.posterUrl = '',
     this.synopsis,
@@ -209,10 +209,10 @@ class _HeroSlide extends StatelessWidget {
                     fit: BoxFit.cover,
                     cacheWidth: 900,
                     errorBuilder: (_, _, _) =>
-                        Container(color: AppTheme.velvet),
+                        Container(color: AppColors.velvet),
                   )
                 else
-                  Container(color: AppTheme.velvet),
+                  Container(color: AppColors.velvet),
 
                 Container(
                   decoration: BoxDecoration(
@@ -221,9 +221,9 @@ class _HeroSlide extends StatelessWidget {
                       end: Alignment.bottomCenter,
                       colors: [
                         Colors.transparent,
-                        AppTheme.twilight.withValues(alpha: 0.15),
-                        AppTheme.twilight.withValues(alpha: 0.78),
-                        AppTheme.twilight.withValues(alpha: 0.98),
+                        AppColors.twilight.withValues(alpha: 0.15),
+                        AppColors.twilight.withValues(alpha: 0.78),
+                        AppColors.twilight.withValues(alpha: 0.98),
                       ],
                       stops: const [0.0, 0.28, 0.62, 1.0],
                     ),
@@ -235,7 +235,7 @@ class _HeroSlide extends StatelessWidget {
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
                       colors: [
-                        AppTheme.twilight.withValues(alpha: 0.45),
+                        AppColors.twilight.withValues(alpha: 0.45),
                         Colors.transparent,
                         Colors.transparent,
                       ],
@@ -263,7 +263,7 @@ class _HeroSlide extends StatelessWidget {
                         child: Text(
                           (item.eyebrow ?? 'TRENDING').toUpperCase(),
                           style: AppTypography.outfitHeading.copyWith(
-                            color: Colors.white,
+                            color: AppColors.petalWhite,
                             fontSize: 9,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 1.2,
@@ -292,7 +292,7 @@ class _HeroSlide extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.outfitWhite.copyWith(
-                          color: AppTheme.roseQuartz.withValues(alpha: 0.85),
+                          color: AppColors.roseQuartz.withValues(alpha: 0.85),
                           fontSize: 12,
                           height: 1.3,
                         ),
@@ -334,7 +334,7 @@ class _DotIndicator extends StatelessWidget {
           decoration: BoxDecoration(
             color: isActive
                 ? accent
-                : AppTheme.roseQuartz.withValues(alpha: 0.3),
+                : AppColors.roseQuartz.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(3),
             boxShadow: isActive
                 ? [

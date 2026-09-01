@@ -73,7 +73,7 @@ class VoiceChatOverlay extends StatelessWidget {
                 const SizedBox(width: 8),
                 Icon(
                   muted ? Icons.mic_off_rounded : Icons.mic_rounded,
-                  color: Colors.white,
+                  color: AppColors.petalWhite,
                   size: 14,
                 ),
                 const SizedBox(width: 4),
@@ -84,7 +84,7 @@ class VoiceChatOverlay extends StatelessWidget {
                       ? 'Muted'
                       : 'Live',
                   style: AppTypography.outfitHeading.copyWith(
-                    color: Colors.white,
+                    color: AppColors.petalWhite,
                     fontSize: 11,
                   ),
                 ),
@@ -121,7 +121,7 @@ class VoiceChatOverlay extends StatelessWidget {
               'Voice Chat',
               style: AppTypography.cormorantBold.copyWith(
                 fontSize: 20,
-                color: Colors.white,
+                color: AppColors.petalWhite,
               ),
             ),
             const SizedBox(height: 8),
@@ -197,7 +197,7 @@ class VoiceChatOverlay extends StatelessWidget {
           Text(
             label,
             style: AppTypography.outfitBold.copyWith(
-              color: Colors.white,
+              color: AppColors.petalWhite,
               fontSize: 11,
             ),
           ),

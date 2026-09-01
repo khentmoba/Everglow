@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../domain/models/hidden_note.dart';
 import '../../../../shared/widgets/glass_container.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 
 class NoteCard extends StatelessWidget {
@@ -23,9 +23,9 @@ class NoteCard extends StatelessWidget {
           height: 180,
           borderRadius: BorderRadius.circular(24.0),
           border: unlocked && !note.isRead
-              ? Border.all(color: AppTheme.blushGold, width: 1.5)
+              ? Border.all(color: AppColors.blushGold, width: 1.5)
               : Border.all(
-                  color: AppTheme.moonlight.withValues(alpha: 0.15),
+                  color: AppColors.moonlight.withValues(alpha: 0.15),
                   width: 1.0,
                 ),
           opacity: unlocked && !note.isRead ? 0.22 : 0.12,
@@ -40,12 +40,12 @@ class NoteCard extends StatelessWidget {
                       : Icons.lock_outline,
                   size: 36,
                   color: unlocked
-                      ? (note.isRead ? AppTheme.roseQuartz : AppTheme.deepRose)
-                      : AppTheme.blushGold,
+                      ? (note.isRead ? AppColors.roseQuartz : AppColors.deepRose)
+                      : AppColors.blushGold,
                   shadows: [
                     if (unlocked && !note.isRead)
                       BoxShadow(
-                        color: AppTheme.deepRose.withValues(alpha: 0.5),
+                        color: AppColors.deepRose.withValues(alpha: 0.5),
                         blurRadius: 15,
                       ),
                   ],
@@ -59,7 +59,7 @@ class NoteCard extends StatelessWidget {
                   style: AppTypography.outfitWhite.copyWith(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.petalWhite,
+                    color: AppColors.petalWhite,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -69,7 +69,7 @@ class NoteCard extends StatelessWidget {
                     _getCountdownText(note.unlockDate),
                     style: AppTypography.outfitBold.copyWith(
                       fontSize: 11,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.75),
+                      color: AppColors.petalWhite.withValues(alpha: 0.75),
                     ),
                   ),
                 ],

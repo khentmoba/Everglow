@@ -437,7 +437,7 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
           SnackBar(
             content: Text(
               'Browse a title first to start a party.',
-              style: AppTypography.outfitWhite.copyWith(color: Colors.white),
+              style: AppTypography.outfitWhite.copyWith(color: AppColors.petalWhite),
             ),
             backgroundColor: _cDeepRose,
             behavior: SnackBarBehavior.floating,

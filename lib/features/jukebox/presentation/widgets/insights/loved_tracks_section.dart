@@ -91,13 +91,13 @@ class _LovedTracksSectionState extends State<LovedTracksSection> {
                         end: Alignment.bottomRight,
                       ),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.7),
+                        color: AppColors.petalWhite.withValues(alpha: 0.7),
                       ),
                     ),
                     child: const Icon(
                       Icons.favorite_rounded,
                       size: 18,
-                      color: Colors.white,
+                      color: AppColors.petalWhite,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -150,10 +150,10 @@ class _LovedTracksSectionState extends State<LovedTracksSection> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
+                    color: AppColors.petalWhite.withValues(alpha: 0.05),
                     borderRadius: AppRadius.radiusMd,
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.07),
+                      color: AppColors.petalWhite.withValues(alpha: 0.07),
                     ),
                   ),
                   child: Column(
@@ -180,7 +180,7 @@ class _LovedTracksSectionState extends State<LovedTracksSection> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.04),
+                    color: AppColors.petalWhite.withValues(alpha: 0.04),
                     borderRadius: AppRadius.radiusMd,
                   ),
                   child: Text(
@@ -469,17 +469,17 @@ class _LovedTracksSectionState extends State<LovedTracksSection> {
                     fontSize: 12,
                   ),
                   filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.06),
+                  fillColor: AppColors.petalWhite.withValues(alpha: 0.06),
                   border: OutlineInputBorder(
                     borderRadius: AppRadius.radiusMd,
                     borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.08),
+                      color: AppColors.petalWhite.withValues(alpha: 0.08),
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: AppRadius.radiusMd,
                     borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.08),
+                      color: AppColors.petalWhite.withValues(alpha: 0.08),
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
@@ -555,7 +555,7 @@ class _LovedTracksSectionState extends State<LovedTracksSection> {
             child: Text(
               'Dedicate ♡',
               style: AppTypography.outfitBold.copyWith(
-                color: Colors.white,
+                color: AppColors.petalWhite,
                 fontSize: 13,
               ),
             ),
@@ -583,12 +583,12 @@ class _FilterChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: selected
             ? AppColors.auroraRose.withValues(alpha: 0.16)
-            : Colors.white.withValues(alpha: 0.06),
+            : AppColors.petalWhite.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(99),
         border: Border.all(
           color: selected
               ? AppColors.auroraRose.withValues(alpha: 0.35)
-              : Colors.white.withValues(alpha: 0.08),
+              : AppColors.petalWhite.withValues(alpha: 0.08),
         ),
       ),
       child: Text(
@@ -619,9 +619,9 @@ class _LovedCard extends StatelessWidget {
     return Container(
       width: 160,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: AppColors.petalWhite.withValues(alpha: 0.04),
         borderRadius: AppRadius.radiusLg,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: AppColors.petalWhite.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -674,7 +674,7 @@ class _LovedCard extends StatelessWidget {
                     style: AppTypography.outfitBold.copyWith(
                       fontSize: 8,
                       letterSpacing: 0.8,
-                      color: Colors.white,
+                      color: AppColors.petalWhite,
                     ),
                   ),
                 ),
@@ -689,7 +689,7 @@ class _LovedCard extends StatelessWidget {
                     shape: BoxShape.circle,
                     color: AppColors.auroraRose,
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.85),
+                      color: AppColors.petalWhite.withValues(alpha: 0.85),
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -701,7 +701,7 @@ class _LovedCard extends StatelessWidget {
                   child: const Icon(
                     Icons.favorite_rounded,
                     size: 14,
-                    color: Colors.white,
+                    color: AppColors.petalWhite,
                   ),
                 ),
               ),

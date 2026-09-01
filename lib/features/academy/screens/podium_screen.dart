@@ -70,7 +70,7 @@ class _PodiumScreenState extends State<PodiumScreen>
                   opacity: 0.14,
                 ),
               ],
-              showPetals: true,
+              showPetals: false,
             ),
           ),
           Center(

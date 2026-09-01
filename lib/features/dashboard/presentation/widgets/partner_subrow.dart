@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_colors.dart';
 import 'shelf_widgets.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -98,12 +98,12 @@ class _SubrowLabel extends StatelessWidget {
           decoration: BoxDecoration(
             color: isMe
                 ? accent.color.withValues(alpha: 0.14)
-                : Colors.white.withValues(alpha: 0.06),
+                : AppColors.petalWhite.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
               color: isMe
                   ? accent.color.withValues(alpha: 0.32)
-                  : Colors.white.withValues(alpha: 0.10),
+                  : AppColors.petalWhite.withValues(alpha: 0.10),
             ),
           ),
           child: Row(
@@ -131,7 +131,7 @@ class _SubrowLabel extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                   color: isMe
                       ? accent.color
-                      : AppTheme.petalWhite.withValues(alpha: 0.72),
+                      : AppColors.petalWhite.withValues(alpha: 0.72),
                   letterSpacing: 1.6,
                 ),
               ),
@@ -168,10 +168,10 @@ class _SubrowEmptyLine extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: AppColors.petalWhite.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.07),
+          color: AppColors.petalWhite.withValues(alpha: 0.07),
           width: 1,
         ),
       ),
@@ -196,7 +196,7 @@ class _SubrowEmptyLine extends StatelessWidget {
             child: Text(
               message,
               style: AppTypography.outfitWhite.copyWith(
-                color: AppTheme.petalWhite.withValues(alpha: 0.48),
+                color: AppColors.petalWhite.withValues(alpha: 0.48),
                 fontStyle: FontStyle.italic,
                 fontSize: 12,
                 height: 1.35,

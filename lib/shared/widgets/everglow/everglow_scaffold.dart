@@ -22,6 +22,7 @@ class EverglowScaffold extends StatelessWidget {
   final List<RadialGlow>? glows;
   final bool showPetals;
   final double? centerMaxWidth;
+  final Widget? floatingActionButton;
 
   const EverglowScaffold({
     super.key,
@@ -35,6 +36,7 @@ class EverglowScaffold extends StatelessWidget {
     this.glows,
     this.showPetals = false,
     this.centerMaxWidth,
+    this.floatingActionButton,
   });
 
   /// Cinema variant — darker background.
@@ -49,6 +51,7 @@ class EverglowScaffold extends StatelessWidget {
     this.backgroundColor = AppColors.animeBackground,
     this.showPetals = false,
     this.centerMaxWidth,
+    this.floatingActionButton,
   }) : glows = const [
          RadialGlow(
            color: AppColors.deepRose,
@@ -72,6 +75,7 @@ class EverglowScaffold extends StatelessWidget {
     return Scaffold(
       backgroundColor: backgroundColor ?? AppColors.twilight,
       extendBody: extendBody,
+      floatingActionButton: floatingActionButton,
       body: Stack(
         children: [
           // Atmospheric background
@@ -129,3 +133,4 @@ class EverglowScaffold extends StatelessWidget {
     };
   }
 }
+

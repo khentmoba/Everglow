@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/presence_status.dart';
-import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/presence_service.dart';
@@ -90,15 +90,15 @@ class _DoodleBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = isActive
-        ? AppTheme.warmAmber
-        : AppTheme.roseQuartz.withValues(alpha: 0.7);
+        ? AppColors.warmAmber
+        : AppColors.roseQuartz.withValues(alpha: 0.7);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOut,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: AppTheme.velvet.withValues(alpha: 0.78),
+        color: AppColors.velvet.withValues(alpha: 0.78),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: accent.withValues(alpha: 0.4), width: 1.0),
         boxShadow: isActive
@@ -154,7 +154,7 @@ class _DoodleBanner extends StatelessWidget {
                 Text(
                   'active doodle',
                   style: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.75),
+                    color: AppColors.petalWhite.withValues(alpha: 0.75),
                     fontSize: 9,
                     letterSpacing: 0.8,
                   ),
@@ -163,7 +163,7 @@ class _DoodleBanner extends StatelessWidget {
                 Text(
                   'not active doodling',
                   style: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                    color: AppColors.petalWhite.withValues(alpha: 0.7),
                     fontSize: 9,
                     letterSpacing: 0.6,
                   ),

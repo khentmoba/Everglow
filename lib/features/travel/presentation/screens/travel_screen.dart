@@ -3,9 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../../shared/widgets/everglow/everglow_scaffold.dart';
 import '../../../../shared/widgets/everglow/everglow_segmented_control.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
@@ -29,26 +29,10 @@ class _TravelScreenState extends State<TravelScreen> {
   Widget build(BuildContext context) {
     final service = TravelService();
     final auth = context.read<AuthService>();
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          const Positioned.fill(
-            child: EverglowBackground(
-              baseColor: AppColors.inkDeep,
-              glows: [
-                RadialGlow(
-                  color: AppColors.auroraTeal,
-                  alignment: Alignment(-0.6, -0.9),
-                  size: 0.85,
-                  opacity: 0.12,
-                ),
-              ],
-              showPetals: true,
-            ),
-          ),
-          SafeArea(
-            child: Column(
+        return EverglowScaffold(
+      backgroundColor: AppColors.inkDeep,
+      glows: [const RadialGlow(color: AppColors.auroraTeal, alignment: Alignment(-0.6, -0.9), size: 0.85, opacity: 0.12)],
+      body: Column(
               children: [
                 EverglowFeatureHeader(
                   title: 'Atlas',
@@ -115,9 +99,6 @@ class _TravelScreenState extends State<TravelScreen> {
                 ),
               ],
             ),
-          ),
-        ],
-      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddTrip(auth),
         backgroundColor: AppColors.auroraTeal,
@@ -147,26 +128,26 @@ class _TripCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
+          color: AppColors.moonlight.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: statusColor.withValues(alpha: 0.18)),
         ),
         child: Row(
           children: [
-            Container(
-              width: 90,
-              height: 90,
-              decoration: BoxDecoration(
+            ClipRRect(
+              borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
+              child: Container(
+                width: 90,
+                height: 90,
                 color: statusColor.withValues(alpha: 0.15),
-                borderRadius: const BorderRadius.horizontal(
-                  left: Radius.circular(16),
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  _statusEmoji(trip.status),
-                  style: const TextStyle(fontSize: 32),
-                ),
+                child: trip.coverUrl.isNotEmpty
+                    ? Image.network(trip.coverUrl, fit: BoxFit.cover, errorBuilder: (_,_,_) => Center(child: Text(_statusEmoji(trip.status), style: const TextStyle(fontSize: 32))))
+                    : Stack(
+                        children: [
+                          Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(colors: [statusColor.withValues(alpha: 0.18), AppColors.inkDeep.withValues(alpha: 0.6)], begin: Alignment.topLeft, end: Alignment.bottomRight)))),
+                          Center(child: Text(_statusEmoji(trip.status), style: const TextStyle(fontSize: 32))),
+                        ],
+                      ),
               ),
             ),
             Expanded(
@@ -182,7 +163,7 @@ class _TripCard extends StatelessWidget {
                             trip.title,
                             style: AppTypography.outfitBold.copyWith(
                               fontSize: 14,
-                              color: AppTheme.petalWhite,
+                              color: AppColors.petalWhite,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -215,7 +196,7 @@ class _TripCard extends StatelessWidget {
                           : trip.description,
                       style: AppTypography.outfitWhite.copyWith(
                         fontSize: 11,
-                        color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                        color: AppColors.petalWhite.withValues(alpha: 0.6),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -226,14 +207,14 @@ class _TripCard extends StatelessWidget {
                         Icon(
                           Icons.calendar_today_rounded,
                           size: 10,
-                          color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                          color: AppColors.petalWhite.withValues(alpha: 0.5),
                         ),
                         const SizedBox(width: 4),
                         Text(
                           '${trip.startDate.month}/${trip.startDate.day} → ${trip.endDate.month}/${trip.endDate.day} • ${trip.days} days',
                           style: AppTypography.outfitWhite.copyWith(
                             fontSize: 10,
-                            color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                            color: AppColors.petalWhite.withValues(alpha: 0.6),
                           ),
                         ),
                         const Spacer(),

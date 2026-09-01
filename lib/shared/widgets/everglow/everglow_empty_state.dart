@@ -17,6 +17,7 @@ class EverglowEmptyState extends StatelessWidget {
   final String? subtitle;
   final String? ctaLabel;
   final VoidCallback? onCta;
+  final bool compact;
 
   const EverglowEmptyState({
     super.key,
@@ -25,20 +26,21 @@ class EverglowEmptyState extends StatelessWidget {
     this.subtitle,
     this.ctaLabel,
     this.onCta,
+    this.compact = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.x4),
+        padding: EdgeInsets.all(compact ? AppSpacing.x2 : AppSpacing.x4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             // Icon medallion
             Container(
-              width: 96,
-              height: 96,
+              width: compact ? 64 : 84,
+              height: compact ? 64 : 84,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: LinearGradient(
@@ -47,9 +49,9 @@ class EverglowEmptyState extends StatelessWidget {
                   end: Alignment.bottomRight,
                 ),
                 border: Border.all(color: AppColors.border, width: 1.0),
-                boxShadow: [BoxShadow(color: AppColors.deepRose.withValues(alpha: 0.18), blurRadius: 16)],
+                boxShadow: compact ? null : [BoxShadow(color: AppColors.deepRose.withValues(alpha: 0.12), blurRadius: 12)],
               ),
-              child: Icon(icon, size: 40, color: AppColors.roseQuartz),
+              child: Icon(icon, size: compact ? 28 : 34, color: AppColors.roseQuartz),
             ),
             const SizedBox(height: AppSpacing.xl),
             Text(

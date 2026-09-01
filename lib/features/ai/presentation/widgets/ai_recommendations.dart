@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/theme/app_typography.dart';
 import 'package:provider/provider.dart';
 import '../../data/services/ai_service.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_breakpoints.dart';
 import '../../../cinema/data/models/media_item.dart';
 import '../../../cinema/data/services/tmdb_service.dart';
@@ -181,11 +181,11 @@ class _AIRecommendationsState extends State<AIRecommendations> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppTheme.twilight,
+        backgroundColor: AppColors.twilight,
         title: Text(item.title, style: AppTypography.outfitWhite),
         content: Text(
           item.year.isNotEmpty ? item.year : '',
-          style: AppTypography.outfitWhite.copyWith(color: AppTheme.roseQuartz),
+          style: AppTypography.outfitWhite.copyWith(color: AppColors.roseQuartz),
         ),
         actions: [
           TextButton(
@@ -213,7 +213,7 @@ class _AIRecommendationsState extends State<AIRecommendations> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: AppTheme.blushGold.withValues(alpha: 0.6),
+                    color: AppColors.blushGold.withValues(alpha: 0.6),
                   ),
                 ),
                 child: ClipOval(
@@ -242,7 +242,7 @@ class _AIRecommendationsState extends State<AIRecommendations> {
                     ),
                     decoration: BoxDecoration(
                       border: Border.all(
-                        color: AppTheme.blushGold.withValues(alpha: 0.6),
+                        color: AppColors.blushGold.withValues(alpha: 0.6),
                       ),
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -250,7 +250,7 @@ class _AIRecommendationsState extends State<AIRecommendations> {
                       'Ask Mochi 🐱',
                       style: AppTypography.outfitWhite.copyWith(
                         fontSize: 12,
-                        color: AppTheme.blushGold,
+                        color: AppColors.blushGold,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -267,11 +267,11 @@ class _AIRecommendationsState extends State<AIRecommendations> {
             child: Center(
               child: Column(
                 children: [
-                  CircularProgressIndicator(color: AppTheme.blushGold),
+                  CircularProgressIndicator(color: AppColors.blushGold),
                   SizedBox(height: 10),
                   Text(
                     'Mochi is thinking... 🍡',
-                    style: TextStyle(color: AppTheme.roseQuartz, fontSize: 13),
+                    style: TextStyle(color: AppColors.roseQuartz, fontSize: 13),
                   ),
                 ],
               ),
@@ -286,10 +286,10 @@ class _AIRecommendationsState extends State<AIRecommendations> {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppTheme.deepRose.withValues(alpha: 0.08),
+                color: AppColors.deepRose.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: AppTheme.blushGold.withValues(alpha: 0.1),
+                  color: AppColors.blushGold.withValues(alpha: 0.1),
                 ),
               ),
               child: Row(
@@ -301,7 +301,7 @@ class _AIRecommendationsState extends State<AIRecommendations> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: AppTheme.blushGold.withValues(alpha: 0.65),
+                        color: AppColors.blushGold.withValues(alpha: 0.65),
                       ),
                     ),
                     child: ClipOval(
@@ -319,7 +319,7 @@ class _AIRecommendationsState extends State<AIRecommendations> {
                       _aiText!,
                       style: AppTypography.outfitWhite.copyWith(
                         fontSize: 12.5,
-                        color: AppTheme.petalWhite.withValues(alpha: 0.75),
+                        color: AppColors.petalWhite.withValues(alpha: 0.75),
                         height: 1.5,
                       ),
                     ),
@@ -368,7 +368,7 @@ class _AIRecommendationsState extends State<AIRecommendations> {
                       badge: item.mediaType.toUpperCase(),
                       badgeColor: item.isAnime
                           ? const Color(0xFFE040FB)
-                          : AppTheme.deepRose,
+                          : AppColors.deepRose,
                       onTap: () => _openDetail(item),
                     ),
                   );

@@ -136,7 +136,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
               'This server could not start playback.',
               textAlign: TextAlign.center,
               style: AppTypography.outfitHeading.copyWith(
-                color: Colors.white,
+                color: AppColors.petalWhite,
                 fontSize: 15,
               ),
             ),
@@ -146,7 +146,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
                 _hlsError!,
                 textAlign: TextAlign.center,
                 style: AppTypography.outfitMuted.copyWith(
-                  color: Colors.white60,
+                  color: AppColors.petalWhite.withValues(alpha: 0.60),
                   fontSize: 12,
                 ),
               ),
@@ -214,7 +214,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
             Text(
               label,
               style: AppTypography.outfitHeading.copyWith(
-                color: Colors.white,
+                color: AppColors.petalWhite,
                 fontSize: 11.5,
               ),
             ),
@@ -246,7 +246,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
               'This title isn\'t available on ${active.shortName}.',
               textAlign: TextAlign.center,
               style: AppTypography.outfitHeading.copyWith(
-                color: Colors.white,
+                color: AppColors.petalWhite,
                 fontSize: 15,
               ),
             ),
@@ -255,7 +255,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
               'The embed returned a 404 or didn\'t respond. Try a different source below.',
               textAlign: TextAlign.center,
               style: AppTypography.outfitMuted.copyWith(
-                color: Colors.white60,
+                color: AppColors.petalWhite.withValues(alpha: 0.60),
                 fontSize: 12,
               ),
             ),
@@ -304,7 +304,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
                               Text(
                                 p.name,
                                 style: AppTypography.outfitHeading.copyWith(
-                                  color: Colors.white,
+                                  color: AppColors.petalWhite,
                                   fontSize: 12,
                                 ),
                               ),
@@ -330,26 +330,26 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.06),
+                  color: AppColors.petalWhite.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.2),
+                    color: AppColors.petalWhite.withValues(alpha: 0.2),
                     width: 1,
                   ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.open_in_new_rounded,
-                      color: Colors.white70,
+                      color: AppColors.petalWhite.withValues(alpha: 0.70),
                       size: 16,
                     ),
                     const SizedBox(width: 8),
                     Text(
                       'Open in browser',
                       style: AppTypography.outfitHeading.copyWith(
-                        color: Colors.white,
+                        color: AppColors.petalWhite,
                         fontSize: 12,
                       ),
                     ),

@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -12,6 +10,7 @@ class ChatBubble extends StatelessWidget {
   final bool isMe;
   final String sender;
   final DateTime timestamp;
+  final bool showSender;
 
   const ChatBubble({
     super.key,
@@ -19,6 +18,7 @@ class ChatBubble extends StatelessWidget {
     required this.isMe,
     required this.sender,
     required this.timestamp,
+    this.showSender = true,
   });
 
   @override
@@ -39,7 +39,7 @@ class ChatBubble extends StatelessWidget {
             ? CrossAxisAlignment.end
             : CrossAxisAlignment.start,
         children: [
-          if (!isMe)
+          if (!isMe && showSender)
             Padding(
               padding: const EdgeInsets.only(left: 12, bottom: 4),
               child: Text(
@@ -123,11 +123,9 @@ class ChatBubble extends StatelessWidget {
                       Text(
                         isToday ? timeStr : '$dateStr, $timeStr',
                         style: AppTypography.bodySmall().copyWith(
-                          fontSize: 9,
+                          fontSize: 11,
                           fontWeight: FontWeight.w500,
-                          color: isMe
-                              ? AppColors.petalWhite.withValues(alpha: 0.7)
-                              : AppColors.roseQuartz.withValues(alpha: 0.7),
+                          color: isMe ? AppColors.petalWhite.withValues(alpha: 0.78) : AppColors.roseQuartz.withValues(alpha: 0.85),
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -165,7 +163,7 @@ class ChatBubble extends StatelessWidget {
         ),
       ),
     );
-    if (AppMotion.reduced) return bubble;
-    return FadeInUp(duration: const Duration(milliseconds: 400), child: bubble);
+    return bubble;
   }
 }
+

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_typography.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_theme.dart';
 import 'motion.dart';
 
 /// Compact hover preview card shown on desktop when hovering a poster card.
@@ -32,7 +31,7 @@ class ShelfHoverPreview extends StatelessWidget {
     this.year,
     this.genres = const [],
     this.currentEpisode,
-    this.accent = AppTheme.deepRose,
+    this.accent = AppColors.deepRose,
     this.onWatch,
     this.onQueue,
   });
@@ -72,7 +71,7 @@ class ShelfHoverPreview extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.outfitHeading.copyWith(
-                    color: Colors.white,
+                    color: AppColors.petalWhite,
                     fontSize: 11,
                     height: 1.2,
                   ),
@@ -95,7 +94,7 @@ class ShelfHoverPreview extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.outfitWhite.copyWith(
                       fontSize: 9,
-                      color: Colors.white.withValues(alpha: 0.45),
+                      color: AppColors.petalWhite.withValues(alpha: 0.45),
                       height: 1.2,
                     ),
                   ),
@@ -169,10 +168,10 @@ class _HoverMetaChips extends StatelessWidget {
             (c) => Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.06),
+                color: AppColors.petalWhite.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.1),
+                  color: AppColors.petalWhite.withValues(alpha: 0.1),
                   width: 0.6,
                 ),
               ),
@@ -180,7 +179,7 @@ class _HoverMetaChips extends StatelessWidget {
                 c.label,
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 8,
-                  color: Colors.white.withValues(alpha: 0.6),
+                  color: AppColors.petalWhite.withValues(alpha: 0.6),
                 ),
               ),
             ),
@@ -235,13 +234,13 @@ class _HoverButtonState extends State<_HoverButton> {
                       ? widget.accent
                       : widget.accent.withValues(alpha: 0.85))
                 : (_hovered
-                      ? Colors.white.withValues(alpha: 0.1)
-                      : Colors.white.withValues(alpha: 0.05)),
+                      ? AppColors.petalWhite.withValues(alpha: 0.1)
+                      : AppColors.petalWhite.withValues(alpha: 0.05)),
             borderRadius: BorderRadius.circular(16),
             border: widget.primary
                 ? null
                 : Border.all(
-                    color: Colors.white.withValues(alpha: 0.15),
+                    color: AppColors.petalWhite.withValues(alpha: 0.15),
                     width: 0.8,
                   ),
             boxShadow: widget.primary && _hovered
@@ -257,7 +256,7 @@ class _HoverButtonState extends State<_HoverButton> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(widget.icon, size: 10, color: Colors.white),
+              Icon(widget.icon, size: 10, color: AppColors.petalWhite),
               const SizedBox(width: 3),
               Text(
                 widget.label,

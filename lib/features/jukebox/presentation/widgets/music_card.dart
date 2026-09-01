@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../data/models/music_status.dart';
 import 'listen_along_popup.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -136,7 +135,7 @@ class _MusicCardState extends State<MusicCard> with TickerProviderStateMixin {
                       ],
                     )
                   : null,
-              color: isLive ? null : AppTheme.moonlight.withValues(alpha: 0.10),
+              color: isLive ? null : AppColors.moonlight.withValues(alpha: 0.10),
               border: Border.all(
                 color: isLive
                     ? AppColors.blushGold.withValues(
@@ -200,9 +199,9 @@ class _MusicCardState extends State<MusicCard> with TickerProviderStateMixin {
                                     gradient: LinearGradient(
                                       colors: [
                                         Colors.transparent,
-                                        Colors.white.withValues(alpha: 0.0),
-                                        Colors.white.withValues(alpha: 0.08),
-                                        Colors.white.withValues(alpha: 0.0),
+                                        AppColors.petalWhite.withValues(alpha: 0.0),
+                                        AppColors.petalWhite.withValues(alpha: 0.08),
+                                        AppColors.petalWhite.withValues(alpha: 0.0),
                                         Colors.transparent,
                                       ],
                                       stops: const [0.0, 0.2, 0.5, 0.8, 1.0],
@@ -457,7 +456,7 @@ class _MusicCardState extends State<MusicCard> with TickerProviderStateMixin {
                                               16,
                                             ),
                                             border: Border.all(
-                                              color: Colors.white.withValues(
+                                              color: AppColors.petalWhite.withValues(
                                                 alpha: isLive ? 0.10 : 0.06,
                                               ),
                                             ),
@@ -465,12 +464,12 @@ class _MusicCardState extends State<MusicCard> with TickerProviderStateMixin {
                                               begin: Alignment.topLeft,
                                               end: Alignment.bottomRight,
                                               colors: [
-                                                Colors.white.withValues(
+                                                AppColors.petalWhite.withValues(
                                                   alpha: 0.14,
                                                 ),
                                                 Colors.transparent,
                                                 Colors.transparent,
-                                                Colors.white.withValues(
+                                                AppColors.petalWhite.withValues(
                                                   alpha: 0.06,
                                                 ),
                                               ],
@@ -497,7 +496,7 @@ class _MusicCardState extends State<MusicCard> with TickerProviderStateMixin {
                                               ),
                                               shape: BoxShape.circle,
                                               border: Border.all(
-                                                color: Colors.white.withValues(
+                                                color: AppColors.petalWhite.withValues(
                                                   alpha: 0.18,
                                                 ),
                                               ),
@@ -505,7 +504,7 @@ class _MusicCardState extends State<MusicCard> with TickerProviderStateMixin {
                                             child: const Icon(
                                               Icons.play_arrow_rounded,
                                               size: 14,
-                                              color: Colors.white,
+                                              color: AppColors.petalWhite,
                                             ),
                                           ),
                                         ),

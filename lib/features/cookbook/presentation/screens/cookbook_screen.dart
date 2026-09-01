@@ -9,7 +9,7 @@ import '../../../../shared/widgets/everglow/everglow_error_state.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
-import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../../shared/widgets/everglow/everglow_scaffold.dart';
 import '../../../../shared/widgets/everglow/everglow_segmented_control.dart';
 import '../../../../shared/widgets/everglow/everglow_search_field.dart';
 import '../../data/models/recipe.dart';
@@ -42,15 +42,9 @@ class _CookbookScreenState extends State<CookbookScreen> {
     final service = CookbookService();
     final auth = context.read<AuthService>();
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          const Positioned.fill(
-            child: EverglowBackground(baseColor: AppColors.inkDeep),
-          ),
-          SafeArea(
-            child: Column(
+    return EverglowScaffold(
+      backgroundColor: AppColors.inkDeep,
+      body: Column(
               children: [
                 EverglowFeatureHeader(
                   title: 'Our Cookbook',
@@ -173,9 +167,6 @@ class _CookbookScreenState extends State<CookbookScreen> {
                   Expanded(child: _ShoppingListView(service: service)),
               ],
             ),
-          ),
-        ],
-      ),
       floatingActionButton: _tabIndex == 0
           ? FloatingActionButton(
               onPressed: _showAddDialog,

@@ -117,7 +117,7 @@ class DiscoveryRaceCard extends StatelessWidget {
                     child: const Icon(
                       Icons.flag_rounded,
                       size: 18,
-                      color: Colors.white,
+                      color: AppColors.petalWhite,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -201,9 +201,9 @@ class _ScoreChip extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
     decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.06),
+      color: AppColors.petalWhite.withValues(alpha: 0.06),
       borderRadius: BorderRadius.circular(99),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      border: Border.all(color: AppColors.petalWhite.withValues(alpha: 0.08)),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
@@ -288,7 +288,7 @@ class _Podium extends StatelessWidget {
               end: Alignment.bottomRight,
             ),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.8),
+              color: AppColors.petalWhite.withValues(alpha: 0.8),
               width: 1.2,
             ),
             boxShadow: [
@@ -300,7 +300,7 @@ class _Podium extends StatelessWidget {
                 ? Icons.emoji_events_rounded
                 : Icons.workspace_premium_rounded,
             size: 22,
-            color: isFirst ? AppColors.goldShadow : Colors.white,
+            color: isFirst ? AppColors.goldShadow : AppColors.petalWhite,
           ),
         ),
         const SizedBox(height: 6),
@@ -386,9 +386,9 @@ class _RaceRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: AppColors.petalWhite.withValues(alpha: 0.04),
         borderRadius: AppRadius.radiusLg,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+        border: Border.all(color: AppColors.petalWhite.withValues(alpha: 0.07)),
       ),
       child: Row(
         children: [
@@ -471,12 +471,12 @@ class _RaceRow extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: winnerColor,
-                border: Border.all(color: Colors.white.withValues(alpha: 0.8)),
+                border: Border.all(color: AppColors.petalWhite.withValues(alpha: 0.8)),
               ),
               child: Icon(
                 Icons.emoji_events_rounded,
                 size: 14,
-                color: winner == 'khent' ? Colors.white : Colors.white,
+                color: winner == 'khent' ? AppColors.petalWhite : AppColors.petalWhite,
               ),
             ),
         ],

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/models/presence_status.dart';
-import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/services/auth_service.dart';
@@ -96,7 +95,7 @@ class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator> {
             size: widget.dotSize,
           ),
           label: 'Active $ago ago',
-          color: AppTheme.roseQuartz.withValues(alpha: 0.85),
+          color: AppColors.roseQuartz.withValues(alpha: 0.85),
           dim: false,
         );
       },
@@ -113,11 +112,11 @@ class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator> {
     final style =
         (widget.textStyle ??
                 AppTypography.outfitWhite.copyWith(
-                  color: AppTheme.roseQuartz.withValues(alpha: 0.5),
+                  color: AppColors.roseQuartz.withValues(alpha: 0.5),
                   fontSize: 10,
                 ))
             .copyWith(
-              color: dim ? AppTheme.roseQuartz.withValues(alpha: 0.5) : color,
+              color: dim ? AppColors.roseQuartz.withValues(alpha: 0.5) : color,
               fontWeight: dim ? FontWeight.w400 : FontWeight.w500,
             );
 
@@ -141,7 +140,7 @@ class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator> {
       style:
           widget.textStyle ??
           AppTypography.outfitWhite.copyWith(
-            color: AppTheme.roseQuartz.withValues(alpha: 0.5),
+            color: AppColors.roseQuartz.withValues(alpha: 0.5),
             fontSize: 10,
           ),
     );

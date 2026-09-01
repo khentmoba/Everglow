@@ -1,9 +1,9 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:confetti/confetti.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../data/services/starlight_service.dart';
 import '../../domain/models/star_note.dart';
@@ -187,7 +187,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text("No stars in the jar yet — drop one first!"),
-        backgroundColor: AppTheme.velvet,
+        backgroundColor: AppColors.velvet,
         behavior: SnackBarBehavior.floating,
         duration: Duration(seconds: 2),
       ),
@@ -218,7 +218,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
   Future<void> _showNoteDialog(StarNote note) async {
     await showDialog(
       context: context,
-      barrierColor: Colors.black54,
+      barrierColor: AppColors.inkDeep.withValues(alpha: 0.72),
       barrierDismissible: false,
       builder: (context) => NoteDisplayDialog(note: note),
     );
@@ -270,10 +270,10 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
               blastDirectionality: BlastDirectionality.explosive,
               shouldLoop: false,
               colors: const [
-                AppTheme.blushGold,
-                AppTheme.roseQuartz,
-                AppTheme.softLavender,
-                Colors.white,
+                AppColors.blushGold,
+                AppColors.roseQuartz,
+                AppColors.softLavender,
+                AppColors.petalWhite,
                 Color(0xFFFFF176),
                 Color(0xFF80DEEA),
               ],
@@ -289,7 +289,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                 title: 'Starlight Jar',
                 subtitle: 'gratitude under the stars',
                 icon: Icons.auto_awesome_rounded,
-                hue: AppTheme.blushGold,
+                hue: AppColors.blushGold,
               ),
 
               // ── On This Day Banner ──
@@ -314,13 +314,13 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            AppTheme.blushGold.withValues(alpha: 0.15),
-                            AppTheme.deepRose.withValues(alpha: 0.15),
+                            AppColors.blushGold.withValues(alpha: 0.15),
+                            AppColors.deepRose.withValues(alpha: 0.15),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: AppTheme.blushGold.withValues(alpha: 0.65),
+                          color: AppColors.blushGold.withValues(alpha: 0.65),
                         ),
                       ),
                       child: Row(
@@ -336,7 +336,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                                   style: AppTypography.outfitWhite.copyWith(
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
-                                    color: AppTheme.blushGold,
+                                    color: AppColors.blushGold,
                                   ),
                                 ),
                                 Text(
@@ -345,7 +345,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                                   overflow: TextOverflow.ellipsis,
                                   style: AppTypography.outfitWhite.copyWith(
                                     fontSize: 11,
-                                    color: AppTheme.petalWhite.withValues(
+                                    color: AppColors.petalWhite.withValues(
                                       alpha: 0.6,
                                     ),
                                   ),
@@ -355,7 +355,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                           ),
                           Icon(
                             Icons.chevron_right,
-                            color: AppTheme.blushGold.withValues(alpha: 0.65),
+                            color: AppColors.blushGold.withValues(alpha: 0.65),
                             size: 20,
                           ),
                         ],
@@ -376,19 +376,19 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                     TextField(
                       controller: _searchController,
                       style: AppTypography.outfitWhite.copyWith(
-                        color: AppTheme.petalWhite,
+                        color: AppColors.petalWhite,
                         fontSize: 13,
                       ),
                       onChanged: (v) => setState(() => _searchQuery = v.trim()),
                       decoration: InputDecoration(
                         hintText: "Search stars…",
                         hintStyle: AppTypography.outfitWhite.copyWith(
-                          color: AppTheme.petalWhite.withValues(alpha: 0.55),
+                          color: AppColors.petalWhite.withValues(alpha: 0.55),
                           fontSize: 13,
                         ),
                         prefixIcon: const Icon(
                           Icons.search,
-                          color: AppTheme.blushGold,
+                          color: AppColors.blushGold,
                           size: 18,
                         ),
                         suffixIcon: _searchQuery.isNotEmpty
@@ -399,7 +399,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                                 },
                                 icon: Icon(
                                   Icons.clear,
-                                  color: AppTheme.petalWhite.withValues(
+                                  color: AppColors.petalWhite.withValues(
                                     alpha: 0.4,
                                   ),
                                   size: 16,
@@ -408,17 +408,17 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                             : null,
                         isDense: true,
                         filled: true,
-                        fillColor: AppTheme.twilight,
+                        fillColor: AppColors.twilight,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
                           borderSide: BorderSide(
-                            color: AppTheme.blushGold.withValues(alpha: 0.15),
+                            color: AppColors.blushGold.withValues(alpha: 0.15),
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
                           borderSide: const BorderSide(
-                            color: AppTheme.blushGold,
+                            color: AppColors.blushGold,
                           ),
                         ),
                         contentPadding: const EdgeInsets.symmetric(
@@ -510,13 +510,13 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                                       vertical: 4,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.deepRose.withValues(
+                                      color: AppColors.deepRose.withValues(
                                         alpha: 0.8,
                                       ),
                                       borderRadius: BorderRadius.circular(12),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: AppTheme.deepRose.withValues(
+                                          color: AppColors.deepRose.withValues(
                                             alpha: 0.3,
                                           ),
                                           blurRadius: 8,
@@ -528,7 +528,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                                       style: AppTypography.outfitWhite.copyWith(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
-                                        color: AppTheme.petalWhite,
+                                        color: AppColors.petalWhite,
                                         letterSpacing: 0.5,
                                       ),
                                     ),
@@ -570,7 +570,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                                       return Stack(
                                         children: [
                                           StarWidget(
-                                            color: AppTheme.blushGold,
+                                            color: AppColors.blushGold,
                                             position: _dropAnimation!.value,
                                             rotation:
                                                 _dropController!.value * pi * 2,
@@ -599,7 +599,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                                       return Stack(
                                         children: [
                                           StarWidget(
-                                            color: AppTheme.deepRose,
+                                            color: AppColors.deepRose,
                                             position: currentPos,
                                             size:
                                                 24 +
@@ -634,8 +634,8 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                 FloatingActionButton(
                   onPressed: _surpriseReveal,
                   heroTag: 'surprise',
-                  backgroundColor: AppTheme.blushGold,
-                  foregroundColor: AppTheme.velvet,
+                  backgroundColor: AppColors.blushGold,
+                  foregroundColor: AppColors.velvet,
                   mini: true,
                   child: const Icon(Icons.casino_rounded, size: 20),
                 ),
@@ -644,9 +644,9 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                 FloatingActionButton(
                   onPressed: _showDropDialog,
                   heroTag: 'drop',
-                  backgroundColor: AppTheme.deepRose,
-                  foregroundColor: AppTheme.petalWhite,
-                  child: const Icon(Icons.star, color: Colors.white),
+                  backgroundColor: AppColors.deepRose,
+                  foregroundColor: AppColors.petalWhite,
+                  child: const Icon(Icons.star, color: AppColors.petalWhite),
                 ),
               ],
             ),
@@ -691,13 +691,13 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppTheme.deepRose.withValues(alpha: 0.6)
+                ? AppColors.deepRose.withValues(alpha: 0.6)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: isSelected
-                  ? AppTheme.blushGold
-                  : AppTheme.blushGold.withValues(alpha: 0.15),
+                  ? AppColors.blushGold
+                  : AppColors.blushGold.withValues(alpha: 0.15),
             ),
           ),
           child: Text(
@@ -706,8 +706,8 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
               fontSize: 11,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               color: isSelected
-                  ? AppTheme.petalWhite
-                  : AppTheme.petalWhite.withValues(alpha: 0.7),
+                  ? AppColors.petalWhite
+                  : AppColors.petalWhite.withValues(alpha: 0.7),
             ),
           ),
         ),
@@ -718,9 +718,9 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
 
 class _StarMotion {
   static const _colors = [
-    AppTheme.roseQuartz,
-    AppTheme.blushGold,
-    AppTheme.softLavender,
+    AppColors.roseQuartz,
+    AppColors.blushGold,
+    AppColors.softLavender,
     Color(0xFFFFF176),
     Color(0xFF80DEEA),
   ];

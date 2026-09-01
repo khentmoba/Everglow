@@ -46,7 +46,7 @@ class EverglowFeatureHeader extends StatelessWidget {
           boxShadow: [
             BoxShadow(
               color: AppColors.inkDeep.withValues(alpha: 0.20),
-              blurRadius: 18,
+              blurRadius: 8,
               offset: const Offset(0, 6),
             ),
           ],
@@ -68,9 +68,7 @@ class EverglowFeatureHeader extends StatelessWidget {
               ),
               const SizedBox(width: 10),
             ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            Semantics(header: true, child: Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
@@ -91,7 +89,7 @@ class EverglowFeatureHeader extends StatelessWidget {
                       style: AppTypography.outfitWhite.copyWith(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
-                        color: AppColors.petalWhite.withValues(alpha: 0.52),
+                        color: AppColors.textMedium,
                         letterSpacing: 0.35,
                       ),
                       maxLines: 1,
@@ -100,7 +98,7 @@ class EverglowFeatureHeader extends StatelessWidget {
                   ],
                 ],
               ),
-            ),
+            )),
             ...actions.map(
               (a) => Padding(padding: const EdgeInsets.only(left: 6), child: a),
             ),
@@ -169,3 +167,5 @@ class _BackButton extends StatelessWidget {
     );
   }
 }
+
+

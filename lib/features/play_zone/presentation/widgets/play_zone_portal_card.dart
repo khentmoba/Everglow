@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../shared/widgets/glass_container.dart';
 import '../../../../shared/widgets/animated_emblem.dart';
 import '../../../../shared/widgets/bouncy_button.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 
 class PlayZonePortalCard extends StatelessWidget {
@@ -17,7 +17,7 @@ class PlayZonePortalCard extends StatelessWidget {
         height: 220,
         borderRadius: BorderRadius.circular(24.0),
         border: Border.all(
-          color: AppTheme.blushGold.withValues(alpha: 0.25),
+          color: AppColors.blushGold.withValues(alpha: 0.25),
           width: 1.5,
         ),
         child: Stack(
@@ -30,7 +30,7 @@ class PlayZonePortalCard extends StatelessWidget {
                 height: 150,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppTheme.deepRose.withValues(alpha: 0.15),
+                  color: AppColors.deepRose.withValues(alpha: 0.15),
                 ),
               ),
             ),
@@ -41,7 +41,7 @@ class PlayZonePortalCard extends StatelessWidget {
                   const AnimatedEmblem(
                     icon: Icons.sports_esports_rounded,
                     size: 50,
-                    color: AppTheme.blushGold,
+                    color: AppColors.blushGold,
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -51,7 +51,7 @@ class PlayZonePortalCard extends StatelessWidget {
                       letterSpacing: 0.5,
                       shadows: [
                         BoxShadow(
-                          color: AppTheme.deepRose.withValues(alpha: 0.4),
+                          color: AppColors.deepRose.withValues(alpha: 0.4),
                           blurRadius: 15,
                         ),
                       ],
@@ -70,12 +70,12 @@ class PlayZonePortalCard extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [AppTheme.deepRose, AppTheme.blushGold],
+                            colors: [AppColors.deepRose, AppColors.blushGold],
                           ),
                           borderRadius: BorderRadius.circular(24.0),
                           boxShadow: [
                             BoxShadow(
-                              color: AppTheme.deepRose.withValues(alpha: 0.3),
+                              color: AppColors.deepRose.withValues(alpha: 0.3),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -85,7 +85,7 @@ class PlayZonePortalCard extends StatelessWidget {
                           'ENTER PLAY ZONE',
                           style: AppTypography.outfitWhite.copyWith(
                             fontWeight: FontWeight.w900,
-                            color: AppTheme.petalWhite,
+                            color: AppColors.petalWhite,
                             letterSpacing: 2.0,
                           ),
                         ),

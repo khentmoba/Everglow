@@ -47,30 +47,64 @@ class MusicStatsSection extends StatelessWidget {
               ),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _MusicStatsBlock(
-                displayName: 'Khent',
-                username: provider.username,
-                topTracks: provider.topTracks,
-                recentTracks: provider.recentTracks,
-                totalPlays: provider.khentTotalPlays,
-                isLeader: provider.isKhentLeader,
-              ),
-              const SizedBox(height: AppSpacing.x2),
-              const _SectionDivider(),
-              const SizedBox(height: AppSpacing.x2),
-              _MusicStatsBlock(
-                displayName: 'Clair',
-                username: provider.clairUsername,
-                topTracks: provider.clairTopTracks,
-                recentTracks: provider.clairRecentTracks,
-                totalPlays: provider.clairTotalPlays,
-                isLeader: provider.isClairLeader,
-                isClair: true,
-              ),
-            ],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 720;
+              if (isWide) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _MusicStatsBlock(
+                        displayName: 'Khent',
+                        username: provider.username,
+                        topTracks: provider.topTracks,
+                        recentTracks: provider.recentTracks,
+                        totalPlays: provider.khentTotalPlays,
+                        isLeader: provider.isKhentLeader,
+                      ),
+                    ),
+                    const SizedBox(width: 20),
+                    Expanded(
+                      child: _MusicStatsBlock(
+                        displayName: 'Clair',
+                        username: provider.clairUsername,
+                        topTracks: provider.clairTopTracks,
+                        recentTracks: provider.clairRecentTracks,
+                        totalPlays: provider.clairTotalPlays,
+                        isLeader: provider.isClairLeader,
+                        isClair: true,
+                      ),
+                    ),
+                  ],
+                );
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _MusicStatsBlock(
+                    displayName: 'Khent',
+                    username: provider.username,
+                    topTracks: provider.topTracks,
+                    recentTracks: provider.recentTracks,
+                    totalPlays: provider.khentTotalPlays,
+                    isLeader: provider.isKhentLeader,
+                  ),
+                  const SizedBox(height: AppSpacing.x2),
+                  const _SectionDivider(),
+                  const SizedBox(height: AppSpacing.x2),
+                  _MusicStatsBlock(
+                    displayName: 'Clair',
+                    username: provider.clairUsername,
+                    topTracks: provider.clairTopTracks,
+                    recentTracks: provider.clairRecentTracks,
+                    totalPlays: provider.clairTotalPlays,
+                    isLeader: provider.isClairLeader,
+                    isClair: true,
+                  ),
+                ],
+              );
+            },
           ),
         );
       },

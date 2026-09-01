@@ -29,7 +29,7 @@ class TripDetailScreen extends StatelessWidget {
                   opacity: 0.12,
                 ),
               ],
-              showPetals: true,
+              showPetals: false,
             ),
           ),
           SafeArea(
@@ -53,7 +53,7 @@ class TripDetailScreen extends StatelessWidget {
                     child: Text(
                       'Trip not found',
                       style: AppTypography.outfitWhite.copyWith(
-                        color: AppTheme.petalWhite,
+                        color: AppColors.petalWhite,
                       ),
                     ),
                   );
@@ -73,7 +73,7 @@ class TripDetailScreen extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: AppTheme.moonlight.withValues(alpha: 0.08),
+                          color: AppColors.moonlight.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: AppColors.auroraTeal.withValues(alpha: 0.15),
@@ -88,7 +88,7 @@ class TripDetailScreen extends StatelessWidget {
                                   : trip.description,
                               style: AppTypography.outfitWhite.copyWith(
                                 fontSize: 12,
-                                color: AppTheme.petalWhite.withValues(
+                                color: AppColors.petalWhite.withValues(
                                   alpha: 0.8,
                                 ),
                               ),
@@ -179,7 +179,7 @@ class TripDetailScreen extends StatelessWidget {
                                       'Auto-journal',
                                       style: AppTypography.outfitWhite.copyWith(
                                         fontSize: 11,
-                                        color: Colors.white,
+                                        color: AppColors.petalWhite,
                                       ),
                                     ),
                                     style: ElevatedButton.styleFrom(
@@ -218,7 +218,7 @@ class TripDetailScreen extends StatelessWidget {
                                       'No pins yet',
                                       style: AppTypography.outfitBold.copyWith(
                                         fontSize: 13,
-                                        color: AppTheme.petalWhite,
+                                        color: AppColors.petalWhite,
                                       ),
                                     ),
                                     const SizedBox(height: 6),
@@ -226,7 +226,7 @@ class TripDetailScreen extends StatelessWidget {
                                       'Pins are itinerary stops — Dawarich location + Surmai timeline',
                                       style: AppTypography.outfitWhite.copyWith(
                                         fontSize: 11,
-                                        color: AppTheme.petalWhite.withValues(
+                                        color: AppColors.petalWhite.withValues(
                                           alpha: 0.6,
                                         ),
                                       ),
@@ -314,7 +314,7 @@ class TripDetailScreen extends StatelessWidget {
                                               '${e.key + 1} ${p.emoji}',
                                               style: const TextStyle(
                                                 fontSize: 10,
-                                                color: Colors.white,
+                                                color: AppColors.petalWhite,
                                               ),
                                             ),
                                           ),
@@ -351,7 +351,7 @@ class TripDetailScreen extends StatelessWidget {
                                       margin: const EdgeInsets.only(bottom: 8),
                                       padding: const EdgeInsets.all(12),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.moonlight.withValues(
+                                        color: AppColors.moonlight.withValues(
                                           alpha: 0.08,
                                         ),
                                         borderRadius: BorderRadius.circular(12),
@@ -370,7 +370,7 @@ class TripDetailScreen extends StatelessWidget {
                                             child: Icon(
                                               Icons.drag_handle_rounded,
                                               size: 16,
-                                              color: AppTheme.petalWhite
+                                              color: AppColors.petalWhite
                                                   .withValues(alpha: 0.4),
                                             ),
                                           ),
@@ -479,7 +479,7 @@ class TripDetailScreen extends StatelessWidget {
                                               size: 18,
                                               color: pin.isVisited
                                                   ? AppColors.success
-                                                  : AppTheme.petalWhite
+                                                  : AppColors.petalWhite
                                                         .withValues(alpha: 0.5),
                                             ),
                                           ),
@@ -489,7 +489,7 @@ class TripDetailScreen extends StatelessWidget {
                                             icon: Icon(
                                               Icons.delete_outline_rounded,
                                               size: 16,
-                                              color: AppTheme.petalWhite
+                                              color: AppColors.petalWhite
                                                   .withValues(alpha: 0.4),
                                             ),
                                           ),
@@ -525,15 +525,15 @@ class TripDetailScreen extends StatelessWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        backgroundColor: AppTheme.velvet,
+        backgroundColor: AppColors.velvet,
         title: Text(
           'Delete pin?',
-          style: AppTypography.outfitBold.copyWith(color: AppTheme.petalWhite),
+          style: AppTypography.outfitBold.copyWith(color: AppColors.petalWhite),
         ),
         content: Text(
           pin.title,
           style: AppTypography.outfitWhite.copyWith(
-            color: AppTheme.petalWhite.withValues(alpha: 0.7),
+            color: AppColors.petalWhite.withValues(alpha: 0.7),
           ),
         ),
         actions: [
@@ -545,7 +545,7 @@ class TripDetailScreen extends StatelessWidget {
             onPressed: () => Navigator.pop(c, true),
             child: const Text(
               'Delete',
-              style: TextStyle(color: Colors.redAccent),
+              style: TextStyle(color: AppColors.error),
             ),
           ),
         ],

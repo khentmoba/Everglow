@@ -72,7 +72,7 @@ class _VinylRecordState extends State<VinylRecord>
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: Colors.white.withValues(
+                      color: AppColors.petalWhite.withValues(
                         alpha: 0.035 + (i == 0 ? 0.02 : 0),
                       ),
                       width: 0.7,
@@ -87,11 +87,11 @@ class _VinylRecordState extends State<VinylRecord>
                   shape: BoxShape.circle,
                   gradient: SweepGradient(
                     colors: [
-                      Colors.white.withValues(alpha: 0.0),
-                      Colors.white.withValues(alpha: 0.08),
-                      Colors.white.withValues(alpha: 0.0),
-                      Colors.white.withValues(alpha: 0.04),
-                      Colors.white.withValues(alpha: 0.0),
+                      AppColors.petalWhite.withValues(alpha: 0.0),
+                      AppColors.petalWhite.withValues(alpha: 0.08),
+                      AppColors.petalWhite.withValues(alpha: 0.0),
+                      AppColors.petalWhite.withValues(alpha: 0.04),
+                      AppColors.petalWhite.withValues(alpha: 0.0),
                     ],
                     stops: const [0.0, 0.18, 0.32, 0.62, 1.0],
                     transform: const GradientRotation(-0.6),
@@ -111,7 +111,7 @@ class _VinylRecordState extends State<VinylRecord>
                     ],
                   ),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.18),
+                    color: AppColors.petalWhite.withValues(alpha: 0.18),
                     width: 1,
                   ),
                   boxShadow: [
@@ -126,7 +126,7 @@ class _VinylRecordState extends State<VinylRecord>
                     width: 6,
                     height: 6,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.95),
+                      color: AppColors.petalWhite.withValues(alpha: 0.95),
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: Colors.black.withValues(alpha: 0.35),
@@ -146,8 +146,8 @@ class _VinylRecordState extends State<VinylRecord>
                     borderRadius: BorderRadius.circular(99),
                     gradient: LinearGradient(
                       colors: [
-                        Colors.white.withValues(alpha: 0.28),
-                        Colors.white.withValues(alpha: 0.0),
+                        AppColors.petalWhite.withValues(alpha: 0.28),
+                        AppColors.petalWhite.withValues(alpha: 0.0),
                       ],
                     ),
                   ),
@@ -180,7 +180,7 @@ class _GrooveHighlightPainter extends CustomPainter {
     final paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.5
-      ..color = Colors.white.withValues(alpha: 0.06);
+      ..color = AppColors.petalWhite.withValues(alpha: 0.06);
     final center = Offset(size.width / 2, size.height / 2);
     for (var r = 18.0; r < 27; r += 3.5) {
       canvas.drawCircle(center, r, paint);

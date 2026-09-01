@@ -26,7 +26,7 @@ class RagPreview extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.06),
+                color: AppColors.petalWhite.withValues(alpha: 0.06),
                 borderRadius: AppRadius.radiusLg,
                 border: Border.all(
                   color: AppColors.auroraLilac.withValues(alpha: 0.18),

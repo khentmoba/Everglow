@@ -132,7 +132,7 @@ class _ServerPickerSheetState extends State<ServerPickerSheet> {
                 width: 44,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.18),
+                  color: AppColors.petalWhite.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -286,10 +286,10 @@ class _ServerPickerSheetState extends State<ServerPickerSheet> {
         decoration: BoxDecoration(
           color: selected
               ? _cDeepRose.withValues(alpha: 0.18)
-              : Colors.white.withValues(alpha: 0.04),
+              : AppColors.petalWhite.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: selected ? _cDeepRose : Colors.white.withValues(alpha: 0.08),
+            color: selected ? _cDeepRose : AppColors.petalWhite.withValues(alpha: 0.08),
             width: selected ? 1.4 : 1,
           ),
         ),
@@ -484,13 +484,13 @@ class _ServerPickerSheetState extends State<ServerPickerSheet> {
                       height: 16,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: AppColors.petalWhite,
                       ),
                     )
                   : Text(
                       'Connect & use this server',
                       style: AppTypography.outfitHeading.copyWith(
-                        color: Colors.white,
+                        color: AppColors.petalWhite,
                         fontSize: 13,
                       ),
                     ),
@@ -527,18 +527,18 @@ class _ServerPickerSheetState extends State<ServerPickerSheet> {
         hintText: hint,
         hintStyle: style.copyWith(color: _cMuted),
         filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.05),
+        fillColor: AppColors.petalWhite.withValues(alpha: 0.05),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 12,
           vertical: 10,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+          borderSide: BorderSide(color: AppColors.petalWhite.withValues(alpha: 0.1)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+          borderSide: BorderSide(color: AppColors.petalWhite.withValues(alpha: 0.1)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
@@ -558,10 +558,10 @@ class _ServerPickerSheetState extends State<ServerPickerSheet> {
           decoration: BoxDecoration(
             color: active
                 ? color.withValues(alpha: 0.16)
-                : Colors.white.withValues(alpha: 0.04),
+                : AppColors.petalWhite.withValues(alpha: 0.04),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: active ? color : Colors.white.withValues(alpha: 0.1),
+              color: active ? color : AppColors.petalWhite.withValues(alpha: 0.1),
             ),
           ),
           child: Row(

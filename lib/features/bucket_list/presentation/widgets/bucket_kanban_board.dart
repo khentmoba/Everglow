@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/bucket_item.dart';
 import 'bucket_item_card.dart';
@@ -122,7 +121,7 @@ class BucketKanbanBoard extends StatelessWidget {
                       'No ${status.displayName.toLowerCase()}',
                       style: AppTypography.outfitWhite.copyWith(
                         fontSize: 12,
-                        color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                        color: AppColors.petalWhite.withValues(alpha: 0.5),
                       ),
                     ),
                   ],
@@ -154,10 +153,10 @@ class BucketKanbanBoard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
-                    color: AppTheme.moonlight.withValues(alpha: 0.06),
+                    color: AppColors.moonlight.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: AppTheme.blushGold.withValues(alpha: 0.1),
+                      color: AppColors.blushGold.withValues(alpha: 0.1),
                       style: BorderStyle.solid,
                     ),
                   ),
@@ -167,14 +166,14 @@ class BucketKanbanBoard extends StatelessWidget {
                       Icon(
                         Icons.add_rounded,
                         size: 14,
-                        color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                        color: AppColors.petalWhite.withValues(alpha: 0.6),
                       ),
                       const SizedBox(width: 6),
                       Text(
                         'Add dream',
                         style: AppTypography.outfitWhite.copyWith(
                           fontSize: 11,
-                          color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                          color: AppColors.petalWhite.withValues(alpha: 0.6),
                         ),
                       ),
                     ],
@@ -190,7 +189,7 @@ class BucketKanbanBoard extends StatelessWidget {
   Color _statusHue(BucketStatus s) {
     switch (s) {
       case BucketStatus.wish:
-        return AppTheme.blushGold;
+        return AppColors.blushGold;
       case BucketStatus.planned:
         return AppColors.auroraTeal;
       case BucketStatus.completed:

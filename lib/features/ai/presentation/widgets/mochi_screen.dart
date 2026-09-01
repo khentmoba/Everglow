@@ -109,7 +109,7 @@ class _MochiScreenState extends State<MochiScreen> {
       final title = last['fact'] as String? ?? last['title'] as String? ?? 'item';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Removed "' + (title.length > 30 ? title.substring(0, 30) + '…' : title) + '" — tap Undo to restore', style: AppTypography.bodySmall()),
+          content: Text('Removed "${title.length > 30 ? '${title.substring(0, 30)}…' : title}" — tap Undo to restore', style: AppTypography.bodySmall()),
           backgroundColor: AppColors.velvet,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLg),
@@ -122,9 +122,9 @@ class _MochiScreenState extends State<MochiScreen> {
               final fact = last['fact'] as String? ?? last['title'] as String? ?? '';
               if (fact.isNotEmpty) {
                 if (last['tool'] == 'delete_memory') {
-                  context.read<AIService>().sendMessage(feature: 'assistant', message: 'Please remember this again: ' + fact);
+                  context.read<AIService>().sendMessage(feature: 'assistant', message: 'Please remember this again: $fact');
                 } else {
-                  context.read<AIService>().sendMessage(feature: 'assistant', message: 'Please add "' + fact + '" back to our watchlist');
+                  context.read<AIService>().sendMessage(feature: 'assistant', message: 'Please add "$fact" back to our watchlist');
                 }
               }
             },

@@ -430,6 +430,25 @@ exports.sweepStalePresence = onSchedule({
       updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
       sweptAt: getAdmin().firestore.FieldValue.serverTimestamp(),
     });
+    // also close any active presence_sessions dangling for this uid
+    try {
+      const sessSnap = await db.collection('presence_sessions')
+        .where('uid', '==', doc.id)
+        .where('isActive', '==', true)
+        .limit(10)
+        .get();
+      const closes = sessSnap.docs.map((sdoc) => sdoc.ref.set({
+        endedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+        isActive: false,
+        lastSeenAt: data.lastSeen || getAdmin().firestore.FieldValue.serverTimestamp(),
+        updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+        endedReason: 'swept',
+      }, { merge: true }));
+      await Promise.all(closes);
+      if (closes.length) console.log('[sweepStalePresence] closed ' + closes.length + ' sessions for ' + doc.id);
+    } catch (e) {
+      console.warn('[sweepStalePresence] session close failed for ' + doc.id + ': ' + e.message);
+    }
     updated += 1;
   }));
 

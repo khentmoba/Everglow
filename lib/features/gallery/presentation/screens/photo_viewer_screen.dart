@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
 import 'package:provider/provider.dart';
 import '../../domain/models/memory_photo.dart';
@@ -41,16 +41,16 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.velvet,
+        backgroundColor: AppColors.velvet,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: AppTheme.blushGold.withValues(alpha: 0.25)),
+          side: BorderSide(color: AppColors.blushGold.withValues(alpha: 0.25)),
         ),
         title: Text('Delete Photo?', style: AppTypography.cormorantBold),
         content: Text(
           'This action cannot be undone.',
           style: AppTypography.outfitWhite.copyWith(
-            color: AppTheme.petalWhite.withValues(alpha: 0.7),
+            color: AppColors.petalWhite.withValues(alpha: 0.7),
           ),
         ),
         actions: [
@@ -59,7 +59,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
             child: Text(
               'Cancel',
               style: AppTypography.outfitWhite.copyWith(
-                color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+                color: AppColors.roseQuartz.withValues(alpha: 0.6),
               ),
             ),
           ),
@@ -83,7 +83,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
             child: Text(
               'Delete',
               style: AppTypography.outfitWhite.copyWith(
-                color: AppTheme.deepRose,
+                color: AppColors.deepRose,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -106,14 +106,14 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
           onPressed: () => Navigator.pop(context),
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: AppTheme.petalWhite,
+            color: AppColors.petalWhite,
             size: 20,
           ),
         ),
         title: Text(
           '${_currentIndex + 1} / ${widget.photos.length}',
           style: AppTypography.outfitWhite.copyWith(
-            color: AppTheme.petalWhite,
+            color: AppColors.petalWhite,
             fontSize: 14,
           ),
         ),
@@ -125,7 +125,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
               onPressed: () => _showDeleteDialog(widget.photos[_currentIndex]),
               icon: const Icon(
                 Icons.delete_outline_rounded,
-                color: AppTheme.deepRose,
+                color: AppColors.deepRose,
                 size: 22,
               ),
             ),
@@ -162,7 +162,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                                 ? progress.cumulativeBytesLoaded /
                                       progress.expectedTotalBytes!
                                 : null,
-                            color: AppTheme.blushGold,
+                            color: AppColors.blushGold,
                           ),
                         );
                       },
@@ -170,7 +170,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                         return const Center(
                           child: Icon(
                             Icons.broken_image_rounded,
-                            color: AppTheme.roseQuartz,
+                            color: AppColors.roseQuartz,
                             size: 48,
                           ),
                         );
@@ -213,7 +213,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                         '📸 ${widget.photos[_currentIndex].uploadedBy}',
                         style: AppTypography.outfitBold.copyWith(
                           fontSize: 12,
-                          color: AppTheme.blushGold,
+                          color: AppColors.blushGold,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -221,7 +221,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                         '${widget.photos[_currentIndex].uploadedAt.month}/${widget.photos[_currentIndex].uploadedAt.day}/${widget.photos[_currentIndex].uploadedAt.year}',
                         style: AppTypography.outfitWhite.copyWith(
                           fontSize: 12,
-                          color: AppTheme.petalWhite.withValues(alpha: 0.65),
+                          color: AppColors.petalWhite.withValues(alpha: 0.65),
                         ),
                       ),
                     ],
@@ -238,7 +238,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: AppTheme.softLavender.withValues(
+                                color: AppColors.softLavender.withValues(
                                   alpha: 0.2,
                                 ),
                                 borderRadius: BorderRadius.circular(6),
@@ -247,7 +247,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                                 "#$tag",
                                 style: AppTypography.outfitWhite.copyWith(
                                   fontSize: 10,
-                                  color: AppTheme.softLavender,
+                                  color: AppColors.softLavender,
                                 ),
                               ),
                             ),

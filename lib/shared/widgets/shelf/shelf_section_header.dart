@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 
-import '../../../core/theme/app_theme.dart';
 import 'motion.dart';
 
 /// Consistent section header used across the four inside screens
@@ -30,7 +30,7 @@ class ShelfSectionHeader extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.icon,
-    this.accent = AppTheme.roseQuartz,
+    this.accent = AppColors.roseQuartz,
     this.count,
     this.countLabel,
     this.onSeeAll,
@@ -90,7 +90,7 @@ class ShelfSectionHeader extends StatelessWidget {
                     subtitle!,
                     style: AppTypography.outfitWhite.copyWith(
                       fontSize: 12,
-                      color: AppTheme.roseQuartz.withValues(alpha: 0.55),
+                      color: AppColors.roseQuartz.withValues(alpha: 0.55),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -156,7 +156,7 @@ class _SeeAllChipState extends State<_SeeAllChip> {
           message: 'See all',
           textStyle: AppTypography.outfitBold.copyWith(fontSize: 11),
           decoration: BoxDecoration(
-            color: AppTheme.velvet,
+            color: AppColors.velvet,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: widget.accent.withValues(alpha: 0.3)),
           ),

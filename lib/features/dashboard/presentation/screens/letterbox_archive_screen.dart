@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/widgets/everglow/everglow_error_state.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
@@ -41,7 +40,7 @@ class _LetterArchiveSearchDelegate extends StatelessWidget {
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: AppTheme.roseQuartz,
+            color: AppColors.roseQuartz,
           ),
           onPressed: () => Navigator.pop(context),
         ),
@@ -81,7 +80,7 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: AppTheme.roseQuartz,
+            color: AppColors.roseQuartz,
           ),
           onPressed: () => context.go('/dashboard'),
         ),
@@ -91,7 +90,7 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.search_rounded, color: AppTheme.blushGold),
+            icon: const Icon(Icons.search_rounded, color: AppColors.blushGold),
             onPressed: () => _openSearch(context),
           ),
         ],
@@ -115,7 +114,7 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
                   opacity: 0.10,
                 ),
               ],
-              showPetals: true,
+              showPetals: false,
             ),
           ),
           Column(
@@ -143,20 +142,20 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
                                   ? FontWeight.bold
                                   : FontWeight.w500,
                               color: isSelected
-                                  ? AppTheme.petalWhite
-                                  : AppTheme.roseQuartz,
+                                  ? AppColors.petalWhite
+                                  : AppColors.roseQuartz,
                             ),
                           ),
-                          selectedColor: AppTheme.deepRose.withValues(
+                          selectedColor: AppColors.deepRose.withValues(
                             alpha: 0.4,
                           ),
-                          backgroundColor: AppTheme.velvet.withValues(
+                          backgroundColor: AppColors.velvet.withValues(
                             alpha: 0.5,
                           ),
                           side: BorderSide(
                             color: isSelected
-                                ? AppTheme.blushGold.withValues(alpha: 0.5)
-                                : AppTheme.moonlight.withValues(alpha: 0.15),
+                                ? AppColors.blushGold.withValues(alpha: 0.5)
+                                : AppColors.moonlight.withValues(alpha: 0.15),
                           ),
                           onSelected: (_) => setState(() => _filter = f),
                         ),
@@ -345,7 +344,7 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        backgroundColor: AppTheme.velvet,
+        backgroundColor: AppColors.velvet,
         title: Text(
           'Still sealed 🤫',
           textAlign: TextAlign.center,
@@ -357,14 +356,14 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
             Icon(
               Icons.lock_outline,
               size: 48,
-              color: AppTheme.blushGold.withValues(alpha: 0.7),
+              color: AppColors.blushGold.withValues(alpha: 0.7),
             ),
             const SizedBox(height: 16),
             Text(
               'This letter will unlock in $countdown.',
               textAlign: TextAlign.center,
               style: AppTypography.outfitWhite.copyWith(
-                color: AppTheme.petalWhite.withValues(alpha: 0.8),
+                color: AppColors.petalWhite.withValues(alpha: 0.8),
               ),
             ),
           ],
@@ -375,7 +374,7 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
             child: Text(
               'I\'ll wait 🌸',
               style: AppTypography.outfitWhite.copyWith(
-                color: AppTheme.blushGold,
+                color: AppColors.blushGold,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -406,13 +405,13 @@ class _LetterListTile extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: isNew
-                ? AppTheme.deepRose.withValues(alpha: 0.2)
-                : AppTheme.velvet.withValues(alpha: 0.4),
+                ? AppColors.deepRose.withValues(alpha: 0.2)
+                : AppColors.velvet.withValues(alpha: 0.4),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isNew
-                  ? AppTheme.blushGold.withValues(alpha: 0.4)
-                  : AppTheme.moonlight.withValues(alpha: 0.1),
+                  ? AppColors.blushGold.withValues(alpha: 0.4)
+                  : AppColors.moonlight.withValues(alpha: 0.1),
             ),
           ),
           child: Row(
@@ -425,9 +424,9 @@ class _LetterListTile extends StatelessWidget {
                   shape: BoxShape.circle,
                   color: unlocked
                       ? (isNew
-                            ? AppTheme.deepRose.withValues(alpha: 0.3)
-                            : AppTheme.velvet)
-                      : AppTheme.blushGold.withValues(alpha: 0.15),
+                            ? AppColors.deepRose.withValues(alpha: 0.3)
+                            : AppColors.velvet)
+                      : AppColors.blushGold.withValues(alpha: 0.15),
                 ),
                 child: Icon(
                   unlocked
@@ -435,8 +434,8 @@ class _LetterListTile extends StatelessWidget {
                       : Icons.lock_outline,
                   size: 20,
                   color: unlocked
-                      ? (isNew ? AppTheme.deepRose : AppTheme.roseQuartz)
-                      : AppTheme.blushGold,
+                      ? (isNew ? AppColors.deepRose : AppColors.roseQuartz)
+                      : AppColors.blushGold,
                 ),
               ),
               const SizedBox(width: 14),
@@ -452,7 +451,7 @@ class _LetterListTile extends StatelessWidget {
                       style: AppTypography.outfitWhite.copyWith(
                         fontSize: 14,
                         fontWeight: isNew ? FontWeight.bold : FontWeight.w500,
-                        color: AppTheme.petalWhite,
+                        color: AppColors.petalWhite,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -466,7 +465,7 @@ class _LetterListTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.outfitWhite.copyWith(
                         fontSize: 12,
-                        color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+                        color: AppColors.roseQuartz.withValues(alpha: 0.6),
                       ),
                     ),
                   ],
@@ -485,10 +484,10 @@ class _LetterListTile extends StatelessWidget {
                   height: 8,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AppTheme.blushGold,
+                    color: AppColors.blushGold,
                     boxShadow: [
                       BoxShadow(
-                        color: AppTheme.blushGold.withValues(alpha: 0.5),
+                        color: AppColors.blushGold.withValues(alpha: 0.5),
                         blurRadius: 6,
                       ),
                     ],
@@ -525,9 +524,9 @@ class _CountdownBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: AppTheme.blushGold.withValues(alpha: 0.15),
+        color: AppColors.blushGold.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.3)),
+        border: Border.all(color: AppColors.blushGold.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -535,7 +534,7 @@ class _CountdownBadge extends StatelessWidget {
           const Icon(
             Icons.lock_clock_rounded,
             size: 12,
-            color: AppTheme.blushGold,
+            color: AppColors.blushGold,
           ),
           const SizedBox(width: 4),
           Text(
@@ -543,7 +542,7 @@ class _CountdownBadge extends StatelessWidget {
             style: AppTypography.outfitWhite.copyWith(
               fontSize: 11,
               fontWeight: FontWeight.bold,
-              color: AppTheme.blushGold,
+              color: AppColors.blushGold,
             ),
           ),
         ],

@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/services/auth_service.dart';
 
 import '../../data/services/voice_chat_service.dart';
@@ -80,20 +80,20 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            AppTheme.deepRose.withValues(alpha: 0.92),
-                            AppTheme.twilight.withValues(alpha: 0.92),
+                            AppColors.deepRose.withValues(alpha: 0.92),
+                            AppColors.twilight.withValues(alpha: 0.92),
                           ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: AppTheme.roseQuartz.withValues(alpha: 0.45),
+                          color: AppColors.roseQuartz.withValues(alpha: 0.45),
                           width: 1.2,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: AppTheme.deepRose.withValues(alpha: 0.25),
+                            color: AppColors.deepRose.withValues(alpha: 0.25),
                             blurRadius: 18,
                             offset: const Offset(0, 6),
                           ),
@@ -111,7 +111,7 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: AppTheme.roseQuartz,
+                              color: AppColors.roseQuartz,
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Row(
@@ -120,7 +120,7 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
                                 Text(
                                   'Join',
                                   style: AppTypography.outfitWhite.copyWith(
-                                    color: AppTheme.twilight,
+                                    color: AppColors.twilight,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800,
                                     letterSpacing: 0.5,
@@ -129,7 +129,7 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
                                 const SizedBox(width: 4),
                                 const Icon(
                                   Icons.arrow_forward_rounded,
-                                  color: AppTheme.twilight,
+                                  color: AppColors.twilight,
                                   size: 14,
                                 ),
                               ],
@@ -152,12 +152,12 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
                       width: 26,
                       height: 26,
                       decoration: BoxDecoration(
-                        color: AppTheme.petalWhite.withValues(alpha: 0.15),
+                        color: AppColors.petalWhite.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
                         Icons.close_rounded,
-                        color: AppTheme.petalWhite.withValues(alpha: 0.8),
+                        color: AppColors.petalWhite.withValues(alpha: 0.8),
                         size: 15,
                       ),
                     ),
@@ -179,11 +179,11 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
       width: 38,
       height: 38,
       decoration: BoxDecoration(
-        color: AppTheme.roseQuartz,
+        color: AppColors.roseQuartz,
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: AppTheme.roseQuartz.withValues(alpha: 0.45),
+            color: AppColors.roseQuartz.withValues(alpha: 0.45),
             blurRadius: 10,
           ),
         ],
@@ -193,7 +193,7 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
           initial,
           style: AppTypography.cormorantExtraBold.copyWith(
             fontSize: 20,
-            color: AppTheme.twilight,
+            color: AppColors.twilight,
           ),
         ),
       ),
@@ -209,7 +209,7 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
         Text(
           '${incoming.callerName} started a watch party',
           style: AppTypography.outfitHeading.copyWith(
-            color: AppTheme.petalWhite,
+            color: AppColors.petalWhite,
             fontSize: 13,
           ),
           maxLines: 1,
@@ -221,7 +221,7 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
               ? 'Watching ${incoming.mediaTitle}${_episodeSuffix(incoming)}'
               : 'Tap to join',
           style: AppTypography.outfitWhite.copyWith(
-            color: AppTheme.petalWhite.withValues(alpha: 0.7),
+            color: AppColors.petalWhite.withValues(alpha: 0.7),
             fontSize: 11,
           ),
           maxLines: 1,

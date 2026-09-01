@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 
 /// Seasonal weather particle overlay for the garden.
 /// Uses month-based seasons — no external API needed.
@@ -119,7 +120,7 @@ class _WeatherPainter extends CustomPainter {
 
       switch (season) {
         case 0: // Winter — snowflakes
-          paint.color = Colors.white.withValues(alpha: p.opacity * 0.5);
+          paint.color = AppColors.petalWhite.withValues(alpha: p.opacity * 0.5);
           canvas.drawCircle(Offset(dx, dy), p.size, paint);
           break;
 
