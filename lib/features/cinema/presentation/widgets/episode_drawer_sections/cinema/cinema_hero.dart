@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../core/theme/app_typography.dart';
@@ -270,9 +269,7 @@ class CinemaHero extends StatelessWidget {
   Widget _buildCloseButton() {
     return ClipRRect(
       borderRadius: BorderRadius.circular(999),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: GestureDetector(
+      child: GestureDetector(
           onTap: onClose,
           child: Container(
             width: 38,
@@ -295,7 +292,6 @@ class CinemaHero extends StatelessWidget {
             ),
           ),
         ),
-      ),
     );
   }
 

@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 
@@ -46,9 +45,7 @@ class CanvasToolbar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(32),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Container(
+        child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: AppColors.velvet.withValues(alpha: 0.85),
@@ -177,7 +174,6 @@ class CanvasToolbar extends StatelessWidget {
             ),
           ),
         ),
-      ),
     );
   }
 }
