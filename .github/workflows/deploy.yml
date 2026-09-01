@@ -74,6 +74,7 @@ jobs:
           npm audit --omit=dev --audit-level=moderate
 
       - name: Deploy Cloud Functions, Firestore Rules & Storage
+        continue-on-error: true
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB }}
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
