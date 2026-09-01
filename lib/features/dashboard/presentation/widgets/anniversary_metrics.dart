@@ -18,14 +18,14 @@ class AnniversaryMetrics extends StatefulWidget {
   State<AnniversaryMetrics> createState() => _AnniversaryMetricsState();
 }
 
-class _AnniversaryMetricsState extends State<AnniversaryMetrics> {
+class _AnniversaryMetricsState extends State<AnniversaryMetrics> with WidgetsBindingObserver {
   late final ValueNotifier<AnniversaryCounter> _notifier;
-  late final Timer _timer;
+  late Timer _timer;
   late AnniversaryCounter _prev;
-
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _prev = AnniversaryCounter.calculate(
       AnniversaryCounter.anniversaryDate,
       DateTime.now(),
@@ -51,7 +51,20 @@ class _AnniversaryMetricsState extends State<AnniversaryMetrics> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive || state == AppLifecycleState.hidden) {
+      _timer.cancel();
+    } else if (state == AppLifecycleState.resumed) {
+      _timer.cancel();
+      // recreate timer
+      // ignore: unused_field
+      _timer = Timer.periodic(const Duration(seconds: 1), (_) => _emit());
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer.cancel();
     _notifier.dispose();
     super.dispose();
@@ -77,53 +90,37 @@ class _AnniversaryMetricsState extends State<AnniversaryMetrics> {
             _SectionEyebrow(animate: widget.animate, notifier: _notifier),
             const SizedBox(height: 14),
             _maybeAnimate(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final cross = _crossAxisCount(context);
-                  final gap = 12.0;
-                  final w = (constraints.maxWidth - gap * (cross - 1)) / cross;
-                  final h = w / 1.35;
-                  return GridView.count(
-                    crossAxisCount: cross,
-                    mainAxisSpacing: gap,
-                    crossAxisSpacing: gap,
-                    childAspectRatio: w / h,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
+              child: Column(
+                children: [
+                  // Hero — Years (commitment, not metric)
+                  SizedBox(
+                    height: 148,
+                    child: _MetricCardAnimated(
+                      label: 'Years',
+                      listenable: _notifier,
+                      selector: (c) => c.years,
+                      hero: true,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
                     children: [
-                      _MetricCardAnimated(
-                        label: 'Years',
-                        listenable: _notifier,
-                        selector: (c) => c.years,
-                      ),
-                      _MetricCardAnimated(
-                        label: 'Months',
-                        listenable: _notifier,
-                        selector: (c) => c.months,
-                      ),
-                      _MetricCardAnimated(
-                        label: 'Days',
-                        listenable: _notifier,
-                        selector: (c) => c.days,
-                      ),
-                      _MetricCardAnimated(
-                        label: 'Hours',
-                        listenable: _notifier,
-                        selector: (c) => c.hours,
-                      ),
-                      _MetricCardAnimated(
-                        label: 'Minutes',
-                        listenable: _notifier,
-                        selector: (c) => c.minutes,
-                      ),
-                      _MetricCardAnimated(
-                        label: 'Seconds',
-                        listenable: _notifier,
-                        selector: (c) => c.seconds,
-                      ),
-                    ].map((c) => SizedBox(height: h, child: c)).toList(),
-                  );
-                },
+                      Expanded(child: SizedBox(height: 122, child: _MetricCardAnimated(label: 'Months', listenable: _notifier, selector: (c) => c.months))),
+                      const SizedBox(width: 12),
+                      Expanded(child: SizedBox(height: 122, child: _MetricCardAnimated(label: 'Days', listenable: _notifier, selector: (c) => c.days))),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(child: SizedBox(height: 110, child: _MetricCardAnimated(label: 'Hours', listenable: _notifier, selector: (c) => c.hours))),
+                      const SizedBox(width: 12),
+                      Expanded(child: SizedBox(height: 110, child: _MetricCardAnimated(label: 'Minutes', listenable: _notifier, selector: (c) => c.minutes))),
+                      const SizedBox(width: 12),
+                      Expanded(child: SizedBox(height: 110, child: _MetricCardAnimated(label: 'Seconds', listenable: _notifier, selector: (c) => c.seconds))),
+                    ],
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 12),
@@ -189,11 +186,6 @@ class _AnniversaryMetricsState extends State<AnniversaryMetrics> {
     );
   }
 
-  int _crossAxisCount(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    if (width >= 600) return 3;
-    return 2;
-  }
 }
 
 class _SectionEyebrow extends StatelessWidget {
@@ -299,11 +291,13 @@ class _MetricCardAnimated extends StatelessWidget {
   final String label;
   final ValueNotifier<AnniversaryCounter> listenable;
   final int Function(AnniversaryCounter) selector;
+  final bool hero;
 
   const _MetricCardAnimated({
     required this.label,
     required this.listenable,
     required this.selector,
+    this.hero = false,
   });
 
   @override
@@ -311,7 +305,30 @@ class _MetricCardAnimated extends StatelessWidget {
     return ValueListenableBuilder<AnniversaryCounter>(
       valueListenable: listenable,
       builder: (context, counter, _) {
-        return MetricCard(label: label, value: selector(counter));
+        final v = selector(counter);
+        if (hero) {
+          return Semantics(
+            container: true,
+            label: 'Years together: $v, since February 14, 2026. ${v == 1 ? "1 year" : "$v years"} of us',
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.velvet.withValues(alpha: 0.82),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.blushGold.withValues(alpha: 0.18)),
+                gradient: LinearGradient(colors: [AppColors.velvet.withValues(alpha: 0.90), AppColors.inkDeep.withValues(alpha: 0.55)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Text("YEARS TOGETHER", style: AppTypography.outfitHeading.copyWith(fontSize: 10, letterSpacing: 1.4, color: AppColors.blushGold.withValues(alpha: 0.85))),
+                const SizedBox(height: 6),
+                ExcludeSemantics(child: Text(v.toString().padLeft(2, '0'), style: AppTypography.cormorantExtraBold.copyWith(color: AppColors.auroraGold, fontSize: 52, height: 1.0, letterSpacing: -1.4))),
+                const SizedBox(height: 6),
+                Text("since Feb 14, 2026", style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: AppColors.petalWhite.withValues(alpha: 0.55))),
+              ]),
+            ),
+          );
+        }
+        return MetricCard(label: label, value: v);
       },
     );
   }

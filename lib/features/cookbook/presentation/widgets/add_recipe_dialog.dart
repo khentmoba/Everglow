@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../data/models/recipe.dart';
@@ -140,7 +139,7 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: AppTheme.velvet,
+      backgroundColor: AppColors.velvet,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(color: AppColors.blushGold.withValues(alpha: 0.2)),
@@ -203,13 +202,13 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                           child: TextField(
                             controller: _importUrlController,
                             style: AppTypography.outfitWhite.copyWith(
-                              color: AppTheme.petalWhite,
+                              color: AppColors.petalWhite,
                               fontSize: 12,
                             ),
                             decoration: InputDecoration(
                               hintText: 'https://...',
                               hintStyle: AppTypography.outfitWhite.copyWith(
-                                color: AppTheme.petalWhite.withValues(
+                                color: AppColors.petalWhite.withValues(
                                   alpha: 0.35,
                                 ),
                               ),
@@ -244,14 +243,14 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                                     height: 14,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      color: Colors.white,
+                                      color: AppColors.petalWhite,
                                     ),
                                   )
                                 : Text(
                                     'Import',
                                     style: AppTypography.outfitBold.copyWith(
                                       fontSize: 12,
-                                      color: Colors.white,
+                                      color: AppColors.petalWhite,
                                     ),
                                   ),
                           ),
@@ -265,13 +264,13 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
               TextField(
                 controller: _titleController,
                 style: AppTypography.outfitWhite.copyWith(
-                  color: AppTheme.petalWhite,
+                  color: AppColors.petalWhite,
                   fontWeight: FontWeight.w600,
                 ),
                 decoration: InputDecoration(
                   hintText: 'Recipe title',
                   hintStyle: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                    color: AppColors.petalWhite.withValues(alpha: 0.4),
                   ),
                   filled: true,
                   fillColor: AppColors.twilight,
@@ -290,13 +289,13 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                 controller: _descController,
                 maxLines: 2,
                 style: AppTypography.outfitWhite.copyWith(
-                  color: AppTheme.petalWhite,
+                  color: AppColors.petalWhite,
                   fontSize: 13,
                 ),
                 decoration: InputDecoration(
                   hintText: 'Description',
                   hintStyle: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                    color: AppColors.petalWhite.withValues(alpha: 0.4),
                   ),
                   filled: true,
                   fillColor: AppColors.twilight,
@@ -313,7 +312,7 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                 'Category',
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 11,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                  color: AppColors.petalWhite.withValues(alpha: 0.6),
                 ),
               ),
               const SizedBox(height: 8),
@@ -344,7 +343,7 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                           fontSize: 12,
                           color: sel
                               ? AppColors.blushGold
-                              : AppTheme.petalWhite.withValues(alpha: 0.7),
+                              : AppColors.petalWhite.withValues(alpha: 0.7),
                           fontWeight: sel ? FontWeight.bold : FontWeight.w500,
                         ),
                       ),
@@ -364,7 +363,7 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                           'Difficulty',
                           style: AppTypography.outfitBold.copyWith(
                             fontSize: 11,
-                            color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                            color: AppColors.petalWhite.withValues(alpha: 0.6),
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -381,7 +380,7 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                             dropdownColor: AppColors.twilight,
                             underline: const SizedBox(),
                             style: AppTypography.outfitWhite.copyWith(
-                              color: AppTheme.petalWhite,
+                              color: AppColors.petalWhite,
                               fontSize: 12,
                             ),
                             items: RecipeDifficulty.values
@@ -407,7 +406,7 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                           'Time (min)',
                           style: AppTypography.outfitBold.copyWith(
                             fontSize: 11,
-                            color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                            color: AppColors.petalWhite.withValues(alpha: 0.6),
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -423,7 +422,7 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                             dropdownColor: AppColors.twilight,
                             underline: const SizedBox(),
                             style: AppTypography.outfitWhite.copyWith(
-                              color: AppTheme.petalWhite,
+                              color: AppColors.petalWhite,
                               fontSize: 12,
                             ),
                             items: [15, 30, 45, 60, 90, 120]
@@ -449,7 +448,7 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                           'Servings',
                           style: AppTypography.outfitBold.copyWith(
                             fontSize: 11,
-                            color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                            color: AppColors.petalWhite.withValues(alpha: 0.6),
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -465,7 +464,7 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                             dropdownColor: AppColors.twilight,
                             underline: const SizedBox(),
                             style: AppTypography.outfitWhite.copyWith(
-                              color: AppTheme.petalWhite,
+                              color: AppColors.petalWhite,
                               fontSize: 12,
                             ),
                             items: [1, 2, 3, 4, 6, 8]
@@ -489,7 +488,7 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                 'Ingredients',
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 12,
-                  color: AppTheme.petalWhite,
+                  color: AppColors.petalWhite,
                 ),
               ),
               const SizedBox(height: 8),
@@ -499,13 +498,13 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                     child: TextField(
                       controller: _ingredientNameController,
                       style: AppTypography.outfitWhite.copyWith(
-                        color: AppTheme.petalWhite,
+                        color: AppColors.petalWhite,
                         fontSize: 12,
                       ),
                       decoration: InputDecoration(
                         hintText: 'Name',
                         hintStyle: AppTypography.outfitWhite.copyWith(
-                          color: AppTheme.petalWhite.withValues(alpha: 0.35),
+                          color: AppColors.petalWhite.withValues(alpha: 0.35),
                         ),
                         filled: true,
                         fillColor: AppColors.twilight,
@@ -525,13 +524,13 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                     child: TextField(
                       controller: _ingredientAmountController,
                       style: AppTypography.outfitWhite.copyWith(
-                        color: AppTheme.petalWhite,
+                        color: AppColors.petalWhite,
                         fontSize: 12,
                       ),
                       decoration: InputDecoration(
                         hintText: 'Amount',
                         hintStyle: AppTypography.outfitWhite.copyWith(
-                          color: AppTheme.petalWhite.withValues(alpha: 0.35),
+                          color: AppColors.petalWhite.withValues(alpha: 0.35),
                         ),
                         filled: true,
                         fillColor: AppColors.twilight,
@@ -575,7 +574,7 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                             '${e.value.amount} ${e.value.name}',
                             style: AppTypography.outfitWhite.copyWith(
                               fontSize: 12,
-                              color: AppTheme.petalWhite,
+                              color: AppColors.petalWhite,
                             ),
                           ),
                         ),
@@ -585,7 +584,7 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                           child: Icon(
                             Icons.close_rounded,
                             size: 16,
-                            color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                            color: AppColors.petalWhite.withValues(alpha: 0.5),
                           ),
                         ),
                       ],
@@ -598,7 +597,7 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                 'Steps',
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 12,
-                  color: AppTheme.petalWhite,
+                  color: AppColors.petalWhite,
                 ),
               ),
               const SizedBox(height: 8),
@@ -608,13 +607,13 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                     child: TextField(
                       controller: _stepController,
                       style: AppTypography.outfitWhite.copyWith(
-                        color: AppTheme.petalWhite,
+                        color: AppColors.petalWhite,
                         fontSize: 12,
                       ),
                       decoration: InputDecoration(
                         hintText: 'Add a step',
                         hintStyle: AppTypography.outfitWhite.copyWith(
-                          color: AppTheme.petalWhite.withValues(alpha: 0.35),
+                          color: AppColors.petalWhite.withValues(alpha: 0.35),
                         ),
                         filled: true,
                         fillColor: AppColors.twilight,
@@ -662,7 +661,7 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                             child: Text(
                               '${e.key + 1}',
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: AppColors.petalWhite,
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -675,7 +674,7 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                             e.value,
                             style: AppTypography.outfitWhite.copyWith(
                               fontSize: 12,
-                              color: AppTheme.petalWhite,
+                              color: AppColors.petalWhite,
                             ),
                           ),
                         ),
@@ -684,7 +683,7 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                           child: Icon(
                             Icons.close_rounded,
                             size: 14,
-                            color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                            color: AppColors.petalWhite.withValues(alpha: 0.5),
                           ),
                         ),
                       ],
@@ -697,7 +696,7 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                 'Tags',
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 12,
-                  color: AppTheme.petalWhite,
+                  color: AppColors.petalWhite,
                 ),
               ),
               const SizedBox(height: 8),
@@ -708,13 +707,13 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                       controller: _tagController,
                       onSubmitted: (_) => _addTag(),
                       style: AppTypography.outfitWhite.copyWith(
-                        color: AppTheme.petalWhite,
+                        color: AppColors.petalWhite,
                         fontSize: 12,
                       ),
                       decoration: InputDecoration(
                         hintText: 'Add tag + enter',
                         hintStyle: AppTypography.outfitWhite.copyWith(
-                          color: AppTheme.petalWhite.withValues(alpha: 0.35),
+                          color: AppColors.petalWhite.withValues(alpha: 0.35),
                         ),
                         filled: true,
                         fillColor: AppColors.twilight,
@@ -755,7 +754,7 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                           deleteIcon: Icon(
                             Icons.close_rounded,
                             size: 14,
-                            color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                            color: AppColors.petalWhite.withValues(alpha: 0.7),
                           ),
                           onDeleted: () => setState(() => _tags.remove(t)),
                         ),
@@ -785,13 +784,13 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                               height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.white,
+                                color: AppColors.petalWhite,
                               ),
                             )
                           : Text(
                               'Save Recipe ✨',
                               style: AppTypography.outfitBold.copyWith(
-                                color: Colors.white,
+                                color: AppColors.petalWhite,
                                 fontSize: 14,
                               ),
                             ),

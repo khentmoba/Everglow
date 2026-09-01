@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
 import 'package:provider/provider.dart';
 import '../../domain/models/calendar_event.dart';
@@ -34,9 +34,9 @@ class _AddEventDialogState extends State<AddEventDialog> {
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: const ColorScheme.dark(
-            primary: AppTheme.deepRose,
-            surface: AppTheme.velvet,
-            onSurface: AppTheme.petalWhite,
+            primary: AppColors.deepRose,
+            surface: AppColors.velvet,
+            onSurface: AppColors.petalWhite,
           ),
         ),
         child: child!,
@@ -88,7 +88,7 @@ class _AddEventDialogState extends State<AddEventDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("Failed to save: $e"),
-            backgroundColor: AppTheme.deepRose,
+            backgroundColor: AppColors.deepRose,
           ),
         );
       }
@@ -119,13 +119,13 @@ class _AddEventDialogState extends State<AddEventDialog> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: isSel
-              ? AppTheme.deepRose.withValues(alpha: 0.25)
-              : AppTheme.twilight,
+              ? AppColors.deepRose.withValues(alpha: 0.25)
+              : AppColors.twilight,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSel
-                ? AppTheme.blushGold
-                : AppTheme.blushGold.withValues(alpha: 0.15),
+                ? AppColors.blushGold
+                : AppColors.blushGold.withValues(alpha: 0.15),
           ),
         ),
         child: Text(
@@ -134,8 +134,8 @@ class _AddEventDialogState extends State<AddEventDialog> {
             fontSize: 12,
             fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
             color: isSel
-                ? AppTheme.blushGold
-                : AppTheme.petalWhite.withValues(alpha: 0.7),
+                ? AppColors.blushGold
+                : AppColors.petalWhite.withValues(alpha: 0.7),
           ),
         ),
       ),
@@ -157,15 +157,15 @@ class _AddEventDialogState extends State<AddEventDialog> {
             maxHeight: MediaQuery.sizeOf(context).height * 0.85,
           ),
           decoration: BoxDecoration(
-            color: AppTheme.velvet,
+            color: AppColors.velvet,
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: AppTheme.blushGold.withValues(alpha: 0.25),
+              color: AppColors.blushGold.withValues(alpha: 0.25),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.deepRose.withValues(alpha: 0.3),
+                color: AppColors.deepRose.withValues(alpha: 0.3),
                 blurRadius: 20,
                 spreadRadius: 5,
               ),
@@ -184,7 +184,7 @@ class _AddEventDialogState extends State<AddEventDialog> {
                   dayLabel,
                   style: AppTypography.outfitWhite.copyWith(
                     fontSize: 13,
-                    color: AppTheme.blushGold,
+                    color: AppColors.blushGold,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -207,13 +207,13 @@ class _AddEventDialogState extends State<AddEventDialog> {
                         ),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? AppTheme.deepRose.withValues(alpha: 0.7)
-                              : AppTheme.twilight,
+                              ? AppColors.deepRose.withValues(alpha: 0.7)
+                              : AppColors.twilight,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: isSelected
-                                ? AppTheme.blushGold
-                                : AppTheme.blushGold.withValues(alpha: 0.15),
+                                ? AppColors.blushGold
+                                : AppColors.blushGold.withValues(alpha: 0.15),
                           ),
                         ),
                         child: Text(
@@ -224,8 +224,8 @@ class _AddEventDialogState extends State<AddEventDialog> {
                                 ? FontWeight.bold
                                 : FontWeight.w500,
                             color: isSelected
-                                ? AppTheme.petalWhite
-                                : AppTheme.petalWhite.withValues(alpha: 0.7),
+                                ? AppColors.petalWhite
+                                : AppColors.petalWhite.withValues(alpha: 0.7),
                           ),
                         ),
                       ),
@@ -239,24 +239,24 @@ class _AddEventDialogState extends State<AddEventDialog> {
                 TextField(
                   controller: _titleController,
                   style: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite,
+                    color: AppColors.petalWhite,
                   ),
                   decoration: InputDecoration(
                     hintText: "Event title",
                     hintStyle: AppTypography.outfitWhite.copyWith(
-                      color: AppTheme.petalWhite.withValues(alpha: 0.65),
+                      color: AppColors.petalWhite.withValues(alpha: 0.65),
                     ),
                     filled: true,
-                    fillColor: AppTheme.twilight,
+                    fillColor: AppColors.twilight,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide(
-                        color: AppTheme.blushGold.withValues(alpha: 0.2),
+                        color: AppColors.blushGold.withValues(alpha: 0.2),
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(color: AppTheme.blushGold),
+                      borderSide: const BorderSide(color: AppColors.blushGold),
                     ),
                     contentPadding: const EdgeInsets.all(16),
                   ),
@@ -268,24 +268,24 @@ class _AddEventDialogState extends State<AddEventDialog> {
                   controller: _descController,
                   maxLines: 2,
                   style: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite,
+                    color: AppColors.petalWhite,
                   ),
                   decoration: InputDecoration(
                     hintText: "Description (optional)",
                     hintStyle: AppTypography.outfitWhite.copyWith(
-                      color: AppTheme.petalWhite.withValues(alpha: 0.65),
+                      color: AppColors.petalWhite.withValues(alpha: 0.65),
                     ),
                     filled: true,
-                    fillColor: AppTheme.twilight,
+                    fillColor: AppColors.twilight,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide(
-                        color: AppTheme.blushGold.withValues(alpha: 0.2),
+                        color: AppColors.blushGold.withValues(alpha: 0.2),
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(color: AppTheme.blushGold),
+                      borderSide: const BorderSide(color: AppColors.blushGold),
                     ),
                     contentPadding: const EdgeInsets.all(16),
                   ),
@@ -304,11 +304,11 @@ class _AddEventDialogState extends State<AddEventDialog> {
                           ),
                           decoration: BoxDecoration(
                             color: _isAllDay
-                                ? AppTheme.twilight.withValues(alpha: 0.5)
-                                : AppTheme.twilight,
+                                ? AppColors.twilight.withValues(alpha: 0.5)
+                                : AppColors.twilight,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: AppTheme.blushGold.withValues(alpha: 0.15),
+                              color: AppColors.blushGold.withValues(alpha: 0.15),
                             ),
                           ),
                           child: Row(
@@ -317,8 +317,8 @@ class _AddEventDialogState extends State<AddEventDialog> {
                                 Icons.access_time_rounded,
                                 size: 16,
                                 color: _isAllDay
-                                    ? AppTheme.petalWhite.withValues(alpha: 0.3)
-                                    : AppTheme.blushGold,
+                                    ? AppColors.petalWhite.withValues(alpha: 0.3)
+                                    : AppColors.blushGold,
                               ),
                               const SizedBox(width: 8),
                               Text(
@@ -328,10 +328,10 @@ class _AddEventDialogState extends State<AddEventDialog> {
                                 style: AppTypography.outfitWhite.copyWith(
                                   fontSize: 13,
                                   color: _isAllDay
-                                      ? AppTheme.petalWhite.withValues(
+                                      ? AppColors.petalWhite.withValues(
                                           alpha: 0.4,
                                         )
-                                      : AppTheme.petalWhite,
+                                      : AppColors.petalWhite,
                                 ),
                               ),
                             ],
@@ -349,13 +349,13 @@ class _AddEventDialogState extends State<AddEventDialog> {
                         ),
                         decoration: BoxDecoration(
                           color: _isAllDay
-                              ? AppTheme.deepRose.withValues(alpha: 0.2)
-                              : AppTheme.twilight,
+                              ? AppColors.deepRose.withValues(alpha: 0.2)
+                              : AppColors.twilight,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: _isAllDay
-                                ? AppTheme.blushGold
-                                : AppTheme.blushGold.withValues(alpha: 0.15),
+                                ? AppColors.blushGold
+                                : AppColors.blushGold.withValues(alpha: 0.15),
                           ),
                         ),
                         child: Row(
@@ -366,8 +366,8 @@ class _AddEventDialogState extends State<AddEventDialog> {
                                   : Icons.check_box_outline_blank_rounded,
                               size: 16,
                               color: _isAllDay
-                                  ? AppTheme.blushGold
-                                  : AppTheme.petalWhite.withValues(alpha: 0.6),
+                                  ? AppColors.blushGold
+                                  : AppColors.petalWhite.withValues(alpha: 0.6),
                             ),
                             const SizedBox(width: 6),
                             Text(
@@ -375,8 +375,8 @@ class _AddEventDialogState extends State<AddEventDialog> {
                               style: AppTypography.outfitWhite.copyWith(
                                 fontSize: 12,
                                 color: _isAllDay
-                                    ? AppTheme.blushGold
-                                    : AppTheme.petalWhite.withValues(
+                                    ? AppColors.blushGold
+                                    : AppColors.petalWhite.withValues(
                                         alpha: 0.7,
                                       ),
                               ),
@@ -392,29 +392,29 @@ class _AddEventDialogState extends State<AddEventDialog> {
                 TextField(
                   controller: _locationController,
                   style: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite,
+                    color: AppColors.petalWhite,
                   ),
                   decoration: InputDecoration(
                     hintText: "Location (optional)",
                     prefixIcon: Icon(
                       Icons.place_outlined,
                       size: 18,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                      color: AppColors.petalWhite.withValues(alpha: 0.6),
                     ),
                     hintStyle: AppTypography.outfitWhite.copyWith(
-                      color: AppTheme.petalWhite.withValues(alpha: 0.65),
+                      color: AppColors.petalWhite.withValues(alpha: 0.65),
                     ),
                     filled: true,
-                    fillColor: AppTheme.twilight,
+                    fillColor: AppColors.twilight,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide(
-                        color: AppTheme.blushGold.withValues(alpha: 0.2),
+                        color: AppColors.blushGold.withValues(alpha: 0.2),
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(16),
-                      borderSide: const BorderSide(color: AppTheme.blushGold),
+                      borderSide: const BorderSide(color: AppColors.blushGold),
                     ),
                     contentPadding: const EdgeInsets.all(16),
                   ),
@@ -427,7 +427,7 @@ class _AddEventDialogState extends State<AddEventDialog> {
                       "With",
                       style: AppTypography.outfitWhite.copyWith(
                         fontSize: 12,
-                        color: AppTheme.petalWhite.withValues(alpha: 0.75),
+                        color: AppColors.petalWhite.withValues(alpha: 0.75),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -445,7 +445,7 @@ class _AddEventDialogState extends State<AddEventDialog> {
                       "Repeat",
                       style: AppTypography.outfitWhite.copyWith(
                         fontSize: 12,
-                        color: AppTheme.petalWhite.withValues(alpha: 0.75),
+                        color: AppColors.petalWhite.withValues(alpha: 0.75),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -453,19 +453,19 @@ class _AddEventDialogState extends State<AddEventDialog> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
-                          color: AppTheme.twilight,
+                          color: AppColors.twilight,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: AppTheme.blushGold.withValues(alpha: 0.15),
+                            color: AppColors.blushGold.withValues(alpha: 0.15),
                           ),
                         ),
                         child: DropdownButton<String>(
                           value: _recurring,
                           isExpanded: true,
-                          dropdownColor: AppTheme.twilight,
+                          dropdownColor: AppColors.twilight,
                           underline: const SizedBox(),
                           style: AppTypography.outfitWhite.copyWith(
-                            color: AppTheme.petalWhite,
+                            color: AppColors.petalWhite,
                             fontSize: 13,
                           ),
                           items: const [
@@ -502,7 +502,7 @@ class _AddEventDialogState extends State<AddEventDialog> {
                       child: Text(
                         "Cancel",
                         style: AppTypography.outfitWhite.copyWith(
-                          color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+                          color: AppColors.roseQuartz.withValues(alpha: 0.6),
                         ),
                       ),
                     ),
@@ -513,9 +513,9 @@ class _AddEventDialogState extends State<AddEventDialog> {
                           ? _save
                           : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.deepRose,
-                        foregroundColor: AppTheme.petalWhite,
-                        disabledBackgroundColor: AppTheme.deepRose.withValues(
+                        backgroundColor: AppColors.deepRose,
+                        foregroundColor: AppColors.petalWhite,
+                        disabledBackgroundColor: AppColors.deepRose.withValues(
                           alpha: 0.3,
                         ),
                         shape: RoundedRectangleBorder(
@@ -532,7 +532,7 @@ class _AddEventDialogState extends State<AddEventDialog> {
                               height: 16,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: AppTheme.petalWhite,
+                                color: AppColors.petalWhite,
                               ),
                             )
                           : Text(

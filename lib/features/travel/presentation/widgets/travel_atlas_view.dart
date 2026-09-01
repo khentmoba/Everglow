@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/trip.dart';
 import '../../data/services/travel_service.dart';
@@ -40,7 +39,7 @@ class TravelAtlasView extends StatelessWidget {
                     'Atlas is empty',
                     style: AppTypography.outfitBold.copyWith(
                       fontSize: 14,
-                      color: AppTheme.petalWhite,
+                      color: AppColors.petalWhite,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -48,7 +47,7 @@ class TravelAtlasView extends StatelessWidget {
                     'Add pins to trips — your Dawarich world map will bloom',
                     style: AppTypography.outfitWhite.copyWith(
                       fontSize: 11,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                      color: AppColors.petalWhite.withValues(alpha: 0.6),
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -93,7 +92,7 @@ class TravelAtlasView extends StatelessWidget {
                     '${pins.length} pins • ${pins.where((p) => p.isVisited).length} visited',
                     style: AppTypography.outfitBold.copyWith(
                       fontSize: 11,
-                      color: AppTheme.petalWhite,
+                      color: AppColors.petalWhite,
                     ),
                   ),
                   const Spacer(),
@@ -176,7 +175,7 @@ class TravelAtlasView extends StatelessWidget {
                                 p.title,
                                 style: AppTypography.outfitBold.copyWith(
                                   fontSize: 11,
-                                  color: AppTheme.petalWhite,
+                                  color: AppColors.petalWhite,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -197,7 +196,7 @@ class TravelAtlasView extends StatelessWidget {
                               : p.note,
                           style: AppTypography.outfitWhite.copyWith(
                             fontSize: 10,
-                            color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                            color: AppColors.petalWhite.withValues(alpha: 0.6),
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,

@@ -9,6 +9,7 @@ class PresenceService {
 
   final FirebaseFirestore _db;
   static const String _collection = 'presence';
+  static const String _sessionsCollection = 'presence_sessions';
   static const Duration heartbeatInterval = Duration(seconds: 60);
   static const Duration doodleTouchThreshold = Duration(seconds: 15);
 
@@ -18,7 +19,13 @@ class PresenceService {
   String? _currentUsername;
   String? _doodlingUid;
 
+  // --- session tracking ---
+  String? _activeSessionId;
+  DateTime? _sessionStartedAt;
+
   DocumentReference _doc(String uid) => _db.collection(_collection).doc(uid);
+  DocumentReference _sessionDoc(String id) =>
+      _db.collection(_sessionsCollection).doc(id);
 
   /// Streams the presence document for [uid]. Emits a default-empty
   /// [PresenceStatus] when the document does not exist yet.
@@ -42,16 +49,23 @@ class PresenceService {
     if (uid.isEmpty) return;
     if (_currentUid == uid && _heartbeatTimer != null) return;
 
+    // close previous session if switching user without explicit stopHeartbeat
+    if (_currentUid != null && _currentUid != uid && _activeSessionId != null) {
+      unawaited(_closeSessionInternal());
+    }
+
     _stopHeartbeat();
     _currentUid = uid;
     _currentUsername = username;
 
     setOnline(uid: uid, username: username);
+    unawaited(_createSession(uid, username));
 
     _heartbeatTimer = Timer.periodic(heartbeatInterval, (_) {
       final id = _currentUid;
       if (id == null) return;
       setOnline(uid: id, username: _currentUsername ?? '');
+      unawaited(_touchSession());
     });
   }
 
@@ -70,8 +84,68 @@ class PresenceService {
     _stopHeartbeat();
     _currentUid = null;
     _currentUsername = null;
+    // close session before marking offline so endedAt ~ lastSeen
     if (uid != null) {
+      await _closeSessionInternal();
       await setOffline(uid);
+    } else if (_activeSessionId != null) {
+      await _closeSessionInternal();
+    }
+  }
+
+  // ---- session helpers ----
+
+  Future<void> _createSession(String uid, String username) async {
+    try {
+      final ref = _db.collection(_sessionsCollection).doc();
+      _activeSessionId = ref.id;
+      _sessionStartedAt = DateTime.now();
+      await ref.set({
+        'uid': uid,
+        'username': username,
+        'startedAt': FieldValue.serverTimestamp(),
+        'lastSeenAt': FieldValue.serverTimestamp(),
+        'endedAt': null,
+        'isActive': true,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      Logger.i('PresenceService session started ${ref.id} for $username');
+    } catch (e) {
+      Logger.e('PresenceService _createSession failed', error: e);
+      _activeSessionId = null;
+      _sessionStartedAt = null;
+    }
+  }
+
+  Future<void> _touchSession() async {
+    final sid = _activeSessionId;
+    if (sid == null) return;
+    try {
+      await _sessionDoc(sid).set({
+        'lastSeenAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      Logger.e('PresenceService _touchSession failed', error: e);
+    }
+  }
+
+  Future<void> _closeSessionInternal() async {
+    final sid = _activeSessionId;
+    _activeSessionId = null;
+    _sessionStartedAt = null;
+    if (sid == null) return;
+    try {
+      await _sessionDoc(sid).set({
+        'endedAt': FieldValue.serverTimestamp(),
+        'isActive': false,
+        'lastSeenAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      Logger.i('PresenceService session closed $sid');
+    } catch (e) {
+      Logger.e('PresenceService _closeSession failed', error: e);
     }
   }
 
@@ -160,4 +234,7 @@ class PresenceService {
 
   /// True if this service currently believes the local user is doodling.
   bool get isDoodling => _doodlingUid != null;
+
+  /// Current active session id, if any (for debugging / testing).
+  String? get activeSessionId => _activeSessionId;
 }

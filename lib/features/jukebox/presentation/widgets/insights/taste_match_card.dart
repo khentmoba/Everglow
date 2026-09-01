@@ -92,7 +92,7 @@ class TasteMatchCard extends StatelessWidget {
                                 end: Alignment.bottomRight,
                               ),
                               border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.7),
+                                color: AppColors.petalWhite.withValues(alpha: 0.7),
                                 width: 1,
                               ),
                               boxShadow: [
@@ -107,7 +107,7 @@ class TasteMatchCard extends StatelessWidget {
                             child: const Icon(
                               Icons.favorite_rounded,
                               size: 16,
-                              color: Colors.white,
+                              color: AppColors.petalWhite,
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -216,10 +216,10 @@ class TasteMatchCard extends StatelessWidget {
                           width: double.infinity,
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.06),
+                            color: AppColors.petalWhite.withValues(alpha: 0.06),
                             borderRadius: AppRadius.radiusMd,
                             border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.08),
+                              color: AppColors.petalWhite.withValues(alpha: 0.08),
                             ),
                           ),
                           child: Text(
@@ -311,7 +311,7 @@ class _ScoreRingState extends State<_ScoreRing>
                     end: Alignment.bottomRight,
                   ),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: AppColors.petalWhite.withValues(alpha: 0.08),
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -358,7 +358,7 @@ class _ScoreRingState extends State<_ScoreRing>
                     shape: BoxShape.circle,
                     color: AppColors.auroraGold,
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.8),
+                      color: AppColors.petalWhite.withValues(alpha: 0.8),
                     ),
                   ),
                   child: const Icon(
@@ -386,7 +386,7 @@ class _RingPainter extends CustomPainter {
     final bg = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 12
-      ..color = Colors.white.withValues(alpha: 0.06)
+      ..color = AppColors.petalWhite.withValues(alpha: 0.06)
       ..strokeCap = StrokeCap.round;
     canvas.drawCircle(center, radius, bg);
     final fg = Paint()
@@ -506,7 +506,7 @@ class _SplitColumns extends StatelessWidget {
         Container(
           width: 1,
           height: 92,
-          color: Colors.white.withValues(alpha: 0.06),
+          color: AppColors.petalWhite.withValues(alpha: 0.06),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -655,7 +655,7 @@ class _GrainPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rng = math.Random(7);
-    final paint = Paint()..color = Colors.white.withValues(alpha: 0.012);
+    final paint = Paint()..color = AppColors.petalWhite.withValues(alpha: 0.012);
     for (var i = 0; i < 120; i++) {
       final x = rng.nextDouble() * size.width;
       final y = rng.nextDouble() * size.height;

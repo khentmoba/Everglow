@@ -213,7 +213,7 @@ class _GatewayPageState extends State<GatewayPage> {
             SnackBar(
               content: Text(
                 authService.lastAuthError!,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: AppColors.petalWhite),
               ),
               backgroundColor: Colors.orange.shade700,
               duration: const Duration(seconds: 4),

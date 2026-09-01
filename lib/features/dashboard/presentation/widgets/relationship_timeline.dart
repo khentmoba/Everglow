@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/models/milestone.dart';
@@ -66,7 +67,7 @@ class _RelationshipTimelineState extends State<RelationshipTimeline> {
             children: [
               Expanded(
                 child: Divider(
-                  color: AppTheme.blushGold.withValues(alpha: 0.15),
+                  color: AppColors.blushGold.withValues(alpha: 0.15),
                   thickness: 1,
                 ),
               ),
@@ -79,7 +80,7 @@ class _RelationshipTimelineState extends State<RelationshipTimeline> {
                     letterSpacing: 2.0,
                     shadows: [
                       BoxShadow(
-                        color: AppTheme.deepRose.withValues(alpha: 0.5),
+                        color: AppColors.deepRose.withValues(alpha: 0.5),
                         blurRadius: 10,
                       ),
                     ],
@@ -88,7 +89,7 @@ class _RelationshipTimelineState extends State<RelationshipTimeline> {
               ),
               Expanded(
                 child: Divider(
-                  color: AppTheme.blushGold.withValues(alpha: 0.15),
+                  color: AppColors.blushGold.withValues(alpha: 0.15),
                   thickness: 1,
                 ),
               ),
@@ -167,13 +168,13 @@ class _RelationshipTimelineState extends State<RelationshipTimeline> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppTheme.deepRose.withValues(alpha: 0.3)
+                ? AppColors.deepRose.withValues(alpha: 0.3)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isSelected
-                  ? AppTheme.blushGold
-                  : AppTheme.blushGold.withValues(alpha: 0.15),
+                  ? AppColors.blushGold
+                  : AppColors.blushGold.withValues(alpha: 0.15),
             ),
           ),
           child: Text(
@@ -182,8 +183,8 @@ class _RelationshipTimelineState extends State<RelationshipTimeline> {
               fontSize: 12,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               color: isSelected
-                  ? AppTheme.blushGold
-                  : AppTheme.petalWhite.withValues(alpha: 0.6),
+                  ? AppColors.blushGold
+                  : AppColors.petalWhite.withValues(alpha: 0.6),
             ),
           ),
         ),
@@ -199,13 +200,13 @@ class _RelationshipTimelineState extends State<RelationshipTimeline> {
           Icon(
             Icons.cloud_off_rounded,
             size: 32,
-            color: AppTheme.roseQuartz.withValues(alpha: 0.4),
+            color: AppColors.roseQuartz.withValues(alpha: 0.4),
           ),
           const SizedBox(height: 8),
           Text(
             'Could not load timeline',
             style: AppTypography.outfitWhite.copyWith(
-              color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+              color: AppColors.roseQuartz.withValues(alpha: 0.6),
               fontSize: 13,
             ),
           ),
@@ -224,14 +225,14 @@ class _RelationshipTimelineState extends State<RelationshipTimeline> {
             height: 24,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: AppTheme.deepRose.withValues(alpha: 0.5),
+              color: AppColors.deepRose.withValues(alpha: 0.5),
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'Loading memories...',
             style: AppTypography.outfitWhite.copyWith(
-              color: AppTheme.roseQuartz.withValues(alpha: 0.5),
+              color: AppColors.roseQuartz.withValues(alpha: 0.5),
               fontSize: 12,
             ),
           ),
@@ -304,9 +305,9 @@ class _TimelinePainter extends CustomPainter {
     paint
       ..shader = LinearGradient(
         colors: [
-          AppTheme.deepRose.withValues(alpha: 0.3),
-          AppTheme.blushGold.withValues(alpha: 0.6),
-          AppTheme.deepRose.withValues(alpha: 0.3),
+          AppColors.deepRose.withValues(alpha: 0.3),
+          AppColors.blushGold.withValues(alpha: 0.6),
+          AppColors.deepRose.withValues(alpha: 0.3),
         ],
       ).createShader(Rect.fromLTWH(0, lineY - 2, size.width, 4))
       ..strokeWidth = 2.5;
@@ -323,7 +324,7 @@ class _TimelinePainter extends CustomPainter {
       if (year != lastYear) {
         final x = 60.0 + (i * 120.0);
         // Year tick
-        paint.color = AppTheme.blushGold.withValues(alpha: 0.3);
+        paint.color = AppColors.blushGold.withValues(alpha: 0.3);
         canvas.drawLine(Offset(x, lineY - 8), Offset(x, lineY + 8), paint);
 
         // Year label
@@ -332,7 +333,7 @@ class _TimelinePainter extends CustomPainter {
             text: '$year',
             style: AppTypography.outfitBold.copyWith(
               fontSize: 10,
-              color: AppTheme.blushGold.withValues(alpha: 0.5),
+              color: AppColors.blushGold.withValues(alpha: 0.5),
             ),
           ),
         )..layout();
@@ -358,13 +359,13 @@ class _TimelinePainter extends CustomPainter {
 
     final todayX = 60.0 + (closestIdx * 120.0);
     final glowPaint = Paint()
-      ..color = AppTheme.blushGold.withValues(alpha: 0.2)
+      ..color = AppColors.blushGold.withValues(alpha: 0.2)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
     canvas.drawCircle(Offset(todayX, lineY), 12, glowPaint);
 
     paint
       ..style = PaintingStyle.fill
-      ..color = AppTheme.blushGold;
+      ..color = AppColors.blushGold;
     canvas.drawCircle(Offset(todayX, lineY), 4, paint);
   }
 
@@ -400,7 +401,7 @@ class _TimelineNode extends StatelessWidget {
             DateFormat('MMM d').format(milestone.date),
             style: AppTypography.outfitBold.copyWith(
               fontSize: 10,
-              color: AppTheme.blushGold.withValues(alpha: 0.7),
+              color: AppColors.blushGold.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 6),
@@ -415,7 +416,7 @@ class _TimelineNode extends StatelessWidget {
                   context: context,
                   barrierDismissible: true,
                   barrierLabel: '',
-                  barrierColor: Colors.black54,
+                  barrierColor: AppColors.inkDeep.withValues(alpha: 0.72),
                   transitionDuration: const Duration(milliseconds: 400),
                   pageBuilder: (context, anim1, anim2) {
                     return MemoryDetailOverlay(milestone: milestone);
@@ -427,14 +428,14 @@ class _TimelineNode extends StatelessWidget {
                 height: 36,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppTheme.deepRose.withValues(alpha: 0.3),
+                  color: AppColors.deepRose.withValues(alpha: 0.3),
                   border: Border.all(
-                    color: AppTheme.blushGold.withValues(alpha: 0.5),
+                    color: AppColors.blushGold.withValues(alpha: 0.5),
                     width: 2,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.deepRose.withValues(alpha: 0.2),
+                      color: AppColors.deepRose.withValues(alpha: 0.2),
                       blurRadius: 8,
                     ),
                   ],
@@ -449,14 +450,14 @@ class _TimelineNode extends StatelessWidget {
                           errorBuilder: (_, _, _) => const Icon(
                             Icons.favorite_rounded,
                             size: 16,
-                            color: AppTheme.roseQuartz,
+                            color: AppColors.roseQuartz,
                           ),
                         ),
                       )
                     : const Icon(
                         Icons.favorite_rounded,
                         size: 16,
-                        color: AppTheme.roseQuartz,
+                        color: AppColors.roseQuartz,
                       ),
               ),
             ),
@@ -472,7 +473,7 @@ class _TimelineNode extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: AppTypography.outfitBold.copyWith(
                 fontSize: 11,
-                color: AppTheme.petalWhite.withValues(alpha: 0.8),
+                color: AppColors.petalWhite.withValues(alpha: 0.8),
               ),
             ),
           ),
@@ -507,7 +508,7 @@ class _GalleryView extends StatelessWidget {
                   context: context,
                   barrierDismissible: true,
                   barrierLabel: '',
-                  barrierColor: Colors.black54,
+                  barrierColor: AppColors.inkDeep.withValues(alpha: 0.72),
                   transitionDuration: const Duration(milliseconds: 400),
                   pageBuilder: (context, anim1, anim2) {
                     return MemoryDetailOverlay(milestone: milestone);
@@ -516,12 +517,12 @@ class _GalleryView extends StatelessWidget {
               },
               child: Container(
                 decoration: BoxDecoration(
-                  color: AppTheme.moonlight.withValues(
+                  color: AppColors.moonlight.withValues(
                     alpha: AppTheme.glassOpacity,
                   ),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: AppTheme.blushGold.withValues(alpha: 0.15),
+                    color: AppColors.blushGold.withValues(alpha: 0.15),
                   ),
                 ),
                 child: Column(
@@ -538,11 +539,11 @@ class _GalleryView extends StatelessWidget {
                             width: double.infinity,
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) => Container(
-                              color: AppTheme.deepRose.withValues(alpha: 0.1),
+                              color: AppColors.deepRose.withValues(alpha: 0.1),
                               child: Center(
                                 child: Icon(
                                   Icons.image,
-                                  color: AppTheme.roseQuartz.withValues(
+                                  color: AppColors.roseQuartz.withValues(
                                     alpha: 0.3,
                                   ),
                                 ),
@@ -579,7 +580,7 @@ class _GalleryView extends StatelessWidget {
                               DateFormat('MMMM d, yyyy').format(milestone.date),
                               style: AppTypography.outfitBold.copyWith(
                                 fontSize: 12,
-                                color: AppTheme.blushGold,
+                                color: AppColors.blushGold,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -589,7 +590,7 @@ class _GalleryView extends StatelessWidget {
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: AppTypography.outfitWhite.copyWith(
-                                  color: AppTheme.petalWhite.withValues(
+                                  color: AppColors.petalWhite.withValues(
                                     alpha: 0.7,
                                   ),
                                   fontSize: 12,

@@ -181,6 +181,62 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "presence_sessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "order": "ASCENDING",
+          "fieldPath": "uid"
+        },
+        {
+          "order": "ASCENDING",
+          "fieldPath": "isActive"
+        },
+        {
+          "order": "DESCENDING",
+          "fieldPath": "startedAt"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "presence_sessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "order": "ASCENDING",
+          "fieldPath": "username"
+        },
+        {
+          "order": "DESCENDING",
+          "fieldPath": "startedAt"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "presence_sessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "order": "ASCENDING",
+          "fieldPath": "isActive"
+        },
+        {
+          "order": "DESCENDING",
+          "fieldPath": "startedAt"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "presence_sessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "order": "DESCENDING",
+          "fieldPath": "startedAt"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

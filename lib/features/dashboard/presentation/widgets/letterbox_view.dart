@@ -6,7 +6,6 @@ import 'note_card.dart';
 import 'note_dialog.dart';
 import 'package:provider/provider.dart';
 import '../../../daily_bloom/presentation/providers/garden_provider.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -35,7 +34,7 @@ class _LetterboxViewState extends State<LetterboxView> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        backgroundColor: AppTheme.velvet,
+        backgroundColor: AppColors.velvet,
         title: Text(
           'No peeking! \u{1F92B}',
           textAlign: TextAlign.center,
@@ -45,7 +44,7 @@ class _LetterboxViewState extends State<LetterboxView> {
           'This letter is still sealed. It will unlock on ${_formatDate(note.unlockDate)}.',
           textAlign: TextAlign.center,
           style: AppTypography.outfitWhite.copyWith(
-            color: AppTheme.petalWhite.withValues(alpha: 0.8),
+            color: AppColors.petalWhite.withValues(alpha: 0.8),
           ),
         ),
         actions: [
@@ -54,7 +53,7 @@ class _LetterboxViewState extends State<LetterboxView> {
             child: Text(
               'Okay, I''ll wait! \u{1F338}',
               style: AppTypography.outfitWhite.copyWith(
-                color: AppTheme.blushGold,
+                color: AppColors.blushGold,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -105,10 +104,10 @@ class _LetterboxViewState extends State<LetterboxView> {
           content: Text(
             'Letterbox reset successfully! \u{1F338}',
             style: AppTypography.outfitWhite.copyWith(
-              color: AppTheme.petalWhite,
+              color: AppColors.petalWhite,
             ),
           ),
-          backgroundColor: AppTheme.deepRose,
+          backgroundColor: AppColors.deepRose,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -123,7 +122,7 @@ class _LetterboxViewState extends State<LetterboxView> {
           content: Text(
             'Failed to add notes: $e',
             style: AppTypography.outfitWhite.copyWith(
-              color: AppTheme.petalWhite,
+              color: AppColors.petalWhite,
             ),
           ),
           backgroundColor: Colors.red[900],
@@ -159,7 +158,7 @@ class _LetterboxViewState extends State<LetterboxView> {
                       'View All',
                       style: AppTypography.outfitBold.copyWith(
                         fontSize: 12,
-                        color: AppTheme.blushGold,
+                        color: AppColors.blushGold,
                       ),
                     ),
                   ),
@@ -167,7 +166,7 @@ class _LetterboxViewState extends State<LetterboxView> {
                     onPressed: _seedSampleNotes,
                     icon: const Icon(
                       Icons.refresh,
-                      color: AppTheme.blushGold,
+                      color: AppColors.blushGold,
                       size: 20,
                     ),
                     tooltip: 'Reset Seeds',

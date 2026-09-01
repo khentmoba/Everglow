@@ -7,6 +7,10 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/utils/pick_image_bytes.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../../shared/widgets/everglow/everglow_scaffold.dart';
+import '../../../../shared/widgets/everglow/everglow_fade_row.dart';
+import '../../../../shared/widgets/everglow/everglow_chip.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
@@ -73,25 +77,10 @@ class _VaultScreenState extends State<VaultScreen> {
     final stream = _folderFilter == 'all'
         ? service.watchAll()
         : service.watchByFolder(_folderFilter);
-    return Scaffold(
-      body: Stack(
-        children: [
-          const Positioned.fill(
-            child: EverglowBackground(
-              baseColor: AppColors.inkDeep,
-              glows: [
-                RadialGlow(
-                  color: AppColors.auroraTeal,
-                  alignment: Alignment(-0.7, -0.8),
-                  size: 0.9,
-                  opacity: 0.12,
-                ),
-              ],
-              showPetals: true,
-            ),
-          ),
-          SafeArea(
-            child: Column(
+        return EverglowScaffold(
+      backgroundColor: AppColors.inkDeep,
+      glows: [const RadialGlow(color: AppColors.auroraTeal, alignment: Alignment(-0.7, -0.8), size: 0.9, opacity: 0.12)],
+      body: Column(
               children: [
                 EverglowFeatureHeader(
                   title: 'Vault',
@@ -109,40 +98,10 @@ class _VaultScreenState extends State<VaultScreen> {
                   ],
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.symmetric(horizontal: AppSpacing.pageH(context)),
+                  child: EverglowFadeRow(
                     child: Row(
-                      children: _folders
-                          .map(
-                            (f) => Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: GestureDetector(
-                                onTap: () => setState(() => _folderFilter = f),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
-                                  decoration: BoxDecoration(
-                                    color: _folderFilter == f
-                                        ? AppColors.auroraTeal.withValues(alpha: 0.14)
-                                        : AppColors.moonlight.withValues(alpha: 0.06),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: _folderFilter == f ? AppColors.auroraTeal.withValues(alpha: 0.42) : AppColors.moonlight.withValues(alpha: 0.10),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    f,
-                                    style: AppTypography.outfitBold.copyWith(
-                                      fontSize: 11.5,
-                                      fontWeight: _folderFilter == f ? FontWeight.w700 : FontWeight.w500,
-                                      color: _folderFilter == f ? AppColors.auroraTeal : AppColors.petalWhite.withValues(alpha: 0.68),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
+                      children: _folders.map((f) => EverglowChip(label: f, selected: _folderFilter == f, onTap: () => setState(() => _folderFilter = f))).toList(),
                     ),
                   ),
                 ),
@@ -254,9 +213,6 @@ class _VaultScreenState extends State<VaultScreen> {
                 ),
               ],
             ),
-          ),
-        ],
-      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _upload,
         backgroundColor: AppColors.auroraTeal,

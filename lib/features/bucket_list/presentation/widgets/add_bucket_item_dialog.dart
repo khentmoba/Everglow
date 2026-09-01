@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../data/models/bucket_item.dart';
 import '../../data/services/bucket_list_service.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -65,9 +64,9 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: const ColorScheme.dark(
-            primary: AppTheme.deepRose,
-            surface: AppTheme.velvet,
-            onSurface: AppTheme.petalWhite,
+            primary: AppColors.deepRose,
+            surface: AppColors.velvet,
+            onSurface: AppColors.petalWhite,
           ),
         ),
         child: child!,
@@ -88,13 +87,13 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppTheme.deepRose.withValues(alpha: 0.3)
+              ? AppColors.deepRose.withValues(alpha: 0.3)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
-                ? AppTheme.blushGold
-                : AppTheme.blushGold.withValues(alpha: 0.15),
+                ? AppColors.blushGold
+                : AppColors.blushGold.withValues(alpha: 0.15),
           ),
         ),
         child: Row(
@@ -104,8 +103,8 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
               icon,
               size: 14,
               color: isSelected
-                  ? AppTheme.blushGold
-                  : AppTheme.petalWhite.withValues(alpha: 0.6),
+                  ? AppColors.blushGold
+                  : AppColors.petalWhite.withValues(alpha: 0.6),
             ),
             const SizedBox(width: 6),
             Text(
@@ -114,8 +113,8 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 color: isSelected
-                    ? AppTheme.blushGold
-                    : AppTheme.petalWhite.withValues(alpha: 0.6),
+                    ? AppColors.blushGold
+                    : AppColors.petalWhite.withValues(alpha: 0.6),
               ),
             ),
           ],
@@ -127,10 +126,10 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: AppTheme.velvet,
+      backgroundColor: AppColors.velvet,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: AppTheme.blushGold.withValues(alpha: 0.2)),
+        side: BorderSide(color: AppColors.blushGold.withValues(alpha: 0.2)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -149,15 +148,15 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
               TextField(
                 controller: _titleController,
                 style: AppTypography.outfitWhite.copyWith(
-                  color: AppTheme.petalWhite,
+                  color: AppColors.petalWhite,
                 ),
                 decoration: InputDecoration(
                   hintText: 'What do you want to do together?',
                   hintStyle: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                    color: AppColors.petalWhite.withValues(alpha: 0.4),
                   ),
                   filled: true,
-                  fillColor: AppTheme.twilight,
+                  fillColor: AppColors.twilight,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -175,16 +174,16 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
               TextField(
                 controller: _descController,
                 style: AppTypography.outfitWhite.copyWith(
-                  color: AppTheme.petalWhite,
+                  color: AppColors.petalWhite,
                 ),
                 maxLines: 2,
                 decoration: InputDecoration(
                   hintText: 'Details (optional)',
                   hintStyle: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                    color: AppColors.petalWhite.withValues(alpha: 0.4),
                   ),
                   filled: true,
-                  fillColor: AppTheme.twilight,
+                  fillColor: AppColors.twilight,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -202,7 +201,7 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                 'Category',
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 12,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                  color: AppColors.petalWhite.withValues(alpha: 0.7),
                 ),
               ),
               const SizedBox(height: 8),
@@ -224,13 +223,13 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                         ),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? AppTheme.deepRose.withValues(alpha: 0.3)
+                              ? AppColors.deepRose.withValues(alpha: 0.3)
                               : Colors.transparent,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: isSelected
-                                ? AppTheme.blushGold
-                                : AppTheme.blushGold.withValues(alpha: 0.15),
+                                ? AppColors.blushGold
+                                : AppColors.blushGold.withValues(alpha: 0.15),
                           ),
                         ),
                         child: Row(
@@ -249,8 +248,8 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                                     ? FontWeight.bold
                                     : FontWeight.w500,
                                 color: isSelected
-                                    ? AppTheme.blushGold
-                                    : AppTheme.petalWhite.withValues(
+                                    ? AppColors.blushGold
+                                    : AppColors.petalWhite.withValues(
                                         alpha: 0.6,
                                       ),
                               ),
@@ -268,7 +267,7 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                 'Priority',
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 12,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                  color: AppColors.petalWhite.withValues(alpha: 0.7),
                 ),
               ),
               const SizedBox(height: 8),
@@ -286,13 +285,13 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                       ),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? AppTheme.deepRose.withValues(alpha: 0.3)
+                            ? AppColors.deepRose.withValues(alpha: 0.3)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
                           color: isSelected
-                              ? AppTheme.blushGold
-                              : AppTheme.blushGold.withValues(alpha: 0.15),
+                              ? AppColors.blushGold
+                              : AppColors.blushGold.withValues(alpha: 0.15),
                         ),
                       ),
                       child: Text(
@@ -303,8 +302,8 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                               ? FontWeight.bold
                               : FontWeight.w500,
                           color: isSelected
-                              ? AppTheme.blushGold
-                              : AppTheme.petalWhite.withValues(alpha: 0.6),
+                              ? AppColors.blushGold
+                              : AppColors.petalWhite.withValues(alpha: 0.6),
                         ),
                       ),
                     ),
@@ -318,7 +317,7 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                 'Assigned to',
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 12,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                  color: AppColors.petalWhite.withValues(alpha: 0.7),
                 ),
               ),
               const SizedBox(height: 8),
@@ -344,7 +343,7 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                       'Due date',
                       style: AppTypography.outfitBold.copyWith(
                         fontSize: 12,
-                        color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                        color: AppColors.petalWhite.withValues(alpha: 0.7),
                       ),
                     ),
                   ),
@@ -357,11 +356,11 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                       ),
                       decoration: BoxDecoration(
                         color: _dueDate == null
-                            ? AppTheme.twilight
-                            : AppTheme.deepRose.withValues(alpha: 0.2),
+                            ? AppColors.twilight
+                            : AppColors.deepRose.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: AppTheme.blushGold.withValues(alpha: 0.2),
+                          color: AppColors.blushGold.withValues(alpha: 0.2),
                         ),
                       ),
                       child: Row(
@@ -370,7 +369,7 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                           const Icon(
                             Icons.calendar_today_rounded,
                             size: 14,
-                            color: AppTheme.blushGold,
+                            color: AppColors.blushGold,
                           ),
                           const SizedBox(width: 6),
                           Text(
@@ -379,7 +378,7 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                                 : '${_dueDate!.month}/${_dueDate!.day}/${_dueDate!.year}',
                             style: AppTypography.outfitWhite.copyWith(
                               fontSize: 12,
-                              color: AppTheme.petalWhite,
+                              color: AppColors.petalWhite,
                             ),
                           ),
                         ],
@@ -393,7 +392,7 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                       child: Icon(
                         Icons.close_rounded,
                         size: 18,
-                        color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                        color: AppColors.petalWhite.withValues(alpha: 0.6),
                       ),
                     ),
                   ],
@@ -411,8 +410,8 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: _saving
-                            ? [AppTheme.moonlight, AppTheme.moonlight]
-                            : [AppTheme.deepRose, AppColors.rosePressed],
+                            ? [AppColors.moonlight, AppColors.moonlight]
+                            : [AppColors.deepRose, AppColors.rosePressed],
                       ),
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -423,13 +422,13 @@ class _AddBucketItemDialogState extends State<AddBucketItemDialog> {
                               height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: AppTheme.petalWhite,
+                                color: AppColors.petalWhite,
                               ),
                             )
                           : Text(
                               'Add to Bucket List 🌟',
                               style: AppTypography.outfitBold.copyWith(
-                                color: AppTheme.petalWhite,
+                                color: AppColors.petalWhite,
                                 fontSize: 14,
                               ),
                             ),

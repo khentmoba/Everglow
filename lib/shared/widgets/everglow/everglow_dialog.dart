@@ -31,7 +31,7 @@ class EverglowDialog extends StatelessWidget {
       context: context,
       barrierDismissible: barrierDismissible,
       barrierLabel: 'Dialog',
-      barrierColor: Colors.black54,
+      barrierColor: AppColors.inkDeep.withValues(alpha: 0.72),
       transitionDuration: AppMotion.orZero(AppMotion.page),
       transitionBuilder: (ctx, a1, a2, widget) {
         if (AppMotion.reduced) {

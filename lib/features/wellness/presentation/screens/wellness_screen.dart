@@ -5,6 +5,7 @@ import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../../shared/widgets/everglow/everglow_scaffold.dart';
 import '../../../../shared/widgets/everglow/everglow_segmented_control.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
@@ -28,26 +29,11 @@ class _WellnessScreenState extends State<WellnessScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.read<AuthService>();
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          const Positioned.fill(
-            child: EverglowBackground(
-              baseColor: AppColors.inkDeep,
-              glows: [
-                RadialGlow(
-                  color: AppColors.auroraRose,
-                  alignment: Alignment(-0.6, -0.8),
-                  size: 0.85,
-                  opacity: 0.12,
-                ),
-              ],
-              showPetals: true,
-            ),
-          ),
-          SafeArea(
-            child: Column(
+        return EverglowScaffold(
+      backgroundColor: AppColors.inkDeep,
+      glows: [const RadialGlow(color: AppColors.auroraRose, alignment: Alignment(-0.6, -0.8), size: 0.85, opacity: 0.12)],
+      showPetals: true,
+      body: Column(
               children: [
                 EverglowFeatureHeader(
                   title: 'Wellness',
@@ -88,9 +74,6 @@ class _WellnessScreenState extends State<WellnessScreen> {
                 ),
               ],
             ),
-          ),
-        ],
-      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddDialog(auth),
         backgroundColor: AppColors.deepRose,

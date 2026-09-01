@@ -285,7 +285,7 @@ class _LeaderboardIcon extends StatelessWidget {
             colors: [AppColors.blushTint, Color(0xFFFF8FAB), AppColors.cinemaPink],
           ),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.78),
+            color: AppColors.petalWhite.withValues(alpha: 0.78),
             width: 1.4,
           ),
           boxShadow: [
@@ -314,7 +314,7 @@ class _LeaderboardIcon extends StatelessWidget {
           colors: [Color(0xFFFFF6CC), AppColors.auroraGold, Color(0xFFC49A2B)],
         ),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.78),
+          color: AppColors.petalWhite.withValues(alpha: 0.78),
           width: 1.4,
         ),
         boxShadow: [
@@ -648,7 +648,7 @@ class _ChampionBadgeState extends State<_ChampionBadge>
               ),
               borderRadius: BorderRadius.circular(99),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.78),
+                color: AppColors.petalWhite.withValues(alpha: 0.78),
                 width: 1.1,
               ),
               boxShadow: [
@@ -761,7 +761,7 @@ class _ChampionBadgeShimmerState extends State<_ChampionBadgeShimmer>
               colors: [
                 Colors.transparent,
                 Colors.transparent,
-                Colors.white.withValues(alpha: 0.42),
+                AppColors.petalWhite.withValues(alpha: 0.42),
                 Colors.transparent,
                 Colors.transparent,
               ],
@@ -817,7 +817,7 @@ class _ChampionShimmerState extends State<_ChampionShimmer>
               colors: [
                 Colors.transparent,
                 Colors.transparent,
-                Colors.white.withValues(alpha: 0.10),
+                AppColors.petalWhite.withValues(alpha: 0.10),
                 Colors.transparent,
                 Colors.transparent,
               ],

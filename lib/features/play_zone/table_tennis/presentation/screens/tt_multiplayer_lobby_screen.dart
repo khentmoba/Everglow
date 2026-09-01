@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../../../core/theme/app_colors.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/services/auth_service.dart';
 import '../../services/tt_multiplayer_service.dart';
 import 'tt_multiplayer_game_screen.dart';
@@ -42,7 +42,7 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
               const Icon(
                 Icons.sports_tennis_rounded,
                 size: 64,
-                color: AppTheme.warmAmber,
+                color: AppColors.warmAmber,
               ),
               const SizedBox(height: 16),
               Text(
@@ -54,7 +54,7 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
                 'Play against your partner',
                 style: AppTypography.outfitWhite.copyWith(
                   fontSize: 14,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.75),
+                  color: AppColors.petalWhite.withValues(alpha: 0.75),
                 ),
               ),
               const SizedBox(height: 48),
@@ -67,7 +67,7 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
                   'Room: $_roomId',
                   style: AppTypography.outfitWhite.copyWith(
                     fontSize: 12,
-                    color: AppTheme.petalWhite.withValues(alpha: 0.55),
+                    color: AppColors.petalWhite.withValues(alpha: 0.55),
                   ),
                 ),
             ],
@@ -84,7 +84,7 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [AppTheme.warmAmber, AppTheme.deepRose],
+            colors: [AppColors.warmAmber, AppColors.deepRose],
           ),
           borderRadius: BorderRadius.all(Radius.circular(24)),
           boxShadow: [
@@ -99,7 +99,7 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
           'Find Match',
           style: AppTypography.outfitWhite.copyWith(
             fontWeight: FontWeight.w900,
-            color: AppTheme.petalWhite,
+            color: AppColors.petalWhite,
             letterSpacing: 2,
             fontSize: 16,
           ),
@@ -115,7 +115,7 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
           width: 48,
           height: 48,
           child: CircularProgressIndicator(
-            color: AppTheme.warmAmber,
+            color: AppColors.warmAmber,
             strokeWidth: 3,
           ),
         ),
@@ -124,7 +124,7 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
           _statusText ?? 'Searching for opponent...',
           style: AppTypography.outfitWhite.copyWith(
             fontSize: 16,
-            color: AppTheme.petalWhite,
+            color: AppColors.petalWhite,
           ),
         ),
         const SizedBox(height: 8),
@@ -141,7 +141,7 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
                     width: 8,
                     height: 8,
                     decoration: BoxDecoration(
-                      color: AppTheme.warmAmber.withValues(alpha: v),
+                      color: AppColors.warmAmber.withValues(alpha: v),
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -156,7 +156,7 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
           child: Text(
             'Cancel',
             style: AppTypography.outfitWhite.copyWith(
-              color: AppTheme.petalWhite.withValues(alpha: 0.7),
+              color: AppColors.petalWhite.withValues(alpha: 0.7),
             ),
           ),
         ),
@@ -171,7 +171,7 @@ class _TTMultiplayerLobbyScreenState extends State<TTMultiplayerLobbyScreen> {
           'Match found!',
           style: AppTypography.outfitBold.copyWith(
             fontSize: 20,
-            color: AppTheme.warmAmber,
+            color: AppColors.warmAmber,
           ),
         ),
         const SizedBox(height: 16),

@@ -494,7 +494,7 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
               Text(
                 label,
                 style: AppTypography.outfitHeading.copyWith(
-                  color: Colors.white,
+                  color: AppColors.petalWhite,
                   fontSize: 11,
                 ),
               ),
@@ -549,14 +549,14 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
                         _hostExplicitlyPaused
                             ? Icons.play_arrow_rounded
                             : Icons.pause_rounded,
-                        color: Colors.white,
+                        color: AppColors.petalWhite,
                         size: 20,
                       ),
                       const SizedBox(width: 6),
                       Text(
                         _hostExplicitlyPaused ? 'RESUME' : 'PAUSE',
                         style: AppTypography.outfitWhite.copyWith(
-                          color: Colors.white,
+                          color: AppColors.petalWhite,
                           fontWeight: FontWeight.w800,
                           fontSize: 12,
                           letterSpacing: 1.1,
@@ -609,14 +609,14 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
                       _hostExplicitlyPaused
                           ? Icons.play_arrow_rounded
                           : Icons.pause_rounded,
-                      color: Colors.white,
+                      color: AppColors.petalWhite,
                       size: 22,
                     ),
                     const SizedBox(width: 8),
                     Text(
                       _hostExplicitlyPaused ? 'RESUME' : 'PAUSE',
                       style: AppTypography.outfitWhite.copyWith(
-                        color: Colors.white,
+                        color: AppColors.petalWhite,
                         fontWeight: FontWeight.w800,
                         fontSize: 13,
                         letterSpacing: 1.2,
@@ -670,7 +670,7 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.outfitHeading.copyWith(
-                      color: Colors.white,
+                      color: AppColors.petalWhite,
                       fontSize: 9.5,
                     ),
                   ),

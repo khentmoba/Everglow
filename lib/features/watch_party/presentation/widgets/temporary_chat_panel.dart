@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../cinema/presentation/widgets/netflix/netflix_colors.dart';
 import '../../../../core/services/auth_service.dart';
@@ -343,10 +344,10 @@ class _TemporaryChatPanelState extends State<TemporaryChatPanel> {
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.06),
+                    color: AppColors.petalWhite.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.14),
+                      color: AppColors.petalWhite.withValues(alpha: 0.14),
                     ),
                   ),
                   child: TextField(
@@ -389,12 +390,12 @@ class _TemporaryChatPanelState extends State<TemporaryChatPanel> {
                           padding: EdgeInsets.all(10),
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: AppColors.petalWhite,
                           ),
                         )
                       : const Icon(
                           Icons.send_rounded,
-                          color: Colors.white,
+                          color: AppColors.petalWhite,
                           size: 17,
                         ),
                 ),

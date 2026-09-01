@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/theme/app_typography.dart';
 import 'package:go_router/go_router.dart';
@@ -53,7 +54,7 @@ class _SharedGardenViewState extends State<SharedGardenView> {
                     onPressed: () => context.go('/dashboard'),
                     icon: const Icon(
                       Icons.arrow_back_ios_new_rounded,
-                      color: AppTheme.roseQuartz,
+                      color: AppColors.roseQuartz,
                       size: 20,
                     ),
                   ),
@@ -128,9 +129,9 @@ class _SharedGardenViewState extends State<SharedGardenView> {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
+        color: AppColors.moonlight.withValues(alpha: AppTheme.glassOpacity),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.15)),
+        border: Border.all(color: AppColors.blushGold.withValues(alpha: 0.15)),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -141,14 +142,14 @@ class _SharedGardenViewState extends State<SharedGardenView> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: AppTheme.blushGold.withValues(alpha: 0.15),
+                color: AppColors.blushGold.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 '${plantType.seasonalBonusName} ✨',
                 style: AppTypography.outfitHeading.copyWith(
                   fontSize: 10,
-                  color: AppTheme.blushGold,
+                  color: AppColors.blushGold,
                 ),
               ),
             ),
@@ -164,7 +165,7 @@ class _SharedGardenViewState extends State<SharedGardenView> {
               '${stats.streakCount} day streak · ${stats.totalInteractions} visits',
               style: AppTypography.outfitWhite.copyWith(
                 fontSize: 11,
-                color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                color: AppColors.petalWhite.withValues(alpha: 0.6),
               ),
             ),
         ],

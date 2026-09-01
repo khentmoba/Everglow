@@ -1,12 +1,12 @@
 import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../../../../core/theme/app_colors.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:web/web.dart' as web;
 import 'dart:ui_web' as ui_web;
 
-import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/services/auth_service.dart';
 import '../../../presentation/widgets/web_overlay_button.dart';
 import '../../services/tt_bridge_service.dart';
@@ -147,7 +147,7 @@ class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
                   child: Text(
                     'Table Tennis is only available in the web build.',
                     style: AppTypography.outfitWhite.copyWith(
-                      color: AppTheme.petalWhite,
+                      color: AppColors.petalWhite,
                     ),
                   ),
                 ),
@@ -177,8 +177,8 @@ class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
                               : Icons.sentiment_dissatisfied_rounded,
                           size: 64,
                           color: _finalScore > 0
-                              ? AppTheme.warmAmber
-                              : AppTheme.softLavender,
+                              ? AppColors.warmAmber
+                              : AppColors.softLavender,
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -193,7 +193,7 @@ class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
                           child: Text(
                             'Back to Hub',
                             style: AppTypography.outfitWhite.copyWith(
-                              color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                              color: AppColors.petalWhite.withValues(alpha: 0.7),
                             ),
                           ),
                         ),
@@ -213,7 +213,7 @@ class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
                     children: [
                       const Icon(
                         Icons.screen_rotation_rounded,
-                        color: AppTheme.roseQuartz,
+                        color: AppColors.roseQuartz,
                         size: 56,
                       ),
                       const SizedBox(height: 12),
@@ -227,7 +227,7 @@ class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
                       Text(
                         'Table Tennis runs in landscape.',
                         style: AppTypography.outfitWhite.copyWith(
-                          color: AppTheme.petalWhite.withValues(alpha: 0.75),
+                          color: AppColors.petalWhite.withValues(alpha: 0.75),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -236,7 +236,7 @@ class _TTMultiplayerGameScreenState extends State<TTMultiplayerGameScreen> {
                         child: Text(
                           'Back',
                           style: AppTypography.outfitWhite.copyWith(
-                            color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                            color: AppColors.petalWhite.withValues(alpha: 0.7),
                           ),
                         ),
                       ),

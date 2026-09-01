@@ -80,7 +80,7 @@ class VaultPreview extends StatelessWidget {
                         child: LinearProgressIndicator(
                           value: pct == 0 ? 0.04 : pct,
                           minHeight: 6,
-                          backgroundColor: Colors.white.withValues(alpha: 0.07),
+                          backgroundColor: AppColors.petalWhite.withValues(alpha: 0.07),
                           valueColor: const AlwaysStoppedAnimation(
                             AppColors.auroraTeal,
                           ),

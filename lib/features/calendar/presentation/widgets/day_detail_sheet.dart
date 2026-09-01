@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/models/calendar_event.dart';
 import '../../data/services/calendar_service.dart';
@@ -37,11 +36,11 @@ class _DayDetailSheetState extends State<DayDetailSheet> {
       builder: (context, scrollController) {
         return Container(
           decoration: BoxDecoration(
-            color: AppTheme.velvet,
+            color: AppColors.velvet,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             border: Border(
               top: BorderSide(
-                color: AppTheme.blushGold.withValues(alpha: 0.65),
+                color: AppColors.blushGold.withValues(alpha: 0.65),
                 width: 1.5,
               ),
             ),
@@ -54,7 +53,7 @@ class _DayDetailSheetState extends State<DayDetailSheet> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppTheme.blushGold.withValues(alpha: 0.65),
+                  color: AppColors.blushGold.withValues(alpha: 0.65),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -83,12 +82,12 @@ class _DayDetailSheetState extends State<DayDetailSheet> {
                       icon: Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: AppTheme.deepRose.withValues(alpha: 0.6),
+                          color: AppColors.deepRose.withValues(alpha: 0.6),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(
                           Icons.add,
-                          color: AppTheme.petalWhite,
+                          color: AppColors.petalWhite,
                           size: 18,
                         ),
                       ),
@@ -122,14 +121,14 @@ class _DayDetailSheetState extends State<DayDetailSheet> {
                             Icon(
                               Icons.event_available_outlined,
                               size: 40,
-                              color: AppTheme.blushGold.withValues(alpha: 0.65),
+                              color: AppColors.blushGold.withValues(alpha: 0.65),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               "No events this day",
                               style: AppTypography.outfitWhite.copyWith(
                                 fontSize: 14,
-                                color: AppTheme.petalWhite.withValues(
+                                color: AppColors.petalWhite.withValues(
                                   alpha: 0.4,
                                 ),
                               ),
@@ -149,7 +148,7 @@ class _DayDetailSheetState extends State<DayDetailSheet> {
                               child: Text(
                                 "Add one",
                                 style: AppTypography.outfitWhite.copyWith(
-                                  color: AppTheme.blushGold,
+                                  color: AppColors.blushGold,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -220,19 +219,19 @@ class _EventTile extends StatelessWidget {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(
-          color: AppTheme.deepRose.withValues(alpha: 0.5),
+          color: AppColors.deepRose.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Icon(
           Icons.delete_outline_rounded,
-          color: AppTheme.petalWhite,
+          color: AppColors.petalWhite,
         ),
       ),
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppTheme.twilight,
+          color: AppColors.twilight,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: _eventColor(event.type).withValues(alpha: 0.3),
@@ -261,7 +260,7 @@ class _EventTile extends StatelessWidget {
                     style: AppTypography.outfitWhite.copyWith(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.petalWhite,
+                      color: AppColors.petalWhite,
                     ),
                   ),
                   if (event.description.isNotEmpty)
@@ -271,7 +270,7 @@ class _EventTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.outfitWhite.copyWith(
                         fontSize: 11,
-                        color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                        color: AppColors.petalWhite.withValues(alpha: 0.7),
                       ),
                     ),
                   const SizedBox(height: 4),
@@ -294,7 +293,7 @@ class _EventTile extends StatelessWidget {
                               : DateFormat.jm().format(event.date),
                           style: AppTypography.outfitWhite.copyWith(
                             fontSize: 10,
-                            color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                            color: AppColors.petalWhite.withValues(alpha: 0.7),
                           ),
                         ),
                       ),
@@ -354,14 +353,14 @@ class _EventTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppTheme.softLavender.withValues(alpha: 0.2),
+                  color: AppColors.softLavender.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   event.recurring == 'yearly' ? '🔄 Yearly' : '🔄 Monthly',
                   style: AppTypography.outfitWhite.copyWith(
                     fontSize: 9,
-                    color: AppTheme.softLavender,
+                    color: AppColors.softLavender,
                   ),
                 ),
               ),
@@ -374,13 +373,13 @@ class _EventTile extends StatelessWidget {
   Color _eventColor(CalendarEventType type) {
     switch (type) {
       case CalendarEventType.dateNight:
-        return AppTheme.deepRose;
+        return AppColors.deepRose;
       case CalendarEventType.anniversary:
-        return AppTheme.blushGold;
+        return AppColors.blushGold;
       case CalendarEventType.reminder:
-        return AppTheme.softLavender;
+        return AppColors.softLavender;
       case CalendarEventType.custom:
-        return AppTheme.roseQuartz;
+        return AppColors.roseQuartz;
     }
   }
 }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
@@ -104,7 +103,7 @@ class _ScribbleGameScreenState extends State<ScribbleGameScreen> {
                   opacity: 0.12,
                 ),
               ],
-              showPetals: true,
+              showPetals: false,
             ),
           ),
           SafeArea(
@@ -151,7 +150,7 @@ class _ScribbleGameScreenState extends State<ScribbleGameScreen> {
                           'by ${auth.currentUser ?? ''}',
                           style: AppTypography.outfitWhite.copyWith(
                             fontSize: 10,
-                            color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                            color: AppColors.petalWhite.withValues(alpha: 0.5),
                           ),
                         ),
                       ],
@@ -183,7 +182,7 @@ class _ScribbleGameScreenState extends State<ScribbleGameScreen> {
                             _status,
                             style: AppTypography.outfitWhite.copyWith(
                               fontSize: 11,
-                              color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                              color: AppColors.petalWhite.withValues(alpha: 0.7),
                             ),
                           ),
                         ),
@@ -196,7 +195,7 @@ class _ScribbleGameScreenState extends State<ScribbleGameScreen> {
                   child: Container(
                     margin: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.petalWhite,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: AppColors.blushGold.withValues(alpha: 0.2),
@@ -241,10 +240,10 @@ class _ScribbleGameScreenState extends State<ScribbleGameScreen> {
                           decoration: InputDecoration(
                             hintText: 'Type guess...',
                             hintStyle: AppTypography.outfitWhite.copyWith(
-                              color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                              color: AppColors.petalWhite.withValues(alpha: 0.4),
                             ),
                             filled: true,
-                            fillColor: Colors.white,
+                            fillColor: AppColors.petalWhite,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide.none,
@@ -261,7 +260,7 @@ class _ScribbleGameScreenState extends State<ScribbleGameScreen> {
                         onPressed: _guess,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.deepRose,
-                          foregroundColor: Colors.white,
+                          foregroundColor: AppColors.petalWhite,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -304,7 +303,7 @@ class _ScribbleGameScreenState extends State<ScribbleGameScreen> {
                           'New word',
                           style: AppTypography.outfitBold.copyWith(
                             fontSize: 12,
-                            color: Colors.white,
+                            color: AppColors.petalWhite,
                           ),
                         ),
                         style: ElevatedButton.styleFrom(

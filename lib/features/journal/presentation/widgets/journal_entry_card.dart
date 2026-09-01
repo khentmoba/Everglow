@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_card.dart';
 import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
@@ -88,7 +87,7 @@ class JournalEntryCard extends StatelessWidget {
                   DateFormat.MMMd().add_jm().format(entry.createdAt),
                   style: AppTypography.outfitWhite.copyWith(
                     fontSize: 10,
-                    color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                    color: AppColors.petalWhite.withValues(alpha: 0.5),
                   ),
                 ),
               ],
@@ -98,7 +97,7 @@ class JournalEntryCard extends StatelessWidget {
               entry.title.isEmpty ? 'Untitled' : entry.title,
               style: AppTypography.cormorantBold.copyWith(
                 fontSize: 18,
-                color: AppTheme.petalWhite,
+                color: AppColors.petalWhite,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -117,14 +116,14 @@ class JournalEntryCard extends StatelessWidget {
                     Icon(
                       Icons.lock_outline_rounded,
                       size: 16,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                      color: AppColors.petalWhite.withValues(alpha: 0.6),
                     ),
                     const SizedBox(width: 6),
                     Text(
                       'Locked entry — tap to reveal',
                       style: AppTypography.outfitWhite.copyWith(
                         fontSize: 12,
-                        color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                        color: AppColors.petalWhite.withValues(alpha: 0.6),
                         fontStyle: FontStyle.italic,
                       ),
                     ),
@@ -136,7 +135,7 @@ class JournalEntryCard extends StatelessWidget {
                 entry.preview.isEmpty ? 'No content' : entry.preview,
                 style: AppTypography.outfitWhite.copyWith(
                   fontSize: 13,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.72),
+                  color: AppColors.textMedium,
                   height: 1.4,
                 ),
                 maxLines: 3,
@@ -148,7 +147,7 @@ class JournalEntryCard extends StatelessWidget {
                 spacing: 6,
                 runSpacing: 6,
                 children: entry.tags
-                    .take(5)
+                    .take(3)
                     .map(
                       (t) => Container(
                         padding: const EdgeInsets.symmetric(
@@ -177,14 +176,14 @@ class JournalEntryCard extends StatelessWidget {
                 Icon(
                   Icons.person_outline_rounded,
                   size: 12,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                  color: AppColors.petalWhite.withValues(alpha: 0.4),
                 ),
                 const SizedBox(width: 4),
                 Text(
                   entry.author,
                   style: AppTypography.outfitWhite.copyWith(
                     fontSize: 10,
-                    color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                    color: AppColors.petalWhite.withValues(alpha: 0.5),
                   ),
                 ),
                 const Spacer(),
@@ -192,7 +191,7 @@ class JournalEntryCard extends StatelessWidget {
                   '${entry.wordCount} words',
                   style: AppTypography.outfitWhite.copyWith(
                     fontSize: 10,
-                    color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                    color: AppColors.petalWhite.withValues(alpha: 0.4),
                   ),
                 ),
                 if (entry.isLong) ...[
@@ -259,7 +258,7 @@ class _JournalDetailSheetState extends State<_JournalDetailSheet> {
       expand: false,
       builder: (context, scrollController) => Container(
         decoration: BoxDecoration(
-          color: AppTheme.velvet,
+          color: AppColors.velvet,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           border: Border.all(color: AppColors.blushGold.withValues(alpha: 0.2)),
         ),
@@ -272,7 +271,7 @@ class _JournalDetailSheetState extends State<_JournalDetailSheet> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppTheme.petalWhite.withValues(alpha: 0.3),
+                  color: AppColors.petalWhite.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -317,7 +316,7 @@ class _JournalDetailSheetState extends State<_JournalDetailSheet> {
                   DateFormat.yMMMd().add_jm().format(_entry.createdAt),
                   style: AppTypography.outfitWhite.copyWith(
                     fontSize: 11,
-                    color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                    color: AppColors.petalWhite.withValues(alpha: 0.6),
                   ),
                 ),
                 if (_entry.mood != null)
@@ -325,14 +324,14 @@ class _JournalDetailSheetState extends State<_JournalDetailSheet> {
                     '• ${_entry.mood!.emoji} ${_entry.mood!.name}',
                     style: AppTypography.outfitWhite.copyWith(
                       fontSize: 11,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                      color: AppColors.petalWhite.withValues(alpha: 0.7),
                     ),
                   ),
                 Text(
                   '• by ${_entry.author}',
                   style: AppTypography.outfitWhite.copyWith(
                     fontSize: 11,
-                    color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                    color: AppColors.petalWhite.withValues(alpha: 0.6),
                   ),
                 ),
               ],
@@ -389,7 +388,7 @@ class _JournalDetailSheetState extends State<_JournalDetailSheet> {
                       'This entry is locked',
                       style: AppTypography.outfitBold.copyWith(
                         fontSize: 14,
-                        color: AppTheme.petalWhite,
+                        color: AppColors.petalWhite,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -397,7 +396,7 @@ class _JournalDetailSheetState extends State<_JournalDetailSheet> {
                       'DailyTxT-style private entry. Tap reveal to unlock for this view.',
                       style: AppTypography.outfitWhite.copyWith(
                         fontSize: 12,
-                        color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                        color: AppColors.petalWhite.withValues(alpha: 0.6),
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -464,17 +463,17 @@ class _JournalDetailSheetState extends State<_JournalDetailSheet> {
                       final confirm = await showDialog<bool>(
                         context: context,
                         builder: (c) => AlertDialog(
-                          backgroundColor: AppTheme.velvet,
+                          backgroundColor: AppColors.velvet,
                           title: Text(
                             'Delete entry?',
                             style: AppTypography.outfitBold.copyWith(
-                              color: AppTheme.petalWhite,
+                              color: AppColors.petalWhite,
                             ),
                           ),
                           content: Text(
                             'This cannot be undone.',
                             style: AppTypography.outfitWhite.copyWith(
-                              color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                              color: AppColors.petalWhite.withValues(alpha: 0.7),
                             ),
                           ),
                           actions: [
@@ -486,7 +485,7 @@ class _JournalDetailSheetState extends State<_JournalDetailSheet> {
                               onPressed: () => Navigator.pop(c, true),
                               child: const Text(
                                 'Delete',
-                                style: TextStyle(color: Colors.redAccent),
+                                style: TextStyle(color: AppColors.error),
                               ),
                             ),
                           ],
@@ -501,9 +500,9 @@ class _JournalDetailSheetState extends State<_JournalDetailSheet> {
                     icon: const Icon(Icons.delete_outline_rounded, size: 16),
                     label: const Text('Delete'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.redAccent,
+                      foregroundColor: AppColors.error,
                       side: BorderSide(
-                        color: Colors.redAccent.withValues(alpha: 0.3),
+                        color: AppColors.error.withValues(alpha: 0.3),
                       ),
                     ),
                   ),

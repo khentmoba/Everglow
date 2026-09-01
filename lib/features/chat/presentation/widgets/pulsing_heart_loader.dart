@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import 'package:animate_do/animate_do.dart';
 import '../../../../core/theme/app_motion.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 
 class PulsingHeartLoader extends StatelessWidget {
@@ -15,7 +15,7 @@ class PulsingHeartLoader extends StatelessWidget {
         AppMotion.reduced
             ? const Icon(
                 Icons.favorite_rounded,
-                color: AppTheme.deepRose,
+                color: AppColors.deepRose,
                 size: 60,
               )
             : Pulse(
@@ -23,7 +23,7 @@ class PulsingHeartLoader extends StatelessWidget {
                 duration: const Duration(milliseconds: 1500),
                 child: const Icon(
                   Icons.favorite_rounded,
-                  color: AppTheme.deepRose,
+                  color: AppColors.deepRose,
                   size: 60,
                 ),
               ),
@@ -32,7 +32,7 @@ class PulsingHeartLoader extends StatelessWidget {
             ? Text(
                 'Opening our sanctuary...',
                 style: AppTypography.outfitWhite.copyWith(
-                  color: AppTheme.roseQuartz,
+                  color: AppColors.roseQuartz,
                   fontWeight: FontWeight.w500,
                   letterSpacing: 0.5,
                 ),
@@ -42,7 +42,7 @@ class PulsingHeartLoader extends StatelessWidget {
                 child: Text(
                   'Opening our sanctuary...',
                   style: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.roseQuartz,
+                    color: AppColors.roseQuartz,
                     fontWeight: FontWeight.w500,
                     letterSpacing: 0.5,
                   ),

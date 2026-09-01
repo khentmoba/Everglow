@@ -87,7 +87,7 @@ class _PollCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
+        color: AppColors.moonlight.withValues(alpha: AppTheme.glassOpacity),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isClosed
@@ -125,7 +125,7 @@ class _PollCard extends StatelessWidget {
                   poll.title,
                   style: AppTypography.outfitBold.copyWith(
                     fontSize: 14,
-                    color: AppTheme.petalWhite,
+                    color: AppColors.petalWhite,
                   ),
                 ),
               ),
@@ -133,7 +133,7 @@ class _PollCard extends StatelessWidget {
                 icon: Icon(
                   Icons.more_horiz_rounded,
                   size: 18,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                  color: AppColors.petalWhite.withValues(alpha: 0.5),
                 ),
                 onPressed: () => _showPollMenu(context, poll, currentUser),
                 padding: EdgeInsets.zero,
@@ -147,7 +147,7 @@ class _PollCard extends StatelessWidget {
               poll.description,
               style: AppTypography.outfitWhite.copyWith(
                 fontSize: 12,
-                color: AppTheme.petalWhite.withValues(alpha: 0.65),
+                color: AppColors.petalWhite.withValues(alpha: 0.65),
               ),
             ),
           ],
@@ -156,7 +156,7 @@ class _PollCard extends StatelessWidget {
             'by ${poll.createdBy} • ${DateFormat.MMMd().format(poll.createdAt)} • $totalVotes vote${totalVotes == 1 ? '' : 's'}',
             style: AppTypography.outfitWhite.copyWith(
               fontSize: 10,
-              color: AppTheme.petalWhite.withValues(alpha: 0.5),
+              color: AppColors.petalWhite.withValues(alpha: 0.5),
             ),
           ),
           const SizedBox(height: 12),
@@ -197,7 +197,7 @@ class _PollCard extends StatelessWidget {
                           size: 16,
                           color: isMyVote
                               ? AppColors.blushGold
-                              : AppTheme.petalWhite.withValues(alpha: 0.4),
+                              : AppColors.petalWhite.withValues(alpha: 0.4),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
@@ -208,7 +208,7 @@ class _PollCard extends StatelessWidget {
                               fontWeight: isMyVote
                                   ? FontWeight.bold
                                   : FontWeight.w500,
-                              color: AppTheme.petalWhite,
+                              color: AppColors.petalWhite,
                             ),
                           ),
                         ),
@@ -240,7 +240,7 @@ class _PollCard extends StatelessWidget {
                             fontSize: 13,
                             color: isMyVote
                                 ? AppColors.blushGold
-                                : AppTheme.petalWhite.withValues(alpha: 0.8),
+                                : AppColors.petalWhite.withValues(alpha: 0.8),
                           ),
                         ),
                       ],
@@ -283,7 +283,7 @@ class _PollCard extends StatelessWidget {
                                   e.key,
                                   style: AppTypography.outfitWhite.copyWith(
                                     fontSize: 10,
-                                    color: AppTheme.petalWhite.withValues(
+                                    color: AppColors.petalWhite.withValues(
                                       alpha: 0.7,
                                     ),
                                   ),
@@ -336,7 +336,7 @@ class _PollCard extends StatelessWidget {
                     onPressed: () => _finalizePoll(context, poll),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.deepRose,
-                      foregroundColor: Colors.white,
+                      foregroundColor: AppColors.petalWhite,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -346,7 +346,7 @@ class _PollCard extends StatelessWidget {
                       'Finalize',
                       style: AppTypography.outfitBold.copyWith(
                         fontSize: 11,
-                        color: Colors.white,
+                        color: AppColors.petalWhite,
                       ),
                     ),
                   ),
@@ -422,15 +422,15 @@ class _PollCard extends StatelessWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        backgroundColor: AppTheme.velvet,
+        backgroundColor: AppColors.velvet,
         title: Text(
           'Finalize poll?',
-          style: AppTypography.outfitBold.copyWith(color: AppTheme.petalWhite),
+          style: AppTypography.outfitBold.copyWith(color: AppColors.petalWhite),
         ),
         content: Text(
           'This will close the poll and create a calendar event for the winning date.',
           style: AppTypography.outfitWhite.copyWith(
-            color: AppTheme.petalWhite.withValues(alpha: 0.7),
+            color: AppColors.petalWhite.withValues(alpha: 0.7),
           ),
         ),
         actions: [
@@ -479,7 +479,7 @@ class _PollCard extends StatelessWidget {
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: AppTheme.velvet,
+          color: AppColors.velvet,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           border: Border.all(color: AppColors.blushGold.withValues(alpha: 0.2)),
         ),
@@ -489,12 +489,12 @@ class _PollCard extends StatelessWidget {
             ListTile(
               leading: const Icon(
                 Icons.delete_outline_rounded,
-                color: Colors.redAccent,
+                color: AppColors.error,
               ),
               title: Text(
                 'Delete poll',
                 style: AppTypography.outfitWhite.copyWith(
-                  color: Colors.redAccent,
+                  color: AppColors.error,
                 ),
               ),
               onTap: () async {

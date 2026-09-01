@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../data/models/journal_entry.dart';
@@ -111,7 +110,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: AppTheme.velvet,
+      backgroundColor: AppColors.velvet,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(color: AppColors.blushGold.withValues(alpha: 0.2)),
@@ -143,7 +142,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                 'Category',
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 11,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                  color: AppColors.petalWhite.withValues(alpha: 0.6),
                 ),
               ),
               const SizedBox(height: 8),
@@ -175,7 +174,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                           fontWeight: sel ? FontWeight.bold : FontWeight.w500,
                           color: sel
                               ? AppColors.blushGold
-                              : AppTheme.petalWhite.withValues(alpha: 0.7),
+                              : AppColors.petalWhite.withValues(alpha: 0.7),
                         ),
                       ),
                     ),
@@ -187,14 +186,14 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
               TextField(
                 controller: _titleController,
                 style: AppTypography.outfitWhite.copyWith(
-                  color: AppTheme.petalWhite,
+                  color: AppColors.petalWhite,
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
                 decoration: InputDecoration(
                   hintText: 'Title (e.g., Our first roadtrip)',
                   hintStyle: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.35),
+                    color: AppColors.petalWhite.withValues(alpha: 0.35),
                   ),
                   filled: true,
                   fillColor: AppColors.twilight,
@@ -215,7 +214,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                 maxLines: 8,
                 minLines: 5,
                 style: AppTypography.outfitWhite.copyWith(
-                  color: AppTheme.petalWhite,
+                  color: AppColors.petalWhite,
                   fontSize: 14,
                   height: 1.5,
                 ),
@@ -223,7 +222,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                   hintText:
                       'Write your heart out... markdown supported ✨\n\nMemos-style quick capture, DailyTxT-style private diary.',
                   hintStyle: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.35),
+                    color: AppColors.petalWhite.withValues(alpha: 0.35),
                     fontSize: 13,
                   ),
                   filled: true,
@@ -241,7 +240,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                 'Mood (optional)',
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 11,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                  color: AppColors.petalWhite.withValues(alpha: 0.6),
                 ),
               ),
               const SizedBox(height: 8),
@@ -263,13 +262,13 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                       controller: _tagController,
                       onSubmitted: (_) => _addTag(),
                       style: AppTypography.outfitWhite.copyWith(
-                        color: AppTheme.petalWhite,
+                        color: AppColors.petalWhite,
                         fontSize: 13,
                       ),
                       decoration: InputDecoration(
                         hintText: 'Add tag (press enter)',
                         hintStyle: AppTypography.outfitWhite.copyWith(
-                          color: AppTheme.petalWhite.withValues(alpha: 0.35),
+                          color: AppColors.petalWhite.withValues(alpha: 0.35),
                         ),
                         filled: true,
                         fillColor: AppColors.twilight,
@@ -310,7 +309,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                           deleteIcon: Icon(
                             Icons.close_rounded,
                             size: 14,
-                            color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                            color: AppColors.petalWhite.withValues(alpha: 0.7),
                           ),
                           onDeleted: () => setState(() => _tags.remove(t)),
                           side: BorderSide(
@@ -353,7 +352,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                               size: 16,
                               color: _isPinned
                                   ? AppColors.blushGold
-                                  : AppTheme.petalWhite.withValues(alpha: 0.6),
+                                  : AppColors.petalWhite.withValues(alpha: 0.6),
                             ),
                             const SizedBox(width: 6),
                             Text(
@@ -362,7 +361,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                                 fontSize: 12,
                                 color: _isPinned
                                     ? AppColors.blushGold
-                                    : AppTheme.petalWhite.withValues(
+                                    : AppColors.petalWhite.withValues(
                                         alpha: 0.7,
                                       ),
                               ),
@@ -399,7 +398,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                               size: 16,
                               color: _isLocked
                                   ? AppColors.warmAmber
-                                  : AppTheme.petalWhite.withValues(alpha: 0.6),
+                                  : AppColors.petalWhite.withValues(alpha: 0.6),
                             ),
                             const SizedBox(width: 6),
                             Text(
@@ -408,7 +407,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                                 fontSize: 12,
                                 color: _isLocked
                                     ? AppColors.warmAmber
-                                    : AppTheme.petalWhite.withValues(
+                                    : AppColors.petalWhite.withValues(
                                         alpha: 0.7,
                                       ),
                               ),
@@ -430,7 +429,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: _saving
-                            ? [AppTheme.moonlight, AppTheme.moonlight]
+                            ? [AppColors.moonlight, AppColors.moonlight]
                             : [AppColors.deepRose, AppColors.rosePressed],
                       ),
                       borderRadius: BorderRadius.circular(14),
@@ -442,7 +441,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                               height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.white,
+                                color: AppColors.petalWhite,
                               ),
                             )
                           : Text(
@@ -450,7 +449,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                                   ? 'Save Entry ✨'
                                   : 'Update Entry',
                               style: AppTypography.outfitBold.copyWith(
-                                color: Colors.white,
+                                color: AppColors.petalWhite,
                                 fontSize: 14,
                               ),
                             ),
@@ -487,7 +486,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
             fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
             color: isSel
                 ? AppColors.blushGold
-                : AppTheme.petalWhite.withValues(alpha: 0.7),
+                : AppColors.petalWhite.withValues(alpha: 0.7),
           ),
         ),
       ),

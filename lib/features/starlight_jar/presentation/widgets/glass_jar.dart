@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_colors.dart';
 
 class GlassJar extends StatelessWidget {
   final double width;
@@ -38,9 +38,9 @@ class GlassJar extends StatelessWidget {
                 width: width,
                 height: height,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
+                  color: AppColors.petalWhite.withValues(alpha: 0.12),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.22),
+                    color: AppColors.petalWhite.withValues(alpha: 0.22),
                     width: 2,
                   ),
                   borderRadius: const BorderRadius.only(
@@ -61,7 +61,7 @@ class GlassJar extends StatelessWidget {
                 width: 20,
                 height: 100,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
+                  color: AppColors.petalWhite.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
@@ -74,10 +74,10 @@ class GlassJar extends StatelessWidget {
                 width: width * 0.6,
                 height: 30,
                 decoration: BoxDecoration(
-                  color: AppTheme.roseQuartz.withValues(alpha: 0.5),
+                  color: AppColors.roseQuartz.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.3),
+                    color: AppColors.petalWhite.withValues(alpha: 0.3),
                     width: 1,
                   ),
                 ),

@@ -808,9 +808,14 @@ class _ToolResultCards extends StatelessWidget {
           Color accent = _toolAccent(tool);
           IconData icon = _toolIcon(tool);
           String label = _formatToolStatus(tool);
-          if (needsConfirm) label = 'Needs confirmation';
-          else if (success) label = '$label ✓';
-          else if (r['error'] != null) label = 'Failed';
+          if (needsConfirm) {
+            label = 'Needs confirmation';
+          } else if (success) {
+            label = '$label ✓';
+          }
+          else if (r['error'] != null) {
+            label = 'Failed';
+          }
 
           return Container(
             margin: const EdgeInsets.only(bottom: 6),

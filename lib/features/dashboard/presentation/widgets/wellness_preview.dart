@@ -45,7 +45,7 @@ class WellnessPreview extends StatelessWidget {
                         child: LinearProgressIndicator(
                           value: pct,
                           minHeight: 6,
-                          backgroundColor: Colors.white.withValues(alpha: 0.08),
+                          backgroundColor: AppColors.petalWhite.withValues(alpha: 0.08),
                           valueColor: const AlwaysStoppedAnimation(
                             AppColors.auroraRose,
                           ),
@@ -66,11 +66,11 @@ class WellnessPreview extends StatelessWidget {
                                     ? AppColors.auroraRose.withValues(
                                         alpha: 0.92,
                                       )
-                                    : Colors.white.withValues(alpha: 0.07),
+                                    : AppColors.petalWhite.withValues(alpha: 0.07),
                                 border: Border.all(
                                   color: filled
                                       ? AppColors.auroraRose
-                                      : Colors.white.withValues(alpha: 0.10),
+                                      : AppColors.petalWhite.withValues(alpha: 0.10),
                                 ),
                                 boxShadow: filled
                                     ? [
@@ -86,7 +86,7 @@ class WellnessPreview extends StatelessWidget {
                                   ? const Icon(
                                       Icons.check_rounded,
                                       size: 12,
-                                      color: Colors.white,
+                                      color: AppColors.petalWhite,
                                     )
                                   : null,
                             );
@@ -162,9 +162,9 @@ class _EmptyWellness extends StatelessWidget {
                 height: 26,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.06),
+                  color: AppColors.petalWhite.withValues(alpha: 0.06),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.10),
+                    color: AppColors.petalWhite.withValues(alpha: 0.10),
                   ),
                 ),
                 child: Icon(

@@ -7,6 +7,7 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../../shared/widgets/everglow/everglow_scaffold.dart';
 import '../../../../shared/widgets/everglow/everglow_segmented_control.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 
@@ -93,31 +94,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          const Positioned.fill(
-            child: EverglowBackground(
-              baseColor: AppColors.inkDeep,
-              glows: [
-                RadialGlow(
-                  color: AppColors.warmAmber,
-                  alignment: Alignment(-0.7, -0.9),
-                  size: 0.9,
-                  opacity: 0.12,
-                ),
-                RadialGlow(
-                  color: AppColors.softLavender,
-                  alignment: Alignment(0.9, 0.8),
-                  size: 0.7,
-                  opacity: 0.10,
-                ),
-              ],
-              showPetals: true,
-            ),
-          ),
-          SafeArea(
-            child: Column(
+        return EverglowScaffold(
+      backgroundColor: AppColors.inkDeep,
+      glows: [const RadialGlow(color: AppColors.warmAmber, alignment: Alignment(-0.7, -0.9), size: 0.9, opacity: 0.12), const RadialGlow(color: AppColors.softLavender, alignment: Alignment(0.9, 0.8), size: 0.7, opacity: 0.10)],
+      body: Column(
               children: [
                 EverglowFeatureHeader(
                   title: 'Shared Calendar',
@@ -205,9 +185,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   const Expanded(child: PollsTab()),
               ],
             ),
-          ),
-        ],
-      ),
       floatingActionButton: _CalendarFab(
         onPressed: _tabIndex == 0 ? _openAddEvent : _openAddPoll,
       ),
