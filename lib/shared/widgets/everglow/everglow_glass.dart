@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -9,9 +10,10 @@ import '../../../core/theme/app_theme.dart';
 
 /// Glassmorphic container — token-driven, reduced-motion-aware.
 ///
-/// Replaces the old `GlassContainer`. Uses `BackdropFilter` blur
-/// with `AppColors.surfaceGlass` fill and `AppColors.border` border.
-/// Blur is disabled when `AppMotion.reduced` is true.
+/// Replaces the old GlassContainer. Uses BackdropFilter blur
+/// with AppColors.surfaceGlass fill and AppColors.border border.
+/// Blur is disabled when AppMotion.reduced is true or on web
+/// where BackdropFilter renders as opaque grey.
 class EverglowGlass extends StatelessWidget {
   final Widget child;
   final double radius;
@@ -34,11 +36,24 @@ class EverglowGlass extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveBlur = AppMotion.reduced
+    final effectiveBlur = AppMotion.reduced || kIsWeb
         ? 0.0
         : (blur ?? AppTheme.glassBlur);
     final fill = fillColor ?? AppColors.surfaceGlass;
     final border = borderColor ?? AppColors.border;
+
+    if (effectiveBlur == 0) {
+      return Container(
+        padding: padding,
+        decoration: BoxDecoration(
+          color: fill,
+          borderRadius: BorderRadius.circular(radius),
+          border: Border.all(color: border, width: 1.0),
+          boxShadow: boxShadow ?? AppElevation.e2,
+        ),
+        child: child,
+      );
+    }
 
     return RepaintBoundary(
       child: ClipRRect(
