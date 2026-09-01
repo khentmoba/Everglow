@@ -6,10 +6,18 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 // snapshot to Dart, which composites it into the Flutter canvas. Because the
 // cat is real canvas content, it can be occluded by dashboard widgets (unlike
 // a DOM platform view, which always composites on top).
+//
+// GPU stall mitigation: preserveDrawingBuffer is false (default) so the
+// browser can efficiently double-buffer. readPixels is called synchronously
+// immediately after render() before the buffer is presented - valid per
+// WebGL spec and avoids the stalls seen with preserveDrawingBuffer:true.
+// Rendering is capped to ~30fps and canvas reduced to 192x192 to cut
+// pixel-transfer bandwidth by ~44% vs 256x256.
 
-const W = 256;
-const H = 256;
+const W = 192;
+const H = 192;
 const GLB_PATH = "assets/assets/models/chibi_cat.glb";
+const TARGET_FRAME_MS = 33; // ~30fps
 
 let renderer = null;
 let scene = null;
@@ -17,6 +25,7 @@ let camera = null;
 let model = null;
 let baseScale = 1;
 let ready = false;
+let lastRenderAt = 0;
 
 const params = {
   facing: 1,
@@ -42,11 +51,15 @@ function init() {
   renderer = new THREE.WebGLRenderer({
     canvas: canvas,
     alpha: true,
-    antialias: true,
-    preserveDrawingBuffer: true,
+    antialias: false,
+    preserveDrawingBuffer: false,
+    powerPreference: "low-power",
+    premultipliedAlpha: false,
+    stencil: false,
   });
   renderer.setClearColor(0x000000, 0);
   renderer.setSize(W, H, false);
+  renderer.setPixelRatio(1);
 
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
@@ -95,7 +108,12 @@ function setParams(p) {
 function renderToBytes() {
   if (!ready || !model || !renderer) return null;
 
-  const now = performance.now() / 1000;
+  // Throttle to ~30fps to avoid GPU ReadPixels stalls.
+  const nowMs = performance.now();
+  if (nowMs - lastRenderAt < TARGET_FRAME_MS) return null;
+  lastRenderAt = nowMs;
+
+  const now = nowMs / 1000;
   const baseYaw = params.facing < 0 ? Math.PI : 0;
   let yaw = baseYaw;
   if (params.turning) {
@@ -110,6 +128,8 @@ function renderToBytes() {
 
   renderer.render(scene, camera);
   const gl = renderer.getContext();
+  // Valid even with preserveDrawingBuffer:false when called synchronously
+  // after render() and before the browser composites.
   gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
 
   // WebGL rows are bottom-up; flip so row 0 is the top of the image.
@@ -128,6 +148,12 @@ window.EverglowCat3D = {
   renderToBytes,
   get ready() {
     return ready;
+  },
+  get width() {
+    return W;
+  },
+  get height() {
+    return H;
   },
 };
 

@@ -5,8 +5,8 @@ Write-Host "Generating cache-busting service worker..."
 dart tool/generate_sw.dart
 if ($LASTEXITCODE -ne 0) { Write-Host "SW generation failed"; exit 1 }
 
-Write-Host "Running flutter build web..."
-$dartDefines = @()
+Write-Host "Running flutter build web (prod: canvaskit, no source maps)..."
+$dartDefines = @("--web-renderer", "canvaskit", "--release", "--no-source-maps")
 # Only public client values may enter a web bundle. Server-only credentials
 # (TMDB, Last.fm, couple account credentials) must stay in Cloud Functions.
 $allowedClientKeys = @('FCM_VAPID_KEY', 'SPOTIFY_CLIENT_ID')
@@ -33,3 +33,4 @@ $version = if ($versionMatch.Success) { $versionMatch.Groups[1].Value } else { "
 $commitHash = (git rev-parse --short HEAD 2>$null)
 if (-not $commitHash) { $commitHash = "unknown" }
 Write-Host "Done. BUILD=$version-$commitHash - users will get fresh cache."
+Write-Host "For staging with source maps: use build_staging.bat or flutter build web --web-renderer canvaskit --release --source-maps"
