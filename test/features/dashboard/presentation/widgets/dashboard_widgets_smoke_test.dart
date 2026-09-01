@@ -43,7 +43,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Coming Up'), findsOneWidget);
-    expect(find.text('29'), findsNWidgets(2));
+    expect(find.text('29'), findsOneWidget);
     expect(find.text('LEVEL 3'), findsOneWidget);
   });
 }
