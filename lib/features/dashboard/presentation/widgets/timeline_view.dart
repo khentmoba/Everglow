@@ -152,7 +152,7 @@ class _TimelineViewState extends State<TimelineView> {
 
               return PageView.builder(
                 controller: _pageController,
-                itemCount: milestones.length > 1 ? 10000 : milestones.length,
+                itemCount: milestones.length,
                 itemBuilder: (context, index) {
                   final milestone = milestones[index % milestones.length];
 

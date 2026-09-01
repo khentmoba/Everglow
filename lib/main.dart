@@ -36,18 +36,20 @@ Future<void> _startEverglow() async {
   };
   ErrorWidget.builder = (details) {
     final msg = details.exceptionAsString();
-    final isReleaseGreyZone = msg.contains('Starlight') || msg.contains('Timeline') || msg.isNotEmpty;
+    final stack = details.stack?.toString() ?? '';
+    final shortStack = stack.length > 600 ? stack.substring(0, 600) : stack;
     if (kDebugMode) {
       return ErrorWidget(details.exception);
     }
     // In release, keep background transparent so dashboard inkDeep shows through,
     // and log the error to console instead of painting opaque lightGrey.
+    // Show full exception + stack so we can diagnose Together zone Stack Overflow.
     return Material(
       type: MaterialType.transparency,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF2D1B33).withValues(alpha: 0.6),
+          color: const Color(0xFF2D1B33).withValues(alpha: 0.7),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFF4C2C2).withValues(alpha: 0.15)),
         ),
@@ -56,19 +58,41 @@ Future<void> _startEverglow() async {
           children: [
             const Icon(Icons.cloud_off_rounded, color: Color(0xFFF4C2C2), size: 28),
             const SizedBox(height: 8),
-            Text(
+            const Text(
               'Something went dark — tap to retry',
-              style: TextStyle(color: const Color(0xFFFFF5F5).withValues(alpha: 0.8), fontSize: 12),
+              style: TextStyle(color: Color(0xFFFFF5F5), fontSize: 12),
             ),
-            if (!kReleaseMode || isReleaseGreyZone)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  msg.length > 180 ? msg.substring(0, 180) : msg,
-                  style: TextStyle(color: const Color(0xFFF4C2C2).withValues(alpha: 0.6), fontSize: 9),
-                  textAlign: TextAlign.center,
-                ),
+            const SizedBox(height: 8),
+            SelectableText(
+              msg.length > 300 ? msg.substring(0, 300) : msg,
+              style: TextStyle(color: const Color(0xFFF4C2C2).withValues(alpha: 0.8), fontSize: 9),
+              textAlign: TextAlign.center,
+            ),
+            if (shortStack.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              SelectableText(
+                shortStack,
+                style: TextStyle(color: const Color(0xFFFFF5F5).withValues(alpha: 0.5), fontSize: 8),
+                textAlign: TextAlign.left,
               ),
+            ],
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: () {
+                // Force reload to retry Firestore streams
+                try {
+                  WidgetsBinding.instance.reassembleApplication();
+                } catch (_) {}
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFC2185B).withValues(alpha: 0.8),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text('Retry', style: TextStyle(color: Color(0xFFFFF5F5), fontSize: 11)),
+              ),
+            ),
           ],
         ),
       ),
