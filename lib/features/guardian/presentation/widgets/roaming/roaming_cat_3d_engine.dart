@@ -13,13 +13,20 @@ import 'roaming_guardian_cat.dart';
 /// frame; this engine copies those RGBA pixels into a Flutter image so the 3D
 /// cat is painted as ordinary canvas content. That is what lets the same 3D
 /// model walk genuinely *behind* dashboard widgets.
+///
+/// GPU stall fix: the JS side now runs at ~30fps with
+/// preserveDrawingBuffer:false and a 192x192 canvas (down from 256) to cut
+/// ReadPixels bandwidth ~44%. This Dart tick is gated to the same cadence
+/// so we don't wake the GL pipeline at 60fps.
 class RoamingCat3DEngine extends ChangeNotifier {
   RoamingCat3DEngine._();
 
   static final RoamingCat3DEngine instance = RoamingCat3DEngine._();
 
-  static const int _width = 256;
-  static const int _height = 256;
+  static const int _width = 192;
+  static const int _height = 192;
+  // ~30fps -> 33ms between decoded frames. Matches JS TARGET_FRAME_MS.
+  static const int _frameBudgetMs = 33;
 
   JSObject? _api;
   ui.Image? _image;
@@ -77,11 +84,12 @@ class RoamingCat3DEngine extends ChangeNotifier {
   void _tick() {
     if (!_running) return;
     final api = _api;
+    // Gate the whole GL readback to ~30fps so we don't stall the GPU at 60fps.
     if (api != null && !_decoding) {
-      final result = api.callMethod<JSUint8Array?>('renderToBytes'.toJS);
-      if (result != null && !result.isUndefinedOrNull) {
-        final now = DateTime.now().millisecondsSinceEpoch;
-        if (now - _lastDecodeAt > 32) {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      if (now - _lastDecodeAt >= _frameBudgetMs) {
+        final result = api.callMethod<JSUint8Array?>('renderToBytes'.toJS);
+        if (result != null && !result.isUndefinedOrNull) {
           _lastDecodeAt = now;
           _decode(result.toDart);
         }

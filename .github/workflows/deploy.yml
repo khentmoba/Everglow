@@ -50,7 +50,7 @@ jobs:
           FCM_VAPID_KEY: ${{ secrets.FCM_VAPID_KEY }}
           SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
         run: |
-          ARGS=(flutter build web --release)
+          ARGS=(flutter build web --web-renderer canvaskit --release --no-source-maps) # prod: no maps; staging uses --source-maps
           for KEY in FCM_VAPID_KEY SPOTIFY_CLIENT_ID; do
             VAL="${!KEY}"
             if [ -n "$VAL" ]; then
