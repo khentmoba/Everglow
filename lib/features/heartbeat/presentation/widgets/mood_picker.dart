@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../controllers/mood_controller.dart';
@@ -19,16 +18,15 @@ class MoodPicker extends StatelessWidget {
     final partnerName = authService.partnerName;
 
     final moods = [
-      {'emoji': '💜', 'score': 1, 'color': Colors.purple[200]!},
-      {'emoji': '☁️', 'score': 2, 'color': Colors.blueGrey[100]!},
-      {'emoji': '🌸', 'score': 3, 'color': Colors.pink[100]!},
-      {'emoji': '💖', 'score': 4, 'color': Colors.pink[300]!},
-      {'emoji': '✨', 'score': 5, 'color': Colors.pinkAccent},
+      {'emoji': '💜', 'score': 1, 'color': AppColors.softLavender, 'label': 'heavy'},
+      {'emoji': '☁️', 'score': 2, 'color': AppColors.mutedPurple, 'label': 'low'},
+      {'emoji': '🌸', 'score': 3, 'color': AppColors.roseQuartz, 'label': 'okay'},
+      {'emoji': '💖', 'score': 4, 'color': AppColors.auroraRose, 'label': 'loved'},
+      {'emoji': '✨', 'score': 5, 'color': AppColors.deepRose, 'label': 'radiant'},
     ];
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {}, // Prevent taps from passing through
+    return Semantics(
+      label: 'How is your heart today? 5 moods, double tap to select',
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         decoration: BoxDecoration(
@@ -75,11 +73,18 @@ class MoodPicker extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: moods.map((mood) {
                 final score = mood['score'] as int;
-                return HeartEmoji(
-                  emoji: mood['emoji'] as String,
-                  isSelected: controller.selectedScore == score,
-                  glowColor: mood['color'] as Color,
-                  onTap: () async {
+                final label = mood['label'] as String;
+                return Semantics(
+                  button: true,
+                  selected: controller.selectedScore == score,
+                  label: '$label mood, $score of 5, ${mood['emoji']}',
+                  child: Tooltip(
+                    message: '$label • $score of 5',
+                    child: HeartEmoji(
+                      emoji: mood['emoji'] as String,
+                      isSelected: controller.selectedScore == score,
+                      glowColor: mood['color'] as Color,
+                      onTap: () async {
                     final currentUsername = authService.currentUser ?? '';
                     await controller.submitMood(
                       username: currentUsername,
@@ -94,7 +99,7 @@ class MoodPicker extends StatelessWidget {
                             'Sending your love to $partnerName...',
                             style: AppTypography.outfitWhite,
                           ),
-                          backgroundColor: AppTheme.deepRose,
+                          backgroundColor: AppColors.deepRose,
                           behavior: SnackBarBehavior.floating,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),
@@ -104,6 +109,8 @@ class MoodPicker extends StatelessWidget {
                       );
                     }
                   },
+                ),
+                  ),
                 );
               }).toList(),
             ),

@@ -22,6 +22,8 @@ class EverglowButton extends StatefulWidget {
   final _Variant _variant;
   final bool enabled;
   final String? tooltip;
+  final Color? backgroundColor;
+  final Color? foregroundColor;
 
   const EverglowButton({
     super.key,
@@ -30,6 +32,8 @@ class EverglowButton extends StatefulWidget {
     required this.onPressed,
     this.enabled = true,
     this.tooltip,
+    this.backgroundColor,
+    this.foregroundColor,
   }) : _variant = _Variant.filled;
 
   const EverglowButton.glass({
@@ -39,6 +43,8 @@ class EverglowButton extends StatefulWidget {
     required this.onPressed,
     this.enabled = true,
     this.tooltip,
+    this.backgroundColor,
+    this.foregroundColor,
   }) : _variant = _Variant.glass;
 
   const EverglowButton.ghost({
@@ -48,6 +54,8 @@ class EverglowButton extends StatefulWidget {
     required this.onPressed,
     this.enabled = true,
     this.tooltip,
+    this.backgroundColor,
+    this.foregroundColor,
   }) : _variant = _Variant.ghost;
 
   const EverglowButton.pill({
@@ -57,6 +65,8 @@ class EverglowButton extends StatefulWidget {
     required this.onPressed,
     this.enabled = true,
     this.tooltip,
+    this.backgroundColor,
+    this.foregroundColor,
   }) : _variant = _Variant.pill;
 
   @override
@@ -178,10 +188,9 @@ class _EverglowButtonState extends State<EverglowButton>
 
     switch (widget._variant) {
       case _Variant.filled:
+        final base = widget.backgroundColor ?? AppColors.deepRose;
         return BoxDecoration(
-          color: widget.enabled
-              ? AppColors.deepRose
-              : AppColors.deepRose.withValues(alpha: 0.5),
+          color: widget.enabled ? base : base.withValues(alpha: 0.5),
           borderRadius: radius,
           border: _focused ? focusBorder : null,
           boxShadow: _hovered ? AppElevation.glowRose : AppElevation.e1,
@@ -215,9 +224,11 @@ class _EverglowButtonState extends State<EverglowButton>
   }
 
   Widget _buildContent() {
-    final color = widget._variant == _Variant.ghost
-        ? AppColors.textMedium
-        : AppColors.petalWhite;
+    final color =
+        widget.foregroundColor ??
+        (widget._variant == _Variant.ghost
+            ? AppColors.textMedium
+            : AppColors.petalWhite);
 
     final children = <Widget>[
       if (widget.icon != null) ...[

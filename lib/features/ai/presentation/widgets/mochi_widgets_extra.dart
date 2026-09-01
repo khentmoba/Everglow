@@ -511,6 +511,17 @@ String _formatToolStatus(String status) {
     'remove_from_watchlist': 'Removing from watchlist',
     'search_everglow': 'Searching Everglow',
     'plan_date_night': 'Planning date night',
+    'add_calendar_event': 'Creating calendar event',
+    'create_journal_entry': 'Writing journal',
+    'add_bucket_item': 'Adding to bucket list',
+    'add_trip': 'Creating trip',
+    'add_trip_pin': 'Adding trip pin',
+    'log_habit': 'Creating habit',
+    'complete_habit': 'Completing habit',
+    'get_calendar_events': 'Reading calendar',
+    'get_bucket_list': 'Reading bucket list',
+    'get_journal_entries': 'Reading journal',
+    'get_trips': 'Reading trips',
   };
   return toolNames[status] ?? 'Mochi is thinking';
 }
@@ -587,6 +598,28 @@ IconData _toolIcon(String status) {
       return Icons.search_rounded;
     case 'plan_date_night':
       return Icons.event_available_rounded;
+    case 'add_calendar_event':
+      return Icons.event_rounded;
+    case 'create_journal_entry':
+      return Icons.edit_note_rounded;
+    case 'add_bucket_item':
+      return Icons.checklist_rounded;
+    case 'add_trip':
+      return Icons.flight_takeoff_rounded;
+    case 'add_trip_pin':
+      return Icons.pin_drop_rounded;
+    case 'log_habit':
+      return Icons.self_improvement_rounded;
+    case 'complete_habit':
+      return Icons.check_circle_rounded;
+    case 'get_calendar_events':
+      return Icons.calendar_month_rounded;
+    case 'get_bucket_list':
+      return Icons.star_rounded;
+    case 'get_journal_entries':
+      return Icons.book_rounded;
+    case 'get_trips':
+      return Icons.map_rounded;
     default:
       return Icons.auto_fix_high_rounded;
   }
@@ -620,6 +653,23 @@ Color _toolAccent(String status) {
     case 'get_today_recap':
     case 'plan_date_night':
       return AppColors.roseQuartz;
+    case 'add_calendar_event':
+      return AppColors.auroraTeal;
+    case 'create_journal_entry':
+      return AppColors.auroraLilac;
+    case 'add_bucket_item':
+      return AppColors.blushGold;
+    case 'add_trip':
+    case 'add_trip_pin':
+      return AppColors.auroraTeal;
+    case 'log_habit':
+    case 'complete_habit':
+      return AppColors.roseQuartz;
+    case 'get_calendar_events':
+    case 'get_bucket_list':
+    case 'get_journal_entries':
+    case 'get_trips':
+      return AppColors.textMuted;
     case 'mark_watchlist_item_watched':
     case 'update_book_progress':
     case 'add_xp':
@@ -691,6 +741,10 @@ class _QuickReplyChips extends StatelessWidget {
     ('Save to Starlight ✨', 'Save this to our Starlight Jar'),
     ('Log my mood 💭', 'I want to log my mood'),
     ('Plan a date 🌙', 'Plan a cozy date night for us'),
+    ('Add calendar 📅', 'Add a calendar event for tomorrow at 7pm'),
+    ('Bucket dream ✨', 'Add something to our bucket list'),
+    ('Journal ✍️', 'Create a journal entry about today'),
+    ('Our trips ✈️', 'Show our upcoming trips'),
   ];
 
   @override
@@ -727,6 +781,65 @@ class _QuickReplyChips extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 760),
         child: inner,
+      ),
+    );
+  }
+}
+
+/// Inline cards for tool results — rendered below the streaming bubble
+class _ToolResultCards extends StatelessWidget {
+  final List<Map<String, dynamic>> results;
+  final bool centered;
+  const _ToolResultCards({required this.results, this.centered = false});
+
+  @override
+  Widget build(BuildContext context) {
+    if (results.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: results.map((r) {
+          final tool = r['tool'] as String? ?? 'tool';
+          final success = r['success'] == true;
+          final needsConfirm = r['needs_confirmation'] == true;
+          final title = r['title'] as String? ?? r['fact'] as String? ?? r['id'] as String? ?? '';
+          final msg = r['message'] as String? ?? '';
+          Color accent = _toolAccent(tool);
+          IconData icon = _toolIcon(tool);
+          String label = _formatToolStatus(tool);
+          if (needsConfirm) label = 'Needs confirmation';
+          else if (success) label = '$label ✓';
+          else if (r['error'] != null) label = 'Failed';
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: accent.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 14, color: accent),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(label, style: AppTypography.bodySmall().copyWith(fontSize: 11, color: accent, fontWeight: FontWeight.w600)),
+                      if (title.isNotEmpty) Text(title, style: AppTypography.bodySmall().copyWith(fontSize: 11, color: AppColors.textHigh), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      if (msg.isNotEmpty && !needsConfirm) Text(msg, style: AppTypography.bodySmall().copyWith(fontSize: 10, color: AppColors.textMuted), maxLines: 2, overflow: TextOverflow.ellipsis),
+                      if (needsConfirm && msg.isNotEmpty) Text(msg, style: AppTypography.bodySmall().copyWith(fontSize: 10, color: AppColors.textMuted, fontStyle: FontStyle.italic), maxLines: 3, overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
       ),
     );
   }

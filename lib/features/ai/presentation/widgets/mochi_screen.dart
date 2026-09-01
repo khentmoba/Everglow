@@ -57,6 +57,7 @@ class _MochiScreenState extends State<MochiScreen> {
       if (!mounted) return;
       final ai = context.read<AIService>();
       ai.addListener(_onAiChanged);
+      ai.toolResultsNotifier.addListener(_onToolResults);
       await ai.loadAssistantConversation();
       if (mounted && (ai.assistantConversation?.messages.isNotEmpty ?? false)) {
         _scrollToBottom(animated: false);
@@ -71,6 +72,7 @@ class _MochiScreenState extends State<MochiScreen> {
     _scroll.dispose();
     _focusNode.dispose();
     try {
+      try { context.read<AIService>().toolResultsNotifier.removeListener(_onToolResults); } catch (_) {}
       context.read<AIService>().removeListener(_onAiChanged);
     } catch (_) {}
     _webBridge.uninstallPasteListener();
@@ -94,6 +96,53 @@ class _MochiScreenState extends State<MochiScreen> {
         _scroll.position.maxScrollExtent - _scroll.position.pixels > 300;
     if (show != _showScrollButton) {
       setState(() => _showScrollButton = show);
+    }
+  }
+
+    void _onToolResults() {
+    if (!mounted) return;
+    final ai = context.read<AIService>();
+    final results = ai.toolResultsNotifier.value;
+    if (results.isEmpty) return;
+    final last = results.last;
+    if (last['success'] == true && (last['tool'] == 'delete_memory' || last['tool'] == 'remove_from_watchlist')) {
+      final title = last['fact'] as String? ?? last['title'] as String? ?? 'item';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Removed "' + (title.length > 30 ? title.substring(0, 30) + '…' : title) + '" — tap Undo to restore', style: AppTypography.bodySmall()),
+          backgroundColor: AppColors.velvet,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLg),
+          margin: const EdgeInsets.all(AppSpacing.lg),
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'Undo',
+            textColor: AppColors.blushGold,
+            onPressed: () {
+              final fact = last['fact'] as String? ?? last['title'] as String? ?? '';
+              if (fact.isNotEmpty) {
+                if (last['tool'] == 'delete_memory') {
+                  context.read<AIService>().sendMessage(feature: 'assistant', message: 'Please remember this again: ' + fact);
+                } else {
+                  context.read<AIService>().sendMessage(feature: 'assistant', message: 'Please add "' + fact + '" back to our watchlist');
+                }
+              }
+            },
+          ),
+        ),
+      );
+    }
+    if (last['needs_confirmation'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(last['message'] as String? ?? 'Mochi needs your confirmation to proceed', style: AppTypography.bodySmall()),
+          backgroundColor: AppColors.panelGlass,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLg),
+          margin: const EdgeInsets.all(AppSpacing.lg),
+          duration: const Duration(seconds: 6),
+        ),
+      );
     }
   }
 
@@ -470,18 +519,42 @@ class _MochiScreenState extends State<MochiScreen> {
                                 ai.draftReasoning.isNotEmpty ||
                                 ai.toolStatus.isNotEmpty;
                             if (hasStream) {
-                              return _MessageBubble(
-                                text: ai.draftResponse,
-                                isUser: false,
-                                isStreaming: true,
-                                reasoning: ai.draftReasoning.isNotEmpty
-                                    ? ai.draftReasoning
-                                    : null,
-                                toolStatus: ai.toolStatus,
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _MessageBubble(
+                                    text: ai.draftResponse,
+                                    isUser: false,
+                                    isStreaming: true,
+                                    reasoning: ai.draftReasoning.isNotEmpty
+                                        ? ai.draftReasoning
+                                        : null,
+                                    toolStatus: ai.toolStatus,
+                                  ),
+                                  ValueListenableBuilder<List<Map<String, dynamic>>>(
+                                    valueListenable: ai.toolResultsNotifier,
+                                    builder: (context, results, _) {
+                                      if (results.isEmpty) return const SizedBox.shrink();
+                                      return _ToolResultCards(results: results, centered: centered);
+                                    },
+                                  ),
+                                ],
                               );
                             }
-                            return _ThinkingIndicator(
-                              toolStatus: ai.toolStatus,
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _ThinkingIndicator(
+                                  toolStatus: ai.toolStatus,
+                                ),
+                                ValueListenableBuilder<List<Map<String, dynamic>>>(
+                                  valueListenable: ai.toolResultsNotifier,
+                                  builder: (context, results, _) {
+                                    if (results.isEmpty) return const SizedBox.shrink();
+                                    return _ToolResultCards(results: results, centered: centered);
+                                  },
+                                ),
+                              ],
                             );
                           },
                         ),

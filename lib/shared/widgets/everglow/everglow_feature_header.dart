@@ -32,8 +32,9 @@ class EverglowFeatureHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final titleSize = width < 360 ? 18.0 : 21.0;
+    final hPad = MediaQuery.sizeOf(context).width < 360 ? 12.0 : 16.0;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+      padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 10),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
         decoration: BoxDecoration(
@@ -56,8 +57,8 @@ class EverglowFeatureHeader extends StatelessWidget {
             const SizedBox(width: 10),
             if (icon != null) ...[
               Container(
-                width: 36,
-                height: 36,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: hue.withValues(alpha: 0.13),
@@ -146,8 +147,8 @@ class _BackButton extends StatelessWidget {
                     }
                   },
               child: Container(
-                width: 36,
-                height: 36,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: AppColors.moonlight.withValues(alpha: 0.08),

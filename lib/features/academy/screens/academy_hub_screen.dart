@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../core/services/auth_service.dart';
@@ -171,7 +172,7 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.deepRose),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.deepRose),
             child: Text(
               'Play Solo',
               style: AppTypography.outfitWhite.copyWith(
@@ -302,9 +303,7 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           if (_isSearching) ...[
-                            const CircularProgressIndicator(
-                              color: AppTheme.deepRose,
-                            ),
+                            const EverglowSkeleton(height: 24, width: 24, radius: 12),
                             const SizedBox(height: AppSpacing.xl),
                             Text(
                               _statusMessage ?? '',
@@ -657,7 +656,7 @@ class _CategoryCardState extends State<_CategoryCard>
                   padding: const EdgeInsets.all(AppSpacing.sm),
                   decoration: BoxDecoration(
                     color: _isHovered
-                        ? AppTheme.deepRose.withValues(alpha: 0.15)
+                        ? AppColors.deepRose.withValues(alpha: 0.15)
                         : AppTheme.roseQuartz.withValues(alpha: 0.08),
                     shape: BoxShape.circle,
                   ),

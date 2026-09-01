@@ -4,6 +4,7 @@ import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../data/models/recipe.dart';
 import '../../data/services/cookbook_service.dart';
 
@@ -159,12 +160,8 @@ class _AddRecipeDialogState extends State<AddRecipeDialog> {
                     style: AppTypography.cormorantBold.copyWith(fontSize: 22),
                   ),
                   const Spacer(),
-                  IconButton(
+                  EverglowIconButton.close(
                     onPressed: () => Navigator.pop(context),
-                    icon: Icon(
-                      Icons.close_rounded,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.6),
-                    ),
                   ),
                 ],
               ),

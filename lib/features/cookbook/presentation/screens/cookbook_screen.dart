@@ -7,6 +7,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../../../shared/widgets/everglow/everglow_error_state.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
+import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_segmented_control.dart';
@@ -57,12 +58,12 @@ class _CookbookScreenState extends State<CookbookScreen> {
                   icon: Icons.restaurant_menu_rounded,
                   hue: AppColors.warmAmber,
                   actions: [
-                    IconButton(
+                    EverglowIconButton(
+                      icon: Icons.add_rounded,
                       onPressed: () => _showAddDialog(),
-                      icon: const Icon(
-                        Icons.add_rounded,
-                        color: AppColors.blushGold,
-                      ),
+                      semanticLabel: '''New recipe''',
+                      tooltip: '''New recipe''',
+                      iconColor: AppColors.blushGold,
                     ),
                   ],
                 ),

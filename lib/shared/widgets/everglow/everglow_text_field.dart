@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -17,9 +18,13 @@ class EverglowTextField extends StatefulWidget {
   final ValueChanged<String>? onSubmitted;
   final String? errorText;
   final IconData? prefixIcon;
+  final String? prefixText;
+  final List<TextInputFormatter>? inputFormatters;
   final bool autofocus;
   final TextInputType? keyboardType;
   final int? maxLength;
+  final int? maxLines;
+  final int? minLines;
   final bool enabled;
   final FocusNode? focusNode;
 
@@ -32,9 +37,13 @@ class EverglowTextField extends StatefulWidget {
     this.onSubmitted,
     this.errorText,
     this.prefixIcon,
+    this.prefixText,
+    this.inputFormatters,
     this.autofocus = false,
     this.keyboardType,
     this.maxLength,
+    this.maxLines,
+    this.minLines,
     this.enabled = true,
     this.focusNode,
   });
@@ -107,7 +116,10 @@ class _EverglowTextFieldState extends State<EverglowTextField> {
             onSubmitted: widget.onSubmitted,
             autofocus: widget.autofocus,
             keyboardType: widget.keyboardType,
+            inputFormatters: widget.inputFormatters,
             maxLength: widget.maxLength,
+            maxLines: widget.maxLines,
+            minLines: widget.minLines,
             enabled: widget.enabled,
             style: AppTypography.bodyMedium().copyWith(fontSize: 16),
             decoration: InputDecoration(
@@ -121,6 +133,12 @@ class _EverglowTextFieldState extends State<EverglowTextField> {
                       widget.prefixIcon,
                       size: 20,
                       color: AppColors.textMuted,
+                    )
+                  : null,
+              prefixText: widget.prefixText,
+              prefixStyle: widget.prefixText != null
+                  ? AppTypography.labelLarge().copyWith(
+                      color: AppColors.warmAmber,
                     )
                   : null,
               border: InputBorder.none,

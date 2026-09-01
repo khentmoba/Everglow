@@ -60,7 +60,7 @@ class _BucketListPreviewState extends State<BucketListPreview> {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.white.withValues(alpha: 0.07),
+                      AppColors.petalWhite.withValues(alpha: 0.06),
                       AppColors.velvet.withValues(alpha: 0.68),
                       AppColors.inkDeep.withValues(alpha: 0.74),
                     ],
@@ -70,11 +70,11 @@ class _BucketListPreviewState extends State<BucketListPreview> {
                   border: Border.all(
                     color: _hovered
                         ? hue.withValues(alpha: 0.48)
-                        : Colors.white.withValues(alpha: 0.08),
+                        : AppColors.petalWhite.withValues(alpha: 0.07),
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.42),
+                      color: AppColors.scrimStrong.withValues(alpha: 0.42),
                       blurRadius: 24,
                       offset: const Offset(0, 10),
                     ),
@@ -344,7 +344,7 @@ class _ProgressRing extends StatelessWidget {
             child: CircularProgressIndicator(
               value: progress == 0 ? 0.06 : progress,
               strokeWidth: 3.2,
-              backgroundColor: Colors.white.withValues(alpha: 0.08),
+              backgroundColor: AppColors.petalWhite.withValues(alpha: 0.07),
               valueColor: AlwaysStoppedAnimation(hue),
               strokeCap: StrokeCap.round,
             ),

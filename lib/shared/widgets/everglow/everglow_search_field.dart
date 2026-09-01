@@ -49,7 +49,9 @@ class _EverglowSearchFieldState extends State<EverglowSearchField> {
   @override
   Widget build(BuildContext context) {
     final hasText = widget.controller.text.isNotEmpty;
-    return AnimatedContainer(
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 44),
+      child: AnimatedContainer(
       duration: AppMotion.orZero(AppMotion.fast),
       curve: AppMotion.easeOutStrong,
       decoration: BoxDecoration(
@@ -102,6 +104,7 @@ class _EverglowSearchFieldState extends State<EverglowSearchField> {
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
+      ),
       ),
     );
   }

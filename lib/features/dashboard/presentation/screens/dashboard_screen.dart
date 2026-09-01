@@ -44,6 +44,7 @@ import '../widgets/deferred_section.dart';
 import '../widgets/xp_progress_section.dart';
 import '../widgets/quick_action_tile.dart';
 import '../widgets/dashboard_jump_bar.dart';
+import '../widgets/dashboard_zone_header.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_section_header.dart';
@@ -68,12 +69,12 @@ class _DashboardScreenState extends State<DashboardScreen>
   int _heartbeatRetryCount = 0;
   static const int _maxHeartbeatRetries = 5;
   final ScrollController _scrollController = ScrollController();
+  bool _quickExpanded = false;
   final Map<String, GlobalKey> _sectionKeys = {
-    'coming-up': GlobalKey(),
-    'watching': GlobalKey(),
-    'shelves': GlobalKey(),
-    'timeline': GlobalKey(),
-    'moments': GlobalKey(),
+    'zone-today': GlobalKey(),
+    'zone-together': GlobalKey(),
+    'zone-world': GlobalKey(),
+    'zone-play': GlobalKey(),
   };
 
   void _jumpTo(String id) {
@@ -226,14 +227,15 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
-  /// Wraps a widget in a [FadeInUp] animation when [animate] is enabled.
-  /// Respects reduced-motion: fades in place with no translation.
+  /// Distilled: hero sections keep timed entrance, zone content
+  /// fades quickly via intersection (DeferredSection).
   Widget _animatedSliver(
     Widget child, {
     int delayMs = 900,
-    double heightAfter = 32,
+
     double placeholderHeight = 220,
     int deferMs = 0,
+    bool hero = false,
   }) {
     final Widget animated;
     if (!widget.animate) {
@@ -246,10 +248,18 @@ class _DashboardScreenState extends State<DashboardScreen>
         child: child,
       );
     } else {
-      animated = FadeInUp(
-        delay: Duration(milliseconds: delayMs),
-        child: child,
-      );
+      if (hero) {
+        animated = FadeInUp(
+          delay: Duration(milliseconds: delayMs),
+          child: child,
+        );
+      } else {
+        animated = FadeInUp(
+          delay: Duration(milliseconds: (delayMs % 220)),
+          duration: const Duration(milliseconds: 380),
+          child: child,
+        );
+      }
     }
     return SliverToBoxAdapter(
       child: DeferredSection(
@@ -391,179 +401,195 @@ class _DashboardScreenState extends State<DashboardScreen>
                           ),
                         ),
 
-                        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
-                        // On This Day
+                        // ── ZONE: TODAY — what is alive today ──
                         SliverToBoxAdapter(
-                          child: SizedBox(
-                            key: _sectionKeys['coming-up'],
-                            height: 0,
+                          child: SizedBox(key: _sectionKeys['zone-today'], height: 0),
+                        ),
+                        _animatedSliver(
+                          const DashboardZoneHeader(
+                            label: 'Today',
+                            title: 'Alive today',
+                            subtitle: 'memories, dates & letters waiting for you',
+                            icon: Icons.wb_twilight_rounded,
+                            hue: AppColors.auroraGold,
                           ),
+                          delayMs: 400,
+                          placeholderHeight: 68,
+                          hero: true,
                         ),
                         _animatedSliver(
                           const OnThisDayCard(),
-                          delayMs: 800,
+                          delayMs: 420,
                           placeholderHeight: 190,
                           deferMs: 0,
                         ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-                        // Feature content sections
+                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
                         _animatedSliver(
-                          UpcomingCountdowns(),
-                          delayMs: 850,
-                          heightAfter: 16,
-                          placeholderHeight: 300,
-                          deferMs: 0,
-                        ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                        _animatedSliver(
-                          const LetterboxView(),
-                          delayMs: 900,
-                          placeholderHeight: 210,
-                          deferMs: 0,
-                        ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 32)),
-                        _animatedSliver(
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 24),
-                            child: JukeboxWidget(),
+                          DashboardPair(
+                            left: UpcomingCountdowns(),
+                            right: const LetterboxView(),
                           ),
-                          delayMs: 950,
+                          delayMs: 440,
                           placeholderHeight: 320,
-                          deferMs: 80,
+                          deferMs: 60,
                         ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 32)),
+                        const SliverToBoxAdapter(child: SizedBox(height: 8)),
                         _animatedSliver(
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 24),
-                            child: MusicStatsSection(),
+                          const DailyBloom(),
+                          delayMs: 460,
+                          placeholderHeight: 320,
+                          deferMs: 120,
+                        ),
+
+                        // ── ZONE: TOGETHER — gentle, intimate ──
+                        SliverToBoxAdapter(
+                          child: SizedBox(key: _sectionKeys['zone-together'], height: 0),
+                        ),
+                        _animatedSliver(
+                          const DashboardZoneHeader(
+                            label: 'Together',
+                            title: 'Just us',
+                            subtitle: 'gratitude, words & the long story of us',
+                            icon: Icons.favorite_rounded,
+                            hue: AppColors.auroraRose,
                           ),
-                          delayMs: 1000,
-                          placeholderHeight: 420,
+                          delayMs: 480,
+                          placeholderHeight: 68,
+                        ),
+                        _animatedSliver(
+                          const StarlightJarWidget(),
+                          delayMs: 500,
+                          placeholderHeight: 520,
                           deferMs: 160,
                         ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 32)),
+                        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                        _animatedSliver(
+                          const TimelineView(),
+                          delayMs: 520,
+                          placeholderHeight: 620,
+                          deferMs: 260,
+                        ),
+
+                        // ── ZONE: OUR WORLD — places & keepsakes ──
+                        SliverToBoxAdapter(
+                          child: SizedBox(key: _sectionKeys['zone-world'], height: 0),
+                        ),
+                        _animatedSliver(
+                          const DashboardZoneHeader(
+                            label: 'Our World',
+                            title: 'Places & keepsakes',
+                            subtitle: 'photos, plans & little universes you built',
+                            icon: Icons.public_rounded,
+                            hue: AppColors.auroraTeal,
+                          ),
+                          delayMs: 540,
+                          placeholderHeight: 68,
+                        ),
+                        _animatedSliver(
+                          const DashboardPair(
+                            left: GalleryPreview(),
+                            right: CalendarPreview(),
+                          ),
+                          delayMs: 560,
+                          placeholderHeight: 220,
+                          deferMs: 320,
+                        ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                        _animatedSliver(
+                          const KeepsakesCluster(),
+                          delayMs: 580,
+                          placeholderHeight: 520,
+                          deferMs: 380,
+                        ),
+
+                        // ── ZONE: PLAY — sound, screen & games ──
+                        SliverToBoxAdapter(
+                          child: SizedBox(key: _sectionKeys['zone-play'], height: 0),
+                        ),
+                        _animatedSliver(
+                          const DashboardZoneHeader(
+                            label: 'Play',
+                            title: 'Sound & screen',
+                            subtitle: 'jukebox, watch party, shelves & games',
+                            icon: Icons.videogame_asset_rounded,
+                            hue: AppColors.softLavender,
+                          ),
+                          delayMs: 600,
+                          placeholderHeight: 68,
+                        ),
+                        _animatedSliver(
+                          const DashboardPair(
+                            left: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 0),
+                              child: JukeboxWidget(),
+                            ),
+                            right: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 0),
+                              child: MusicStatsSection(),
+                            ),
+                          ),
+                          delayMs: 620,
+                          placeholderHeight: 380,
+                          deferMs: 420,
+                        ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
                         _animatedSliver(
                           RandomizerCard(
                             service: context.read<DateIdeaService>(),
                           ),
-                          delayMs: 1050,
+                          delayMs: 640,
                           placeholderHeight: 280,
-                          deferMs: 240,
+                          deferMs: 460,
                         ),
-                        SliverToBoxAdapter(
-                          child: SizedBox(
-                            key: _sectionKeys['watching'],
-                            height: 0,
+                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                        _animatedSliver(
+                          const DashboardPair(
+                            left: CurrentlyWatchingPreview(),
+                            right: WatchPartyCard(),
                           ),
-                        ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 32)),
-                        _animatedSliver(
-                          const CurrentlyWatchingPreview(),
-                          delayMs: 1080,
+                          delayMs: 660,
                           placeholderHeight: 260,
-                          deferMs: 320,
+                          deferMs: 500,
                         ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                        _animatedSliver(
-                          const WatchPartyCard(),
-                          delayMs: 1100,
-                          placeholderHeight: 190,
-                          deferMs: 400,
-                        ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
                         _animatedSliver(
                           const CinemaPreview(),
-                          delayMs: 1100,
+                          delayMs: 680,
                           placeholderHeight: 300,
-                          deferMs: 480,
+                          deferMs: 540,
                         ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
                         _animatedSliver(
                           const AnimePreview(),
-                          delayMs: 1130,
+                          delayMs: 700,
                           placeholderHeight: 300,
-                          deferMs: 560,
+                          deferMs: 580,
                         ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
                         _animatedSliver(
                           const BooksPreview(),
-                          delayMs: 1150,
+                          delayMs: 720,
                           placeholderHeight: 300,
-                          deferMs: 640,
+                          deferMs: 620,
                         ),
-                        SliverToBoxAdapter(
-                          child: SizedBox(
-                            key: _sectionKeys['shelves'],
-                            height: 0,
-                          ),
-                        ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                        _animatedSliver(
-                          const GalleryPreview(),
-                          delayMs: 1170,
-                          placeholderHeight: 200,
-                          deferMs: 720,
-                        ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                        _animatedSliver(
-                          const CalendarPreview(),
-                          delayMs: 1175,
-                          placeholderHeight: 220,
-                          deferMs: 800,
-                        ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
                         _animatedSliver(
                           const MangaPreview(),
-                          delayMs: 1180,
+                          delayMs: 740,
                           placeholderHeight: 300,
-                          deferMs: 880,
+                          deferMs: 660,
                         ),
-                        SliverToBoxAdapter(
-                          child: SizedBox(
-                            key: _sectionKeys['timeline'],
-                            height: 0,
+                        const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                        _animatedSliver(
+                          const DashboardPair(
+                            left: AcademyPortalCard(),
+                            right: PlayZonePortalCard(),
                           ),
-                        ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 32)),
-                        _animatedSliver(
-                          const TimelineView(),
-                          delayMs: 1200,
-                          placeholderHeight: 620,
-                        ),
-                        SliverToBoxAdapter(
-                          child: SizedBox(
-                            key: _sectionKeys['moments'],
-                            height: 0,
-                          ),
-                        ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 32)),
-                        _animatedSliver(
-                          const StarlightJarWidget(),
-                          delayMs: 1300,
-                          placeholderHeight: 640,
-                        ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 32)),
-                        _animatedSliver(
-                          const DailyBloom(),
-                          delayMs: 1350,
-                          placeholderHeight: 320,
-                        ),
-                        _animatedSliver(
-                          const AcademyPortalCard(),
-                          delayMs: 1400,
+                          delayMs: 760,
                           placeholderHeight: 200,
-                        ),
-                        _animatedSliver(
-                          const PlayZonePortalCard(),
-                          delayMs: 1450,
-                          placeholderHeight: 200,
-                        ),
-                        _animatedSliver(
-                          const KeepsakesCluster(),
-                          delayMs: 1500,
-                          placeholderHeight: 980,
+                          deferMs: 700,
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 110)),
                       ],
@@ -794,7 +820,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildQuickActions(BuildContext context) {
-    final actions = <QuickAction>[
+    // Distill: 6 editorial picks visible, 10 more behind a soft expand.
+    // Keeps 60-second decision under 6 items (Miller), reduces wall tax.
+    final primary = <QuickAction>[
       const QuickAction(
         label: 'Gallery',
         icon: Icons.photo_library_rounded,
@@ -837,20 +865,8 @@ class _DashboardScreenState extends State<DashboardScreen>
         hue: AppColors.auroraLilac,
         caption: 'Gratitude',
       ),
-      const QuickAction(
-        label: 'Bucket List',
-        icon: Icons.card_travel_rounded,
-        route: '/bucket-list',
-        hue: AppColors.auroraTeal,
-        caption: 'Dreams',
-      ),
-      const QuickAction(
-        label: 'Letterbox',
-        icon: Icons.mail_outline_rounded,
-        route: '/letterbox',
-        hue: AppColors.blushGold,
-        caption: 'Letters',
-      ),
+    ];
+    final more = <QuickAction>[
       const QuickAction(
         label: 'Journal',
         icon: Icons.menu_book_rounded,
@@ -864,13 +880,6 @@ class _DashboardScreenState extends State<DashboardScreen>
         route: '/cookbook',
         hue: AppColors.warmAmber,
         caption: 'Recipes',
-      ),
-      const QuickAction(
-        label: 'Wellness',
-        icon: Icons.favorite_rounded,
-        route: '/wellness',
-        hue: AppColors.auroraRose,
-        caption: 'Habits',
       ),
       const QuickAction(
         label: 'Vault',
@@ -894,11 +903,32 @@ class _DashboardScreenState extends State<DashboardScreen>
         caption: 'Lore',
       ),
       const QuickAction(
+        label: 'Bucket List',
+        icon: Icons.card_travel_rounded,
+        route: '/bucket-list',
+        hue: AppColors.auroraTeal,
+        caption: 'Dreams',
+      ),
+      const QuickAction(
+        label: 'Wellness',
+        icon: Icons.favorite_rounded,
+        route: '/wellness',
+        hue: AppColors.auroraRose,
+        caption: 'Habits',
+      ),
+      const QuickAction(
         label: 'Budget',
         icon: Icons.account_balance_wallet_rounded,
         route: '/budget',
         hue: AppColors.warmAmber,
         caption: 'Money',
+      ),
+      const QuickAction(
+        label: 'Letterbox',
+        icon: Icons.mail_outline_rounded,
+        route: '/letterbox',
+        hue: AppColors.blushGold,
+        caption: 'Letters',
       ),
       const QuickAction(
         label: 'Ask',
@@ -909,25 +939,69 @@ class _DashboardScreenState extends State<DashboardScreen>
       ),
     ];
 
+    final visible = _quickExpanded ? [...primary, ...more] : primary;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const EverglowSectionHeader(
-          label: 'Quick Access',
-          icon: Icons.grid_view_rounded,
-          hue: AppColors.blushGold,
+        Row(
+          children: [
+            const Expanded(
+              child: EverglowSectionHeader(
+                label: 'Quick Access',
+                icon: Icons.grid_view_rounded,
+                hue: AppColors.blushGold,
+              ),
+            ),
+            const SizedBox(width: 10),
+            GestureDetector(
+              onTap: () => setState(() => _quickExpanded = !_quickExpanded),
+              child: AnimatedContainer(
+                duration: AppMotion.orZero(AppMotion.fast),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: _quickExpanded
+                      ? AppColors.deepRose.withValues(alpha: 0.14)
+                      : AppColors.moonlight.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: _quickExpanded
+                        ? AppColors.deepRose.withValues(alpha: 0.28)
+                        : AppColors.moonlight.withValues(alpha: 0.10),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _quickExpanded ? Icons.expand_less_rounded : Icons.apps_rounded,
+                      size: 14,
+                      color: _quickExpanded ? AppColors.roseQuartz : AppColors.blushGold,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _quickExpanded ? 'Less' : 'More (${more.length})',
+                      style: AppTypography.outfitBold.copyWith(
+                        fontSize: 11,
+                        color: _quickExpanded ? AppColors.roseQuartz : AppColors.blushGold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 14),
         LayoutBuilder(
           builder: (context, constraints) {
             final columns = constraints.maxWidth < 300 ? 3 : 4;
-            final tileWidth =
-                (constraints.maxWidth - ((columns - 1) * 12)) / columns;
+            final tileWidth = (constraints.maxWidth - ((columns - 1) * 12)) / columns;
             return Wrap(
               spacing: 12,
               runSpacing: 12,
               children: [
-                for (final action in actions)
+                for (final action in visible)
                   SizedBox(
                     width: tileWidth,
                     child: QuickActionTile(action: action),

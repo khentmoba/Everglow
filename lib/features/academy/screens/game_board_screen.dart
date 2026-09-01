@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/game_match.dart';
 import '../models/academy_question.dart';
@@ -93,10 +94,7 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
                 return const Center(
-                  child: CircularProgressIndicator(
-                    color: AppColors.auroraRose,
-                    strokeWidth: 2.5,
-                  ),
+                  child: EverglowSkeleton(height: 80, radius: 16),
                 );
               }
 

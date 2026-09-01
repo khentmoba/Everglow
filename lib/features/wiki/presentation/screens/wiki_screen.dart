@@ -7,6 +7,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
+import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../data/models/wiki_page.dart';
 import '../../data/services/wiki_service.dart';
@@ -49,12 +50,12 @@ class _WikiScreenState extends State<WikiScreen> {
                   icon: Icons.menu_book_rounded,
                   hue: AppColors.softLavender,
                   actions: [
-                    IconButton(
+                    EverglowIconButton(
+                      icon: Icons.create_new_folder_rounded,
                       onPressed: () => _showAddShelf(),
-                      icon: const Icon(
-                        Icons.create_new_folder_rounded,
-                        color: AppColors.blushGold,
-                      ),
+                      semanticLabel: '''New shelf''',
+                      tooltip: '''New shelf''',
+                      iconColor: AppColors.blushGold,
                     ),
                   ],
                 ),

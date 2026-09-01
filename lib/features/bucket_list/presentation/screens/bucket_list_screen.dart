@@ -154,12 +154,12 @@ class _BucketListScreenState extends State<BucketListScreen> {
                             ),
                             decoration: BoxDecoration(
                               color: _overdueOnly
-                                  ? Colors.redAccent.withValues(alpha: 0.15)
+                                  ? AppColors.error.withValues(alpha: 0.15)
                                   : Colors.transparent,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
                                 color: _overdueOnly
-                                    ? Colors.redAccent
+                                    ? AppColors.error
                                     : AppTheme.blushGold.withValues(
                                         alpha: 0.15,
                                       ),
@@ -173,7 +173,7 @@ class _BucketListScreenState extends State<BucketListScreen> {
                                     ? FontWeight.bold
                                     : FontWeight.w500,
                                 color: _overdueOnly
-                                    ? Colors.redAccent
+                                    ? AppColors.error
                                     : AppTheme.petalWhite.withValues(
                                         alpha: 0.6,
                                       ),
