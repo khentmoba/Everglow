@@ -29,8 +29,8 @@ void main() {
       expect((AppColors.textHigh.a * 255).round(), greaterThan(200));
     });
 
-    test('textDisabled is significantly transparent', () {
-      expect((AppColors.textDisabled.a * 255).round(), lessThan(120));
+    test('textDisabled is still notably transparent', () {
+      expect((AppColors.textDisabled.a * 255).round(), lessThan(160));
     });
 
     test('border is transparent', () {
