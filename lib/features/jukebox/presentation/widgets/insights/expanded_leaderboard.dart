@@ -100,7 +100,7 @@ class _ExpandedLeaderboardState extends State<ExpandedLeaderboard>
                     child: const Icon(
                       Icons.leaderboard_rounded,
                       size: 18,
-                      color: Colors.white,
+                      color: AppColors.petalWhite,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -133,10 +133,10 @@ class _ExpandedLeaderboardState extends State<ExpandedLeaderboard>
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.05),
+                  color: AppColors.petalWhite.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(99),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.06),
+                    color: AppColors.petalWhite.withValues(alpha: 0.06),
                   ),
                 ),
                 child: Row(
@@ -169,7 +169,7 @@ class _ExpandedLeaderboardState extends State<ExpandedLeaderboard>
                   color: AppColors.inkDeep.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.06),
+                    color: AppColors.petalWhite.withValues(alpha: 0.06),
                   ),
                 ),
                 child: Row(
@@ -207,10 +207,10 @@ class _ExpandedLeaderboardState extends State<ExpandedLeaderboard>
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.04),
+                    color: AppColors.petalWhite.withValues(alpha: 0.04),
                     borderRadius: AppRadius.radiusMd,
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.06),
+                      color: AppColors.petalWhite.withValues(alpha: 0.06),
                     ),
                   ),
                   child: Column(
@@ -521,12 +521,12 @@ class _TabButton extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         color: selected
-            ? Colors.white.withValues(alpha: 0.08)
+            ? AppColors.petalWhite.withValues(alpha: 0.08)
             : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: selected
-              ? Colors.white.withValues(alpha: 0.10)
+              ? AppColors.petalWhite.withValues(alpha: 0.10)
               : Colors.transparent,
         ),
       ),
@@ -570,11 +570,11 @@ class _Rank extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: LinearGradient(
-            colors: [Colors.white, c.withValues(alpha: 0.9)],
+            colors: [AppColors.petalWhite, c.withValues(alpha: 0.9)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.7)),
+          border: Border.all(color: AppColors.petalWhite.withValues(alpha: 0.7)),
           boxShadow: [
             BoxShadow(color: c.withValues(alpha: 0.35), blurRadius: 10),
           ],
@@ -595,8 +595,8 @@ class _Rank extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.white.withValues(alpha: 0.06),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        color: AppColors.petalWhite.withValues(alpha: 0.06),
+        border: Border.all(color: AppColors.petalWhite.withValues(alpha: 0.08)),
       ),
       child: Text(
         '$rank',
@@ -623,7 +623,7 @@ class _Art extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: isArtist ? BorderRadius.circular(99) : AppRadius.radiusMd,
         color: AppColors.velvet,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: AppColors.petalWhite.withValues(alpha: 0.08)),
       ),
       child: ClipRRect(
         borderRadius: isArtist ? BorderRadius.circular(99) : AppRadius.radiusMd,
@@ -651,5 +651,5 @@ class _Hairline extends StatelessWidget {
   const _Hairline();
   @override
   Widget build(BuildContext context) =>
-      Container(height: 1, color: Colors.white.withValues(alpha: 0.06));
+      Container(height: 1, color: AppColors.petalWhite.withValues(alpha: 0.06));
 }

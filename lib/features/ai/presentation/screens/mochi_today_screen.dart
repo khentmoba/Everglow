@@ -48,7 +48,7 @@ class _MochiTodayScreenState extends State<MochiTodayScreen> {
       body: Stack(
         children: [
           const EverglowBackground(
-            showPetals: true,
+            showPetals: false,
             glows: [
               RadialGlow(
                 color: AppColors.auroraGold,

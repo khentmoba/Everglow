@@ -43,7 +43,7 @@ class ThisWeekView extends StatelessWidget {
                     'No memories this week in past',
                     style: AppTypography.outfitBold.copyWith(
                       fontSize: 13,
-                      color: AppTheme.petalWhite,
+                      color: AppColors.petalWhite,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -51,7 +51,7 @@ class ThisWeekView extends StatelessWidget {
                     'Photos from the same week in previous years will appear here — keep capturing!',
                     style: AppTypography.outfitWhite.copyWith(
                       fontSize: 11,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                      color: AppColors.petalWhite.withValues(alpha: 0.6),
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -87,7 +87,7 @@ class ThisWeekView extends StatelessWidget {
             return Container(
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color: AppTheme.moonlight.withValues(
+                color: AppColors.moonlight.withValues(
                   alpha: AppTheme.glassOpacity,
                 ),
                 borderRadius: BorderRadius.circular(14),
@@ -147,7 +147,7 @@ class ThisWeekView extends StatelessWidget {
                             p.caption.isEmpty ? 'Untitled memory' : p.caption,
                             style: AppTypography.outfitBold.copyWith(
                               fontSize: 13,
-                              color: AppTheme.petalWhite,
+                              color: AppColors.petalWhite,
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -157,7 +157,7 @@ class ThisWeekView extends StatelessWidget {
                             '${p.uploadedAt.month}/${p.uploadedAt.day}/${p.uploadedAt.year} • by ${p.uploadedBy}${p.locationName != null ? ' • 📍 ${p.locationName}' : ''}',
                             style: AppTypography.outfitWhite.copyWith(
                               fontSize: 10,
-                              color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                              color: AppColors.petalWhite.withValues(alpha: 0.5),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

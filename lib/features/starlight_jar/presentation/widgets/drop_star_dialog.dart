@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../domain/models/star_note.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -57,15 +57,15 @@ class _DropStarDialogState extends State<DropStarDialog> {
           maxHeight: MediaQuery.sizeOf(context).height * 0.85,
         ),
         decoration: BoxDecoration(
-          color: AppTheme.velvet,
+          color: AppColors.velvet,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: AppTheme.blushGold.withValues(alpha: 0.25),
+            color: AppColors.blushGold.withValues(alpha: 0.25),
             width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.deepRose.withValues(alpha: 0.3),
+              color: AppColors.deepRose.withValues(alpha: 0.3),
               blurRadius: 20,
               spreadRadius: 5,
             ),
@@ -86,7 +86,7 @@ class _DropStarDialogState extends State<DropStarDialog> {
                 "Category",
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 12,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.75),
+                  color: AppColors.petalWhite.withValues(alpha: 0.75),
                   letterSpacing: 1.0,
                 ),
               ),
@@ -108,13 +108,13 @@ class _DropStarDialogState extends State<DropStarDialog> {
                       ),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? AppTheme.deepRose.withValues(alpha: 0.7)
-                            : AppTheme.twilight,
+                            ? AppColors.deepRose.withValues(alpha: 0.7)
+                            : AppColors.twilight,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: isSelected
-                              ? AppTheme.blushGold
-                              : AppTheme.blushGold.withValues(alpha: 0.15),
+                              ? AppColors.blushGold
+                              : AppColors.blushGold.withValues(alpha: 0.15),
                           width: isSelected ? 1.5 : 1,
                         ),
                       ),
@@ -126,8 +126,8 @@ class _DropStarDialogState extends State<DropStarDialog> {
                               ? FontWeight.bold
                               : FontWeight.w500,
                           color: isSelected
-                              ? AppTheme.petalWhite
-                              : AppTheme.petalWhite.withValues(alpha: 0.7),
+                              ? AppColors.petalWhite
+                              : AppColors.petalWhite.withValues(alpha: 0.7),
                         ),
                       ),
                     ),
@@ -142,24 +142,24 @@ class _DropStarDialogState extends State<DropStarDialog> {
                 controller: _controller,
                 maxLines: 3,
                 style: AppTypography.outfitWhite.copyWith(
-                  color: AppTheme.petalWhite,
+                  color: AppColors.petalWhite,
                 ),
                 decoration: InputDecoration(
                   hintText: "What are you grateful for today?",
                   hintStyle: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.65),
+                    color: AppColors.petalWhite.withValues(alpha: 0.65),
                   ),
                   filled: true,
-                  fillColor: AppTheme.twilight,
+                  fillColor: AppColors.twilight,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                     borderSide: BorderSide(
-                      color: AppTheme.blushGold.withValues(alpha: 0.2),
+                      color: AppColors.blushGold.withValues(alpha: 0.2),
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: AppTheme.blushGold),
+                    borderSide: const BorderSide(color: AppColors.blushGold),
                   ),
                   contentPadding: const EdgeInsets.all(16),
                 ),
@@ -174,29 +174,29 @@ class _DropStarDialogState extends State<DropStarDialog> {
                     child: TextField(
                       controller: _tagController,
                       style: AppTypography.outfitWhite.copyWith(
-                        color: AppTheme.petalWhite,
+                        color: AppColors.petalWhite,
                         fontSize: 12,
                       ),
                       onSubmitted: (_) => _addTag(),
                       decoration: InputDecoration(
                         hintText: "Add a tag…",
                         hintStyle: AppTypography.outfitWhite.copyWith(
-                          color: AppTheme.petalWhite.withValues(alpha: 0.55),
+                          color: AppColors.petalWhite.withValues(alpha: 0.55),
                           fontSize: 12,
                         ),
                         isDense: true,
                         filled: true,
-                        fillColor: AppTheme.twilight,
+                        fillColor: AppColors.twilight,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(
-                            color: AppTheme.blushGold.withValues(alpha: 0.15),
+                            color: AppColors.blushGold.withValues(alpha: 0.15),
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(
-                            color: AppTheme.blushGold.withValues(alpha: 0.6),
+                            color: AppColors.blushGold.withValues(alpha: 0.6),
                           ),
                         ),
                         contentPadding: const EdgeInsets.symmetric(
@@ -212,12 +212,12 @@ class _DropStarDialogState extends State<DropStarDialog> {
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppTheme.deepRose.withValues(alpha: 0.5),
+                        color: AppColors.deepRose.withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
                         Icons.add,
-                        color: AppTheme.petalWhite,
+                        color: AppColors.petalWhite,
                         size: 16,
                       ),
                     ),
@@ -236,13 +236,13 @@ class _DropStarDialogState extends State<DropStarDialog> {
                             tag,
                             style: AppTypography.outfitWhite.copyWith(
                               fontSize: 10,
-                              color: AppTheme.petalWhite,
+                              color: AppColors.petalWhite,
                             ),
                           ),
-                          backgroundColor: AppTheme.softLavender.withValues(
+                          backgroundColor: AppColors.softLavender.withValues(
                             alpha: 0.3,
                           ),
-                          deleteIconColor: AppTheme.petalWhite.withValues(
+                          deleteIconColor: AppColors.petalWhite.withValues(
                             alpha: 0.75,
                           ),
                           onDeleted: () => setState(() => _tags.remove(tag)),
@@ -266,7 +266,7 @@ class _DropStarDialogState extends State<DropStarDialog> {
                     child: Text(
                       "Cancel",
                       style: AppTypography.outfitWhite.copyWith(
-                        color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+                        color: AppColors.roseQuartz.withValues(alpha: 0.6),
                       ),
                     ),
                   ),
@@ -283,9 +283,9 @@ class _DropStarDialogState extends State<DropStarDialog> {
                           )
                         : null,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.deepRose,
-                      foregroundColor: AppTheme.petalWhite,
-                      disabledBackgroundColor: AppTheme.deepRose.withValues(
+                      backgroundColor: AppColors.deepRose,
+                      foregroundColor: AppColors.petalWhite,
+                      disabledBackgroundColor: AppColors.deepRose.withValues(
                         alpha: 0.3,
                       ),
                       shape: RoundedRectangleBorder(

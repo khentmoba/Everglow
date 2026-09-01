@@ -33,7 +33,7 @@ class SpotifyConnectCard extends StatelessWidget {
             child: const Icon(
               Icons.music_note_rounded,
               size: 16,
-              color: Colors.white,
+              color: AppColors.petalWhite,
             ),
           ),
           const SizedBox(width: 10),
@@ -44,7 +44,7 @@ class SpotifyConnectCard extends StatelessWidget {
                 Text(
                   isLinked ? 'Spotify linked' : 'Connect Spotify',
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppColors.petalWhite,
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
                   ),
@@ -54,7 +54,7 @@ class SpotifyConnectCard extends StatelessWidget {
                       ? (auth.displayName ?? auth.spotifyUserId ?? 'Premium ✓')
                       : 'For in-app playback (Duo required)',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
+                    color: AppColors.petalWhite.withValues(alpha: 0.6),
                     fontSize: 11,
                   ),
                 ),
@@ -62,7 +62,7 @@ class SpotifyConnectCard extends StatelessWidget {
                   Text(
                     'Device: ${player.deviceId!.substring(0, 8)}…',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.45),
+                      color: AppColors.petalWhite.withValues(alpha: 0.45),
                       fontSize: 10,
                     ),
                   ),
@@ -70,7 +70,7 @@ class SpotifyConnectCard extends StatelessWidget {
                   Text(
                     player.error!,
                     style: const TextStyle(
-                      color: Colors.redAccent,
+                      color: AppColors.error,
                       fontSize: 10,
                     ),
                   ),
@@ -91,7 +91,7 @@ class SpotifyConnectCard extends StatelessWidget {
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1DB954),
-                foregroundColor: Colors.white,
+                foregroundColor: AppColors.petalWhite,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 10,
@@ -119,10 +119,10 @@ class SpotifyConnectCard extends StatelessWidget {
                     ),
                   ),
                 IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.logout_rounded,
                     size: 18,
-                    color: Colors.white54,
+                    color: AppColors.petalWhite.withValues(alpha: 0.54),
                   ),
                   onPressed: () => auth.unlink(),
                   tooltip: 'Unlink',

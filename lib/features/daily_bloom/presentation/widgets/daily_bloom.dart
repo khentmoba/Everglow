@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/garden_provider.dart';
@@ -79,7 +80,7 @@ class _DailyBloomState extends State<DailyBloom> {
                                 constraints: const BoxConstraints(maxWidth: 240),
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.velvet,
+                                  color: AppColors.velvet,
                                   borderRadius: BorderRadius.circular(20),
                                   boxShadow: [
                                     BoxShadow(
@@ -88,7 +89,7 @@ class _DailyBloomState extends State<DailyBloom> {
                                       offset: const Offset(0, 5),
                                     ),
                                   ],
-                                  border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.65), width: 1.5),
+                                  border: Border.all(color: AppColors.blushGold.withValues(alpha: 0.65), width: 1.5),
                                 ),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
@@ -97,7 +98,7 @@ class _DailyBloomState extends State<DailyBloom> {
                                       plantType.stageDescriptions[effectiveStage.clamp(0, 5)],
                                       textAlign: TextAlign.center,
                                       style: AppTypography.outfitHeading.copyWith(
-                                        color: AppTheme.blushGold,
+                                        color: AppColors.blushGold,
                                         fontSize: 13,
                                         height: 1.3,
                                       ),
@@ -108,7 +109,7 @@ class _DailyBloomState extends State<DailyBloom> {
                                         '${plantType.seasonalBonusName} bonus active ✨',
                                         textAlign: TextAlign.center,
                                         style: AppTypography.outfitWhite.copyWith(
-                                          color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                                          color: AppColors.petalWhite.withValues(alpha: 0.7),
                                           fontSize: 11,
                                         ),
                                       ),
@@ -203,20 +204,20 @@ class _DailyBloomState extends State<DailyBloom> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: AppTheme.moonlight.withValues(alpha: AppTheme.glassOpacity),
+        color: AppColors.moonlight.withValues(alpha: AppTheme.glassOpacity),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.moonlight.withValues(alpha: 0.15), width: 1.0),
+        border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.15), width: 1.0),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: AppTheme.blushGold),
+          Icon(icon, size: 14, color: AppColors.blushGold),
           const SizedBox(width: 4),
           Text(
             label,
             style: AppTypography.outfitBold.copyWith(
               fontSize: 12,
-              color: AppTheme.petalWhite.withValues(alpha: 0.8),
+              color: AppColors.petalWhite.withValues(alpha: 0.8),
             ),
           ),
         ],
@@ -237,23 +238,23 @@ class _DailyBloomState extends State<DailyBloom> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: AppTheme.deepRose.withValues(alpha: 0.15),
+            color: AppColors.deepRose.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: AppTheme.blushGold.withValues(alpha: 0.2),
+              color: AppColors.blushGold.withValues(alpha: 0.2),
               width: 1.0,
             ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 14, color: AppTheme.roseQuartz),
+              Icon(icon, size: 14, color: AppColors.roseQuartz),
               const SizedBox(width: 4),
               Text(
                 label,
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 11,
-                  color: AppTheme.roseQuartz,
+                  color: AppColors.roseQuartz,
                 ),
               ),
             ],

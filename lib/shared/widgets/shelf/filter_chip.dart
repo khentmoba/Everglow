@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 
 /// A shareable filter chip with animated selection state, hover/touch
@@ -61,14 +62,14 @@ class _FilterChipState extends State<FilterChip> {
               color: selected
                   ? tint.withValues(alpha: 0.2)
                   : _hovered
-                  ? Colors.white.withValues(alpha: 0.06)
-                  : Colors.white.withValues(alpha: 0.03),
+                  ? AppColors.petalWhite.withValues(alpha: 0.06)
+                  : AppColors.petalWhite.withValues(alpha: 0.03),
               border: Border.all(
                 color: selected
                     ? tint.withValues(alpha: 0.6)
                     : _hovered
                     ? tint.withValues(alpha: 0.25)
-                    : Colors.white.withValues(alpha: 0.12),
+                    : AppColors.petalWhite.withValues(alpha: 0.12),
                 width: selected ? 1.2 : 1,
               ),
               borderRadius: BorderRadius.circular(20),
@@ -87,7 +88,7 @@ class _FilterChipState extends State<FilterChip> {
               children: [
                 Icon(
                   widget.icon,
-                  color: selected ? tint : Colors.white54,
+                  color: selected ? tint : AppColors.petalWhite.withValues(alpha: 0.54),
                   size: 14,
                 ),
                 const SizedBox(width: 6),
@@ -97,7 +98,7 @@ class _FilterChipState extends State<FilterChip> {
                     fontSize: 12,
                     color: selected
                         ? tint
-                        : Colors.white.withValues(alpha: 0.85),
+                        : AppColors.petalWhite.withValues(alpha: 0.85),
                     fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                   ),
                 ),

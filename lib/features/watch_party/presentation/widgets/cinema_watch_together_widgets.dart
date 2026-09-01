@@ -187,7 +187,7 @@ class _ActivePartyCard extends StatelessWidget {
                       children: [
                         const Icon(
                           Icons.play_arrow_rounded,
-                          color: Colors.white,
+                          color: AppColors.petalWhite,
                           size: 18,
                         ),
                         const SizedBox(width: 4),
@@ -195,7 +195,7 @@ class _ActivePartyCard extends StatelessWidget {
                           isHost ? 'Resume party' : 'Join party',
                           style: AppTypography.outfitBold.copyWith(
                             fontSize: 12,
-                            color: Colors.white,
+                            color: AppColors.petalWhite,
                           ),
                         ),
                       ],
@@ -304,7 +304,7 @@ class _WatchTogetherStage extends StatelessWidget {
                         ),
                         child: const Icon(
                           Icons.play_arrow_rounded,
-                          color: Colors.white,
+                          color: AppColors.petalWhite,
                           size: 34,
                         ),
                       ),
@@ -788,7 +788,7 @@ class _JellyfinMovieCard extends StatelessWidget {
                     ),
                     child: const Icon(
                       Icons.play_arrow_rounded,
-                      color: Colors.white,
+                      color: AppColors.petalWhite,
                       size: 22,
                     ),
                   ),

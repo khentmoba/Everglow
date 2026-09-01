@@ -75,6 +75,7 @@ class _DashboardCursorGlowState extends State<DashboardCursorGlow>
     with SingleTickerProviderStateMixin {
   AnimationController? _controller;
   final ValueNotifier<_CursorSample?> _sample = ValueNotifier(null);
+  DateTime? _lastHover;
   _CursorGlowPainter? _painter;
   Timer? _settleTimer;
 
@@ -99,6 +100,9 @@ class _DashboardCursorGlowState extends State<DashboardCursorGlow>
   }
 
   void _handleHover(PointerHoverEvent event) {
+    final now = DateTime.now();
+    if (_lastHover != null && now.difference(_lastHover!).inMilliseconds < 16) return;
+    _lastHover = now;
     _sample.value = _CursorSample(
       event.localPosition,
       DateTime.now(),

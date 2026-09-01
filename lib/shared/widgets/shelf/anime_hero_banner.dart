@@ -3,7 +3,6 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_breakpoints.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_typography.dart';
 import 'shelf_hero_carousel.dart';
 import 'motion.dart';
@@ -190,12 +189,12 @@ class _HeroBannerSlide extends StatelessWidget {
                           fit: BoxFit.cover,
                           cacheWidth: 1200,
                           errorBuilder: (_, _, _) =>
-                              Container(color: AppTheme.velvet),
+                              Container(color: AppColors.velvet),
                         ),
                       ),
                     )
                   else
-                    Container(color: AppTheme.velvet),
+                    Container(color: AppColors.velvet),
 
                   // Dark wash overlay for contrast
                   Container(color: Colors.black.withValues(alpha: 0.55)),
@@ -257,7 +256,7 @@ class _HeroBannerSlide extends StatelessWidget {
                           child: Text(
                             (item.eyebrow ?? 'TRENDING').toUpperCase(),
                             style: AppTypography.outfitHeading.copyWith(
-                              color: Colors.white,
+                              color: AppColors.petalWhite,
                               fontSize: 9,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 1.4,
@@ -291,7 +290,7 @@ class _HeroBannerSlide extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: AppTypography.outfitWhite.copyWith(
-                              color: AppTheme.roseQuartz.withValues(
+                              color: AppColors.roseQuartz.withValues(
                                 alpha: 0.85,
                               ),
                               fontSize: isDesktop ? 15 : 12,
@@ -309,7 +308,7 @@ class _HeroBannerSlide extends StatelessWidget {
                             maxLines: isDesktop ? 4 : 3,
                             overflow: TextOverflow.ellipsis,
                             style: AppTypography.outfitWhite.copyWith(
-                              color: Colors.white.withValues(alpha: 0.6),
+                              color: AppColors.petalWhite.withValues(alpha: 0.6),
                               fontSize: isDesktop ? 13 : 11,
                               height: 1.5,
                             ),
@@ -409,11 +408,11 @@ class _FloatingPoster extends StatelessWidget {
               fit: BoxFit.cover,
               cacheWidth: 500,
               errorBuilder: (_, _, _) => Container(
-                color: AppTheme.velvet,
-                child: const Center(
+                color: AppColors.velvet,
+                child: Center(
                   child: Icon(
                     Icons.broken_image_rounded,
-                    color: Colors.white38,
+                    color: AppColors.petalWhite.withValues(alpha: 0.38),
                   ),
                 ),
               ),
@@ -425,7 +424,7 @@ class _FloatingPoster extends StatelessWidget {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.1),
+                  color: AppColors.petalWhite.withValues(alpha: 0.1),
                   width: 1,
                 ),
               ),
@@ -480,17 +479,17 @@ class _MetaChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
+        color: AppColors.petalWhite.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.12),
+          color: AppColors.petalWhite.withValues(alpha: 0.12),
           width: 0.8,
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: Colors.white.withValues(alpha: 0.6)),
+          Icon(icon, size: 12, color: AppColors.petalWhite.withValues(alpha: 0.6)),
           const SizedBox(width: 5),
           Flexible(
             child: Text(
@@ -498,7 +497,7 @@ class _MetaChip extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: AppTypography.outfitBold.copyWith(
-                color: Colors.white.withValues(alpha: 0.75),
+                color: AppColors.petalWhite.withValues(alpha: 0.75),
                 fontSize: 11,
               ),
             ),
@@ -535,12 +534,12 @@ class _ActionButton extends StatelessWidget {
           curve: ShelfMotion.easeOutStrong,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           decoration: BoxDecoration(
-            color: primary ? accent : Colors.white.withValues(alpha: 0.06),
+            color: primary ? accent : AppColors.petalWhite.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(24),
             border: primary
                 ? null
                 : Border.all(
-                    color: Colors.white.withValues(alpha: 0.2),
+                    color: AppColors.petalWhite.withValues(alpha: 0.2),
                     width: 1,
                   ),
             boxShadow: primary
@@ -556,7 +555,7 @@ class _ActionButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 18, color: Colors.white),
+              Icon(icon, size: 18, color: AppColors.petalWhite),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
@@ -597,7 +596,7 @@ class _DotIndicator extends StatelessWidget {
           width: isActive ? 22 : 5,
           height: 5,
           decoration: BoxDecoration(
-            color: isActive ? accent : Colors.white.withValues(alpha: 0.2),
+            color: isActive ? accent : AppColors.petalWhite.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(3),
             boxShadow: isActive
                 ? [

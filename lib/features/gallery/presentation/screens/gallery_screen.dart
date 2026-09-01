@@ -6,6 +6,7 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../../shared/widgets/everglow/everglow_scaffold.dart';
 import '../../../../shared/widgets/everglow/everglow_segmented_control.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
@@ -26,12 +27,14 @@ class GalleryScreen extends StatefulWidget {
 
 class _GalleryScreenState extends State<GalleryScreen> {
   final GalleryService _galleryService = GalleryService();
+  final _gallerySearchCtrl = TextEditingController();
   String _searchQuery = '';
   Timer? _searchDebounce;
   int _tabIndex = 0; // 0 grid, 1 map, 2 week
 
   @override
   void dispose() {
+    _gallerySearchCtrl.dispose();
     _searchDebounce?.cancel();
     super.dispose();
   }
@@ -46,31 +49,10 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          const Positioned.fill(
-            child: EverglowBackground(
-              baseColor: AppColors.inkDeep,
-              glows: [
-                RadialGlow(
-                  color: AppColors.deepRose,
-                  alignment: Alignment(-0.7, -0.9),
-                  size: 0.9,
-                  opacity: 0.16,
-                ),
-                RadialGlow(
-                  color: AppColors.auroraLilac,
-                  alignment: Alignment(0.9, 0.7),
-                  size: 0.7,
-                  opacity: 0.10,
-                ),
-              ],
-              showPetals: true,
-            ),
-          ),
-          SafeArea(
-            child: Column(
+        return EverglowScaffold(
+      backgroundColor: AppColors.inkDeep,
+      glows: [const RadialGlow(color: AppColors.deepRose, alignment: Alignment(-0.7, -0.9), size: 0.9, opacity: 0.16), const RadialGlow(color: AppColors.auroraLilac, alignment: Alignment(0.9, 0.7), size: 0.7, opacity: 0.10)],
+      body: Column(
               children: [
                 const EverglowFeatureHeader(
                   title: 'Memory Gallery',
@@ -103,11 +85,9 @@ class _GalleryScreenState extends State<GalleryScreen> {
                             final photos = snap.data ?? [];
                             if (snap.connectionState ==
                                 ConnectionState.waiting) {
-                              return const Center(
-                                child: CircularProgressIndicator(
-                                  color: AppColors.deepRose,
-                                  strokeWidth: 2,
-                                ),
+                              return const Padding(
+                                padding: EdgeInsets.all(20),
+                                child: EverglowSkeleton(width: double.infinity, height: 200, radius: 16),
                               );
                             }
                             return GalleryMapView(photos: photos);
@@ -178,9 +158,6 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 ),
               ],
             ),
-          ),
-        ],
-      ),
       floatingActionButton: _FloatingAddButton(onPressed: _openAddPhoto),
     );
   }

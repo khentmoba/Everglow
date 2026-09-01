@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 
-import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_breakpoints.dart';
 import 'motion.dart';
 
@@ -85,7 +85,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
 
   @override
   Widget build(BuildContext context) {
-    final badgeColor = widget.badgeColor ?? AppTheme.deepRose;
+    final badgeColor = widget.badgeColor ?? AppColors.deepRose;
     final disabled = widget.onTap == null;
     final canHover = _canHover(context);
 
@@ -178,7 +178,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                         height: 44,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.white.withValues(alpha: 0.95),
+                          color: AppColors.petalWhite.withValues(alpha: 0.95),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.3),
@@ -226,7 +226,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.outfitHeading.copyWith(
-                        color: Colors.white,
+                        color: AppColors.petalWhite,
                         fontSize: 12,
                         height: 1.15,
                         letterSpacing: 0.1,
@@ -240,7 +240,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.outfitBold.copyWith(
-                          color: AppTheme.blushGold.withValues(alpha: 0.9),
+                          color: AppColors.blushGold.withValues(alpha: 0.9),
                           fontSize: 11,
                           fontStyle: FontStyle.italic,
                         ),
@@ -275,13 +275,13 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (widget.badgeIcon != null) ...[
-                        Icon(widget.badgeIcon, color: Colors.white, size: 9),
+                        Icon(widget.badgeIcon, color: AppColors.petalWhite, size: 9),
                         const SizedBox(width: 3),
                       ],
                       Text(
                         widget.badge!,
                         style: AppTypography.outfitHeading.copyWith(
-                          color: Colors.white,
+                          color: AppColors.petalWhite,
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 0.5,
@@ -306,24 +306,24 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              AppTheme.blushGold,
-                              AppTheme.blushGold.withValues(alpha: 0.7),
+                              AppColors.blushGold,
+                              AppColors.blushGold.withValues(alpha: 0.7),
                             ],
                           )
                         : null,
                     color: widget.rankNumber! > 3
-                        ? AppTheme.velvet.withValues(alpha: 0.85)
+                        ? AppColors.velvet.withValues(alpha: 0.85)
                         : null,
                     border: Border.all(
                       color: widget.rankNumber! <= 3
-                          ? AppTheme.blushGold
-                          : AppTheme.blushGold.withValues(alpha: 0.6),
+                          ? AppColors.blushGold
+                          : AppColors.blushGold.withValues(alpha: 0.6),
                       width: widget.rankNumber! <= 3 ? 1.5 : 1,
                     ),
                     boxShadow: widget.rankNumber! <= 3
                         ? [
                             BoxShadow(
-                              color: AppTheme.blushGold.withValues(alpha: 0.65),
+                              color: AppColors.blushGold.withValues(alpha: 0.65),
                               blurRadius: 8,
                               spreadRadius: 1,
                             ),
@@ -336,8 +336,8 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                     style: AppTypography.cormorantBlack.copyWith(
                       fontSize: widget.rankNumber! <= 3 ? 15 : 12,
                       color: widget.rankNumber! <= 3
-                          ? AppTheme.velvet
-                          : AppTheme.blushGold,
+                          ? AppColors.velvet
+                          : AppColors.blushGold,
                     ),
                   ),
                 ),
@@ -399,7 +399,7 @@ class _Placeholder extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppTheme.velvet, AppTheme.twilight],
+          colors: [AppColors.velvet, AppColors.twilight],
         ),
       ),
       child: Center(

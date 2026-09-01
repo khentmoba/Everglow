@@ -100,13 +100,13 @@ class MergedTimeline extends StatelessWidget {
                         end: Alignment.bottomRight,
                       ),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.7),
+                        color: AppColors.petalWhite.withValues(alpha: 0.7),
                       ),
                     ),
                     child: const Icon(
                       Icons.timeline_rounded,
                       size: 18,
-                      color: Colors.white,
+                      color: AppColors.petalWhite,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -260,7 +260,7 @@ class _TimelineRow extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: entry.color,
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.85),
+                  color: AppColors.petalWhite.withValues(alpha: 0.85),
                   width: isLive ? 2 : 1.2,
                 ),
                 boxShadow: [
@@ -275,7 +275,7 @@ class _TimelineRow extends StatelessWidget {
                       margin: const EdgeInsets.all(2.5),
                       decoration: const BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.white,
+                        color: AppColors.petalWhite,
                       ),
                     )
                   : null,
@@ -294,12 +294,12 @@ class _TimelineRow extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: isLive
                       ? entry.color.withValues(alpha: 0.10)
-                      : Colors.white.withValues(alpha: 0.05),
+                      : AppColors.petalWhite.withValues(alpha: 0.05),
                   borderRadius: AppRadius.radiusMd,
                   border: Border.all(
                     color: isLive
                         ? entry.color.withValues(alpha: 0.35)
-                        : Colors.white.withValues(alpha: 0.08),
+                        : AppColors.petalWhite.withValues(alpha: 0.08),
                   ),
                 ),
                 child: Row(

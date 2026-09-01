@@ -13,6 +13,7 @@ import '../../../../core/utils/logger.dart';
 import '../../data/services/chat_service.dart';
 import '../../domain/models/chat_message.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:intl/intl.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/pulsing_heart_loader.dart';
 
@@ -354,22 +355,28 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
                                   final message = messages[index];
                                   final isMe = message.sender == currentUser;
 
-                                  return FadeInUp(
-                                    duration: const Duration(milliseconds: 250),
-                                    delay: Duration(
-                                      milliseconds: (index * 50).clamp(0, 200),
-                                    ),
-                                    child: Align(
-                                      alignment: isMe
-                                          ? Alignment.centerRight
-                                          : Alignment.centerLeft,
-                                      child: ChatBubble(
-                                        text: message.text,
-                                        isMe: isMe,
-                                        sender: message.sender,
-                                        timestamp: message.timestamp,
+                                                                    final prev = index > 0 ? messages[index - 1] : null;
+                                  final isGrouped = prev != null && prev.sender == message.sender && message.timestamp.difference(prev.timestamp).inMinutes < 5;
+                                  final showSender = !isGrouped;
+                                  final showDayHeader = prev == null || !_isSameDay(message.timestamp, prev.timestamp);
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      if (showDayHeader) Semantics(header: true, child: _DayHeader(date: message.timestamp)),
+                                      Padding(
+                                        padding: EdgeInsets.only(top: isGrouped ? 2 : 8),
+                                        child: Align(
+                                          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                                          child: ChatBubble(
+                                            text: message.text,
+                                            isMe: isMe,
+                                            sender: message.sender,
+                                            timestamp: message.timestamp,
+                                            showSender: showSender,
+                                          ),
+                                        ),
                                       ),
-                                    ),
+                                    ],
                                   );
                                 },
                               ),
@@ -414,6 +421,8 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
       ),
     );
   }
+
+  bool _isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
 
   Widget _buildInputArea() {
     return Container(
@@ -690,6 +699,33 @@ class _ErrorState extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DayHeader extends StatelessWidget {
+  final DateTime date;
+  const _DayHeader({required this.date});
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final d = DateTime(date.year, date.month, date.day);
+    final diff = today.difference(d).inDays;
+    String label;
+    if (diff == 0) {
+      label = 'Today';
+    } else if (diff == 1) label = 'Yesterday';
+    else label = DateFormat('EEEE, MMM d').format(date);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(color: AppColors.moonlight.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(999), border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.10))),
+          child: Text(label, style: AppTypography.labelSmall().copyWith(color: AppColors.textMuted, fontSize: 10, letterSpacing: 0.6)),
         ),
       ),
     );

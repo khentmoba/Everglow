@@ -3,9 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../../shared/widgets/everglow/everglow_scaffold.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
@@ -23,26 +23,10 @@ class _WikiScreenState extends State<WikiScreen> {
   @override
   Widget build(BuildContext context) {
     final service = WikiService();
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          const Positioned.fill(
-            child: EverglowBackground(
-              baseColor: AppColors.inkDeep,
-              glows: [
-                RadialGlow(
-                  color: AppColors.softLavender,
-                  alignment: Alignment(-0.6, -0.8),
-                  size: 0.85,
-                  opacity: 0.12,
-                ),
-              ],
-              showPetals: true,
-            ),
-          ),
-          SafeArea(
-            child: Column(
+        return EverglowScaffold(
+      backgroundColor: AppColors.inkDeep,
+      glows: [const RadialGlow(color: AppColors.softLavender, alignment: Alignment(-0.6, -0.8), size: 0.85, opacity: 0.12)],
+      body: Column(
               children: [
                 EverglowFeatureHeader(
                   title: 'Our Universe',
@@ -64,7 +48,7 @@ class _WikiScreenState extends State<WikiScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppTheme.moonlight.withValues(alpha: 0.08),
+                      color: AppColors.moonlight.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: AppColors.softLavender.withValues(alpha: 0.15),
@@ -82,7 +66,7 @@ class _WikiScreenState extends State<WikiScreen> {
                           'Shelves → Books → Pages',
                           style: AppTypography.outfitBold.copyWith(
                             fontSize: 12,
-                            color: AppTheme.petalWhite,
+                            color: AppColors.petalWhite,
                           ),
                         ),
                         const Spacer(),
@@ -159,7 +143,7 @@ class _WikiScreenState extends State<WikiScreen> {
                                     shelf.title,
                                     style: AppTypography.outfitBold.copyWith(
                                       fontSize: 14,
-                                      color: AppTheme.petalWhite,
+                                      color: AppColors.petalWhite,
                                     ),
                                   ),
                                   subtitle: Text(
@@ -168,7 +152,7 @@ class _WikiScreenState extends State<WikiScreen> {
                                         : shelf.description,
                                     style: AppTypography.outfitWhite.copyWith(
                                       fontSize: 11,
-                                      color: AppTheme.petalWhite.withValues(
+                                      color: AppColors.petalWhite.withValues(
                                         alpha: 0.6,
                                       ),
                                     ),
@@ -201,7 +185,7 @@ class _WikiScreenState extends State<WikiScreen> {
                                           style: AppTypography.outfitWhite
                                               .copyWith(
                                                 fontSize: 11,
-                                                color: AppTheme.petalWhite
+                                                color: AppColors.petalWhite
                                                     .withValues(alpha: 0.5),
                                                 fontStyle: FontStyle.italic,
                                               ),
@@ -253,7 +237,7 @@ class _WikiScreenState extends State<WikiScreen> {
                                                     .copyWith(
                                                       fontSize: 12,
                                                       color:
-                                                          AppTheme.petalWhite,
+                                                          AppColors.petalWhite,
                                                     ),
                                               ),
                                               subtitle: Text(
@@ -263,7 +247,7 @@ class _WikiScreenState extends State<WikiScreen> {
                                                 style: AppTypography.outfitWhite
                                                     .copyWith(
                                                       fontSize: 10,
-                                                      color: AppTheme.petalWhite
+                                                      color: AppColors.petalWhite
                                                           .withValues(
                                                             alpha: 0.6,
                                                           ),
@@ -292,9 +276,6 @@ class _WikiScreenState extends State<WikiScreen> {
                 ),
               ],
             ),
-          ),
-        ],
-      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddShelf,
         backgroundColor: AppColors.softLavender,
@@ -314,11 +295,11 @@ class _WikiScreenState extends State<WikiScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) {
           return AlertDialog(
-            backgroundColor: AppTheme.velvet,
+            backgroundColor: AppColors.velvet,
             title: Text(
               'New Shelf',
               style: AppTypography.cormorantBold.copyWith(
-                color: AppTheme.petalWhite,
+                color: AppColors.petalWhite,
               ),
             ),
             content: Column(
@@ -358,12 +339,12 @@ class _WikiScreenState extends State<WikiScreen> {
                 TextField(
                   controller: titleCtrl,
                   style: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite,
+                    color: AppColors.petalWhite,
                   ),
                   decoration: InputDecoration(
                     hintText: 'Shelf title — e.g., Our Story',
                     hintStyle: AppTypography.outfitWhite.copyWith(
-                      color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                      color: AppColors.petalWhite.withValues(alpha: 0.4),
                     ),
                     filled: true,
                     fillColor: AppColors.twilight,
@@ -377,13 +358,13 @@ class _WikiScreenState extends State<WikiScreen> {
                 TextField(
                   controller: descCtrl,
                   style: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite,
+                    color: AppColors.petalWhite,
                     fontSize: 13,
                   ),
                   decoration: InputDecoration(
                     hintText: 'Description',
                     hintStyle: AppTypography.outfitWhite.copyWith(
-                      color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                      color: AppColors.petalWhite.withValues(alpha: 0.4),
                     ),
                     filled: true,
                     fillColor: AppColors.twilight,
@@ -449,11 +430,11 @@ class _WikiScreenState extends State<WikiScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) {
           return AlertDialog(
-            backgroundColor: AppTheme.velvet,
+            backgroundColor: AppColors.velvet,
             title: Text(
               'New Book',
               style: AppTypography.cormorantBold.copyWith(
-                color: AppTheme.petalWhite,
+                color: AppColors.petalWhite,
               ),
             ),
             content: Column(
@@ -462,12 +443,12 @@ class _WikiScreenState extends State<WikiScreen> {
                 TextField(
                   controller: titleCtrl,
                   style: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite,
+                    color: AppColors.petalWhite,
                   ),
                   decoration: InputDecoration(
                     hintText: 'Book title — e.g., First Year Together',
                     hintStyle: AppTypography.outfitWhite.copyWith(
-                      color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                      color: AppColors.petalWhite.withValues(alpha: 0.4),
                     ),
                     filled: true,
                     fillColor: AppColors.twilight,
@@ -481,13 +462,13 @@ class _WikiScreenState extends State<WikiScreen> {
                 TextField(
                   controller: descCtrl,
                   style: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite,
+                    color: AppColors.petalWhite,
                     fontSize: 13,
                   ),
                   decoration: InputDecoration(
                     hintText: 'Description',
                     hintStyle: AppTypography.outfitWhite.copyWith(
-                      color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                      color: AppColors.petalWhite.withValues(alpha: 0.4),
                     ),
                     filled: true,
                     fillColor: AppColors.twilight,

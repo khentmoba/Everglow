@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' show Picture, PictureRecorder;
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_colors.dart';
 
 class PetalShower extends StatefulWidget {
   final bool isVisible;
@@ -52,7 +52,7 @@ class _PetalShowerState extends State<PetalShower>
   static Picture _createPetalShapePicture(double maxSize) {
     final recorder = PictureRecorder();
     final canvas = Canvas(recorder);
-    final paint = Paint()..color = AppTheme.roseQuartz.withValues(alpha: 0.6);
+    final paint = Paint()..color = AppColors.roseQuartz.withValues(alpha: 0.6);
 
     // Petal shape: two quadratic curves forming an eye-like leaf.
     // Scaled so the caller can adjust size via canvas.scale().

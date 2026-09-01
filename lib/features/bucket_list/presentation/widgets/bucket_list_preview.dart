@@ -195,7 +195,7 @@ class _BucketListPreviewState extends State<BucketListPreview> {
                             const SizedBox(height: 14),
                             Container(
                               height: 1,
-                              color: Colors.white.withValues(alpha: 0.06),
+                              color: AppColors.petalWhite.withValues(alpha: 0.06),
                             ),
                             const SizedBox(height: 12),
                             ...wishes.map(

@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../../shared/widgets/everglow/everglow_scaffold.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
@@ -26,26 +27,11 @@ class _BudgetScreenState extends State<BudgetScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.read<AuthService>();
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          const Positioned.fill(
-            child: EverglowBackground(
-              baseColor: AppColors.inkDeep,
-              glows: [
-                RadialGlow(
-                  color: AppColors.warmAmber,
-                  alignment: Alignment(-0.6, -0.8),
-                  size: 0.85,
-                  opacity: 0.12,
-                ),
-              ],
-              showPetals: true,
-            ),
-          ),
-          SafeArea(
-            child: Column(
+    return EverglowScaffold(
+      backgroundColor: AppColors.inkDeep,
+      glows: [const RadialGlow(color: AppColors.warmAmber, alignment: Alignment(-0.6, -0.8), size: 0.85, opacity: 0.12)],
+      showPetals: true,
+      body: Column(
               children: [
                 EverglowFeatureHeader(
                   title: 'Budget',
@@ -97,7 +83,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                             '${_monthName(_month.month)} ${_month.year}',
                             style: AppTypography.outfitBold.copyWith(
                               fontSize: 14,
-                              color: AppTheme.petalWhite,
+                              color: AppColors.petalWhite,
                             ),
                           ),
                         ),
@@ -140,9 +126,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 ),
               ],
             ),
-          ),
-        ],
-      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddDialog(auth),
         backgroundColor: AppColors.warmAmber,
@@ -183,7 +166,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
             title: Text(
               'Add Transaction',
               style: AppTypography.cormorantBold.copyWith(
-                color: AppTheme.petalWhite,
+                color: AppColors.petalWhite,
               ),
             ),
             content: SingleChildScrollView(
@@ -193,12 +176,12 @@ class _BudgetScreenState extends State<BudgetScreen> {
                   TextField(
                     controller: titleCtrl,
                     style: AppTypography.outfitWhite.copyWith(
-                      color: AppTheme.petalWhite,
+                      color: AppColors.petalWhite,
                     ),
                     decoration: InputDecoration(
                       hintText: 'Title — e.g., Dinner at Mesa',
                       hintStyle: AppTypography.outfitWhite.copyWith(
-                        color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                        color: AppColors.petalWhite.withValues(alpha: 0.4),
                       ),
                       filled: true,
                       fillColor: AppColors.twilight,
@@ -213,12 +196,12 @@ class _BudgetScreenState extends State<BudgetScreen> {
                     controller: amountCtrl,
                     keyboardType: TextInputType.number,
                     style: AppTypography.outfitWhite.copyWith(
-                      color: AppTheme.petalWhite,
+                      color: AppColors.petalWhite,
                     ),
                     decoration: InputDecoration(
                       hintText: 'Amount (PHP)',
                       hintStyle: AppTypography.outfitWhite.copyWith(
-                        color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                        color: AppColors.petalWhite.withValues(alpha: 0.4),
                       ),
                       filled: true,
                       fillColor: AppColors.twilight,
@@ -238,7 +221,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                           dropdownColor: AppColors.twilight,
                           underline: const SizedBox(),
                           style: AppTypography.outfitWhite.copyWith(
-                            color: AppTheme.petalWhite,
+                            color: AppColors.petalWhite,
                             fontSize: 12,
                           ),
                           items: [
@@ -262,7 +245,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                           dropdownColor: AppColors.twilight,
                           underline: const SizedBox(),
                           style: AppTypography.outfitWhite.copyWith(
-                            color: AppTheme.petalWhite,
+                            color: AppColors.petalWhite,
                             fontSize: 12,
                           ),
                           items: budgetCategories
@@ -288,7 +271,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                           dropdownColor: AppColors.twilight,
                           underline: const SizedBox(),
                           style: AppTypography.outfitWhite.copyWith(
-                            color: AppTheme.petalWhite,
+                            color: AppColors.petalWhite,
                             fontSize: 12,
                           ),
                           items: [
@@ -312,7 +295,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                           dropdownColor: AppColors.twilight,
                           underline: const SizedBox(),
                           style: AppTypography.outfitWhite.copyWith(
-                            color: AppTheme.petalWhite,
+                            color: AppColors.petalWhite,
                             fontSize: 12,
                           ),
                           items: SplitMode.values
@@ -439,14 +422,14 @@ class _TransactionsTab extends StatelessWidget {
                           t.title,
                           style: AppTypography.outfitBold.copyWith(
                             fontSize: 12,
-                            color: AppTheme.petalWhite,
+                            color: AppColors.petalWhite,
                           ),
                         ),
                         Text(
                           '${t.category} • paid by ${t.paidBy} • ${t.date.month}/${t.date.day} • split ${t.split.name}',
                           style: AppTypography.outfitWhite.copyWith(
                             fontSize: 10,
-                            color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                            color: AppColors.petalWhite.withValues(alpha: 0.5),
                           ),
                         ),
                       ],
@@ -464,7 +447,7 @@ class _TransactionsTab extends StatelessWidget {
                     icon: Icon(
                       Icons.delete_outline_rounded,
                       size: 16,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                      color: AppColors.petalWhite.withValues(alpha: 0.4),
                     ),
                   ),
                 ],
@@ -567,7 +550,7 @@ class _BudgetTab extends StatelessWidget {
                 child: Text(
                   'No expenses this month',
                   style: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                    color: AppColors.petalWhite.withValues(alpha: 0.6),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -598,7 +581,7 @@ class _BudgetTab extends StatelessWidget {
                               e.key,
                               style: AppTypography.outfitBold.copyWith(
                                 fontSize: 12,
-                                color: AppTheme.petalWhite,
+                                color: AppColors.petalWhite,
                               ),
                             ),
                           ),
@@ -606,7 +589,7 @@ class _BudgetTab extends StatelessWidget {
                             '₱${e.value.toStringAsFixed(0)}',
                             style: AppTypography.outfitBold.copyWith(
                               fontSize: 12,
-                              color: AppTheme.petalWhite,
+                              color: AppColors.petalWhite,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -614,7 +597,7 @@ class _BudgetTab extends StatelessWidget {
                             '${(pct * 100).toStringAsFixed(0)}%',
                             style: AppTypography.outfitWhite.copyWith(
                               fontSize: 10,
-                              color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                              color: AppColors.petalWhite.withValues(alpha: 0.6),
                             ),
                           ),
                         ],
@@ -647,7 +630,7 @@ class _BudgetTab extends StatelessWidget {
         label,
         style: AppTypography.outfitWhite.copyWith(
           fontSize: 10,
-          color: AppTheme.petalWhite.withValues(alpha: 0.6),
+          color: AppColors.petalWhite.withValues(alpha: 0.6),
         ),
       ),
       const SizedBox(height: 4),
@@ -712,7 +695,7 @@ class _SplitTab extends StatelessWidget {
                         'IHateMoney • Who owes who',
                         style: AppTypography.outfitBold.copyWith(
                           fontSize: 13,
-                          color: AppTheme.petalWhite,
+                          color: AppColors.petalWhite,
                         ),
                       ),
                     ],
@@ -798,7 +781,7 @@ class _SplitTab extends StatelessWidget {
                     'Equal split unless specified — matches IHateMoney & facto logic',
                     style: AppTypography.outfitWhite.copyWith(
                       fontSize: 10,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                      color: AppColors.petalWhite.withValues(alpha: 0.5),
                     ),
                   ),
                 ],
@@ -809,7 +792,7 @@ class _SplitTab extends StatelessWidget {
               'How splits work',
               style: AppTypography.outfitBold.copyWith(
                 fontSize: 12,
-                color: AppTheme.petalWhite,
+                color: AppColors.petalWhite,
               ),
             ),
             const SizedBox(height: 8),
@@ -832,7 +815,7 @@ class _SplitTab extends StatelessWidget {
           label,
           style: AppTypography.outfitWhite.copyWith(
             fontSize: 10,
-            color: AppTheme.petalWhite.withValues(alpha: 0.6),
+            color: AppColors.petalWhite.withValues(alpha: 0.6),
           ),
         ),
         const SizedBox(height: 4),
@@ -858,21 +841,21 @@ class _SplitTab extends StatelessWidget {
           '• Equal: 50/50 split',
           style: AppTypography.outfitWhite.copyWith(
             fontSize: 11,
-            color: AppTheme.petalWhite.withValues(alpha: 0.7),
+            color: AppColors.petalWhite.withValues(alpha: 0.7),
           ),
         ),
         Text(
           '• Khent / Clair: one pays full',
           style: AppTypography.outfitWhite.copyWith(
             fontSize: 11,
-            color: AppTheme.petalWhite.withValues(alpha: 0.7),
+            color: AppColors.petalWhite.withValues(alpha: 0.7),
           ),
         ),
         Text(
           '• Custom: ratio via Firestore customSplit map',
           style: AppTypography.outfitWhite.copyWith(
             fontSize: 11,
-            color: AppTheme.petalWhite.withValues(alpha: 0.7),
+            color: AppColors.petalWhite.withValues(alpha: 0.7),
           ),
         ),
       ],

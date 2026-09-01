@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:provider/provider.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/everglow/everglow_error_state.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -153,7 +152,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
                     if (isLoading)
                       const Center(
                         child: CircularProgressIndicator(
-                          color: AppTheme.roseQuartz,
+                          color: AppColors.roseQuartz,
                           strokeWidth: 2,
                         ),
                       ),
@@ -183,7 +182,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
               onPanStart: (details) => _onPanStart(details, userId),
               onPanUpdate: (details) => _onPanUpdate(details, userId),
               onPanEnd: (details) => _onPanEnd(details, userId),
-              child: Container(color: Colors.white.withValues(alpha: 0.001)),
+              child: Container(color: AppColors.petalWhite.withValues(alpha: 0.001)),
             ),
           ),
 
@@ -223,7 +222,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.velvet,
+        backgroundColor: AppColors.velvet,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(
           'Clear Canvas?',
@@ -232,7 +231,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
         content: Text(
           'This will permanently delete all doodles for everyone. Are you sure?',
           style: AppTypography.outfitWhite.copyWith(
-            color: AppTheme.petalWhite.withValues(alpha: 0.8),
+            color: AppColors.petalWhite.withValues(alpha: 0.8),
           ),
         ),
         actions: [
@@ -241,7 +240,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
             child: Text(
               'Cancel',
               style: AppTypography.outfitWhite.copyWith(
-                color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+                color: AppColors.roseQuartz.withValues(alpha: 0.6),
               ),
             ),
           ),
@@ -253,7 +252,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
             child: Text(
               'Clear',
               style: AppTypography.outfitWhite.copyWith(
-                color: Colors.redAccent,
+                color: AppColors.error,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -378,20 +377,20 @@ class _CanvasScreenState extends State<CanvasScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.velvet,
+        backgroundColor: AppColors.velvet,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text('Add Text', style: AppTypography.cormorantBold),
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: AppTypography.outfitWhite.copyWith(color: AppTheme.petalWhite),
+          style: AppTypography.outfitWhite.copyWith(color: AppColors.petalWhite),
           decoration: InputDecoration(
             hintText: 'Type something...',
             hintStyle: AppTypography.outfitWhite.copyWith(
-              color: AppTheme.roseQuartz.withValues(alpha: 0.5),
+              color: AppColors.roseQuartz.withValues(alpha: 0.5),
             ),
             filled: true,
-            fillColor: AppTheme.twilight,
+            fillColor: AppColors.twilight,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,
@@ -408,7 +407,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
             child: Text(
               'Cancel',
               style: AppTypography.outfitWhite.copyWith(
-                color: AppTheme.roseQuartz,
+                color: AppColors.roseQuartz,
               ),
             ),
           ),
@@ -420,7 +419,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
             child: Text(
               'Add',
               style: AppTypography.outfitWhite.copyWith(
-                color: AppTheme.blushGold,
+                color: AppColors.blushGold,
                 fontWeight: FontWeight.bold,
               ),
             ),

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/trip.dart';
 import '../../data/services/travel_service.dart';
@@ -60,7 +59,7 @@ class _AddPinDialogState extends State<AddPinDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: AppTheme.velvet,
+      backgroundColor: AppColors.velvet,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(color: AppColors.blushGold.withValues(alpha: 0.2)),
@@ -83,19 +82,19 @@ class _AddPinDialogState extends State<AddPinDialog> {
                 'Dawarich • pin your memories',
                 style: AppTypography.outfitWhite.copyWith(
                   fontSize: 11,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                  color: AppColors.petalWhite.withValues(alpha: 0.5),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: _titleCtrl,
                 style: AppTypography.outfitWhite.copyWith(
-                  color: AppTheme.petalWhite,
+                  color: AppColors.petalWhite,
                 ),
                 decoration: InputDecoration(
                   hintText: 'Place — e.g., Kayangan Lake',
                   hintStyle: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                    color: AppColors.petalWhite.withValues(alpha: 0.4),
                   ),
                   filled: true,
                   fillColor: AppColors.twilight,
@@ -110,13 +109,13 @@ class _AddPinDialogState extends State<AddPinDialog> {
                 controller: _noteCtrl,
                 maxLines: 2,
                 style: AppTypography.outfitWhite.copyWith(
-                  color: AppTheme.petalWhite,
+                  color: AppColors.petalWhite,
                   fontSize: 13,
                 ),
                 decoration: InputDecoration(
                   hintText: 'Note — why it matters',
                   hintStyle: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                    color: AppColors.petalWhite.withValues(alpha: 0.4),
                   ),
                   filled: true,
                   fillColor: AppColors.twilight,
@@ -137,13 +136,13 @@ class _AddPinDialogState extends State<AddPinDialog> {
                         signed: true,
                       ),
                       style: AppTypography.outfitWhite.copyWith(
-                        color: AppTheme.petalWhite,
+                        color: AppColors.petalWhite,
                         fontSize: 12,
                       ),
                       decoration: InputDecoration(
                         hintText: 'Latitude',
                         hintStyle: AppTypography.outfitWhite.copyWith(
-                          color: AppTheme.petalWhite.withValues(alpha: 0.35),
+                          color: AppColors.petalWhite.withValues(alpha: 0.35),
                         ),
                         filled: true,
                         fillColor: AppColors.twilight,
@@ -163,13 +162,13 @@ class _AddPinDialogState extends State<AddPinDialog> {
                         signed: true,
                       ),
                       style: AppTypography.outfitWhite.copyWith(
-                        color: AppTheme.petalWhite,
+                        color: AppColors.petalWhite,
                         fontSize: 12,
                       ),
                       decoration: InputDecoration(
                         hintText: 'Longitude',
                         hintStyle: AppTypography.outfitWhite.copyWith(
-                          color: AppTheme.petalWhite.withValues(alpha: 0.35),
+                          color: AppColors.petalWhite.withValues(alpha: 0.35),
                         ),
                         filled: true,
                         fillColor: AppColors.twilight,
@@ -187,7 +186,7 @@ class _AddPinDialogState extends State<AddPinDialog> {
                 'Category',
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 11,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                  color: AppColors.petalWhite.withValues(alpha: 0.6),
                 ),
               ),
               const SizedBox(height: 6),
@@ -217,7 +216,7 @@ class _AddPinDialogState extends State<AddPinDialog> {
                           fontSize: 11,
                           color: sel
                               ? AppColors.auroraTeal
-                              : AppTheme.petalWhite.withValues(alpha: 0.7),
+                              : AppColors.petalWhite.withValues(alpha: 0.7),
                         ),
                       ),
                     ),
@@ -246,13 +245,13 @@ class _AddPinDialogState extends State<AddPinDialog> {
                               height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.white,
+                                color: AppColors.petalWhite,
                               ),
                             )
                           : Text(
                               'Add Pin ✨',
                               style: AppTypography.outfitBold.copyWith(
-                                color: Colors.white,
+                                color: AppColors.petalWhite,
                                 fontSize: 14,
                               ),
                             ),

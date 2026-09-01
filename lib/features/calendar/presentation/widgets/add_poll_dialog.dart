@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../data/models/date_poll.dart';
@@ -104,7 +103,7 @@ class _AddPollDialogState extends State<AddPollDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: AppTheme.velvet,
+      backgroundColor: AppColors.velvet,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(color: AppColors.blushGold.withValues(alpha: 0.2)),
@@ -135,19 +134,19 @@ class _AddPollDialogState extends State<AddPollDialog> {
                 'Rallly-style: propose dates, vote together',
                 style: AppTypography.outfitWhite.copyWith(
                   fontSize: 11,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                  color: AppColors.petalWhite.withValues(alpha: 0.6),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: _titleController,
                 style: AppTypography.outfitWhite.copyWith(
-                  color: AppTheme.petalWhite,
+                  color: AppColors.petalWhite,
                 ),
                 decoration: InputDecoration(
                   hintText: 'What are we scheduling? e.g., Anniversary dinner',
                   hintStyle: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                    color: AppColors.petalWhite.withValues(alpha: 0.4),
                   ),
                   filled: true,
                   fillColor: AppColors.twilight,
@@ -166,13 +165,13 @@ class _AddPollDialogState extends State<AddPollDialog> {
                 controller: _descController,
                 maxLines: 2,
                 style: AppTypography.outfitWhite.copyWith(
-                  color: AppTheme.petalWhite,
+                  color: AppColors.petalWhite,
                   fontSize: 13,
                 ),
                 decoration: InputDecoration(
                   hintText: 'Details (optional)',
                   hintStyle: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                    color: AppColors.petalWhite.withValues(alpha: 0.4),
                   ),
                   filled: true,
                   fillColor: AppColors.twilight,
@@ -190,7 +189,7 @@ class _AddPollDialogState extends State<AddPollDialog> {
                     'Proposed dates',
                     style: AppTypography.outfitBold.copyWith(
                       fontSize: 12,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                      color: AppColors.petalWhite.withValues(alpha: 0.7),
                     ),
                   ),
                   const Spacer(),
@@ -225,14 +224,14 @@ class _AddPollDialogState extends State<AddPollDialog> {
                       Icon(
                         Icons.event_rounded,
                         size: 18,
-                        color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                        color: AppColors.petalWhite.withValues(alpha: 0.5),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         'Add at least 2 dates to vote',
                         style: AppTypography.outfitWhite.copyWith(
                           fontSize: 12,
-                          color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                          color: AppColors.petalWhite.withValues(alpha: 0.6),
                         ),
                       ),
                     ],
@@ -269,7 +268,7 @@ class _AddPollDialogState extends State<AddPollDialog> {
                                 '${d.month}/${d.day}/${d.year}  ${TimeOfDay.fromDateTime(d).format(context)}',
                                 style: AppTypography.outfitWhite.copyWith(
                                   fontSize: 13,
-                                  color: AppTheme.petalWhite,
+                                  color: AppColors.petalWhite,
                                 ),
                               ),
                               const Spacer(),
@@ -278,7 +277,7 @@ class _AddPollDialogState extends State<AddPollDialog> {
                                 child: Icon(
                                   Icons.close_rounded,
                                   size: 16,
-                                  color: AppTheme.petalWhite.withValues(
+                                  color: AppColors.petalWhite.withValues(
                                     alpha: 0.5,
                                   ),
                                 ),
@@ -316,13 +315,13 @@ class _AddPollDialogState extends State<AddPollDialog> {
                               height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.white,
+                                color: AppColors.petalWhite,
                               ),
                             )
                           : Text(
                               'Create Poll ✨',
                               style: AppTypography.outfitBold.copyWith(
-                                color: Colors.white,
+                                color: AppColors.petalWhite,
                                 fontSize: 14,
                               ),
                             ),

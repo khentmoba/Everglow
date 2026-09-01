@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 
-import '../../../core/theme/app_theme.dart';
 import 'motion.dart';
 
 /// Visually consistent empty state for the four inside screens.
@@ -25,7 +25,7 @@ class ShelfEmptyState extends StatelessWidget {
     this.ctaLabel,
     this.ctaIcon,
     this.onCta,
-    this.accent = AppTheme.roseQuartz,
+    this.accent = AppColors.roseQuartz,
   });
 
   @override
@@ -80,7 +80,7 @@ class ShelfEmptyState extends StatelessWidget {
                 subtitle!,
                 textAlign: TextAlign.center,
                 style: AppTypography.outfitWhite.copyWith(
-                  color: AppTheme.roseQuartz.withValues(alpha: 0.7),
+                  color: AppColors.roseQuartz.withValues(alpha: 0.7),
                   fontSize: 13,
                   height: 1.5,
                 ),
@@ -153,7 +153,7 @@ class _CtaButtonState extends State<_CtaButton> {
               gradient: LinearGradient(
                 colors: [
                   widget.accent.withValues(alpha: 0.3),
-                  AppTheme.deepRose.withValues(alpha: 0.3),
+                  AppColors.deepRose.withValues(alpha: 0.3),
                 ],
               ),
               borderRadius: BorderRadius.circular(22),

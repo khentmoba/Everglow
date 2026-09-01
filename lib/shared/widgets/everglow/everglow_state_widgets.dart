@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/theme/app_theme.dart';
 
 /// Reusable empty/loading/error/offline state widgets for feature screens.
 /// Use these instead of ad-hoc inline states for consistency.
@@ -21,7 +21,7 @@ class EverglowLoadingState extends StatelessWidget {
             height: 24,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: AppTheme.deepRose,
+              color: AppColors.deepRose,
             ),
           ),
           if (message != null) ...[
@@ -30,7 +30,7 @@ class EverglowLoadingState extends StatelessWidget {
               message!,
               style: AppTypography.outfitWhite.copyWith(
                 fontSize: 13,
-                color: AppTheme.roseQuartz.withValues(alpha: 0.7),
+                color: AppColors.roseQuartz.withValues(alpha: 0.7),
               ),
             ),
           ],
@@ -58,7 +58,7 @@ class EverglowErrorState extends StatelessWidget {
             Icon(
               Icons.cloud_off_outlined,
               size: 48,
-              color: AppTheme.roseQuartz.withValues(alpha: 0.5),
+              color: AppColors.roseQuartz.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
             Text(
@@ -66,7 +66,7 @@ class EverglowErrorState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: AppTypography.outfitWhite.copyWith(
                 fontSize: 14,
-                color: AppTheme.roseQuartz.withValues(alpha: 0.8),
+                color: AppColors.roseQuartz.withValues(alpha: 0.8),
               ),
             ),
             if (onRetry != null) ...[
@@ -76,8 +76,8 @@ class EverglowErrorState extends StatelessWidget {
                 icon: const Icon(Icons.refresh_rounded, size: 18),
                 label: Text('Try again', style: AppTypography.outfitBold),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.deepRose,
-                  foregroundColor: AppTheme.petalWhite,
+                  backgroundColor: AppColors.deepRose,
+                  foregroundColor: AppColors.petalWhite,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -129,7 +129,7 @@ class EverglowEmptyState extends StatelessWidget {
             Icon(
               icon,
               size: 48,
-              color: AppTheme.roseQuartz.withValues(alpha: 0.4),
+              color: AppColors.roseQuartz.withValues(alpha: 0.4),
             ),
             const SizedBox(height: 16),
             Text(
@@ -137,7 +137,7 @@ class EverglowEmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: AppTypography.outfitWhite.copyWith(
                 fontSize: 14,
-                color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+                color: AppColors.roseQuartz.withValues(alpha: 0.6),
               ),
             ),
           ],

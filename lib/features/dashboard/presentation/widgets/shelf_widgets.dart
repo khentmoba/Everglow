@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 
 /// Per-shelf visual identity. Each rail (Cinema, Anime, Books, Manga)
@@ -97,7 +96,7 @@ class ShelfHeader extends StatelessWidget {
                         fontSize: 27,
                         height: 0.95,
                         letterSpacing: -0.2,
-                        color: AppTheme.petalWhite,
+                        color: AppColors.petalWhite,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -132,7 +131,7 @@ class ShelfHeader extends StatelessWidget {
                     style: AppTypography.outfitWhite.copyWith(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.48),
+                      color: AppColors.petalWhite.withValues(alpha: 0.48),
                       letterSpacing: 1.0,
                     ),
                   ),
@@ -221,18 +220,18 @@ class _Badge extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppTheme.deepRose.withValues(alpha: 0.22),
-            AppTheme.deepRose.withValues(alpha: 0.12),
+            AppColors.deepRose.withValues(alpha: 0.22),
+            AppColors.deepRose.withValues(alpha: 0.12),
           ],
         ),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
-          color: AppTheme.deepRose.withValues(alpha: 0.45),
+          color: AppColors.deepRose.withValues(alpha: 0.45),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.deepRose.withValues(alpha: 0.15),
+            color: AppColors.deepRose.withValues(alpha: 0.15),
             blurRadius: 8,
           ),
         ],
@@ -277,7 +276,7 @@ class _ViewAllButtonState extends State<_ViewAllButton> {
           decoration: BoxDecoration(
             color: _hovered
                 ? widget.accent.color.withValues(alpha: 0.16)
-                : AppTheme.moonlight.withValues(alpha: 0.07),
+                : AppColors.moonlight.withValues(alpha: 0.07),
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
               color: widget.accent.color.withValues(
@@ -302,7 +301,7 @@ class _ViewAllButtonState extends State<_ViewAllButton> {
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 11.5,
                   color: _hovered
-                      ? AppTheme.petalWhite
+                      ? AppColors.petalWhite
                       : widget.accent.color.withValues(alpha: 0.95),
                   letterSpacing: 0.5,
                 ),
@@ -407,7 +406,7 @@ class _ShelfCardState extends State<ShelfCard> {
             border: Border.all(
               color: isHovered
                   ? widget.accent.color.withValues(alpha: 0.52)
-                  : Colors.white.withValues(alpha: 0.10),
+                  : AppColors.petalWhite.withValues(alpha: 0.10),
               width: 1,
             ),
             boxShadow: [
@@ -464,7 +463,7 @@ class _ShelfCardState extends State<ShelfCard> {
                       gradient: LinearGradient(
                         colors: [
                           Colors.transparent,
-                          Colors.white.withValues(alpha: 0.22),
+                          AppColors.petalWhite.withValues(alpha: 0.22),
                           Colors.transparent,
                         ],
                       ),
@@ -513,7 +512,7 @@ class _ShelfCardState extends State<ShelfCard> {
                         Text(
                           widget.title,
                           style: AppTypography.outfitHeading.copyWith(
-                            color: AppTheme.petalWhite,
+                            color: AppColors.petalWhite,
                             fontSize: 11.5,
                             height: 1.18,
                             letterSpacing: 0.1,
@@ -587,7 +586,7 @@ class _ShelfCardState extends State<ShelfCard> {
                         color: Colors.black.withValues(alpha: 0.62),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.18),
+                          color: AppColors.petalWhite.withValues(alpha: 0.18),
                           width: 1,
                         ),
                         boxShadow: [
@@ -612,7 +611,7 @@ class _ShelfCardState extends State<ShelfCard> {
                           Text(
                             widget.topBadge!,
                             style: AppTypography.outfitWhite.copyWith(
-                              color: Colors.white.withValues(alpha: 0.95),
+                              color: AppColors.petalWhite.withValues(alpha: 0.95),
                               fontSize: 8,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 0.7,
@@ -633,7 +632,7 @@ class _ShelfCardState extends State<ShelfCard> {
                             end: const Alignment(1.0, 0.4),
                             colors: [
                               Colors.transparent,
-                              Colors.white.withValues(alpha: 0.08),
+                              AppColors.petalWhite.withValues(alpha: 0.08),
                               Colors.transparent,
                             ],
                             stops: const [0.0, 0.5, 1.0],
@@ -664,8 +663,8 @@ class _Placeholder extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AppTheme.velvet,
-            AppTheme.twilight,
+            AppColors.velvet,
+            AppColors.twilight,
             accent.glow.withValues(alpha: 0.35),
           ],
         ),
@@ -688,7 +687,7 @@ class _Placeholder extends StatelessWidget {
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: AppTypography.outfitBold.copyWith(
-                  color: AppTheme.petalWhite.withValues(alpha: 0.85),
+                  color: AppColors.petalWhite.withValues(alpha: 0.85),
                   fontSize: 9,
                   height: 1.2,
                 ),
@@ -725,7 +724,7 @@ class ShelfEmpty extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.white.withValues(alpha: 0.06),
+            AppColors.petalWhite.withValues(alpha: 0.06),
             accent.color.withValues(alpha: 0.06),
             AppColors.inkDeep.withValues(alpha: 0.55),
           ],
@@ -733,7 +732,7 @@ class ShelfEmpty extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
+          color: AppColors.petalWhite.withValues(alpha: 0.08),
           width: 1,
         ),
         boxShadow: [
@@ -777,7 +776,7 @@ class ShelfEmpty extends StatelessWidget {
                 Text(
                   'Nothing here yet',
                   style: AppTypography.outfitHeading.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.88),
+                    color: AppColors.petalWhite.withValues(alpha: 0.88),
                     fontSize: 12.5,
                     letterSpacing: 0.2,
                   ),
@@ -786,7 +785,7 @@ class ShelfEmpty extends StatelessWidget {
                 Text(
                   message,
                   style: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.52),
+                    color: AppColors.petalWhite.withValues(alpha: 0.52),
                     fontStyle: FontStyle.italic,
                     fontSize: 12,
                     height: 1.35,
@@ -800,13 +799,13 @@ class ShelfEmpty extends StatelessWidget {
             height: 28,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white.withValues(alpha: 0.06),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+              color: AppColors.petalWhite.withValues(alpha: 0.06),
+              border: Border.all(color: AppColors.petalWhite.withValues(alpha: 0.10)),
             ),
             child: Icon(
               Icons.add_rounded,
               size: 14,
-              color: AppTheme.petalWhite.withValues(alpha: 0.45),
+              color: AppColors.petalWhite.withValues(alpha: 0.45),
             ),
           ),
         ],
@@ -972,13 +971,13 @@ class _ShimmerRow extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Colors.white.withValues(alpha: 0.06 + (idx % 3) * 0.015),
-              AppTheme.moonlight.withValues(alpha: 0.04),
+              AppColors.petalWhite.withValues(alpha: 0.06 + (idx % 3) * 0.015),
+              AppColors.moonlight.withValues(alpha: 0.04),
             ],
           ),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.07),
+            color: AppColors.petalWhite.withValues(alpha: 0.07),
             width: 1,
           ),
         ),
@@ -994,7 +993,7 @@ class _ShimmerRow extends StatelessWidget {
                   Container(
                     height: 8,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.08),
+                      color: AppColors.petalWhite.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(6),
                     ),
                   ),
@@ -1003,7 +1002,7 @@ class _ShimmerRow extends StatelessWidget {
                     height: 7,
                     width: 72,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.05),
+                      color: AppColors.petalWhite.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(6),
                     ),
                   ),

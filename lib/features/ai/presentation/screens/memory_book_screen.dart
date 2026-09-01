@@ -146,7 +146,7 @@ class _MemoryBookScreenState extends State<MemoryBookScreen> {
       body: Stack(
         children: [
           const EverglowBackground(
-            showPetals: true,
+            showPetals: false,
             glows: [
               RadialGlow(
                 color: AppColors.softLavender,

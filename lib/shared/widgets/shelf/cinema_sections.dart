@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_typography.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_breakpoints.dart';
 import 'motion.dart';
 import 'shelf_section_header.dart';
@@ -25,7 +24,7 @@ class ForYouSection extends StatelessWidget {
     this.eyebrow = "Mochi's Picks",
     this.title = "Mochi's Picks 🐱",
     this.icon = Icons.favorite_rounded,
-    this.accent = AppTheme.deepRose,
+    this.accent = AppColors.deepRose,
     this.onSeeAll,
   });
 
@@ -146,13 +145,13 @@ class _ForYouCardState extends State<_ForYouCard> {
                                 const Icon(
                                   Icons.auto_awesome,
                                   size: 10,
-                                  color: Colors.white,
+                                  color: AppColors.petalWhite,
                                 ),
                                 const SizedBox(width: 3),
                                 Text(
                                   '${widget.item.matchPercent}%',
                                   style: AppTypography.outfitHeading.copyWith(
-                                    color: Colors.white,
+                                    color: AppColors.petalWhite,
                                     fontSize: 9,
                                     fontWeight: FontWeight.w800,
                                   ),
@@ -206,7 +205,7 @@ class ForYouItem {
     this.subtitle,
     required this.imageUrl,
     this.matchPercent = 95,
-    this.matchColor = AppTheme.deepRose,
+    this.matchColor = AppColors.deepRose,
     this.onTap,
   });
 }
@@ -229,7 +228,7 @@ List<ForYouItem> buildForYouItems<T>({
       subtitle: getSubtitle?.call(item),
       imageUrl: getImageUrl(item),
       matchPercent: getMatchPercent?.call(item) ?? 95,
-      matchColor: AppTheme.deepRose,
+      matchColor: AppColors.deepRose,
       onTap: onTap != null ? () => onTap(item) : null,
     );
   }).toList();
@@ -252,7 +251,7 @@ class TopTenRankingSection extends StatelessWidget {
     this.eyebrow = 'Trending Today',
     this.title = 'TOP 10 Today',
     this.icon = Icons.leaderboard_rounded,
-    this.accent = AppTheme.warmAmber,
+    this.accent = AppColors.warmAmber,
   });
 
   @override
@@ -355,7 +354,7 @@ class _RankingTileState extends State<_RankingTile> {
             border: Border.all(
               color: isTop3
                   ? _rankColor.withValues(alpha: 0.3)
-                  : AppTheme.roseQuartz.withValues(alpha: 0.07),
+                  : AppColors.roseQuartz.withValues(alpha: 0.07),
               width: isTop3 ? 1.0 : 0.5,
             ),
           ),
@@ -436,7 +435,7 @@ class _RankingTileState extends State<_RankingTile> {
                       Text(
                         widget.item.subtitle!,
                         style: AppTypography.outfitBold.copyWith(
-                          color: AppTheme.warmAmber,
+                          color: AppColors.warmAmber,
                           fontSize: 11,
                         ),
                       ),
@@ -449,13 +448,13 @@ class _RankingTileState extends State<_RankingTile> {
                           vertical: 1,
                         ),
                         decoration: BoxDecoration(
-                          color: AppTheme.deepRose.withValues(alpha: 0.15),
+                          color: AppColors.deepRose.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           widget.item.badge!,
                           style: AppTypography.outfitHeading.copyWith(
-                            color: AppTheme.deepRose,
+                            color: AppColors.deepRose,
                             fontSize: 8,
                           ),
                         ),
@@ -526,7 +525,7 @@ class OnlyOnSection extends StatelessWidget {
             eyebrow: 'Streaming Providers',
             title: 'Only on',
             icon: Icons.live_tv_rounded,
-            accent: AppTheme.softLavender,
+            accent: AppColors.softLavender,
           ),
           const SizedBox(height: 14),
           ...providers.map(
@@ -692,7 +691,7 @@ class ContinueWatchingRow extends StatelessWidget {
     required this.items,
     this.eyebrow = 'Pick Up Where You Left Off',
     this.title = 'Continue Watching',
-    this.accent = AppTheme.deepRose,
+    this.accent = AppColors.deepRose,
   });
 
   @override
@@ -830,7 +829,7 @@ class _ContinueCard extends StatelessWidget {
                       child: Text(
                         item.progressLabel ?? 'WATCHED',
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: AppColors.petalWhite,
                           fontSize: 8,
                           fontWeight: FontWeight.w800,
                           letterSpacing: 0.8,
@@ -852,7 +851,7 @@ class _ContinueCard extends StatelessWidget {
                       Text(
                         item.year!,
                         style: AppTypography.outfitBold.copyWith(
-                          color: AppTheme.warmAmber,
+                          color: AppColors.warmAmber,
                           fontSize: 10,
                         ),
                       ),
@@ -878,7 +877,7 @@ class _ContinueCard extends StatelessWidget {
                   ),
                   child: const Icon(
                     Icons.replay_rounded,
-                    color: Colors.white,
+                    color: AppColors.petalWhite,
                     size: 18,
                   ),
                 ),
@@ -891,7 +890,7 @@ class _ContinueCard extends StatelessWidget {
                 child: Container(
                   height: 3,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
+                    color: AppColors.petalWhite.withValues(alpha: 0.15),
                   ),
                   child: FractionallySizedBox(
                     alignment: Alignment.centerLeft,

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/memory_photo.dart';
 import '../../data/services/gallery_service.dart';
@@ -32,7 +31,7 @@ class GalleryMapView extends StatelessWidget {
                 'No pinned memories yet',
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 14,
-                  color: AppTheme.petalWhite,
+                  color: AppColors.petalWhite,
                 ),
               ),
               const SizedBox(height: 6),
@@ -40,7 +39,7 @@ class GalleryMapView extends StatelessWidget {
                 'Add a location when uploading — pins will appear on your world map',
                 style: AppTypography.outfitWhite.copyWith(
                   fontSize: 12,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                  color: AppColors.petalWhite.withValues(alpha: 0.6),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -90,7 +89,7 @@ class GalleryMapView extends StatelessWidget {
                 '${located.length} pinned ${located.length == 1 ? 'memory' : 'memories'}',
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 12,
-                  color: AppTheme.petalWhite,
+                  color: AppColors.petalWhite,
                 ),
               ),
               const Spacer(),
@@ -207,7 +206,7 @@ class GalleryMapView extends StatelessWidget {
                               '${p.latitude!.toStringAsFixed(2)}, ${p.longitude!.toStringAsFixed(2)}',
                           style: AppTypography.outfitWhite.copyWith(
                             fontSize: 10,
-                            color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                            color: AppColors.petalWhite.withValues(alpha: 0.7),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -233,7 +232,7 @@ class GalleryMapView extends StatelessWidget {
         child: Container(
           constraints: const BoxConstraints(maxWidth: 420),
           decoration: BoxDecoration(
-            color: AppTheme.velvet,
+            color: AppColors.velvet,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
@@ -280,7 +279,7 @@ class GalleryMapView extends StatelessWidget {
                       p.caption.isEmpty ? 'No caption' : p.caption,
                       style: AppTypography.outfitWhite.copyWith(
                         fontSize: 13,
-                        color: AppTheme.petalWhite,
+                        color: AppColors.petalWhite,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -288,7 +287,7 @@ class GalleryMapView extends StatelessWidget {
                       '${p.latitude!.toStringAsFixed(4)}, ${p.longitude!.toStringAsFixed(4)} • by ${p.uploadedBy}',
                       style: AppTypography.outfitWhite.copyWith(
                         fontSize: 10,
-                        color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                        color: AppColors.petalWhite.withValues(alpha: 0.5),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -375,7 +374,7 @@ class _MapPinState extends State<_MapPin> {
               duration: const Duration(milliseconds: 150),
               padding: EdgeInsets.all(_hovered ? 3 : 2),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.petalWhite,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(

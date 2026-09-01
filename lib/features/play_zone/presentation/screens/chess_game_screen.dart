@@ -246,7 +246,9 @@ class _ChessGameScreenState extends State<ChessGameScreen>
       }
     } else if (low == 'n') {
       const d = [(1, 2), (2, 1), (2, -1), (1, -2), (-1, -2), (-2, -1), (-2, 1), (-1, 2)];
-      for (final e in d) addIf(f + e.$1, r + e.$2);
+      for (final e in d) {
+        addIf(f + e.$1, r + e.$2);
+      }
     } else if (low == 'b' || low == 'r' || low == 'q') {
       final dirs = <(int, int)>[];
       if (low == 'b' || low == 'q') dirs.addAll([(1, 1), (1, -1), (-1, 1), (-1, -1)]);
@@ -394,8 +396,11 @@ class _ChessGameScreenState extends State<ChessGameScreen>
     }
     san += to;
     if (promo != null) san += '=${promo.toUpperCase()}';
-    if (isMate) san += '#';
-    else if (givesCheck) san += '+';
+    if (isMate) {
+      san += '#';
+    } else if (givesCheck) {
+      san += '+';
+    }
     return san;
   }
 
@@ -503,8 +508,11 @@ class _ChessGameScreenState extends State<ChessGameScreen>
     ));
 
     if (actualCaptured != null) {
-      if (isW) _capturedByWhite.add(actualCaptured);
-      else _capturedByBlack.add(actualCaptured);
+      if (isW) {
+        _capturedByWhite.add(actualCaptured);
+      } else {
+        _capturedByBlack.add(actualCaptured);
+      }
     }
 
     _board.remove(from);
@@ -530,8 +538,11 @@ class _ChessGameScreenState extends State<ChessGameScreen>
     }
 
     String placed = moving;
-    if (promotionChoice != null) placed = promotionChoice;
-    else if (isPawn && (_rankOf(to) == 7 || _rankOf(to) == 0)) placed = isW ? 'Q' : 'q';
+    if (promotionChoice != null) {
+      placed = promotionChoice;
+    } else if (isPawn && (_rankOf(to) == 7 || _rankOf(to) == 0)) {
+      placed = isW ? 'Q' : 'q';
+    }
     _board[to] = placed;
 
     if (moving == 'K') _whiteKingMoved = true;
@@ -612,14 +623,18 @@ class _ChessGameScreenState extends State<ChessGameScreen>
     _legalTargets = {};
     _promotionFrom = null;
     _promotionTo = null;
-    if (_isCheck) _checkPulse.repeat(reverse: true); else { _checkPulse.stop(); _checkPulse.value=0; }
+    if (_isCheck) {
+      _checkPulse.repeat(reverse: true);
+    } else { _checkPulse.stop(); _checkPulse.value=0; }
     setState(() {});
     HapticFeedback.selectionClick();
   }
 
   int _material(List<String> caps) {
     int s = 0;
-    for (final p in caps) s += _values[p] ?? 0;
+    for (final p in caps) {
+      s += _values[p] ?? 0;
+    }
     return s;
   }
 
@@ -638,7 +653,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
                 RadialGlow(color: AppColors.blushGold, alignment: Alignment(-0.6, -0.85), size: 0.85, opacity: 0.10),
                 RadialGlow(color: AppColors.softLavender, alignment: Alignment(0.85, 0.9), size: 0.7, opacity: 0.07),
               ],
-              showPetals: true,
+              showPetals: false,
             ),
           ),
           SafeArea(
@@ -802,7 +817,7 @@ class _ChessGameScreenState extends State<ChessGameScreen>
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: AppColors.deepRose, shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusFull)),
             onPressed: () { Navigator.pop(ctx); _resetBoard(); },
-            child: Text('New game', style: AppTypography.outfitBold.copyWith(color: Colors.white, fontSize: 13)),
+            child: Text('New game', style: AppTypography.outfitBold.copyWith(color: AppColors.petalWhite, fontSize: 13)),
           ),
         ],
       ),
@@ -863,7 +878,7 @@ class _StatusBar extends StatelessWidget {
     IconData icon;
     if (isMate) {
       final winner = turn == 'w' ? 'Black' : 'White';
-      text = 'Checkmate \u2022 ' + winner + ' wins';
+      text = 'Checkmate \u2022 $winner wins';
       dot = AppColors.error;
       icon = Icons.emoji_events_rounded;
     } else if (isStale) {
@@ -871,19 +886,19 @@ class _StatusBar extends StatelessWidget {
       dot = AppColors.warning;
       icon = Icons.handshake_rounded;
     } else if (isCheck) {
-      text = (turn == 'w' ? 'White' : 'Black') + ' in check!';
+      text = '${turn == 'w' ? 'White' : 'Black'} in check!';
       dot = AppColors.error;
       icon = Icons.warning_amber_rounded;
     } else {
-      text = (turn == 'w' ? 'White' : 'Black') + ' to move';
-      dot = turn == 'w' ? Colors.white : const Color(0xFF2B2B2B);
+      text = '${turn == 'w' ? 'White' : 'Black'} to move';
+      dot = turn == 'w' ? AppColors.petalWhite : const Color(0xFF2B2B2B);
       icon = Icons.circle;
     }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: AnimatedBuilder(
         animation: checkPulse,
-        builder: (_, __) {
+        builder: (_, _) {
           final pulse = isCheck ? 0.6 + 0.4 * checkPulse.value : 1.0;
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -909,7 +924,7 @@ class _StatusBar extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: dot,
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white.withValues(alpha: turn == 'w' ? 0.9 : 0.0)),
+                    border: Border.all(color: AppColors.petalWhite.withValues(alpha: turn == 'w' ? 0.9 : 0.0)),
                     boxShadow: [BoxShadow(color: dot.withValues(alpha: 0.45), blurRadius: 6)],
                   ),
                 ),
@@ -928,7 +943,7 @@ class _StatusBar extends StatelessWidget {
                     borderRadius: AppRadius.radiusFull,
                     border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.10)),
                   ),
-                  child: Text(moveCount == 0 ? 'New game' : '' + moveCount.toString() + ' ply \u2022 ' + (moveCount / 2).ceil().toString() + ' moves',
+                  child: Text(moveCount == 0 ? 'New game' : '$moveCount ply \u2022 ${(moveCount / 2).ceil()} moves',
                     style: AppTypography.outfitWhite.copyWith(fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 0.3, color: AppColors.petalWhite.withValues(alpha: 0.62)),
                   ),
                 ),
@@ -973,11 +988,11 @@ class _PlayerBar extends StatelessWidget {
             width: 36, height: 36,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(colors: isWhite ? [Colors.white, const Color(0xFFE8E0D6)] : [const Color(0xFF2B2B2B), const Color(0xFF111111)]),
+              gradient: LinearGradient(colors: isWhite ? [AppColors.petalWhite, const Color(0xFFE8E0D6)] : [const Color(0xFF2B2B2B), const Color(0xFF111111)]),
               border: Border.all(color: isTurn ? AppColors.blushGold.withValues(alpha: 0.55) : AppColors.moonlight.withValues(alpha: 0.12), width: isTurn ? 1.6 : 1),
               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 6)],
             ),
-            child: Icon(isWhite ? Icons.circle : Icons.circle_outlined, size: 18, color: isWhite ? const Color(0xFF2B2B2B) : Colors.white.withValues(alpha: 0.85)),
+            child: Icon(isWhite ? Icons.circle : Icons.circle_outlined, size: 18, color: isWhite ? const Color(0xFF2B2B2B) : AppColors.petalWhite.withValues(alpha: 0.85)),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -989,12 +1004,12 @@ class _PlayerBar extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(color: AppColors.deepRose, borderRadius: AppRadius.radiusFull),
-                    child: Text('TURN', style: AppTypography.outfitWhite.copyWith(fontSize: 8, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: Colors.white)),
+                    child: Text('TURN', style: AppTypography.outfitWhite.copyWith(fontSize: 8, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: AppColors.petalWhite)),
                   ),
                 ],
                 if (materialDiff > 0) ...[
                   const SizedBox(width: 6),
-                  Text('+' + materialDiff.toString(), style: AppTypography.outfitBold.copyWith(fontSize: 11, color: AppColors.success)),
+                  Text('+$materialDiff', style: AppTypography.outfitBold.copyWith(fontSize: 11, color: AppColors.success)),
                 ],
               ]),
               const SizedBox(height: 3),
@@ -1005,15 +1020,15 @@ class _PlayerBar extends StatelessWidget {
                     : ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: pieceOrder.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 2),
+                        separatorBuilder: (_, _) => const SizedBox(width: 2),
                         itemBuilder: (_, i) {
                           final k = pieceOrder[i];
                           final cnt = counts[k] ?? 0;
                           if (cnt == 0) return const SizedBox.shrink();
                           final glyph = {'p':'\u265F','n':'\u265E','b':'\u265D','r':'\u265C','q':'\u265B'}[k]!;
                           return Row(mainAxisSize: MainAxisSize.min, children: [
-                            Text(glyph, style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.85))),
-                            if (cnt > 1) Text('\u00D7' + cnt.toString(), style: AppTypography.outfitWhite.copyWith(fontSize: 9, fontWeight: FontWeight.w700, color: AppColors.petalWhite.withValues(alpha: 0.62))),
+                            Text(glyph, style: TextStyle(fontSize: 13, color: AppColors.petalWhite.withValues(alpha: 0.85))),
+                            if (cnt > 1) Text('\u00D7$cnt', style: AppTypography.outfitWhite.copyWith(fontSize: 9, fontWeight: FontWeight.w700, color: AppColors.petalWhite.withValues(alpha: 0.62))),
                           ]);
                         },
                       ),
@@ -1140,7 +1155,7 @@ class _BoardSection extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   color: AppColors.inkDeep.withValues(alpha: 0.22),
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                                  border: Border.all(color: AppColors.petalWhite.withValues(alpha: 0.12)),
                                   boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 4)],
                                 ),
                                 child: Center(
@@ -1171,11 +1186,11 @@ class _BoardSection extends StatelessWidget {
                                   style: TextStyle(
                                     fontSize: 30,
                                     height: 1,
-                                    color: isWhitePiece(piece) ? Colors.white : const Color(0xFF111111),
+                                    color: isWhitePiece(piece) ? AppColors.petalWhite : const Color(0xFF111111),
                                     shadows: [
                                       Shadow(color: Colors.black.withValues(alpha: isWhitePiece(piece) ? 0.28 : 0.45), blurRadius: 4, offset: const Offset(0, 1.5)),
                                       if (isWhitePiece(piece))
-                                        const Shadow(color: Colors.white, blurRadius: 0.5),
+                                        const Shadow(color: AppColors.petalWhite, blurRadius: 0.5),
                                     ],
                                   ),
                                 ),
@@ -1186,9 +1201,9 @@ class _BoardSection extends StatelessWidget {
                               child: IgnorePointer(
                                 child: AnimatedBuilder(
                                   animation: checkPulse,
-                                  builder: (_, __) => Container(
+                                  builder: (_, _) => Container(
                                     decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.white.withValues(alpha: 0.55 * checkPulse.value), width: 1.2),
+                                      border: Border.all(color: AppColors.petalWhite.withValues(alpha: 0.55 * checkPulse.value), width: 1.2),
                                       boxShadow: [BoxShadow(color: AppColors.error.withValues(alpha: 0.35 * checkPulse.value), blurRadius: 10)],
                                     ),
                                   ),
@@ -1207,7 +1222,7 @@ class _BoardSection extends StatelessWidget {
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     borderRadius: AppRadius.radiusX2,
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+                    border: Border.all(color: AppColors.petalWhite.withValues(alpha: 0.04)),
                   ),
                 ),
               ),
@@ -1240,9 +1255,13 @@ class _SidePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final diff = materialWhite - materialBlack;
     String materialText;
-    if (diff == 0) materialText = 'Even material';
-    else if (diff > 0) materialText = 'White +' + diff.toString();
-    else materialText = 'Black +' + (-diff).toString();
+    if (diff == 0) {
+      materialText = 'Even material';
+    } else if (diff > 0) {
+      materialText = 'White +$diff';
+    } else {
+      materialText = 'Black +${-diff}';
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1280,7 +1299,7 @@ class _SidePanel extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Expanded(child: Text(materialText, style: AppTypography.outfitWhite.copyWith(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.petalWhite.withValues(alpha: 0.78)))),
-                  Text(sanHistory.length.toString() + ' ply', style: AppTypography.outfitWhite.copyWith(fontSize: 10, color: AppColors.petalWhite.withValues(alpha: 0.44))),
+                  Text('${sanHistory.length} ply', style: AppTypography.outfitWhite.copyWith(fontSize: 10, color: AppColors.petalWhite.withValues(alpha: 0.44))),
                 ]),
               ),
             ],
@@ -1317,7 +1336,7 @@ class _SidePanel extends StatelessWidget {
                         Clipboard.setData(ClipboardData(text: pgn));
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('PGN copied', style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: Colors.white)),
+                            content: Text('PGN copied', style: AppTypography.outfitWhite.copyWith(fontSize: 12, color: AppColors.petalWhite)),
                             backgroundColor: AppColors.deepRose,
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLg),
@@ -1376,7 +1395,7 @@ class _SidePanel extends StatelessWidget {
                             border: isLastRow ? Border.all(color: AppColors.blushGold.withValues(alpha: 0.14)) : null,
                           ),
                           child: Row(children: [
-                            SizedBox(width: 28, child: Text((i + 1).toString() + '.', style: AppTypography.outfitWhite.copyWith(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.petalWhite.withValues(alpha: 0.42)))),
+                            SizedBox(width: 28, child: Text('${i + 1}.', style: AppTypography.outfitWhite.copyWith(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.petalWhite.withValues(alpha: 0.42)))),
                             Expanded(child: _MovePill(text: w, isWhite: true, isLast: isLastRow && b == null)),
                             const SizedBox(width: 6),
                             Expanded(child: b != null ? _MovePill(text: b, isWhite: false, isLast: isLastRow) : Text('\u2014', style: AppTypography.outfitWhite.copyWith(fontSize: 11, color: AppColors.petalWhite.withValues(alpha: 0.22)))),
@@ -1403,11 +1422,11 @@ class _SidePanel extends StatelessWidget {
           ),
           child: Row(
             children: [
-              _LegendDot(color: AppColors.deepRose, label: 'Selected'),
+              const _LegendDot(color: AppColors.deepRose, label: 'Selected'),
               const SizedBox(width: 10),
-              _LegendDot(color: AppColors.blushGold, label: 'Last move'),
+              const _LegendDot(color: AppColors.blushGold, label: 'Last move'),
               const SizedBox(width: 10),
-              _LegendDot(color: AppColors.error, label: 'Check'),
+              const _LegendDot(color: AppColors.error, label: 'Check'),
               const Spacer(),
               Icon(Icons.touch_app_rounded, size: 12, color: AppColors.petalWhite.withValues(alpha: 0.32)),
               const SizedBox(width: 4),
@@ -1422,8 +1441,11 @@ class _SidePanel extends StatelessWidget {
   String _toPgn(List<String> sans) {
     final buf = StringBuffer();
     for (int i = 0; i < sans.length; i++) {
-      if (i % 2 == 0) buf.write((i ~/ 2 + 1).toString() + '. ' + sans[i] + ' ');
-      else buf.write(sans[i] + ' ');
+      if (i % 2 == 0) {
+        buf.write('${i ~/ 2 + 1}. ${sans[i]} ');
+      } else {
+        buf.write('${sans[i]} ');
+      }
     }
     return buf.toString().trim() + (sans.isEmpty ? '' : ' *');
   }
@@ -1436,7 +1458,7 @@ class _LegendDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(mainAxisSize: MainAxisSize.min, children: [
-      Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle, border: Border.all(color: Colors.white.withValues(alpha: 0.15)))),
+      Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle, border: Border.all(color: AppColors.petalWhite.withValues(alpha: 0.15)))),
       const SizedBox(width: 5),
       Text(label, style: AppTypography.outfitWhite.copyWith(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.petalWhite.withValues(alpha: 0.62))),
     ]);
@@ -1453,11 +1475,11 @@ class _MovePill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: isLast ? (isWhite ? Colors.white.withValues(alpha: 0.92) : const Color(0xFF1A1A1E)) : (isWhite ? Colors.white.withValues(alpha: 0.08) : AppColors.inkDeep.withValues(alpha: 0.35)),
+        color: isLast ? (isWhite ? AppColors.petalWhite.withValues(alpha: 0.92) : const Color(0xFF1A1A1E)) : (isWhite ? AppColors.petalWhite.withValues(alpha: 0.08) : AppColors.inkDeep.withValues(alpha: 0.35)),
         borderRadius: AppRadius.radiusSm,
         border: Border.all(color: isLast ? AppColors.blushGold.withValues(alpha: 0.35) : AppColors.moonlight.withValues(alpha: 0.08)),
       ),
-      child: Text(text, style: AppTypography.outfitWhite.copyWith(fontSize: 11.5, fontWeight: FontWeight.w700, color: isLast ? (isWhite ? const Color(0xFF1A1A1E) : Colors.white) : AppColors.petalWhite)),
+      child: Text(text, style: AppTypography.outfitWhite.copyWith(fontSize: 11.5, fontWeight: FontWeight.w700, color: isLast ? (isWhite ? const Color(0xFF1A1A1E) : AppColors.petalWhite) : AppColors.petalWhite)),
     );
   }
 }
@@ -1499,9 +1521,9 @@ class _PillButtonState extends State<_PillButton> {
             child: Opacity(
               opacity: enabled ? 1 : 0.38,
               child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(widget.icon, size: 14, color: widget.variant == _PillVariant.rose ? Colors.white : AppColors.blushGold),
+                Icon(widget.icon, size: 14, color: widget.variant == _PillVariant.rose ? AppColors.petalWhite : AppColors.blushGold),
                 const SizedBox(width: 5),
-                Text(widget.label, style: AppTypography.outfitWhite.copyWith(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.2, color: widget.variant == _PillVariant.rose ? Colors.white : AppColors.petalWhite)),
+                Text(widget.label, style: AppTypography.outfitWhite.copyWith(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.2, color: widget.variant == _PillVariant.rose ? AppColors.petalWhite : AppColors.petalWhite)),
               ]),
             ),
           ),
@@ -1615,12 +1637,12 @@ class _GameOverOverlay extends StatelessWidget {
                   gradient: LinearGradient(colors: isMate ? [AppColors.deepRose, AppColors.auroraRose] : [AppColors.auroraGold, AppColors.warmAmber]),
                   boxShadow: [BoxShadow(color: (isMate ? AppColors.deepRose : AppColors.auroraGold).withValues(alpha: 0.35), blurRadius: 14)],
                 ),
-                child: Icon(isMate ? Icons.emoji_events_rounded : Icons.handshake_rounded, color: Colors.white, size: 26),
+                child: Icon(isMate ? Icons.emoji_events_rounded : Icons.handshake_rounded, color: AppColors.petalWhite, size: 26),
               ),
               const SizedBox(height: 12),
               Text(isMate ? 'Checkmate!' : 'Stalemate', style: AppTypography.cormorantBold.copyWith(fontSize: 24, color: AppColors.petalWhite)),
               const SizedBox(height: 4),
-              Text(isMate ? winner + ' wins \u2014 beautiful game.' : 'Draw by stalemate \u2014 no legal moves, but no check.', textAlign: TextAlign.center, style: AppTypography.outfitWhite.copyWith(fontSize: 12.5, color: AppColors.textMuted, height: 1.4)),
+              Text(isMate ? '$winner wins \u2014 beautiful game.' : 'Draw by stalemate \u2014 no legal moves, but no check.', textAlign: TextAlign.center, style: AppTypography.outfitWhite.copyWith(fontSize: 12.5, color: AppColors.textMuted, height: 1.4)),
               const SizedBox(height: 16),
               Row(mainAxisSize: MainAxisSize.min, children: [
                 GestureDetector(
@@ -1637,7 +1659,7 @@ class _GameOverOverlay extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                     decoration: BoxDecoration(gradient: const LinearGradient(colors: [AppColors.deepRose, AppColors.auroraRose]), borderRadius: AppRadius.radiusFull, boxShadow: [BoxShadow(color: AppColors.deepRose.withValues(alpha: 0.28), blurRadius: 10)]),
-                    child: Text('New game', style: AppTypography.outfitBold.copyWith(fontSize: 12, color: Colors.white)),
+                    child: Text('New game', style: AppTypography.outfitBold.copyWith(fontSize: 12, color: AppColors.petalWhite)),
                   ),
                 ),
               ]),

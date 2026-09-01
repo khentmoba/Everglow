@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import 'package:intl/intl.dart';
 import 'package:animate_do/animate_do.dart';
 import '../../../../core/theme/app_motion.dart';
@@ -16,15 +17,15 @@ class MemoryDetailOverlay extends StatelessWidget {
     final dialogContent = Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: AppTheme.velvet.withValues(alpha: 0.95),
+        color: AppColors.velvet.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(32),
         border: Border.all(
-          color: AppTheme.blushGold.withValues(alpha: 0.3),
+          color: AppColors.blushGold.withValues(alpha: 0.3),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.deepRose.withValues(alpha: 0.2),
+            color: AppColors.deepRose.withValues(alpha: 0.2),
             blurRadius: 20,
             spreadRadius: 5,
           ),
@@ -51,7 +52,7 @@ class MemoryDetailOverlay extends StatelessWidget {
                         DateFormat('MMMM d, yyyy').format(milestone.date),
                         style: AppTypography.outfitWhite.copyWith(
                           fontSize: 14,
-                          color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+                          color: AppColors.roseQuartz.withValues(alpha: 0.6),
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -59,7 +60,7 @@ class MemoryDetailOverlay extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: AppTheme.roseQuartz),
+                  icon: const Icon(Icons.close, color: AppColors.roseQuartz),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -79,12 +80,12 @@ class MemoryDetailOverlay extends StatelessWidget {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: AppTheme.moonlight.withValues(
+                        color: AppColors.moonlight.withValues(
                           alpha: AppTheme.glassOpacity,
                         ),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: AppTheme.moonlight.withValues(alpha: 0.18),
+                          color: AppColors.moonlight.withValues(alpha: 0.18),
                           width: 1.0,
                         ),
                       ),
@@ -93,7 +94,7 @@ class MemoryDetailOverlay extends StatelessWidget {
                         style: AppTypography.outfitWhite.copyWith(
                           fontSize: 12,
                           fontStyle: FontStyle.italic,
-                          color: AppTheme.blushGold,
+                          color: AppColors.blushGold,
                         ),
                       ),
                     ),
@@ -102,7 +103,7 @@ class MemoryDetailOverlay extends StatelessWidget {
                     style: AppTypography.outfitWhite.copyWith(
                       fontSize: 16,
                       height: 1.6,
-                      color: AppTheme.petalWhite,
+                      color: AppColors.petalWhite,
                     ),
                   ),
                   const SizedBox(height: 40),
@@ -115,18 +116,18 @@ class MemoryDetailOverlay extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.favorite, color: AppTheme.deepRose, size: 16),
+                const Icon(Icons.favorite, color: AppColors.deepRose, size: 16),
                 const SizedBox(width: 8),
                 Text(
                   "Living Archive",
                   style: AppTypography.outfitWhite.copyWith(
                     fontSize: 12,
-                    color: AppTheme.roseQuartz.withValues(alpha: 0.5),
+                    color: AppColors.roseQuartz.withValues(alpha: 0.5),
                     letterSpacing: 2,
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Icon(Icons.favorite, color: AppTheme.deepRose, size: 16),
+                const Icon(Icons.favorite, color: AppColors.deepRose, size: 16),
               ],
             ),
           ),

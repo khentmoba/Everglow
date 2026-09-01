@@ -86,7 +86,7 @@ class TravelPreview extends StatelessWidget {
                               child: LinearProgressIndicator(
                                 value: pct == 0 ? 0.04 : pct,
                                 minHeight: 6,
-                                backgroundColor: Colors.white.withValues(
+                                backgroundColor: AppColors.petalWhite.withValues(
                                   alpha: 0.07,
                                 ),
                                 valueColor: const AlwaysStoppedAnimation(
@@ -107,10 +107,10 @@ class TravelPreview extends StatelessWidget {
                                     vertical: 5,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.06),
+                                    color: AppColors.petalWhite.withValues(alpha: 0.06),
                                     borderRadius: BorderRadius.circular(999),
                                     border: Border.all(
-                                      color: Colors.white.withValues(
+                                      color: AppColors.petalWhite.withValues(
                                         alpha: 0.08,
                                       ),
                                     ),
@@ -157,13 +157,13 @@ class TravelPreview extends StatelessWidget {
                                         ? AppColors.auroraTeal.withValues(
                                             alpha: 0.22,
                                           )
-                                        : Colors.white.withValues(alpha: 0.06),
+                                        : AppColors.petalWhite.withValues(alpha: 0.06),
                                     border: Border.all(
                                       color: p.isVisited
                                           ? AppColors.auroraTeal.withValues(
                                               alpha: 0.45,
                                             )
-                                          : Colors.white.withValues(
+                                          : AppColors.petalWhite.withValues(
                                               alpha: 0.10,
                                             ),
                                     ),

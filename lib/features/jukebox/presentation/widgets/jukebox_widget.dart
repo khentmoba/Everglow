@@ -55,6 +55,8 @@ class _JukeboxWidgetState extends State<JukeboxWidget>
     super.dispose();
   }
 
+  bool _shouldTrigger(MusicStatus s) => s.isPlaying && s.artistName.toLowerCase() == 'ethel cain';
+
   void _triggerHearts(MusicStatus status) {
     if (status.isPlaying && status.artistName.toLowerCase() == 'ethel cain') {
       _confettiController.play();
@@ -73,8 +75,11 @@ class _JukeboxWidgetState extends State<JukeboxWidget>
         final khentStatus = statuses[khentUser] ?? MusicStatus.empty(khentUser);
         final clairStatus = statuses[clairUser] ?? MusicStatus.empty(clairUser);
 
-        _triggerHearts(khentStatus);
-        _triggerHearts(clairStatus);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (_shouldTrigger(khentStatus)) _triggerHearts(khentStatus);
+          if (_shouldTrigger(clairStatus)) _triggerHearts(clairStatus);
+        });
 
         final bool eitherLive = khentStatus.isPlaying || clairStatus.isPlaying;
 

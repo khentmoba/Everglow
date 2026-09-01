@@ -1,12 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../data/models/music_status.dart';
 import '../../data/services/spotify_auth_service.dart';
 import '../../data/services/spotify_player_service.dart';
 import '../../data/services/spotify_resolve_service.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import 'spotify_embed_view.dart';
 
@@ -60,14 +60,14 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
     final isLinked = context.watch<SpotifyAuthService>().isLinked;
     final hasTrack = _status.hasSpotifyTrack;
     return Dialog(
-      backgroundColor: AppTheme.velvet,
+      backgroundColor: AppColors.velvet,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 420),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: AppTheme.blushGold.withValues(alpha: 0.2),
+            color: AppColors.blushGold.withValues(alpha: 0.2),
             width: 1.5,
           ),
         ),
@@ -90,7 +90,7 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: AppTheme.deepRose.withValues(alpha: 0.3),
+                              color: AppColors.deepRose.withValues(alpha: 0.3),
                               blurRadius: 30,
                               spreadRadius: 5,
                             ),
@@ -104,11 +104,11 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                                   fit: BoxFit.cover,
                                 )
                               : Container(
-                                  color: AppTheme.twilight,
+                                  color: AppColors.twilight,
                                   child: const Icon(
                                     Icons.music_note,
                                     size: 80,
-                                    color: AppTheme.roseQuartz,
+                                    color: AppColors.roseQuartz,
                                   ),
                                 ),
                         ),
@@ -127,7 +127,7 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: AppTheme.deepRose.withValues(alpha: 0.3),
+                        color: AppColors.deepRose.withValues(alpha: 0.3),
                         blurRadius: 30,
                         spreadRadius: 5,
                       ),
@@ -138,11 +138,11 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                     child: _status.imageUrl != null
                         ? Image.network(_status.imageUrl!, fit: BoxFit.cover)
                         : Container(
-                            color: AppTheme.twilight,
+                            color: AppColors.twilight,
                             child: const Icon(
                               Icons.music_note,
                               size: 80,
-                              color: AppTheme.roseQuartz,
+                              color: AppColors.roseQuartz,
                             ),
                           ),
                   ),
@@ -154,7 +154,7 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                   height: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: AppTheme.blushGold,
+                    color: AppColors.blushGold,
                   ),
                 ),
               ],
@@ -170,7 +170,7 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                 textAlign: TextAlign.center,
                 style: AppTypography.outfitWhite.copyWith(
                   fontSize: 16,
-                  color: AppTheme.blushGold,
+                  color: AppColors.blushGold,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -180,7 +180,7 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                 textAlign: TextAlign.center,
                 style: AppTypography.outfitWhite.copyWith(
                   fontSize: 13,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                  color: AppColors.petalWhite.withValues(alpha: 0.7),
                 ),
               ),
               const SizedBox(height: 24),
@@ -193,7 +193,7 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                     icon: Icon(
                       isLinked ? Icons.play_circle_fill : Icons.link_rounded,
                       size: 22,
-                      color: AppTheme.petalWhite,
+                      color: AppColors.petalWhite,
                     ),
                     label: Text(
                       isLinked
@@ -206,9 +206,9 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isLinked
-                          ? AppTheme.deepRose
-                          : AppTheme.deepRose.withValues(alpha: 0.5),
-                      foregroundColor: AppTheme.petalWhite,
+                          ? AppColors.deepRose
+                          : AppColors.deepRose.withValues(alpha: 0.5),
+                      foregroundColor: AppColors.petalWhite,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 20,
                         vertical: 14,
@@ -227,7 +227,7 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                   textAlign: TextAlign.center,
                   style: AppTypography.outfitWhite.copyWith(
                     fontSize: 11,
-                    color: AppTheme.petalWhite.withValues(alpha: 0.55),
+                    color: AppColors.petalWhite.withValues(alpha: 0.55),
                   ),
                 ),
               ],
@@ -239,7 +239,7 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                   icon: const Icon(
                     Icons.open_in_new_rounded,
                     size: 20,
-                    color: AppTheme.petalWhite,
+                    color: AppColors.petalWhite,
                   ),
                   label: Text(
                     'Open in Spotify',
@@ -249,8 +249,8 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.twilight,
-                    foregroundColor: AppTheme.petalWhite,
+                    backgroundColor: AppColors.twilight,
+                    foregroundColor: AppColors.petalWhite,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 20,
                       vertical: 14,
@@ -259,7 +259,7 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                       borderRadius: BorderRadius.circular(24),
                     ),
                     side: BorderSide(
-                      color: AppTheme.blushGold.withValues(alpha: 0.18),
+                      color: AppColors.blushGold.withValues(alpha: 0.18),
                     ),
                     elevation: 0,
                   ),
@@ -272,7 +272,7 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                   '30s preview available',
                   style: AppTypography.outfitWhite.copyWith(
                     fontSize: 11,
-                    color: AppTheme.petalWhite.withValues(alpha: 0.55),
+                    color: AppColors.petalWhite.withValues(alpha: 0.55),
                   ),
                 ),
               ],
@@ -282,7 +282,7 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                 child: Text(
                   'Close',
                   style: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+                    color: AppColors.roseQuartz.withValues(alpha: 0.6),
                   ),
                 ),
               ),

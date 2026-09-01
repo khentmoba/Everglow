@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_breakpoints.dart';
 import 'motion.dart';
 
@@ -186,7 +185,7 @@ class _ScrollArrowState extends State<_ScrollArrow> {
                     : Colors.black.withValues(alpha: 0.45),
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: AppTheme.roseQuartz.withValues(alpha: 0.3),
+                  color: AppColors.roseQuartz.withValues(alpha: 0.3),
                   width: 0.8,
                 ),
                 boxShadow: [
@@ -202,8 +201,8 @@ class _ScrollArrowState extends State<_ScrollArrow> {
                     ? Icons.chevron_left_rounded
                     : Icons.chevron_right_rounded,
                 color: _arrowHovered
-                    ? AppTheme.petalWhite
-                    : AppTheme.roseQuartz,
+                    ? AppColors.petalWhite
+                    : AppColors.roseQuartz,
                 size: 22,
               ),
             ),

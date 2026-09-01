@@ -125,7 +125,7 @@ class OnThisDayMusicCard extends StatelessWidget {
                         end: Alignment.bottomRight,
                       ),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.7),
+                        color: AppColors.petalWhite.withValues(alpha: 0.7),
                       ),
                     ),
                     child: const Icon(
@@ -209,9 +209,9 @@ class _DayBlock extends StatelessWidget {
     final hasAny = khent.isNotEmpty || clair.isNotEmpty;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
+        color: AppColors.petalWhite.withValues(alpha: 0.03),
         borderRadius: AppRadius.radiusLg,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: AppColors.petalWhite.withValues(alpha: 0.06)),
       ),
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -379,7 +379,7 @@ class _PersonDay extends StatelessWidget {
                               borderRadius: BorderRadius.circular(8),
                               color: AppColors.velvet,
                               border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.08),
+                                color: AppColors.petalWhite.withValues(alpha: 0.08),
                               ),
                             ),
                             child: ClipRRect(

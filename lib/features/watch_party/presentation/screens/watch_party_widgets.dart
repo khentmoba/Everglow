@@ -17,7 +17,7 @@ class _CinemaPillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = accent ? AppColors.deepRose : Colors.white;
+    final color = accent ? AppColors.deepRose : AppColors.petalWhite;
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -28,12 +28,12 @@ class _CinemaPillButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: accent
               ? AppColors.deepRose.withValues(alpha: 0.16)
-              : Colors.white.withValues(alpha: 0.06),
+              : AppColors.petalWhite.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(AppRadius.full),
           border: Border.all(
             color: accent
                 ? AppColors.deepRose.withValues(alpha: 0.55)
-                : Colors.white.withValues(alpha: 0.16),
+                : AppColors.petalWhite.withValues(alpha: 0.16),
           ),
         ),
         child: Row(

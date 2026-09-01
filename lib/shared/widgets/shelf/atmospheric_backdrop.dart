@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 
-import '../../../core/theme/app_theme.dart';
 
 /// Atmospheric background used by the four inside screens — drops
 /// two soft, slowly-shifting radial gradients over the dark base so
@@ -12,16 +12,16 @@ class ShelfAtmosphericBackdrop extends StatelessWidget {
 
   const ShelfAtmosphericBackdrop({
     super.key,
-    this.baseColor = AppTheme.twilight,
+    this.baseColor = AppColors.twilight,
     this.glows = const [
       RadialGlow(
-        color: AppTheme.deepRose,
+        color: AppColors.deepRose,
         alignment: Alignment(-0.7, -0.85),
         size: 0.85,
         opacity: 0.16,
       ),
       RadialGlow(
-        color: AppTheme.softLavender,
+        color: AppColors.softLavender,
         alignment: Alignment(0.85, 0.95),
         size: 0.75,
         opacity: 0.10,

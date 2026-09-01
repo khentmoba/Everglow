@@ -86,19 +86,19 @@ class AppTypography {
     fontSize: 14,
     fontWeight: FontWeight.w600,
     color: AppColors.petalWhite,
-    letterSpacing: 1.0,
+    letterSpacing: 0.6,
   );
   static final TextStyle _labelMedium = GoogleFonts.outfit(
     fontSize: 12,
     fontWeight: FontWeight.w700,
     color: AppColors.roseQuartz,
-    letterSpacing: 1.8,
+    letterSpacing: 1.0,
   );
   static final TextStyle _labelSmall = GoogleFonts.outfit(
     fontSize: 11,
     fontWeight: FontWeight.w700,
     color: AppColors.roseQuartz,
-    letterSpacing: 2.0,
+    letterSpacing: 1.2,
   );
 
   // Cached Handwritten (NoteDialog only)

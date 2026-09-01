@@ -1,5 +1,6 @@
 import 'dart:ui' show Picture, PictureRecorder, PointMode;
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/models/doodle_stroke.dart';
 
@@ -23,7 +24,7 @@ class CanvasPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     // Phase 1: Subtle canvas tint
-    final bgPaint = Paint()..color = AppTheme.velvet.withValues(alpha: 0.25);
+    final bgPaint = Paint()..color = AppColors.velvet.withValues(alpha: 0.25);
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
 
     // Phase 2: Draw blueprint dot-grid background from cached Picture
@@ -90,7 +91,7 @@ class CanvasPainter extends CustomPainter {
 
     if (points.isNotEmpty) {
       final gridPaint = Paint()
-        ..color = AppTheme.roseQuartz.withValues(alpha: 0.10)
+        ..color = AppColors.roseQuartz.withValues(alpha: 0.10)
         ..strokeWidth = 1.5
         ..strokeCap = StrokeCap.round;
       gridCanvas.drawPoints(PointMode.points, points, gridPaint);

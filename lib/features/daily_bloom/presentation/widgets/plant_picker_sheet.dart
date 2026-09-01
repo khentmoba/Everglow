@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../data/models/plant_type.dart';
 
 /// Bottom sheet for selecting a garden plant type.
@@ -19,10 +19,10 @@ class PlantPickerSheet extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
       decoration: BoxDecoration(
-        color: AppTheme.velvet,
+        color: AppColors.velvet,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         border: Border.all(
-          color: AppTheme.blushGold.withValues(alpha: 0.2),
+          color: AppColors.blushGold.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -35,7 +35,7 @@ class PlantPickerSheet extends StatelessWidget {
             height: 4,
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
-              color: AppTheme.petalWhite.withValues(alpha: 0.3),
+              color: AppColors.petalWhite.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -48,7 +48,7 @@ class PlantPickerSheet extends StatelessWidget {
             'Each plant has a seasonal bonus month',
             style: AppTypography.outfitWhite.copyWith(
               fontSize: 12,
-              color: AppTheme.petalWhite.withValues(alpha: 0.6),
+              color: AppColors.petalWhite.withValues(alpha: 0.6),
             ),
           ),
           const SizedBox(height: 20),
@@ -76,13 +76,13 @@ class PlantPickerSheet extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: isSelected
-                  ? AppTheme.deepRose.withValues(alpha: 0.2)
+                  ? AppColors.deepRose.withValues(alpha: 0.2)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: isSelected
-                    ? AppTheme.blushGold
-                    : AppTheme.blushGold.withValues(alpha: 0.1),
+                    ? AppColors.blushGold
+                    : AppColors.blushGold.withValues(alpha: 0.1),
                 width: isSelected ? 1.5 : 1,
               ),
             ),
@@ -101,8 +101,8 @@ class PlantPickerSheet extends StatelessWidget {
                             style: AppTypography.outfitBold.copyWith(
                               fontSize: 15,
                               color: isSelected
-                                  ? AppTheme.blushGold
-                                  : AppTheme.petalWhite,
+                                  ? AppColors.blushGold
+                                  : AppColors.petalWhite,
                             ),
                           ),
                           if (inSeason) ...[
@@ -113,7 +113,7 @@ class PlantPickerSheet extends StatelessWidget {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: AppTheme.blushGold.withValues(
+                                color: AppColors.blushGold.withValues(
                                   alpha: 0.2,
                                 ),
                                 borderRadius: BorderRadius.circular(8),
@@ -122,7 +122,7 @@ class PlantPickerSheet extends StatelessWidget {
                                 '${plant.seasonalBonusName} ✨',
                                 style: AppTypography.outfitHeading.copyWith(
                                   fontSize: 9,
-                                  color: AppTheme.blushGold,
+                                  color: AppColors.blushGold,
                                 ),
                               ),
                             ),
@@ -134,7 +134,7 @@ class PlantPickerSheet extends StatelessWidget {
                           'Bonus: ${plant.seasonalBonusName}',
                           style: AppTypography.outfitWhite.copyWith(
                             fontSize: 11,
-                            color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                            color: AppColors.petalWhite.withValues(alpha: 0.5),
                           ),
                         ),
                     ],
@@ -143,7 +143,7 @@ class PlantPickerSheet extends StatelessWidget {
                 if (isSelected)
                   const Icon(
                     Icons.check_circle_rounded,
-                    color: AppTheme.blushGold,
+                    color: AppColors.blushGold,
                     size: 20,
                   ),
               ],

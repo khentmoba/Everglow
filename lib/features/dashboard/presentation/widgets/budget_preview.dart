@@ -81,7 +81,7 @@ class BudgetPreview extends StatelessWidget {
                               if (topCats.isEmpty)
                                 Expanded(
                                   child: Container(
-                                    color: Colors.white.withValues(alpha: 0.08),
+                                    color: AppColors.petalWhite.withValues(alpha: 0.08),
                                   ),
                                 ),
                             ],

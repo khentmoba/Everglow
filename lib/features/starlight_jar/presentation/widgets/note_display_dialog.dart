@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import 'package:confetti/confetti.dart';
 import '../../domain/models/star_note.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 
 class NoteDisplayDialog extends StatefulWidget {
@@ -71,10 +71,10 @@ class _NoteDisplayDialogState extends State<NoteDisplayDialog>
                 blastDirectionality: BlastDirectionality.explosive,
                 shouldLoop: false,
                 colors: const [
-                  AppTheme.blushGold,
-                  AppTheme.roseQuartz,
-                  AppTheme.softLavender,
-                  Colors.white,
+                  AppColors.blushGold,
+                  AppColors.roseQuartz,
+                  AppColors.softLavender,
+                  AppColors.petalWhite,
                   Color(0xFFFFF176),
                 ],
                 emissionFrequency: 0.08,
@@ -90,15 +90,15 @@ class _NoteDisplayDialogState extends State<NoteDisplayDialog>
                 margin: const EdgeInsets.symmetric(horizontal: 32),
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
-                  color: AppTheme.velvet,
+                  color: AppColors.velvet,
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: AppTheme.blushGold.withValues(alpha: 0.25),
+                    color: AppColors.blushGold.withValues(alpha: 0.25),
                     width: 1.5,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.deepRose.withValues(alpha: 0.3),
+                      color: AppColors.deepRose.withValues(alpha: 0.3),
                       blurRadius: 30,
                       spreadRadius: 5,
                     ),
@@ -114,14 +114,14 @@ class _NoteDisplayDialogState extends State<NoteDisplayDialog>
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: AppTheme.deepRose.withValues(alpha: 0.4),
+                        color: AppColors.deepRose.withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         "${info.$1} ${info.$2}",
                         style: AppTypography.outfitBold.copyWith(
                           fontSize: 11,
-                          color: AppTheme.blushGold,
+                          color: AppColors.blushGold,
                           letterSpacing: 0.8,
                         ),
                       ),
@@ -129,7 +129,7 @@ class _NoteDisplayDialogState extends State<NoteDisplayDialog>
                     const SizedBox(height: 20),
                     const Icon(
                       Icons.auto_awesome,
-                      color: AppTheme.blushGold,
+                      color: AppColors.blushGold,
                       size: 36,
                     ),
                     const SizedBox(height: 16),
@@ -138,7 +138,7 @@ class _NoteDisplayDialogState extends State<NoteDisplayDialog>
                       textAlign: TextAlign.center,
                       style: AppTypography.cormorantHeading.copyWith(
                         fontSize: 22,
-                        color: AppTheme.roseQuartz,
+                        color: AppColors.roseQuartz,
                         fontStyle: FontStyle.italic,
                       ),
                     ),
@@ -158,7 +158,7 @@ class _NoteDisplayDialogState extends State<NoteDisplayDialog>
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.softLavender.withValues(
+                                  color: AppColors.softLavender.withValues(
                                     alpha: 0.2,
                                   ),
                                   borderRadius: BorderRadius.circular(8),
@@ -167,7 +167,7 @@ class _NoteDisplayDialogState extends State<NoteDisplayDialog>
                                   "#$tag",
                                   style: AppTypography.outfitWhite.copyWith(
                                     fontSize: 10,
-                                    color: AppTheme.softLavender,
+                                    color: AppColors.softLavender,
                                   ),
                                 ),
                               ),
@@ -182,7 +182,7 @@ class _NoteDisplayDialogState extends State<NoteDisplayDialog>
                       style: AppTypography.outfitWhite.copyWith(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.blushGold,
+                        color: AppColors.blushGold,
                         letterSpacing: 1.2,
                       ),
                     ),
@@ -191,15 +191,15 @@ class _NoteDisplayDialogState extends State<NoteDisplayDialog>
                       "${widget.note.timestamp.month}/${widget.note.timestamp.day}/${widget.note.timestamp.year}",
                       style: AppTypography.outfitWhite.copyWith(
                         fontSize: 12,
-                        color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                        color: AppColors.petalWhite.withValues(alpha: 0.7),
                       ),
                     ),
                     const SizedBox(height: 32),
                     ElevatedButton(
                       onPressed: () => Navigator.pop(context),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.deepRose,
-                        foregroundColor: AppTheme.petalWhite,
+                        backgroundColor: AppColors.deepRose,
+                        foregroundColor: AppColors.petalWhite,
                         elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(24),

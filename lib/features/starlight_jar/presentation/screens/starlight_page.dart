@@ -32,7 +32,7 @@ class StarlightPage extends StatelessWidget {
                   opacity: 0.10,
                 ),
               ],
-              showPetals: true,
+              showPetals: false,
             ),
           ),
           StarlightJarWidget(),

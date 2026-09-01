@@ -91,7 +91,7 @@ class DashboardZoneHeader extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    Semantics(header: true, child: Text(
                       title,
                       style: AppTypography.cormorantBold.copyWith(
                         fontSize: 26,
@@ -99,7 +99,7 @@ class DashboardZoneHeader extends StatelessWidget {
                         letterSpacing: -0.3,
                         color: AppColors.petalWhite,
                       ),
-                    ),
+                    )),
                     const SizedBox(height: 4),
                     Text(
                       subtitle,

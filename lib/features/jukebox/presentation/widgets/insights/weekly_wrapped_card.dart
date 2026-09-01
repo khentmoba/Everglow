@@ -153,10 +153,10 @@ class WeeklyWrappedCard extends StatelessWidget {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.06),
+                              color: AppColors.petalWhite.withValues(alpha: 0.06),
                               borderRadius: BorderRadius.circular(99),
                               border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.08),
+                                color: AppColors.petalWhite.withValues(alpha: 0.08),
                               ),
                             ),
                             child: Row(
@@ -187,10 +187,10 @@ class WeeklyWrappedCard extends StatelessWidget {
                           width: double.infinity,
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.04),
+                            color: AppColors.petalWhite.withValues(alpha: 0.04),
                             borderRadius: AppRadius.radiusMd,
                             border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.06),
+                              color: AppColors.petalWhite.withValues(alpha: 0.06),
                             ),
                           ),
                           child: Column(
@@ -232,7 +232,7 @@ class WeeklyWrappedCard extends StatelessWidget {
                                   const SizedBox(height: 14),
                                   Container(
                                     height: 1,
-                                    color: Colors.white.withValues(alpha: 0.06),
+                                    color: AppColors.petalWhite.withValues(alpha: 0.06),
                                   ),
                                   const SizedBox(height: 14),
                                   _PersonWeekly(
@@ -327,7 +327,7 @@ class _PersonWeekly extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: AppColors.petalWhite.withValues(alpha: 0.04),
         borderRadius: AppRadius.radiusLg,
         border: Border.all(color: color.withValues(alpha: 0.22)),
       ),
@@ -436,7 +436,7 @@ class _WrappedRow extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               color: AppColors.velvet,
-              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              border: Border.all(color: AppColors.petalWhite.withValues(alpha: 0.08)),
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
@@ -523,9 +523,9 @@ class _VersusBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
+        color: AppColors.petalWhite.withValues(alpha: 0.03),
         borderRadius: AppRadius.radiusMd,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: AppColors.petalWhite.withValues(alpha: 0.06)),
       ),
       child: Column(
         children: [

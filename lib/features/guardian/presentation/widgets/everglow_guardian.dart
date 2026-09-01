@@ -1,11 +1,11 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import 'package:provider/provider.dart';
 import 'character/cat_visuals.dart';
 import 'thought_bubble.dart';
 import '../controllers/guardian_controller.dart';
-import '../../../../core/theme/app_theme.dart';
 
 class EverglowGuardian extends StatefulWidget {
   const EverglowGuardian({super.key});
@@ -101,7 +101,7 @@ class _EverglowGuardianState extends State<EverglowGuardian>
           top: 20,
         ),
         decoration: const BoxDecoration(
-          color: AppTheme.moonlight,
+          color: AppColors.moonlight,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
@@ -112,7 +112,7 @@ class _EverglowGuardianState extends State<EverglowGuardian>
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppTheme.blushGold.withValues(alpha: 0.65),
+                color: AppColors.blushGold.withValues(alpha: 0.65),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -121,7 +121,7 @@ class _EverglowGuardianState extends State<EverglowGuardian>
               children: [
                 const Icon(
                   Icons.auto_awesome_rounded,
-                  color: AppTheme.blushGold,
+                  color: AppColors.blushGold,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
@@ -142,7 +142,7 @@ class _EverglowGuardianState extends State<EverglowGuardian>
                     ),
                     decoration: BoxDecoration(
                       border: Border.all(
-                        color: AppTheme.blushGold.withValues(alpha: 0.6),
+                        color: AppColors.blushGold.withValues(alpha: 0.6),
                       ),
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -150,7 +150,7 @@ class _EverglowGuardianState extends State<EverglowGuardian>
                       'Exit AI Mode',
                       style: AppTypography.outfitWhite.copyWith(
                         fontSize: 12,
-                        color: AppTheme.blushGold,
+                        color: AppColors.blushGold,
                       ),
                     ),
                   ),
@@ -168,11 +168,11 @@ class _EverglowGuardianState extends State<EverglowGuardian>
                     decoration: InputDecoration(
                       hintText: 'Tell Guardian something...',
                       hintStyle: TextStyle(
-                        color: AppTheme.petalWhite.withValues(alpha: 0.55),
+                        color: AppColors.petalWhite.withValues(alpha: 0.55),
                         fontSize: 14,
                       ),
                       filled: true,
-                      fillColor: AppTheme.twilight.withValues(alpha: 0.4),
+                      fillColor: AppColors.twilight.withValues(alpha: 0.4),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: BorderSide.none,
@@ -194,13 +194,13 @@ class _EverglowGuardianState extends State<EverglowGuardian>
                     height: 46,
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [AppTheme.blushGold, AppTheme.deepRose],
+                        colors: [AppColors.blushGold, AppColors.deepRose],
                       ),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: const Icon(
                       Icons.send_rounded,
-                      color: AppTheme.petalWhite,
+                      color: AppColors.petalWhite,
                       size: 20,
                     ),
                   ),
@@ -282,7 +282,7 @@ class _EverglowGuardianState extends State<EverglowGuardian>
                               ? Icons.auto_awesome_rounded
                               : Icons.favorite,
                           color: controller.isAIMode
-                              ? AppTheme.blushGold
+                              ? AppColors.blushGold
                               : const Color(0xFFFFD1DC),
                           size: 12,
                         ),
@@ -300,13 +300,13 @@ class _EverglowGuardianState extends State<EverglowGuardian>
                       width: 16,
                       height: 16,
                       decoration: BoxDecoration(
-                        color: AppTheme.blushGold,
+                        color: AppColors.blushGold,
                         shape: BoxShape.circle,
-                        border: Border.all(color: AppTheme.twilight, width: 2),
+                        border: Border.all(color: AppColors.twilight, width: 2),
                       ),
                       child: const Icon(
                         Icons.auto_awesome_rounded,
-                        color: AppTheme.petalWhite,
+                        color: AppColors.petalWhite,
                         size: 10,
                       ),
                     ),

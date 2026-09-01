@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../../shared/widgets/everglow/everglow_scaffold.dart';
+import '../../../../shared/widgets/everglow/everglow_chip.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../shared/widgets/everglow/everglow_error_state.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
@@ -37,15 +38,9 @@ class _BucketListScreenState extends State<BucketListScreen> {
     final auth = context.read<AuthService>();
     final currentUser = auth.currentUser ?? '';
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          const Positioned.fill(
-            child: EverglowBackground(baseColor: AppColors.inkDeep),
-          ),
-          SafeArea(
-            child: Column(
+        return EverglowScaffold(
+      backgroundColor: AppColors.inkDeep,
+      body: Column(
               children: [
                 // Header
                 EverglowFeatureHeader(
@@ -290,9 +285,6 @@ class _BucketListScreenState extends State<BucketListScreen> {
                 ),
               ],
             ),
-          ),
-        ],
-      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddDialog(context, auth),
         backgroundColor: AppTheme.deepRose,
@@ -424,64 +416,12 @@ class _BucketListScreenState extends State<BucketListScreen> {
 
   Widget _buildAssigneeChip(String? value, String label) {
     final isSelected = _assigneeFilter == value;
-    return GestureDetector(
-      onTap: () => setState(() => _assigneeFilter = value),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.auroraTeal.withValues(alpha: 0.18)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected
-                ? AppColors.auroraTeal
-                : AppTheme.blushGold.withValues(alpha: 0.15),
-          ),
-        ),
-        child: Text(
-          label,
-          style: AppTypography.outfitWhite.copyWith(
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected
-                ? AppColors.auroraTeal
-                : AppTheme.petalWhite.withValues(alpha: 0.6),
-          ),
-        ),
-      ),
-    );
+    return EverglowChip(label: label, selected: isSelected, onTap: () => setState(() => _assigneeFilter = value));
   }
 
   Widget _buildPriorityFilterChip(BucketPriority? prio, String label) {
     final isSelected = _priorityFilter == prio;
-    return GestureDetector(
-      onTap: () => setState(() => _priorityFilter = prio),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppTheme.deepRose.withValues(alpha: 0.18)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected
-                ? AppTheme.deepRose
-                : AppTheme.blushGold.withValues(alpha: 0.15),
-          ),
-        ),
-        child: Text(
-          label,
-          style: AppTypography.outfitWhite.copyWith(
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected
-                ? AppTheme.blushGold
-                : AppTheme.petalWhite.withValues(alpha: 0.6),
-          ),
-        ),
-      ),
-    );
+    return EverglowChip(label: label, selected: isSelected, onTap: () => setState(() => _priorityFilter = prio));
   }
 
   void _showAddDialog(BuildContext context, AuthService auth) {

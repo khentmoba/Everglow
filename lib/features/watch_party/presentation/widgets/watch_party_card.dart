@@ -89,7 +89,7 @@ class _WatchTogetherTicketState extends State<_WatchTogetherTicket> {
             ),
             borderRadius: BorderRadius.circular(22),
             border: Border.all(
-              color: Colors.white.withValues(alpha: _hovered ? 0.18 : 0.10),
+              color: AppColors.petalWhite.withValues(alpha: _hovered ? 0.18 : 0.10),
               width: 1,
             ),
             boxShadow: [
@@ -117,7 +117,7 @@ class _WatchTogetherTicketState extends State<_WatchTogetherTicket> {
                     gradient: LinearGradient(
                       colors: [
                         Colors.transparent,
-                        Colors.white.withValues(alpha: 0.28),
+                        AppColors.petalWhite.withValues(alpha: 0.28),
                         Colors.transparent,
                       ],
                     ),
@@ -134,7 +134,7 @@ class _WatchTogetherTicketState extends State<_WatchTogetherTicket> {
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
                       colors: [
-                        Colors.white.withValues(alpha: 0.10),
+                        AppColors.petalWhite.withValues(alpha: 0.10),
                         Colors.transparent,
                       ],
                     ),
@@ -151,13 +151,13 @@ class _WatchTogetherTicketState extends State<_WatchTogetherTicket> {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            Colors.white.withValues(alpha: 0.18),
-                            Colors.white.withValues(alpha: 0.07),
+                            AppColors.petalWhite.withValues(alpha: 0.18),
+                            AppColors.petalWhite.withValues(alpha: 0.07),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.18),
+                          color: AppColors.petalWhite.withValues(alpha: 0.18),
                         ),
                         boxShadow: [
                           BoxShadow(
@@ -173,13 +173,13 @@ class _WatchTogetherTicketState extends State<_WatchTogetherTicket> {
                             width: 22,
                             height: 22,
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.14),
+                              color: AppColors.petalWhite.withValues(alpha: 0.14),
                               shape: BoxShape.circle,
                             ),
                           ),
                           const Icon(
                             Icons.favorite_rounded,
-                            color: Colors.white,
+                            color: AppColors.petalWhite,
                             size: 28,
                           ),
                           Positioned(
@@ -192,12 +192,12 @@ class _WatchTogetherTicketState extends State<_WatchTogetherTicket> {
                                 color: const Color(0xFFFFE3EC),
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: Colors.white,
+                                  color: AppColors.petalWhite,
                                   width: 1.2,
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.white.withValues(alpha: 0.5),
+                                    color: AppColors.petalWhite.withValues(alpha: 0.5),
                                     blurRadius: 6,
                                   ),
                                 ],
@@ -235,10 +235,10 @@ class _WatchTogetherTicketState extends State<_WatchTogetherTicket> {
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.14),
+                                  color: AppColors.petalWhite.withValues(alpha: 0.14),
                                   borderRadius: BorderRadius.circular(999),
                                   border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.22),
+                                    color: AppColors.petalWhite.withValues(alpha: 0.22),
                                   ),
                                 ),
                                 child: Row(
@@ -256,7 +256,7 @@ class _WatchTogetherTicketState extends State<_WatchTogetherTicket> {
                                     Text(
                                       'LIVE',
                                       style: AppTypography.outfitWhite.copyWith(
-                                        color: Colors.white,
+                                        color: AppColors.petalWhite,
                                         fontSize: 8,
                                         fontWeight: FontWeight.w900,
                                         letterSpacing: 1.0,
@@ -286,8 +286,8 @@ class _WatchTogetherTicketState extends State<_WatchTogetherTicket> {
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     colors: [
-                                      Colors.white.withValues(alpha: 0.0),
-                                      Colors.white.withValues(alpha: 0.35),
+                                      AppColors.petalWhite.withValues(alpha: 0.0),
+                                      AppColors.petalWhite.withValues(alpha: 0.35),
                                     ],
                                   ),
                                 ),
@@ -296,7 +296,7 @@ class _WatchTogetherTicketState extends State<_WatchTogetherTicket> {
                               Text(
                                 'TAP TO ENTER THE ROOM',
                                 style: AppTypography.outfitWhite.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.62),
+                                  color: AppColors.petalWhite.withValues(alpha: 0.62),
                                   fontSize: 8.5,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 1.4,
@@ -315,10 +315,10 @@ class _WatchTogetherTicketState extends State<_WatchTogetherTicket> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: _hovered
-                            ? Colors.white
-                            : Colors.white.withValues(alpha: 0.14),
+                            ? AppColors.petalWhite
+                            : AppColors.petalWhite.withValues(alpha: 0.14),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.22),
+                          color: AppColors.petalWhite.withValues(alpha: 0.22),
                         ),
                         boxShadow: _hovered
                             ? [
@@ -331,7 +331,7 @@ class _WatchTogetherTicketState extends State<_WatchTogetherTicket> {
                       ),
                       child: Icon(
                         Icons.arrow_forward_rounded,
-                        color: _hovered ? _cDeepRose : Colors.white,
+                        color: _hovered ? _cDeepRose : AppColors.petalWhite,
                         size: 20,
                       ),
                     ),
@@ -348,7 +348,7 @@ class _WatchTogetherTicketState extends State<_WatchTogetherTicket> {
                     gradient: LinearGradient(
                       colors: [
                         Colors.transparent,
-                        Colors.white.withValues(alpha: 0.10),
+                        AppColors.petalWhite.withValues(alpha: 0.10),
                         Colors.transparent,
                       ],
                     ),
@@ -390,7 +390,7 @@ class _WatchPartyHeader extends StatelessWidget {
           ),
           child: const Icon(
             Icons.favorite_rounded,
-            color: Colors.white,
+            color: AppColors.petalWhite,
             size: 20,
           ),
         ),

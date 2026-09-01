@@ -90,7 +90,7 @@ class _MemoryTriviaScreenState extends State<MemoryTriviaScreen> {
       body: Stack(
         children: [
           const EverglowBackground(
-            showPetals: true,
+            showPetals: false,
             glows: [
               RadialGlow(
                 color: AppColors.auroraRose,

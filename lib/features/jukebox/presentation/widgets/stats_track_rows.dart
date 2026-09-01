@@ -310,7 +310,7 @@ class _PlayBar extends StatelessWidget {
         Container(
           height: 4,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.10),
+            color: AppColors.petalWhite.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(99),
           ),
         ),
@@ -484,7 +484,7 @@ class _PodiumArtwork extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.white.withValues(alpha: 0.10),
+                      AppColors.petalWhite.withValues(alpha: 0.10),
                       Colors.transparent,
                     ],
                   ),
@@ -516,17 +516,17 @@ class _PodiumArtwork extends StatelessWidget {
                         1 => [AppColors.blushTint, AppColors.cinemaPink],
                         2 => [AppColors.blushTint, AppColors.roseQuartz],
                         3 => [AppColors.moonlight, AppColors.softLavender],
-                        _ => [Colors.white, Colors.white],
+                        _ => [AppColors.petalWhite, AppColors.petalWhite],
                       }
                     : switch (rank) {
                         1 => [const Color(0xFFFFF3B0), AppColors.auroraGold],
                         2 => [const Color(0xFFF0F0FF), const Color(0xFFB8B9D6)],
                         3 => [const Color(0xFFFFD7B5), const Color(0xFFC47A3A)],
-                        _ => [Colors.white, Colors.white],
+                        _ => [AppColors.petalWhite, AppColors.petalWhite],
                       },
               ),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.85),
+                color: AppColors.petalWhite.withValues(alpha: 0.85),
                 width: 1.2,
               ),
               boxShadow: [
@@ -723,7 +723,7 @@ class _PodiumBadge extends StatelessWidget {
             ),
             2 => (
               AppColors.roseQuartz,
-              [Colors.white, AppColors.roseQuartz, const Color(0xFFB76B8A)],
+              [AppColors.petalWhite, AppColors.roseQuartz, const Color(0xFFB76B8A)],
               Icons.favorite_rounded,
             ),
             3 => (
@@ -731,7 +731,7 @@ class _PodiumBadge extends StatelessWidget {
               [AppColors.moonlight, AppColors.softLavender, const Color(0xFF8A5A8A)],
               Icons.favorite_rounded,
             ),
-            _ => (AppColors.auroraRose, [Colors.white, Colors.white], Icons.star_rounded),
+            _ => (AppColors.auroraRose, [AppColors.petalWhite, AppColors.petalWhite], Icons.star_rounded),
           }
         : switch (rank) {
             1 => (
@@ -741,7 +741,7 @@ class _PodiumBadge extends StatelessWidget {
             ),
             2 => (
               AppColors.rankSilverCool,
-              [Colors.white, const Color(0xFFD8D6F0), const Color(0xFF9A98C2)],
+              [AppColors.petalWhite, const Color(0xFFD8D6F0), const Color(0xFF9A98C2)],
               Icons.workspace_premium_rounded,
             ),
             3 => (
@@ -751,7 +751,7 @@ class _PodiumBadge extends StatelessWidget {
       ),
       _ => (
         AppColors.blushGold,
-        [Colors.white, Colors.white],
+        [AppColors.petalWhite, AppColors.petalWhite],
         Icons.star_rounded,
       ),
     };
@@ -768,7 +768,7 @@ class _PodiumBadge extends StatelessWidget {
           colors: grad,
         ),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.72),
+          color: AppColors.petalWhite.withValues(alpha: 0.72),
           width: 1.2,
         ),
         boxShadow: [

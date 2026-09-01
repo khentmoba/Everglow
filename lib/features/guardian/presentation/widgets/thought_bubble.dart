@@ -22,7 +22,7 @@ class ThoughtBubble extends StatelessWidget {
               offset: const Offset(0, 6),
             ),
           ],
-          border: Border.all(color: Colors.white, width: 1.5),
+          border: Border.all(color: AppColors.petalWhite, width: 1.5),
         ),
         child: Stack(
           clipBehavior: Clip.none,

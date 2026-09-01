@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_colors.dart';
 
 enum CanvasTool { pen, eraser, text }
 
@@ -51,15 +51,15 @@ class CanvasToolbar extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: AppTheme.velvet.withValues(alpha: 0.85),
+              color: AppColors.velvet.withValues(alpha: 0.85),
               borderRadius: BorderRadius.circular(32),
               border: Border.all(
-                color: AppTheme.moonlight.withValues(alpha: 0.18),
+                color: AppColors.moonlight.withValues(alpha: 0.18),
                 width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.deepRose.withValues(alpha: 0.15),
+                  color: AppColors.deepRose.withValues(alpha: 0.15),
                   blurRadius: 20,
                   spreadRadius: 5,
                 ),
@@ -98,8 +98,8 @@ class CanvasToolbar extends StatelessWidget {
                     isActive: false,
                     onTap: onUndo,
                     color: canUndo
-                        ? AppTheme.roseQuartz
-                        : AppTheme.petalWhite.withValues(alpha: 0.2),
+                        ? AppColors.roseQuartz
+                        : AppColors.petalWhite.withValues(alpha: 0.2),
                     semanticLabel: 'Undo',
                   ),
                   _ToolButton(
@@ -107,8 +107,8 @@ class CanvasToolbar extends StatelessWidget {
                     isActive: false,
                     onTap: onRedo,
                     color: canRedo
-                        ? AppTheme.roseQuartz
-                        : AppTheme.petalWhite.withValues(alpha: 0.2),
+                        ? AppColors.roseQuartz
+                        : AppColors.petalWhite.withValues(alpha: 0.2),
                     semanticLabel: 'Redo',
                   ),
 
@@ -143,12 +143,12 @@ class CanvasToolbar extends StatelessWidget {
                           thumbShape: const RoundSliderThumbShape(
                             enabledThumbRadius: 6,
                           ),
-                          activeTrackColor: AppTheme.roseQuartz,
-                          inactiveTrackColor: AppTheme.moonlight.withValues(
+                          activeTrackColor: AppColors.roseQuartz,
+                          inactiveTrackColor: AppColors.moonlight.withValues(
                             alpha: 0.15,
                           ),
-                          thumbColor: AppTheme.blushGold,
-                          overlayColor: AppTheme.blushGold.withValues(
+                          thumbColor: AppColors.blushGold,
+                          overlayColor: AppColors.blushGold.withValues(
                             alpha: 0.1,
                           ),
                         ),
@@ -169,7 +169,7 @@ class CanvasToolbar extends StatelessWidget {
                     icon: Icons.delete_outline_rounded,
                     isActive: false,
                     onTap: onClear,
-                    color: Colors.redAccent.withValues(alpha: 0.8),
+                    color: AppColors.error.withValues(alpha: 0.8),
                     semanticLabel: 'Clear canvas',
                   ),
                 ],
@@ -191,7 +191,7 @@ class _VerticalDivider extends StatelessWidget {
       height: 24,
       width: 1,
       margin: const EdgeInsets.symmetric(horizontal: 8),
-      color: AppTheme.moonlight.withValues(alpha: 0.1),
+      color: AppColors.moonlight.withValues(alpha: 0.1),
     );
   }
 }
@@ -225,15 +225,15 @@ class _ToolButton extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
             color: isActive
-                ? AppTheme.deepRose.withValues(alpha: 0.2)
+                ? AppColors.deepRose.withValues(alpha: 0.2)
                 : Colors.transparent,
             shape: BoxShape.circle,
           ),
           child: Icon(
             icon,
             color: isActive
-                ? AppTheme.roseQuartz
-                : (color ?? AppTheme.petalWhite.withValues(alpha: 0.6)),
+                ? AppColors.roseQuartz
+                : (color ?? AppColors.petalWhite.withValues(alpha: 0.6)),
             size: 24,
           ),
         ),
@@ -288,7 +288,7 @@ class _ColorButton extends StatelessWidget {
             color: color,
             shape: BoxShape.circle,
             border: Border.all(
-              color: isActive ? AppTheme.roseQuartz : Colors.transparent,
+              color: isActive ? AppColors.roseQuartz : Colors.transparent,
               width: isActive ? 2.5 : 2,
             ),
             boxShadow: [

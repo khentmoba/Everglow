@@ -431,7 +431,7 @@ class _EventBadge extends StatelessWidget {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.white.withValues(alpha: 0.10),
+                        AppColors.petalWhite.withValues(alpha: 0.10),
                         Colors.transparent,
                       ],
                     ),
@@ -499,7 +499,7 @@ class _UrgencyPill extends StatelessWidget {
             width: 5,
             height: 5,
             decoration: const BoxDecoration(
-              color: Colors.white,
+              color: AppColors.petalWhite,
               shape: BoxShape.circle,
             ),
           ),
@@ -661,7 +661,7 @@ class _TimeCapsule extends StatelessWidget {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.white.withValues(alpha: 0.07),
+                        AppColors.petalWhite.withValues(alpha: 0.07),
                         Colors.transparent,
                       ],
                     ),
@@ -896,7 +896,7 @@ class _CountdownFooter extends StatelessWidget {
                       height: 7,
                       margin: const EdgeInsets.only(right: 1),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.95),
+                        color: AppColors.petalWhite.withValues(alpha: 0.95),
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(

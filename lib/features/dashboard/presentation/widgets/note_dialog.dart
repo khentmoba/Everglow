@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../domain/models/hidden_note.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 
 class NoteDialog extends StatelessWidget {
@@ -18,10 +18,10 @@ class NoteDialog extends StatelessWidget {
         child: Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: AppTheme.velvet, // Dark romantic paper color
+            color: AppColors.velvet, // Dark romantic paper color
             borderRadius: BorderRadius.circular(24.0),
             border: Border.all(
-              color: AppTheme.blushGold.withValues(alpha: 0.2),
+              color: AppColors.blushGold.withValues(alpha: 0.2),
               width: 1.5,
             ),
             boxShadow: [
@@ -40,7 +40,7 @@ class NoteDialog extends StatelessWidget {
                 height: 50,
                 width: double.infinity,
                 decoration: const BoxDecoration(
-                  color: AppTheme.twilight,
+                  color: AppColors.twilight,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
                 ),
                 child: Stack(
@@ -48,7 +48,7 @@ class NoteDialog extends StatelessWidget {
                   children: [
                     const Icon(
                       Icons.favorite,
-                      color: AppTheme.deepRose,
+                      color: AppColors.deepRose,
                       size: 24,
                     ),
                     Positioned(
@@ -56,7 +56,7 @@ class NoteDialog extends StatelessWidget {
                       child: IconButton(
                         icon: const Icon(Icons.close, size: 20),
                         onPressed: () => Navigator.pop(context),
-                        color: AppTheme.roseQuartz,
+                        color: AppColors.roseQuartz,
                       ),
                     ),
                   ],
@@ -76,14 +76,14 @@ class NoteDialog extends StatelessWidget {
                         Text(
                           note.title,
                           style: AppTypography.handwrittenTitle().copyWith(
-                            color: AppTheme.blushGold,
+                            color: AppColors.blushGold,
                           ),
                         ),
                         const SizedBox(height: 24),
                         Text(
                           note.content,
                           style: AppTypography.handwrittenBody().copyWith(
-                            color: AppTheme.petalWhite.withValues(alpha: 0.9),
+                            color: AppColors.petalWhite.withValues(alpha: 0.9),
                             height: 1.4,
                           ),
                         ),

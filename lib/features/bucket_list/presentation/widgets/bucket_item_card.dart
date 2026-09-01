@@ -33,12 +33,12 @@ class BucketItemCard extends StatelessWidget {
           alignment: Alignment.centerLeft,
           padding: const EdgeInsets.only(left: 24),
           decoration: BoxDecoration(
-            color: AppTheme.deepRose.withValues(alpha: 0.3),
+            color: AppColors.deepRose.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Icon(
             isCompleted ? Icons.undo_rounded : Icons.check_circle_rounded,
-            color: AppTheme.blushGold,
+            color: AppColors.blushGold,
             size: 28,
           ),
         ),
@@ -51,7 +51,7 @@ class BucketItemCard extends StatelessWidget {
           ),
           child: const Icon(
             Icons.delete_rounded,
-            color: Colors.redAccent,
+            color: AppColors.error,
             size: 28,
           ),
         ),
@@ -61,17 +61,17 @@ class BucketItemCard extends StatelessWidget {
             return await showDialog<bool>(
               context: context,
               builder: (ctx) => AlertDialog(
-                backgroundColor: AppTheme.velvet,
+                backgroundColor: AppColors.velvet,
                 title: Text(
                   'Delete "${item.title}"?',
                   style: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.roseQuartz,
+                    color: AppColors.roseQuartz,
                   ),
                 ),
                 content: Text(
                   'This cannot be undone.',
                   style: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                    color: AppColors.petalWhite.withValues(alpha: 0.7),
                   ),
                 ),
                 actions: [
@@ -80,7 +80,7 @@ class BucketItemCard extends StatelessWidget {
                     child: Text(
                       'Cancel',
                       style: AppTypography.outfitWhite.copyWith(
-                        color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                        color: AppColors.petalWhite.withValues(alpha: 0.6),
                       ),
                     ),
                   ),
@@ -89,7 +89,7 @@ class BucketItemCard extends StatelessWidget {
                     child: Text(
                       'Delete',
                       style: AppTypography.outfitWhite.copyWith(
-                        color: Colors.redAccent,
+                        color: AppColors.error,
                       ),
                     ),
                   ),
@@ -114,14 +114,14 @@ class BucketItemCard extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppTheme.moonlight.withValues(
+                color: AppColors.moonlight.withValues(
                   alpha: AppTheme.glassOpacity,
                 ),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: isCompleted
-                      ? AppTheme.blushGold.withValues(alpha: 0.3)
-                      : AppTheme.blushGold.withValues(alpha: 0.1),
+                      ? AppColors.blushGold.withValues(alpha: 0.3)
+                      : AppColors.blushGold.withValues(alpha: 0.1),
                 ),
               ),
               child: Row(
@@ -133,7 +133,7 @@ class BucketItemCard extends StatelessWidget {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: AppTheme.deepRose.withValues(alpha: 0.15),
+                          color: AppColors.deepRose.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Center(
@@ -155,7 +155,7 @@ class BucketItemCard extends StatelessWidget {
                               color: _priorityColor(item.priority),
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: AppTheme.velvet,
+                                color: AppColors.velvet,
                                 width: 1.5,
                               ),
                             ),
@@ -177,10 +177,10 @@ class BucketItemCard extends StatelessWidget {
                                 style: AppTypography.outfitBold.copyWith(
                                   fontSize: 14,
                                   color: isCompleted
-                                      ? AppTheme.petalWhite.withValues(
+                                      ? AppColors.petalWhite.withValues(
                                           alpha: 0.5,
                                         )
-                                      : AppTheme.petalWhite,
+                                      : AppColors.petalWhite,
                                   decoration: isCompleted
                                       ? TextDecoration.lineThrough
                                       : null,
@@ -218,7 +218,7 @@ class BucketItemCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: AppTypography.outfitWhite.copyWith(
                               fontSize: 11,
-                              color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                              color: AppColors.petalWhite.withValues(alpha: 0.5),
                             ),
                           ),
                         const SizedBox(height: 4),
@@ -271,18 +271,18 @@ class BucketItemCard extends StatelessWidget {
                                 ),
                                 decoration: BoxDecoration(
                                   color: item.isOverdue
-                                      ? Colors.redAccent.withValues(alpha: 0.15)
+                                      ? AppColors.error.withValues(alpha: 0.15)
                                       : item.isDueSoon
-                                      ? AppTheme.warmAmber.withValues(
+                                      ? AppColors.warmAmber.withValues(
                                           alpha: 0.15,
                                         )
-                                      : AppTheme.moonlight.withValues(
+                                      : AppColors.moonlight.withValues(
                                           alpha: 0.08,
                                         ),
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
                                     color: item.isOverdue
-                                        ? Colors.redAccent.withValues(
+                                        ? AppColors.error.withValues(
                                             alpha: 0.3,
                                           )
                                         : Colors.transparent,
@@ -297,10 +297,10 @@ class BucketItemCard extends StatelessWidget {
                                           : Icons.calendar_today_rounded,
                                       size: 10,
                                       color: item.isOverdue
-                                          ? Colors.redAccent
+                                          ? AppColors.error
                                           : item.isDueSoon
-                                          ? AppTheme.warmAmber
-                                          : AppTheme.petalWhite.withValues(
+                                          ? AppColors.warmAmber
+                                          : AppColors.petalWhite.withValues(
                                               alpha: 0.6,
                                             ),
                                     ),
@@ -314,10 +314,10 @@ class BucketItemCard extends StatelessWidget {
                                       style: AppTypography.outfitWhite.copyWith(
                                         fontSize: 10,
                                         color: item.isOverdue
-                                            ? Colors.redAccent
+                                            ? AppColors.error
                                             : item.isDueSoon
-                                            ? AppTheme.warmAmber
-                                            : AppTheme.petalWhite.withValues(
+                                            ? AppColors.warmAmber
+                                            : AppColors.petalWhite.withValues(
                                                 alpha: 0.6,
                                               ),
                                         fontWeight: item.isOverdue
@@ -361,7 +361,7 @@ class BucketItemCard extends StatelessWidget {
   Color _statusColor(BucketStatus status) {
     switch (status) {
       case BucketStatus.wish:
-        return AppTheme.blushGold;
+        return AppColors.blushGold;
       case BucketStatus.planned:
         return Colors.blueAccent;
       case BucketStatus.completed:
@@ -372,13 +372,13 @@ class BucketItemCard extends StatelessWidget {
   Color _priorityColor(BucketPriority p) {
     switch (p) {
       case BucketPriority.low:
-        return AppTheme.softLavender;
+        return AppColors.softLavender;
       case BucketPriority.medium:
-        return AppTheme.blushGold;
+        return AppColors.blushGold;
       case BucketPriority.high:
-        return AppTheme.warmAmber;
+        return AppColors.warmAmber;
       case BucketPriority.urgent:
-        return Colors.redAccent;
+        return AppColors.error;
     }
   }
 
@@ -390,9 +390,9 @@ class BucketItemCard extends StatelessWidget {
       builder: (ctx) => Container(
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
         decoration: BoxDecoration(
-          color: AppTheme.velvet,
+          color: AppColors.velvet,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.2)),
+          border: Border.all(color: AppColors.blushGold.withValues(alpha: 0.2)),
         ),
         child: SingleChildScrollView(
           child: Column(
@@ -405,7 +405,7 @@ class BucketItemCard extends StatelessWidget {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.3),
+                    color: AppColors.petalWhite.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -448,7 +448,7 @@ class BucketItemCard extends StatelessWidget {
                 Text(
                   item.description,
                   style: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.8),
+                    color: AppColors.petalWhite.withValues(alpha: 0.8),
                     fontSize: 14,
                   ),
                 ),
@@ -511,8 +511,8 @@ class BucketItemCard extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: item.isOverdue
-                            ? Colors.redAccent.withValues(alpha: 0.12)
-                            : AppTheme.moonlight.withValues(alpha: 0.08),
+                            ? AppColors.error.withValues(alpha: 0.12)
+                            : AppColors.moonlight.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -522,8 +522,8 @@ class BucketItemCard extends StatelessWidget {
                         style: AppTypography.outfitWhite.copyWith(
                           fontSize: 11,
                           color: item.isOverdue
-                              ? Colors.redAccent
-                              : AppTheme.petalWhite.withValues(alpha: 0.7),
+                              ? AppColors.error
+                              : AppColors.petalWhite.withValues(alpha: 0.7),
                         ),
                       ),
                     ),
@@ -534,7 +534,7 @@ class BucketItemCard extends StatelessWidget {
                 'Added by ${item.createdBy} · ${DateFormat.yMMMd().format(item.createdAt)}',
                 style: AppTypography.outfitWhite.copyWith(
                   fontSize: 11,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                  color: AppColors.petalWhite.withValues(alpha: 0.5),
                 ),
               ),
               if (item.completedAt != null) ...[
@@ -553,7 +553,7 @@ class BucketItemCard extends StatelessWidget {
                 'Move to',
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 11,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                  color: AppColors.petalWhite.withValues(alpha: 0.6),
                 ),
               ),
               const SizedBox(height: 8),
@@ -579,12 +579,12 @@ class BucketItemCard extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: isCurrent
                                 ? _statusColor(s).withValues(alpha: 0.25)
-                                : AppTheme.twilight,
+                                : AppColors.twilight,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: isCurrent
                                   ? _statusColor(s)
-                                  : AppTheme.blushGold.withValues(alpha: 0.12),
+                                  : AppColors.blushGold.withValues(alpha: 0.12),
                             ),
                           ),
                           child: Column(
@@ -600,7 +600,7 @@ class BucketItemCard extends StatelessWidget {
                                   fontSize: 10,
                                   color: isCurrent
                                       ? _statusColor(s)
-                                      : AppTheme.petalWhite.withValues(
+                                      : AppColors.petalWhite.withValues(
                                           alpha: 0.7,
                                         ),
                                   fontWeight: isCurrent
@@ -659,9 +659,9 @@ class BucketItemCard extends StatelessWidget {
                           builder: (c, child) => Theme(
                             data: Theme.of(c).copyWith(
                               colorScheme: const ColorScheme.dark(
-                                primary: AppTheme.deepRose,
-                                surface: AppTheme.velvet,
-                                onSurface: AppTheme.petalWhite,
+                                primary: AppColors.deepRose,
+                                surface: AppColors.velvet,
+                                onSurface: AppColors.petalWhite,
                               ),
                             ),
                             child: child!,
@@ -721,7 +721,7 @@ class BucketItemCard extends StatelessWidget {
                         border: Border.all(
                           color: isSel
                               ? _priorityColor(p)
-                              : AppTheme.blushGold.withValues(alpha: 0.12),
+                              : AppColors.blushGold.withValues(alpha: 0.12),
                         ),
                       ),
                       child: Text(
@@ -730,7 +730,7 @@ class BucketItemCard extends StatelessWidget {
                           fontSize: 11,
                           color: isSel
                               ? _priorityColor(p)
-                              : AppTheme.petalWhite.withValues(alpha: 0.6),
+                              : AppColors.petalWhite.withValues(alpha: 0.6),
                           fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
                         ),
                       ),
@@ -756,10 +756,10 @@ class BucketItemCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
           color: onTap == null
-              ? AppTheme.twilight.withValues(alpha: 0.5)
-              : AppTheme.moonlight.withValues(alpha: 0.08),
+              ? AppColors.twilight.withValues(alpha: 0.5)
+              : AppColors.moonlight.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.12)),
+          border: Border.all(color: AppColors.blushGold.withValues(alpha: 0.12)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -768,8 +768,8 @@ class BucketItemCard extends StatelessWidget {
               icon,
               size: 14,
               color: onTap == null
-                  ? AppTheme.petalWhite.withValues(alpha: 0.3)
-                  : AppTheme.blushGold,
+                  ? AppColors.petalWhite.withValues(alpha: 0.3)
+                  : AppColors.blushGold,
             ),
             const SizedBox(width: 6),
             Text(
@@ -777,8 +777,8 @@ class BucketItemCard extends StatelessWidget {
               style: AppTypography.outfitWhite.copyWith(
                 fontSize: 11,
                 color: onTap == null
-                    ? AppTheme.petalWhite.withValues(alpha: 0.3)
-                    : AppTheme.petalWhite.withValues(alpha: 0.8),
+                    ? AppColors.petalWhite.withValues(alpha: 0.3)
+                    : AppColors.petalWhite.withValues(alpha: 0.8),
               ),
             ),
           ],
@@ -799,19 +799,19 @@ class BucketItemCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [AppTheme.deepRose, AppColors.rosePressed],
+            colors: [AppColors.deepRose, AppColors.rosePressed],
           ),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 16, color: AppTheme.petalWhite),
+            Icon(icon, size: 16, color: AppColors.petalWhite),
             const SizedBox(width: 6),
             Text(
               label,
               style: AppTypography.outfitBold.copyWith(
-                color: AppTheme.petalWhite,
+                color: AppColors.petalWhite,
                 fontSize: 13,
               ),
             ),

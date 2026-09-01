@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
 import 'package:provider/provider.dart';
 import '../../../../shared/utils/pick_image_bytes.dart';
@@ -80,7 +80,7 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("Upload failed: $e"),
-            backgroundColor: AppTheme.deepRose,
+            backgroundColor: AppColors.deepRose,
           ),
         );
       }
@@ -108,15 +108,15 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
           maxHeight: MediaQuery.sizeOf(context).height * 0.8,
         ),
         decoration: BoxDecoration(
-          color: AppTheme.velvet,
+          color: AppColors.velvet,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: AppTheme.blushGold.withValues(alpha: 0.25),
+            color: AppColors.blushGold.withValues(alpha: 0.25),
             width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.deepRose.withValues(alpha: 0.3),
+              color: AppColors.deepRose.withValues(alpha: 0.3),
               blurRadius: 20,
               spreadRadius: 5,
             ),
@@ -139,10 +139,10 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                   width: double.infinity,
                   height: 200,
                   decoration: BoxDecoration(
-                    color: AppTheme.twilight,
+                    color: AppColors.twilight,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: AppTheme.blushGold.withValues(alpha: 0.2),
+                      color: AppColors.blushGold.withValues(alpha: 0.2),
                     ),
                   ),
                   child: _imageBytes != null
@@ -156,13 +156,13 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                             Icon(
                               Icons.add_photo_alternate_outlined,
                               size: 48,
-                              color: AppTheme.blushGold.withValues(alpha: 0.65),
+                              color: AppColors.blushGold.withValues(alpha: 0.65),
                             ),
                             const SizedBox(height: 12),
                             Text(
                               "Tap to choose a photo",
                               style: AppTypography.outfitWhite.copyWith(
-                                color: AppTheme.petalWhite.withValues(
+                                color: AppColors.petalWhite.withValues(
                                   alpha: 0.5,
                                 ),
                                 fontSize: 14,
@@ -178,24 +178,24 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
               TextField(
                 controller: _captionController,
                 style: AppTypography.outfitWhite.copyWith(
-                  color: AppTheme.petalWhite,
+                  color: AppColors.petalWhite,
                 ),
                 decoration: InputDecoration(
                   hintText: "Add a caption…",
                   hintStyle: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.65),
+                    color: AppColors.petalWhite.withValues(alpha: 0.65),
                   ),
                   filled: true,
-                  fillColor: AppTheme.twilight,
+                  fillColor: AppColors.twilight,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                     borderSide: BorderSide(
-                      color: AppTheme.blushGold.withValues(alpha: 0.2),
+                      color: AppColors.blushGold.withValues(alpha: 0.2),
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: AppTheme.blushGold),
+                    borderSide: const BorderSide(color: AppColors.blushGold),
                   ),
                   contentPadding: const EdgeInsets.all(16),
                 ),
@@ -211,13 +211,13 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                   ),
                   decoration: BoxDecoration(
                     color: _addLocation
-                        ? AppTheme.blushGold.withValues(alpha: 0.12)
-                        : AppTheme.twilight,
+                        ? AppColors.blushGold.withValues(alpha: 0.12)
+                        : AppColors.twilight,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: _addLocation
-                          ? AppTheme.blushGold
-                          : AppTheme.blushGold.withValues(alpha: 0.12),
+                          ? AppColors.blushGold
+                          : AppColors.blushGold.withValues(alpha: 0.12),
                     ),
                   ),
                   child: Row(
@@ -228,16 +228,16 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                             : Icons.check_box_outline_blank_rounded,
                         size: 18,
                         color: _addLocation
-                            ? AppTheme.blushGold
-                            : AppTheme.petalWhite.withValues(alpha: 0.6),
+                            ? AppColors.blushGold
+                            : AppColors.petalWhite.withValues(alpha: 0.6),
                       ),
                       const SizedBox(width: 8),
                       Icon(
                         Icons.place_rounded,
                         size: 16,
                         color: _addLocation
-                            ? AppTheme.blushGold
-                            : AppTheme.petalWhite.withValues(alpha: 0.6),
+                            ? AppColors.blushGold
+                            : AppColors.petalWhite.withValues(alpha: 0.6),
                       ),
                       const SizedBox(width: 6),
                       Text(
@@ -245,8 +245,8 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                         style: AppTypography.outfitWhite.copyWith(
                           fontSize: 12,
                           color: _addLocation
-                              ? AppTheme.blushGold
-                              : AppTheme.petalWhite.withValues(alpha: 0.7),
+                              ? AppColors.blushGold
+                              : AppColors.petalWhite.withValues(alpha: 0.7),
                           fontWeight: _addLocation
                               ? FontWeight.bold
                               : FontWeight.w500,
@@ -261,26 +261,26 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                 TextField(
                   controller: _locationController,
                   style: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite,
+                    color: AppColors.petalWhite,
                     fontSize: 13,
                   ),
                   decoration: InputDecoration(
                     hintText: 'Place name — e.g., Kyoto, Our bench',
                     hintStyle: AppTypography.outfitWhite.copyWith(
-                      color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                      color: AppColors.petalWhite.withValues(alpha: 0.4),
                       fontSize: 12,
                     ),
                     prefixIcon: Icon(
                       Icons.label_rounded,
                       size: 16,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                      color: AppColors.petalWhite.withValues(alpha: 0.5),
                     ),
                     filled: true,
-                    fillColor: AppTheme.twilight,
+                    fillColor: AppColors.twilight,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(
-                        color: AppTheme.blushGold.withValues(alpha: 0.15),
+                        color: AppColors.blushGold.withValues(alpha: 0.15),
                       ),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
@@ -300,17 +300,17 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                           signed: true,
                         ),
                         style: AppTypography.outfitWhite.copyWith(
-                          color: AppTheme.petalWhite,
+                          color: AppColors.petalWhite,
                           fontSize: 12,
                         ),
                         decoration: InputDecoration(
                           hintText: 'Latitude',
                           hintStyle: AppTypography.outfitWhite.copyWith(
-                            color: AppTheme.petalWhite.withValues(alpha: 0.35),
+                            color: AppColors.petalWhite.withValues(alpha: 0.35),
                             fontSize: 11,
                           ),
                           filled: true,
-                          fillColor: AppTheme.twilight,
+                          fillColor: AppColors.twilight,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
@@ -331,17 +331,17 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                           signed: true,
                         ),
                         style: AppTypography.outfitWhite.copyWith(
-                          color: AppTheme.petalWhite,
+                          color: AppColors.petalWhite,
                           fontSize: 12,
                         ),
                         decoration: InputDecoration(
                           hintText: 'Longitude',
                           hintStyle: AppTypography.outfitWhite.copyWith(
-                            color: AppTheme.petalWhite.withValues(alpha: 0.35),
+                            color: AppColors.petalWhite.withValues(alpha: 0.35),
                             fontSize: 11,
                           ),
                           filled: true,
-                          fillColor: AppTheme.twilight,
+                          fillColor: AppColors.twilight,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
@@ -360,7 +360,7 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                   'Tip: paste from Google Maps • leave empty to save without coords',
                   style: AppTypography.outfitWhite.copyWith(
                     fontSize: 10,
-                    color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                    color: AppColors.petalWhite.withValues(alpha: 0.4),
                   ),
                 ),
               ],
@@ -375,7 +375,7 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                     child: Text(
                       "Cancel",
                       style: AppTypography.outfitWhite.copyWith(
-                        color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+                        color: AppColors.roseQuartz.withValues(alpha: 0.6),
                       ),
                     ),
                   ),
@@ -385,9 +385,9 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                         ? _upload
                         : null,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.deepRose,
-                      foregroundColor: AppTheme.petalWhite,
-                      disabledBackgroundColor: AppTheme.deepRose.withValues(
+                      backgroundColor: AppColors.deepRose,
+                      foregroundColor: AppColors.petalWhite,
+                      disabledBackgroundColor: AppColors.deepRose.withValues(
                         alpha: 0.3,
                       ),
                       shape: RoundedRectangleBorder(
@@ -404,7 +404,7 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                             height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: AppTheme.petalWhite,
+                              color: AppColors.petalWhite,
                             ),
                           )
                         : Text(

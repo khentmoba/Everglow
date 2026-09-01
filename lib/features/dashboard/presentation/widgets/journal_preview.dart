@@ -122,9 +122,9 @@ class _JournalRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.07),
+              color: AppColors.petalWhite.withValues(alpha: 0.07),
               borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              border: Border.all(color: AppColors.petalWhite.withValues(alpha: 0.08)),
             ),
             child: Text(
               '${entry.wordCount}w',

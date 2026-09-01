@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/trip.dart';
 import '../../data/services/travel_service.dart';
@@ -90,7 +89,7 @@ class _AddTripDialogState extends State<AddTripDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: AppTheme.velvet,
+      backgroundColor: AppColors.velvet,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(color: AppColors.blushGold.withValues(alpha: 0.2)),
@@ -113,19 +112,19 @@ class _AddTripDialogState extends State<AddTripDialog> {
                 'Surmai × AdventureLog',
                 style: AppTypography.outfitWhite.copyWith(
                   fontSize: 11,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                  color: AppColors.petalWhite.withValues(alpha: 0.5),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: _titleCtrl,
                 style: AppTypography.outfitWhite.copyWith(
-                  color: AppTheme.petalWhite,
+                  color: AppColors.petalWhite,
                 ),
                 decoration: InputDecoration(
                   hintText: 'Trip title — e.g., Palawan Dec 2026',
                   hintStyle: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                    color: AppColors.petalWhite.withValues(alpha: 0.4),
                   ),
                   filled: true,
                   fillColor: AppColors.twilight,
@@ -140,13 +139,13 @@ class _AddTripDialogState extends State<AddTripDialog> {
                 controller: _descCtrl,
                 maxLines: 2,
                 style: AppTypography.outfitWhite.copyWith(
-                  color: AppTheme.petalWhite,
+                  color: AppColors.petalWhite,
                   fontSize: 13,
                 ),
                 decoration: InputDecoration(
                   hintText: 'Description',
                   hintStyle: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                    color: AppColors.petalWhite.withValues(alpha: 0.4),
                   ),
                   filled: true,
                   fillColor: AppColors.twilight,
@@ -183,7 +182,7 @@ class _AddTripDialogState extends State<AddTripDialog> {
                               '${_start.month}/${_start.day}/${_start.year}',
                               style: AppTypography.outfitWhite.copyWith(
                                 fontSize: 12,
-                                color: AppTheme.petalWhite,
+                                color: AppColors.petalWhite,
                               ),
                             ),
                           ],
@@ -216,7 +215,7 @@ class _AddTripDialogState extends State<AddTripDialog> {
                               '${_end.month}/${_end.day}/${_end.year}',
                               style: AppTypography.outfitWhite.copyWith(
                                 fontSize: 12,
-                                color: AppTheme.petalWhite,
+                                color: AppColors.petalWhite,
                               ),
                             ),
                           ],
@@ -231,13 +230,13 @@ class _AddTripDialogState extends State<AddTripDialog> {
                 controller: _budgetCtrl,
                 keyboardType: TextInputType.number,
                 style: AppTypography.outfitWhite.copyWith(
-                  color: AppTheme.petalWhite,
+                  color: AppColors.petalWhite,
                   fontSize: 13,
                 ),
                 decoration: InputDecoration(
                   hintText: 'Budget estimate (PHP)',
                   hintStyle: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                    color: AppColors.petalWhite.withValues(alpha: 0.4),
                   ),
                   prefixIcon: const Icon(
                     Icons.payments_rounded,
@@ -257,7 +256,7 @@ class _AddTripDialogState extends State<AddTripDialog> {
                 'Status',
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 11,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                  color: AppColors.petalWhite.withValues(alpha: 0.6),
                 ),
               ),
               const SizedBox(height: 6),
@@ -288,7 +287,7 @@ class _AddTripDialogState extends State<AddTripDialog> {
                           fontWeight: sel ? FontWeight.bold : FontWeight.w500,
                           color: sel
                               ? AppColors.auroraTeal
-                              : AppTheme.petalWhite.withValues(alpha: 0.7),
+                              : AppColors.petalWhite.withValues(alpha: 0.7),
                         ),
                       ),
                     ),
@@ -317,13 +316,13 @@ class _AddTripDialogState extends State<AddTripDialog> {
                               height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.white,
+                                color: AppColors.petalWhite,
                               ),
                             )
                           : Text(
                               'Create Trip 🗺️',
                               style: AppTypography.outfitBold.copyWith(
-                                color: Colors.white,
+                                color: AppColors.petalWhite,
                                 fontSize: 14,
                               ),
                             ),

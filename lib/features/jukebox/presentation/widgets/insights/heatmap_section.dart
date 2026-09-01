@@ -68,7 +68,7 @@ class HeatmapSection extends StatelessWidget {
                     child: const Icon(
                       Icons.calendar_month_rounded,
                       size: 18,
-                      color: Colors.white,
+                      color: AppColors.petalWhite,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -159,7 +159,7 @@ class HeatmapSection extends StatelessWidget {
                         color: _levelColor(i, AppColors.auroraTeal),
                         borderRadius: BorderRadius.circular(3),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.06),
+                          color: AppColors.petalWhite.withValues(alpha: 0.06),
                         ),
                       ),
                     ),
@@ -198,7 +198,7 @@ class HeatmapSection extends StatelessWidget {
 Color _levelColor(int level, Color base) {
   switch (level) {
     case 0:
-      return Colors.white.withValues(alpha: 0.06);
+      return AppColors.petalWhite.withValues(alpha: 0.06);
     case 1:
       return base.withValues(alpha: 0.22);
     case 2:
@@ -244,9 +244,9 @@ class _HeatmapBlock extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
+        color: AppColors.petalWhite.withValues(alpha: 0.03),
         borderRadius: AppRadius.radiusLg,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: AppColors.petalWhite.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -315,7 +315,7 @@ class _HeatmapBlock extends StatelessWidget {
                                     ),
                                     borderRadius: BorderRadius.circular(3),
                                     border: Border.all(
-                                      color: Colors.white.withValues(
+                                      color: AppColors.petalWhite.withValues(
                                         alpha: 0.04,
                                       ),
                                       width: 0.5,
@@ -357,7 +357,7 @@ class _HeatmapBlock extends StatelessWidget {
   }
 
   Color _colorForCount(int count, int max, Color base) {
-    if (count == 0) return Colors.white.withValues(alpha: 0.06);
+    if (count == 0) return AppColors.petalWhite.withValues(alpha: 0.06);
     if (max == 0) return base.withValues(alpha: 0.25);
     final ratio = count / max;
     if (ratio < 0.25) return base.withValues(alpha: 0.25);
@@ -375,7 +375,7 @@ class _SmallStat extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.05),
+      color: AppColors.petalWhite.withValues(alpha: 0.05),
       borderRadius: BorderRadius.circular(99),
     ),
     child: Row(

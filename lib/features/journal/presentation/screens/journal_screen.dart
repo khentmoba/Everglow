@@ -9,7 +9,7 @@ import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../../../shared/widgets/everglow/everglow_error_state.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
-import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../../shared/widgets/everglow/everglow_scaffold.dart';
 import '../../../../shared/widgets/everglow/everglow_search_field.dart';
 import '../../data/models/journal_entry.dart';
 import '../../data/services/journal_service.dart';
@@ -42,15 +42,9 @@ class _JournalScreenState extends State<JournalScreen> {
     final auth = context.read<AuthService>();
     final service = JournalService();
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          const Positioned.fill(
-            child: EverglowBackground(baseColor: AppColors.inkDeep),
-          ),
-          SafeArea(
-            child: Column(
+        return EverglowScaffold(
+      backgroundColor: AppColors.inkDeep,
+      body: Column(
               children: [
                 EverglowFeatureHeader(
                   title: 'Our Journal',
@@ -230,9 +224,6 @@ class _JournalScreenState extends State<JournalScreen> {
                 ),
               ],
             ),
-          ),
-        ],
-      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddDialog(auth),
         backgroundColor: AppColors.deepRose,

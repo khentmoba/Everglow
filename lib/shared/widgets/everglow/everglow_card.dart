@@ -64,8 +64,7 @@ class _EverglowCardState extends State<EverglowCard> {
               : AppColors.moonlight.withValues(alpha: 0.08),
           width: _focused ? 1.4 : 1,
         ),
-        boxShadow:
-            widget.boxShadow ?? (_hovered ? AppElevation.e3 : AppElevation.e2),
+        boxShadow: widget.boxShadow ?? (_hovered ? AppElevation.e1 : null),
       ),
       child: widget.child,
     );

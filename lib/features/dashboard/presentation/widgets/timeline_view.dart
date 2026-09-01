@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import 'package:intl/intl.dart';
 import '../../domain/models/milestone.dart';
 import '../../data/services/milestone_service.dart';
 import './memory_detail_view.dart';
 import '../../../../shared/widgets/glass_container.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 
 class TimelineView extends StatefulWidget {
@@ -59,7 +59,7 @@ class _TimelineViewState extends State<TimelineView> {
             children: [
               Expanded(
                 child: Divider(
-                  color: AppTheme.blushGold.withValues(alpha: 0.15),
+                  color: AppColors.blushGold.withValues(alpha: 0.15),
                   thickness: 1,
                 ),
               ),
@@ -72,7 +72,7 @@ class _TimelineViewState extends State<TimelineView> {
                     letterSpacing: 2.0,
                     shadows: [
                       BoxShadow(
-                        color: AppTheme.deepRose.withValues(alpha: 0.5),
+                        color: AppColors.deepRose.withValues(alpha: 0.5),
                         blurRadius: 10,
                       ),
                     ],
@@ -81,7 +81,7 @@ class _TimelineViewState extends State<TimelineView> {
               ),
               Expanded(
                 child: Divider(
-                  color: AppTheme.blushGold.withValues(alpha: 0.15),
+                  color: AppColors.blushGold.withValues(alpha: 0.15),
                   thickness: 1,
                 ),
               ),
@@ -103,13 +103,13 @@ class _TimelineViewState extends State<TimelineView> {
                       Icon(
                         Icons.cloud_off_rounded,
                         size: 32,
-                        color: AppTheme.roseQuartz.withValues(alpha: 0.4),
+                        color: AppColors.roseQuartz.withValues(alpha: 0.4),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         'Could not load memories',
                         style: AppTypography.outfitWhite.copyWith(
-                          color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+                          color: AppColors.roseQuartz.withValues(alpha: 0.6),
                           fontSize: 13,
                         ),
                       ),
@@ -129,14 +129,14 @@ class _TimelineViewState extends State<TimelineView> {
                         height: 24,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: AppTheme.deepRose.withValues(alpha: 0.5),
+                          color: AppColors.deepRose.withValues(alpha: 0.5),
                         ),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         'Loading memories...',
                         style: AppTypography.outfitWhite.copyWith(
-                          color: AppTheme.roseQuartz.withValues(alpha: 0.5),
+                          color: AppColors.roseQuartz.withValues(alpha: 0.5),
                           fontSize: 12,
                         ),
                       ),
@@ -242,7 +242,7 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
           context: context,
           barrierDismissible: true,
           barrierLabel: '',
-          barrierColor: Colors.black54,
+          barrierColor: AppColors.inkDeep.withValues(alpha: 0.72),
           transitionDuration: const Duration(milliseconds: 400),
           pageBuilder: (context, anim1, anim2) {
             return MemoryDetailOverlay(milestone: widget.milestone);
@@ -292,7 +292,7 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
                               ).format(widget.milestone.date),
                               style: AppTypography.outfitBold.copyWith(
                                 fontSize: 13,
-                                color: AppTheme.blushGold,
+                                color: AppColors.blushGold,
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -301,7 +301,7 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
                               maxLines: 3,
                               overflow: TextOverflow.ellipsis,
                               style: AppTypography.outfitWhite.copyWith(
-                                color: AppTheme.petalWhite.withValues(
+                                color: AppColors.petalWhite.withValues(
                                   alpha: 0.8,
                                 ),
                                 height: 1.4,
@@ -337,7 +337,7 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
             width: 12,
             height: 12,
             decoration: BoxDecoration(
-              color: AppTheme.moonlight.withValues(alpha: 0.15),
+              color: AppColors.moonlight.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(2),
             ),
           ),

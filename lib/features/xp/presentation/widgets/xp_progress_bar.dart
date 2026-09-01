@@ -52,7 +52,7 @@ class XPProgressBar extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.white.withValues(alpha: 0.05),
+                    AppColors.petalWhite.withValues(alpha: 0.05),
                     Colors.transparent,
                   ],
                 ),
@@ -102,13 +102,13 @@ class XPProgressBar extends StatelessWidget {
                         const Icon(
                           Icons.bolt_rounded,
                           size: 13,
-                          color: Colors.white,
+                          color: AppColors.petalWhite,
                         ),
                         const SizedBox(width: 6),
                         Text(
                           'LEVEL ${progress.level}',
                           style: AppTypography.outfitHeading.copyWith(
-                            color: Colors.white,
+                            color: AppColors.petalWhite,
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 1.6,
@@ -199,12 +199,12 @@ class XPProgressBar extends StatelessWidget {
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               gradient: const LinearGradient(
-                                colors: [Colors.white, AppColors.blushGold],
+                                colors: [AppColors.petalWhite, AppColors.blushGold],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
                               border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.9),
+                                color: AppColors.petalWhite.withValues(alpha: 0.9),
                                 width: 1,
                               ),
                               boxShadow: [

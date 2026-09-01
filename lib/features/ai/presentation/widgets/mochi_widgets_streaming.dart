@@ -440,14 +440,14 @@ class _ComposerInputState extends State<_ComposerInput> {
                                 onTap: () => widget.onRemoveImage(i),
                                 child: Container(
                                   padding: const EdgeInsets.all(2),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.black54,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.inkDeep.withValues(alpha: 0.72),
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(
                                     Icons.close,
                                     size: 12,
-                                    color: Colors.white,
+                                    color: AppColors.petalWhite,
                                   ),
                                 ),
                               ),

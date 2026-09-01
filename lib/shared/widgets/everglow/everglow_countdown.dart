@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/theme/app_theme.dart';
 
 /// A reusable countdown timer widget that shows time remaining
 /// until a target [DateTime] in the Dusk Petal aesthetic.
@@ -111,9 +111,9 @@ class _EverglowCountdownState extends State<EverglowCountdown> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: AppTheme.deepRose.withValues(alpha: 0.2),
+        color: AppColors.deepRose.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.blushGold.withValues(alpha: 0.3)),
+        border: Border.all(color: AppColors.blushGold.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -126,7 +126,7 @@ class _EverglowCountdownState extends State<EverglowCountdown> {
             widget.label ?? 'It\'s time! 🎉',
             style: AppTypography.outfitHeading.copyWith(
               fontSize: 14,
-              color: AppTheme.blushGold,
+              color: AppColors.blushGold,
             ),
           ),
         ],
@@ -155,9 +155,9 @@ class _EverglowCountdownState extends State<EverglowCountdown> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: AppTheme.velvet.withValues(alpha: 0.6),
+        color: AppColors.velvet.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.moonlight.withValues(alpha: 0.12)),
+        border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.12)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -171,7 +171,7 @@ class _EverglowCountdownState extends State<EverglowCountdown> {
               widget.label!,
               style: AppTypography.outfitWhite.copyWith(
                 fontSize: 12,
-                color: AppTheme.roseQuartz.withValues(alpha: 0.7),
+                color: AppColors.roseQuartz.withValues(alpha: 0.7),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -245,9 +245,9 @@ class _UnitBlock extends StatelessWidget {
       width: 56,
       padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
-        color: AppTheme.velvet.withValues(alpha: 0.7),
+        color: AppColors.velvet.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.moonlight.withValues(alpha: 0.1)),
+        border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.1)),
       ),
       child: Column(
         children: [
@@ -260,7 +260,7 @@ class _UnitBlock extends StatelessWidget {
             unit,
             style: AppTypography.outfitBold.copyWith(
               fontSize: 9,
-              color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+              color: AppColors.roseQuartz.withValues(alpha: 0.6),
               letterSpacing: 1.5,
             ),
           ),
@@ -279,7 +279,7 @@ class _Separator extends StatelessWidget {
         ':',
         style: AppTypography.outfitHeading.copyWith(
           fontSize: 18,
-          color: AppTheme.blushGold.withValues(alpha: 0.5),
+          color: AppColors.blushGold.withValues(alpha: 0.5),
         ),
       ),
     );

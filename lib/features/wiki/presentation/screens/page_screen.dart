@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
@@ -47,7 +46,7 @@ class _PageScreenState extends State<PageScreen> {
                   opacity: 0.12,
                 ),
               ],
-              showPetals: true,
+              showPetals: false,
             ),
           ),
           SafeArea(
@@ -71,7 +70,7 @@ class _PageScreenState extends State<PageScreen> {
                     child: Text(
                       'Page not found',
                       style: AppTypography.outfitWhite.copyWith(
-                        color: AppTheme.petalWhite,
+                        color: AppColors.petalWhite,
                       ),
                     ),
                   );
@@ -95,7 +94,7 @@ class _PageScreenState extends State<PageScreen> {
                               TextField(
                                 controller: _titleCtrl,
                                 style: AppTypography.outfitWhite.copyWith(
-                                  color: AppTheme.petalWhite,
+                                  color: AppColors.petalWhite,
                                   fontWeight: FontWeight.bold,
                                 ),
                                 decoration: InputDecoration(
@@ -115,7 +114,7 @@ class _PageScreenState extends State<PageScreen> {
                                   maxLines: null,
                                   expands: true,
                                   style: AppTypography.outfitWhite.copyWith(
-                                    color: AppTheme.petalWhite,
+                                    color: AppColors.petalWhite,
                                     fontSize: 14,
                                     height: 1.5,
                                   ),
@@ -141,7 +140,7 @@ class _PageScreenState extends State<PageScreen> {
                                         'Cancel',
                                         style: AppTypography.outfitWhite
                                             .copyWith(
-                                              color: AppTheme.petalWhite,
+                                              color: AppColors.petalWhite,
                                             ),
                                       ),
                                     ),
@@ -173,7 +172,7 @@ class _PageScreenState extends State<PageScreen> {
                                       child: Text(
                                         'Save',
                                         style: AppTypography.outfitBold
-                                            .copyWith(color: Colors.white),
+                                            .copyWith(color: AppColors.petalWhite),
                                       ),
                                     ),
                                   ),
@@ -261,7 +260,7 @@ class _PageScreenState extends State<PageScreen> {
                               width: double.infinity,
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: AppTheme.moonlight.withValues(
+                                color: AppColors.moonlight.withValues(
                                   alpha: 0.06,
                                 ),
                                 borderRadius: BorderRadius.circular(12),
@@ -274,7 +273,7 @@ class _PageScreenState extends State<PageScreen> {
                                 style: AppTypography.outfitWhite.copyWith(
                                   fontSize: 14,
                                   height: 1.6,
-                                  color: AppTheme.petalWhite,
+                                  color: AppColors.petalWhite,
                                 ),
                               ),
                             ),
@@ -288,18 +287,18 @@ class _PageScreenState extends State<PageScreen> {
                                     icon: const Icon(
                                       Icons.delete_outline_rounded,
                                       size: 16,
-                                      color: Colors.redAccent,
+                                      color: AppColors.error,
                                     ),
                                     label: Text(
                                       'Delete',
                                       style: AppTypography.outfitWhite.copyWith(
                                         fontSize: 12,
-                                        color: Colors.redAccent,
+                                        color: AppColors.error,
                                       ),
                                     ),
                                     style: OutlinedButton.styleFrom(
                                       side: BorderSide(
-                                        color: Colors.redAccent.withValues(
+                                        color: AppColors.error.withValues(
                                           alpha: 0.3,
                                         ),
                                       ),
@@ -326,7 +325,7 @@ class _PageScreenState extends State<PageScreen> {
                                       'Edit',
                                       style: AppTypography.outfitBold.copyWith(
                                         fontSize: 12,
-                                        color: Colors.white,
+                                        color: AppColors.petalWhite,
                                       ),
                                     ),
                                     style: ElevatedButton.styleFrom(
@@ -358,15 +357,15 @@ class _PageScreenState extends State<PageScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        backgroundColor: AppTheme.velvet,
+        backgroundColor: AppColors.velvet,
         title: Text(
           'Delete page?',
-          style: AppTypography.outfitBold.copyWith(color: AppTheme.petalWhite),
+          style: AppTypography.outfitBold.copyWith(color: AppColors.petalWhite),
         ),
         content: Text(
           'This cannot be undone.',
           style: AppTypography.outfitWhite.copyWith(
-            color: AppTheme.petalWhite.withValues(alpha: 0.7),
+            color: AppColors.petalWhite.withValues(alpha: 0.7),
           ),
         ),
         actions: [
@@ -378,7 +377,7 @@ class _PageScreenState extends State<PageScreen> {
             onPressed: () => Navigator.pop(c, true),
             child: const Text(
               'Delete',
-              style: TextStyle(color: Colors.redAccent),
+              style: TextStyle(color: AppColors.error),
             ),
           ),
         ],

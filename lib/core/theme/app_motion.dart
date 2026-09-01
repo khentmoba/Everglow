@@ -41,7 +41,7 @@ class AppMotion {
   static const Duration page = Duration(milliseconds: 320);
 
   /// 600ms — scroll reveal entrance.
-  static const Duration reveal = Duration(milliseconds: 600);
+  static const Duration reveal = Duration(milliseconds: 400);
 
   /// 700ms — carousel slide.
   static const Duration carousel = Duration(milliseconds: 700);

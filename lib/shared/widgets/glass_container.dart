@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 
 class GlassContainer extends StatelessWidget {
@@ -38,14 +39,14 @@ class GlassContainer extends StatelessWidget {
       height: height,
       padding: padding,
       decoration: BoxDecoration(
-        color: AppTheme.moonlight.withValues(
+        color: AppColors.moonlight.withValues(
           alpha: useBlur ? effectiveOpacity : 0.22,
         ),
         borderRadius: effectiveRadius,
         border:
             border ??
             Border.all(
-              color: AppTheme.moonlight.withValues(alpha: 0.18),
+              color: AppColors.moonlight.withValues(alpha: 0.18),
               width: 1.0,
             ),
         boxShadow: [
@@ -55,7 +56,7 @@ class GlassContainer extends StatelessWidget {
             offset: const Offset(0, 8),
           ),
           BoxShadow(
-            color: AppTheme.deepRose.withValues(alpha: 0.05),
+            color: AppColors.deepRose.withValues(alpha: 0.05),
             blurRadius: 25,
             spreadRadius: -10,
           ),

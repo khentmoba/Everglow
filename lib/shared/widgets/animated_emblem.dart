@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_colors.dart';
 
 class AnimatedEmblem extends StatefulWidget {
   final IconData icon;
@@ -46,7 +46,7 @@ class _AnimatedEmblemState extends State<AnimatedEmblem>
 
   @override
   Widget build(BuildContext context) {
-    final effectiveColor = widget.color ?? AppTheme.deepRose;
+    final effectiveColor = widget.color ?? AppColors.deepRose;
 
     return RepaintBoundary(
       child: AnimatedBuilder(
@@ -71,13 +71,13 @@ class _AnimatedEmblemState extends State<AnimatedEmblem>
               color: effectiveColor,
               shadows: [
                 Shadow(
-                  color: AppTheme.blushGold.withValues(alpha: 0.65),
+                  color: AppColors.blushGold.withValues(alpha: 0.65),
                   blurRadius: _glowAnimation.value,
                 ),
-                const Shadow(
-                  color: Colors.white24,
+                Shadow(
+                  color: AppColors.petalWhite.withValues(alpha: 0.24),
                   blurRadius: 1,
-                  offset: Offset(1, 1),
+                  offset: const Offset(1, 1),
                 ),
               ],
             ),

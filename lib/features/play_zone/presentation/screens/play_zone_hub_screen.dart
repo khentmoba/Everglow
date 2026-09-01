@@ -4,7 +4,6 @@ import '../../../../shared/widgets/glass_container.dart';
 import '../../../../shared/widgets/animated_emblem.dart';
 import '../../../../shared/widgets/bouncy_button.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -87,7 +86,7 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
     return GlassContainer(
       borderRadius: BorderRadius.circular(24.0),
       border: Border.all(
-        color: AppTheme.blushGold.withValues(alpha: 0.25),
+        color: AppColors.blushGold.withValues(alpha: 0.25),
         width: 1.5,
       ),
       child: Padding(
@@ -97,7 +96,7 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
             const AnimatedEmblem(
               icon: Icons.sports_tennis_rounded,
               size: 56,
-              color: AppTheme.warmAmber,
+              color: AppColors.warmAmber,
             ),
             const SizedBox(height: 16),
             Text(
@@ -107,7 +106,7 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
                 letterSpacing: 0.5,
                 shadows: [
                   BoxShadow(
-                    color: AppTheme.deepRose.withValues(alpha: 0.4),
+                    color: AppColors.deepRose.withValues(alpha: 0.4),
                     blurRadius: 15,
                   ),
                 ],
@@ -118,7 +117,7 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
               'Smash your way through the world tournament bracket',
               style: AppTypography.outfitWhite.copyWith(
                 fontSize: 14,
-                color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                color: AppColors.petalWhite.withValues(alpha: 0.7),
               ),
               textAlign: TextAlign.center,
             ),
@@ -135,12 +134,12 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
                     ),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [AppTheme.warmAmber, AppTheme.deepRose],
+                        colors: [AppColors.warmAmber, AppColors.deepRose],
                       ),
                       borderRadius: BorderRadius.circular(24.0),
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.warmAmber.withValues(alpha: 0.3),
+                          color: AppColors.warmAmber.withValues(alpha: 0.3),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -150,7 +149,7 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
                       'SOLO',
                       style: AppTypography.outfitWhite.copyWith(
                         fontWeight: FontWeight.w900,
-                        color: AppTheme.petalWhite,
+                        color: AppColors.petalWhite,
                         letterSpacing: 2.0,
                         fontSize: 14,
                       ),
@@ -167,12 +166,12 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
                     ),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [AppTheme.softLavender, AppTheme.deepRose],
+                        colors: [AppColors.softLavender, AppColors.deepRose],
                       ),
                       borderRadius: BorderRadius.circular(24.0),
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.softLavender.withValues(alpha: 0.3),
+                          color: AppColors.softLavender.withValues(alpha: 0.3),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -183,7 +182,7 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
                       children: [
                         const Icon(
                           Icons.people_rounded,
-                          color: AppTheme.petalWhite,
+                          color: AppColors.petalWhite,
                           size: 18,
                         ),
                         const SizedBox(width: 6),
@@ -191,7 +190,7 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
                           '1v1',
                           style: AppTypography.outfitWhite.copyWith(
                             fontWeight: FontWeight.w900,
-                            color: AppTheme.petalWhite,
+                            color: AppColors.petalWhite,
                             letterSpacing: 2.0,
                             fontSize: 14,
                           ),
@@ -230,7 +229,7 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
               ),
               child: const Icon(
                 Icons.brush_rounded,
-                color: Colors.white,
+                color: AppColors.petalWhite,
                 size: 28,
               ),
             ),
@@ -247,7 +246,7 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
               'Draw & guess — one draws, one guesses. Firestore-synced canvas (Scribble.rs)',
               style: AppTypography.outfitWhite.copyWith(
                 fontSize: 13,
-                color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                color: AppColors.petalWhite.withValues(alpha: 0.7),
               ),
               textAlign: TextAlign.center,
             ),
@@ -269,7 +268,7 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
                   'DRAW',
                   style: AppTypography.outfitWhite.copyWith(
                     fontWeight: FontWeight.w900,
-                    color: Colors.white,
+                    color: AppColors.petalWhite,
                     letterSpacing: 2.0,
                     fontSize: 14,
                   ),
@@ -304,7 +303,7 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
               ),
               child: const Icon(
                 Icons.grid_on_rounded,
-                color: Colors.white,
+                color: AppColors.petalWhite,
                 size: 28,
               ),
             ),
@@ -321,7 +320,7 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
               'Classic 2-player chess — synced via Firestore (Lila)',
               style: AppTypography.outfitWhite.copyWith(
                 fontSize: 13,
-                color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                color: AppColors.petalWhite.withValues(alpha: 0.7),
               ),
               textAlign: TextAlign.center,
             ),
@@ -346,7 +345,7 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
                       'PLAY',
                       style: AppTypography.outfitWhite.copyWith(
                         fontWeight: FontWeight.w900,
-                        color: Colors.white,
+                        color: AppColors.petalWhite,
                         letterSpacing: 2.0,
                         fontSize: 14,
                       ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_typography.dart';
 
-import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_breakpoints.dart';
 import 'motion.dart';
@@ -142,7 +141,7 @@ class _CinemaTopNavState extends State<_CinemaTopNav> {
                 boxShadow: _headerHovered
                     ? [
                         BoxShadow(
-                          color: AppTheme.deepRose.withValues(alpha: 0.15),
+                          color: AppColors.deepRose.withValues(alpha: 0.15),
                           blurRadius: 20,
                           offset: const Offset(0, 0),
                         ),
@@ -157,11 +156,11 @@ class _CinemaTopNavState extends State<_CinemaTopNav> {
                     width: 28,
                     height: 28,
                     decoration: BoxDecoration(
-                      color: AppTheme.deepRose,
+                      color: AppColors.deepRose,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.deepRose.withValues(alpha: 0.4),
+                          color: AppColors.deepRose.withValues(alpha: 0.4),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -169,7 +168,7 @@ class _CinemaTopNavState extends State<_CinemaTopNav> {
                     ),
                     child: const Icon(
                       Icons.play_arrow_rounded,
-                      color: Colors.white,
+                      color: AppColors.petalWhite,
                       size: 16,
                     ),
                   ),
@@ -265,9 +264,9 @@ class _NavLinkState extends State<_NavLink> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: widget.isActive
-                  ? AppTheme.deepRose.withValues(alpha: 0.12)
+                  ? AppColors.deepRose.withValues(alpha: 0.12)
                   : (_hovered
-                        ? AppTheme.petalWhite.withValues(alpha: 0.05)
+                        ? AppColors.petalWhite.withValues(alpha: 0.05)
                         : Colors.transparent),
               borderRadius: BorderRadius.circular(12),
             ),
@@ -278,7 +277,7 @@ class _NavLinkState extends State<_NavLink> {
                   widget.isActive ? widget.activeIcon : widget.icon,
                   size: 16,
                   color: widget.isActive
-                      ? AppTheme.petalWhite
+                      ? AppColors.petalWhite
                       : AppColors.textMuted,
                 ),
                 const SizedBox(width: 6),
@@ -290,7 +289,7 @@ class _NavLinkState extends State<_NavLink> {
                         ? FontWeight.w700
                         : FontWeight.w500,
                     color: widget.isActive
-                        ? AppTheme.petalWhite
+                        ? AppColors.petalWhite
                         : AppColors.textMuted,
                     letterSpacing: 0.3,
                   ),
@@ -303,7 +302,7 @@ class _NavLinkState extends State<_NavLink> {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: AppTheme.deepRose.withValues(alpha: 0.2),
+                      color: AppColors.deepRose.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -311,7 +310,7 @@ class _NavLinkState extends State<_NavLink> {
                       style: AppTypography.outfitHeading.copyWith(
                         fontSize: 9,
                         fontWeight: FontWeight.w800,
-                        color: AppTheme.deepRose,
+                        color: AppColors.deepRose,
                       ),
                     ),
                   ),
@@ -322,7 +321,7 @@ class _NavLinkState extends State<_NavLink> {
                     width: 4,
                     height: 4,
                     decoration: const BoxDecoration(
-                      color: AppTheme.deepRose,
+                      color: AppColors.deepRose,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -362,7 +361,7 @@ class _ActionIconButtonState extends State<_ActionIconButton> {
         message: widget.tooltip,
         textStyle: AppTypography.outfitBold.copyWith(fontSize: 11),
         decoration: BoxDecoration(
-          color: AppTheme.velvet,
+          color: AppColors.velvet,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: AppColors.border),
         ),
@@ -374,13 +373,13 @@ class _ActionIconButtonState extends State<_ActionIconButton> {
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: _hovered
-                  ? AppTheme.petalWhite.withValues(alpha: 0.08)
+                  ? AppColors.petalWhite.withValues(alpha: 0.08)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               widget.icon,
-              color: _hovered ? AppTheme.petalWhite : AppColors.textMuted,
+              color: _hovered ? AppColors.petalWhite : AppColors.textMuted,
               size: 22,
             ),
           ),
@@ -417,7 +416,7 @@ class _CinemaBottomNav extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.animeCard,
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AppTheme.roseQuartz.withValues(alpha: 0.1)),
+        border: Border.all(color: AppColors.roseQuartz.withValues(alpha: 0.1)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.5),
@@ -425,7 +424,7 @@ class _CinemaBottomNav extends StatelessWidget {
             offset: const Offset(0, 10),
           ),
           BoxShadow(
-            color: AppTheme.deepRose.withValues(alpha: 0.08),
+            color: AppColors.deepRose.withValues(alpha: 0.08),
             blurRadius: 30,
             offset: const Offset(0, -5),
           ),
@@ -444,12 +443,12 @@ class _CinemaBottomNav extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppTheme.deepRose.withValues(alpha: 0.12),
+                      color: AppColors.deepRose.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
                       Icons.arrow_back_rounded,
-                      color: AppTheme.petalWhite,
+                      color: AppColors.petalWhite,
                       size: 20,
                     ),
                   ),
@@ -504,7 +503,7 @@ class _BottomNavItem extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
             color: isActive
-                ? AppTheme.deepRose.withValues(alpha: 0.12)
+                ? AppColors.deepRose.withValues(alpha: 0.12)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(16),
           ),
@@ -514,7 +513,7 @@ class _BottomNavItem extends StatelessWidget {
               Icon(
                 isActive ? activeIcon : icon,
                 size: 20,
-                color: isActive ? AppTheme.petalWhite : AppColors.textMuted,
+                color: isActive ? AppColors.petalWhite : AppColors.textMuted,
               ),
               if (isActive) ...[
                 const SizedBox(width: 6),
@@ -531,7 +530,7 @@ class _BottomNavItem extends StatelessWidget {
                     vertical: 1,
                   ),
                   decoration: BoxDecoration(
-                    color: AppTheme.deepRose,
+                    color: AppColors.deepRose,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(

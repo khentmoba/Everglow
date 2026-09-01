@@ -9,7 +9,6 @@ import '../models/game_match.dart';
 import 'package:go_router/go_router.dart';
 import '../presentation/routes/academy_routes.dart';
 import '../services/academy_sync_service.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../core/theme/app_radius.dart';
@@ -148,7 +147,7 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.velvet,
+        backgroundColor: AppColors.velvet,
         shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusX2),
         title: Text(
           'Matchmaking Timeout',
@@ -157,7 +156,7 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
         content: Text(
           'We couldn\'t find a partner for you right now. Would you like to play Solo instead?',
           style: AppTypography.outfitWhite.copyWith(
-            color: AppTheme.petalWhite.withValues(alpha: 0.8),
+            color: AppColors.petalWhite.withValues(alpha: 0.8),
           ),
         ),
         actions: [
@@ -166,7 +165,7 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
             child: Text(
               'Cancel',
               style: AppTypography.outfitWhite.copyWith(
-                color: AppTheme.roseQuartz.withValues(alpha: 0.6),
+                color: AppColors.roseQuartz.withValues(alpha: 0.6),
               ),
             ),
           ),
@@ -176,7 +175,7 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
             child: Text(
               'Play Solo',
               style: AppTypography.outfitWhite.copyWith(
-                color: AppTheme.petalWhite,
+                color: AppColors.petalWhite,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -308,7 +307,7 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
                             Text(
                               _statusMessage ?? '',
                               style: AppTypography.outfitWhite.copyWith(
-                                color: AppTheme.roseQuartz,
+                                color: AppColors.roseQuartz,
                               ),
                             ),
                             const SizedBox(height: AppSpacing.xl),
@@ -318,7 +317,7 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
                               child: Text(
                                 'Cancel Search',
                                 style: AppTypography.outfitWhite.copyWith(
-                                  color: AppTheme.blushGold,
+                                  color: AppColors.blushGold,
                                 ),
                               ),
                             ),
@@ -343,7 +342,7 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
                               Text(
                                 _statusMessage!,
                                 style: AppTypography.outfitWhite.copyWith(
-                                  color: AppTheme.blushGold,
+                                  color: AppColors.blushGold,
                                 ),
                               ),
                             ],
@@ -518,7 +517,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet>
         bottomPadding + AppSpacing.x3,
       ),
       decoration: const BoxDecoration(
-        color: AppTheme.velvet,
+        color: AppColors.velvet,
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(AppRadius.x3),
           topRight: Radius.circular(AppRadius.x3),
@@ -567,7 +566,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet>
         width: 40,
         height: 4,
         decoration: BoxDecoration(
-          color: AppTheme.moonlight.withValues(alpha: 0.3),
+          color: AppColors.moonlight.withValues(alpha: 0.3),
           borderRadius: AppRadius.radiusFull,
         ),
       ),
@@ -637,13 +636,13 @@ class _CategoryCardState extends State<_CategoryCard>
             curve: AppMotion.easeOutStrong,
             decoration: BoxDecoration(
               color: _isHovered
-                  ? AppTheme.moonlight.withValues(alpha: 0.15)
-                  : AppTheme.twilight,
+                  ? AppColors.moonlight.withValues(alpha: 0.15)
+                  : AppColors.twilight,
               borderRadius: AppRadius.radiusLg,
               border: Border.all(
                 color: _isHovered
-                    ? AppTheme.roseQuartz.withValues(alpha: 0.3)
-                    : AppTheme.moonlight.withValues(alpha: 0.12),
+                    ? AppColors.roseQuartz.withValues(alpha: 0.3)
+                    : AppColors.moonlight.withValues(alpha: 0.12),
                 width: 1.0,
               ),
               boxShadow: _isHovered ? AppElevation.glowRose : AppElevation.e1,
@@ -657,15 +656,15 @@ class _CategoryCardState extends State<_CategoryCard>
                   decoration: BoxDecoration(
                     color: _isHovered
                         ? AppColors.deepRose.withValues(alpha: 0.15)
-                        : AppTheme.roseQuartz.withValues(alpha: 0.08),
+                        : AppColors.roseQuartz.withValues(alpha: 0.08),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     widget.data.icon,
                     size: 26,
                     color: _isHovered
-                        ? AppTheme.roseQuartz
-                        : AppTheme.roseQuartz.withValues(alpha: 0.7),
+                        ? AppColors.roseQuartz
+                        : AppColors.roseQuartz.withValues(alpha: 0.7),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
@@ -674,8 +673,8 @@ class _CategoryCardState extends State<_CategoryCard>
                   style: AppTypography.outfitBold.copyWith(
                     fontSize: 13,
                     color: _isHovered
-                        ? AppTheme.petalWhite
-                        : AppTheme.petalWhite.withValues(alpha: 0.85),
+                        ? AppColors.petalWhite
+                        : AppColors.petalWhite.withValues(alpha: 0.85),
                   ),
                   textAlign: TextAlign.center,
                 ),

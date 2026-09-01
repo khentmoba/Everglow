@@ -65,7 +65,7 @@ class _EverglowSearchFieldState extends State<EverglowSearchField> {
             ? [BoxShadow(blurRadius: 14, color: AppColors.blushGold.withValues(alpha: 0.10))]
             : null,
       ),
-      child: TextField(
+      child: Semantics(label: widget.hint, textField: true, child: TextField(
         controller: widget.controller,
         focusNode: _focusNode,
         onChanged: widget.onChanged,
@@ -77,7 +77,7 @@ class _EverglowSearchFieldState extends State<EverglowSearchField> {
           hintText: widget.hint,
           hintStyle: AppTypography.outfitWhite.copyWith(
             fontSize: 13.5,
-            color: AppColors.petalWhite.withValues(alpha: 0.38),
+            color: AppColors.petalWhite.withValues(alpha: 0.62),
           ),
           prefixIcon: Icon(
             Icons.search_rounded,
@@ -101,12 +101,17 @@ class _EverglowSearchFieldState extends State<EverglowSearchField> {
                   tooltip: 'Clear',
                 )
               : null,
+          labelText: widget.hint,
+          floatingLabelBehavior: FloatingLabelBehavior.never,
+          labelStyle: AppTypography.outfitWhite.copyWith(fontSize: 13.5, color: AppColors.petalWhite.withValues(alpha: 0.55)),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
       ),
       ),
+      ),
     );
   }
 }
+
 

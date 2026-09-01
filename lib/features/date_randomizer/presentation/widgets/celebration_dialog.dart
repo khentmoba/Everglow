@@ -1,7 +1,7 @@
 import 'dart:math';
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
 class CelebrationDialog extends StatelessWidget {
@@ -29,15 +29,15 @@ class CelebrationDialog extends StatelessWidget {
               padding: const EdgeInsets.all(32),
               constraints: const BoxConstraints(maxWidth: 400),
               decoration: BoxDecoration(
-                color: AppTheme.velvet,
+                color: AppColors.velvet,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: AppTheme.blushGold.withValues(alpha: 0.25),
+                  color: AppColors.blushGold.withValues(alpha: 0.25),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.deepRose.withValues(alpha: 0.3),
+                    color: AppColors.deepRose.withValues(alpha: 0.3),
                     blurRadius: 30,
                     spreadRadius: 5,
                   ),
@@ -48,14 +48,14 @@ class CelebrationDialog extends StatelessWidget {
                 children: [
                   const Icon(
                     Icons.favorite,
-                    color: AppTheme.deepRose,
+                    color: AppColors.deepRose,
                     size: 48,
                   ),
                   const SizedBox(height: 24),
                   Text(
                     "You should...",
                     style: AppTypography.outfitBold.copyWith(
-                      color: AppTheme.blushGold,
+                      color: AppColors.blushGold,
                       fontSize: 16,
                       letterSpacing: 1.2,
                     ),
@@ -73,8 +73,8 @@ class CelebrationDialog extends StatelessWidget {
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.deepRose,
-                      foregroundColor: AppTheme.petalWhite,
+                      backgroundColor: AppColors.deepRose,
+                      foregroundColor: AppColors.petalWhite,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 48,
@@ -107,10 +107,10 @@ class CelebrationDialog extends StatelessWidget {
     final distance = 160.0 + random.nextDouble() * 60;
     final icon = index % 2 == 0 ? Icons.star : Icons.circle;
     final color = index % 3 == 0
-        ? AppTheme.roseQuartz.withValues(alpha: 0.7)
+        ? AppColors.roseQuartz.withValues(alpha: 0.7)
         : (index % 3 == 1
-              ? AppTheme.blushGold.withValues(alpha: 0.7)
-              : AppTheme.softLavender.withValues(alpha: 0.7));
+              ? AppColors.blushGold.withValues(alpha: 0.7)
+              : AppColors.softLavender.withValues(alpha: 0.7));
 
     return FadeIn(
       delay: Duration(milliseconds: index * 50),

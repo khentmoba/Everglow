@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_typography.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_theme.dart';
 import 'motion.dart';
 
 /// Floating pill bottom nav shared by Cinema, Anime, Books, and
@@ -28,8 +27,8 @@ class ShelfPillBottomNav extends StatelessWidget {
     required this.currentIndex,
     required this.items,
     required this.onTap,
-    this.accentColor = AppTheme.deepRose,
-    this.glowColor = AppTheme.deepRose,
+    this.accentColor = AppColors.deepRose,
+    this.glowColor = AppColors.deepRose,
   });
 
   @override
@@ -44,7 +43,7 @@ class ShelfPillBottomNav extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.animeCard,
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AppTheme.roseQuartz.withValues(alpha: 0.1)),
+        border: Border.all(color: AppColors.roseQuartz.withValues(alpha: 0.1)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.5),
@@ -102,7 +101,7 @@ class ShelfPillBottomNav extends StatelessWidget {
                 size: 22,
                 color: isActive
                     ? accentColor
-                    : AppTheme.roseQuartz.withValues(alpha: 0.55),
+                    : AppColors.roseQuartz.withValues(alpha: 0.55),
               ),
             ),
             if (isActive) ...[

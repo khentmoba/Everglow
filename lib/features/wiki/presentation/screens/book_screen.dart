@@ -33,7 +33,7 @@ class BookScreen extends StatelessWidget {
                   opacity: 0.12,
                 ),
               ],
-              showPetals: true,
+              showPetals: false,
             ),
           ),
           SafeArea(
@@ -57,7 +57,7 @@ class BookScreen extends StatelessWidget {
                     child: Text(
                       'Book not found',
                       style: AppTypography.outfitWhite.copyWith(
-                        color: AppTheme.petalWhite,
+                        color: AppColors.petalWhite,
                       ),
                     ),
                   );
@@ -91,7 +91,7 @@ class BookScreen extends StatelessWidget {
                                 'New Page',
                                 style: AppTypography.outfitBold.copyWith(
                                   fontSize: 12,
-                                  color: Colors.white,
+                                  color: AppColors.petalWhite,
                                 ),
                               ),
                               style: ElevatedButton.styleFrom(
@@ -106,18 +106,18 @@ class BookScreen extends StatelessWidget {
                             icon: const Icon(
                               Icons.delete_outline_rounded,
                               size: 16,
-                              color: Colors.redAccent,
+                              color: AppColors.error,
                             ),
                             label: Text(
                               'Delete Book',
                               style: AppTypography.outfitWhite.copyWith(
                                 fontSize: 11,
-                                color: Colors.redAccent,
+                                color: AppColors.error,
                               ),
                             ),
                             style: OutlinedButton.styleFrom(
                               side: BorderSide(
-                                color: Colors.redAccent.withValues(alpha: 0.3),
+                                color: AppColors.error.withValues(alpha: 0.3),
                               ),
                             ),
                           ),
@@ -152,7 +152,7 @@ class BookScreen extends StatelessWidget {
                                   margin: const EdgeInsets.only(bottom: 10),
                                   padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.moonlight.withValues(
+                                    color: AppColors.moonlight.withValues(
                                       alpha: 0.08,
                                     ),
                                     borderRadius: BorderRadius.circular(12),
@@ -228,7 +228,7 @@ class BookScreen extends StatelessWidget {
                                               style: AppTypography.outfitWhite
                                                   .copyWith(
                                                     fontSize: 11,
-                                                    color: AppTheme.petalWhite
+                                                    color: AppColors.petalWhite
                                                         .withValues(alpha: 0.6),
                                                   ),
                                               maxLines: 1,
@@ -240,7 +240,7 @@ class BookScreen extends StatelessWidget {
                                               style: AppTypography.outfitWhite
                                                   .copyWith(
                                                     fontSize: 10,
-                                                    color: AppTheme.petalWhite
+                                                    color: AppColors.petalWhite
                                                         .withValues(alpha: 0.5),
                                                   ),
                                             ),
@@ -277,11 +277,11 @@ class BookScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.velvet,
+        backgroundColor: AppColors.velvet,
         title: Text(
           'New Page',
           style: AppTypography.cormorantBold.copyWith(
-            color: AppTheme.petalWhite,
+            color: AppColors.petalWhite,
           ),
         ),
         content: SingleChildScrollView(
@@ -291,12 +291,12 @@ class BookScreen extends StatelessWidget {
               TextField(
                 controller: titleCtrl,
                 style: AppTypography.outfitWhite.copyWith(
-                  color: AppTheme.petalWhite,
+                  color: AppColors.petalWhite,
                 ),
                 decoration: InputDecoration(
                   hintText: 'Page title',
                   hintStyle: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                    color: AppColors.petalWhite.withValues(alpha: 0.4),
                   ),
                   filled: true,
                   fillColor: AppColors.twilight,
@@ -311,13 +311,13 @@ class BookScreen extends StatelessWidget {
                 controller: mdCtrl,
                 maxLines: 6,
                 style: AppTypography.outfitWhite.copyWith(
-                  color: AppTheme.petalWhite,
+                  color: AppColors.petalWhite,
                   fontSize: 13,
                 ),
                 decoration: InputDecoration(
                   hintText: 'Markdown content...',
                   hintStyle: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                    color: AppColors.petalWhite.withValues(alpha: 0.4),
                   ),
                   filled: true,
                   fillColor: AppColors.twilight,
@@ -361,7 +361,7 @@ class BookScreen extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.deepRose,
             ),
-            child: const Text('Create', style: TextStyle(color: Colors.white)),
+            child: const Text('Create', style: TextStyle(color: AppColors.petalWhite)),
           ),
         ],
       ),
@@ -372,15 +372,15 @@ class BookScreen extends StatelessWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        backgroundColor: AppTheme.velvet,
+        backgroundColor: AppColors.velvet,
         title: Text(
           'Delete book?',
-          style: AppTypography.outfitBold.copyWith(color: AppTheme.petalWhite),
+          style: AppTypography.outfitBold.copyWith(color: AppColors.petalWhite),
         ),
         content: Text(
           'All pages in this book will be deleted.',
           style: AppTypography.outfitWhite.copyWith(
-            color: AppTheme.petalWhite.withValues(alpha: 0.7),
+            color: AppColors.petalWhite.withValues(alpha: 0.7),
           ),
         ),
         actions: [
@@ -392,7 +392,7 @@ class BookScreen extends StatelessWidget {
             onPressed: () => Navigator.pop(c, true),
             child: const Text(
               'Delete',
-              style: TextStyle(color: Colors.redAccent),
+              style: TextStyle(color: AppColors.error),
             ),
           ),
         ],

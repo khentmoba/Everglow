@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 
 /// Slow diagonal light sweep used on podium rows and champion surfaces.
 class StatsShimmer extends StatefulWidget {
@@ -42,7 +43,7 @@ class _StatsShimmerState extends State<StatsShimmer>
           colors: [
             Colors.transparent,
             Colors.transparent,
-            Colors.white.withValues(alpha: 0.08),
+            AppColors.petalWhite.withValues(alpha: 0.08),
             Colors.transparent,
             Colors.transparent,
           ],

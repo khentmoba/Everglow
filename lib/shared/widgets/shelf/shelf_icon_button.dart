@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 
-import '../../../core/theme/app_theme.dart';
 import 'motion.dart';
 
 /// Accessible circular icon button used in the inside-screen headers.
@@ -46,17 +46,17 @@ class _ShelfIconButtonState extends State<ShelfIconButton> {
       height: widget.size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: widget.background ?? AppTheme.moonlight.withValues(alpha: 0.06),
+        color: widget.background ?? AppColors.moonlight.withValues(alpha: 0.06),
         border: Border.all(
           color: (_focused || _hovered)
-              ? AppTheme.roseQuartz.withValues(alpha: 0.55)
-              : AppTheme.roseQuartz.withValues(alpha: 0.15),
+              ? AppColors.roseQuartz.withValues(alpha: 0.55)
+              : AppColors.roseQuartz.withValues(alpha: 0.15),
           width: _focused ? 1.4 : 0.8,
         ),
         boxShadow: _focused
             ? [
                 BoxShadow(
-                  color: AppTheme.roseQuartz.withValues(alpha: 0.4),
+                  color: AppColors.roseQuartz.withValues(alpha: 0.4),
                   blurRadius: 14,
                   spreadRadius: -2,
                 ),
@@ -68,7 +68,7 @@ class _ShelfIconButtonState extends State<ShelfIconButton> {
         widget.icon,
         color:
             widget.iconColor ??
-            AppTheme.roseQuartz.withValues(alpha: enabled ? 1 : 0.5),
+            AppColors.roseQuartz.withValues(alpha: enabled ? 1 : 0.5),
         size: widget.size * 0.45,
       ),
     );
@@ -96,10 +96,10 @@ class _ShelfIconButtonState extends State<ShelfIconButton> {
                 message: widget.tooltip!,
                 textStyle: AppTypography.outfitBold.copyWith(fontSize: 11),
                 decoration: BoxDecoration(
-                  color: AppTheme.velvet,
+                  color: AppColors.velvet,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: AppTheme.roseQuartz.withValues(alpha: 0.3),
+                    color: AppColors.roseQuartz.withValues(alpha: 0.3),
                   ),
                 ),
                 child: content,

@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../../../../core/theme/app_colors.dart';
 import 'package:flutter/services.dart';
 import 'package:web/web.dart' as web;
 import 'dart:ui_web' as ui_web;
 
-import '../../../../../core/theme/app_theme.dart';
 import '../../../presentation/widgets/web_overlay_button.dart';
 import '../../../../../core/theme/app_typography.dart';
 
@@ -130,7 +130,7 @@ class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
                   child: Text(
                     'Table Tennis World Tour is only available in the web build.',
                     style: AppTypography.outfitWhite.copyWith(
-                      color: AppTheme.petalWhite,
+                      color: AppColors.petalWhite,
                     ),
                   ),
                 ),
@@ -164,7 +164,7 @@ class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
                     children: [
                       const Icon(
                         Icons.screen_rotation_rounded,
-                        color: AppTheme.roseQuartz,
+                        color: AppColors.roseQuartz,
                         size: 56,
                       ),
                       const SizedBox(height: 12),
@@ -178,7 +178,7 @@ class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
                       Text(
                         'Table Tennis runs in landscape.',
                         style: AppTypography.outfitWhite.copyWith(
-                          color: AppTheme.petalWhite.withValues(alpha: 0.75),
+                          color: AppColors.petalWhite.withValues(alpha: 0.75),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -187,7 +187,7 @@ class _TableTennisGameScreenState extends State<TableTennisGameScreen> {
                         child: Text(
                           'Back',
                           style: AppTypography.outfitWhite.copyWith(
-                            color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                            color: AppColors.petalWhite.withValues(alpha: 0.7),
                           ),
                         ),
                       ),

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/recipe.dart';
 import '../../data/services/cookbook_service.dart';
@@ -72,8 +71,8 @@ class RecipeCard extends StatelessWidget {
                               : Icons.favorite_border_rounded,
                           size: 14,
                           color: recipe.isFavorite
-                              ? Colors.redAccent
-                              : Colors.white,
+                              ? AppColors.error
+                              : AppColors.petalWhite,
                         ),
                       ),
                     ),
@@ -94,7 +93,7 @@ class RecipeCard extends StatelessWidget {
                         '${recipe.cookMinutes}m • ${recipe.servings} servings',
                         style: AppTypography.outfitWhite.copyWith(
                           fontSize: 10,
-                          color: Colors.white,
+                          color: AppColors.petalWhite,
                         ),
                       ),
                     ),
@@ -114,7 +113,7 @@ class RecipeCard extends StatelessWidget {
                           recipe.title,
                           style: AppTypography.outfitBold.copyWith(
                             fontSize: 13,
-                            color: AppTheme.petalWhite,
+                            color: AppColors.petalWhite,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -124,7 +123,7 @@ class RecipeCard extends StatelessWidget {
                         const Icon(
                           Icons.local_fire_department_rounded,
                           size: 14,
-                          color: Colors.redAccent,
+                          color: AppColors.error,
                         ),
                     ],
                   ),
@@ -135,7 +134,7 @@ class RecipeCard extends StatelessWidget {
                         : recipe.description,
                     style: AppTypography.outfitWhite.copyWith(
                       fontSize: 11,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                      color: AppColors.petalWhite.withValues(alpha: 0.6),
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -169,7 +168,7 @@ class RecipeCard extends StatelessWidget {
                           '🍳 ${recipe.timesCooked}x',
                           style: AppTypography.outfitWhite.copyWith(
                             fontSize: 10,
-                            color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                            color: AppColors.petalWhite.withValues(alpha: 0.6),
                           ),
                         ),
                     ],
@@ -255,7 +254,7 @@ class _RecipeDetailSheet extends StatelessWidget {
       expand: false,
       builder: (context, scrollController) => Container(
         decoration: BoxDecoration(
-          color: AppTheme.velvet,
+          color: AppColors.velvet,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           border: Border.all(color: AppColors.blushGold.withValues(alpha: 0.2)),
         ),
@@ -268,7 +267,7 @@ class _RecipeDetailSheet extends StatelessWidget {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppTheme.petalWhite.withValues(alpha: 0.3),
+                  color: AppColors.petalWhite.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -297,8 +296,8 @@ class _RecipeDetailSheet extends StatelessWidget {
                         ? Icons.favorite_rounded
                         : Icons.favorite_border_rounded,
                     color: recipe.isFavorite
-                        ? Colors.redAccent
-                        : AppTheme.petalWhite,
+                        ? AppColors.error
+                        : AppColors.petalWhite,
                   ),
                 ),
               ],
@@ -349,7 +348,7 @@ class _RecipeDetailSheet extends StatelessWidget {
               recipe.description,
               style: AppTypography.outfitWhite.copyWith(
                 fontSize: 13,
-                color: AppTheme.petalWhite.withValues(alpha: 0.8),
+                color: AppColors.petalWhite.withValues(alpha: 0.8),
                 height: 1.4,
               ),
             ),
@@ -358,7 +357,7 @@ class _RecipeDetailSheet extends StatelessWidget {
               'Ingredients',
               style: AppTypography.outfitBold.copyWith(
                 fontSize: 14,
-                color: AppTheme.petalWhite,
+                color: AppColors.petalWhite,
               ),
             ),
             const SizedBox(height: 8),
@@ -386,7 +385,7 @@ class _RecipeDetailSheet extends StatelessWidget {
                         ing.name,
                         style: AppTypography.outfitWhite.copyWith(
                           fontSize: 13,
-                          color: AppTheme.petalWhite,
+                          color: AppColors.petalWhite,
                         ),
                       ),
                     ),
@@ -406,7 +405,7 @@ class _RecipeDetailSheet extends StatelessWidget {
               'Steps',
               style: AppTypography.outfitBold.copyWith(
                 fontSize: 14,
-                color: AppTheme.petalWhite,
+                color: AppColors.petalWhite,
               ),
             ),
             const SizedBox(height: 8),
@@ -433,7 +432,7 @@ class _RecipeDetailSheet extends StatelessWidget {
                         child: Text(
                           '${e.key + 1}',
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: AppColors.petalWhite,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
@@ -447,7 +446,7 @@ class _RecipeDetailSheet extends StatelessWidget {
                         style: AppTypography.outfitWhite.copyWith(
                           fontSize: 13,
                           height: 1.4,
-                          color: AppTheme.petalWhite,
+                          color: AppColors.petalWhite,
                         ),
                       ),
                     ),
@@ -493,17 +492,17 @@ class _RecipeDetailSheet extends StatelessWidget {
                       final confirm = await showDialog<bool>(
                         context: context,
                         builder: (c) => AlertDialog(
-                          backgroundColor: AppTheme.velvet,
+                          backgroundColor: AppColors.velvet,
                           title: Text(
                             'Delete recipe?',
                             style: AppTypography.outfitBold.copyWith(
-                              color: AppTheme.petalWhite,
+                              color: AppColors.petalWhite,
                             ),
                           ),
                           content: Text(
                             'This cannot be undone.',
                             style: AppTypography.outfitWhite.copyWith(
-                              color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                              color: AppColors.petalWhite.withValues(alpha: 0.7),
                             ),
                           ),
                           actions: [
@@ -515,7 +514,7 @@ class _RecipeDetailSheet extends StatelessWidget {
                               onPressed: () => Navigator.pop(c, true),
                               child: const Text(
                                 'Delete',
-                                style: TextStyle(color: Colors.redAccent),
+                                style: TextStyle(color: AppColors.error),
                               ),
                             ),
                           ],
@@ -529,9 +528,9 @@ class _RecipeDetailSheet extends StatelessWidget {
                     icon: const Icon(Icons.delete_outline_rounded, size: 16),
                     label: const Text('Delete'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.redAccent,
+                      foregroundColor: AppColors.error,
                       side: BorderSide(
-                        color: Colors.redAccent.withValues(alpha: 0.3),
+                        color: AppColors.error.withValues(alpha: 0.3),
                       ),
                     ),
                   ),

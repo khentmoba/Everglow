@@ -2,7 +2,6 @@ import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -51,7 +50,7 @@ class WatchPartyChatBubble extends StatelessWidget {
                   style: AppTypography.outfitWhite.copyWith(
                     fontSize: 9,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.blushGold.withValues(alpha: 0.85),
+                    color: AppColors.blushGold.withValues(alpha: 0.85),
                     letterSpacing: 1.2,
                   ),
                 ),
@@ -61,7 +60,7 @@ class WatchPartyChatBubble extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: isMe
-                    ? AppTheme.deepRose
+                    ? AppColors.deepRose
                     : AppColors.petalWhite.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(16),
@@ -83,7 +82,7 @@ class WatchPartyChatBubble extends StatelessWidget {
                   Text(
                     text,
                     style: AppTypography.outfitWhite.copyWith(
-                      color: AppTheme.petalWhite,
+                      color: AppColors.petalWhite,
                       fontSize: 13,
                       height: 1.35,
                     ),
@@ -95,8 +94,8 @@ class WatchPartyChatBubble extends StatelessWidget {
                         : DateFormat('MMM d, h:mm a').format(timestamp),
                     style: AppTypography.outfitWhite.copyWith(
                       color: isMe
-                          ? AppTheme.petalWhite.withValues(alpha: 0.7)
-                          : AppTheme.roseQuartz.withValues(alpha: 0.55),
+                          ? AppColors.petalWhite.withValues(alpha: 0.7)
+                          : AppColors.roseQuartz.withValues(alpha: 0.55),
                       fontSize: 9,
                       fontWeight: FontWeight.w500,
                     ),
