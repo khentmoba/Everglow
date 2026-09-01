@@ -25,11 +25,25 @@ class CinemaVideoSources {
 
   static const Set<String> _cinemaIds = {'flux-cinesrc'};
 
+  static const Set<String> _noAdsIds = {
+    'flux-cinesrc',
+    'videasy',
+    'movish',
+    'vidbolt',
+  };
+
+  static bool _isNoAds(VideoSourceConfig p) =>
+      p.sandboxSafe || _noAdsIds.contains(p.id);
+
   /// Returns the provider list for the cinema player.
   ///
   /// For non-anime content the verified cinema servers are promoted first
   /// with the shared sources (Firestore or hardcoded) following behind.
-  /// Anime keeps its existing behavior: Videasy first, no cinema-only servers.
+  /// No-ads providers (CineSrc/Videasy/Movish/VidBolt) are always at the
+  /// top; ad-heavy mirrors (VsEmbed/VidRock/111Movies/Vidsrc/MultiEmbed)
+  /// are forced to the bottom regardless of Firestore ordering.
+  /// Anime keeps its existing behavior: Videasy first, no cinema-only servers,
+  /// but still groups remaining no-ads before ad-heavy.
   static List<VideoSourceConfig> selectable(
     List<VideoSourceConfig> shared, {
     required bool isAnime,
@@ -37,7 +51,9 @@ class CinemaVideoSources {
     if (isAnime) {
       final videasy = shared.where((p) => p.id == 'videasy').toList();
       final rest = shared.where((p) => p.id != 'videasy').toList();
-      return [...videasy, ...rest];
+      final restNoAds = rest.where(_isNoAds).toList();
+      final restAdHeavy = rest.where((p) => !_isNoAds(p)).toList();
+      return [...videasy, ...restNoAds, ...restAdHeavy];
     }
 
     final byId = <String, VideoSourceConfig>{};
@@ -51,7 +67,11 @@ class CinemaVideoSources {
       merged.add(existing ?? fluxSource);
       byId.remove(fluxSource.id);
     }
-    merged.addAll(byId.values);
+    final remaining = byId.values.toList();
+    final noAds = remaining.where(_isNoAds).toList();
+    final adHeavy = remaining.where((p) => !_isNoAds(p)).toList();
+    merged.addAll(noAds);
+    merged.addAll(adHeavy);
     return merged;
   }
 
