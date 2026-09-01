@@ -7,10 +7,9 @@ import '../../../../core/theme/app_typography.dart';
 import '../../domain/models/anniversary_counter.dart';
 import '../widgets/metric_card.dart';
 
-/// Distilled counter — rebuilds once per minute, not per second.
-/// Seconds still tick via a lightweight ValueNotifier but without
-/// pulse glow or heavy shadows. Whole grid animates as one fade
-/// instead of 6 staggered slides.
+/// Distilled counter — ticks live every second via a lightweight
+/// ValueNotifier, no pulse glow or heavy shadows. Whole grid animates
+/// as one fade instead of 6 staggered slides.
 class AnniversaryMetrics extends StatefulWidget {
   final bool animate;
   const AnniversaryMetrics({super.key, this.animate = true});
@@ -32,12 +31,7 @@ class _AnniversaryMetricsState extends State<AnniversaryMetrics> {
       DateTime.now(),
     );
     _notifier = ValueNotifier(_prev);
-    // Distill: tick every 60s. Seconds value still updates but without
-    // per-second rebuild cost; minutes/hours are the meaningful unit
-    // for a love story. If you want live seconds, swap to 1s locally.
-    _timer = Timer.periodic(const Duration(seconds: 60), (_) => _emit());
-    // One immediate second-tick so landing still feels alive, then settle.
-    Future.delayed(const Duration(seconds: 1), _emit);
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _emit());
   }
 
   void _emit() {
@@ -49,11 +43,8 @@ class _AnniversaryMetricsState extends State<AnniversaryMetrics> {
         next.months != _prev.months ||
         next.days != _prev.days ||
         next.hours != _prev.hours ||
-        next.minutes != _prev.minutes) {
-      _prev = next;
-      _notifier.value = next;
-    } else if (next.seconds != _prev.seconds) {
-      // still update seconds display without marking stale for defer
+        next.minutes != _prev.minutes ||
+        next.seconds != _prev.seconds) {
       _prev = next;
       _notifier.value = next;
     }
@@ -276,8 +267,8 @@ class _SectionEyebrow extends StatelessWidget {
             valueListenable: notifier,
             builder: (context, c, _) {
               final tag = c.years == 0
-                  ? (c.months == 1 ? '1 MONTH' : ' MONTHS')
-                  : (c.years == 1 ? '1 YEAR' : ' YEARS');
+                  ? (c.months == 1 ? '1 MONTH' : '${c.months} MONTHS')
+                  : (c.years == 1 ? '1 YEAR' : '${c.years} YEARS');
               return Align(
                 alignment: Alignment.centerRight,
                 child: Text(
