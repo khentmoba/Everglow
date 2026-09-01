@@ -208,7 +208,7 @@ class _JukeboxWidgetState extends State<JukeboxWidget>
                                     isPlaying: status.isPlaying,
                                   ),
                                   marqueeWidget:
-                                      status.trackName.length > 22 &&
+                                      status.trackName.length > 999 &&
                                           status.isPlaying
                                       ? SizedBox(
                                           height: 24,

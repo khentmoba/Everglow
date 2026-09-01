@@ -75,84 +75,64 @@ class _QuickActionTileState extends State<QuickActionTile> {
                 borderRadius: AppRadius.radiusLg,
                 border: Border.all(
                   color: _hovered
-                      ? action.hue.withValues(alpha: 0.32)
-                      : AppColors.moonlight.withValues(alpha: 0.08),
+                      ? action.hue.withValues(alpha: 0.30)
+                      : AppColors.moonlight.withValues(alpha: 0.07),
                 ),
                 boxShadow: _hovered
                     ? [
                         BoxShadow(
-                          color: action.hue.withValues(alpha: 0.12),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
+                          color: action.hue.withValues(alpha: 0.10),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
                         ),
                       ]
-                    : [
-                        BoxShadow(
-                          color: AppColors.inkDeep.withValues(alpha: 0.22),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                    : null,
               ),
-              child: Stack(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        margin: const EdgeInsets.only(top: 2),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: action.hue.withValues(alpha: 0.10),
-                          border: Border.all(
-                            color: action.hue.withValues(
-                              alpha: _hovered ? 0.52 : 0.32,
-                            ),
-                            width: 1,
-                          ),
-                          boxShadow: _hovered
-                              ? [
-                                  BoxShadow(
-                                    color: action.hue.withValues(alpha: 0.22),
-                                    blurRadius: 14,
-                                  ),
-                                ]
-                              : null,
+                  Container(
+                    width: 40,
+                    height: 40,
+                    margin: const EdgeInsets.only(top: 2),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: action.hue.withValues(alpha: 0.10),
+                      border: Border.all(
+                        color: action.hue.withValues(
+                          alpha: _hovered ? 0.48 : 0.28,
                         ),
-                        child: Icon(action.icon, size: 16, color: action.hue),
+                        width: 1,
                       ),
-                      const SizedBox(height: 10),
-                      Text(
-                        action.label,
-                        style: AppTypography.outfitHeading.copyWith(
-                          fontSize: 11,
-                          color: _hovered
-                              ? AppColors.petalWhite
-                              : AppColors.petalWhite.withValues(alpha: 0.92),
-                          letterSpacing: 0.1,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (action.caption.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          action.caption.toUpperCase(),
-                          style: AppTypography.outfitBold.copyWith(
-                            fontSize: 9,
-                            letterSpacing: 0.9,
-                            color: (_hovered
-                                ? action.hue
-                                : AppColors.textMuted),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ],
+                    ),
+                    child: Icon(action.icon, size: 16, color: action.hue),
                   ),
+                  const SizedBox(height: 10),
+                  Text(
+                    action.label,
+                    style: AppTypography.outfitHeading.copyWith(
+                      fontSize: 11,
+                      color: _hovered
+                          ? AppColors.petalWhite
+                          : AppColors.petalWhite.withValues(alpha: 0.88),
+                      letterSpacing: 0.1,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (action.caption.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      action.caption.toUpperCase(),
+                      style: AppTypography.outfitBold.copyWith(
+                        fontSize: 9,
+                        letterSpacing: 0.9,
+                        color: (_hovered ? action.hue : AppColors.textMuted),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ],
               ),
             ),

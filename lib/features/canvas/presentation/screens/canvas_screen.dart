@@ -13,6 +13,7 @@ import '../../data/services/canvas_service.dart';
 import '../widgets/canvas_painter.dart';
 import '../widgets/canvas_toolbar.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 
 class CanvasScreen extends StatefulWidget {
   const CanvasScreen({super.key});
@@ -86,12 +87,9 @@ class _CanvasScreenState extends State<CanvasScreen> {
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: AppTheme.roseQuartz,
-          ),
+        leading: EverglowIconButton.back(
           onPressed: () => Navigator.of(context).pop(),
+          iconColor: AppColors.roseQuartz,
         ),
       ),
       body: Stack(

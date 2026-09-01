@@ -7,7 +7,7 @@ enum SplitMode { equal, khent, clair, custom }
 class BudgetTransaction {
   final String id;
   final String title;
-  final double amount; // negative for expense? We store positive amount + type
+  final double amount; // positive amount + type
   final TransactionType type;
   final String category; // e.g., Food, Transport, Entertainment
   final String paidBy; // username
@@ -79,6 +79,31 @@ class BudgetTransaction {
     'monthKey': '${date.year}-${date.month.toString().padLeft(2, '0')}',
   };
 
+  BudgetTransaction copyWith({
+    String? title,
+    double? amount,
+    TransactionType? type,
+    String? category,
+    String? paidBy,
+    SplitMode? split,
+    Map<String, double>? customSplit,
+    DateTime? date,
+    String? note,
+    String? receiptUrl,
+  }) => BudgetTransaction(
+    id: id,
+    title: title ?? this.title,
+    amount: amount ?? this.amount,
+    type: type ?? this.type,
+    category: category ?? this.category,
+    paidBy: paidBy ?? this.paidBy,
+    split: split ?? this.split,
+    customSplit: customSplit ?? this.customSplit,
+    date: date ?? this.date,
+    note: note ?? this.note,
+    receiptUrl: receiptUrl ?? this.receiptUrl,
+  );
+
   double get signedAmount => type == TransactionType.expense ? -amount : amount;
 
   // IHateMoney: compute how much each owes
@@ -120,3 +145,38 @@ const budgetCategories = [
   BudgetCategory('Health', '🏥', '#F472B6'),
   BudgetCategory('Other', '💫', '#D4B5D6'),
 ];
+
+/// Envelope budget limit per category per month — Actual-style.
+class BudgetLimit {
+  final String id;
+  final String monthKey; // yyyy-MM
+  final String category;
+  final double amount;
+
+  const BudgetLimit({
+    required this.id,
+    required this.monthKey,
+    required this.category,
+    required this.amount,
+  });
+
+  factory BudgetLimit.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return BudgetLimit(
+      id: doc.id,
+      monthKey: data['monthKey'] ?? '',
+      category: data['category'] ?? 'Other',
+      amount: (data['amount'] ?? 0).toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toFirestore() => {
+    'monthKey': monthKey,
+    'category': category,
+    'amount': amount,
+    'updatedAt': FieldValue.serverTimestamp(),
+  };
+}
+
+String monthKeyFor(DateTime d) =>
+    '${d.year}-${d.month.toString().padLeft(2, '0')}';

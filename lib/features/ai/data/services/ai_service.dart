@@ -46,6 +46,9 @@ class AIService extends ChangeNotifier {
     '',
   );
   final ValueNotifier<String> toolStatusNotifier = ValueNotifier<String>('');
+  final ValueNotifier<List<Map<String, dynamic>>> toolResultsNotifier = ValueNotifier<List<Map<String, dynamic>>>([]);
+  List<Map<String, dynamic>> _toolResults = [];
+  List<Map<String, dynamic>> get toolResults => List.unmodifiable(_toolResults);
 
   bool get isLoading => _isLoading;
   String? get lastError => _lastError;
@@ -60,6 +63,8 @@ class AIService extends ChangeNotifier {
     draftResponseNotifier.value = '';
     draftReasoningNotifier.value = '';
     toolStatusNotifier.value = '';
+    _toolResults = [];
+    toolResultsNotifier.value = [];
     draftRevisionNotifier.value++;
   }
 
@@ -69,6 +74,7 @@ class AIService extends ChangeNotifier {
     draftResponseNotifier.dispose();
     draftReasoningNotifier.dispose();
     toolStatusNotifier.dispose();
+    toolResultsNotifier.dispose();
     super.dispose();
   }
 
@@ -82,6 +88,7 @@ class AIService extends ChangeNotifier {
     bool enableThinking = true,
     String? callerName, // 'khentsgdz' or 'clairjassen'
     void Function(String toolStatus)? onToolStatus,
+    void Function(Map<String, dynamic> result)? onToolResult,
     List<String> imageUrls = const [],
   }) async {
     _isLoading = true;
@@ -140,6 +147,11 @@ class AIService extends ChangeNotifier {
           onToolStatus: (status) {
             _toolStatus = status;
             toolStatusNotifier.value = status;
+            draftRevisionNotifier.value++;
+          },
+          onToolResult: (result) {
+            _toolResults.add(result);
+            toolResultsNotifier.value = List.from(_toolResults);
             draftRevisionNotifier.value++;
           },
           onError: (error) {
@@ -458,6 +470,7 @@ class AIService extends ChangeNotifier {
     void Function(String chunk) onChunk, {
     void Function(String chunk)? onReasoning,
     void Function(String toolStatus)? onToolStatus,
+    void Function(Map<String, dynamic> result)? onToolResult,
     void Function(String error)? onError,
     bool enableThinking = true,
   }) async {
@@ -473,6 +486,7 @@ class AIService extends ChangeNotifier {
           onChunk,
           onReasoning,
           onToolStatus,
+          onToolResult,
           onError,
           enableThinking: enableThinking,
         );
@@ -502,6 +516,7 @@ class AIService extends ChangeNotifier {
     void Function(String chunk) onChunk,
     void Function(String chunk)? onReasoning,
     void Function(String toolStatus)? onToolStatus,
+    void Function(Map<String, dynamic> result)? onToolResult,
     void Function(String error)? onError, {
     bool enableThinking = true,
   }) async {
@@ -526,6 +541,7 @@ class AIService extends ChangeNotifier {
       onChunk: onChunk,
       onReasoning: onReasoning,
       onToolStatus: onToolStatus,
+      onToolResult: onToolResult,
       onError: onError,
       timeout: const Duration(seconds: 120),
     );

@@ -18,6 +18,8 @@ const {
   generateTrivia,
   computeInsights,
   composeTodayRecap,
+  simpleEmbedding,
+  isNearDuplicate,
 } = require('./mochi_core.js');
 const {
   STALE_PRESENCE_MS,
@@ -79,8 +81,8 @@ let _personaCache = null;
 async function serverExtractAndSaveMemory(userMessage, mochiReply, callerUsername) {
   try {
     if (!userMessage || !mochiReply) return;
-    const trimmedUser = String(userMessage).slice(0, 500).trim();
-    const trimmedReply = String(mochiReply).slice(0, 800).trim();
+    const trimmedUser = String(userMessage).slice(0, 800).trim();
+    const trimmedReply = String(mochiReply).slice(0, 1200).trim();
     if (trimmedUser.length < 10 && trimmedReply.length < 20) return;
     const apiKey = process.env.AGNES_API_KEY;
     if (!apiKey) return;
@@ -95,12 +97,11 @@ async function serverExtractAndSaveMemory(userMessage, mochiReply, callerUsernam
         messages: [
           {
             role: 'system',
-            content:
-              'Extract ONE personal fact about Khent or Clair from this exchange. Reply in format: CATEGORY|FACT (e.g., "preference|Khent prefers black coffee"). Categories: fact, preference, dislike, goal, date, habit. If nothing worth remembering, reply with exactly: NONE',
+            content: 'Extract up to 3 personal facts about Khent or Clair from this exchange. Reply with each fact on its own line in format: CATEGORY|FACT (e.g., "preference|Khent prefers black coffee"). Categories: fact, preference, dislike, goal, date, habit. If nothing worth remembering, reply with exactly: NONE. Prioritize new, specific, durable facts over generic chatter.',
           },
           { role: 'user', content: `User: ${trimmedUser}\nAssistant: ${trimmedReply}` },
         ],
-        max_tokens: 120,
+        max_tokens: 250,
         temperature: 0.2,
         stream: false,
       }),
@@ -108,54 +109,64 @@ async function serverExtractAndSaveMemory(userMessage, mochiReply, callerUsernam
     });
     if (!resp.ok) return;
     const data = await resp.json();
-    let fact = (data.choices?.[0]?.message?.content || '').trim();
-    if (!fact || fact === 'NONE' || fact.length > 220) return;
-    let category = 'fact';
-    if (fact.includes('|')) {
-      const parts = fact.split('|');
-      category = parts[0].trim().toLowerCase();
-      fact = parts.slice(1).join('|').trim();
-      if (!['fact', 'preference', 'dislike', 'goal', 'date', 'habit'].includes(category)) category = 'fact';
-    }
-    if (!fact) return;
-    // Duplicate guard — exact match
+    const raw = (data.choices?.[0]?.message?.content || '').trim();
+    if (!raw || raw === 'NONE') return;
+    const lines = raw.split('\n').map(s=>s.trim()).filter(s=>s && s !== 'NONE').slice(0,3);
+    if (lines.length === 0) return;
     const db = getDb();
-    const existing = await db
-      .collection('ai_memories')
-      .doc('shared')
-      .collection('facts')
-      .where('fact', '==', fact)
-      .limit(1)
-      .get();
-    if (!existing.empty) return;
-    const parsed = parseFactStructure(fact);
-    const embedding = await getEmbedding(fact).catch(() => null);
-    await db.collection('ai_memories').doc('shared').collection('facts').add({
-      fact,
-      category,
-      subject: parsed.subject || null,
-      relation: parsed.relation || null,
-      object: parsed.object || null,
-      addedBy: callerUsername || 'mochi',
-      createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
-      confidence: 1.0,
-      accessCount: 0,
-      lastAccessed: null,
-      pinned: false,
-      source: callerUsername || 'mochi',
-      embedding, // W4-C9: null for now, hybrid retrieval will use when populated
-    });
+    // Fetch recent facts for semantic dedupe (last 100)
+    let recentFacts = [];
+    try {
+      const snap = await db.collection('ai_memories').doc('shared').collection('facts').orderBy('createdAt','desc').limit(100).get();
+      recentFacts = snap.docs.map(d => d.data().fact || '').filter(Boolean);
+    } catch (_) {}
+    for (const line of lines) {
+      let fact = line.trim();
+      if (!fact || fact.length > 280) continue;
+      let category = 'fact';
+      if (fact.includes('|')) {
+        const parts = fact.split('|');
+        category = parts[0].trim().toLowerCase();
+        fact = parts.slice(1).join('|').trim();
+        if (!['fact','preference','dislike','goal','date','habit'].includes(category)) category = 'fact';
+      }
+      if (!fact) continue;
+      // Semantic dedupe
+      let isDup = false;
+      for (const existing of recentFacts) {
+        if (existing.toLowerCase() === fact.toLowerCase()) { isDup = true; break; }
+        try { if (isNearDuplicate(existing, fact, 0.85)) { isDup = true; break; } } catch (_) {}
+      }
+      if (isDup) continue;
+      // Double-check exact Firestore match
+      try {
+        const existing = await db.collection('ai_memories').doc('shared').collection('facts').where('fact','==',fact).limit(1).get();
+        if (!existing.empty) continue;
+      } catch (_) {}
+      const parsed = parseFactStructure(fact);
+      let embedding = null;
+      try { embedding = await getEmbedding(fact); } catch (_) {}
+      await db.collection('ai_memories').doc('shared').collection('facts').add({
+        fact,
+        category,
+        subject: parsed.subject || null,
+        relation: parsed.relation || null,
+        object: parsed.object || null,
+        addedBy: callerUsername || 'mochi',
+        createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+        confidence: 1.0,
+        accessCount: 0,
+        lastAccessed: null,
+        pinned: false,
+        source: callerUsername || 'mochi',
+        embedding,
+      });
+      recentFacts.unshift(fact);
+    }
   } catch (e) {
     console.warn('[memoryExtract] failed:', e.message);
   }
 }
-
-/**
- * W2-A4: Hallucination guard — extract quoted/capitalized titles from
- * Mochi's reply and verify against TMDB. Runs fire-and-forget after each
- * reply; logs hallucinated titles to mochi_stats/hallucinations for
- * observability. Future phase will do self-healing regeneration.
- */
 async function checkHallucinations(replyText) {
   try {
     if (!replyText || replyText.length < 20) return;
@@ -229,10 +240,28 @@ function cosineSimilarity(a, b) {
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 async function getEmbedding(text) {
-  // Scaffold: no embeddings provider configured yet. Returns null so
-  // callers fall back to token scoring. Future: call
-  // https://apihub.agnes-ai.com/v1/embeddings when available.
-  return null;
+  const normalized = String(text||'').trim();
+  if (!normalized) return null;
+  const apiKey = process.env.AGNES_API_KEY;
+  if (apiKey) {
+    try {
+      const resp = await fetch('https://apihub.agnes-ai.com/v1/embeddings', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'text-embedding-3-small', input: normalized }),
+        signal: AbortSignal.timeout(8000),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        const emb = data.data?.[0]?.embedding || data.embedding;
+        if (Array.isArray(emb) && emb.length > 0) {
+          const norm = Math.sqrt(emb.reduce((s,v)=>s+v*v,0));
+          return norm ? emb.map(v=>v/norm) : emb;
+        }
+      }
+    } catch (_) {}
+  }
+  try { return simpleEmbedding(normalized, 64); } catch (_) { return null; }
 }
 
 // ─── Keep-warm: pings proxyAIv2 every 10 min to reduce cold starts ────
@@ -477,6 +506,12 @@ async function buildContextForFeature(feature, callerUid, userMessage = '') {
           ['relationship', getRelationshipStats()],
           ['activity', getRecentActivity()],
           ['sessions', getSessionHistoryContext()],
+          ['calendar', getCalendarContext()],
+          ['journal', getJournalContext()],
+          ['bucket', getBucketContext()],
+          ['travel', getTravelContext()],
+          ['wellness', getWellnessContext()],
+          ['budget', getBudgetContext()],
         ];
         const resolved = await Promise.all(
           ctxPromises.map(async ([key, promise]) => ({
@@ -484,7 +519,7 @@ async function buildContextForFeature(feature, callerUid, userMessage = '') {
             value: await promise,
           }))
         );
-        const selected = selectContextBlocks(resolved, userMessage || '', 6);
+        const selected = selectContextBlocks(resolved, userMessage || '', 8);
         result = selected.map(b => b.value).filter(Boolean).join('\n\n');
         break;
       }
@@ -882,6 +917,96 @@ async function getSessionHistoryContext() {
   } catch (_) { return ''; }
 }
 
+async function getCalendarContext() {
+  try {
+    const db = getDb();
+    const now = new Date();
+    const end = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const snap = await db.collection('calendar_events')
+      .where('date', '>=', getAdmin().firestore.Timestamp.fromDate(now))
+      .where('date', '<=', getAdmin().firestore.Timestamp.fromDate(end))
+      .orderBy('date', 'asc').limit(12).get();
+    if (snap.empty) return '';
+    const lines = snap.docs.map(d => {
+      const v = d.data();
+      const dt = v.date?.toDate?.()?.toISOString()?.slice(0,10) || '';
+      return `${dt} ${v.title || 'Untitled'} (${v.type || 'event'}) ${v.location ? '@'+v.location : ''}`.trim();
+    }).join('\n');
+    return `Upcoming calendar (14d):\n${lines}`;
+  } catch (_) { return ''; }
+}
+
+async function getJournalContext() {
+  try {
+    const db = getDb();
+    const snap = await db.collection('journal_entries').orderBy('createdAt','desc').limit(8).get();
+    if (snap.empty) return '';
+    const lines = snap.docs.map(d => {
+      const v = d.data();
+      return `${v.title || 'Untitled'} (${v.category||'daily'}) by ${v.author||''} - ${(v.content||'').slice(0,120).replace(/\n/g,' ')}`;
+    }).join('\n');
+    return `Recent journal:\n${lines}`;
+  } catch (_) { return ''; }
+}
+
+async function getBucketContext() {
+  try {
+    const db = getDb();
+    const snap = await db.collection('bucket_list').orderBy('createdAt','desc').limit(12).get();
+    if (snap.empty) return '';
+    const lines = snap.docs.map(d => {
+      const v = d.data();
+      return `${v.title || ''} [${v.status||'wish'}] ${v.category||''} ${v.dueDate ? '(due '+(v.dueDate.toDate?.()?.toISOString()?.slice(0,10)||'')+')' : ''}`;
+    }).join('\n');
+    return `Bucket list (recent):\n${lines}`;
+  } catch (_) { return ''; }
+}
+
+async function getTravelContext() {
+  try {
+    const db = getDb();
+    const snap = await db.collection('travel_trips').orderBy('startDate','asc').limit(6).get();
+    if (snap.empty) return '';
+    const lines = snap.docs.map(d => {
+      const v = d.data();
+      const s = v.startDate?.toDate?.()?.toISOString()?.slice(0,10) || '';
+      const e = v.endDate?.toDate?.()?.toISOString()?.slice(0,10) || '';
+      return `${v.title || 'Trip'} ${s}-${e} (${v.status||'planning'})`;
+    }).join('\n');
+    return `Trips:\n${lines}`;
+  } catch (_) { return ''; }
+}
+
+async function getWellnessContext() {
+  try {
+    const db = getDb();
+    const snap = await db.collection('habits').where('isActive','==',true).limit(10).get();
+    if (snap.empty) return '';
+    const lines = snap.docs.map(d => {
+      const v = d.data();
+      return `${v.title||''} (${v.category||'health'}) streak:${v.streak||0}`;
+    }).join('\n');
+    return `Active habits:\n${lines}`;
+  } catch (_) { return ''; }
+}
+
+async function getBudgetContext() {
+  try {
+    const db = getDb();
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const snap = await db.collection('budget_transactions')
+      .where('date','>=', getAdmin().firestore.Timestamp.fromDate(start))
+      .orderBy('date','desc').limit(10).get();
+    if (snap.empty) return '';
+    const lines = snap.docs.map(d => {
+      const v = d.data();
+      return `${v.title||v.category||'Expense'} ${v.amount||''} ${v.currency||'PHP'} by ${v.paidBy||''}`;
+    }).join('\n');
+    return `Recent spending (this month):\n${lines}`;
+  } catch (_) { return ''; }
+}
+
 function getMessageText(content) {
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) {
@@ -1268,6 +1393,17 @@ You have access to custom tools:
 - remove_from_watchlist — Remove from watchlist
 - search_everglow — Unified search across movies/books/anime/music
 - plan_date_night — Plan a full date night with ideas, weather, and watchlist
+- add_calendar_event — Create calendar events
+- create_journal_entry — Write journal entries
+- add_bucket_item — Add to bucket list
+- add_trip — Create trips
+- add_trip_pin — Add pins to trips
+- log_habit — Create habits
+- complete_habit — Complete habits for today
+- get_calendar_events — Read calendar
+- get_bucket_list — Read bucket list
+- get_journal_entries — Read journal
+- get_trips — Read trips
 
 ## Image Understanding
 You can analyze images sent by the user. When you receive images:
@@ -1703,11 +1839,12 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
       type: 'function',
       function: {
         name: 'delete_memory',
-        description: 'Delete a memory from Mochi\'s long-term memory. Use when they ask to forget something or remove an incorrect fact.',
+        description: 'Delete a memory from Mochi\'s long-term memory. Use when they ask to forget something or remove an incorrect fact. Requires confirm=true after showing the user what will be deleted.',
         parameters: {
           type: 'object',
           properties: {
             memory_id: { type: 'string', description: 'Memory document ID from read_memories' },
+            confirm: { type: 'boolean', description: 'Set true to confirm deletion after user approval' },
           },
           required: ['memory_id'],
         },
@@ -1880,12 +2017,13 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
       type: 'function',
       function: {
         name: 'remove_from_watchlist',
-        description: 'Remove a movie or show from the shared watchlist. Use when they ask to remove or delete something from the list.',
+        description: 'Remove a movie or show from the shared watchlist. Use when they ask to remove or delete something from the list. Requires confirm=true after showing what will be removed.',
         parameters: {
           type: 'object',
           properties: {
             title: { type: 'string', description: 'Title substring to match' },
             tmdb_id: { type: 'number', description: 'Exact TMDB ID to remove (optional)' },
+            confirm: { type: 'boolean', description: 'Set true to confirm removal after user approval' },
           },
           required: ['title'],
         },
@@ -1915,6 +2053,187 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
           properties: {
             location: { type: 'string', description: 'City for weather (default Cabadbaran)' },
             count: { type: 'number', description: 'Number of date ideas (default 3, max 5)' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'add_calendar_event',
+        description: 'Create a calendar event for Khent & Clair. Use when they want to schedule something, add a date night, anniversary, reminder, or any event to the shared calendar.',
+        parameters: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'Event title' },
+            description: { type: 'string', description: 'Optional description' },
+            date: { type: 'string', description: 'ISO 8601 date/time (e.g., 2026-09-10T19:00:00) or YYYY-MM-DD' },
+            end_date: { type: 'string', description: 'Optional end date/time ISO 8601' },
+            type: { type: 'string', enum: ['dateNight','anniversary','reminder','custom'], description: 'Event type (default custom)' },
+            location: { type: 'string', description: 'Optional location' },
+            is_all_day: { type: 'boolean', description: 'Whether all-day event' },
+          },
+          required: ['title','date'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'create_journal_entry',
+        description: 'Create a journal entry for Khent or Clair. Use when they want to write, reflect, save a memory, or log something personal.',
+        parameters: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'Entry title' },
+            content: { type: 'string', description: 'Entry content (markdown supported, 1-5000 chars)' },
+            category: { type: 'string', enum: ['daily','gratitude','memory','letter','dream','idea'], description: 'Category (default daily)' },
+            mood: { type: 'string', enum: ['happy','calm','loved','excited','tired','sad','stressed','neutral'], description: 'Optional mood' },
+            tags: { type: 'array', items: { type: 'string' }, description: 'Optional tags' },
+          },
+          required: ['title','content'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'add_bucket_item',
+        description: 'Add an item to the shared bucket list. Use when they mention a dream, goal, wish, or something they want to do together.',
+        parameters: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'Bucket item title' },
+            description: { type: 'string', description: 'Optional details' },
+            category: { type: 'string', enum: ['travel','experience','food','adventure','milestone','other'], description: 'Category (default other)' },
+            priority: { type: 'string', enum: ['low','medium','high','urgent'], description: 'Priority (default medium)' },
+            due_date: { type: 'string', description: 'Optional due date ISO 8601' },
+          },
+          required: ['title'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'add_trip',
+        description: 'Create a new trip in the travel planner. Use when they want to plan a trip or getaway.',
+        parameters: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'Trip title (e.g., Batanes Getaway)' },
+            description: { type: 'string', description: 'Optional description' },
+            start_date: { type: 'string', description: 'Start date ISO 8601 YYYY-MM-DD' },
+            end_date: { type: 'string', description: 'End date ISO 8601 YYYY-MM-DD' },
+            budget: { type: 'number', description: 'Optional budget estimate' },
+          },
+          required: ['title','start_date','end_date'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'add_trip_pin',
+        description: 'Add a pin/stop to an existing trip. Use when they want to add a place to visit on a trip.',
+        parameters: {
+          type: 'object',
+          properties: {
+            trip_id: { type: 'string', description: 'Trip document ID (from add_trip or existing trips)' },
+            trip_title: { type: 'string', description: 'Alternative: trip title to match (if id unknown)' },
+            title: { type: 'string', description: 'Pin title (place name)' },
+            note: { type: 'string', description: 'Optional note' },
+            lat: { type: 'number', description: 'Latitude' },
+            lng: { type: 'number', description: 'Longitude' },
+            category: { type: 'string', enum: ['stay','eat','sight','activity','transit'], description: 'Pin category (default sight)' },
+          },
+          required: ['title'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'log_habit',
+        description: 'Create or log a wellness habit. Use when they want to track a habit, workout, or streak.',
+        parameters: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'Habit title' },
+            description: { type: 'string', description: 'Optional description' },
+            category: { type: 'string', enum: ['health','fitness','mindfulness','learning','social','other'], description: 'Category (default health)' },
+            frequency: { type: 'string', enum: ['daily','weekly','custom'], description: 'Frequency (default daily)' },
+          },
+          required: ['title'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'complete_habit',
+        description: 'Mark a habit as completed for today (increments streak). Use when they say they did a habit or workout.',
+        parameters: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'Habit title to match' },
+            habit_id: { type: 'string', description: 'Optional habit document ID' },
+          },
+          required: ['title'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_calendar_events',
+        description: 'Read upcoming calendar events. Use when they ask what is scheduled, upcoming dates, or what is on the calendar.',
+        parameters: {
+          type: 'object',
+          properties: {
+            days: { type: 'number', description: 'Days ahead to fetch (default 14, max 60)' },
+            limit: { type: 'number', description: 'Max events (default 10, max 20)' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_bucket_list',
+        description: 'Read the bucket list. Use when they ask about dreams, wishes, or what they want to do together.',
+        parameters: {
+          type: 'object',
+          properties: {
+            status: { type: 'string', enum: ['wish','planned','completed','all'], description: 'Filter by status (default all)' },
+            limit: { type: 'number', description: 'Max items (default 10, max 20)' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_journal_entries',
+        description: 'Read recent journal entries. Use when they want to revisit memories or see what was written.',
+        parameters: {
+          type: 'object',
+          properties: {
+            limit: { type: 'number', description: 'Max entries (default 5, max 10)' },
+            category: { type: 'string', enum: ['daily','gratitude','memory','letter','dream','idea','all'], description: 'Filter category (default all)' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_trips',
+        description: 'Read trips from the travel planner. Use when they ask about upcoming trips or travel plans.',
+        parameters: {
+          type: 'object',
+          properties: {
+            limit: { type: 'number', description: 'Max trips (default 5, max 10)' },
           },
         },
       },
@@ -2687,8 +3006,23 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
               const ref = db.collection('ai_memories').doc('shared').collection('facts').doc(mid);
               const snap = await ref.get();
               if (!snap.exists) return JSON.stringify({ error: `Memory ${mid} not found` });
+              const factText = snap.data()?.fact || '';
+              if (!args.confirm) {
+                return JSON.stringify({ needs_confirmation: true, message: `Delete this memory? "${factText.slice(0,180)}" — re-call delete_memory with confirm:true to proceed.`, memory_id: mid, fact: factText });
+              }
+              // Soft-delete to trash for undo (retain 7 days)
+              try {
+                await db.collection('ai_memories_trash').add({
+                  originalId: mid,
+                  fact: factText,
+                  category: snap.data()?.category || 'fact',
+                  deletedBy: callerUid,
+                  deletedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+                  originalData: snap.data(),
+                });
+              } catch (_) {}
               await ref.delete();
-              return JSON.stringify({ success: true, memory_id: mid });
+              return JSON.stringify({ success: true, memory_id: mid, fact: factText, undo_hint: 'Use undo if needed within 7 days' });
             }
             case 'edit_memory': {
               const mid = String(args.memory_id || '').trim();
@@ -2806,10 +3140,14 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
                 });
               }
               if (matches.length === 0) return JSON.stringify({ error: `No watchlist item found for "${title || tid}"` });
+              const preview = matches.slice(0, 3).map(d => d.data().title || '');
+              if (!args.confirm) {
+                return JSON.stringify({ needs_confirmation: true, message: `Remove from watchlist? ${preview.join(', ')} — re-call remove_from_watchlist with confirm:true to proceed.`, preview, count: preview.length });
+              }
               const batch = db.batch();
               for (const doc of matches.slice(0, 3)) batch.delete(doc.ref);
               await batch.commit();
-              return JSON.stringify({ success: true, removed: matches.slice(0, 3).map(d => d.data().title || ''), count: Math.min(matches.length, 3) });
+              return JSON.stringify({ success: true, removed: preview, count: preview.length });
             }
             case 'search_everglow': {
               const query = String(args.query || '').trim();
@@ -2856,6 +3194,257 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
               };
               _setExternalCache(cacheKey, result);
               return JSON.stringify(result);
+            }
+            case 'add_calendar_event': {
+              const title = String(args.title || '').trim();
+              if (!title) return JSON.stringify({ error: 'title required' });
+              const dateStr = String(args.date || args.start_date || '').trim();
+              if (!dateStr) return JSON.stringify({ error: 'date required' });
+              let date = new Date(dateStr);
+              if (Number.isNaN(date.getTime())) return JSON.stringify({ error: `Invalid date: ${dateStr}` });
+              let endDate = null;
+              if (args.end_date) {
+                const ed = new Date(String(args.end_date).trim());
+                if (!Number.isNaN(ed.getTime())) endDate = ed;
+              }
+              const type = ['dateNight','anniversary','reminder','custom'].includes(String(args.type||'')) ? String(args.type) : 'custom';
+              const data = {
+                title,
+                description: String(args.description||''),
+                date: getAdmin().firestore.Timestamp.fromDate(date),
+                type,
+                createdBy: callerUid,
+                color: null,
+                recurring: 'none',
+                location: args.location ? String(args.location) : null,
+                attendees: [],
+                isAllDay: !!args.is_all_day,
+              };
+              if (endDate) data.endDate = getAdmin().firestore.Timestamp.fromDate(endDate);
+              const ref = await db.collection('calendar_events').add(data);
+              return JSON.stringify({ success: true, id: ref.id, title, date: date.toISOString() });
+            }
+            case 'create_journal_entry': {
+              const title = String(args.title||'').trim();
+              const content = String(args.content||'').trim();
+              if (!title || !content) return JSON.stringify({ error: 'title and content required' });
+              if (content.length > 5000) return JSON.stringify({ error: 'content too long (max 5000)' });
+              const cat = ['daily','gratitude','memory','letter','dream','idea'].includes(String(args.category||'')) ? String(args.category) : 'daily';
+              const moodVal = String(args.mood||'').trim().toLowerCase();
+              const validMoods = ['happy','calm','loved','excited','tired','sad','stressed','neutral'];
+              const now = new Date();
+              const entry = {
+                title,
+                content,
+                author: callerUid.toLowerCase(),
+                createdAt: getAdmin().firestore.Timestamp.fromDate(now),
+                updatedAt: getAdmin().firestore.Timestamp.fromDate(now),
+                category: cat,
+                tags: Array.isArray(args.tags) ? args.tags.map(String).slice(0,10) : [],
+                isPinned: false,
+                isLocked: false,
+                wordCount: content.trim().split(/\s+/).filter(Boolean).length,
+                monthDay: `${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`,
+                searchKey: `${title.toLowerCase()} ${content.toLowerCase().slice(0,500)}`,
+              };
+              if (validMoods.includes(moodVal)) entry.mood = moodVal;
+              const ref = await db.collection('journal_entries').add(entry);
+              return JSON.stringify({ success: true, id: ref.id, title });
+            }
+            case 'add_bucket_item': {
+              const title = String(args.title||'').trim();
+              if (!title) return JSON.stringify({ error: 'title required' });
+              const cat = ['travel','experience','food','adventure','milestone','other'].includes(String(args.category||'')) ? String(args.category) : 'other';
+              const pri = ['low','medium','high','urgent'].includes(String(args.priority||'')) ? String(args.priority) : 'medium';
+              let dueDate = null;
+              if (args.due_date) {
+                const d = new Date(String(args.due_date));
+                if (!Number.isNaN(d.getTime())) dueDate = d;
+              }
+              const data = {
+                title,
+                description: String(args.description||''),
+                category: cat,
+                status: 'wish',
+                createdBy: callerUid,
+                createdAt: getAdmin().firestore.Timestamp.now(),
+                notes: '',
+                priority: pri,
+              };
+              if (dueDate) data.dueDate = getAdmin().firestore.Timestamp.fromDate(dueDate);
+              const ref = await db.collection('bucket_list').add(data);
+              return JSON.stringify({ success: true, id: ref.id, title, category: cat });
+            }
+            case 'add_trip': {
+              const title = String(args.title||'').trim();
+              if (!title) return JSON.stringify({ error: 'title required' });
+              const sd = new Date(String(args.start_date||''));
+              const ed = new Date(String(args.end_date||''));
+              if (Number.isNaN(sd.getTime()) || Number.isNaN(ed.getTime())) return JSON.stringify({ error: 'Invalid start_date or end_date' });
+              const data = {
+                title,
+                description: String(args.description||''),
+                coverUrl: '',
+                startDate: getAdmin().firestore.Timestamp.fromDate(sd),
+                endDate: getAdmin().firestore.Timestamp.fromDate(ed),
+                status: 'planning',
+                createdBy: callerUid,
+                createdAt: getAdmin().firestore.Timestamp.now(),
+                budgetEstimate: Number(args.budget)||0,
+                currency: 'PHP',
+                memberIds: ['khentsgdz','clairjassen'],
+                searchKey: `${title.toLowerCase()} ${(args.description||'').toLowerCase()}`,
+              };
+              const ref = await db.collection('travel_trips').add(data);
+              return JSON.stringify({ success: true, id: ref.id, title, start: sd.toISOString().slice(0,10), end: ed.toISOString().slice(0,10) });
+            }
+            case 'add_trip_pin': {
+              const title = String(args.title||'').trim();
+              if (!title) return JSON.stringify({ error: 'title required' });
+              let tripId = String(args.trip_id||'').trim();
+              if (!tripId && args.trip_title) {
+                const tTitle = String(args.trip_title).trim().toLowerCase();
+                const q = await db.collection('travel_trips').where('title','==', String(args.trip_title).trim()).limit(1).get();
+                if (!q.empty) tripId = q.docs[0].id;
+                else {
+                  const all = await db.collection('travel_trips').limit(20).get();
+                  const found = all.docs.find(d => (d.data().title||'').toLowerCase().includes(tTitle));
+                  if (found) tripId = found.id;
+                }
+              }
+              if (!tripId) return JSON.stringify({ error: 'trip_id or trip_title required and not found' });
+              // Verify trip exists
+              const tripSnap = await db.collection('travel_trips').doc(tripId).get();
+              if (!tripSnap.exists) return JSON.stringify({ error: `Trip ${tripId} not found` });
+              const lat = Number(args.lat)||0;
+              const lng = Number(args.lng)||0;
+              const cat = ['stay','eat','sight','activity','transit'].includes(String(args.category||'')) ? String(args.category) : 'sight';
+              // Determine order
+              const existing = await db.collection('travel_pins').where('tripId','==',tripId).get();
+              const order = existing.size;
+              const pin = {
+                tripId,
+                title,
+                note: String(args.note||''),
+                lat,
+                lng,
+                category: cat,
+                order,
+                createdBy: callerUid,
+              };
+              const ref = await db.collection('travel_pins').add(pin);
+              return JSON.stringify({ success: true, id: ref.id, tripId, title });
+            }
+            case 'log_habit': {
+              const title = String(args.title||'').trim();
+              if (!title) return JSON.stringify({ error: 'title required' });
+              const cat = ['health','fitness','mindfulness','learning','social','other'].includes(String(args.category||'')) ? String(args.category) : 'health';
+              const freq = ['daily','weekly','custom'].includes(String(args.frequency||'')) ? String(args.frequency) : 'daily';
+              // Check duplicate
+              const existingH = await db.collection('habits').where('title','==',title).limit(1).get();
+              if (!existingH.empty) return JSON.stringify({ success: false, error: `Habit "${title}" already exists`, id: existingH.docs[0].id });
+              const data = {
+                title,
+                description: String(args.description||''),
+                category: cat,
+                frequency: freq,
+                createdBy: callerUid,
+                createdAt: getAdmin().firestore.Timestamp.now(),
+                completedDates: [],
+                streak: 0,
+                longestStreak: 0,
+                isActive: true,
+              };
+              const ref = await db.collection('habits').add(data);
+              return JSON.stringify({ success: true, id: ref.id, title });
+            }
+            case 'complete_habit': {
+              const title = String(args.title||'').trim();
+              const hid = String(args.habit_id||'').trim();
+              let docRef = null;
+              let docSnap = null;
+              if (hid) {
+                docRef = db.collection('habits').doc(hid);
+                docSnap = await docRef.get();
+              } else {
+                const q = await db.collection('habits').where('title','==',title).limit(1).get();
+                if (q.empty) {
+                  // try case-insensitive
+                  const all = await db.collection('habits').limit(50).get();
+                  const found = all.docs.find(d => (d.data().title||'').toLowerCase() === title.toLowerCase());
+                  if (found) { docRef = found.ref; docSnap = found; } else return JSON.stringify({ error: `Habit "${title}" not found` });
+                } else { docRef = q.docs[0].ref; docSnap = q.docs[0]; }
+              }
+              if (!docSnap.exists) return JSON.stringify({ error: 'Habit not found' });
+              const data = docSnap.data();
+              const now = new Date();
+              const todayKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+              const completedDates = (data.completedDates||[]).map(d => {
+                if (d.toDate) return d.toDate().toISOString().slice(0,10);
+                return String(d).slice(0,10);
+              });
+              if (completedDates.includes(todayKey)) return JSON.stringify({ success: false, error: 'Already completed today', streak: data.streak||0 });
+              // Compute streak - naive increment
+              const newStreak = (data.streak||0)+1;
+              const longest = Math.max(newStreak, data.longestStreak||0);
+              await docRef.update({
+                completedDates: getAdmin().firestore.FieldValue.arrayUnion(getAdmin().firestore.Timestamp.fromDate(now)),
+                streak: newStreak,
+                longestStreak: longest,
+              });
+              return JSON.stringify({ success: true, title: data.title, streak: newStreak, longestStreak: longest });
+            }
+            case 'get_calendar_events': {
+              const days = Math.min(Math.max(Number(args.days)||14,1),60);
+              const limit = Math.min(Math.max(Number(args.limit)||10,1),20);
+              const now = new Date();
+              const end = new Date(now.getTime()+days*24*60*60*1000);
+              const snap = await db.collection('calendar_events')
+                .where('date','>=', getAdmin().firestore.Timestamp.fromDate(now))
+                .where('date','<=', getAdmin().firestore.Timestamp.fromDate(end))
+                .orderBy('date','asc').limit(limit).get();
+              if (snap.empty) return JSON.stringify({ events: [], count: 0 });
+              const events = snap.docs.map(d => {
+                const v = d.data();
+                return { id: d.id, title: v.title||'', date: v.date?.toDate?.()?.toISOString()||null, type: v.type||'custom', location: v.location||null };
+              });
+              return JSON.stringify({ events, count: events.length });
+            }
+            case 'get_bucket_list': {
+              const limit = Math.min(Math.max(Number(args.limit)||10,1),20);
+              const status = String(args.status||'all').toLowerCase();
+              let q = db.collection('bucket_list').orderBy('createdAt','desc').limit(limit);
+              if (['wish','planned','completed'].includes(status)) q = db.collection('bucket_list').where('status','==',status).orderBy('createdAt','desc').limit(limit);
+              const snap = await q.get();
+              if (snap.empty) return JSON.stringify({ items: [], count: 0 });
+              const items = snap.docs.map(d => {
+                const v=d.data();
+                return { id: d.id, title: v.title||'', status: v.status||'wish', category: v.category||'other', priority: v.priority||'medium' };
+              });
+              return JSON.stringify({ items, count: items.length });
+            }
+            case 'get_journal_entries': {
+              const limit = Math.min(Math.max(Number(args.limit)||5,1),10);
+              const cat = String(args.category||'all').toLowerCase();
+              let q = db.collection('journal_entries').orderBy('createdAt','desc').limit(limit);
+              if (['daily','gratitude','memory','letter','dream','idea'].includes(cat)) q = db.collection('journal_entries').where('category','==',cat).orderBy('createdAt','desc').limit(limit);
+              const snap = await q.get();
+              if (snap.empty) return JSON.stringify({ entries: [], count: 0 });
+              const entries = snap.docs.map(d => {
+                const v=d.data();
+                return { id: d.id, title: v.title||'', category: v.category||'daily', preview: (v.content||'').slice(0,150), author: v.author||'' };
+              });
+              return JSON.stringify({ entries, count: entries.length });
+            }
+            case 'get_trips': {
+              const limit = Math.min(Math.max(Number(args.limit)||5,1),10);
+              const snap = await db.collection('travel_trips').orderBy('startDate','asc').limit(limit).get();
+              if (snap.empty) return JSON.stringify({ trips: [], count: 0 });
+              const trips = snap.docs.map(d => {
+                const v=d.data();
+                return { id: d.id, title: v.title||'', start: v.startDate?.toDate?.()?.toISOString()?.slice(0,10)||null, end: v.endDate?.toDate?.()?.toISOString()?.slice(0,10)||null, status: v.status||'planning' };
+              });
+              return JSON.stringify({ trips, count: trips.length });
             }
             default:
               return JSON.stringify({ error: `Unknown tool: ${toolName}` });
@@ -2957,7 +3546,16 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
 
         if (!streamResp || !streamResp.ok) {
           console.warn(`proxyAI Agnes fetch failed after retries: ${lastFetchError || streamResp?.status}`);
-          sendEvent({ error: 'Mochi got distracted and lost her train of thought. Try asking again?' });
+          try {
+            const fallback = composeTodayRecap({ dateLabel: new Date().toISOString().slice(0,10), moods: [], activities: [], watchlist: [], starlight: [], memories: [], insights: [] });
+            sendEvent({ content: fallback + " 🍡 Mochi is a little sleepy right now, but I'm still here. Try again in a moment?" });
+            sendEvent({ tool_status: 'done' });
+            sendEvent('[DONE]');
+            stopKeepalive(); stopHeartbeat();
+            return;
+          } catch (_) {
+            sendEvent({ error: 'Mochi got distracted and lost her train of thought. Try asking again?' });
+          }
           break;
         }
 
@@ -3046,6 +3644,17 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
           const toolStartedAt = Date.now();
           const result = await executeTool(fnName, fnArgs, caller);
           logToolCall(fnName, caller, result, Date.now() - toolStartedAt);
+          // Send rich tool result to client for inline cards
+          try {
+            const parsed = JSON.parse(result);
+            sendEvent({ tool_result: { tool: fnName, ...parsed } });
+            // Also send a friendly status for UI (e.g., needs_confirmation)
+            if (parsed.needs_confirmation) {
+              sendEvent({ tool_status: `${fnName}:needs_confirmation` });
+            }
+          } catch (_) {
+            sendEvent({ tool_result: { tool: fnName, raw: result } });
+          }
 
           currentMessages.push({
             role: 'tool',
@@ -3330,6 +3939,95 @@ exports.mochiMoodCheckIn = onSchedule({
     }
   } catch (e) {
     console.warn('[mochiMoodCheckIn] behavior nudge failed:', e.message);
+  }
+});
+
+// ── Scheduled: Smart Behavior Nudge (7pm PHT daily) — checks streaks, overdue bucket, journal silence, tomorrow calendar ───────
+exports.mochiSmartNudge = onSchedule({
+  schedule: '0 19 * * *',
+  timeZone: 'Asia/Manila',
+  region: 'us-central1',
+}, async () => {
+  const db = getDb();
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0,10);
+  const tomorrow = new Date(now.getTime()+24*60*60*1000);
+  const tomorrowStr = tomorrow.toISOString().slice(0,10);
+  try {
+    const logRef = db.collection('mochi_nudge_log').doc(todayStr);
+    const logSnap = await logRef.get();
+    const logged = logSnap.exists ? logSnap.data() : {};
+    try {
+      const habitsSnap = await db.collection('habits').where('isActive','==',true).limit(20).get();
+      for (const doc of habitsSnap.docs) {
+        const h = doc.data();
+        const completedToday = (h.completedDates||[]).some(d => {
+          const dt = d.toDate ? d.toDate() : new Date(d);
+          return dt.toISOString().slice(0,10) === todayStr;
+        });
+        if (!completedToday && (h.streak||0) >= 2 && !logged[`habit_${doc.id}`]) {
+          const owner = h.createdBy || 'khentsgdz';
+          await sendFCMToUser(owner, {
+            title: `Keep your ${h.streak}-day streak!`,
+            body: `Don't break your "${h.title}" streak — log it today? Mochi is cheering you on!`,
+            data: { type: 'habit_streak', habitId: doc.id },
+          });
+          await logRef.set({ [`habit_${doc.id}`]: true, updatedAt: getAdmin().firestore.FieldValue.serverTimestamp() }, { merge: true });
+          break;
+        }
+      }
+    } catch (e) { console.warn('[smartNudge] habit', e.message); }
+    try {
+      const bucketSnap = await db.collection('bucket_list').where('status','in',['wish','planned']).limit(30).get();
+      const dueSoon = bucketSnap.docs.filter(d => {
+        const dd = d.data().dueDate?.toDate?.();
+        if (!dd) return false;
+        const diff = Math.ceil((dd - now)/(24*60*60*1000));
+        return diff >= 0 && diff <= 2;
+      });
+      if (dueSoon.length > 0 && !logged.bucket) {
+        const item = dueSoon[0].data();
+        await sendFCMToBoth({
+          title: `"${item.title}" is due soon!`,
+          body: `Your bucket dream is around the corner — want to plan it? Mochi remembers!`,
+          data: { type: 'bucket_due' },
+        });
+        await logRef.set({ bucket: true, updatedAt: getAdmin().firestore.FieldValue.serverTimestamp() }, { merge: true });
+      }
+    } catch (e) { console.warn('[smartNudge] bucket', e.message); }
+    try {
+      const journalSnap = await db.collection('journal_entries').orderBy('createdAt','desc').limit(1).get();
+      if (!journalSnap.empty) {
+        const last = journalSnap.docs[0].data().createdAt?.toDate?.();
+        if (last && (now - last)/(24*60*60*1000) > 4 && !logged.journal) {
+          await sendFCMToBoth({
+            title: 'Mochi misses your words',
+            body: 'It has been a few quiet days — want to write a little memory together?',
+            data: { type: 'journal_nudge' },
+          });
+          await logRef.set({ journal: true, updatedAt: getAdmin().firestore.FieldValue.serverTimestamp() }, { merge: true });
+        }
+      }
+    } catch (e) { console.warn('[smartNudge] journal', e.message); }
+    try {
+      const startTomorrow = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 0,0,0);
+      const endTomorrow = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 23,59,59);
+      const calSnap = await db.collection('calendar_events')
+        .where('date','>=', getAdmin().firestore.Timestamp.fromDate(startTomorrow))
+        .where('date','<=', getAdmin().firestore.Timestamp.fromDate(endTomorrow))
+        .limit(3).get();
+      if (!calSnap.empty && !logged.calendar) {
+        const titles = calSnap.docs.map(d => d.data().title || 'Untitled').join(', ');
+        await sendFCMToBoth({
+          title: `Tomorrow: ${titles}`,
+          body: 'Mochi sees you have plans — sleep well and enjoy tomorrow together!',
+          data: { type: 'calendar_preview' },
+        });
+        await logRef.set({ calendar: true, updatedAt: getAdmin().firestore.FieldValue.serverTimestamp() }, { merge: true });
+      }
+    } catch (e) { console.warn('[smartNudge] calendar', e.message); }
+  } catch (e) {
+    console.warn('[mochiSmartNudge] failed', e.message);
   }
 });
 

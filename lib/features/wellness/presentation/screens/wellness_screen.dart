@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_segmented_control.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
+import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
+import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../heartbeat/data/services/mood_service.dart';
 import '../../data/models/habit.dart';
 import '../../data/models/workout.dart';
@@ -53,12 +55,12 @@ class _WellnessScreenState extends State<WellnessScreen> {
                   icon: Icons.favorite_rounded,
                   hue: AppColors.auroraRose,
                   actions: [
-                    IconButton(
+                    EverglowIconButton(
+                      icon: Icons.add_rounded,
                       onPressed: () => _showAddDialog(auth),
-                      icon: const Icon(
-                        Icons.add_rounded,
-                        color: AppColors.blushGold,
-                      ),
+                      semanticLabel: '''Add habit or workout''',
+                      tooltip: '''Add''',
+                      iconColor: AppColors.blushGold,
                     ),
                   ],
                 ),
@@ -116,11 +118,11 @@ class _WellnessScreenState extends State<WellnessScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) {
           return AlertDialog(
-            backgroundColor: AppTheme.velvet,
+            backgroundColor: AppColors.velvet,
             title: Text(
               'New Habit 🌱',
               style: AppTypography.cormorantBold.copyWith(
-                color: AppTheme.petalWhite,
+                color: AppColors.petalWhite,
               ),
             ),
             content: Column(
@@ -129,12 +131,12 @@ class _WellnessScreenState extends State<WellnessScreen> {
                 TextField(
                   controller: titleCtrl,
                   style: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite,
+                    color: AppColors.petalWhite,
                   ),
                   decoration: InputDecoration(
                     hintText: 'e.g., Meditate together 10 min',
                     hintStyle: AppTypography.outfitWhite.copyWith(
-                      color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                      color: AppColors.petalWhite.withValues(alpha: 0.4),
                     ),
                     filled: true,
                     fillColor: AppColors.twilight,
@@ -175,7 +177,7 @@ class _WellnessScreenState extends State<WellnessScreen> {
                             fontSize: 11,
                             color: sel
                                 ? AppColors.blushGold
-                                : AppTheme.petalWhite.withValues(alpha: 0.7),
+                                : AppColors.petalWhite.withValues(alpha: 0.7),
                           ),
                         ),
                       ),
@@ -225,11 +227,11 @@ class _WellnessScreenState extends State<WellnessScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) {
           return AlertDialog(
-            backgroundColor: AppTheme.velvet,
+            backgroundColor: AppColors.velvet,
             title: Text(
               'Log Workout 💪',
               style: AppTypography.cormorantBold.copyWith(
-                color: AppTheme.petalWhite,
+                color: AppColors.petalWhite,
               ),
             ),
             content: Column(
@@ -238,12 +240,12 @@ class _WellnessScreenState extends State<WellnessScreen> {
                 TextField(
                   controller: titleCtrl,
                   style: AppTypography.outfitWhite.copyWith(
-                    color: AppTheme.petalWhite,
+                    color: AppColors.petalWhite,
                   ),
                   decoration: InputDecoration(
                     hintText: 'e.g., Evening run • Yoga',
                     hintStyle: AppTypography.outfitWhite.copyWith(
-                      color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                      color: AppColors.petalWhite.withValues(alpha: 0.4),
                     ),
                     filled: true,
                     fillColor: AppColors.twilight,
@@ -261,12 +263,12 @@ class _WellnessScreenState extends State<WellnessScreen> {
                         controller: durationCtrl,
                         keyboardType: TextInputType.number,
                         style: AppTypography.outfitWhite.copyWith(
-                          color: AppTheme.petalWhite,
+                          color: AppColors.petalWhite,
                         ),
                         decoration: InputDecoration(
                           labelText: 'Minutes',
                           labelStyle: AppTypography.outfitWhite.copyWith(
-                            color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                            color: AppColors.petalWhite.withValues(alpha: 0.6),
                           ),
                           filled: true,
                           fillColor: AppColors.twilight,
@@ -291,7 +293,7 @@ class _WellnessScreenState extends State<WellnessScreen> {
                           dropdownColor: AppColors.twilight,
                           underline: const SizedBox(),
                           style: AppTypography.outfitWhite.copyWith(
-                            color: AppTheme.petalWhite,
+                            color: AppColors.petalWhite,
                             fontSize: 12,
                           ),
                           items: WorkoutCategory.values
@@ -357,11 +359,9 @@ class _HabitsTab extends StatelessWidget {
       builder: (context, snap) {
         final habits = snap.data ?? [];
         if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(
-              color: AppColors.deepRose,
-              strokeWidth: 2,
-            ),
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: EverglowSkeleton(height: 120, radius: 16),
           );
         }
         if (habits.isEmpty) {
@@ -392,14 +392,32 @@ class _HabitsTab extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  GestureDetector(
-                    onTap: () => service.toggleCompleteToday(
-                      h.id,
-                      auth.currentUser ?? '',
-                    ),
-                    child: Container(
-                      width: 36,
-                      height: 36,
+                  Semantics(
+                    button: true,
+                    label: doneToday ? 'Mark ${h.title} as not done' : 'Mark ${h.title} as done',
+                    child: FocusableActionDetector(
+                      shortcuts: const {
+                        SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+                        SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+                      },
+                      actions: {
+                        ActivateIntent: CallbackAction<ActivateIntent>(
+                          onInvoke: (_) {
+                            service.toggleCompleteToday(h.id, auth.currentUser ?? '');
+                            return null;
+                          },
+                        ),
+                      },
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: () => service.toggleCompleteToday(
+                            h.id,
+                            auth.currentUser ?? '',
+                          ),
+                          child: Container(
+                            width: 44,
+                            height: 44,
                       decoration: BoxDecoration(
                         color: doneToday
                             ? AppColors.success
@@ -416,9 +434,12 @@ class _HabitsTab extends StatelessWidget {
                         size: 18,
                         color: doneToday
                             ? Colors.white
-                            : AppTheme.petalWhite.withValues(alpha: 0.6),
+                            : AppColors.petalWhite.withValues(alpha: 0.6),
                       ),
                     ),
+                      ),
+                    ),
+                  ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -429,7 +450,7 @@ class _HabitsTab extends StatelessWidget {
                           h.title,
                           style: AppTypography.outfitBold.copyWith(
                             fontSize: 13,
-                            color: AppTheme.petalWhite,
+                            color: AppColors.petalWhite,
                             decoration: doneToday
                                 ? TextDecoration.lineThrough
                                 : null,
@@ -477,7 +498,7 @@ class _HabitsTab extends StatelessWidget {
                               'best ${h.longestStreak}',
                               style: AppTypography.outfitWhite.copyWith(
                                 fontSize: 10,
-                                color: AppTheme.petalWhite.withValues(
+                                color: AppColors.petalWhite.withValues(
                                   alpha: 0.5,
                                 ),
                               ),
@@ -492,7 +513,7 @@ class _HabitsTab extends StatelessWidget {
                     icon: Icon(
                       Icons.delete_outline_rounded,
                       size: 16,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                      color: AppColors.petalWhite.withValues(alpha: 0.4),
                     ),
                   ),
                 ],
@@ -569,7 +590,7 @@ class _WorkoutsTab extends StatelessWidget {
                           w.title,
                           style: AppTypography.outfitBold.copyWith(
                             fontSize: 13,
-                            color: AppTheme.petalWhite,
+                            color: AppColors.petalWhite,
                           ),
                         ),
                         const SizedBox(height: 3),
@@ -577,7 +598,7 @@ class _WorkoutsTab extends StatelessWidget {
                           '${w.durationMinutes} min • ${w.category.name} • ${w.date.month}/${w.date.day} • by ${w.createdBy}',
                           style: AppTypography.outfitWhite.copyWith(
                             fontSize: 10,
-                            color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                            color: AppColors.petalWhite.withValues(alpha: 0.6),
                           ),
                         ),
                       ],
@@ -588,7 +609,7 @@ class _WorkoutsTab extends StatelessWidget {
                     icon: Icon(
                       Icons.delete_outline_rounded,
                       size: 16,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.4),
+                      color: AppColors.petalWhite.withValues(alpha: 0.4),
                     ),
                   ),
                 ],
@@ -653,7 +674,7 @@ class _InsightsTab extends StatelessWidget {
                         'Weekly Insight',
                         style: AppTypography.outfitBold.copyWith(
                           fontSize: 13,
-                          color: AppTheme.petalWhite,
+                          color: AppColors.petalWhite,
                         ),
                       ),
                     ],
@@ -685,7 +706,7 @@ class _InsightsTab extends StatelessWidget {
                     'Habitica gamifies consistency — keep your streaks together!',
                     style: AppTypography.outfitWhite.copyWith(
                       fontSize: 11,
-                      color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                      color: AppColors.petalWhite.withValues(alpha: 0.6),
                     ),
                   ),
                 ],
@@ -716,7 +737,7 @@ class _InsightsTab extends StatelessWidget {
                     'Mood × Wellness',
                     style: AppTypography.outfitBold.copyWith(
                       fontSize: 12,
-                      color: AppTheme.petalWhite,
+                      color: AppColors.petalWhite,
                     ),
                   ),
                 ],
@@ -726,7 +747,7 @@ class _InsightsTab extends StatelessWidget {
                 'Link your heartbeat moods to workouts — coming soon: correlate moodScore vs activity. Data from moods collection (last 7 days).',
                 style: AppTypography.outfitWhite.copyWith(
                   fontSize: 11,
-                  color: AppTheme.petalWhite.withValues(alpha: 0.6),
+                  color: AppColors.petalWhite.withValues(alpha: 0.6),
                   height: 1.4,
                 ),
               ),
@@ -740,7 +761,7 @@ class _InsightsTab extends StatelessWidget {
                       'No mood data yet',
                       style: AppTypography.outfitWhite.copyWith(
                         fontSize: 11,
-                        color: AppTheme.petalWhite.withValues(alpha: 0.5),
+                        color: AppColors.petalWhite.withValues(alpha: 0.5),
                       ),
                     );
                   }
@@ -772,7 +793,7 @@ class _InsightsTab extends StatelessWidget {
           label,
           style: AppTypography.outfitWhite.copyWith(
             fontSize: 10,
-            color: AppTheme.petalWhite.withValues(alpha: 0.6),
+            color: AppColors.petalWhite.withValues(alpha: 0.6),
           ),
         ),
       ],

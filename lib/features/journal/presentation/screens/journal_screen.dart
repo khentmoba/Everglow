@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
+import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../../../shared/widgets/everglow/everglow_error_state.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
@@ -57,13 +58,12 @@ class _JournalScreenState extends State<JournalScreen> {
                   icon: Icons.menu_book_rounded,
                   hue: AppColors.softLavender,
                   actions: [
-                    IconButton(
+                    EverglowIconButton(
+                      icon: Icons.edit_note_rounded,
                       onPressed: () => _showAddDialog(auth),
-                      icon: const Icon(
-                        Icons.edit_note_rounded,
-                        color: AppColors.blushGold,
-                      ),
+                      semanticLabel: 'New journal entry',
                       tooltip: 'New entry',
+                      iconColor: AppColors.blushGold,
                     ),
                   ],
                 ),

@@ -6,44 +6,53 @@
 class MochiQuality {
   const MochiQuality();
 
+  // Refined triggers: only high-signal reasoning words. Removed generic
+  // couple pronouns (us/we/both) that fired on 70% of messages.
   static const Set<String> _thinkingTriggers = {
     'plan',
     'planning',
     'decide',
     'decision',
     'compare',
+    'comparison',
     'why',
     'how',
     'explain',
+    'analysis',
     'think',
+    'reason',
     'recommend',
     'suggest',
-    'both',
-    'us',
-    'we',
-    'date',
-    'trip',
-    'help',
-    'relationship',
+    'help me decide',
+    'should we',
+    'what should',
     'anniversary',
     'surprise',
+    'relationship',
   };
 
   /// A message gets deep thinking when it is genuinely complex: long,
   /// asks for analysis or planning, or touches both partners.
   bool shouldAutoThink(String message) {
     final text = message.trim();
-    if (text.length >= 90) return true;
     if (text.length < 12) return false;
-
+    if (text.length >= 120) return true;
     final lower = text.toLowerCase();
-    final hasTrigger = _thinkingTriggers.any(
-      (word) => RegExp('\\b${RegExp.escape(word)}\\b').hasMatch(lower),
-    );
-    if (hasTrigger) return true;
-
-    // Multiple question marks usually means a layered request.
-    return '?'.allMatches(lower).length >= 2;
+    if ('?'.allMatches(lower).length >= 2) return true;
+    final sentenceCount = '.!?'.allMatches(lower).length;
+    if (sentenceCount >= 2 && text.length >= 60) {
+      final hasTrigger = _thinkingTriggers.any(
+        (word) => lower.contains(word),
+      );
+      if (hasTrigger) return true;
+    }
+    if (text.length >= 15) {
+      final hasTrigger = _thinkingTriggers.any(
+        (word) => RegExp('\\b${RegExp.escape(word)}\\b').hasMatch(lower),
+      );
+      if (hasTrigger) return true;
+    }
+    return false;
   }
 }
 

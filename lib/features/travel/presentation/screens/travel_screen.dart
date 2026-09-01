@@ -8,6 +8,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_segmented_control.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
+import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../data/models/trip.dart';
 import '../../data/services/travel_service.dart';
@@ -55,12 +56,12 @@ class _TravelScreenState extends State<TravelScreen> {
                   icon: Icons.map_rounded,
                   hue: AppColors.auroraTeal,
                   actions: [
-                    IconButton(
+                    EverglowIconButton(
+                      icon: Icons.add_location_alt_rounded,
                       onPressed: () => _showAddTrip(auth),
-                      icon: const Icon(
-                        Icons.add_location_alt_rounded,
-                        color: AppColors.blushGold,
-                      ),
+                      semanticLabel: '''New trip''',
+                      tooltip: '''New trip''',
+                      iconColor: AppColors.blushGold,
                     ),
                   ],
                 ),

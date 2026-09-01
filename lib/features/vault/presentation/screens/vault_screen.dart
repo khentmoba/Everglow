@@ -8,6 +8,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/utils/pick_image_bytes.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
+import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../data/models/vault_entry.dart';
 import '../../data/services/vault_service.dart';
@@ -98,12 +99,12 @@ class _VaultScreenState extends State<VaultScreen> {
                   icon: Icons.folder_special_rounded,
                   hue: AppColors.auroraTeal,
                   actions: [
-                    IconButton(
+                    EverglowIconButton(
+                      icon: Icons.upload_rounded,
                       onPressed: _upload,
-                      icon: const Icon(
-                        Icons.upload_rounded,
-                        color: AppColors.blushGold,
-                      ),
+                      semanticLabel: '''Upload file''',
+                      tooltip: '''Upload''',
+                      iconColor: AppColors.blushGold,
                     ),
                   ],
                 ),
@@ -235,8 +236,8 @@ class _VaultScreenState extends State<VaultScreen> {
                       return GridView.builder(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
                         gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 220,
                               crossAxisSpacing: 12,
                               mainAxisSpacing: 12,
                               childAspectRatio: 0.82,

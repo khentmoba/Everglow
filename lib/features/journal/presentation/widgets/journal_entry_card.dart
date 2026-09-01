@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/everglow/everglow_card.dart';
+import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../data/models/journal_entry.dart';
 import '../../data/services/journal_service.dart';
 
@@ -15,20 +17,17 @@ class JournalEntryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isLocked = entry.isLocked;
-    return GestureDetector(
+    final semanticLabel = entry.isLocked
+        ? 'Locked entry \u2014 ${entry.title.isEmpty ? 'Untitled' : entry.title} by ${entry.author}'
+        : '${entry.title.isEmpty ? 'Untitled' : entry.title} by ${entry.author}, ${entry.category.displayName}';
+    return EverglowCard(
       onTap: onTap ?? () => _showDetail(context),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.panelGlass,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: entry.isPinned
-                ? AppColors.blushGold.withValues(alpha: 0.22)
-                : AppColors.moonlight.withValues(alpha: 0.08),
-          ),
-        ),
-        child: Column(
+      semanticLabel: semanticLabel,
+      padding: const EdgeInsets.all(16),
+      radius: 16,
+      fillColor: AppColors.panelGlass,
+      boxShadow: const [],
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -208,7 +207,6 @@ class JournalEntryCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -293,7 +291,10 @@ class _JournalDetailSheetState extends State<_JournalDetailSheet> {
                     style: AppTypography.cormorantBold.copyWith(fontSize: 24),
                   ),
                 ),
-                IconButton(
+                EverglowIconButton(
+                  icon: _entry.isPinned
+                      ? Icons.push_pin_rounded
+                      : Icons.push_pin_outlined,
                   onPressed: () async {
                     await JournalService().togglePin(
                       _entry.id,
@@ -302,12 +303,9 @@ class _JournalDetailSheetState extends State<_JournalDetailSheet> {
                     if (!context.mounted) return;
                     Navigator.pop(context);
                   },
-                  icon: Icon(
-                    _entry.isPinned
-                        ? Icons.push_pin_rounded
-                        : Icons.push_pin_outlined,
-                    color: AppColors.blushGold,
-                  ),
+                  semanticLabel: _entry.isPinned ? 'Unpin entry' : 'Pin entry',
+                  tooltip: _entry.isPinned ? 'Unpin' : 'Pin',
+                  iconColor: AppColors.blushGold,
                 ),
               ],
             ),

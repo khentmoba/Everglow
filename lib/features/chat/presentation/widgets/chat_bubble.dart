@@ -30,9 +30,11 @@ class ChatBubble extends StatelessWidget {
         DateTime.now().month == timestamp.month &&
         DateTime.now().year == timestamp.year;
 
-    final bubble = Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Column(
+    final bubble = Semantics(
+      label: isMe ? 'You at $timeStr: $text' : '$sender at $timeStr: $text',
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4.0),
+        child: Column(
         crossAxisAlignment: isMe
             ? CrossAxisAlignment.end
             : CrossAxisAlignment.start,
@@ -107,7 +109,7 @@ class ChatBubble extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
+                  SelectableText(
                     text,
                     style: AppTypography.bodyMedium().copyWith(
                       color: AppColors.petalWhite,
@@ -115,21 +117,52 @@ class ChatBubble extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    isToday ? timeStr : '$dateStr, $timeStr',
-                    style: AppTypography.bodySmall().copyWith(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w500,
-                      color: isMe
-                          ? AppColors.petalWhite.withValues(alpha: 0.7)
-                          : AppColors.roseQuartz.withValues(alpha: 0.7),
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        isToday ? timeStr : '$dateStr, $timeStr',
+                        style: AppTypography.bodySmall().copyWith(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w500,
+                          color: isMe
+                              ? AppColors.petalWhite.withValues(alpha: 0.7)
+                              : AppColors.roseQuartz.withValues(alpha: 0.7),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Tooltip(
+                        message: 'Copy',
+                        child: InkWell(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            Clipboard.setData(ClipboardData(text: text));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Copied to clipboard', style: AppTypography.bodySmall()),
+                                duration: const Duration(seconds: 1),
+                                backgroundColor: AppColors.velvet,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLg),
+                                margin: const EdgeInsets.all(16),
+                              ),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.all(4),
+                            child: Icon(Icons.copy_rounded, size: 12, color: isMe ? AppColors.petalWhite.withValues(alpha: 0.5) : AppColors.roseQuartz.withValues(alpha: 0.5)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
           ),
         ],
+        ),
       ),
     );
     if (AppMotion.reduced) return bubble;

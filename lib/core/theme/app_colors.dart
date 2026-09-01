@@ -98,7 +98,7 @@ class AppColors {
   static Color get surfaceGlass => moonlight.withValues(alpha: 0.12);
 
   /// Frosted panel fill used on cards over rich gradients.
-  static Color get panelGlass => inkDeep.withValues(alpha: 0.55);
+  static Color get panelGlass => inkDeep.withValues(alpha: 0.62);
 
   /// Softer glass for hover/reveal states.
   static Color get glassSoft => moonlight.withValues(alpha: 0.08);
@@ -114,10 +114,10 @@ class AppColors {
   static Color get textMedium => petalWhite.withValues(alpha: 0.82);
 
   /// Secondary/muted text — roseQuartz @ 0.72
-  static Color get textMuted => roseQuartz.withValues(alpha: 0.72);
+  static Color get textMuted => roseQuartz.withValues(alpha: 0.76);
 
   /// Disabled text — petalWhite @ 0.40
-  static Color get textDisabled => petalWhite.withValues(alpha: 0.40);
+  static Color get textDisabled => petalWhite.withValues(alpha: 0.52);
 
   // ── Borders & dividers ─────────────────────────────────────
 

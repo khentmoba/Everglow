@@ -10,6 +10,7 @@ class BudgetService {
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final String _col = 'budget_transactions';
+  final String _budgetsCol = 'budget_limits';
 
   Stream<List<BudgetTransaction>> watchAll() => withFirestoreTimeout(
     _db
@@ -41,12 +42,67 @@ class BudgetService {
     );
   }
 
+  // Budget limits (envelopes) per month — Actual-style
+  Stream<Map<String, double>> watchBudgetLimits(DateTime month) {
+    final key = monthKeyFor(month);
+    return withFirestoreTimeout(
+      _db
+          .collection(_budgetsCol)
+          .where('monthKey', isEqualTo: key)
+          .snapshots()
+          .map((s) {
+            final map = <String, double>{};
+            for (final d in s.docs) {
+              final data = d.data();
+              final cat = data['category'] as String? ?? 'Other';
+              final amt = (data['amount'] as num?)?.toDouble() ?? 0;
+              map[cat] = amt;
+            }
+            return map;
+          }),
+      label: 'budget-limits',
+    );
+  }
+
+  Future<void> setBudgetLimit(
+    DateTime month,
+    String category,
+    double amount,
+  ) async {
+    final key = monthKeyFor(month);
+    final docId = '${key}_$category';
+    try {
+      if (amount <= 0) {
+        await _db.collection(_budgetsCol).doc(docId).delete();
+        return;
+      }
+      await _db.collection(_budgetsCol).doc(docId).set({
+        'monthKey': key,
+        'category': category,
+        'amount': amount,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      Logger.i('Budget limit set: $category $amount for $key');
+    } catch (e) {
+      Logger.e('Error setting budget limit', error: e);
+    }
+  }
+
   Future<void> add(BudgetTransaction tx) async {
     try {
       await _db.collection(_col).add(tx.toFirestore());
       Logger.i('Budget added: ${tx.title} ${tx.amount}');
     } catch (e) {
       Logger.e('Error adding budget', error: e);
+    }
+  }
+
+  Future<void> update(String id, BudgetTransaction tx) async {
+    try {
+      await _db.collection(_col).doc(id).update(tx.toFirestore());
+      Logger.i('Budget updated: $id');
+    } catch (e) {
+      Logger.e('Error updating budget', error: e);
     }
   }
 
@@ -92,4 +148,12 @@ class BudgetService {
     }
     return map;
   }
+
+  double totalIncome(List<BudgetTransaction> txs) => txs
+      .where((t) => t.type == TransactionType.income)
+      .fold(0, (a, b) => a + b.amount);
+
+  double totalExpense(List<BudgetTransaction> txs) => txs
+      .where((t) => t.type == TransactionType.expense)
+      .fold(0, (a, b) => a + b.amount);
 }

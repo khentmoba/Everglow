@@ -87,20 +87,69 @@ function scoreMemory(rawFact, tokens, now) {
   return score;
 }
 
+function hashToken(token) {
+  let h = 2166136261;
+  for (let i = 0; i < token.length; i++) {
+    h ^= token.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function simpleEmbedding(text, dim = 64) {
+  const tokens = tokenize(String(text || '').toLowerCase());
+  if (tokens.length === 0) return null;
+  const vec = new Array(dim).fill(0);
+  for (const tok of tokens) {
+    const h = hashToken(tok);
+    const idx = h % dim;
+    vec[idx] += 1;
+    vec[(h * 31) % dim] += 0.5;
+  }
+  const norm = Math.sqrt(vec.reduce((s, v) => s + v * v, 0));
+  if (norm === 0) return null;
+  return vec.map(v => v / norm);
+}
+
+function cosineSimilarity(a, b) {
+  if (!a || !b || a.length !== b.length) return 0;
+  let dot = 0;
+  for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
+  return dot;
+}
+
 function rankMemories(facts, query, maxResults = 30, now = new Date()) {
   const tokens = tokenize(query);
   const current = now || new Date();
+  const queryEmb = simpleEmbedding(query);
   const scored = (facts || [])
     .filter((f) => f && String(f.fact || '').trim())
-    .map((fact) => ({ fact, score: scoreMemory(fact, tokens, current) }));
+    .map((fact) => {
+      let score = scoreMemory(fact, tokens, current);
+      try {
+        const factEmb = fact.embedding ? fact.embedding : simpleEmbedding(fact.fact || '');
+        if (queryEmb && factEmb && factEmb.length === queryEmb.length) {
+          const cos = cosineSimilarity(queryEmb, factEmb);
+          score += cos * 2;
+          fact._cos = cos;
+        }
+      } catch (_) {}
+      return { fact, score };
+    });
   scored.sort((a, b) => b.score - a.score || String(a.fact.fact).localeCompare(String(b.fact.fact)));
   return scored.slice(0, maxResults).map((entry) => entry.fact);
 }
 
-/**
- * Pick the most relevant context blocks for a question. The proactive
- * digest is always kept so Mochi never loses "today" signals.
- */
+function isNearDuplicate(a, b, threshold = 0.88) {
+  const embA = simpleEmbedding(a);
+  const embB = simpleEmbedding(b);
+  if (!embA || !embB) {
+    const na = a.toLowerCase().replace(/[^a-z0-9\s]/g,'').trim();
+    const nb = b.toLowerCase().replace(/[^a-z0-9\s]/g,'').trim();
+    return na === nb || na.includes(nb) || nb.includes(na);
+  }
+  return cosineSimilarity(embA, embB) >= threshold;
+}
 function selectContextBlocks(blocks, query, maxBlocks = 6, alwaysKeep = 'proactive') {
   const list = (blocks || []).filter((b) => b && b.key);
   if (list.length === 0) return [];

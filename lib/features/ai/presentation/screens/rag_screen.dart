@@ -137,12 +137,12 @@ class _RagScreenState extends State<RagScreen> {
                                   height: 16,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: Colors.white,
+                                    color: AppColors.petalWhite,
                                   ),
                                 )
                               : const Icon(
                                   Icons.search_rounded,
-                                  color: Colors.white,
+                                  color: AppColors.petalWhite,
                                   size: 18,
                                 ),
                         ),
@@ -189,7 +189,7 @@ class _RagScreenState extends State<RagScreen> {
                                   height: 14,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: Colors.white,
+                                    color: AppColors.petalWhite,
                                   ),
                                 )
                               : const Icon(
@@ -200,7 +200,7 @@ class _RagScreenState extends State<RagScreen> {
                             'Ask Mochi',
                             style: AppTypography.outfitBold.copyWith(
                               fontSize: 12,
-                              color: Colors.white,
+                              color: AppColors.petalWhite,
                             ),
                           ),
                           style: ElevatedButton.styleFrom(
