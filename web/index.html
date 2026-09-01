@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <!--
@@ -39,11 +39,30 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
   <link rel="preconnect" href="https://ajax.googleapis.com">
   <link rel="manifest" href="manifest.json">
+  <!-- Scoped importmap: "three" is only visible to cat_3d_engine.js and
+       its transitive jsm imports. This avoids polluting the global module
+       namespace and prevents "Multiple instances of Three.js" warnings that
+       occurred when the map was global and collided with model-viewer's
+       bundled three or the Flutter canvaskit bundle. -->
   <script type="importmap">
     {
-      "imports": {
-        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      "imports": {},
+      "scopes": {
+        "cat_3d_engine.js": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        },
+        "/cat_3d_engine.js": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        },
+        "./cat_3d_engine.js": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        },
+        "https://unpkg.com/three@0.160.0/examples/jsm/": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+        }
       }
     }
   </script>
