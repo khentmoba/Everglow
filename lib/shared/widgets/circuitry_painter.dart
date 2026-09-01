@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../../../../core/theme/app_colors.dart';
 
 class PetalFieldPainter extends CustomPainter {
@@ -42,7 +43,7 @@ class PetalFieldPainter extends CustomPainter {
       if (random.nextDouble() > 0.6) {
         final glowPaint = Paint()
           ..color = AppColors.petalWhite.withValues(alpha: opacity * 1.5)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0);
+          ..maskFilter = kIsWeb ? null : const MaskFilter.blur(BlurStyle.normal, 2.0);
         canvas.drawCircle(const Offset(0, 0), scale * 0.25, glowPaint);
       }
 

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_radius.dart';
@@ -417,7 +418,7 @@ class _RingPainter extends CustomPainter {
       ..strokeWidth = 22
       ..color = AppColors.auroraRose.withValues(alpha: 0.10)
       ..strokeCap = StrokeCap.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+      ..maskFilter = kIsWeb ? null : const MaskFilter.blur(BlurStyle.normal, 8);
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
       -math.pi / 2,

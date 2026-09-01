@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../../../../core/theme/app_colors.dart';
 
 class TulipPainter extends CustomPainter {
@@ -159,7 +160,7 @@ class TulipPainter extends CustomPainter {
       if (stage == 5) {
         final glowPaint = Paint()
           ..color = AppColors.accentPink.withValues(alpha: 0.25)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+          ..maskFilter = kIsWeb ? null : const MaskFilter.blur(BlurStyle.normal, 12);
         canvas.drawCircle(top.translate(0, -cupHeight / 2), 18, glowPaint);
       }
     }

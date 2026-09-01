@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter/material.dart';
 /// Keeps a heavy dashboard section out of the tree until the scroll view
@@ -35,12 +36,17 @@ class _DeferredSectionState extends State<DeferredSection> {
   @override
   void initState() {
     super.initState();
+    if (kIsWeb) {
+      _visible = true;
+      return;
+    }
     _scheduleCheck();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (kIsWeb) return;
     final scrollable = Scrollable.maybeOf(context);
     if (scrollable != _scrollable) {
       _scrollable?.position.removeListener(_onScroll);
@@ -69,6 +75,10 @@ class _DeferredSectionState extends State<DeferredSection> {
   }
 
   void _check() {
+    if (kIsWeb) {
+      if (!_visible && mounted) setState(() => _visible = true);
+      return;
+    }
     final box = _key.currentContext?.findRenderObject() as RenderBox?;
     if (box == null || !box.attached || !mounted) return;
     final top = box.localToGlobal(Offset.zero).dy;

@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import 'dart:async';
@@ -807,7 +808,7 @@ class _JarStarFieldPainter extends CustomPainter {
 
       final paint = Paint()
         ..color = m.color.withValues(alpha: opacity)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+        ..maskFilter = kIsWeb ? null : const MaskFilter.blur(BlurStyle.normal, 4);
 
       canvas.save();
       canvas.translate(dx, dy);

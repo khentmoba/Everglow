@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
@@ -759,14 +760,14 @@ class _CursorGlowPainter extends CustomPainter {
         radius,
         Paint()
           ..color = AppColors.auroraRose.withValues(alpha: 0.10 * eased)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
+          ..maskFilter = kIsWeb ? null : const MaskFilter.blur(BlurStyle.normal, 12),
       );
       canvas.drawCircle(
         sample.position,
         radius * 0.45,
         Paint()
           ..color = AppColors.blushGold.withValues(alpha: 0.14 * eased)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+          ..maskFilter = kIsWeb ? null : const MaskFilter.blur(BlurStyle.normal, 6),
       );
     }
 
