@@ -37,11 +37,31 @@ class VideoSourceService extends ChangeNotifier {
   /// Returns the cached list immediately if already loaded; otherwise
   /// kicks off a Firestore fetch and falls back to the hardcoded list
   /// while waiting.
+  static const Set<String> _noAdsIds = {'videasy', 'movish', 'vidbolt'};
+
+  static bool _isNoAds(VideoSourceConfig p) =>
+      p.sandboxSafe || _noAdsIds.contains(p.id);
+
+  static List<VideoSourceConfig> _reorderNoAdsFirst(
+    List<VideoSourceConfig> list,
+  ) {
+    final noAds = <VideoSourceConfig>[];
+    final adHeavy = <VideoSourceConfig>[];
+    for (final p in list) {
+      if (_isNoAds(p)) {
+        noAds.add(p);
+      } else {
+        adHeavy.add(p);
+      }
+    }
+    return [...noAds, ...adHeavy];
+  }
+
   List<VideoSourceConfig> get providers {
-    if (_providers != null) return _providers!;
+    if (_providers != null) return _reorderNoAdsFirst(_providers!);
     // Start a background fetch; return fallback for now.
     _fetchFromFirestore();
-    return _hardcodedDefaults;
+    return _reorderNoAdsFirst(_hardcodedDefaults);
   }
 
   /// The first recommended source, or the first source overall.
@@ -100,15 +120,16 @@ class VideoSourceService extends ChangeNotifier {
         final data = doc.data()!;
         final sourcesRaw = data['sources'] as List<dynamic>?;
         if (sourcesRaw != null && sourcesRaw.isNotEmpty) {
-          _providers = sourcesRaw
+          final loaded = sourcesRaw
               .map(
                 (e) =>
                     VideoSourceConfig.fromFirestore(e as Map<String, dynamic>),
               )
               .toList();
+          _providers = _reorderNoAdsFirst(loaded);
           _loading = false;
           debugPrint(
-            '[VideoSourceService] Loaded ${_providers!.length} sources from Firestore',
+            '[VideoSourceService] Loaded ${_providers!.length} sources from Firestore (reordered no-ads first)',
           );
           notifyListeners();
           return;

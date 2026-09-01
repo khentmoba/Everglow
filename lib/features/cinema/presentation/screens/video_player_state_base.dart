@@ -134,6 +134,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
           if (!mounted) return;
           if (_isLoading) _onIframeLoadError();
         });
+        _applySandbox(_selectedProvider);
         _iframe.src = _buildPlayerUrl(_selectedProvider);
       }
     };
@@ -151,6 +152,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
       ..setAttribute('referrerpolicy', 'no-referrer')
       ..setAttribute('frameborder', '0')
       ..setAttribute('scrolling', 'no');
+    _applySandbox(_selectedProvider);
     _iframe.style
       ..border = '0'
       ..width = '100%'
@@ -281,6 +283,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
       if (!mounted) return;
       if (_isLoading) _onIframeLoadError();
     });
+    _applySandbox(_selectedProvider);
     _iframe.src = _buildPlayerUrl(_selectedProvider);
   }
 
@@ -303,6 +306,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
       if (!mounted) return;
       if (_isLoading) _onIframeLoadError();
     });
+    _applySandbox(_selectedProvider);
     _iframe.src = _buildPlayerUrl(_selectedProvider);
   }
 
@@ -496,7 +500,28 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
       final match = _providerById(savedId);
       if (match != null) {
         setState(() => _selectedProvider = match);
+        _applySandbox(match);
+        // If the iframe already has a src (non-anime path sets it
+        // synchronously in initState), reload it under the new sandbox.
+        // Otherwise initState will set src after this with correct sandbox.
+        if (_iframe.src.isNotEmpty && _iframe.src != 'about:blank') {
+          _iframe.src = _buildPlayerUrl(match);
+        }
       }
+    }
+  }
+
+  /// Applies the `sandbox` attribute when the provider is marked
+  /// `sandboxSafe`. Sandboxing kills popups/top-navigation without a
+  /// server round-trip — ideal for CineSrc/Movish/VidBolt.
+  void _applySandbox(VideoSourceConfig provider) {
+    if (provider.sandboxSafe) {
+      _iframe.setAttribute(
+        'sandbox',
+        'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock',
+      );
+    } else {
+      _iframe.removeAttribute('sandbox');
     }
   }
 
@@ -520,6 +545,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
         if (!mounted) return;
         if (_isLoading) _onIframeLoadError();
       });
+      _applySandbox(next);
       _iframe.src = _buildPlayerUrl(next);
     } else {
       debugPrint(
@@ -546,6 +572,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
       if (!mounted) return;
       if (_isLoading) _onIframeLoadError();
     });
+    _applySandbox(provider);
     _iframe.src = _buildPlayerUrl(provider);
   }
 

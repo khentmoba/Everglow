@@ -208,6 +208,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
           if (!mounted) return;
           if (_isLoading) _onIframeLoadError();
         });
+        _applySandbox(_selectedProvider);
         _iframe.src = _buildPlayerUrl(_selectedProvider, startSeconds: 0);
       }
     };
@@ -225,6 +226,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       ..setAttribute('referrerpolicy', 'no-referrer')
       ..setAttribute('frameborder', '0')
       ..setAttribute('scrolling', 'no');
+    _applySandbox(_selectedProvider);
     _iframe.style
       ..border = '0'
       ..width = '100%'
@@ -662,9 +664,21 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
         if (!mounted) return;
         if (_isLoading) _onIframeLoadError();
       });
+      _applySandbox(next);
       _iframe.src = _buildPlayerUrl(next, startSeconds: _localStartHint());
     } else {
       setState(() => _iframeFailed = true);
+    }
+  }
+
+  void _applySandbox(VideoSourceConfig provider) {
+    if (provider.sandboxSafe) {
+      _iframe.setAttribute(
+        'sandbox',
+        'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock',
+      );
+    } else {
+      _iframe.removeAttribute('sandbox');
     }
   }
 
