@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
 /// A single chat bubble for the Watch Together chat. Reuses the
@@ -61,7 +62,7 @@ class WatchPartyChatBubble extends StatelessWidget {
               decoration: BoxDecoration(
                 color: isMe
                     ? AppTheme.deepRose
-                    : Colors.white.withValues(alpha: 0.10),
+                    : AppColors.petalWhite.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(16),
                   topRight: const Radius.circular(16),
@@ -71,7 +72,7 @@ class WatchPartyChatBubble extends StatelessWidget {
                 border: isMe
                     ? null
                     : Border.all(
-                        color: Colors.white.withValues(alpha: 0.15),
+                        color: AppColors.petalWhite.withValues(alpha: 0.15),
                         width: 1.0,
                       ),
               ),

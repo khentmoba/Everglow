@@ -258,7 +258,7 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
                     : hasParty
                     ? Icons.movie_filter_rounded
                     : Icons.favorite_rounded,
-                color: Colors.white,
+                color: AppColors.petalWhite,
                 size: 28,
               ),
             ),
