@@ -199,3 +199,16 @@ const onNewMilestone = functions.firestore
       data: { type: 'milestone' },
     });
   });
+
+module.exports = {
+  sendFCMToUser,
+  sendFCMToBoth,
+  logToolCall,
+  onNewChatMessage,
+  onNewMood,
+  onNewStarDrop,
+  onNewWatchlistItem,
+  onNewGalleryPhoto,
+  onWatchPartyInvite,
+  onNewMilestone,
+};

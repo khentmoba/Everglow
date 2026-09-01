@@ -3777,7 +3777,12 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
           sendEvent({ tool_status: fnName });
           const toolStartedAt = Date.now();
           const result = await executeTool(fnName, fnArgs, caller);
-          logToolCall(fnName, caller, result, Date.now() - toolStartedAt);
+          try {
+            if (typeof logToolCall === 'function') {
+              // fire-and-forget: don't block tool loop on observability write
+              logToolCall(fnName, caller, result, Date.now() - toolStartedAt).catch(() => {});
+            }
+          } catch (_) {}
           // Send rich tool result to client for inline cards
           try {
             const parsed = JSON.parse(result);
