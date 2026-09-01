@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 class SunflowerPainter extends CustomPainter {
   final int stage;
@@ -161,7 +162,7 @@ class SunflowerPainter extends CustomPainter {
       if (stage == 5) {
         final glowPaint = Paint()
           ..color = const Color(0xFFFFD54F).withValues(alpha: 0.3)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 15);
+          ..maskFilter = kIsWeb ? null : const MaskFilter.blur(BlurStyle.normal, 15);
         canvas.drawCircle(top, 20, glowPaint);
       }
     }

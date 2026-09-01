@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../../../../core/theme/app_colors.dart';
 
 class RosePainter extends CustomPainter {
@@ -179,7 +180,7 @@ class RosePainter extends CustomPainter {
       if (stage == 5) {
         final glowPaint = Paint()
           ..color = AppColors.accentPink.withValues(alpha: 0.3)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
+          ..maskFilter = kIsWeb ? null : const MaskFilter.blur(BlurStyle.normal, 12);
         canvas.drawCircle(top, 15, glowPaint);
       }
     }

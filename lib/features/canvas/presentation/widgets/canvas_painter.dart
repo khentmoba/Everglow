@@ -1,5 +1,6 @@
 import 'dart:ui' show Picture, PictureRecorder, PointMode;
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/models/doodle_stroke.dart';
@@ -121,7 +122,7 @@ class CanvasPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..style = PaintingStyle.stroke
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0);
+      ..maskFilter = kIsWeb ? null : const MaskFilter.blur(BlurStyle.normal, 3.0);
     canvas.drawPoints(PointMode.polygon, offsets, shadowPaint);
 
     // 2. Draw sharp foreground stroke

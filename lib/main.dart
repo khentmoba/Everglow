@@ -28,6 +28,53 @@ void main() {
 Future<void> _startEverglow() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Web release: prevent opaque grey ErrorWidget from swallowing Together zone.
+  // Show transparent fallback with logged error instead of solid grey box.
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    Logger.e('[FlutterError]', error: details.exception, stackTrace: details.stack);
+  };
+  ErrorWidget.builder = (details) {
+    final msg = details.exceptionAsString();
+    final isReleaseGreyZone = msg.contains('Starlight') || msg.contains('Timeline') || msg.isNotEmpty;
+    if (kDebugMode) {
+      return ErrorWidget(details.exception);
+    }
+    // In release, keep background transparent so dashboard inkDeep shows through,
+    // and log the error to console instead of painting opaque lightGrey.
+    return Material(
+      type: MaterialType.transparency,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2D1B33).withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFF4C2C2).withValues(alpha: 0.15)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off_rounded, color: Color(0xFFF4C2C2), size: 28),
+            const SizedBox(height: 8),
+            Text(
+              'Something went dark — tap to retry',
+              style: TextStyle(color: const Color(0xFFFFF5F5).withValues(alpha: 0.8), fontSize: 12),
+            ),
+            if (!kReleaseMode || isReleaseGreyZone)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  msg.length > 180 ? msg.substring(0, 180) : msg,
+                  style: TextStyle(color: const Color(0xFFF4C2C2).withValues(alpha: 0.6), fontSize: 9),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  };
+
   // Initialize connectivity monitoring for offline-aware error handling.
   ConnectivityService.instance.init();
 

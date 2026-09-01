@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../../../../core/theme/app_colors.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -360,7 +361,7 @@ class _TimelinePainter extends CustomPainter {
     final todayX = 60.0 + (closestIdx * 120.0);
     final glowPaint = Paint()
       ..color = AppColors.blushGold.withValues(alpha: 0.2)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+      ..maskFilter = kIsWeb ? null : const MaskFilter.blur(BlurStyle.normal, 8);
     canvas.drawCircle(Offset(todayX, lineY), 12, glowPaint);
 
     paint
