@@ -233,55 +233,63 @@ class _TimelineViewState extends State<TimelineView> {
       return const SizedBox.shrink();
     }
 
-    return PageView.builder(
-      controller: _pageController,
-      // Do not keep huge offscreen cache on web — with viewportFraction 0.85
-      // the default cache would lay out neighboring pages + their image
-      // carousels, which blew the SkWasm stack when itemCount was 10000
-      // and still janks with smaller lists. Keep only the visible page.
-      padEnds: false,
-      itemCount: milestones.length,
-      itemBuilder: (context, index) {
-        final milestone = milestones[index];
-        return AnimatedBuilder(
-          animation: _pageController,
-          builder: (context, child) {
-            double value = 1.0;
-            // hasClients must be checked before touching `position` or `page`
-            // on the first frame the PageView is not yet attached and
-            // reading `position` throws — previously surfaced as the grey
-            // "Something went dark" overlay and as RangeError/Stack Overflow
-            // on CanvasKit/SkWasm.
-            if (_pageController.hasClients) {
-              try {
-                if (_pageController.position.hasContentDimensions) {
-                  final page = _pageController.page;
-                  if (page != null) {
-                    value = (page - index).abs();
-                    value = (1 - (value * 0.15)).clamp(0.0, 1.0);
+    return RepaintBoundary(
+      child: PageView.builder(
+        controller: _pageController,
+        // Do not keep huge offscreen cache on web — with viewportFraction 0.85
+        // the default cache would lay out neighboring pages + their image
+        // carousels, which blew the SkWasm stack when itemCount was 10000
+        // and still janks with smaller lists. Keep only the visible page.
+        // ClampingScrollPhysics prevents the PageView from fighting the
+        // outer CustomScrollView's vertical drag (gesture arena stack
+        // overflow seen as k1.IT/Ld at framework.dart:6944).
+        physics: const ClampingScrollPhysics(),
+        clipBehavior: Clip.hardEdge,
+        allowImplicitScrolling: false,
+        padEnds: false,
+        itemCount: milestones.length,
+        itemBuilder: (context, index) {
+          final milestone = milestones[index];
+          return AnimatedBuilder(
+            animation: _pageController,
+            builder: (context, child) {
+              double value = 1.0;
+              // hasClients must be checked before touching `position` or `page`
+              // on the first frame the PageView is not yet attached and
+              // reading `position` throws — previously surfaced as the grey
+              // "Something went dark" overlay and as RangeError/Stack Overflow
+              // on CanvasKit/SkWasm.
+              if (_pageController.hasClients) {
+                try {
+                  if (_pageController.position.hasContentDimensions) {
+                    final page = _pageController.page;
+                    if (page != null) {
+                      value = (page - index).abs();
+                      value = (1 - (value * 0.15)).clamp(0.0, 1.0);
+                    }
+                  } else {
+                    value = (index == 0) ? 1.0 : 0.85;
                   }
-                } else {
+                } catch (_) {
                   value = (index == 0) ? 1.0 : 0.85;
                 }
-              } catch (_) {
+              } else {
                 value = (index == 0) ? 1.0 : 0.85;
               }
-            } else {
-              value = (index == 0) ? 1.0 : 0.85;
-            }
 
-            return Center(
-              child: Transform.scale(
-                scale: value,
-                child: Opacity(
-                  opacity: value.clamp(0.5, 1.0),
-                  child: _MilestoneCarouselCard(milestone: milestone),
+              return Center(
+                child: Transform.scale(
+                  scale: value,
+                  child: Opacity(
+                    opacity: value.clamp(0.5, 1.0),
+                    child: _MilestoneCarouselCard(milestone: milestone),
+                  ),
                 ),
-              ),
-            );
-          },
-        );
-      },
+              );
+            },
+          );
+        },
+      ),
     );
   }
 
