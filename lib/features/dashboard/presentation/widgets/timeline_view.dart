@@ -21,13 +21,72 @@ class _TimelineViewState extends State<TimelineView> {
     initialPage: 0,
   );
   Timer? _autoScrollTimer;
+  Timer? _retryTimer;
+  StreamSubscription<List<Milestone>>? _sub;
   final MilestoneService _milestoneService = MilestoneService();
   int _milestonesCount = 0;
+  List<Milestone> _milestones = const [];
+  bool _hasError = false;
+  bool _isLoading = true;
+  int _retryCount = 0;
+  static const int _maxRetries = 3;
 
   @override
   void initState() {
     super.initState();
+    _subscribe();
     _startAutoScroll();
+  }
+
+  void _subscribe() {
+    _sub?.cancel();
+    _retryTimer?.cancel();
+    _sub = _milestoneService.milestones.listen(
+      (data) {
+        if (!mounted) return;
+        _retryCount = 0;
+        setState(() {
+          _milestones = data;
+          _milestonesCount = data.length;
+          _hasError = false;
+          _isLoading = false;
+        });
+      },
+      onError: (Object e) {
+        if (!mounted) return;
+        if (_retryCount < _maxRetries) {
+          _retryCount++;
+          _retryTimer = Timer(Duration(seconds: 1 + _retryCount), () {
+            if (mounted) _subscribe();
+          });
+        } else {
+          setState(() {
+            _hasError = true;
+            _isLoading = false;
+          });
+        }
+      },
+      onDone: () {
+        // withFirestoreTimeout can close without error after 5s if the
+        // first snapshot never arrived (offline/permission race). Treat a
+        // closed stream with no data as a retryable error so the skeleton
+        // doesn't stay forever.
+        if (!mounted) return;
+        if (_milestones.isEmpty && !_hasError) {
+          if (_retryCount < _maxRetries) {
+            _retryCount++;
+            _retryTimer = Timer(Duration(seconds: 1 + _retryCount), () {
+              if (mounted) _subscribe();
+            });
+          } else {
+            setState(() {
+              _hasError = true;
+              _isLoading = false;
+            });
+          }
+        }
+      },
+    );
   }
 
   void _startAutoScroll() {
@@ -36,8 +95,24 @@ class _TimelineViewState extends State<TimelineView> {
       if (!_pageController.hasClients) return;
       final count = _milestonesCount;
       if (count <= 1) return;
-      final current = _pageController.page?.round() ?? 0;
-      final next = (current + 1) % count;
+      // Guard hasContentDimensions before reading `page` — on first frame
+      // `position` is not yet attached and accessing `page` would throw
+      // "PageController not attached" which surfaces as the grey
+      // "Something went dark" overlay. On web this was previously surfaced
+      // as a RangeError / Stack Overflow in CanvasKit.
+      double currentPage = 0;
+      try {
+        if (_pageController.position.hasContentDimensions) {
+          currentPage = _pageController.page ?? 0;
+        }
+      } catch (_) {
+        return;
+      }
+      final current = currentPage.round();
+      // Clamp current to valid range — Firestore can shrink the list while
+      // the controller is mid-animation (e.g. admin deletes a milestone).
+      final clampedCurrent = current.clamp(0, count - 1);
+      final next = (clampedCurrent + 1) % count;
       if (next == 0) {
         _pageController.animateToPage(
           0,
@@ -56,8 +131,158 @@ class _TimelineViewState extends State<TimelineView> {
   @override
   void dispose() {
     _autoScrollTimer?.cancel();
+    _retryTimer?.cancel();
+    _sub?.cancel();
     _pageController.dispose();
     super.dispose();
+  }
+
+  Widget _buildCarousel() {
+    if (_hasError) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.cloud_off_rounded,
+              size: 32,
+              color: AppColors.roseQuartz.withValues(alpha: 0.4),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Could not load memories',
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppColors.roseQuartz.withValues(alpha: 0.6),
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _hasError = false;
+                  _isLoading = true;
+                });
+                _subscribe();
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.deepRose.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: AppColors.deepRose.withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.refresh_rounded,
+                      size: 14,
+                      color: AppColors.petalWhite,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Retry',
+                      style: AppTypography.outfitBold.copyWith(
+                        fontSize: 12,
+                        color: AppColors.petalWhite,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_isLoading) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.deepRose.withValues(alpha: 0.5),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Loading memories...',
+              style: AppTypography.outfitWhite.copyWith(
+                color: AppColors.roseQuartz.withValues(alpha: 0.5),
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final milestones = _milestones;
+    if (milestones.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return PageView.builder(
+      controller: _pageController,
+      // Do not keep huge offscreen cache on web — with viewportFraction 0.85
+      // the default cache would lay out neighboring pages + their image
+      // carousels, which blew the SkWasm stack when itemCount was 10000
+      // and still janks with smaller lists. Keep only the visible page.
+      padEnds: false,
+      itemCount: milestones.length,
+      itemBuilder: (context, index) {
+        final milestone = milestones[index];
+        return AnimatedBuilder(
+          animation: _pageController,
+          builder: (context, child) {
+            double value = 1.0;
+            // hasClients must be checked before touching `position` or `page`
+            // on the first frame the PageView is not yet attached and
+            // reading `position` throws — previously surfaced as the grey
+            // "Something went dark" overlay and as RangeError/Stack Overflow
+            // on CanvasKit/SkWasm.
+            if (_pageController.hasClients) {
+              try {
+                if (_pageController.position.hasContentDimensions) {
+                  final page = _pageController.page;
+                  if (page != null) {
+                    value = (page - index).abs();
+                    value = (1 - (value * 0.15)).clamp(0.0, 1.0);
+                  }
+                } else {
+                  value = (index == 0) ? 1.0 : 0.85;
+                }
+              } catch (_) {
+                value = (index == 0) ? 1.0 : 0.85;
+              }
+            } else {
+              value = (index == 0) ? 1.0 : 0.85;
+            }
+
+            return Center(
+              child: Transform.scale(
+                scale: value,
+                child: Opacity(
+                  opacity: value.clamp(0.5, 1.0),
+                  child: _MilestoneCarouselCard(milestone: milestone),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -102,101 +327,7 @@ class _TimelineViewState extends State<TimelineView> {
         ),
 
         // Carousel Container
-        SizedBox(
-          height: 520,
-          child: StreamBuilder<List<Milestone>>(
-            stream: _milestoneService.milestones,
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.cloud_off_rounded,
-                        size: 32,
-                        color: AppColors.roseQuartz.withValues(alpha: 0.4),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Could not load memories',
-                        style: AppTypography.outfitWhite.copyWith(
-                          color: AppColors.roseQuartz.withValues(alpha: 0.6),
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              if (!snapshot.hasData &&
-                  snapshot.connectionState == ConnectionState.waiting) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.deepRose.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Loading memories...',
-                        style: AppTypography.outfitWhite.copyWith(
-                          color: AppColors.roseQuartz.withValues(alpha: 0.5),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              final milestones = snapshot.data ?? [];
-              if (milestones.isEmpty) {
-                _milestonesCount = 0;
-                return const SizedBox.shrink();
-              }
-              _milestonesCount = milestones.length;
-
-              return PageView.builder(
-                controller: _pageController,
-                itemCount: milestones.length,
-                itemBuilder: (context, index) {
-                  final milestone = milestones[index];
-
-                  return AnimatedBuilder(
-                    animation: _pageController,
-                    builder: (context, child) {
-                      double value = 1.0;
-                      if (_pageController.position.hasContentDimensions) {
-                        value = (_pageController.page! - index).abs();
-                        value = (1 - (value * 0.15)).clamp(0.0, 1.0);
-                      } else {
-                        value = (index == 0) ? 1.0 : 0.85;
-                      }
-
-                      return Center(
-                        child: Transform.scale(
-                          scale: value,
-                          child: Opacity(
-                            opacity: value.clamp(0.5, 1.0),
-                            child: _MilestoneCarouselCard(milestone: milestone),
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                },
-              );
-            },
-          ),
-        ),
+        SizedBox(height: 520, child: _buildCarousel()),
         const SizedBox(height: 20),
       ],
     );
@@ -281,12 +412,26 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
                   children: [
                     Expanded(
                       flex: 3,
-                      child: PageView.builder(
-                        controller: _imgController,
-                        itemCount: widget.milestone.imageUrls.length,
-                        itemBuilder: (context, idx) =>
-                            _buildImage(widget.milestone.imageUrls[idx]),
-                      ),
+                      child: widget.milestone.imageUrls.isEmpty
+                          ? Container(
+                              color: AppColors.deepRose.withValues(alpha: 0.08),
+                              child: Center(
+                                child: Icon(
+                                  Icons.image_rounded,
+                                  color: AppColors.roseQuartz.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                  size: 32,
+                                ),
+                              ),
+                            )
+                          : PageView.builder(
+                              controller: _imgController,
+                              padEnds: false,
+                              itemCount: widget.milestone.imageUrls.length,
+                              itemBuilder: (context, idx) =>
+                                  _buildImage(widget.milestone.imageUrls[idx]),
+                            ),
                     ),
                     Expanded(
                       flex: 2,
