@@ -22,6 +22,7 @@ class _TimelineViewState extends State<TimelineView> {
   );
   Timer? _autoScrollTimer;
   final MilestoneService _milestoneService = MilestoneService();
+  int _milestonesCount = 0;
 
   @override
   void initState() {
@@ -32,7 +33,18 @@ class _TimelineViewState extends State<TimelineView> {
   void _startAutoScroll() {
     _autoScrollTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (!mounted) return;
-      if (_pageController.hasClients) {
+      if (!_pageController.hasClients) return;
+      final count = _milestonesCount;
+      if (count <= 1) return;
+      final current = _pageController.page?.round() ?? 0;
+      final next = (current + 1) % count;
+      if (next == 0) {
+        _pageController.animateToPage(
+          0,
+          duration: const Duration(milliseconds: 1000),
+          curve: Curves.easeInOut,
+        );
+      } else {
         _pageController.nextPage(
           duration: const Duration(milliseconds: 1500),
           curve: Curves.easeInOutCubic,
@@ -147,14 +159,16 @@ class _TimelineViewState extends State<TimelineView> {
 
               final milestones = snapshot.data ?? [];
               if (milestones.isEmpty) {
+                _milestonesCount = 0;
                 return const SizedBox.shrink();
               }
+              _milestonesCount = milestones.length;
 
               return PageView.builder(
                 controller: _pageController,
                 itemCount: milestones.length,
                 itemBuilder: (context, index) {
-                  final milestone = milestones[index % milestones.length];
+                  final milestone = milestones[index];
 
                   return AnimatedBuilder(
                     animation: _pageController,
