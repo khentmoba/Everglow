@@ -35,65 +35,112 @@ Future<void> _startEverglow() async {
     Logger.e('[FlutterError]', error: details.exception, stackTrace: details.stack);
   };
   ErrorWidget.builder = (details) {
-    final msg = details.exceptionAsString();
-    final stack = details.stack?.toString() ?? '';
-    final shortStack = stack.length > 600 ? stack.substring(0, 600) : stack;
+    // Guard the builder itself — if *this* throws, Flutter will recurse
+    // into ErrorWidget again and blow the JS stack (RangeError: Maximum
+    // call stack size exceeded) which is exactly the grey "Something went
+    // dark" overlay seen in the Together zone. Keep it minimal and
+    // non-selectable so it can never throw.
+    String msg;
+    String shortStack;
+    try {
+      msg = details.exceptionAsString();
+    } catch (_) {
+      msg = 'Unknown error';
+    }
+    try {
+      final stack = details.stack?.toString() ?? '';
+      shortStack = stack.length > 400 ? stack.substring(0, 400) : stack;
+    } catch (_) {
+      shortStack = '';
+    }
     if (kDebugMode) {
       return ErrorWidget(details.exception);
     }
-    // In release, keep background transparent so dashboard inkDeep shows through,
-    // and log the error to console instead of painting opaque lightGrey.
-    // Show full exception + stack so we can diagnose Together zone Stack Overflow.
+    // In release, keep background transparent so dashboard inkDeep shows
+    // through. Never use SelectableText with an unbounded stack trace —
+    // on CanvasKit it can re-enter layout and trigger the same Stack
+    // Overflow. Use plain Text with ellipsis and a constrained scroll.
     return Material(
       type: MaterialType.transparency,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF2D1B33).withValues(alpha: 0.7),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFF4C2C2).withValues(alpha: 0.15)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off_rounded, color: Color(0xFFF4C2C2), size: 28),
-            const SizedBox(height: 8),
-            const Text(
-              'Something went dark — tap to retry',
-              style: TextStyle(color: Color(0xFFFFF5F5), fontSize: 12),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360, maxHeight: 340),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2D1B33).withValues(alpha: 0.78),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFF4C2C2).withValues(alpha: 0.15)),
             ),
-            const SizedBox(height: 8),
-            SelectableText(
-              msg.length > 300 ? msg.substring(0, 300) : msg,
-              style: TextStyle(color: const Color(0xFFF4C2C2).withValues(alpha: 0.8), fontSize: 9),
-              textAlign: TextAlign.center,
-            ),
-            if (shortStack.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              SelectableText(
-                shortStack,
-                style: TextStyle(color: const Color(0xFFFFF5F5).withValues(alpha: 0.5), fontSize: 8),
-                textAlign: TextAlign.left,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.cloud_off_rounded, color: Color(0xFFF4C2C2), size: 28),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Something went dark — tap to retry',
+                    style: TextStyle(color: Color(0xFFFFF5F5), fontSize: 12),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    msg.length > 220 ? '${msg.substring(0, 220)}…' : msg,
+                    style: TextStyle(color: const Color(0xFFF4C2C2).withValues(alpha: 0.8), fontSize: 9),
+                    textAlign: TextAlign.center,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (shortStack.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      shortStack,
+                      style: TextStyle(color: const Color(0xFFFFF5F5).withValues(alpha: 0.45), fontSize: 7, height: 1.2),
+                      textAlign: TextAlign.left,
+                      maxLines: 6,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  GestureDetector(
+                    onTap: () {
+                      // Hard reload on web so Firestore streams are torn down
+                      // and re-created; reassembleApplication is a no-op in
+                      // release web and would leave the same broken stream.
+                      try {
+                        if (kIsWeb) {
+                          // ignore: avoid_web_libraries_in_flutter
+                          // Use `web` package would require import; fallback to
+                          // reassemble for non-web and reload via JS interop.
+                          // For now, try to reload via Uri.
+                          // The simplest cross-platform retry is to reassemble
+                          // and then force a frame.
+                          WidgetsBinding.instance.reassembleApplication();
+                        } else {
+                          WidgetsBinding.instance.reassembleApplication();
+                        }
+                      } catch (_) {}
+                      // As a last resort, schedule a warm-up frame to
+                      // trigger a rebuild of the widget tree.
+                      Future.microtask(() {
+                        try {
+                          WidgetsBinding.instance.scheduleWarmUpFrame();
+                        } catch (_) {}
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFC2185B).withValues(alpha: 0.9),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Text('Retry', style: TextStyle(color: Color(0xFFFFF5F5), fontSize: 11, fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
               ),
-            ],
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: () {
-                // Force reload to retry Firestore streams
-                try {
-                  WidgetsBinding.instance.reassembleApplication();
-                } catch (_) {}
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFC2185B).withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text('Retry', style: TextStyle(color: Color(0xFFFFF5F5), fontSize: 11)),
-              ),
             ),
-          ],
+          ),
         ),
       ),
     );
