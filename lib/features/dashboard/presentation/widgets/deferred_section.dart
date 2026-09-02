@@ -36,8 +36,24 @@ class _DeferredSectionState extends State<DeferredSection> {
   @override
   void initState() {
     super.initState();
+    // On web we still want to stagger heavy sections via deferMs so that
+    // 13+ Firestore `snapshots()` don't all hit the single WebChannel plus
+    // `get(/users/{uid})` rule check in the same microtask — that burst was
+    // the original "Together zone grey slab" and, on SkWasm, could blow the
+    // JS call stack (RangeError: Maximum call stack size exceeded) when all
+    // the CustomPaint tickers started at once.
     if (kIsWeb) {
-      _visible = true;
+      if (widget.deferMs > 0) {
+        _deferTimer = Timer(Duration(milliseconds: widget.deferMs), () {
+          if (mounted) setState(() => _visible = true);
+        });
+      } else {
+        // Defer to next frame so the first paint (XP, header) isn't janked
+        // by immediately building Starlight + Timeline together.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() => _visible = true);
+        });
+      }
       return;
     }
     _scheduleCheck();
