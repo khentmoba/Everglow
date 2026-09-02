@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:go_router/go_router.dart';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -87,16 +88,35 @@ class _CurrentlyWatchingHeaderState extends State<_CurrentlyWatchingHeader> {
     }
   }
 
+  int _retryCount = 0;
+
   void _subscribe() {
-    _streamSub = _service.getCurrentlyWatchingStream(widget.userName).listen((
-      items,
-    ) {
-      // Keep anime out of the generic shelf — the Anime rail owns its own
-      // watching row now so the two never duplicate the same title.
-      final filtered = items.where((i) => !i.isAnime).toList();
-      if (!mounted) return;
-      setState(() => _items = filtered);
-    });
+    if (widget.userName.isEmpty) {
+      if (mounted) setState(() => _items = []);
+      return;
+    }
+    _streamSub?.cancel();
+    _streamSub = _service.getCurrentlyWatchingStream(widget.userName).listen(
+      (items) {
+        _retryCount = 0;
+        // Keep anime out of the generic shelf — the Anime rail owns its own
+        // watching row now so the two never duplicate the same title.
+        final filtered = items.where((i) => !i.isAnime).toList();
+        if (!mounted) return;
+        setState(() => _items = filtered);
+      },
+      onError: (Object e) {
+        if (!mounted) return;
+        if (_retryCount < 3) {
+          _retryCount++;
+          Future.delayed(Duration(seconds: 1 + _retryCount), () {
+            if (mounted) _subscribe();
+          });
+        } else {
+          setState(() => _items = []);
+        }
+      },
+    );
   }
 
   @override
@@ -111,7 +131,7 @@ class _CurrentlyWatchingHeaderState extends State<_CurrentlyWatchingHeader> {
       accent: ShelfAccent.cinema,
       title: 'Currently Watching',
       itemCount: _items.length,
-      onViewAll: () {},
+      onViewAll: () => context.push('/cinema'),
     );
   }
 }
@@ -156,18 +176,39 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
     }
   }
 
+  int _retryCount = 0;
+
   void _subscribe() {
-    _streamSub = _service.getCurrentlyWatchingStream(widget.userName).listen((
-      items,
-    ) {
-      final filtered = items.where((i) => !i.isAnime).toList();
-      if (!mounted) return;
-      setState(() {
-        _items = filtered;
-        _hasLoaded = true;
-      });
-      _backfillPosters(filtered);
-    });
+    if (widget.userName.isEmpty) {
+      if (mounted) setState(() => _hasLoaded = true);
+      return;
+    }
+    _streamSub?.cancel();
+    _streamSub = _service.getCurrentlyWatchingStream(widget.userName).listen(
+      (items) {
+        _retryCount = 0;
+        final filtered = items.where((i) => !i.isAnime).toList();
+        if (!mounted) return;
+        setState(() {
+          _items = filtered;
+          _hasLoaded = true;
+        });
+        if (filtered.isNotEmpty) _backfillPosters(filtered);
+      },
+      onError: (Object e) {
+        if (!mounted) return;
+        // Firestore permission errors happen when the users/{uid} doc
+        // has not been created yet (isReady race). Retry quickly.
+        if (_retryCount < 3) {
+          _retryCount++;
+          Future.delayed(Duration(seconds: 1 + _retryCount), () {
+            if (mounted) _subscribe();
+          });
+        } else {
+          setState(() => _hasLoaded = true);
+        }
+      },
+    );
   }
 
   Future<void> _backfillPosters(List<MediaItem> items) async {
@@ -258,14 +299,97 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
       }
       return SizedBox(height: 194, child: ShelfMarquee(children: cards));
     }
-    // Couple path: partner sub-row beneath the existing single-row.
+    // Couple path: show shimmer while the Firestore stream is still
+    // loading, otherwise the emptyMessage flashes for 300ms and looks
+    // like a permanent empty state on slow networks.
+    if (!_hasLoaded) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _CoupleShimmerLabel(label: widget.label!, accent: ShelfAccent.cinema),
+            const SizedBox(height: 8),
+            const SizedBox(
+              height: 194,
+              child: ShelfMarquee(hasLoaded: false, children: []),
+            ),
+          ],
+        ),
+      );
+    }
     return PartnerSubrow(
       label: widget.label!,
       accent: ShelfAccent.cinema,
       emptyMessage: widget.isSelf
           ? 'You aren\'t watching anything right now.'
           : 'Nothing playing on their end.',
-      children: _hasLoaded ? cards : const [],
+      children: cards,
+    );
+  }
+}
+
+class _CoupleShimmerLabel extends StatelessWidget {
+  final String label;
+  final ShelfAccent accent;
+  const _CoupleShimmerLabel({required this.label, required this.accent});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 28,
+          height: 1.2,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                accent.color.withValues(alpha: 0.0),
+                accent.color.withValues(alpha: 0.55),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: accent.color.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: accent.color.withValues(alpha: 0.32)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(color: accent.color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label.toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.6,
+                ).copyWith(color: accent.color),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [accent.color.withValues(alpha: 0.22), const Color(0x00000000)],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
