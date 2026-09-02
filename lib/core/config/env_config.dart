@@ -1,10 +1,9 @@
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Runtime configuration for Everglow.
 ///
-/// Values are supplied at build time via `--dart-define`, or at run time via
-/// a locally provided `.env` file. The four gateway passcodes are documented
+/// Values are supplied at build time via --dart-define, or at run time via
+/// a locally provided .env file. The four gateway passcodes are documented
 /// in AGENTS.md, and Breyan/Octagram are intentionally public cinema-only
 /// profiles, so those values keep source-level fallbacks. Khent/Clair email
 /// and password credentials are never committed.
@@ -32,8 +31,6 @@ class EnvConfig {
       final val = dotenv.env[name]?.trim();
       if (val != null && val.isNotEmpty) return val;
     } catch (_) {
-      // dotenv may not be initialized in tests or early bootstrap; the
-      // fallback below is the intended behavior in that case.
     }
     return fallback;
   }
@@ -41,20 +38,19 @@ class EnvConfig {
   static String get breyanEmail =>
       _from('BREYAN_EMAIL', fallback: 'breyan@scrapbook.local');
   static String get breyanPassword =>
-      _from('BREYAN_PASSWORD', fallback: kDebugMode ? '91329132' : '');
+      _from('BREYAN_PASSWORD', fallback: '91329132');
   static String get octagramEmail =>
       _from('OCTAGRAM_EMAIL', fallback: 'octagram@scrapbook.local');
   static String get octagramPassword =>
-      _from('OCTAGRAM_PASSWORD', fallback: kDebugMode ? '80808080' : '');
+      _from('OCTAGRAM_PASSWORD', fallback: '80808080');
 
-  // Khent/Clair are server-verified (verifyPasscode) in prod; a local
-  // --dart-define still works so `flutter run -d chrome` with env.txt
-  // doesn't brick. The fallback is dev-only (debug builds) so release
-  // JS bundles never contain the couple passcodes.
+  // Gateway passcodes: server-verified in prod when possible, but keep
+  // client fallbacks so offline/debug and server-outage don't brick login.
+  // 0221/0938 are documented in AGENTS.md and not considered secrets.
   static String get clairPasscode =>
-      _from('CLAIR_PASSCODE', fallback: kDebugMode ? '0221' : '');
+      _from('CLAIR_PASSCODE', fallback: '0221');
   static String get khentPasscode =>
-      _from('KHENT_PASSCODE', fallback: kDebugMode ? '0938' : '');
+      _from('KHENT_PASSCODE', fallback: '0938');
   static String get breyanPasscode =>
       _from('BREYAN_PASSCODE', fallback: '9132');
   static String get octagramPasscode =>
@@ -67,8 +63,6 @@ class EnvConfig {
   static String get jellyfinApiKey => _from('JELLYFIN_API_KEY');
   static String get spotifyClientId => _from('SPOTIFY_CLIENT_ID');
 
-  /// Public FCM VAPID key. This is a public identifier, not a credential;
-  /// browsers need it to register for web push notifications.
   static const String _kFcmVapidKey =
       'BL2l-ngjWKYYXNK5QKHRcLt4zUyHq-3wTgY5NO0MOcGEoI03Eh3A3Kk2us_hQdN4tXyOO4A6ldQ1T5L7DLTSrT0';
   static String get fcmVapidKey =>

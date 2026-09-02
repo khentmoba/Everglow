@@ -20,9 +20,21 @@ const verifyPasscode = functions.https.onRequest(async(req,res)=>{
   let username=null;if(clair&&code===clair)username='clairjassen';else if(khent&&code===khent)username='khentsgdz';else{res.status(401).json({error:'Invalid passcode'});return;}
   const emails={clairjassen:process.env.CLAIR_EMAIL||'',khentsgdz:process.env.KHENT_EMAIL||''};
   const email=emails[username];if(!email){res.status(500).json({error:'Server not configured'});return;}
-  try{const u=await getAdmin().auth().getUserByEmail(email);const t=await getAdmin().auth().createCustomToken(u.uid,{username});res.json({token:t,username});}catch(e){console.error('verifyPasscode',e.message);res.status(500).json({error:'Auth failed'});}
+  try{
+    let user;
+    try{
+      user=await getAdmin().auth().getUserByEmail(email);
+    }catch(e){
+      if(e.code==='auth/user-not-found'){
+        console.log('verifyPasscode: user not found for '+email+', creating...');
+        user=await getAdmin().auth().createUser({email, emailVerified:true, displayName: username});
+        console.log('verifyPasscode: created user '+user.uid+' for '+email);
+      } else { throw e; }
+    }
+    const t=await getAdmin().auth().createCustomToken(user.uid,{username});
+    res.json({token:t,username});
+  }catch(e){console.error('verifyPasscode',e.code||e.message, e.stack||'');res.status(500).json({error:'Auth failed'});}
 });
 
 
 module.exports = { verifyPasscode };
-
