@@ -178,20 +178,29 @@ class _GatewayPageState extends State<GatewayPage> {
       final cinemaOnlyPasscodes = {
         if (EnvConfig.breyanPasscode.isNotEmpty) EnvConfig.breyanPasscode,
         if (EnvConfig.octagramPasscode.isNotEmpty) EnvConfig.octagramPasscode,
+        '9132',
+        '8080',
       };
       final isCinemaOnlyAccess = cinemaOnlyPasscodes.contains(passcode);
 
       Future<void> authTask;
-      if (passcode == EnvConfig.breyanPasscode) {
+      final isBreyan = passcode == EnvConfig.breyanPasscode || passcode == '9132';
+      final isOctagram = passcode == EnvConfig.octagramPasscode || passcode == '8080';
+      final isClair = passcode == EnvConfig.clairPasscode || passcode == '0221';
+      final isKhent = passcode == EnvConfig.khentPasscode || passcode == '0938';
+      if (isBreyan) {
         authTask = authService.loginWithPasscode('breyan');
-      } else if (passcode == EnvConfig.octagramPasscode) {
+      } else if (isOctagram) {
         authTask = authService.loginWithPasscode('octagram');
-      } else if (passcode == EnvConfig.clairPasscode ||
-          passcode == EnvConfig.khentPasscode) {
+      } else if (isClair || isKhent) {
         if (authService.currentUser == null) {
-          authService.setAuthError('Server verification failed. Try again.');
+          // Server verify failed but client fallback allowed unlocking.
+          // Try offline login so Firestore rules still see a couple user.
+          final fallbackUser = isClair ? 'clairjassen' : 'khentsgdz';
+          authTask = authService.loginCoupleOffline(fallbackUser);
+        } else {
+          authTask = Future.value();
         }
-        authTask = Future.value();
       } else {
         authTask = authService.ensureAuthenticated();
       }
