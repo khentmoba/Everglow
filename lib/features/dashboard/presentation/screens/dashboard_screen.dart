@@ -384,9 +384,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                         // Anniversary Metrics Grid
                         AnniversaryMetrics(animate: widget.animate),
 
-                        SliverPersistentHeader(
-                          pinned: true,
-                          delegate: _JumpBarDelegate(child: DashboardJumpBar(onJump: _jumpTo)),
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 10, 24, 8),
+                            child: DashboardJumpBar(onJump: _jumpTo),
+                          ),
                         ),
 
                         const SliverToBoxAdapter(child: SizedBox(height: 12)),
@@ -968,23 +970,5 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 }
 
-class _JumpBarDelegate extends SliverPersistentHeaderDelegate {
-  final Widget child;
-  const _JumpBarDelegate({required this.child});
-  @override
-  double get minExtent => 68;
-  @override
-  double get maxExtent => 68;
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(
-      color: AppColors.inkDeep.withValues(alpha: 0.92),
-      padding: const EdgeInsets.fromLTRB(24, 10, 24, 8),
-      alignment: Alignment.center,
-      child: child,
-    );
-  }
-  @override
-  bool shouldRebuild(covariant _JumpBarDelegate oldDelegate) => false;
-}
+
 
