@@ -376,34 +376,14 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     }
   }
 
-  // ─── Shared raw watch_list stream per user (deduplicates Firestore listeners) ──
-  // Header + shelf previously each called `where(userName==X).snapshots()` creating
-  // 2-3 identical Watch listeners per user (6 for a couple). The Web SDK shares
-  // the underlying Watch target but each `snapshots()` still allocates a listener
-  // object and pays the rule `get(/users/{uid})` check. By sharing a single
-  // broadcast source per userName, 3 streams collapse to 1 Firestore listener.
-  final Map<String, Stream<List<MediaItem>>> _rawCache = {};
-
-  Stream<List<MediaItem>> _rawWatchList(String userName) {
-    return _rawCache.putIfAbsent(userName, () {
-      final src = firestore
-          .collection('watch_list')
-          .where('userName', isEqualTo: userName)
-          .snapshots()
-          .map((snap) => snap.docs
-              .map((d) => MediaItem.fromFirestore(d.data(), d.id))
-              .toList());
-      // asBroadcastStream shares the single Firestore listener among all derived
-      // streams (watched, watching, anime). When the last derived listener
-      // detaches (dashboard disposed), evict the entry so the next mount gets
-      // a fresh Watch.
-      return src.asBroadcastStream(onCancel: (_) {
-        // When the last listener detaches (dashboard disposed), evict so
-        // the next mount gets a fresh Watch.
-        Future.microtask(() => _rawCache.remove(userName));
-      });
-    });
-  }
+    // ─── Direct Firestore streams (reverted from shared broadcast) ──
+  // The previous shared _rawCache used asBroadcastStream without replay,
+  // which caused late subscribers (e.g. Currently Watching shelf mounting
+  // after the header) to miss the initial snapshot and stay empty until
+  // the next Firestore change. It also held onto a single Firestore Watch
+  // that could enter a permission-denied error state before the users/{uid}
+  // doc was created. Direct streams are simpler and correct — the Web
+  // SDK already shares the underlying Watch target.
 
 
   // ─── Streams ───────────────────────────────────────────────────────────
@@ -412,17 +392,20 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
   /// We filter+sort in Dart to avoid needing a composite index in Firestore.
   Stream<List<MediaItem>> getWatchListStream(String userName) {
     if (userName.isEmpty) return Stream.value(const []);
-    final raw = _rawWatchList(userName);
-    return raw.map((items) {
-      // Work on a copy so derived streams don't share mutable state.
-      final sorted = List<MediaItem>.from(items)
-        ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
-      // Side effect: Cache the list locally per user (fire-and-forget).
-      // Don't await — caching is I/O and shouldn't gate the stream.
-      // ignore: discarded_futures
-      _cacheService.cacheWatchList(sorted, userName);
-      return sorted;
-    });
+    return firestore
+        .collection('"'"'watch_list'"'"')
+        .where('"'"'userName'"'"', isEqualTo: userName)
+        .snapshots()
+        .map((snapshot) {
+          final items = snapshot.docs
+              .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+              .toList()
+            ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
+          // Side effect: Cache the list locally per user (fire-and-forget).
+          // ignore: discarded_futures
+          _cacheService.cacheWatchList(items, userName);
+          return items;
+        });
   }
 
   /// Stream of the combined watch list for the couple
@@ -485,16 +468,22 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
 
   /// Stream of anime-only items for a single user. Same source collection
   /// (`watch_list`) as the regular stream — we filter by `isAnime == true`
-  /// in Dart so the dashboard's Anime rail and the AnimeScreen only show
+  /// in Dart so the dashboard'"'"'s Anime rail and the AnimeScreen only show
   /// Japanese animation, no matter where the title was added.
-  /// Derived from the shared [_rawWatchList] so it shares the Firestore listener.
   Stream<List<MediaItem>> getAnimeWatchListStream(String userName) {
     if (userName.isEmpty) return Stream.value(const []);
-    return _rawWatchList(userName).map((items) {
-      final filtered = items.where((i) => i.isAnime).toList()
-        ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
-      return filtered;
-    });
+    return firestore
+        .collection('"'"'watch_list'"'"')
+        .where('"'"'userName'"'"', isEqualTo: userName)
+        .snapshots()
+        .map((snapshot) {
+          final items = snapshot.docs
+              .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+              .where((i) => i.isAnime)
+              .toList()
+            ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
+          return items;
+        });
   }
 
   /// Couple-scoped stream of the anime rail. Identical shape to
@@ -550,18 +539,24 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
   }
 
   /// Stream of currently watching items for a single user.
-  /// Derived from the shared [_rawWatchList] so it shares the Firestore listener.
   Stream<List<MediaItem>> getCurrentlyWatchingStream(String userName) {
     if (userName.isEmpty) return Stream.value(const []);
-    return _rawWatchList(userName).map((items) {
-      final filtered = items.where((i) => i.isCurrentlyWatching).toList()
-        ..sort((a, b) {
-          final aTime = a.progressUpdatedAt ?? a.addedAt;
-          final bTime = b.progressUpdatedAt ?? b.addedAt;
-          return bTime.compareTo(aTime);
+    return firestore
+        .collection('"'"'watch_list'"'"')
+        .where('"'"'userName'"'"', isEqualTo: userName)
+        .snapshots()
+        .map((snapshot) {
+          final items = snapshot.docs
+              .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+              .where((i) => i.isCurrentlyWatching)
+              .toList()
+            ..sort((a, b) {
+              final aTime = a.progressUpdatedAt ?? a.addedAt;
+              final bTime = b.progressUpdatedAt ?? b.addedAt;
+              return bTime.compareTo(aTime);
+            });
+          return items;
         });
-      return filtered;
-    });
   }
 
   /// Couple-scoped currently watching stream.
@@ -613,19 +608,24 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
   }
 
   /// Anime-only currently watching for a single user.
-  /// Derived from the shared [_rawWatchList] so it shares the Firestore listener.
   Stream<List<MediaItem>> getCurrentlyWatchingAnimeStream(String userName) {
     if (userName.isEmpty) return Stream.value(const []);
-    return _rawWatchList(userName).map((items) {
-      final filtered =
-          items.where((i) => i.isAnime && i.isCurrentlyWatching).toList()
+    return firestore
+        .collection('"'"'watch_list'"'"')
+        .where('"'"'userName'"'"', isEqualTo: userName)
+        .snapshots()
+        .map((snapshot) {
+          final items = snapshot.docs
+              .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+              .where((i) => i.isAnime && i.isCurrentlyWatching)
+              .toList()
             ..sort((a, b) {
               final aTime = a.progressUpdatedAt ?? a.addedAt;
               final bTime = b.progressUpdatedAt ?? b.addedAt;
               return bTime.compareTo(aTime);
             });
-      return filtered;
-    });
+          return items;
+        });
   }
 
   /// Couple-scoped anime currently watching stream.

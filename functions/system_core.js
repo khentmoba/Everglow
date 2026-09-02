@@ -5,7 +5,7 @@
  * Kept dependency-free so tests can verify TTL logic without Firestore.
  */
 
-const STALE_PRESENCE_MS = 3 * 60 * 1000; // heartbeat is 60s; 3 min grace
+const STALE_PRESENCE_MS = 90 * 1000; // heartbeat is 60s; 3 min grace
 
 function timestampToMillis(value) {
   if (value == null) return null;

@@ -407,7 +407,7 @@ exports.proxyLastfm = functions.runWith({ minInstances: 1 }).https.onRequest(asy
  * presence documents offline so the partner UI never shows a ghost.
  */
 exports.sweepStalePresence = onSchedule({
-  schedule: 'every 2 minutes',
+  schedule: 'every 1 minutes',
   timeZone: 'UTC',
   region: 'us-central1',
 }, async () => {
