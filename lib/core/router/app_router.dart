@@ -45,7 +45,11 @@ GoRouter createAppRouter() => GoRouter(
     final loc = state.matchedLocation;
     const publicPaths = {'/'};
     final isPublic = publicPaths.contains(loc);
-    final authed = di.authService.isAuthenticated;
+    // Allow offline fallback (SharedPreferences currentUser) to reach dashboard
+    // even when Firebase Auth is still pending; Firestore rules still enforce
+    // server-side access, but the UI should not bounce.
+    final authed = di.authService.isAuthenticated ||
+        di.authService.currentUser != null;
     // Not authed -> bounce to gate
     if (!authed && !isPublic) return '/';
     // Cinema-only users should not land on couple dashboard
