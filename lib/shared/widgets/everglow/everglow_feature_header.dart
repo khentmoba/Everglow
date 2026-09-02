@@ -68,7 +68,17 @@ class EverglowFeatureHeader extends StatelessWidget {
               ),
               const SizedBox(width: 10),
             ],
-            Semantics(header: true, child: Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+            // Expanded must be the direct child of the Row (Flex). Nesting it
+            // inside Semantics placed a RenderSemanticsAnnotation between the
+            // Row and the title Column, so Expanded applied FlexParentData to
+            // a render object with plain ParentData — in release builds the
+            // `as FlexParentData` cast in Flexible.applyParentData threw a
+            // TypeError on every rebuild, flooding the console and eventually
+            // exhausting the JS call stack (RangeError: Maximum call stack
+            // size exceeded — the "Something went dark" overlay in the
+            // Together zone). Keep Semantics INSIDE Expanded.
+            Expanded(
+              child: Semantics(header: true, child: Column(crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
