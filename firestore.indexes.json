@@ -181,6 +181,34 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "watch_list",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "tmdbId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "userName",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "watch_list",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userName",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []
