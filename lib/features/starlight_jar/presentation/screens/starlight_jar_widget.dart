@@ -541,83 +541,90 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                           ),
                         ),
 
-                        // Stars clipped to jar body
-                        ClipPath(
-                          clipper: const JarClipperAtOffset(
-                            offset: Offset(60, 56),
-                            size: Size(280, 350),
-                          ),
-                          child: Stack(
-                            children: [
-                              // Idle floating stars
-                              Positioned.fill(
-                                child: IgnorePointer(
-                                  child: AnimatedBuilder(
-                                    animation: _idleController,
-                                    builder: (context, _) => CustomPaint(
-                                      painter: _JarStarFieldPainter(
-                                        notes: _filterNotes(_notes),
-                                        t: _idleController.value,
-                                        motionCache: _motionCache,
+                        // Stars clipped to jar body — ClipRRect+RepaintBoundary
+                        // is cheaper than ClipPath+Path on SkWasm and isolates
+                        // the per-frame star tick (see DeferredSection fix).
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(28),
+                          child: RepaintBoundary(
+                            child: SizedBox(
+                              width: 280,
+                              height: 350,
+                              child: Stack(
+                                children: [
+                                  // Idle floating stars
+                                  Positioned.fill(
+                                    child: IgnorePointer(
+                                      child: AnimatedBuilder(
+                                        animation: _idleController,
+                                        builder: (context, _) => CustomPaint(
+                                          painter: _JarStarFieldPainter(
+                                            notes: _filterNotes(_notes),
+                                            t: _idleController.value,
+                                            motionCache: _motionCache,
+                                          ),
+                                          isComplex: true,
+                                          willChange: true,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
+
+                                  // The Animating "Drop" Star
+                                  if (_droppingStar != null &&
+                                      _dropAnimation != null)
+                                    IgnorePointer(
+                                      child: AnimatedBuilder(
+                                        animation: _dropAnimation!,
+                                        builder: (context, child) {
+                                          return Stack(
+                                            children: [
+                                              StarWidget(
+                                                color: AppColors.blushGold,
+                                                position: _dropAnimation!.value,
+                                                rotation:
+                                                    _dropController!.value * pi * 2,
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      ),
+                                    ),
+
+                                  // The Animating "Float Out" Star
+                                  if (_floatingStar != null &&
+                                      _floatAnimation != null)
+                                    IgnorePointer(
+                                      child: AnimatedBuilder(
+                                        animation: _floatAnimation!,
+                                        builder: (context, child) {
+                                          const end = Offset(200, 100);
+                                          const start = Offset(200, 370);
+                                          final currentPos = Offset.lerp(
+                                            start,
+                                            end,
+                                            _floatAnimation!.value,
+                                          )!;
+
+                                          return Stack(
+                                            children: [
+                                              StarWidget(
+                                                color: AppColors.deepRose,
+                                                position: currentPos,
+                                                size:
+                                                    24 +
+                                                    (16 * _floatAnimation!.value),
+                                                rotation:
+                                                    _floatController!.value * pi,
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                ],
                               ),
-
-                              // The Animating "Drop" Star
-                              if (_droppingStar != null &&
-                                  _dropAnimation != null)
-                                IgnorePointer(
-                                  child: AnimatedBuilder(
-                                    animation: _dropAnimation!,
-                                    builder: (context, child) {
-                                      return Stack(
-                                        children: [
-                                          StarWidget(
-                                            color: AppColors.blushGold,
-                                            position: _dropAnimation!.value,
-                                            rotation:
-                                                _dropController!.value * pi * 2,
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  ),
-                                ),
-
-                              // The Animating "Float Out" Star
-                              if (_floatingStar != null &&
-                                  _floatAnimation != null)
-                                IgnorePointer(
-                                  child: AnimatedBuilder(
-                                    animation: _floatAnimation!,
-                                    builder: (context, child) {
-                                      const end = Offset(200, 100);
-                                      const start = Offset(200, 370);
-                                      final currentPos = Offset.lerp(
-                                        start,
-                                        end,
-                                        _floatAnimation!.value,
-                                      )!;
-
-                                      return Stack(
-                                        children: [
-                                          StarWidget(
-                                            color: AppColors.deepRose,
-                                            position: currentPos,
-                                            size:
-                                                24 +
-                                                (16 * _floatAnimation!.value),
-                                            rotation:
-                                                _floatController!.value * pi,
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  ),
-                                ),
-                            ],
+                            ),
                           ),
                         ),
                       ],

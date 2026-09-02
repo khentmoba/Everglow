@@ -32,7 +32,13 @@ Future<void> _startEverglow() async {
   // Show transparent fallback with logged error instead of solid grey box.
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
-    Logger.e('[FlutterError]', error: details.exception, stackTrace: details.stack);
+    String widgetName = 'no-context';
+    try {
+      widgetName = details.context?.toString() ?? 'no-widget';
+    } catch (_) {}
+    // ignore: avoid_print
+    print('[FlutterError at $widgetName] ${details.exception}');
+    Logger.e('[FlutterError at $widgetName]', error: details.exception, stackTrace: details.stack);
   };
   ErrorWidget.builder = (details) {
     // Guard the builder itself — if *this* throws, Flutter will recurse
@@ -42,6 +48,7 @@ Future<void> _startEverglow() async {
     // non-selectable so it can never throw.
     String msg;
     String shortStack;
+    String widgetName = 'widget';
     try {
       msg = details.exceptionAsString();
     } catch (_) {
@@ -53,6 +60,10 @@ Future<void> _startEverglow() async {
     } catch (_) {
       shortStack = '';
     }
+    try {
+      widgetName = details.context?.toString() ?? 'widget';
+      if (widgetName.length > 50) widgetName = '${widgetName.substring(0, 50)}…';
+    } catch (_) {}
     if (kDebugMode) {
       return ErrorWidget(details.exception);
     }
@@ -78,17 +89,17 @@ Future<void> _startEverglow() async {
                 children: [
                   const Icon(Icons.cloud_off_rounded, color: Color(0xFFF4C2C2), size: 28),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Something went dark — tap to retry',
-                    style: TextStyle(color: Color(0xFFFFF5F5), fontSize: 12),
+                  Text(
+                    'Something went dark — $widgetName — tap to retry',
+                    style: const TextStyle(color: Color(0xFFFFF5F5), fontSize: 11, fontWeight: FontWeight.w600),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    msg.length > 220 ? '${msg.substring(0, 220)}…' : msg,
-                    style: TextStyle(color: const Color(0xFFF4C2C2).withValues(alpha: 0.8), fontSize: 9),
+                    msg.length > 180 ? '${msg.substring(0, 180)}…' : msg,
+                    style: TextStyle(color: const Color(0xFFF4C2C2).withValues(alpha: 0.8), fontSize: 8),
                     textAlign: TextAlign.center,
-                    maxLines: 4,
+                    maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (shortStack.isNotEmpty) ...[
