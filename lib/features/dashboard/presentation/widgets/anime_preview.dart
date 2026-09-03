@@ -226,24 +226,47 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
     }
   }
 
+  int _retryCount = 0;
+
   void _subscribe() {
-    _streamSub = _service.getCurrentlyWatchingAnimeStream(widget.userName).listen((
-      items,
-    ) {
-      // Already anime+watching filtered by the service; sort by most recent progress.
-      final sorted = List<MediaItem>.from(items)
-        ..sort((a, b) {
-          final aTime = a.progressUpdatedAt ?? a.addedAt;
-          final bTime = b.progressUpdatedAt ?? b.addedAt;
-          return bTime.compareTo(aTime);
+    if (widget.userName.isEmpty) {
+      if (mounted) {
+        setState(() => _hasLoaded = true);
+      }
+      return;
+    }
+    _streamSub?.cancel();
+    _streamSub = _service.getCurrentlyWatchingAnimeStream(widget.userName).listen(
+      (items) {
+        _retryCount = 0;
+        // Already anime+watching filtered by the service; sort by most recent progress.
+        final sorted = List<MediaItem>.from(items)
+          ..sort((a, b) {
+            final aTime = a.progressUpdatedAt ?? a.addedAt;
+            final bTime = b.progressUpdatedAt ?? b.addedAt;
+            return bTime.compareTo(aTime);
+          });
+        if (!mounted) return;
+        setState(() {
+          _items = sorted;
+          _hasLoaded = true;
         });
-      if (!mounted) return;
-      setState(() {
-        _items = sorted;
-        _hasLoaded = true;
-      });
-      _backfillPosters(sorted);
-    });
+        _backfillPosters(sorted);
+      },
+      onError: (Object e) {
+        // ignore: avoid_print
+        print('[AnimePreview/watching] anime stream error: $e');
+        if (!mounted) return;
+        if (_retryCount < 3) {
+          _retryCount++;
+          Future.delayed(Duration(seconds: 1 + _retryCount), () {
+            if (mounted) _subscribe();
+          });
+        } else {
+          setState(() => _hasLoaded = true);
+        }
+      },
+    );
   }
 
   Future<void> _backfillPosters(List<MediaItem> items) async {
@@ -381,18 +404,41 @@ class _AnimeShelfState extends State<_AnimeShelf> {
     }
   }
 
+  int _retryCount = 0;
+
   void _subscribe() {
-    _streamSub = _service.getAnimeWatchListStream(widget.userName).listen((
-      items,
-    ) {
-      final watched = items.where((i) => i.isWatched).toList();
-      watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
-      if (!mounted) return;
-      setState(() {
-        _items = watched;
-        _hasLoaded = true;
-      });
-    });
+    if (widget.userName.isEmpty) {
+      if (mounted) {
+        setState(() => _hasLoaded = true);
+      }
+      return;
+    }
+    _streamSub?.cancel();
+    _streamSub = _service.getAnimeWatchListStream(widget.userName).listen(
+      (items) {
+        _retryCount = 0;
+        final watched = items.where((i) => i.isWatched).toList();
+        watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
+        if (!mounted) return;
+        setState(() {
+          _items = watched;
+          _hasLoaded = true;
+        });
+      },
+      onError: (Object e) {
+        // ignore: avoid_print
+        print('[AnimePreview/finished] anime stream error: $e');
+        if (!mounted) return;
+        if (_retryCount < 3) {
+          _retryCount++;
+          Future.delayed(Duration(seconds: 1 + _retryCount), () {
+            if (mounted) _subscribe();
+          });
+        } else {
+          setState(() => _hasLoaded = true);
+        }
+      },
+    );
   }
 
   @override
