@@ -264,17 +264,8 @@ async function getEmbedding(text) {
   try { return simpleEmbedding(normalized, 64); } catch (_) { return null; }
 }
 
-// ─── Keep-warm: pings proxyAIv2 every 10 min to reduce cold starts ────
-exports.keepWarm = functions.pubsub.schedule('every 10 minutes').onRun(async (context) => {
-  const v2Url = 'https://proxyaiv2-6pr4gqobxa-uc.a.run.app';
-
-  try {
-    await fetch(v2Url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ warmup: true }) });
-    console.log('Keep-warm ping sent to proxyAIv2 (Cloud Run)');
-  } catch (e) {
-    console.warn('Keep-warm ping failed:', e.message);
-  }
-});
+// NOTE (cost): no keep-warm pinger — proxyAIv2 scales to zero on Cloud Run.
+// First AI message per session may take a few seconds (cold start).
 
 /**
  * Liveness + dependency check for uptime monitoring.
@@ -326,7 +317,8 @@ exports.health = functions.https.onRequest(async (req, res) => {
  * after /proxyTmdb (for example: /trending/all/week); any client api_key is
  * ignored and replaced server-side so the browser bundle never contains it.
  */
-exports.proxyTmdb = functions.runWith({ minInstances: 1 }).https.onRequest(async (req, res) => {
+// No minInstances (cost): cold start ~1-2s is fine for metadata lookups.
+exports.proxyTmdb = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -361,11 +353,93 @@ exports.proxyTmdb = functions.runWith({ minInstances: 1 }).https.onRequest(async
   }
 });
 
+exports.notifyDiscordWatch = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.set('Cache-Control', 'private, no-store');
+  if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+  if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
+  let username = '';
+  try { username = await getVerifiedUsername(decoded); } catch (e) { console.warn('[notifyDiscordWatch] user lookup failed:', e.message); }
+  if (username !== 'khentsgdz' && username !== 'clairjassen') { res.status(403).json({ error: 'Couple only' }); return; }
+  const { title, posterPath, mediaType, season, episode } = req.body || {};
+  if (!title || (mediaType !== 'movie' && mediaType !== 'tv')) { res.status(400).json({ error: 'title + mediaType required' }); return; }
+  const { buildWatchPost, postToWebhook, patchWebhookMessage } = require('./discord.js');
+  const hostDisplay = username === 'khentsgdz' ? 'Khent' : 'Clair';
+  const partnerMention = username === 'khentsgdz'
+    ? `<@${(process.env.DISCORD_CLAIR_ID || '').trim()}>`
+    : `<@${(process.env.DISCORD_KHENT_ID || '').trim()}>`;
+  const voiceUrl = (process.env.DISCORD_VOICE_URL || '').trim();
+  const webhookUrl = (process.env.DISCORD_WEBHOOK_URL || '').trim();
+  if (!webhookUrl || !voiceUrl) { res.status(503).json({ error: 'Discord is not configured' }); return; }
+  const db = getDb();
+  const ref = db.collection('discord_watch_sessions').doc('active');
+  try {
+    const prev = await ref.get();
+    if (prev.exists && prev.data().active && prev.data().messageId) {
+      try {
+        await patchWebhookMessage({ webhookUrl, messageId: prev.data().messageId, payload: { content: `Replaced by new pick: ${title}`, components: [] } });
+      } catch (e) { console.warn('[notifyDiscordWatch] supersede edit failed:', e.message); }
+    }
+    const payload = buildWatchPost({ title, posterPath: posterPath || '', mediaType, season: season ?? null, episode: episode ?? null, voiceUrl, hostDisplay, partnerMention });
+    let messageId;
+    try {
+      messageId = await postToWebhook({ webhookUrl, payload });
+    } catch (e) {
+      console.warn('[notifyDiscordWatch] post failed:', e.message);
+      await ref.set({ title, posterPath: posterPath || '', mediaType, season: season ?? null, episode: episode ?? null, startedBy: username, startedAtMs: Date.now(), active: false, status: 'pending', messageId: '' }, { merge: true });
+      res.status(502).json({ error: 'Discord post failed, saved as pending' });
+      return;
+    }
+    await ref.set({ messageId, title, posterPath: posterPath || '', mediaType, season: season ?? null, episode: episode ?? null, startedBy: username, startedAtMs: Date.now(), active: true, status: 'live' });
+    res.status(200).json({ messageId });
+  } catch (e) { console.warn('[notifyDiscordWatch] failed:', e.message); res.status(500).json({ error: 'Share failed' }); }
+});
+
+exports.discordInteractions = onRequest({ invoker: 'public' }, async (req, res) => {
+  if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
+  const sig = req.get('X-Signature-Ed25519') || '';
+  const ts = req.get('X-Signature-Timestamp') || '';
+  const raw = req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(req.body);
+  const { verifyDiscordSignature, buildEndedPost, patchWebhookMessage, isAllowedDiscordUser } = require('./discord.js');
+  let ok = false;
+  try {
+    ok = await verifyDiscordSignature({ publicKeyHex: (process.env.DISCORD_PUBLIC_KEY || '').trim(), signatureHex: sig, timestamp: ts, body: raw });
+  } catch (e) { console.warn('[discordInteractions] verify failed:', e.message); }
+  if (!ok) { res.status(401).json({ error: 'Bad signature' }); return; }
+  const body = req.body || {};
+  if (body.type === 1) { res.status(200).json({ type: 1 }); return; }
+  const memberId = body?.member?.user?.id || body?.user?.id || '';
+  const env = { khent: (process.env.DISCORD_KHENT_ID || '').trim(), clair: (process.env.DISCORD_CLAIR_ID || '').trim() };
+  if (!isAllowedDiscordUser({ userId: memberId, env })) { res.status(200).json({ type: 4, data: { content: 'Not for you.', flags: 64 } }); return; }
+  const name = body?.data?.name || '';
+  const button = body?.data?.custom_id || '';
+  if (name !== 'end' && button !== 'end_watch') { res.status(200).json({ type: 4, data: { content: 'Unknown command.', flags: 64 } }); return; }
+  const db = getDb();
+  const ref = db.collection('discord_watch_sessions').doc('active');
+  try {
+    const snap = await ref.get();
+    if (!snap.exists || !snap.data().active) { res.status(200).json({ type: 4, data: { content: 'Nothing active.', flags: 64 } }); return; }
+    const s = snap.data();
+    const hostDisplay = s.startedBy === 'khentsgdz' ? 'Khent' : 'Clair';
+    const webhookUrl = (process.env.DISCORD_WEBHOOK_URL || '').trim();
+    try {
+      await patchWebhookMessage({ webhookUrl, messageId: s.messageId, payload: buildEndedPost({ title: s.title, hostDisplay }) });
+    } catch (e) { console.warn('[discordInteractions] edit failed:', e.message); }
+    await ref.set({ active: false, status: 'ended' }, { merge: true });
+    res.status(200).json({ type: 4, data: { content: `Ended: ${s.title}`, flags: 64 } });
+  } catch (e) { console.warn('[discordInteractions] failed:', e.message); res.status(200).json({ type: 4, data: { content: 'End failed, try again.', flags: 64 } }); }
+});
+
 /**
  * Authenticated read-only Last.fm proxy. Only public catalog/user lookup
  * methods are allowed; the API key stays in Cloud Functions.
  */
-exports.proxyLastfm = functions.runWith({ minInstances: 1 }).https.onRequest(async (req, res) => {
+// No minInstances (cost): cold start ~1-2s is fine for catalog lookups.
+exports.proxyLastfm = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -407,7 +481,7 @@ exports.proxyLastfm = functions.runWith({ minInstances: 1 }).https.onRequest(asy
  * presence documents offline so the partner UI never shows a ghost.
  */
 exports.sweepStalePresence = onSchedule({
-  schedule: 'every 1 minutes',
+  schedule: 'every 10 minutes',
   timeZone: 'UTC',
   region: 'us-central1',
 }, async () => {
@@ -459,6 +533,22 @@ exports.sweepStalePresence = onSchedule({
   if (failures > 0) {
     throw new Error(`${failures} presence sweeps failed`);
   }
+});
+
+exports.sweepStaleDiscordWatch = onSchedule({ schedule: 'every 60 minutes' }, async () => {
+  const db = getDb();
+  const ref = db.collection('discord_watch_sessions').doc('active');
+  try {
+    const snap = await ref.get();
+    if (!snap.exists || !snap.data().active) return;
+    if (Date.now() - (snap.data().startedAtMs || 0) < 12 * 60 * 60 * 1000) return;
+    const { patchWebhookMessage } = require('./discord.js');
+    const webhookUrl = (process.env.DISCORD_WEBHOOK_URL || '').trim();
+    try {
+      await patchWebhookMessage({ webhookUrl, messageId: snap.data().messageId, payload: { content: `Expired: ${snap.data().title}`, components: [] } });
+    } catch (e) { console.warn('[sweepStaleDiscordWatch] edit failed:', e.message); }
+    await ref.set({ active: false, status: 'expired' }, { merge: true });
+  } catch (e) { console.warn('[sweepStaleDiscordWatch] failed:', e.message); }
 });
 
 // ── Rough token estimator ──────────────────────────────
@@ -4283,9 +4373,9 @@ exports.mochiSpecialDayNudge = onSchedule({
   }
 });
 
-// ── Scheduled: Reminder Checker (every 1 min PHT) — W1-A2 ───────
+// ── Scheduled: Reminder Checker (every 10 min PHT) — W1-A2 ───────
 exports.mochiReminderChecker = onSchedule({
-  schedule: 'every 1 minutes',
+  schedule: 'every 10 minutes',
   timeZone: 'Asia/Manila',
   region: 'us-central1',
 }, async () => {

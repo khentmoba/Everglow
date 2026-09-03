@@ -160,6 +160,8 @@ service cloud.firestore {
       }
     }
 
+    match /discord_watch_sessions/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 8192; allow update: if isCouple() && request.resource.data.size() < 8192; allow delete: if isCouple(); }
+
     match /gallery/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
     match /memories/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
     match /notes/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
