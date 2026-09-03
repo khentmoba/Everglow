@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../domain/models/hidden_note.dart';
@@ -19,7 +21,79 @@ class LetterboxView extends StatefulWidget {
 
 class _LetterboxViewState extends State<LetterboxView> {
   final LetterboxService _letterboxService = LetterboxService();
-  int _streamVersion = 0;
+  StreamSubscription<List<HiddenNote>>? _sub;
+  Timer? _retryTimer;
+  List<HiddenNote> _notes = const [];
+  bool _isLoading = true;
+  bool _hasError = false;
+  int _retryCount = 0;
+  static const int _maxRetries = 3;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribe();
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    _retryTimer?.cancel();
+    super.dispose();
+  }
+
+  void _subscribe() {
+    _sub?.cancel();
+    _retryTimer?.cancel();
+    _sub = _letterboxService.notes.listen(
+      (data) {
+        if (!mounted) return;
+        _retryCount = 0;
+        setState(() {
+          _notes = data;
+          _isLoading = false;
+          _hasError = false;
+        });
+      },
+      onError: (_) {
+        if (!mounted) return;
+        _scheduleSilentRetry();
+      },
+      onDone: () {
+        // withFirestoreTimeout closes the stream without an error when the
+        // first snapshot never arrives (cold Firestore WebChannel on first
+        // load). Retry silently — the skeleton stays up, so the user never
+        // sees a spurious "Could not load letters". Only surface the error
+        // UI after retries are exhausted.
+        if (!mounted) return;
+        if (_isLoading) _scheduleSilentRetry();
+      },
+    );
+  }
+
+  void _scheduleSilentRetry() {
+    if (!mounted) return;
+    if (_retryCount < _maxRetries) {
+      _retryCount++;
+      _retryTimer = Timer(Duration(seconds: 1 + _retryCount), () {
+        if (mounted) _subscribe();
+      });
+    } else {
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+      });
+    }
+  }
+
+  void _retry() {
+    setState(() {
+      _hasError = false;
+      _isLoading = true;
+      _retryCount = 0;
+    });
+    _subscribe();
+  }
 
   void _handleNoteTap(HiddenNote note) {
     if (!note.isUnlocked) {
@@ -94,11 +168,10 @@ class _LetterboxViewState extends State<LetterboxView> {
     try {
       await _letterboxService.seedInitialNotes();
       if (!mounted) return;
-      // Force StreamBuilder to resubscribe with a fresh timeout stream.
-      // Without this, a previous withFirestoreTimeout that already fired
-      // would stay closed and never show the newly seeded note (the
-      // "No letters yet" stuck bug).
-      setState(() => _streamVersion++);
+      // Resubscribe with a fresh timeout stream so a previous
+      // withFirestoreTimeout that already fired doesn't stay closed and
+      // hide the newly seeded note (the "No letters yet" stuck bug).
+      _retry();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -116,7 +189,7 @@ class _LetterboxViewState extends State<LetterboxView> {
       );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _streamVersion++);
+      _retry();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -176,58 +249,40 @@ class _LetterboxViewState extends State<LetterboxView> {
             ],
           ),
         ),
-        SizedBox(
-          height: 200,
-          child: StreamBuilder<List<HiddenNote>>(
-            // Bust cache when we seed or retry so a timed-out
-            // withFirestoreTimeout stream is replaced.
-            key: ValueKey(_streamVersion),
-            stream: _letterboxService.notes,
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return _LetterboxError(
-                  onRetry: () => setState(() => _streamVersion++),
-                );
-              }
-
-              // Treat a closed stream with no data as a timeout error
-              // (withFirestoreTimeout now emits TimeoutException, but keep
-              // this fallback for any silent close).
-              if (snapshot.connectionState == ConnectionState.done &&
-                  !snapshot.hasData) {
-                return _LetterboxError(
-                  onRetry: () => setState(() => _streamVersion++),
-                );
-              }
-
-              if (!snapshot.hasData &&
-                  snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(
-                  child: EverglowSkeleton(width: 120, height: 160, radius: 16),
-                );
-              }
-
-              final notes = snapshot.data ?? [];
-
-              if (notes.isEmpty) {
-                return _LetterboxRailEmpty(onSeed: _seedSampleNotes);
-              }
-
-              return ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                itemCount: notes.length,
-                itemBuilder: (context, index) {
-                  return NoteCard(
-                    note: notes[index],
-                    onTap: () => _handleNoteTap(notes[index]),
-                  );
-                },
-              );
-            },
-          ),
-        ),
+        SizedBox(height: 200, child: _buildRail()),
       ],
+    );
+  }
+
+  Widget _buildRail() {
+    // While loading — including silent background retries after a cold-start
+    // Firestore timeout — keep the skeleton up. The error card only appears
+    // after all retries are exhausted, so first load never flashes
+    // "Could not load letters".
+    if (_isLoading) {
+      return const Center(
+        child: EverglowSkeleton(width: 120, height: 160, radius: 16),
+      );
+    }
+
+    if (_hasError) {
+      return _LetterboxError(onRetry: _retry);
+    }
+
+    if (_notes.isEmpty) {
+      return _LetterboxRailEmpty(onSeed: _seedSampleNotes);
+    }
+
+    return ListView.builder(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      itemCount: _notes.length,
+      itemBuilder: (context, index) {
+        return NoteCard(
+          note: _notes[index],
+          onTap: () => _handleNoteTap(_notes[index]),
+        );
+      },
     );
   }
 }

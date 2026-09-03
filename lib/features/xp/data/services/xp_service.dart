@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/audio/audio_service.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
@@ -70,14 +72,23 @@ class XPService {
         .collection('progress')
         .doc('main');
 
-    final snapshot = await docRef.get();
-    if (!snapshot.exists) {
-      await docRef.set({
-        'xpTotal': 0,
-        'level': 1,
-        'streak': 0,
-        'lastActivity': FieldValue.serverTimestamp(),
-      });
+    try {
+      final snapshot = await docRef.get().timeout(
+            const Duration(seconds: 6),
+          );
+      if (!snapshot.exists) {
+        await docRef.set({
+          'xpTotal': 0,
+          'level': 1,
+          'streak': 0,
+          'lastActivity': FieldValue.serverTimestamp(),
+        }).timeout(const Duration(seconds: 6));
+      }
+    } on TimeoutException {
+      // WebChannel contended or offline — the UI already paints an
+      // optimistic zero-state bar, so just let the next watchProgress
+      // retry seed the doc.
+      return;
     }
   }
 }

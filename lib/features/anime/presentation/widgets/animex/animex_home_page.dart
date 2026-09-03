@@ -20,6 +20,7 @@ import 'animex_spotlight.dart';
 import 'animex_ticker.dart';
 import 'animex_tokens.dart';
 import '../../../../../core/theme/app_colors.dart';
+import '../../../../../shared/widgets/app_network_image.dart';
 
 class _HomeRow {
   final String id;
@@ -596,11 +597,10 @@ class _ContinueCard extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               if (entry.coverUrl.isNotEmpty)
-                Image.network(
-                  entry.coverUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) =>
-                      Container(color: AnimeXTokens.surfaceRaised),
+                AppNetworkImage(
+                  imageUrl: entry.coverUrl,
+                  cacheWidth: 560,
+                  placeholderColor: AnimeXTokens.surfaceRaised,
                 )
               else
                 Container(color: AnimeXTokens.surfaceRaised),

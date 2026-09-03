@@ -8,7 +8,6 @@ import '../../../../core/utils/logger.dart';
 import '../../../xp/data/services/xp_service.dart';
 import '../../../xp/domain/models/user_progress.dart';
 import '../../../xp/presentation/widgets/xp_progress_bar.dart';
-import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 
 /// Binds the XP progress stream to the current uid without re-creating the
 /// Firestore listener on every unrelated auth notification.
@@ -17,14 +16,12 @@ import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 /// a remount (e.g. after the gateway door animation) can paint instantly
 /// from cache instead of flashing `SizedBox.shrink` -> bar.
 ///
-/// Hardened against the "always buffering" grey bar seen in screenshots:
-///  1. Doc doesn't exist yet (null emission) — show Level 1 / 0 XP and
-///     trigger initializeProgress in background.
-///  2. Firestore WebChannel hang / permission race (withFirestoreTimeout
-///     closes after 5s with no first event) — retry 3x then show retry UI.
-///  3. Network error — same retry.
-///  4. Absolute fallback: if no data after 6s regardless of stream state,
-///     force a zero-state bar so the skeleton never spins forever.
+/// Optimistic first paint: the bar renders instantly with cached data or a
+/// Level 1 / 0 XP zero-state while the Firestore stream resolves in the
+/// background. The stream used to gate first paint behind a skeleton +
+/// 5s `withFirestoreTimeout` + 3 retries (≈20s grey slab in screenshots
+/// when the WebChannel was contended) — now retries are silent and never
+/// replace the bar.
 class XpProgressSection extends StatefulWidget {
   final String? uid;
   const XpProgressSection({super.key, required this.uid});
@@ -38,13 +35,19 @@ class _XpProgressSectionState extends State<XpProgressSection> {
   final XPService _service = XPService();
   StreamSubscription<UserProgress?>? _sub;
   Timer? _retryTimer;
-  Timer? _fallbackTimer;
   UserProgress? _progress;
-  bool _isLoading = true;
   bool _hasError = false;
   int _retryCount = 0;
   static const int _maxRetries = 3;
   String? _boundUid;
+
+  static UserProgress _zero(String uid) => UserProgress(
+        uid: uid,
+        xpTotal: 0,
+        level: 1,
+        streak: 0,
+        lastActivity: DateTime.now(),
+      );
 
   @override
   void initState() {
@@ -62,14 +65,12 @@ class _XpProgressSectionState extends State<XpProgressSection> {
   void dispose() {
     _sub?.cancel();
     _retryTimer?.cancel();
-    _fallbackTimer?.cancel();
     super.dispose();
   }
 
   void _bind() {
     _sub?.cancel();
     _retryTimer?.cancel();
-    _fallbackTimer?.cancel();
     final uid = widget.uid;
     _boundUid = uid;
     _retryCount = 0;
@@ -77,45 +78,15 @@ class _XpProgressSectionState extends State<XpProgressSection> {
 
     if (uid == null || uid.isEmpty) {
       _progress = null;
-      _isLoading = false;
       return;
     }
 
-    final cached = _cache[uid];
-    if (cached != null) {
-      _progress = cached;
-      _isLoading = false;
-    } else {
-      _progress = null;
-      _isLoading = true;
-    }
+    // Optimistic paint: show cached progress — or a zero-state bar —
+    // synchronously so first paint never waits on Firestore.
+    _progress = _cache[uid] ?? _zero(uid);
     if (mounted) setState(() {});
 
     _subscribe(uid);
-
-    // Absolute fallback: never let the shimmer spin forever. If the
-    // Firestore stream is hung (no data, no error, no done) for 6s,
-    // force a zero-state bar and try to seed the doc.
-    _fallbackTimer = Timer(const Duration(seconds: 6), () {
-      if (!mounted || _boundUid != uid) return;
-      if (_progress == null && _isLoading && !_hasError) {
-        Logger.w('[XpProgressSection] fallback timer — forcing zero state for $uid');
-        unawaited(_service.initializeProgress(uid).catchError((Object e) {
-          Logger.e('[XpProgressSection] fallback initializeProgress failed', error: e);
-        }));
-        setState(() {
-          _progress = UserProgress(
-            uid: uid,
-            xpTotal: 0,
-            level: 1,
-            streak: 0,
-            lastActivity: DateTime.now(),
-          );
-          _isLoading = false;
-          _hasError = false;
-        });
-      }
-    });
   }
 
   void _subscribe(String uid) {
@@ -127,69 +98,51 @@ class _XpProgressSectionState extends State<XpProgressSection> {
     }).listen(
       (data) {
         if (!mounted || _boundUid != uid) return;
-        _fallbackTimer?.cancel();
         _retryCount = 0;
         if (data == null) {
-          Logger.w('[XpProgressSection] progress doc null for $uid — seeding zero state');
+          // Doc doesn't exist yet — keep the optimistic zero-state visible
+          // and seed in the background (fire-and-forget with its own timeout).
+          Logger.w('[XpProgressSection] progress doc null for $uid — seeding in bg');
           unawaited(_service.initializeProgress(uid).catchError((Object e) {
             Logger.e('[XpProgressSection] initializeProgress failed', error: e);
           }));
-          final fallback = _cache[uid] ??
-              UserProgress(
-                uid: uid,
-                xpTotal: 0,
-                level: 1,
-                streak: 0,
-                lastActivity: DateTime.now(),
-              );
-          setState(() {
-            _progress = fallback;
-            _isLoading = false;
-            _hasError = false;
-          });
+          // No setState needed: zero-state already painted in _bind().
+          // Only clear a prior error flag.
+          if (_hasError && mounted) setState(() => _hasError = false);
         } else {
           setState(() {
             _progress = data;
-            _isLoading = false;
             _hasError = false;
           });
         }
       },
       onError: (Object e, StackTrace st) {
         if (!mounted || _boundUid != uid) return;
-        _fallbackTimer?.cancel();
-        Logger.e('[XpProgressSection] watchProgress error', error: e, stackTrace: st);
-        if (_retryCount < _maxRetries) {
-          _retryCount++;
-          _retryTimer = Timer(Duration(seconds: 1 + _retryCount), () {
-            if (mounted && _boundUid == uid) _subscribe(uid);
-          });
-        } else {
-          setState(() {
-            _hasError = true;
-            _isLoading = false;
-          });
-        }
+        Logger.e('[XpProgressSection] watchProgress error (bg retry)', error: e, stackTrace: st);
+        _scheduleSilentRetry(uid);
       },
       onDone: () {
         if (!mounted || _boundUid != uid) return;
-        _fallbackTimer?.cancel();
-        if (_progress == null && !_hasError) {
-          Logger.w('[XpProgressSection] stream closed with no data for $uid (timeout?)');
-          if (_retryCount < _maxRetries) {
-            _retryCount++;
-            _retryTimer = Timer(Duration(seconds: 1 + _retryCount), () {
-              if (mounted && _boundUid == uid) _subscribe(uid);
-            });
-          } else {
-            setState(() {
-              _hasError = true;
-              _isLoading = false;
-            });
-          }
-        }
+        // withFirestoreTimeout closes the stream when the first snapshot
+        // never arrives (WebChannel hang). Retry silently — the optimistic
+        // bar stays on screen, so the user never sees a skeleton.
+        Logger.w('[XpProgressSection] stream closed with no data for $uid — bg retry');
+        _scheduleSilentRetry(uid);
       },
     );
+  }
+
+  void _scheduleSilentRetry(String uid) {
+    if (_retryCount < _maxRetries) {
+      _retryCount++;
+      _retryTimer = Timer(Duration(seconds: 1 + _retryCount), () {
+        if (mounted && _boundUid == uid) _subscribe(uid);
+      });
+    } else if (mounted && !_hasError) {
+      // Retries exhausted: keep the optimistic bar, just flag for the
+      // optional inline retry affordance (never replaces the bar).
+      setState(() => _hasError = true);
+    }
   }
 
   void _retry() {
@@ -197,25 +150,7 @@ class _XpProgressSectionState extends State<XpProgressSection> {
     if (uid == null || uid.isEmpty) return;
     setState(() {
       _hasError = false;
-      _isLoading = true;
       _retryCount = 0;
-    });
-    _fallbackTimer?.cancel();
-    _fallbackTimer = Timer(const Duration(seconds: 6), () {
-      if (!mounted || _boundUid != uid) return;
-      if (_progress == null && _isLoading && !_hasError) {
-        Logger.w('[XpProgressSection] fallback timer (retry) — forcing zero state for $uid');
-        setState(() {
-          _progress = UserProgress(
-            uid: uid,
-            xpTotal: 0,
-            level: 1,
-            streak: 0,
-            lastActivity: DateTime.now(),
-          );
-          _isLoading = false;
-        });
-      }
     });
     _subscribe(uid);
   }
@@ -225,10 +160,11 @@ class _XpProgressSectionState extends State<XpProgressSection> {
     final uid = widget.uid;
     if (uid == null || uid.isEmpty) return const SizedBox.shrink();
 
-    const skeleton = Padding(
-      padding: EdgeInsets.symmetric(horizontal: 0),
-      child: EverglowSkeleton(height: 92, radius: 24),
-    );
+    // Optimistic bar always wins — _progress is set synchronously in _bind,
+    // so this paints on the very first frame with zero Firestore waiting.
+    if (_progress != null) {
+      return XPProgressBar(progress: _progress!);
+    }
 
     if (_hasError) {
       return Container(
@@ -287,20 +223,8 @@ class _XpProgressSectionState extends State<XpProgressSection> {
       );
     }
 
-    if (_progress != null) {
-      return XPProgressBar(progress: _progress!);
-    }
-
-    if (_isLoading) return skeleton;
-
-    return XPProgressBar(
-      progress: UserProgress(
-        uid: uid,
-        xpTotal: 0,
-        level: 1,
-        streak: 0,
-        lastActivity: DateTime.now(),
-      ),
-    );
+    // Should be unreachable (_bind always sets _progress), but never show a
+    // hanging skeleton — fall back to a zero-state bar.
+    return XPProgressBar(progress: _zero(uid));
   }
 }

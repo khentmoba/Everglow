@@ -13,6 +13,9 @@ analyzer:
   exclude:
     # Vendored Firebase CLI Dart template, not part of this Dart project.
     - node_modules/**
+    - build/**
+    - android/**
+    - web/**
 
 linter:
   # The lint rules applied to this project can be customized in the

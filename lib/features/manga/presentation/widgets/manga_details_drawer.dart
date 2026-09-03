@@ -10,7 +10,7 @@ import '../../data/services/mangakakalot_service.dart';
 import '../../data/services/mangakatana_service.dart';
 import '../../data/services/bato_service.dart';
 import '../../data/services/scanlation_service.dart';
-import '../screens/manga_reader_screen.dart';
+import '../screens/manga_reader_screen.dart' deferred as reader_lib;
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -258,10 +258,14 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
     return n.toString();
   }
 
-  void _openReader(MangaChapter chapter) {
+  Future<void> _openReader(MangaChapter chapter) async {
+    // The reader lives in a deferred chunk (see docs/PERF_NOTES.md); ensure
+    // it is loaded before pushing so direct drawer opens work offline-first.
+    await reader_lib.loadLibrary();
+    if (!mounted) return;
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => MangaReaderScreen(
+        builder: (_) => reader_lib.MangaReaderScreen(
           manga: _item,
           chapter: chapter,
           allChapters: _chapters,

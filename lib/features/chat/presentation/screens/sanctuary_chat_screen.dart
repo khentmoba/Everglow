@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -95,6 +97,11 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
     } catch (e) {
       Logger.e("Sanctuary: failed to ensure user doc", error: e);
     }
+
+    // Self-heal a stuck partner link: if the one-shot background resolve in
+    // AuthService failed earlier (offline, rules), retry it now so the
+    // presence header recovers without forcing the user to re-login.
+    unawaited(authService.refreshPartnerLink());
 
     setState(() {
       _authChecked = true;
