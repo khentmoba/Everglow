@@ -114,18 +114,33 @@ class MediaItem {
     this.progressUpdatedAt,
   });
 
+  /// Normalized status for comparisons — guards against stray whitespace
+  /// or casing in Firestore so shelves never silently empty out.
+  String get _normalizedStatus => status.trim().toLowerCase();
+
   bool get isWatched =>
-      status == 'watched' ||
-      status == 'watched-khent' ||
-      status == 'watched-clair' ||
-      status == 'watched-both' ||
-      status == 'watched-self';
+      _normalizedStatus == 'watched' ||
+      _normalizedStatus == 'watched-khent' ||
+      _normalizedStatus == 'watched-clair' ||
+      _normalizedStatus == 'watched-both' ||
+      _normalizedStatus == 'watched-self';
 
   /// True when this title is a film rather than an episodic series.
   /// Anything that is not a TV series (`mediaType != 'tv'`, e.g. movies
   /// and anime films) is treated as a movie so episode progress labels
   /// are never rendered for it.
-  bool get isMovie => mediaType != 'tv';
+  bool get isMovie => mediaType.trim().toLowerCase() != 'tv';
+
+  /// True for anime series (TV) — the only anime that lives exclusively
+  /// in the Anime rail. Anime *movies* belong in the cinema shelves too
+  /// (see [isCinemaItem]) so film lovers never lose them from
+  /// Currently Watching / Watched.
+  bool get isAnimeSeries => isAnime && !isMovie;
+
+  /// True when this title belongs in the cinema rails: every movie
+  /// (live-action or anime) plus non-anime TV. Anime TV series return
+  /// false here — the Anime rail owns those.
+  bool get isCinemaItem => !isAnime || isMovie;
 
   /// Always returns a full image URL. If [posterPath] is already absolute
   /// (starts with `http`), it is returned as-is.  When it is a relative
@@ -148,14 +163,14 @@ class MediaItem {
     return '$_tmdbBackdropBase$backdropPath';
   }
 
-  bool get isToWatch => status == 'to-watch';
+  bool get isToWatch => _normalizedStatus == 'to-watch';
 
   bool get isCurrentlyWatching =>
-      status == 'watching' ||
-      status == 'watching-khent' ||
-      status == 'watching-clair' ||
-      status == 'watching-both' ||
-      status == 'watching-self';
+      _normalizedStatus == 'watching' ||
+      _normalizedStatus == 'watching-khent' ||
+      _normalizedStatus == 'watching-clair' ||
+      _normalizedStatus == 'watching-both' ||
+      _normalizedStatus == 'watching-self';
 
   /// Maps `watched-self` / `watching-self` to the partner-specific variant
   /// based on the item's [userName]. Per-user Firestore docs store "self"

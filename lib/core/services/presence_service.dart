@@ -23,7 +23,6 @@ class PresenceService {
 
   // --- session tracking ---
   String? _activeSessionId;
-  DateTime? _sessionStartedAt;
 
   DocumentReference _doc(String uid) => _db.collection(_collection).doc(uid);
   DocumentReference _sessionDoc(String id) =>
@@ -101,7 +100,6 @@ class PresenceService {
     try {
       final ref = _db.collection(_sessionsCollection).doc();
       _activeSessionId = ref.id;
-      _sessionStartedAt = DateTime.now();
       await ref.set({
         'uid': uid,
         'username': username,
@@ -116,7 +114,6 @@ class PresenceService {
     } catch (e) {
       Logger.e('PresenceService _createSession failed', error: e);
       _activeSessionId = null;
-      _sessionStartedAt = null;
     }
   }
 
@@ -136,7 +133,6 @@ class PresenceService {
   Future<void> _closeSessionInternal() async {
     final sid = _activeSessionId;
     _activeSessionId = null;
-    _sessionStartedAt = null;
     if (sid == null) return;
     try {
       await _sessionDoc(sid).set({
