@@ -34,6 +34,24 @@ class MoodService {
     return snapshot.docs.isNotEmpty;
   }
 
+  /// One-shot fetch of the latest mood (cheaper than opening a stream
+  /// listener for fire-and-forget reads like the Guardian's mentions).
+  Future<UserMood?> getLatestMood(String username) async {
+    try {
+      final snapshot = await _db
+          .collection('moods')
+          .where('username', isEqualTo: username)
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .get()
+          .timeout(const Duration(seconds: 8));
+      if (snapshot.docs.isEmpty) return null;
+      return UserMood.fromFirestore(snapshot.docs.first.data());
+    } catch (e) {
+      return null;
+    }
+  }
+
   /// Streams the latest mood for a specific user.
   Stream<UserMood?> watchLatestMood(String username) {
     return withFirestoreTimeout(
