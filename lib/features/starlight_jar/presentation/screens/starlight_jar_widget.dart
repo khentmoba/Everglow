@@ -137,10 +137,12 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
       duration: const Duration(milliseconds: 1000),
     );
 
-    final start = Offset(MediaQuery.sizeOf(context).width / 2, -50);
+    // Coordinates are relative to the 280x350 star layer box (not the
+    // screen), so the star falls from the jar mouth into the jar body.
+    final start = const Offset(128, -40);
     final end = Offset(
-      120 + _random.nextDouble() * 160,
-      300 + _random.nextDouble() * 60,
+      60 + _random.nextDouble() * 160,
+      220 + _random.nextDouble() * 60,
     );
 
     _dropAnimation = Tween<Offset>(begin: start, end: end).animate(
@@ -455,17 +457,23 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
               const SizedBox(height: 4),
 
               // ── Jar + Stars ──
+              // The jar glass and the star layer share the exact same
+              // 280x350 box at the same offset, so the glass is never
+              // clipped and the stars always sit inside the glass.
               SizedBox(
-                height: 480,
+                height: 390,
                 child: Center(
                   child: SizedBox(
-                    width: 400,
+                    width: 280,
+                    height: 370,
                     child: Stack(
+                      clipBehavior: Clip.none,
                       alignment: Alignment.center,
                       children: [
                         // The Jar — with scale animation on tap
                         Positioned(
                           top: 20,
+                          left: 0,
                           child: GestureDetector(
                             onTap: _onJarTap,
                             child: AnimatedScale(
@@ -505,11 +513,14 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                         // Star Count Badge
                         Positioned(
                           top: 22,
+                          left: 0,
+                          right: 0,
                           // IgnorePointer so taps on the badge still reach the jar.
                           child: IgnorePointer(
-                            child: _notes.isEmpty
-                                ? const SizedBox.shrink()
-                                : Container(
+                            child: Center(
+                              child: _notes.isEmpty
+                                  ? const SizedBox.shrink()
+                                  : Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 12,
                                       vertical: 4,
@@ -538,91 +549,106 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                                       ),
                                     ),
                                   ),
+                            ),
                           ),
                         ),
 
                         // Stars clipped to jar body — ClipRRect+RepaintBoundary
                         // is cheaper than ClipPath+Path on SkWasm and isolates
                         // the per-frame star tick (see DeferredSection fix).
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(28),
-                          child: RepaintBoundary(
-                            child: SizedBox(
-                              width: 280,
-                              height: 350,
-                              child: Stack(
-                                children: [
-                                  // Idle floating stars
-                                  Positioned.fill(
-                                    child: IgnorePointer(
-                                      child: AnimatedBuilder(
-                                        animation: _idleController,
-                                        builder: (context, _) => CustomPaint(
-                                          painter: _JarStarFieldPainter(
-                                            notes: _filterNotes(_notes),
-                                            t: _idleController.value,
-                                            motionCache: _motionCache,
+                        // Positioned at the same top:20 offset as the glass so
+                        // the two layers always line up.
+                        Positioned(
+                          top: 20,
+                          left: 0,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(28),
+                            child: RepaintBoundary(
+                              child: SizedBox(
+                                width: 280,
+                                height: 350,
+                                child: Stack(
+                                  children: [
+                                    // Idle floating stars
+                                    Positioned.fill(
+                                      child: IgnorePointer(
+                                        child: AnimatedBuilder(
+                                          animation: _idleController,
+                                          builder: (context, _) => CustomPaint(
+                                            painter: _JarStarFieldPainter(
+                                              notes: _filterNotes(_notes),
+                                              t: _idleController.value,
+                                              motionCache: _motionCache,
+                                            ),
+                                            isComplex: true,
+                                            willChange: true,
                                           ),
-                                          isComplex: true,
-                                          willChange: true,
                                         ),
                                       ),
                                     ),
-                                  ),
 
-                                  // The Animating "Drop" Star
-                                  if (_droppingStar != null &&
-                                      _dropAnimation != null)
-                                    IgnorePointer(
-                                      child: AnimatedBuilder(
-                                        animation: _dropAnimation!,
-                                        builder: (context, child) {
-                                          return Stack(
-                                            children: [
-                                              StarWidget(
-                                                color: AppColors.blushGold,
-                                                position: _dropAnimation!.value,
-                                                rotation:
-                                                    _dropController!.value * pi * 2,
-                                              ),
-                                            ],
-                                          );
-                                        },
+                                    // The Animating "Drop" Star
+                                    if (_droppingStar != null &&
+                                        _dropAnimation != null)
+                                      IgnorePointer(
+                                        child: AnimatedBuilder(
+                                          animation: _dropAnimation!,
+                                          builder: (context, child) {
+                                            return Stack(
+                                              children: [
+                                                StarWidget(
+                                                  color: AppColors.blushGold,
+                                                  position:
+                                                      _dropAnimation!.value,
+                                                  rotation:
+                                                      _dropController!.value *
+                                                      pi *
+                                                      2,
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        ),
                                       ),
-                                    ),
 
-                                  // The Animating "Float Out" Star
-                                  if (_floatingStar != null &&
-                                      _floatAnimation != null)
-                                    IgnorePointer(
-                                      child: AnimatedBuilder(
-                                        animation: _floatAnimation!,
-                                        builder: (context, child) {
-                                          const end = Offset(200, 100);
-                                          const start = Offset(200, 370);
-                                          final currentPos = Offset.lerp(
-                                            start,
-                                            end,
-                                            _floatAnimation!.value,
-                                          )!;
+                                    // The Animating "Float Out" Star
+                                    if (_floatingStar != null &&
+                                        _floatAnimation != null)
+                                      IgnorePointer(
+                                        child: AnimatedBuilder(
+                                          animation: _floatAnimation!,
+                                          builder: (context, child) {
+                                            // Jar-box relative: rise from
+                                            // inside the jar to just above it.
+                                            const end = Offset(128, 60);
+                                            const start = Offset(128, 250);
+                                            final currentPos = Offset.lerp(
+                                              start,
+                                              end,
+                                              _floatAnimation!.value,
+                                            )!;
 
-                                          return Stack(
-                                            children: [
-                                              StarWidget(
-                                                color: AppColors.deepRose,
-                                                position: currentPos,
-                                                size:
-                                                    24 +
-                                                    (16 * _floatAnimation!.value),
-                                                rotation:
-                                                    _floatController!.value * pi,
-                                              ),
-                                            ],
-                                          );
-                                        },
+                                            return Stack(
+                                              children: [
+                                                StarWidget(
+                                                  color: AppColors.deepRose,
+                                                  position: currentPos,
+                                                  size:
+                                                      24 +
+                                                      (16 *
+                                                          _floatAnimation!
+                                                              .value),
+                                                  rotation:
+                                                      _floatController!.value *
+                                                      pi,
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        ),
                                       ),
-                                    ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -751,8 +777,10 @@ class _StarMotion {
 
   _StarMotion.fromSeed(int seed) {
     final r = Random(seed);
-    baseX = 100 + r.nextDouble() * 160;
-    baseY = 100 + r.nextDouble() * 200;
+    // Relative to the 280x350 star layer: spread across the full jar
+    // body with insets for the glass border (sides) and lid (top).
+    baseX = 24 + r.nextDouble() * 208;
+    baseY = 48 + r.nextDouble() * 230;
     ampX = 8 + r.nextDouble() * 12;
     ampY = 6 + r.nextDouble() * 10;
     speedX = 0.55 + r.nextDouble() * 0.45;
@@ -784,10 +812,13 @@ class _JarStarFieldPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const jarLeft = 60.0;
-    const jarTop = 56.0;
-    const jarRight = 340.0;
-    const jarBottom = 406.0;
+    // Bounds are relative to the 280x350 star layer canvas (not the old
+    // 400-wide outer Stack), so stars fill the glass instead of bunching
+    // on the right and getting clipped.
+    final double jarLeft = 14.0;
+    final double jarTop = 36.0;
+    final double jarRight = size.width - 14.0;
+    final double jarBottom = size.height - 14.0;
     const maxSize = 24.0;
 
     for (final note in notes) {
