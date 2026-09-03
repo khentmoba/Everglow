@@ -79,6 +79,8 @@ module.exports.postToWebhook = postToWebhook;
 module.exports.patchWebhookMessage = patchWebhookMessage;
 
 function isAllowedDiscordUser({ userId, env }) {
-  return userId === env.khent || userId === env.clair;
+  if (!userId || !env) return false;
+  const allowed = [env.khent, env.clair, env.clair1, env.clair2].filter(Boolean);
+  return allowed.includes(userId);
 }
 module.exports.isAllowedDiscordUser = isAllowedDiscordUser;

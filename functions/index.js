@@ -369,8 +369,9 @@ exports.notifyDiscordWatch = functions.https.onRequest(async (req, res) => {
   if (!title || (mediaType !== 'movie' && mediaType !== 'tv')) { res.status(400).json({ error: 'title + mediaType required' }); return; }
   const { buildWatchPost, postToWebhook, patchWebhookMessage } = require('./discord.js');
   const hostDisplay = username === 'khentsgdz' ? 'Khent' : 'Clair';
+  const clairMention = [(process.env.DISCORD_CLAIR_ID1 || '').trim(), (process.env.DISCORD_CLAIR_ID2 || '').trim(), (process.env.DISCORD_CLAIR_ID || '').trim()].filter(Boolean).map((id) => `<@${id}>`).join(' ');
   const partnerMention = username === 'khentsgdz'
-    ? `<@${(process.env.DISCORD_CLAIR_ID || '').trim()}>`
+    ? clairMention
     : `<@${(process.env.DISCORD_KHENT_ID || '').trim()}>`;
   const voiceUrl = (process.env.DISCORD_VOICE_URL || '').trim();
   const webhookUrl = (process.env.DISCORD_WEBHOOK_URL || '').trim();
@@ -413,7 +414,7 @@ exports.discordInteractions = onRequest({ invoker: 'public' }, async (req, res) 
   const body = req.body || {};
   if (body.type === 1) { res.status(200).json({ type: 1 }); return; }
   const memberId = body?.member?.user?.id || body?.user?.id || '';
-  const env = { khent: (process.env.DISCORD_KHENT_ID || '').trim(), clair: (process.env.DISCORD_CLAIR_ID || '').trim() };
+  const env = { khent: (process.env.DISCORD_KHENT_ID || '').trim(), clair: (process.env.DISCORD_CLAIR_ID || '').trim(), clair1: (process.env.DISCORD_CLAIR_ID1 || '').trim(), clair2: (process.env.DISCORD_CLAIR_ID2 || '').trim() };
   if (!isAllowedDiscordUser({ userId: memberId, env })) { res.status(200).json({ type: 4, data: { content: 'Not for you.', flags: 64 } }); return; }
   const name = body?.data?.name || '';
   const button = body?.data?.custom_id || '';

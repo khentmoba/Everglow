@@ -61,4 +61,10 @@ describe('isAllowedDiscordUser', () => {
     assert.equal(isAllowedDiscordUser({ userId: '222', env }), true);
     assert.equal(isAllowedDiscordUser({ userId: '999', env }), false);
   });
+  it('allows both Clair ids when split', () => {
+    const env = { khent: '111', clair1: '222', clair2: '333' };
+    assert.equal(isAllowedDiscordUser({ userId: '222', env }), true);
+    assert.equal(isAllowedDiscordUser({ userId: '333', env }), true);
+    assert.equal(isAllowedDiscordUser({ userId: '999', env }), false);
+  });
 });
