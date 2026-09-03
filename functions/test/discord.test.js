@@ -49,6 +49,7 @@ describe('postToWebhook', () => {
     });
     assert.equal(id, 'msg1');
     assert.ok(calls[0].includes('wait=true'));
+    assert.ok(calls[0].includes('with_components=true'));
   });
 });
 
