@@ -99,7 +99,9 @@ class _CinemaHeaderState extends State<_CinemaHeader> {
       },
       onError: (Object e) {
         // ignore: avoid_print
-        print('[CinemaPreview/header] watch_list stream error: $e');
+        print(
+          '[CinemaPreview/header:${widget.userName}] watch_list stream error: $e',
+        );
         if (!mounted) return;
         if (_retryCount < 3) {
           _retryCount++;
@@ -148,6 +150,7 @@ class _CinemaShelfState extends State<_CinemaShelf> {
   final TMDBService _service = TMDBService();
   List<MediaItem> _items = [];
   bool _hasLoaded = false;
+  bool _loadError = false;
   StreamSubscription<List<MediaItem>>? _streamSub;
 
   @override
@@ -163,6 +166,7 @@ class _CinemaShelfState extends State<_CinemaShelf> {
       _streamSub?.cancel();
       _items = [];
       _hasLoaded = false;
+      _loadError = false;
       _subscribe();
     }
   }
@@ -190,11 +194,14 @@ class _CinemaShelfState extends State<_CinemaShelf> {
         setState(() {
           _items = watched;
           _hasLoaded = true;
+          _loadError = false;
         });
       },
       onError: (Object e) {
         // ignore: avoid_print
-        print('[CinemaPreview/shelf] watch_list stream error: $e');
+        print(
+          '[CinemaPreview/shelf:${widget.userName}] watch_list stream error: $e',
+        );
         if (!mounted) return;
         if (_retryCount < 3) {
           _retryCount++;
@@ -202,7 +209,12 @@ class _CinemaShelfState extends State<_CinemaShelf> {
             if (mounted) _subscribe();
           });
         } else {
-          setState(() => _hasLoaded = true);
+          // Report the failure instead of a false-empty shelf: a denied
+          // stream means the data is unreachable, not absent.
+          setState(() {
+            _hasLoaded = true;
+            _loadError = true;
+          });
         }
       },
     );
@@ -261,9 +273,11 @@ class _CinemaShelfState extends State<_CinemaShelf> {
         );
       }
       if (cards.isEmpty) {
-        return const ShelfEmpty(
+        return ShelfEmpty(
           accent: ShelfAccent.cinema,
-          message: 'No movies watched yet. Start a movie night!',
+          message: _loadError
+              ? 'Couldn\'t load your movies — check your connection and reopen.'
+              : 'No movies watched yet. Start a movie night!',
         );
       }
       return SizedBox(height: 194, child: ShelfMarquee(children: cards));
@@ -271,7 +285,9 @@ class _CinemaShelfState extends State<_CinemaShelf> {
     return PartnerSubrow(
       label: widget.label!,
       accent: ShelfAccent.cinema,
-      emptyMessage: widget.isSelf
+      emptyMessage: _loadError
+          ? 'Couldn\'t load — check connection and reopen.'
+          : widget.isSelf
           ? 'You haven\'t finished anything yet.'
           : 'Nothing finished on their end.',
       children: _hasLoaded ? cards : const [],
