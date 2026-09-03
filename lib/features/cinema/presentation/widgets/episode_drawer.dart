@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../anime/data/models/anilist_detail.dart';
 import '../../data/models/media_item.dart';
@@ -11,7 +13,9 @@ import '../../data/services/ani_zip_service.dart';
 import '../../../anime/data/services/anilist_service.dart';
 import '../../../anime/data/services/jikan_service.dart';
 import '../../data/services/tmdb_service.dart';
+import '../../data/services/discord_share_service.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../shared/widgets/everglow/everglow_button.dart';
 import 'package:go_router/go_router.dart';
 import 'episode_drawer_sections/drawer_helpers.dart';
 import 'episode_drawer_sections/episode_list_section.dart';
@@ -48,6 +52,8 @@ class EpisodeDrawer extends StatefulWidget {
 }
 
 class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
+  bool _isSharingDiscord = false;
+
   @override
   Widget build(BuildContext context) {
     final ratingNum = _details?['vote_average'] as num?;
@@ -168,22 +174,40 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                       horizontal: 20,
                       vertical: 8,
                     ),
-                    child: Column(children: [_buildPlayButton()]),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildPlayButton(),
+                        const SizedBox(height: AppSpacing.sm),
+                        _buildDiscordShareButton(),
+                      ],
+                    ),
                   ),
                 )
               else
                 SliverToBoxAdapter(
-                  child: EpisodeListSection(
-                    episodes: _episodes,
-                    seasons: _seasons,
-                    selectedSeasonNumber: _selectedSeasonNumber,
-                    isLoadingEpisodes: _isLoadingEpisodes,
-                    tmdbMatchedSeason: _tmdbMatchedSeason,
-                    onPlayEpisode: _playEpisode,
-                    onSeasonChanged: (sn) {
-                      setState(() => _selectedSeasonNumber = sn);
-                      _fetchSeasonEpisodes(sn);
-                    },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+                        child: _buildDiscordShareButton(
+                          season: _selectedSeasonNumber,
+                        ),
+                      ),
+                      EpisodeListSection(
+                        episodes: _episodes,
+                        seasons: _seasons,
+                        selectedSeasonNumber: _selectedSeasonNumber,
+                        isLoadingEpisodes: _isLoadingEpisodes,
+                        tmdbMatchedSeason: _tmdbMatchedSeason,
+                        onPlayEpisode: _playEpisode,
+                        onSeasonChanged: (sn) {
+                          setState(() => _selectedSeasonNumber = sn);
+                          _fetchSeasonEpisodes(sn);
+                        },
+                      ),
+                    ],
                   ),
                 ),
 
@@ -530,17 +554,28 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
               SliverToBoxAdapter(child: _buildCinemaActions())
             else
               SliverToBoxAdapter(
-                child: EpisodeListSection(
-                  episodes: _episodes,
-                  seasons: _seasons,
-                  selectedSeasonNumber: _selectedSeasonNumber,
-                  isLoadingEpisodes: _isLoadingEpisodes,
-                  tmdbMatchedSeason: _tmdbMatchedSeason,
-                  onPlayEpisode: _playEpisode,
-                  onSeasonChanged: (sn) {
-                    setState(() => _selectedSeasonNumber = sn);
-                    _fetchSeasonEpisodes(sn);
-                  },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 6),
+                      child: _buildDiscordShareButton(
+                        season: _selectedSeasonNumber,
+                      ),
+                    ),
+                    EpisodeListSection(
+                      episodes: _episodes,
+                      seasons: _seasons,
+                      selectedSeasonNumber: _selectedSeasonNumber,
+                      isLoadingEpisodes: _isLoadingEpisodes,
+                      tmdbMatchedSeason: _tmdbMatchedSeason,
+                      onPlayEpisode: _playEpisode,
+                      onSeasonChanged: (sn) {
+                        setState(() => _selectedSeasonNumber = sn);
+                        _fetchSeasonEpisodes(sn);
+                      },
+                    ),
+                  ],
                 ),
               ),
             SliverToBoxAdapter(
@@ -871,8 +906,83 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
   Widget _buildCinemaActions() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 6),
-      child: Column(children: [_buildCinemaPlayButton()]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildCinemaPlayButton(),
+          const SizedBox(height: AppSpacing.sm),
+          _buildDiscordShareButton(),
+        ],
+      ),
     );
+  }
+
+  Widget _buildDiscordShareButton({int? season, int? episode}) {
+    return Builder(
+      builder: (context) {
+        final isCouple = context.watch<AuthService>().isCoupleUser;
+        if (!isCouple) return const SizedBox.shrink();
+        return EverglowButton.glass(
+          label: _isSharingDiscord ? 'Sharing…' : 'Share to Discord',
+          icon: Icons.share_rounded,
+          enabled: !_isSharingDiscord,
+          onPressed: _isSharingDiscord
+              ? null
+              : () => _shareToDiscord(season: season, episode: episode),
+          tooltip: 'Post this pick to #watch-party',
+        );
+      },
+    );
+  }
+
+  Future<void> _shareToDiscord({int? season, int? episode}) async {
+    if (_isSharingDiscord) return;
+    setState(() => _isSharingDiscord = true);
+    try {
+      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+      if (idToken == null || idToken.isEmpty) {
+        // ignore: avoid_print
+        print('[EpisodeDrawer] Discord share failed: no ID token');
+        if (mounted) _showSnack('Discord share failed — cinema still works');
+        return;
+      }
+      var posterPath = widget.item.posterPath;
+      if (posterPath.isEmpty) {
+        final rawPoster = _details?['poster_path'] as String?;
+        if (rawPoster != null && rawPoster.isNotEmpty) {
+          posterPath = 'https://image.tmdb.org/t/p/w500$rawPoster';
+        } else {
+          posterPath = (_details?['_posterUrl'] as String?) ?? '';
+        }
+      }
+      const endpoint =
+          'https://us-central1-everglow-1c6db.cloudfunctions.net/notifyDiscordWatch';
+      final ok = await DiscordShareService(endpoint: endpoint).share(
+        idToken: idToken,
+        title: widget.item.title,
+        posterPath: posterPath,
+        mediaType: widget.item.mediaType,
+        season: season,
+        episode: episode,
+      );
+      if (!mounted) return;
+      if (ok) {
+        _showSnack('Shared to #watch-party');
+      } else {
+        // ignore: avoid_print
+        print(
+          '[EpisodeDrawer] Discord share failed for "${widget.item.title}"',
+        );
+        _showSnack('Discord share failed — cinema still works');
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('[EpisodeDrawer] Discord share failed: $e');
+      debugPrint('[EpisodeDrawer] Discord share failed: $e');
+      if (mounted) _showSnack('Discord share failed — cinema still works');
+    } finally {
+      if (mounted) setState(() => _isSharingDiscord = false);
+    }
   }
 
   Widget _buildCinemaPlayButton() {
