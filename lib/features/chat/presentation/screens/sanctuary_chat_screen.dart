@@ -724,8 +724,11 @@ class _DayHeader extends StatelessWidget {
     String label;
     if (diff == 0) {
       label = 'Today';
-    } else if (diff == 1) label = 'Yesterday';
-    else label = DateFormat('EEEE, MMM d').format(date);
+    } else if (diff == 1) {
+      label = 'Yesterday';
+    } else {
+      label = DateFormat('EEEE, MMM d').format(date);
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Center(

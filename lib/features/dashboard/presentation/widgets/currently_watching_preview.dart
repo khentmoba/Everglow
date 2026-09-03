@@ -99,13 +99,17 @@ class _CurrentlyWatchingHeaderState extends State<_CurrentlyWatchingHeader> {
     _streamSub = _service.getCurrentlyWatchingStream(widget.userName).listen(
       (items) {
         _retryCount = 0;
-        // Keep anime out of the generic shelf — the Anime rail owns its own
-        // watching row now so the two never duplicate the same title.
-        final filtered = items.where((i) => !i.isAnime).toList();
+        // Cinema owns every movie (live-action or anime) plus non-anime TV;
+        // anime series live in the Anime rail. Filtering on isCinemaItem
+        // (instead of bare !isAnime) keeps anime films in this shelf so
+        // movie lovers never lose them from Currently Watching.
+        final filtered = items.where((i) => i.isCinemaItem).toList();
         if (!mounted) return;
         setState(() => _items = filtered);
       },
       onError: (Object e) {
+        // ignore: avoid_print
+        print('[CurrentlyWatching/header] stream error: $e');
         if (!mounted) return;
         if (_retryCount < 3) {
           _retryCount++;
@@ -187,7 +191,8 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
     _streamSub = _service.getCurrentlyWatchingStream(widget.userName).listen(
       (items) {
         _retryCount = 0;
-        final filtered = items.where((i) => !i.isAnime).toList();
+        // Same cinema rule as the header: every movie counts here.
+        final filtered = items.where((i) => i.isCinemaItem).toList();
         if (!mounted) return;
         setState(() {
           _items = filtered;
@@ -196,6 +201,8 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
         if (filtered.isNotEmpty) _backfillPosters(filtered);
       },
       onError: (Object e) {
+        // ignore: avoid_print
+        print('[CurrentlyWatching/shelf] stream error: $e');
         if (!mounted) return;
         // Firestore permission errors happen when the users/{uid} doc
         // has not been created yet (isReady race). Retry quickly.
@@ -267,7 +274,7 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
           (item) => Padding(
             padding: const EdgeInsets.only(right: 12),
             child: ShelfCard(
-              accent: item.isAnime ? ShelfAccent.anime : ShelfAccent.cinema,
+              accent: ShelfAccent.cinema,
               imageUrl: item.posterPath,
               title: _sanitizeTitle(item.title),
               subtitle: _subtitleFor(item),

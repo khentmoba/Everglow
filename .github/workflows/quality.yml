@@ -19,7 +19,10 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: flutter analyze
-      - run: flutter test
+      # Golden-tagged tests are excluded here, same as the deploy
+      # workflow: committed PNGs render differently per platform
+      # (see the @Tags(['golden']) note atop those test files).
+      - run: flutter test --exclude-tags=golden
 
   functions:
     runs-on: ubuntu-latest
