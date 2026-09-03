@@ -156,19 +156,42 @@ class _AnimeHeaderState extends State<_AnimeHeader> {
     }
   }
 
+  int _retryCount = 0;
+
   void _subscribe() {
-    _streamSub = _service.getAnimeWatchListStream(widget.userName).listen((
-      items,
-    ) {
-      // Count both watching and finished so the header never reads
-      // "0 titles" while a watching-now row is populated.
-      final visible = items
-          .where((i) => i.isWatched || i.isCurrentlyWatching)
-          .toList();
-      visible.sort((a, b) => b.addedAt.compareTo(a.addedAt));
-      if (!mounted) return;
-      setState(() => _items = visible);
-    });
+    if (widget.userName.isEmpty) {
+      if (mounted) setState(() => _items = []);
+      return;
+    }
+    _streamSub?.cancel();
+    _streamSub = _service.getAnimeWatchListStream(widget.userName).listen(
+      (items) {
+        _retryCount = 0;
+        // Count both watching and finished so the header never reads
+        // "0 titles" while a watching-now row is populated.
+        final visible = items
+            .where((i) => i.isWatched || i.isCurrentlyWatching)
+            .toList();
+        visible.sort((a, b) => b.addedAt.compareTo(a.addedAt));
+        if (!mounted) return;
+        setState(() => _items = visible);
+      },
+      onError: (Object e) {
+        // ignore: avoid_print
+        print(
+          '[AnimePreview/header:${widget.userName}] anime stream error: $e',
+        );
+        if (!mounted) return;
+        if (_retryCount < 3) {
+          _retryCount++;
+          Future.delayed(Duration(seconds: 1 + _retryCount), () {
+            if (mounted) _subscribe();
+          });
+        } else {
+          setState(() => _items = []);
+        }
+      },
+    );
   }
 
   @override
@@ -207,6 +230,7 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
   final TMDBService _service = TMDBService();
   List<MediaItem> _items = [];
   bool _hasLoaded = false;
+  bool _loadError = false;
   StreamSubscription<List<MediaItem>>? _streamSub;
 
   @override
@@ -222,6 +246,7 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
       _streamSub?.cancel();
       _items = [];
       _hasLoaded = false;
+      _loadError = false;
       _subscribe();
     }
   }
@@ -250,12 +275,15 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
         setState(() {
           _items = sorted;
           _hasLoaded = true;
+          _loadError = false;
         });
         _backfillPosters(sorted);
       },
       onError: (Object e) {
         // ignore: avoid_print
-        print('[AnimePreview/watching] anime stream error: $e');
+        print(
+          '[AnimePreview/watching:${widget.userName}] anime stream error: $e',
+        );
         if (!mounted) return;
         if (_retryCount < 3) {
           _retryCount++;
@@ -263,7 +291,10 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
             if (mounted) _subscribe();
           });
         } else {
-          setState(() => _hasLoaded = true);
+          setState(() {
+            _hasLoaded = true;
+            _loadError = true;
+          });
         }
       },
     );
@@ -349,9 +380,11 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
         );
       }
       if (cards.isEmpty) {
-        return const ShelfEmpty(
+        return ShelfEmpty(
           accent: ShelfAccent.anime,
-          message: 'No anime in progress. Start one to see it here!',
+          message: _loadError
+              ? 'Couldn\'t load your anime — check your connection and reopen.'
+              : 'No anime in progress. Start one to see it here!',
         );
       }
       return SizedBox(height: 194, child: ShelfMarquee(children: cards));
@@ -359,7 +392,9 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
     return PartnerSubrow(
       label: widget.label!,
       accent: ShelfAccent.anime,
-      emptyMessage: widget.isSelf
+      emptyMessage: _loadError
+          ? 'Couldn\'t load — check connection and reopen.'
+          : widget.isSelf
           ? 'You aren\'t watching any anime right now.'
           : 'Nothing playing on their end.',
       children: _hasLoaded ? cards : const [],
@@ -385,6 +420,7 @@ class _AnimeShelfState extends State<_AnimeShelf> {
   final TMDBService _service = TMDBService();
   List<MediaItem> _items = [];
   bool _hasLoaded = false;
+  bool _loadError = false;
   StreamSubscription<List<MediaItem>>? _streamSub;
 
   @override
@@ -400,6 +436,7 @@ class _AnimeShelfState extends State<_AnimeShelf> {
       _streamSub?.cancel();
       _items = [];
       _hasLoaded = false;
+      _loadError = false;
       _subscribe();
     }
   }
@@ -423,11 +460,14 @@ class _AnimeShelfState extends State<_AnimeShelf> {
         setState(() {
           _items = watched;
           _hasLoaded = true;
+          _loadError = false;
         });
       },
       onError: (Object e) {
         // ignore: avoid_print
-        print('[AnimePreview/finished] anime stream error: $e');
+        print(
+          '[AnimePreview/finished:${widget.userName}] anime stream error: $e',
+        );
         if (!mounted) return;
         if (_retryCount < 3) {
           _retryCount++;
@@ -435,7 +475,10 @@ class _AnimeShelfState extends State<_AnimeShelf> {
             if (mounted) _subscribe();
           });
         } else {
-          setState(() => _hasLoaded = true);
+          setState(() {
+            _hasLoaded = true;
+            _loadError = true;
+          });
         }
       },
     );
@@ -496,9 +539,11 @@ class _AnimeShelfState extends State<_AnimeShelf> {
         );
       }
       if (cards.isEmpty) {
-        return const ShelfEmpty(
+        return ShelfEmpty(
           accent: ShelfAccent.anime,
-          message: 'No anime watched yet. Time for a binge!',
+          message: _loadError
+              ? 'Couldn\'t load your anime — check your connection and reopen.'
+              : 'No anime watched yet. Time for a binge!',
         );
       }
       return SizedBox(height: 194, child: ShelfMarquee(children: cards));
@@ -506,7 +551,9 @@ class _AnimeShelfState extends State<_AnimeShelf> {
     return PartnerSubrow(
       label: widget.label!,
       accent: ShelfAccent.anime,
-      emptyMessage: widget.isSelf
+      emptyMessage: _loadError
+          ? 'Couldn\'t load — check connection and reopen.'
+          : widget.isSelf
           ? 'You haven\'t finished any anime yet.'
           : 'Nothing finished on their end.',
       children: _hasLoaded ? cards : const [],
