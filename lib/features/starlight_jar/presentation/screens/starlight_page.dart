@@ -35,7 +35,14 @@ class StarlightPage extends StatelessWidget {
               showPetals: false,
             ),
           ),
-          StarlightJarWidget(),
+          // Scrollable so the jar is never cut off on short viewports —
+          // the inner widget sizes itself (~650px) and scrolls instead of
+          // clipping its rounded base.
+          SafeArea(
+            child: SingleChildScrollView(
+              child: StarlightJarWidget(),
+            ),
+          ),
         ],
       ),
     );
