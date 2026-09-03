@@ -53,7 +53,7 @@ module.exports = { buildWatchPost, buildEndedPost, verifyDiscordSignature };
 async function postToWebhook({ webhookUrl, payload, fetchImpl }) {
   const useFetch = fetchImpl || fetch;
   const sep = webhookUrl.includes('?') ? '&' : '?';
-  const resp = await useFetch(`${webhookUrl}${sep}wait=true`, {
+  const resp = await useFetch(`${webhookUrl}${sep}wait=true&with_components=true`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -66,7 +66,8 @@ async function postToWebhook({ webhookUrl, payload, fetchImpl }) {
 
 async function patchWebhookMessage({ webhookUrl, messageId, payload, fetchImpl }) {
   const useFetch = fetchImpl || fetch;
-  const resp = await useFetch(`${webhookUrl}/messages/${messageId}`, {
+  const sep = webhookUrl.includes('?') ? '&' : '?';
+  const resp = await useFetch(`${webhookUrl}/messages/${messageId}${sep}with_components=true`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
