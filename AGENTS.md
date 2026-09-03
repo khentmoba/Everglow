@@ -1,96 +1,52 @@
 # Everglow — AGENTS.md
 
-> Private digital relationship scrapbook — Flutter Web + Firebase, for Khent & Clair.
+You : youre the agent who will help work with khent to develop this project.
+Khent : the person who is talking to you and the one who is working with you to help develop this project.
+Clair : the girlfriend of Khent, shes the user of this project, so basically this project is all for her and well be doing our utmost to better enhance her experience here in this project and develop this project to our full ability.
 
-## Project
-- **Stack:** Flutter Web (SDK ^3.11.3), Firebase (Auth / Firestore / Storage / Hosting / Functions), Provider, go_router.
-- **Entry:** `lib/main.dart` — initializes Firebase, dotenv, Firestore persistence, then `EverglowApp` (MultiProvider → MaterialApp.router).
-- **Version:** 6.0.0+1 (source of truth: `pubspec.yaml`).
-- **Live:** <https://everglow-1c6db.web.app> — auto-deployed on push to `main` via `.github/workflows/deploy.yml`.
+# Everglow
 
-## Commands
-| What | Command |
-|------|---------|
-| Install deps | `flutter pub get` |
-| Run locally | `flutter run -d chrome` |
-| Lint / analyze | `flutter analyze` (always before commit) |
-| Test | `flutter test` |
-| Build (release) | `flutter build web --release` |
-| Build (CanvasKit) | `flutter build web --web-renderer canvaskit --release` (see `build_prod.bat`) |
-| Deploy | `deploy.ps1` (builds + `firebase deploy --only functions,hosting`) |
-| Functions emulator | `cd functions && npm run serve` |
+A private love-letter app for Khent and Clair.
+Live at https://everglow-1c6db.web.app. Version in `pubspec.yaml`.
 
-## Architecture
+Clair is the one we are building for. Everything should feel warm,
+simple, and obvious to her.
 
-```
-lib/
-  main.dart                  # Entry point, bootstrap, app shell
-  core/
-    audio/                   # Sound effects (just_audio)
-    config/env_config.dart   # EnvConfig — dotenv / --dart-define values; secret fallbacks are debug-builds only
-    di/                      # Composition root (appProviders) + app shell (AppRoot)
-    models/                  # Shared models (PresenceStatus)
-    router/app_router.dart   # GoRouter composition root; feature routes live under each feature
-    services/                # Core Firebase services (AuthService, PresenceService, StorageService, NotificationService)
-    theme/                   # "Dusk Petal" design system (colors, typography, spacing, radius, elevation, motion, breakpoints)
-    utils/                   # Firestore stream helpers, logger, connectivity
-  features/
-    entry/                   # Passcode gateway (0221=Clair, 0938=Khent, 9132=Breyan, 8080=Octagram)
-    dashboard/               # Main hub — anniversary counter, milestone cards, feature previews
-    heartbeat/               # Daily mood tracking (mood picker, partner status)
-    guardian/                # Animated cat mascot with AI-powered messages
-    academy/                 # Trivia game — 8 categories, solo study, 1v1 matches
-    ai/                      # AI assistant (Agnes 2.5 Flash via SSE streaming on proxyAIv2/Cloud Run), conversation repo, memory repo
-    books/                   # Open Library discovery + in-app reader + shared "Our Books" list
-    bucket_list/             # Shared bucket list kanban (todo / doing / done)
-    budget/                  # Couple finances - transactions, monthly budgets, expense split
-    calendar/                # Shared calendar events + date polls (Rallly-style voting)
-    canvas/                  # Collaborative drawing (real-time Firestore sync)
-    chat/                    # "Sanctuary" private couple chat (Firestore real-time)
-    cinema/                  # Movie/anime watchlist — TMDB API, multi-provider video, trailers, episode drawer
-    cookbook/                # Shared recipe collection
-    daily_bloom/             # Virtual garden that grows with daily visits
-    date_randomizer/         # Date idea generator (1000+ ideas, shake gesture)
-    gallery/                 # Photo gallery with map view + "this week" memories
-    jellyfin/                # Jellyfin media server integration + party downloads
-    journal/                 # Shared journal with locked/private entries and tags
-    jukebox/                 # Last.fm music sync, listen-along, music insights
-    manga/                   # Manga library — MangaDex, Bato, Comick, Mangakakalot, Mangasee123
-    play_zone/               # Games hub + Table Tennis (WebGL + Firestore multiplayer)
-    starlight_jar/           # Gratitude notes jar
-    travel/                  # Shared trips — itinerary pins, atlas map view, reorderable stops
-    vault/                   # Private file vault (Firebase Storage)
-    watch_party/             # Watch party with WebRTC voice chat (ac-relay signaling server)
-    wellness/                # Habits + workout tracking with streaks
-    wiki/                    # Shared worldbuilding/wiki pages
-    xp/                      # XP/leveling system
-  shared/
-    utils/text_utils.dart    # stripMarkdown, extractTitles
-    widgets/everglow/        # Design system: EverglowButton, EverglowCard, EverglowScaffold, etc.
-    widgets/shelf/           # Cinema/books shelf UI: ShelfPosterCard, ShelfHeroCarousel, CinemaNavBar, etc.
-  firebase_options.dart      # Generated Firebase config
+## Khent's note (how to work)
 
-web/                         # PWA manifest, index.html, favicon, service worker
-functions/index.js           # Cloud Functions: proxyBookText, proxyManga*, proxyAI/proxyAIv2 (Agnes 2.5 Flash), proxyTmdb, proxyLastfm, agnesImage + 15 schedules/triggers
-ac-relay/server.js           # WebRTC signaling server for watch-party voice chat
-```
+- I like ambitious ideas, simple systems, and software that feels obvious.
+- Do not preserve complexity just because it already exists. Do not introduce machinery because it looks architecturally impressive.
+- Understand the real constraint, then fight for the smallest model that makes the correct behavior unsurprising.
+- Channel both "measure twice, cut once" and "yagni". Fight scope creep.
+- Try to honor the dev's intent in both a minimal and realistic fashion.
+- The rest of this document is meant to help you navigate the codebase and make changes effectively. Think of these instructions less as "hard rules", more as "good defaults". The developer's preferences should be able to override anything here.
 
-### Feature layer convention (most features follow this):
-`data/` (models + services) → `domain/` (models + repository interfaces, where used) → `presentation/` (screens + widgets + providers/controllers).
+## Where things live
 
-## Conventions
+* Start: `lib/main.dart` - starts Firebase, then opens `EverglowApp`.
+* Setup: `lib/core/di/app_providers.dart` - this is where services are created. Do not add setup in `main.dart`.
+* Pages: `lib/core/router/app_router.dart` just joins pages together. Each feature keeps its own pages under `lib/features/<name>/presentation/routes/`.
+* Looks: use `lib/core/theme/` for colors and spacing. Use `lib/shared/widgets/everglow/` for buttons and cards. Never hardcode colors.
+* Features: about 30 small parts under `lib/features/`. Full list is in `README.md`. Each one is `data/` -> `domain/` -> `presentation/`.
+* Server: `functions/index.js` talks to movies, music, and AI. The app never calls those sites directly.
+* Rules: `firestore.rules` decides who sees what. |
 
-- **State management:** Provider (`ChangeNotifierProvider`, `Provider`, `Selector`). No Riverpod/Bloc.
-- **Routing:** `go_router` — each feature owns its routes in `<feature>/presentation/routes/`, composed in `core/router/app_router.dart`. Complex objects passed via `extra`.
-- **DI:** `core/di/app_providers.dart` is the composition root; `main.dart` should not wire feature services directly.
-- **Theme:** Always use tokens from `core/theme/` (AppColors, AppTypography, AppSpacing, AppRadius, etc.) — never hardcode colors or spacing.
-- **Shared widgets:** Prefer `shared/widgets/everglow/` components (EverglowButton, EverglowCard, EverglowScaffold, etc.) over bare Material widgets for UI consistency.
-- **Assets:** Self-hosted Google Fonts (`assets/google_fonts/`), images in `assets/images/`, seed data in `assets/data/`. Runtime font fetching is disabled.
-- **Naming:** Dart files use `snake_case`. Classes use `PascalCase`. Screen widgets end in `Screen` (e.g. `DashboardScreen`).
-- **Imports:** Use relative imports (`../../features/...`) within lib/ — no package imports for internal files.
-- **Firestore:** Always enable `print` logging on error paths. Use `.snapshots()` for real-time. Persistence is on globally.
-- **Lint:** `flutter_lints` (package:flutter_lints/flutter.yaml). Run `flutter analyze` before committing — do not suppress lints without a comment.
-- **Tests:** Minimal — `flutter test` runs unit tests under `test/`. New features don't strictly require tests, but core logic should have them.
+## Workflow — how we ship (agreed with Khent)
+
+- Never push straight to `main`. `main` auto-deploys live to Clair.
+- One small branch per fix or feature, then open a PR and merge only when checks pass.
+- Keep it tiny: one topic per PR. No giant mixed PRs (routes + AI + voice + design in one go).
+- Before every PR: run `flutter analyze`, run `flutter test`, and open the app in Chrome (`flutter run -d chrome`) to look at what you changed.
+- If functions or hosting checks fail, stop and fix. Do not add `continue-on-error` or hide failures.
+- Leave the tree clean: commit or drop your work, don't leave uncommitted files behind.
+
+
+## Watch-outs (learned from live breaks)
+
+- **Privacy first:** couple-only data (chat, gallery, notes, garden, AI memories) is Khent + Clair only. Breyan / Octagram are movies-only. When touching Firestore or functions, re-check `firestore.rules` and keep TMDB / Last.fm / Agnes keys server-side.
+- **Main screen is fragile on web:** the Together zone broke live several times (grey cover, full-stack crash). Reproduce in Chrome first. Keep lists finite, avoid blur-over-big-area and pinned headers that jump.
+- **Helpers need a login token:** the app never calls TMDB / Last.fm / Agnes directly. It calls our cloud helpers with a Firebase login token. Don't add direct web calls or client keys.
+- **History should stay readable:** tiny scoped commits (`fix(dashboard): ...`). One fix per commit so a bad deploy is easy to undo. No "fix live by redeploying to see" — look locally first.
 
 ## Web Search Policy (persistent user preference)
 
@@ -98,19 +54,19 @@ ac-relay/server.js           # WebRTC signaling server for watch-party voice cha
 - Do NOT use native web search unless TinyFish is unavailable - if fallback happens, explicitly note it.
 - Follow the skill routing: search -> fetch -> agent -> browser, lightest tool first.
 
-## Notes
+## Rules that matter
 
-- **Secrets:** never commit real credentials, passcodes, or API keys. `assets/env.txt` is local-only and is **not** bundled into web builds; only public client values are passed to Flutter. See `.env.example`.
-- **Media credentials:** TMDB and Last.fm API keys are server-only. Flutter Web calls the authenticated `proxyTmdb` / `proxyLastfm` Cloud Functions; do not reintroduce these keys as client `--dart-define`s.
-- **Security rules:** `firestore.rules` blocks anonymous users, requires a known `/users/{uid}` profile, and limits couple-only collections (chat, gallery, notes, cinema, canvas, garden, AI memories, etc.) to Khent and Clair. Every Cloud Function proxy requires a valid Firebase ID token.
-- Do **not** read or expose `assets/env.txt` — it contains secrets (API keys, emails, passwords).
-- Firebase emulators config is in `firebase.json` — ports 9099–9499.
-- `deploy.ps1` auto-generates `web/sw.js` with a version-commit build stamp before deploying.
-- The AI feature uses Agnes 2.5 Flash (apihub.agnes-ai.com) via SSE streaming on proxyAIv2 (Cloud Run) — 512K context, 120K input budget, 11 function tools, thinking mode. See memory docs for tuning details.
-- ac-relay is a separate Node.js WebRTC signaling server, not deployed with Firebase — run independently if voice chat is needed.
+* Only Khent and Clair see couple things like chat, photos, notes, garden, and AI memories. Breyan and Octagram only get movies.
+* The app never talks to TMDB, Last.fm, or AI directly. It calls our server helpers with a login token. Keys stay on the server.
+* Never commit passcodes, keys, or secrets. `assets/env.txt` is local only - do not read it or copy it.
+* Login codes are checked on the server. Do not put them in the file.
+* For live data use `.snapshots()`. If something fails, leave a `print` so we can see it.
+* Use Provider only. No Riverpod, no Bloc.
+* Use relative imports inside `lib/`, like `../../features/...`.
+* Dart files are `snake_case`. Screens end in `Screen`.
 
-## Communication
+## How to talk
 
-- Always talk to the user in plain, simple human language, no matter the topic or circumstance.
-- Explain what happened, why it matters, and what to do next in everyday words. Avoid jargon, file names, and implementation details unless the user explicitly asks for them.
-- Keep answers short and warm. One short paragraph or a few plain sentences beats a technical report.
+* Plain and simple words. No jargon unless Khent asks.
+* Say what happened, why it matters for Clair, and what to do next.
+* Keep answers in a way that a normal human would be able to understand properly.
