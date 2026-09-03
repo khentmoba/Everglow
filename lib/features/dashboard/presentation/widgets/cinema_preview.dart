@@ -77,13 +77,40 @@ class _CinemaHeaderState extends State<_CinemaHeader> {
     }
   }
 
+  int _retryCount = 0;
+
   void _subscribe() {
-    _streamSub = _service.getWatchListStream(widget.userName).listen((items) {
-      final watched = items.where((i) => i.isWatched && !i.isAnime).toList();
-      watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
-      if (!mounted) return;
-      setState(() => _items = watched);
-    });
+    if (widget.userName.isEmpty) {
+      if (mounted) setState(() => _items = []);
+      return;
+    }
+    _streamSub?.cancel();
+    _streamSub = _service.getWatchListStream(widget.userName).listen(
+      (items) {
+        _retryCount = 0;
+        // Cinema owns every watched movie (live-action or anime) plus
+        // non-anime TV — see MediaItem.isCinemaItem. Anime series live in
+        // the Anime rail.
+        final watched =
+            items.where((i) => i.isWatched && i.isCinemaItem).toList();
+        watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
+        if (!mounted) return;
+        setState(() => _items = watched);
+      },
+      onError: (Object e) {
+        // ignore: avoid_print
+        print('[CinemaPreview/header] watch_list stream error: $e');
+        if (!mounted) return;
+        if (_retryCount < 3) {
+          _retryCount++;
+          Future.delayed(Duration(seconds: 1 + _retryCount), () {
+            if (mounted) _subscribe();
+          });
+        } else {
+          setState(() => _items = []);
+        }
+      },
+    );
   }
 
   @override
@@ -140,16 +167,45 @@ class _CinemaShelfState extends State<_CinemaShelf> {
     }
   }
 
+  int _retryCount = 0;
+
   void _subscribe() {
-    _streamSub = _service.getWatchListStream(widget.userName).listen((items) {
-      final watched = items.where((i) => i.isWatched && !i.isAnime).toList();
-      watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
-      if (!mounted) return;
-      setState(() {
-        _items = watched;
-        _hasLoaded = true;
-      });
-    });
+    if (widget.userName.isEmpty) {
+      if (mounted) {
+        setState(() => _hasLoaded = true);
+      }
+      return;
+    }
+    _streamSub?.cancel();
+    _streamSub = _service.getWatchListStream(widget.userName).listen(
+      (items) {
+        _retryCount = 0;
+        // Cinema owns every watched movie (live-action or anime) plus
+        // non-anime TV — see MediaItem.isCinemaItem. Anime series live in
+        // the Anime rail.
+        final watched =
+            items.where((i) => i.isWatched && i.isCinemaItem).toList();
+        watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
+        if (!mounted) return;
+        setState(() {
+          _items = watched;
+          _hasLoaded = true;
+        });
+      },
+      onError: (Object e) {
+        // ignore: avoid_print
+        print('[CinemaPreview/shelf] watch_list stream error: $e');
+        if (!mounted) return;
+        if (_retryCount < 3) {
+          _retryCount++;
+          Future.delayed(Duration(seconds: 1 + _retryCount), () {
+            if (mounted) _subscribe();
+          });
+        } else {
+          setState(() => _hasLoaded = true);
+        }
+      },
+    );
   }
 
   @override

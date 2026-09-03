@@ -21,16 +21,17 @@ class DiscordShareService {
     int? episode,
   }) async {
     try {
+      final body = <String, dynamic>{
+        'title': title,
+        'posterPath': posterPath,
+        'mediaType': mediaType,
+      };
+      if (season != null) body['season'] = season;
+      if (episode != null) body['episode'] = episode;
       final resp = await _client.post(
         Uri.parse(endpoint),
         headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $idToken'},
-        body: jsonEncode({
-          'title': title,
-          'posterPath': posterPath,
-          'mediaType': mediaType,
-          if (season != null) 'season': season,
-          if (episode != null) 'episode': episode,
-        }),
+        body: jsonEncode(body),
       ).timeout(const Duration(seconds: 15));
       if (resp.statusCode != 200) {
         debugPrint('DiscordShareService.share failed: ${resp.statusCode} ${resp.body}');
