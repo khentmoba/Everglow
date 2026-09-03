@@ -116,13 +116,22 @@ class AIService extends ChangeNotifier {
       final context =
           contextOverride ?? ''; // server builds from feature+caller
 
-      // Load permanent memories
+      // Load permanent memories (trimmed for the tiny mascot).
       await _ensureMemoriesLoaded();
+      final memoriesForRequest = feature == 'guardian' && _memoryRepo.all.length > 10
+          ? _memoryRepo.all.sublist(0, 10)
+          : _memoryRepo.all;
 
-      // Build the API messages payload (all conversation messages)
-      final recentMessages = conversation.messages
+      // Build the API messages payload (all conversation messages).
+      // Guardian mascot replies stay tiny: only the last few turns matter,
+      // so trim history to save tokens, latency, and cost.
+      final isGuardian = feature == 'guardian';
+      final allPayloads = conversation.messages
           .map((m) => m.toApiPayload())
           .toList();
+      final recentMessages = isGuardian && allPayloads.length > 12
+          ? allPayloads.sublist(allPayloads.length - 12)
+          : allPayloads;
 
       String reply;
 
@@ -131,7 +140,7 @@ class AIService extends ChangeNotifier {
         reply = await _callProxyAIStream(
           recentMessages,
           context,
-          _memoryRepo.all,
+          memoriesForRequest,
           feature,
           caller,
           (chunk) {
@@ -167,7 +176,7 @@ class AIService extends ChangeNotifier {
         reply = await _callProxyAI(
           recentMessages,
           context,
-          _memoryRepo.all,
+          memoriesForRequest,
           feature,
           caller,
         );
@@ -238,6 +247,7 @@ class AIService extends ChangeNotifier {
     String? context,
     String systemPrompt =
         'You are the Everglow AI — a helpful, loving assistant for Khent and Clair. Be warm, insightful, and concise.',
+    bool includeMemories = true,
   }) async {
     try {
       final contextData = context ?? '';
@@ -249,7 +259,13 @@ class AIService extends ChangeNotifier {
         {'role': 'user', 'content': message},
       ];
 
-      await _ensureMemoriesLoaded();
+      final List<String> memories;
+      if (includeMemories) {
+        await _ensureMemoriesLoaded();
+        memories = _memoryRepo.all;
+      } else {
+        memories = const [];
+      }
 
       final idToken = await _auth.currentUser?.getIdToken() ?? '';
 
@@ -263,9 +279,9 @@ class AIService extends ChangeNotifier {
           'systemPrompt': systemMsg,
           'messages': messages,
           'context': contextData,
-          'memories': _memoryRepo.all,
+          'memories': memories,
         }),
-      );
+      ).timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -314,6 +330,8 @@ class AIService extends ChangeNotifier {
     return sendMessage(
       feature: 'guardian',
       message: message,
+      // Thinking mode off: mascot replies should be instant, not deep reasoned.
+      enableThinking: false,
       contextOverride:
           'You are Mochi 🍡 — the magical white cat who lives inside Everglow and watches over Khent and Clair. Your Guardian form appears as a cute floating cat on the dashboard. Speak in warm, playful, expressive messages. You can be 1-4 sentences depending on what feels right. Use emojis sometimes. Be genuinely helpful — answer questions, give suggestions, check in on how they\'re doing.',
     );

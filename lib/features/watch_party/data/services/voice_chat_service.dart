@@ -39,6 +39,7 @@ class VoiceChatService {
 
   RTCPeerConnection? _pc;
   MediaStream? _localStream;
+  final RTCVideoRenderer _remoteRenderer = RTCVideoRenderer();
   StreamSubscription<DocumentSnapshot>? _signalSub;
   StreamSubscription<QuerySnapshot>? _candidateSub;
   StreamSubscription<DocumentSnapshot>? _incomingSignalSub;
@@ -58,6 +59,7 @@ class VoiceChatService {
   String? _remoteUid;
   bool _remoteDescSet = false;
   bool _iceRestarted = false;
+  final List<RTCIceCandidate> _pendingRemoteCandidates = [];
 
   /// Stream controller for app-wide "incoming call" notifications.
   /// We expose a single global stream — if multiple instances
@@ -161,6 +163,7 @@ class VoiceChatService {
   }
 
   Future<void> _createPC() async {
+    await _remoteRenderer.initialize();
     _pc = await createPeerConnection({
       'iceServers': _iceServers,
       'iceTransportPolicy': 'all',
@@ -176,7 +179,7 @@ class VoiceChatService {
 
     _pc!.onTrack = (event) {
       Logger.d('VoiceChatService: remote track received');
-      if (event.track.kind == 'audio') {
+      if (event.track.kind == 'audio' && event.streams.isNotEmpty) {
         _attachRemoteAudio(event.streams[0]);
       }
     };
@@ -244,8 +247,11 @@ class VoiceChatService {
   }
 
   void _attachRemoteAudio(MediaStream stream) {
+    _remoteRenderer.srcObject = stream;
     hasRemoteAudio.value = true;
   }
+
+  RTCVideoRenderer get remoteRenderer => _remoteRenderer;
 
   Future<void> _createOffer({
     String? callerName,
@@ -305,6 +311,7 @@ class VoiceChatService {
         'state': 'calling',
         'updatedAt': FieldValue.serverTimestamp(),
       });
+      await _flushRemoteCandidates();
     } catch (e) {
       Logger.e('VoiceChatService._handleOffer failed', error: e);
     }
@@ -317,6 +324,7 @@ class VoiceChatService {
       final desc = RTCSessionDescription(map['sdp'], map['type']);
       await _pc!.setRemoteDescription(desc);
       _remoteDescSet = true;
+      await _flushRemoteCandidates();
     } catch (e) {
       Logger.e('VoiceChatService._handleAnswer failed', error: e);
     }
@@ -394,20 +402,38 @@ class VoiceChatService {
               final data = change.doc.data()!;
               if (data['from'] == _myUid) continue;
               if (data['candidate'] == null || data['sdpMid'] == null) continue;
-              try {
-                _pc?.addCandidate(
-                  RTCIceCandidate(
-                    data['candidate'] as String,
-                    data['sdpMid'] as String,
-                    (data['sdpMLineIndex'] as num?)?.toInt() ?? 0,
-                  ),
-                );
-              } catch (e) {
-                // Candidate may have been added before remote desc — browser queues it
-              }
+              final candidate = RTCIceCandidate(
+                data['candidate'] as String,
+                data['sdpMid'] as String,
+                (data['sdpMLineIndex'] as num?)?.toInt() ?? 0,
+              );
+              unawaited(_addRemoteCandidate(candidate));
             }
           }
         });
+  }
+
+  Future<void> _addRemoteCandidate(RTCIceCandidate candidate) async {
+    if (!_remoteDescSet || _pc == null) {
+      _pendingRemoteCandidates.add(candidate);
+      return;
+    }
+    try {
+      await _pc!.addCandidate(candidate);
+    } catch (e) {
+      Logger.e('VoiceChatService._addRemoteCandidate failed', error: e);
+    }
+  }
+
+  Future<void> _flushRemoteCandidates() async {
+    if (!_remoteDescSet || _pc == null || _pendingRemoteCandidates.isEmpty) {
+      return;
+    }
+    final candidates = List<RTCIceCandidate>.from(_pendingRemoteCandidates);
+    _pendingRemoteCandidates.clear();
+    for (final candidate in candidates) {
+      await _addRemoteCandidate(candidate);
+    }
   }
 
   Future<void> toggleMute() async {
@@ -464,6 +490,11 @@ class VoiceChatService {
         }
       }
       _localStream = null;
+    }
+    try {
+      await _remoteRenderer.dispose();
+    } catch (e) {
+      debugPrint('[VoiceChatService] Failed to dispose remote renderer: $e');
     }
     _remoteDescSet = false;
     _iceRestarted = false;

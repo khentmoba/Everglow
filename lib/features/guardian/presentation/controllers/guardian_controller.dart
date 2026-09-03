@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../data/models/guardian_message.dart';
 import '../../data/services/guardian_service.dart';
@@ -6,6 +7,7 @@ import '../../../heartbeat/data/services/mood_service.dart';
 import '../../../heartbeat/data/models/user_mood.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../ai/data/services/ai_service.dart';
+import '../../../../core/utils/logger.dart';
 
 enum GuardianState { idle, greeting, reacting, thinking }
 
@@ -14,6 +16,7 @@ class GuardianController extends ChangeNotifier {
   final MoodService? _moodService;
   final AuthService? _authService;
   final AIService? _aiService;
+  final Random _random = Random();
 
   GuardianState _state = GuardianState.idle;
   GuardianMessage? _currentMessage;
@@ -21,8 +24,22 @@ class GuardianController extends ChangeNotifier {
   bool _isMoodPromptVisible = false;
   bool _isAIMode = false;
   Timer? _idleTimer;
+  Timer? _dismissTimer;
   int _messageCounter = 0;
   String? _lastUserMessage;
+  DateTime? _lastTapAt;
+  UserMood? _moodCache;
+  DateTime? _moodCacheAt;
+  DateTime? _lastAiGreetingAt;
+  bool _idlePaused = false;
+
+  static const _localGreetings = [
+    '✨ Purring with love for you two!',
+    '🐱 Meow! Hope today feels soft and sweet!',
+    '🍡 Mochi is watching over you both!',
+    '💕 You two make everything brighter!',
+    '🌙 Rest a little — I saved you a warm spot!',
+  ];
 
   GuardianController(
     this._service, {
@@ -61,13 +78,7 @@ class GuardianController extends ChangeNotifier {
     }
     _isMessageVisible = true;
     notifyListeners();
-
-    Future.delayed(const Duration(seconds: 4), () {
-      if (mounted) {
-        _isMessageVisible = false;
-        notifyListeners();
-      }
-    });
+    _scheduleDismiss(const Duration(seconds: 4));
   }
 
   /// Send a user message to the AI Guardian.
@@ -78,6 +89,7 @@ class GuardianController extends ChangeNotifier {
     _lastUserMessage = message;
     _state = GuardianState.thinking;
     _isMessageVisible = true;
+    _dismissTimer?.cancel();
     _currentMessage = GuardianMessage(
       id: 'thinking',
       content: '🤔 *thinking...*',
@@ -99,16 +111,9 @@ class GuardianController extends ChangeNotifier {
       );
       _isMessageVisible = true;
       notifyListeners();
-
-      // Auto-dismiss after 8 seconds
-      Future.delayed(const Duration(seconds: 8), () {
-        if (mounted) {
-          _isMessageVisible = false;
-          _state = GuardianState.idle;
-          notifyListeners();
-        }
-      });
+      _scheduleDismiss(const Duration(seconds: 8));
     } catch (e) {
+      Logger.e('Guardian AI reply failed', error: e);
       if (!mounted) return;
       _state = GuardianState.idle;
       _currentMessage = GuardianMessage(
@@ -119,13 +124,7 @@ class GuardianController extends ChangeNotifier {
       );
       _isMessageVisible = true;
       notifyListeners();
-
-      Future.delayed(const Duration(seconds: 4), () {
-        if (mounted) {
-          _isMessageVisible = false;
-          notifyListeners();
-        }
-      });
+      _scheduleDismiss(const Duration(seconds: 4));
     }
   }
 
@@ -136,18 +135,26 @@ class GuardianController extends ChangeNotifier {
 
     // Auto-idle after greeting animation duration
     Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
       _state = GuardianState.idle;
       _startIdleTimer();
       notifyListeners();
     });
   }
 
-  /// Triggered on tap.
+  /// Triggered on tap. Debounced so rapid taps don't spam reads/rebuilds.
   void react() {
+    final now = DateTime.now();
+    if (_lastTapAt != null &&
+        now.difference(_lastTapAt!) < const Duration(milliseconds: 400)) {
+      return;
+    }
+    _lastTapAt = now;
     _state = GuardianState.reacting;
 
     if (_isAIMode && _aiService != null) {
       // In AI mode, show a chat-like prompt instead of random message
+      _dismissTimer?.cancel();
       _currentMessage = GuardianMessage(
         id: 'ai_prompt',
         content: '💬 Tell me something! What\'s on your mind?',
@@ -156,13 +163,14 @@ class GuardianController extends ChangeNotifier {
       );
       _isMessageVisible = true;
     } else {
-      _showMessage();
+      unawaited(_showMessage());
     }
 
     notifyListeners();
 
     // Reset to idle
     Future.delayed(const Duration(milliseconds: 800), () {
+      if (!mounted) return;
       _state = GuardianState.idle;
       notifyListeners();
     });
@@ -170,28 +178,65 @@ class GuardianController extends ChangeNotifier {
 
   void _startIdleTimer() {
     _idleTimer?.cancel();
+    if (_idlePaused) return;
     // Random interval 3-7 minutes
-    final minutes = 3 + (DateTime.now().millisecond % 5);
+    final minutes = 3 + _random.nextInt(5);
     _idleTimer = Timer(Duration(minutes: minutes), () {
-      if (!mounted) return;
+      if (!mounted || _idlePaused) return;
       // In AI mode, generate a contextual greeting
       if (_isAIMode && _aiService != null) {
-        _showAIGreeting();
+        unawaited(_showAIGreeting());
       } else {
-        _showMessage();
+        unawaited(_showMessage());
       }
       _startIdleTimer(); // Loop
     });
   }
 
+  /// Pause idle popups (e.g. app backgrounded or guardian offscreen).
+  void pauseIdle() {
+    _idlePaused = true;
+    _idleTimer?.cancel();
+    _idleTimer = null;
+  }
+
+  /// Resume idle popups.
+  void resumeIdle() {
+    if (!_idlePaused) return;
+    _idlePaused = false;
+    _startIdleTimer();
+  }
+
   Future<void> _showAIGreeting() async {
+    // Cheap path: reuse a local greeting most of the time, and never call
+    // the AI more than once per 10 minutes for idle popups.
+    final recentlyAsked = _lastAiGreetingAt != null &&
+        DateTime.now().difference(_lastAiGreetingAt!) <
+            const Duration(minutes: 10);
+    final useLocal = recentlyAsked || _random.nextDouble() < 0.7;
+    if (useLocal) {
+      if (!mounted) return;
+      _currentMessage = GuardianMessage(
+        id: 'ai_greeting_${DateTime.now().millisecondsSinceEpoch}',
+        content: _localGreetings[_random.nextInt(_localGreetings.length)],
+        category: 'ai',
+        createdAt: DateTime.now(),
+      );
+      _isMessageVisible = true;
+      notifyListeners();
+      _scheduleDismiss(const Duration(seconds: 6));
+      return;
+    }
+
     try {
       final greeting = await _aiService!.quickAsk(
         message:
             'Say a warm, playful greeting to the couple using the app. Be natural and varied — 1-2 sentences. Use an emoji.',
         systemPrompt:
             'You are Everglow Guardian — a cute magical cat mascot. Respond warmly with personality.',
+        includeMemories: false,
       );
+      _lastAiGreetingAt = DateTime.now();
 
       if (!mounted) return;
       _currentMessage = GuardianMessage(
@@ -205,67 +250,83 @@ class GuardianController extends ChangeNotifier {
     } catch (_) {
       if (!mounted) return;
       // Fallback to static messages
-      _showMessage();
+      await _showMessage();
       return;
     }
 
     _isMessageVisible = true;
     notifyListeners();
-
-    Future.delayed(const Duration(seconds: 6), () {
-      if (mounted) {
-        _isMessageVisible = false;
-        notifyListeners();
-      }
-    });
+    _scheduleDismiss(const Duration(seconds: 6));
   }
 
-  void _showMessage() async {
+  Future<void> _showMessage() async {
     _messageCounter++;
+    _dismissTimer?.cancel();
 
-    // Occasionally mention partner's mood (every 5-10 messages)
+    // Occasionally mention partner's mood (every 5-10 messages).
+    // Cached for 5 minutes and fetched with a one-shot get (no stream).
     if (_moodService != null &&
         _authService != null &&
         _messageCounter % 7 == 0) {
-      final auth = _authService;
-      final moodSvc = _moodService;
-      final partnerUsername = auth.partnerUsername ?? '';
-      final partnerName = auth.partnerName;
+      try {
+        final auth = _authService;
+        final moodSvc = _moodService;
+        final partnerUsername = auth.partnerUsername ?? '';
+        final partnerName = auth.partnerName;
 
-      final moodStream = moodSvc.watchLatestMood(partnerUsername);
-      final UserMood? latestMood = await moodStream.first;
+        UserMood? latestMood = _moodCache;
+        final cacheFresh = _moodCacheAt != null &&
+            DateTime.now().difference(_moodCacheAt!) <
+                const Duration(minutes: 5);
+        if (!cacheFresh && partnerUsername.isNotEmpty) {
+          latestMood = await moodSvc
+              .getLatestMood(partnerUsername)
+              .timeout(const Duration(seconds: 6));
+          _moodCache = latestMood;
+          _moodCacheAt = DateTime.now();
+        }
 
-      if (latestMood != null) {
-        _currentMessage = GuardianMessage(
-          id: 'partner_mood',
-          content: '$partnerName is feeling ${latestMood.moodEmoji} today!',
-          category: 'mood',
-          createdAt: DateTime.now(),
-        );
-        _isMessageVisible = true;
-        notifyListeners();
-
-        Future.delayed(const Duration(seconds: 5), () {
-          _isMessageVisible = false;
+        if (latestMood != null && mounted) {
+          _currentMessage = GuardianMessage(
+            id: 'partner_mood',
+            content: '$partnerName is feeling ${latestMood.moodEmoji} today!',
+            category: 'mood',
+            createdAt: DateTime.now(),
+          );
+          _isMessageVisible = true;
           notifyListeners();
-        });
-        return;
+          _scheduleDismiss(const Duration(seconds: 5));
+          return;
+        }
+      } catch (e) {
+        Logger.e('Guardian mood mention failed', error: e);
+        // Fall through to a random message.
       }
     }
 
     _currentMessage = _service.getRandomMessage();
-    if (_currentMessage != null) {
+    if (_currentMessage != null && mounted) {
       _isMessageVisible = true;
       notifyListeners();
-
-      Future.delayed(const Duration(seconds: 5), () {
-        _isMessageVisible = false;
-        notifyListeners();
-      });
+      _scheduleDismiss(const Duration(seconds: 5));
     }
   }
 
+  void _scheduleDismiss(Duration after) {
+    _dismissTimer?.cancel();
+    _dismissTimer = Timer(after, () {
+      if (!mounted) return;
+      // Don't hide a newer thinking/AI reply that arrived after scheduling.
+      _isMessageVisible = false;
+      if (_state != GuardianState.thinking) {
+        _state = GuardianState.idle;
+      }
+      notifyListeners();
+    });
+  }
+
   void triggerMoodPrompt() {
+    _dismissTimer?.cancel();
     _isMoodPromptVisible = true;
     _currentMessage = GuardianMessage(
       id: 'mood_prompt',
@@ -278,6 +339,7 @@ class GuardianController extends ChangeNotifier {
   }
 
   void dismissMoodPrompt() {
+    _dismissTimer?.cancel();
     _isMoodPromptVisible = false;
     _isMessageVisible = false;
     notifyListeners();
@@ -298,6 +360,7 @@ class GuardianController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _idleTimer?.cancel();
+    _dismissTimer?.cancel();
     super.dispose();
   }
 }

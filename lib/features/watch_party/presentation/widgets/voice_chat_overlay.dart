@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../../data/services/voice_chat_service.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -29,7 +30,26 @@ class VoiceChatOverlay extends StatelessWidget {
           if (state == VoiceChatState.idle || state == VoiceChatState.ended) {
             return const SizedBox.shrink();
           }
-          return _buildPill(context, state);
+          return Stack(
+            children: [
+              ValueListenableBuilder<bool>(
+                valueListenable: service.hasRemoteAudio,
+                builder: (_, hasAudio, _) {
+                  if (!hasAudio) return const SizedBox.shrink();
+                  // Keep the renderer mounted so browsers route the remote
+                  // track to the user's speakers without showing video UI.
+                  return IgnorePointer(
+                    child: SizedBox(
+                      width: 1,
+                      height: 1,
+                      child: RTCVideoView(service.remoteRenderer),
+                    ),
+                  );
+                },
+              ),
+              _buildPill(context, state),
+            ],
+          );
         },
       ),
     );
