@@ -30,9 +30,9 @@ class ThoughtBubble extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 13,
-                color: Colors.pink[400],
+                color: AppColors.deepRose,
                 fontWeight: FontWeight.w600,
                 fontStyle: FontStyle.italic,
               ),

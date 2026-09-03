@@ -66,6 +66,7 @@ class _RoamingCat3DViewState extends State<RoamingCat3DView> {
     super.initState();
     final engine = RoamingCat3DEngine.instance;
     engine.ensureRunning();
+    engine.setVisible(true);
     engine.setParams(widget.frame);
     engine.addListener(_onFrame);
   }
@@ -78,7 +79,9 @@ class _RoamingCat3DViewState extends State<RoamingCat3DView> {
 
   @override
   void dispose() {
-    RoamingCat3DEngine.instance.removeListener(_onFrame);
+    final engine = RoamingCat3DEngine.instance;
+    engine.removeListener(_onFrame);
+    engine.setVisible(false);
     super.dispose();
   }
 
