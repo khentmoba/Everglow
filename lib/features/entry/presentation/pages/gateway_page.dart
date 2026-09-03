@@ -195,7 +195,9 @@ class _GatewayPageState extends State<GatewayPage> {
       } else if (isClair || isKhent) {
         if (authService.currentUser == null) {
           // Server verify failed but client fallback allowed unlocking.
-          // Try offline login so Firestore rules still see a couple user.
+          // Offline login refuses anonymous sessions (firestore.rules
+          // blocks them, which used to surface as empty shelves), so a
+          // failure here keeps the user on the gateway with an error.
           final fallbackUser = isClair ? 'clairjassen' : 'khentsgdz';
           authTask = authService.loginCoupleOffline(fallbackUser);
         } else {
@@ -238,6 +240,18 @@ class _GatewayPageState extends State<GatewayPage> {
         authTask.catchError((_) {}),
       ]).then((_) {
         if (!mounted || _hasNavigated) return;
+        // Never enter the app without a Firebase session: without one,
+        // every Firestore stream fails with permission-denied and the
+        // dashboard renders false-empty shelves.
+        if (authService.user == null) {
+          _notifier.updateState(GatewayState.error);
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (!mounted || _hasNavigated) return;
+            _notifier.clearInput();
+            _notifier.updateState(GatewayState.awaitingInput);
+          });
+          return;
+        }
         if (isCinemaOnlyAccess) {
           _hasNavigated = true;
           context.go('/cinema');

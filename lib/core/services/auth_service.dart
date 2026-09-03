@@ -32,7 +32,19 @@ class AuthService extends ChangeNotifier {
         _partnerNameResolved = null;
         _isResolvingPartner = false;
       } else if (_currentUser != null) {
-        unawaited(_syncUserDoc());
+        // Anonymous sessions can never satisfy firestore.rules
+        // (`isNotAnonymous` is required for every app read), so an
+        // anonymous user paired with a couple username would only ever
+        // see permission-denied streams and false-empty shelves. Drop the
+        // false session so the gateway forces a real login instead.
+        if (user.isAnonymous && isCoupleUser) {
+          Logger.w(
+            'Clearing anonymous session for couple user $_currentUser — real login required',
+          );
+          unawaited(_auth.signOut());
+        } else {
+          unawaited(_syncUserDoc());
+        }
       }
       notifyListeners();
     });
@@ -43,6 +55,20 @@ class AuthService extends ChangeNotifier {
     _currentUser = prefs.getString('current_user_name');
     if (_currentUser != null) {
       Logger.i("Restored session for: $_currentUser");
+      // Same heal as the auth-state listener: a persisted anonymous user
+      // with a couple username can never read couple data. Sign out so the
+      // gateway asks for a real login instead of showing empty shelves.
+      if (isCoupleUser && _auth.currentUser?.isAnonymous == true) {
+        Logger.w(
+          'Clearing persisted anonymous session for $_currentUser — real login required',
+        );
+        try {
+          await _auth.signOut();
+        } catch (e) {
+          Logger.e('Failed to clear anonymous session', error: e);
+        }
+        _user = null;
+      }
       notifyListeners();
       // If auth state already fired before we loaded the session,
       // sync the user doc now that _currentUser is available.
@@ -349,30 +375,21 @@ class AuthService extends ChangeNotifier {
   }
 
   /// Offline fallback for Khent/Clair when verifyPasscode is unreachable.
-  /// Creates an anonymous Firebase session and writes the couple username so
-  /// Firestore rules (isCouple) still grant access. Server verification will
-  /// replace this anonymous UID with the real one on next online login.
+  ///
+  /// Anonymous Firebase sessions are blocked by firestore.rules
+  /// (`isNotAnonymous` is required for every app read), so signing in
+  /// anonymously would only produce permission-denied streams and
+  /// false-empty shelves. Refuse instead with a visible error so the
+  /// gateway stays put and the user retries online. Server verification
+  /// will sign in the real account on the next online login.
   Future<void> loginCoupleOffline(String username) async {
     if (username != 'khentsgdz' && username != 'clairjassen') return;
-    try {
-      if (_auth.currentUser == null) {
-        await _auth.signInAnonymously();
-        Logger.i('Offline couple login: signed in anonymously as $username (${_auth.currentUser?.uid ?? 'no-uid'})');
-      }
-      _currentUser = username;
-      await _saveSession(username);
-      unawaited(_syncUserDoc());
-      _lastAuthError = null;
-      notifyListeners();
-    } catch (e) {
-      Logger.e('loginCoupleOffline failed', error: e);
-      // Last resort: keep SharedPreferences so router at least knows the user,
-      // even if Firebase Auth is still null (router will bounce but gateway unlocked).
-      _currentUser = username;
-      await _saveSession(username);
-      _lastAuthError = null;
-      notifyListeners();
-    }
+    _lastAuthError =
+        'Login server unreachable. Please connect to the internet and try again.';
+    Logger.e(
+      'loginCoupleOffline refused anonymous couple session for $username — real login required',
+    );
+    notifyListeners();
   }
 
   /// Direct login for Breyan/Octagram (client-verified, non-sensitive).
