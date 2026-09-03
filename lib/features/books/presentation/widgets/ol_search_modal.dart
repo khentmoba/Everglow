@@ -8,6 +8,7 @@ import '../../data/models/book_item.dart';
 import '../../data/services/open_library_service.dart';
 import '../../data/services/our_books_service.dart';
 import './book_cover_card.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -87,11 +88,12 @@ class _OLSearchModalState extends State<OLSearchModal> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: item.coverUrl.isNotEmpty
-                      ? Image.network(
-                          item.coverUrl,
-                          height: 150,
-                          fit: BoxFit.cover,
-                        )
+                      ? AppNetworkImage(
+                        imageUrl: item.coverUrl,
+                        width: 100,
+                        height: 150,
+                        cacheWidth: 200,
+                      )
                       : Container(height: 150, color: AppTheme.twilight),
                 ),
                 const SizedBox(height: 16),

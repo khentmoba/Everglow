@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -68,7 +70,77 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
   final LetterboxService _service = LetterboxService();
   _LetterFilter _filter = _LetterFilter.all;
   final String _searchQuery = '';
-  int _streamVersion = 0;
+  StreamSubscription<List<HiddenNote>>? _sub;
+  Timer? _retryTimer;
+  List<HiddenNote> _allNotes = const [];
+  bool _isLoading = true;
+  bool _hasError = false;
+  int _retryCount = 0;
+  static const int _maxRetries = 3;
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribe();
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    _retryTimer?.cancel();
+    super.dispose();
+  }
+
+  void _subscribe() {
+    _sub?.cancel();
+    _retryTimer?.cancel();
+    _sub = _service.notes.listen(
+      (data) {
+        if (!mounted) return;
+        _retryCount = 0;
+        setState(() {
+          _allNotes = data;
+          _isLoading = false;
+          _hasError = false;
+        });
+      },
+      onError: (_) {
+        if (!mounted) return;
+        _scheduleSilentRetry();
+      },
+      onDone: () {
+        // withFirestoreTimeout closes silently when the first snapshot never
+        // arrives (cold Firestore WebChannel on first load). Retry silently
+        // with the skeleton up instead of flashing an error.
+        if (!mounted) return;
+        if (_isLoading) _scheduleSilentRetry();
+      },
+    );
+  }
+
+  void _scheduleSilentRetry() {
+    if (!mounted) return;
+    if (_retryCount < _maxRetries) {
+      _retryCount++;
+      _retryTimer = Timer(Duration(seconds: 1 + _retryCount), () {
+        if (mounted) _subscribe();
+      });
+    } else {
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+      });
+    }
+  }
+
+  void _retry() {
+    setState(() {
+      _hasError = false;
+      _isLoading = true;
+      _retryCount = 0;
+    });
+    _subscribe();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -166,96 +238,7 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
               ),
 
               // Letter list
-              Expanded(
-                child: StreamBuilder<List<HiddenNote>>(
-                  key: ValueKey(_streamVersion),
-                  stream: _service.notes,
-                  builder: (context, snapshot) {
-                    if (snapshot.hasError) {
-                      return EverglowErrorState(
-                        message: 'Could not load letters',
-                        onRetry: () => setState(() => _streamVersion++),
-                        icon: Icons.mail_outline_rounded,
-                      );
-                    }
-
-                    if (snapshot.connectionState == ConnectionState.done && !snapshot.hasData) {
-                      return EverglowErrorState(
-                        message: 'Could not load letters',
-                        onRetry: () => setState(() => _streamVersion++),
-                        icon: Icons.cloud_off_rounded,
-                      );
-                    }
-
-                    if (!snapshot.hasData && snapshot.connectionState == ConnectionState.waiting) {
-                      return ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: 5,
-                        itemBuilder: (_, _) => const Padding(
-                          padding: EdgeInsets.only(bottom: 12),
-                          child: EverglowSkeleton(
-                            width: double.infinity,
-                            height: 80,
-                            radius: 16,
-                          ),
-                        ),
-                      );
-                    }
-
-                    var notes = snapshot.data!;
-
-                    // Apply filter
-                    notes = notes.where((n) {
-                      switch (_filter) {
-                        case _LetterFilter.locked:
-                          return !n.isUnlocked;
-                        case _LetterFilter.unread:
-                          return n.isUnlocked && !n.isRead;
-                        case _LetterFilter.read:
-                          return n.isRead;
-                        case _LetterFilter.all:
-                          return true;
-                      }
-                    }).toList();
-
-                    // Apply search
-                    if (_searchQuery.isNotEmpty) {
-                      final q = _searchQuery.toLowerCase();
-                      notes = notes
-                          .where(
-                            (n) =>
-                                n.title.toLowerCase().contains(q) ||
-                                n.content.toLowerCase().contains(q),
-                          )
-                          .toList();
-                    }
-
-                    if (notes.isEmpty) {
-                      return EverglowEmptyState(
-                        icon: Icons.mail_outline_rounded,
-                        title: _filter == _LetterFilter.all
-                            ? 'No letters yet'
-                            : 'No ${_filter.label.toLowerCase()} letters',
-                        subtitle: 'Check back later! 🌸',
-                      );
-                    }
-
-                    return ListView.builder(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      itemCount: notes.length,
-                      itemBuilder: (context, index) {
-                        return _LetterListTile(
-                          note: notes[index],
-                          onTap: () => _openNote(notes[index]),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
+              Expanded(child: _buildLetterList()),
             ],
           ),
         ],
@@ -263,17 +246,93 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
     );
   }
 
-  void _openSearch(BuildContext context) async {
-    List<HiddenNote> allNotes;
-    try {
-      allNotes = await _service.notes.first;
-    } catch (e) {
-      if (!mounted) return;
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not load letters: $e')),
+  Widget _buildLetterList() {
+    if (_isLoading) {
+      return ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: 5,
+        itemBuilder: (_, _) => const Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: EverglowSkeleton(
+            width: double.infinity,
+            height: 80,
+            radius: 16,
+          ),
+        ),
       );
-      return;
+    }
+
+    if (_hasError) {
+      return EverglowErrorState(
+        message: 'Could not load letters',
+        onRetry: _retry,
+        icon: Icons.cloud_off_rounded,
+      );
+    }
+
+    var notes = _allNotes.where((n) {
+      switch (_filter) {
+        case _LetterFilter.locked:
+          return !n.isUnlocked;
+        case _LetterFilter.unread:
+          return n.isUnlocked && !n.isRead;
+        case _LetterFilter.read:
+          return n.isRead;
+        case _LetterFilter.all:
+          return true;
+      }
+    }).toList();
+
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      notes = notes
+          .where(
+            (n) =>
+                n.title.toLowerCase().contains(q) ||
+                n.content.toLowerCase().contains(q),
+          )
+          .toList();
+    }
+
+    if (notes.isEmpty) {
+      return EverglowEmptyState(
+        icon: Icons.mail_outline_rounded,
+        title: _filter == _LetterFilter.all
+            ? 'No letters yet'
+            : 'No ${_filter.label.toLowerCase()} letters',
+        subtitle: 'Check back later! 🌸',
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      itemCount: notes.length,
+      itemBuilder: (context, index) {
+        return _LetterListTile(
+          note: notes[index],
+          onTap: () => _openNote(notes[index]),
+        );
+      },
+    );
+  }
+
+  void _openSearch(BuildContext context) async {
+    // Prefer the already-loaded snapshot so search works even while a
+    // cold-start stream is still retrying in the background.
+    List<HiddenNote> allNotes = _allNotes;
+    if (allNotes.isEmpty && !_hasError) {
+      try {
+        allNotes = await _service.notes.first.timeout(
+          const Duration(seconds: 10),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not load letters: $e')),
+        );
+        return;
+      }
     }
     if (!mounted) return;
 

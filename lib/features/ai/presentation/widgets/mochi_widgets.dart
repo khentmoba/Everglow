@@ -278,20 +278,37 @@ class _SuggestedGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
     final cols = centered && w >= 900 ? 3 : 2;
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: cols,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: centered ? 2.0 : 1.9,
-      ),
-      itemCount: _suggestions.length,
-      itemBuilder: (_, i) {
-        return _DelayedFadeIn(
-          delay: Duration(milliseconds: 200 + i * 80),
-          child: _SuggestionCard(suggestion: _suggestions[i], onTap: onTap),
+    const spacing = 10.0;
+    final aspect = centered ? 2.0 : 1.9;
+    // Eager Wrap layout instead of a lazy sliver grid: every template card
+    // is laid out and painted on the first frame. A shrink-wrapped
+    // GridView.builder inside this nested scrollable left cards unpainted
+    // (stuck at the entrance-animation's zero opacity) until a hover forced
+    // a repaint — then they vanished again on mouse-leave.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxW = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        final itemWidth = (maxW - spacing * (cols - 1)) / cols;
+        final itemHeight = itemWidth / aspect;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (var i = 0; i < _suggestions.length; i++)
+              SizedBox(
+                width: itemWidth,
+                height: itemHeight,
+                child: _DelayedFadeIn(
+                  delay: Duration(milliseconds: 200 + i * 80),
+                  child: _SuggestionCard(
+                    suggestion: _suggestions[i],
+                    onTap: onTap,
+                  ),
+                ),
+              ),
+          ],
         );
       },
     );
@@ -383,6 +400,10 @@ class _Suggestion {
 }
 
 // ─── Delayed fade-in wrapper ────────────────────────────────────
+// Implicit animations (AnimatedOpacity/AnimatedSlide) targeting visible:
+// even if the widget rebuilds mid-entrance (e.g. a hover setState from a
+// card below), the fade always converges to fully visible instead of
+// stranding children at zero opacity.
 
 class _DelayedFadeIn extends StatefulWidget {
   final Widget child;
@@ -394,48 +415,42 @@ class _DelayedFadeIn extends StatefulWidget {
   State<_DelayedFadeIn> createState() => _DelayedFadeInState();
 }
 
-class _DelayedFadeInState extends State<_DelayedFadeIn>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _opacity;
-  late Animation<Offset> _slide;
+class _DelayedFadeInState extends State<_DelayedFadeIn> {
+  bool _visible = false;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-    _opacity = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
-    _slide = Tween<Offset>(
-      begin: const Offset(0, 0.15),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
-
-    Future.delayed(widget.delay, () {
-      if (mounted) _controller.forward();
-    });
+    if (widget.delay == Duration.zero) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _visible = true);
+      });
+    } else {
+      _timer = Timer(widget.delay, () {
+        if (mounted) setState(() => _visible = true);
+      });
+    }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _timer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (_, child) => Opacity(
-        opacity: _opacity.value,
-        child: Transform.translate(
-          offset: Offset(0, _slide.value.dy * 30),
-          child: child,
-        ),
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeOut,
+      opacity: _visible ? 1.0 : 0.0,
+      child: AnimatedSlide(
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOutCubic,
+        offset: _visible ? Offset.zero : const Offset(0, 0.05),
+        child: widget.child,
       ),
-      child: widget.child,
     );
   }
 }

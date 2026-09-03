@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class PresenceStatus {
-  static const Duration onlineThreshold = Duration(seconds: 30);
+  static const Duration onlineThreshold = Duration(minutes: 4); // > 180s heartbeat + snapshot delay
   static const Duration doodleThreshold = Duration(seconds: 15);
 
   final String uid;

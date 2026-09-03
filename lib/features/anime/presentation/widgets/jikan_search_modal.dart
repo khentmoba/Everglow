@@ -8,6 +8,7 @@ import '../../data/services/jikan_service.dart';
 import '../../../cinema/data/services/tmdb_service.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../cinema/presentation/widgets/media_poster_card.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../core/theme/app_typography.dart';
 
 /// Anime-only search modal. Backed by [JikanService] (REST, MAL-sourced)
@@ -120,10 +121,11 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(16),
                 child: item.posterUrl.isNotEmpty
-                    ? Image.network(
-                        item.posterUrl,
+                    ? AppNetworkImage(
+                        imageUrl: item.posterUrl,
+                        width: 100,
                         height: 150,
-                        fit: BoxFit.cover,
+                        cacheWidth: 200,
                       )
                     : Container(height: 150, color: AppTheme.twilight),
               ),

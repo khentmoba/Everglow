@@ -19,6 +19,7 @@ class AuthService extends ChangeNotifier {
   String? _partnerUid;
   String? _partnerNameResolved;
   bool _hasSyncedUserDoc = false;
+  bool _isResolvingPartner = false;
   String? _lastAuthError;
 
   AuthService() {
@@ -26,7 +27,11 @@ class AuthService extends ChangeNotifier {
     _auth.authStateChanges().listen((User? user) {
       _user = user;
       _hasSyncedUserDoc = false;
-      if (user != null && _currentUser != null) {
+      if (user == null) {
+        _partnerUid = null;
+        _partnerNameResolved = null;
+        _isResolvingPartner = false;
+      } else if (_currentUser != null) {
         unawaited(_syncUserDoc());
       }
       notifyListeners();
@@ -68,6 +73,18 @@ class AuthService extends ChangeNotifier {
   /// Dynamically resolved partner UID from the /users collection.
   /// Populated after login via [_syncUserDoc].
   String? get partnerUid => _partnerUid;
+
+  /// True while partner UID resolution is in flight. Presence widgets use
+  /// this to show a linking state instead of the unavailable fallback.
+  bool get isResolvingPartner => _isResolvingPartner;
+
+  /// Re-runs partner UID resolution on demand. Safe to call repeatedly and
+  /// from any screen: concurrent calls are ignored and transient failures
+  /// preserve the last known [partnerUid] instead of clearing it.
+  /// Screens that depend on the partner link (Sanctuary, watch party) should
+  /// call this after ensuring the user doc so a single failed background
+  /// resolve no longer sticks until the next full re-login.
+  Future<void> refreshPartnerLink() => _resolvePartnerInfo();
 
   /// Partner display name resolved alongside [partnerUid].
   String get partnerName => _partnerNameResolved ?? 'Partner';
@@ -221,52 +238,66 @@ class AuthService extends ChangeNotifier {
 
   /// Queries /users to find the partner's UID by username. If the partner's
   /// account was recreated, this automatically finds their new UID.
+  ///
+  /// Transient failures (offline, permission-denied before the own user doc
+  /// is visible) preserve the last known [_partnerUid] so presence widgets
+  /// keep working instead of flipping to the unavailable state. Only a
+  /// definitive answer (no partner for this profile, or a successful query
+  /// with zero matches) clears the link. Retry at any time via
+  /// [refreshPartnerLink].
   Future<void> _resolvePartnerInfo() async {
-    var partnerUser = partnerUsername;
+    if (_isResolvingPartner) return;
+    if (_currentUser == null || _auth.currentUser == null) return;
+    _isResolvingPartner = true;
+    notifyListeners();
+
     try {
-      final ownDoc = _auth.currentUser != null
-          ? await FirebaseFirestore.instance
-                .collection('users')
-                .doc(_auth.currentUser!.uid)
-                .get()
-          : null;
-      final storedPartner = ownDoc?.data()?['partnerUsername'] as String?;
-      if (storedPartner != null && storedPartner.isNotEmpty) {
-        partnerUser = storedPartner;
+      var partnerUser = partnerUsername;
+      try {
+        final ownDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(_auth.currentUser!.uid)
+            .get();
+        final storedPartner = ownDoc.data()?['partnerUsername'] as String?;
+        if (storedPartner != null && storedPartner.isNotEmpty) {
+          partnerUser = storedPartner;
+        }
+      } catch (e) {
+        Logger.e("AuthService._resolvePartnerInfo own doc read failed", error: e);
       }
-    } catch (e) {
-      Logger.e("AuthService._resolvePartnerInfo own doc read failed", error: e);
-    }
 
-    if (partnerUser == null) {
-      _partnerUid = null;
-      _partnerNameResolved = null;
-      notifyListeners();
-      return;
-    }
-
-    try {
-      final db = FirebaseFirestore.instance;
-      final query = await db
-          .collection('users')
-          .where('username', isEqualTo: partnerUser)
-          .limit(1)
-          .get();
-
-      if (query.docs.isNotEmpty) {
-        _partnerUid = query.docs.first.id;
-        _partnerNameResolved = partnerUser == 'khentsgdz' ? 'Khent' : 'Clair';
-      } else {
+      // Cinema-only profiles have no partner; clear decisively.
+      if (partnerUser == null) {
         _partnerUid = null;
         _partnerNameResolved = null;
+        return;
       }
-    } catch (e) {
-      Logger.e("AuthService._resolvePartnerInfo failed", error: e);
-      _partnerUid = null;
-      _partnerNameResolved = null;
-    }
 
-    notifyListeners();
+      try {
+        final db = FirebaseFirestore.instance;
+        final query = await db
+            .collection('users')
+            .where('username', isEqualTo: partnerUser)
+            .limit(1)
+            .get();
+
+        if (query.docs.isNotEmpty) {
+          _partnerUid = query.docs.first.id;
+          _partnerNameResolved = partnerUser == 'khentsgdz' ? 'Khent' : 'Clair';
+        } else {
+          // Partner has never synced a /users doc on this project yet.
+          _partnerUid = null;
+          _partnerNameResolved = null;
+        }
+      } catch (e) {
+        Logger.e("AuthService._resolvePartnerInfo failed", error: e);
+        // Keep the last known UID so a transient error does not stick the
+        // UI in the unavailable state; the next refresh will correct it.
+      }
+    } finally {
+      _isResolvingPartner = false;
+      notifyListeners();
+    }
   }
 
   /// Server-verified Khent/Clair passcode -> Firebase custom token.
@@ -360,6 +391,10 @@ class AuthService extends ChangeNotifier {
   Future<void> logout() async {
     await _auth.signOut();
     _currentUser = null;
+    _partnerUid = null;
+    _partnerNameResolved = null;
+    _isResolvingPartner = false;
+    _hasSyncedUserDoc = false;
     await _saveSession(null);
     notifyListeners();
   }

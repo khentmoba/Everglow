@@ -324,13 +324,20 @@ class _MochiScreenState extends State<MochiScreen> {
                     maxWidth: 320,
                     minWidth: 320,
                     alignment: Alignment.centerLeft,
-                    child: AnimatedOpacity(
-                      duration: AppMotion.fast,
-                      opacity: _isSidebarOpen ? 1 : 0,
-                      child: MochiSidebar(
-                        isOpen: true,
-                        onClose: () => setState(() => _isSidebarOpen = false),
-                        onNewChat: _newChat,
+                    // Closed sidebar is fully transparent but still overflows
+                    // 320px over the chat area — ignore its pointer events so
+                    // it can't swallow taps/hovers on the suggestion cards.
+                    child: IgnorePointer(
+                      ignoring: !_isSidebarOpen,
+                      child: AnimatedOpacity(
+                        duration: AppMotion.fast,
+                        opacity: _isSidebarOpen ? 1 : 0,
+                        child: MochiSidebar(
+                          isOpen: true,
+                          onClose: () =>
+                              setState(() => _isSidebarOpen = false),
+                          onNewChat: _newChat,
+                        ),
                       ),
                     ),
                   ),

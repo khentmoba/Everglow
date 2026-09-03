@@ -10,7 +10,9 @@ class PresenceService {
   final FirebaseFirestore _db;
   static const String _collection = 'presence';
   static const String _sessionsCollection = 'presence_sessions';
-  static const Duration heartbeatInterval = Duration(seconds: 60);
+  // 180s heartbeat (cost): presence writes are ~15% of the free quota at 60s.
+  // Client onlineThreshold (4 min) and server sweep (6 min stale) allow 2 missed beats.
+  static const Duration heartbeatInterval = Duration(seconds: 180);
   static const Duration doodleTouchThreshold = Duration(seconds: 15);
 
   Timer? _heartbeatTimer;

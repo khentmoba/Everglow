@@ -25,6 +25,20 @@ void main() {
         isTrue,
       );
     });
+
+    test('couple pronouns alone do not trigger thinking', () {
+      // Regression: generic us/we/both fired on ~70% of messages.
+      expect(quality.shouldAutoThink('we should watch something'), isFalse);
+      expect(quality.shouldAutoThink('what are we eating tonight'), isFalse);
+      expect(quality.shouldAutoThink('movie night with us'), isFalse);
+    });
+
+    test('two questions trigger thinking even when short', () {
+      expect(
+        quality.shouldAutoThink('Are you okay? What did you eat today?'),
+        isTrue,
+      );
+    });
   });
 
   group('ContextSelector', () {

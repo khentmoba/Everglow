@@ -336,11 +336,12 @@ class _CanvasScreenState extends State<CanvasScreen> {
           )..add(newPoint);
           _activeStroke = _activeStroke!.copyWith(points: updatedPoints);
 
-          // Real-time Throttled Sync
+          // Real-time Throttled Sync: 250ms (~4fps) is smooth for the
+          // partner view and cuts live_canvas writes ~2.5x vs 100ms.
           final now = DateTime.now();
           if (_lastSyncTime == null ||
               now.difference(_lastSyncTime!) >
-                  const Duration(milliseconds: 100)) {
+                  const Duration(milliseconds: 250)) {
             _canvasService.updateActiveStroke(userId, _activeStroke!);
             _lastSyncTime = now;
           }

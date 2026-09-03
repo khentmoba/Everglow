@@ -7,7 +7,7 @@ import '../../data/models/watch_party_room.dart';
 import '../../data/services/watch_party_service.dart';
 import '../../data/services/watch_party_chat_service.dart';
 import '../../data/services/temporary_chat_service.dart';
-import '../screens/watch_party_screen.dart';
+import '../screens/watch_party_screen.dart' deferred as watch_party_lib;
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_colors.dart';
 
@@ -489,9 +489,14 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
     }
 
     if (!context.mounted) return;
+    await watch_party_lib.loadLibrary();
+    if (!context.mounted) return;
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => WatchPartyScreen(initialRoom: toOpen, isHost: isHost),
+        builder: (_) => watch_party_lib.WatchPartyScreen(
+          initialRoom: toOpen,
+          isHost: isHost,
+        ),
       ),
     );
   }

@@ -42,8 +42,24 @@ class RoamingCat3DEngine extends ChangeNotifier {
   void ensureRunning() {
     if (_running) return;
     _running = true;
+    _ensureMediaLibs();
     _pollForApi();
     _tick();
+  }
+
+  /// Pokes `index.html`'s lazy media loader so `cat_3d_engine.js` (+ three.js)
+  /// starts downloading the moment the guardian mounts instead of waiting for
+  /// the post-first-frame idle callback. No-op once loaded; safe to call
+  /// before the loader exists (e.g. tests).
+  void _ensureMediaLibs() {
+    try {
+      final fn = globalContext.getProperty<JSAny?>(
+        '__everglowEnsureMediaLibs'.toJS,
+      );
+      if (fn != null && !fn.isUndefinedOrNull) {
+        (fn as JSFunction).callAsFunction();
+      }
+    } catch (_) {}
   }
 
   /// Pushes the current animation state into the JS renderer.

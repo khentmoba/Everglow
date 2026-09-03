@@ -53,10 +53,44 @@ class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator> {
     final partnerName = authService.partnerName;
 
     if (partnerUid == null) {
-      return _buildText(
-        context,
-        'Partner link unavailable · re-login to sync',
-        dim: true,
+      // Cinema-only profiles have no partner; stay silent like the doodle
+      // indicator does instead of showing a misleading error.
+      if (!authService.isCoupleUser) {
+        return const SizedBox.shrink();
+      }
+      if (authService.isResolvingPartner) {
+        return _buildRow(
+          context,
+          dot: SizedBox(
+            width: widget.dotSize,
+            height: widget.dotSize,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: AppColors.roseQuartz.withValues(alpha: 0.7),
+            ),
+          ),
+          label: 'Linking partner...',
+          color: AppColors.roseQuartz.withValues(alpha: 0.7),
+          dim: true,
+        );
+      }
+      // Resolution finished without a UID (partner doc missing or a
+      // transient error). Offer tap-to-retry so the link self-heals
+      // instead of demanding a full re-login.
+      return GestureDetector(
+        onTap: () => authService.refreshPartnerLink(),
+        behavior: HitTestBehavior.opaque,
+        child: _buildRow(
+          context,
+          dot: Icon(
+            Icons.refresh_rounded,
+            size: widget.dotSize + 6,
+            color: AppColors.roseQuartz.withValues(alpha: 0.7),
+          ),
+          label: 'Could not link partner · tap to retry',
+          color: AppColors.roseQuartz.withValues(alpha: 0.7),
+          dim: true,
+        ),
       );
     }
 

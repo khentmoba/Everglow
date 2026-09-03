@@ -1,7 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../features/watch_party/data/services/voice_chat_service.dart';
+import '../../features/watch_party/data/services/voice_chat_bootstrap.dart';
 import '../../features/watch_party/presentation/widgets/incoming_watch_party_banner.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
@@ -46,11 +48,19 @@ class _AppRootState extends State<AppRoot> {
     final myUid = auth.uid;
     final partnerUid = auth.partnerUid;
     if (auth.isCoupleUser && myUid != null && myUid.isNotEmpty) {
-      VoiceChatService.watchIncoming(myUid: myUid, partnerUid: partnerUid);
+      // Voice chunk (flutter_webrtc) loads on demand, in parallel with first
+      // paint rather than blocking it. Calls still ring: the watcher starts
+      // as soon as the chunk lands, seconds before any call could arrive.
+      unawaited(
+        VoiceChatBootstrap.watchIncoming(
+          myUid: myUid,
+          partnerUid: partnerUid,
+        ),
+      );
       // Expose context to NotificationService for push to navigation.
       NotificationService.setNavContext(context);
     } else {
-      VoiceChatService.clearIncomingWatcher();
+      VoiceChatBootstrap.clearIncomingWatcher();
     }
   }
 

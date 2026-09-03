@@ -9,45 +9,11 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 import '../models/watch_party_room.dart';
 import 'beforeunload_helper.dart';
+import 'incoming_call.dart';
 import 'incoming_call_validator.dart';
 
 enum VoiceChatState { idle, calling, connected, ended }
 
-/// One persistent in-app notification. Emitted by
-/// [VoiceChatService.watchIncoming] when the partner has started
-/// a watch party on the other side and this device is the callee.
-/// Cleared (replaced with `null`) when the user opens the watch
-/// party screen, when the partner ends the call, or when the room
-/// doc disappears.
-class IncomingCall {
-  final String roomId;
-  final String callerUid;
-  final String callerName;
-  final String mediaTitle;
-  final String mediaPosterPath;
-  final String mediaType;
-  final int? tmdbId;
-  final int? malId;
-  final bool isAnime;
-  final int? season;
-  final int? episode;
-  final DateTime seenAt;
-
-  const IncomingCall({
-    required this.roomId,
-    required this.callerUid,
-    required this.callerName,
-    required this.mediaTitle,
-    required this.mediaPosterPath,
-    required this.mediaType,
-    this.tmdbId,
-    this.malId,
-    this.isAnime = false,
-    required this.season,
-    required this.episode,
-    required this.seenAt,
-  });
-}
 
 /// WebRTC voice chat for the Watch Party screen, plus a side
 /// channel that surfaces "the partner started a watch party"

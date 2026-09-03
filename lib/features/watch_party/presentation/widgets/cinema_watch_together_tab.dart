@@ -17,7 +17,7 @@ import '../../data/models/watch_party_room.dart';
 import '../../data/services/temporary_chat_service.dart';
 import '../../data/services/watch_party_chat_service.dart';
 import '../../data/services/watch_party_service.dart';
-import '../screens/watch_party_screen.dart';
+import '../screens/watch_party_screen.dart' deferred as watch_party_lib;
 import 'start_watch_party_button.dart';
 import 'temporary_chat_panel.dart';
 part 'cinema_watch_together_widgets.dart';
@@ -164,10 +164,14 @@ class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
       );
       await tempService.clearMessages(room.id);
       if (!mounted) return;
+      await watch_party_lib.loadLibrary();
+      if (!mounted) return;
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) =>
-              WatchPartyScreen(initialRoom: roomWithServer, isHost: true),
+          builder: (_) => watch_party_lib.WatchPartyScreen(
+            initialRoom: roomWithServer,
+            isHost: true,
+          ),
         ),
       );
     } catch (e) {

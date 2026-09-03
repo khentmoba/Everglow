@@ -68,6 +68,49 @@ void main() {
       final ranked = retriever.rank(facts, query: 'Khent', max: 2);
       expect(ranked.length, 2);
     });
+
+    test('exact phrase match outranks partial matches', () {
+      const retriever = MemoryRetriever();
+      final ranked = retriever.rank(
+        facts,
+        query: 'black coffee',
+        now: DateTime(2026, 8, 15),
+      );
+      expect(ranked.first.id, 'a');
+    });
+
+    test('subject queries surface that person first', () {
+      const retriever = MemoryRetriever();
+      final ranked = retriever.rank(
+        facts,
+        query: 'Ethel Cain',
+        now: DateTime(2026, 8, 15),
+      );
+      expect(ranked.first.id, 'b');
+    });
+
+    test('unrelated queries fall back to pinned, never crash', () {
+      const retriever = MemoryRetriever();
+      final ranked = retriever.rank(
+        facts,
+        query: 'motorcycle insurance',
+        now: DateTime(2026, 8, 15),
+      );
+      expect(ranked.first.id, 'b');
+      expect(ranked.map((f) => f.id), contains('c'));
+    });
+
+    test('empty store and max zero are safe', () {
+      const retriever = MemoryRetriever();
+      expect(retriever.rank(const [], query: 'coffee'), isEmpty);
+      final all = retriever.rank(
+        facts,
+        query: 'Khent',
+        max: 0,
+        now: DateTime(2026, 8, 15),
+      );
+      expect(all.length, facts.length);
+    });
   });
 
   group('MemoryTriviaGenerator', () {

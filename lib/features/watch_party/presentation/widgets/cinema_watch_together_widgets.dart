@@ -80,10 +80,15 @@ class _ActivePartyCard extends StatelessWidget {
         : 'Movie';
 
     return GestureDetector(
-      onTap: () {
+      onTap: () async {
+        await watch_party_lib.loadLibrary();
+        if (!context.mounted) return;
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => WatchPartyScreen(initialRoom: room, isHost: isHost),
+            builder: (_) => watch_party_lib.WatchPartyScreen(
+              initialRoom: room,
+              isHost: isHost,
+            ),
           ),
         );
       },

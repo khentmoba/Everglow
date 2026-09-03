@@ -7,10 +7,11 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/services/auth_service.dart';
 
-import '../../data/services/voice_chat_service.dart';
+import '../../data/services/incoming_call.dart';
+import '../../data/services/voice_chat_bootstrap.dart';
 import '../../data/services/watch_party_service.dart';
 import '../../data/models/watch_party_room.dart';
-import '../screens/watch_party_screen.dart';
+import '../screens/watch_party_screen.dart' deferred as watch_party_lib;
 import '../../../../core/theme/app_typography.dart';
 
 /// Strict-silent banner that appears at the top of the screen when
@@ -22,7 +23,7 @@ import '../../../../core/theme/app_typography.dart';
 /// in a `Stack`) so it shows up regardless of which screen the
 /// user is on. Auto-clears the moment the user is on the watch
 /// party screen (the watch party screen calls
-/// `VoiceChatService.clearIncomingWatcher()` on init).
+/// `VoiceChatBootstrap.clearIncomingWatcher()` on init).
 class IncomingWatchPartyBanner extends StatefulWidget {
   const IncomingWatchPartyBanner({super.key});
 
@@ -39,8 +40,17 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
   @override
   void initState() {
     super.initState();
-    _current = VoiceChatService.latestIncoming;
-    _incomingSub = VoiceChatService.incomingStream.listen(_onIncoming);
+    // The voice chunk (flutter_webrtc) loads on demand; attach once ready.
+    // Until then the banner renders empty, same as no incoming call.
+    _attachVoice();
+  }
+
+  Future<void> _attachVoice() async {
+    await VoiceChatBootstrap.ensureLoaded();
+    if (!mounted) return;
+    _incomingSub = VoiceChatBootstrap.incomingStream.listen(_onIncoming);
+    final latest = VoiceChatBootstrap.latestIncoming;
+    if (latest != null && mounted) setState(() => _current = latest);
   }
 
   @override
@@ -145,7 +155,7 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
                   right: 4,
                   child: GestureDetector(
                     onTap: () {
-                      VoiceChatService.clearIncomingWatcher();
+                      VoiceChatBootstrap.clearIncomingWatcher();
                       setState(() => _current = null);
                     },
                     child: Container(
@@ -257,7 +267,7 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
       if (partySnap != null && !partySnap.active) {
         // The party ended while the banner was visible. Don't
         // navigate into (or re-create) a dead room.
-        VoiceChatService.clearIncomingWatcher();
+        VoiceChatBootstrap.clearIncomingWatcher();
         return;
       }
 
@@ -296,12 +306,17 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
 
       // Dismiss the banner immediately so the watch party screen
       // doesn't see its own incoming call on top.
-      VoiceChatService.clearIncomingWatcher();
+      VoiceChatBootstrap.clearIncomingWatcher();
 
+      if (!context.mounted) return;
+      await watch_party_lib.loadLibrary();
       if (!context.mounted) return;
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => WatchPartyScreen(initialRoom: toOpen, isHost: isHost),
+          builder: (_) => watch_party_lib.WatchPartyScreen(
+            initialRoom: toOpen,
+            isHost: isHost,
+          ),
         ),
       );
     } finally {
