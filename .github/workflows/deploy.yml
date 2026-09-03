@@ -71,6 +71,7 @@ jobs:
         run: |
           npm test
           node --check index.js
+          node eval_gate.js
           npm audit --omit=dev --audit-level=moderate
 
       - name: Deploy Cloud Functions, Firestore Rules & Storage
@@ -87,6 +88,12 @@ jobs:
           SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
           SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
           TINYFISH_API_KEY: ${{ secrets.TINYFISH_API_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_PUBLIC_KEY: ${{ secrets.DISCORD_PUBLIC_KEY }}
+          DISCORD_VOICE_URL: ${{ secrets.DISCORD_VOICE_URL }}
+          DISCORD_KHENT_ID: ${{ secrets.DISCORD_KHENT_ID }}
+          DISCORD_CLAIR_ID1: ${{ secrets.DISCORD_CLAIR_ID1 }}
+          DISCORD_CLAIR_ID2: ${{ secrets.DISCORD_CLAIR_ID2 }}
         run: |
           if [ -z "$TMDB_API_KEY" ] || [ -z "$LASTFM_API_KEY" ]; then
             echo "TMDB_API_KEY and LASTFM_API_KEY are required for the authenticated media proxies."
@@ -109,6 +116,12 @@ jobs:
           if [ -n "${SPOTIFY_CLIENT_ID:-}" ]; then echo "SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}" >> functions/.env; fi
           if [ -n "${SPOTIFY_CLIENT_SECRET:-}" ]; then echo "SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}" >> functions/.env; fi
           if [ -n "${TINYFISH_API_KEY:-}" ]; then echo "TINYFISH_API_KEY=${TINYFISH_API_KEY}" >> functions/.env; fi
+          if [ -n "${DISCORD_WEBHOOK_URL:-}" ]; then echo "DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}" >> functions/.env; fi
+          if [ -n "${DISCORD_PUBLIC_KEY:-}" ]; then echo "DISCORD_PUBLIC_KEY=${DISCORD_PUBLIC_KEY}" >> functions/.env; fi
+          if [ -n "${DISCORD_VOICE_URL:-}" ]; then echo "DISCORD_VOICE_URL=${DISCORD_VOICE_URL}" >> functions/.env; fi
+          if [ -n "${DISCORD_KHENT_ID:-}" ]; then echo "DISCORD_KHENT_ID=${DISCORD_KHENT_ID}" >> functions/.env; fi
+          if [ -n "${DISCORD_CLAIR_ID1:-}" ]; then echo "DISCORD_CLAIR_ID1=${DISCORD_CLAIR_ID1}" >> functions/.env; fi
+          if [ -n "${DISCORD_CLAIR_ID2:-}" ]; then echo "DISCORD_CLAIR_ID2=${DISCORD_CLAIR_ID2}" >> functions/.env; fi
           GOOGLE_APPLICATION_CREDENTIALS="$HOME"/firebase-sa.json \
           firebase deploy --only functions,firestore:rules,firestore:indexes,storage --project everglow-1c6db --force
 
