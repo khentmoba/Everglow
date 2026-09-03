@@ -74,7 +74,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       Logger.d(
         "[WatchList] Querying tmdbId=${item.tmdbId} (${item.tmdbId.runtimeType}), owner=$effectiveOwner, status=$effectiveStatus, title=${item.title}",
       );
-      var existing = await collection
+      final existing = await collection
           .where('tmdbId', isEqualTo: item.tmdbId)
           .where('userName', isEqualTo: effectiveOwner)
           .limit(1)
@@ -83,35 +83,15 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
         "[WatchList] Query returned ${existing.docs.length} docs for owner=$effectiveOwner",
       );
 
-      // ── Couple-merge fallback ──────────────────────────────────────
-      // When the drawer was opened from a couple-merged stream the item
-      // may only exist under the *partner's* userName. If the effective
-      // owner has no document yet, look for one under the other partner.
-      // Skip this when explicitly requested (e.g. "Both Watched" needs to
-      // create the partner's doc, not hijack the existing one) and when
-      // routing a partner-specific status (e.g. "Clair Watched" must not
-      // hijack the current user's doc).
-      if (!skipPartnerFallback &&
-          statusOwner == null &&
-          existing.docs.isEmpty) {
-        final partner = _resolvePartner(effectiveOwner);
-        if (partner != null && partner.isNotEmpty) {
-          Logger.d(
-            "[WatchList] No doc for $effectiveOwner — checking partner=$partner",
-          );
-          final partnerDocs = await collection
-              .where('tmdbId', isEqualTo: item.tmdbId)
-              .where('userName', isEqualTo: partner)
-              .limit(1)
-              .get();
-          if (partnerDocs.docs.isNotEmpty) {
-            Logger.d(
-              "[WatchList] Found doc under partner $partner — updating that instead",
-            );
-            existing = partnerDocs;
-          }
-        }
-      }
+      // NOTE: no partner fallback. Every dashboard/cinema shelf uses
+      // per-user streams (`where userName == X`), so each user's writes
+      // must stay on their own document. Hijacking the partner's doc
+      // would overwrite the partner's status (e.g. resetting their
+      // watched entry to to-watch) and leave the writer's own shelf
+      // permanently empty - the 'movies gone from Currently Watching /
+      // Watched' bug. When the owner has no doc we always create one
+      // below. [skipPartnerFallback] is kept for API compatibility.
+      assert(skipPartnerFallback || !skipPartnerFallback);
 
       // Determine the anime flag. If the caller passed an explicit override
       // (e.g. the episode drawer detected anime via /details), trust it.
@@ -173,14 +153,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     }
   }
 
-  /// Resolve the partner username for couple users (khentsgdz ↔ clairjassen).
-  /// Returns null for non-couple / cinema-only users.
-  static String? _resolvePartner(String userName) {
-    if (userName == 'khentsgdz') return 'clairjassen';
-    if (userName == 'clairjassen') return 'khentsgdz';
-    return null;
-  }
-
   /// Maps partner-specific statuses to the "self" variant that should be
   /// stored on the owner's document.
   ///   "watched-clair"  → "watched-self"
@@ -235,26 +207,16 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     if (userName.isEmpty) return;
     try {
       final collection = firestore.collection('watch_list');
-      var existing = await collection
+      final existing = await collection
           .where('tmdbId', isEqualTo: item.tmdbId)
           .where('userName', isEqualTo: userName)
           .limit(1)
           .get();
 
-      // Couple-merge fallback: if no doc under current user, check partner.
-      if (existing.docs.isEmpty) {
-        final partner = _resolvePartner(userName);
-        if (partner != null && partner.isNotEmpty) {
-          final partnerDocs = await collection
-              .where('tmdbId', isEqualTo: item.tmdbId)
-              .where('userName', isEqualTo: partner)
-              .limit(1)
-              .get();
-          if (partnerDocs.docs.isNotEmpty) {
-            existing = partnerDocs;
-          }
-        }
-      }
+      // NOTE: no partner fallback (see saveToWatchList). Progress and
+      // removals only ever touch the caller's own document; when none
+      // exists we create one (progress) or do nothing (remove/
+      // heartbeat) instead of hijacking the partner's doc.
 
       final now = Timestamp.now();
       final data = <String, dynamic>{
@@ -264,7 +226,10 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
         'durationSeconds': durationSeconds,
         'progressUpdatedAt': now,
       };
-      if (status != null) data['status'] = status;
+      // Normalize partner-specific values (watching-khent/clair) to the
+      // self-variant so per-user shelves and the drawer stay consistent
+      // with saveToWatchList.
+      if (status != null) data['status'] = _toSelfStatus(status);
 
       if (existing.docs.isNotEmpty) {
         await collection.doc(existing.docs.first.id).update(data);
@@ -272,7 +237,9 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
         await collection.add(
           item
               .copyWith(
-                status: status ?? 'watching-self',
+                status: status == null
+                    ? 'watching-self'
+                    : _toSelfStatus(status),
                 userName: userName,
                 addedAt: DateTime.now(),
                 currentSeason: season,
@@ -293,26 +260,16 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     if (userName.isEmpty) return;
     try {
       final collection = firestore.collection('watch_list');
-      var existing = await collection
+      final existing = await collection
           .where('tmdbId', isEqualTo: tmdbId)
           .where('userName', isEqualTo: userName)
           .limit(1)
           .get();
 
-      // Couple-merge fallback: if no doc under current user, check partner.
-      if (existing.docs.isEmpty) {
-        final partner = _resolvePartner(userName);
-        if (partner != null && partner.isNotEmpty) {
-          final partnerDocs = await collection
-              .where('tmdbId', isEqualTo: tmdbId)
-              .where('userName', isEqualTo: partner)
-              .limit(1)
-              .get();
-          if (partnerDocs.docs.isNotEmpty) {
-            existing = partnerDocs;
-          }
-        }
-      }
+      // NOTE: no partner fallback (see saveToWatchList). Progress and
+      // removals only ever touch the caller's own document; when none
+      // exists we create one (progress) or do nothing (remove/
+      // heartbeat) instead of hijacking the partner's doc.
 
       if (existing.docs.isNotEmpty) {
         await collection.doc(existing.docs.first.id).delete();
@@ -692,26 +649,16 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     if (userName.isEmpty) return;
     try {
       final collection = firestore.collection('watch_list');
-      var existing = await collection
+      final existing = await collection
           .where('tmdbId', isEqualTo: tmdbId)
           .where('userName', isEqualTo: userName)
           .limit(1)
           .get();
 
-      // Couple-merge fallback: if no doc under current user, check partner.
-      if (existing.docs.isEmpty) {
-        final partner = _resolvePartner(userName);
-        if (partner != null && partner.isNotEmpty) {
-          final partnerDocs = await collection
-              .where('tmdbId', isEqualTo: tmdbId)
-              .where('userName', isEqualTo: partner)
-              .limit(1)
-              .get();
-          if (partnerDocs.docs.isNotEmpty) {
-            existing = partnerDocs;
-          }
-        }
-      }
+      // NOTE: no partner fallback (see saveToWatchList). Progress and
+      // removals only ever touch the caller's own document; when none
+      // exists we create one (progress) or do nothing (remove/
+      // heartbeat) instead of hijacking the partner's doc.
 
       if (existing.docs.isNotEmpty) {
         final data = <String, dynamic>{'progressUpdatedAt': Timestamp.now()};
@@ -726,12 +673,14 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     }
   }
 
-  /// Remove stale partner-specific statuses from the current user's document
+  /// Remove legacy partner-specific statuses from the current user's document
   /// after routing a status update to the partner's document.
   ///
   /// When Khent taps "Clair Watched" and we route to Clair's doc, Khent's
-  /// own document may still have "watching-clair" — a stale partner-specific
-  /// status that would pollute the couple merge. This resets it to "to-watch".
+  /// own document may still hold a legacy "watching-clair" value from before
+  /// statuses were mapped to self-variants on save. Only those legacy values
+  /// are reset to "to-watch" — the user's own watched-self / watching-self
+  /// status is always preserved so personal shelves never go empty.
   Future<void> cleanStalePartnerStatus(
     int tmdbId,
     String userName,
@@ -749,19 +698,14 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       final docData = existing.docs.first.data();
       final currentStatus = docData['status'] as String? ?? '';
 
-      // Determine which partner-specific statuses to clear.
-      // If newStatus is "watched-clair", clear any "watching-clair" from
-      // the current user's doc (since Clair is no longer "just watching").
-      //
-      // Also clear "watched-self" / "watching-self" — these are the
-      // standard stored variants, and leaving them behind when routing
-      // a status to the partner would make the couple merge think both
-      // partners have the item (causing it to appear in both shelves).
       final stalePartner = _companionPartnerStatus(newStatus);
-      final isSelfStatus =
-          currentStatus == 'watched-self' || currentStatus == 'watching-self';
-      if ((stalePartner != null && currentStatus == stalePartner) ||
-          isSelfStatus) {
+      // Never wipe watched-self / watching-self here: each user's own
+      // status powers their personal Currently Watching / Watched shelf,
+      // and the dashboard uses per-user streams (not the couple merge),
+      // so keeping both partners' statuses is correct. Only clear legacy
+      // partner-specific values (e.g. watching-clair) left on this doc
+      // from before statuses were mapped to self-variants on save.
+      if (stalePartner != null && currentStatus == stalePartner) {
         Logger.d(
           "[WatchList] Cleaning stale '$currentStatus' from $userName's doc",
         );
