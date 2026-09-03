@@ -109,7 +109,9 @@ class _CurrentlyWatchingHeaderState extends State<_CurrentlyWatchingHeader> {
       },
       onError: (Object e) {
         // ignore: avoid_print
-        print('[CurrentlyWatching/header] stream error: $e');
+        print(
+          '[CurrentlyWatching/header:${widget.userName}] stream error: $e',
+        );
         if (!mounted) return;
         if (_retryCount < 3) {
           _retryCount++;
@@ -159,6 +161,7 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
   final TMDBService _service = TMDBService();
   List<MediaItem> _items = [];
   bool _hasLoaded = false;
+  bool _loadError = false;
   StreamSubscription<List<MediaItem>>? _streamSub;
 
   @override
@@ -175,6 +178,7 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
       setState(() {
         _items = [];
         _hasLoaded = false;
+        _loadError = false;
       });
       _subscribe();
     }
@@ -197,12 +201,15 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
         setState(() {
           _items = filtered;
           _hasLoaded = true;
+          _loadError = false;
         });
         if (filtered.isNotEmpty) _backfillPosters(filtered);
       },
       onError: (Object e) {
         // ignore: avoid_print
-        print('[CurrentlyWatching/shelf] stream error: $e');
+        print(
+          '[CurrentlyWatching/shelf:${widget.userName}] stream error: $e',
+        );
         if (!mounted) return;
         // Firestore permission errors happen when the users/{uid} doc
         // has not been created yet (isReady race). Retry quickly.
@@ -212,7 +219,12 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
             if (mounted) _subscribe();
           });
         } else {
-          setState(() => _hasLoaded = true);
+          // Report the failure instead of a false-empty shelf: a denied
+          // stream means the data is unreachable, not absent.
+          setState(() {
+            _hasLoaded = true;
+            _loadError = true;
+          });
         }
       },
     );
@@ -299,9 +311,11 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
         );
       }
       if (cards.isEmpty) {
-        return const ShelfEmpty(
+        return ShelfEmpty(
           accent: ShelfAccent.cinema,
-          message: 'Nothing playing right now. Start a movie or show!',
+          message: _loadError
+              ? 'Couldn\'t load your movies — check your connection and reopen.'
+              : 'Nothing playing right now. Start a movie or show!',
         );
       }
       return SizedBox(height: 194, child: ShelfMarquee(children: cards));
@@ -328,7 +342,9 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
     return PartnerSubrow(
       label: widget.label!,
       accent: ShelfAccent.cinema,
-      emptyMessage: widget.isSelf
+      emptyMessage: _loadError
+          ? 'Couldn\'t load — check connection and reopen.'
+          : widget.isSelf
           ? 'You aren\'t watching anything right now.'
           : 'Nothing playing on their end.',
       children: cards,
