@@ -184,7 +184,7 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
 
     final movieUrl = Uri.parse(
       '$tmdbBaseUrl/discover/movie'
-      '&sort_by=popularity.desc'
+      '?sort_by=popularity.desc'
       '&watch_region=$cc'
       '&with_watch_monetization_types=$monetization'
       '&region=$cc'
@@ -194,7 +194,7 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
     );
     final tvUrl = Uri.parse(
       '$tmdbBaseUrl/discover/tv'
-      '&sort_by=popularity.desc'
+      '?sort_by=popularity.desc'
       '&watch_region=$cc'
       '&with_watch_monetization_types=$monetization'
       '&include_adult=false'
