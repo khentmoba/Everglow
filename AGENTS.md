@@ -92,6 +92,12 @@ ac-relay/server.js           # WebRTC signaling server for watch-party voice cha
 - **Lint:** `flutter_lints` (package:flutter_lints/flutter.yaml). Run `flutter analyze` before committing — do not suppress lints without a comment.
 - **Tests:** Minimal — `flutter test` runs unit tests under `test/`. New features don't strictly require tests, but core logic should have them.
 
+## Web Search Policy (persistent user preference)
+
+- For ANY web-related searching, fetching, research, docs lookup, current info, source-backed answers, or browser automation, always use the $use-tinyfish skill at C:/Users/Admin/.agents/skills/use-tinyfish/SKILL.md (TinyFish CLI / TinyFish MCP tools).
+- Do NOT use native web search unless TinyFish is unavailable - if fallback happens, explicitly note it.
+- Follow the skill routing: search -> fetch -> agent -> browser, lightest tool first.
+
 ## Notes
 
 - **Secrets:** never commit real credentials, passcodes, or API keys. `assets/env.txt` is local-only and is **not** bundled into web builds; only public client values are passed to Flutter. See `.env.example`.
@@ -102,3 +108,9 @@ ac-relay/server.js           # WebRTC signaling server for watch-party voice cha
 - `deploy.ps1` auto-generates `web/sw.js` with a version-commit build stamp before deploying.
 - The AI feature uses Agnes 2.5 Flash (apihub.agnes-ai.com) via SSE streaming on proxyAIv2 (Cloud Run) — 512K context, 120K input budget, 11 function tools, thinking mode. See memory docs for tuning details.
 - ac-relay is a separate Node.js WebRTC signaling server, not deployed with Firebase — run independently if voice chat is needed.
+
+## Communication
+
+- Always talk to the user in plain, simple human language, no matter the topic or circumstance.
+- Explain what happened, why it matters, and what to do next in everyday words. Avoid jargon, file names, and implementation details unless the user explicitly asks for them.
+- Keep answers short and warm. One short paragraph or a few plain sentences beats a technical report.
