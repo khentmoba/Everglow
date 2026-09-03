@@ -526,7 +526,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         const SliverToBoxAdapter(child: SizedBox(height: 16)),
                         _animatedSliver(
                           const Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            padding: EdgeInsets.symmetric(horizontal: 16),
                             child: MusicStatsSection(),
                           ),
                           delayMs: 625,
