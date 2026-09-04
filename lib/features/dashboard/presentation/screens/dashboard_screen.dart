@@ -101,7 +101,9 @@ class _DashboardScreenState extends State<DashboardScreen>
         // Session facts for the console: pairs every permission-denied
         // shelf report with the UID, guest flag, and user-doc sync state
         // so the cause is readable without opening the Firebase console.
-        Logger.i('[AuthDiag] ${authService.diagLine}');
+        // Raw print: Logger is silent in release builds.
+        // ignore: avoid_print
+        print('[AuthDiag] ${authService.diagLine}');
         final gardenProvider = context.read<GardenProvider>();
 
         final uid = authService.uid;
