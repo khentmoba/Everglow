@@ -98,6 +98,10 @@ class _DashboardScreenState extends State<DashboardScreen>
     Future.microtask(() {
       if (mounted) {
         final authService = context.read<AuthService>();
+        // Session facts for the console: pairs every permission-denied
+        // shelf report with the UID, guest flag, and user-doc sync state
+        // so the cause is readable without opening the Firebase console.
+        Logger.i('[AuthDiag] ${authService.diagLine}');
         final gardenProvider = context.read<GardenProvider>();
 
         final uid = authService.uid;

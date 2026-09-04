@@ -240,10 +240,11 @@ class _GatewayPageState extends State<GatewayPage> {
         authTask.catchError((_) {}),
       ]).then((_) {
         if (!mounted || _hasNavigated) return;
-        // Never enter the app without a Firebase session: without one,
-        // every Firestore stream fails with permission-denied and the
+        // Never enter the app without a real Firebase session: without
+        // one — or with an anonymous one, which firestore.rules blocks on
+        // every read — each stream fails with permission-denied and the
         // dashboard renders false-empty shelves.
-        if (authService.user == null) {
+        if (authService.user == null || authService.isAnonymousSession) {
           _notifier.updateState(GatewayState.error);
           Future.delayed(const Duration(milliseconds: 500), () {
             if (!mounted || _hasNavigated) return;

@@ -92,6 +92,20 @@ class AuthService extends ChangeNotifier {
   String? get currentUser => _currentUser;
   String? get uid => _auth.currentUser?.uid;
 
+  /// True when the Firebase session is anonymous. Anonymous sessions are
+  /// blocked by firestore.rules on every app read, so one paired with a
+  /// couple username can only ever produce permission-denied streams.
+  bool get isAnonymousSession => _auth.currentUser?.isAnonymous == true;
+
+  /// Single-line auth diagnosis for the browser console. The dashboard
+  /// logs this on load so a permission-denied report always carries the
+  /// session facts needed to tell a guest session from a missing user doc.
+  String get diagLine =>
+      'uid=${_auth.currentUser?.uid ?? 'none'} '
+      'anonymous=$isAnonymousSession '
+      'username=${_currentUser ?? 'none'} '
+      'usersDocSynced=$_hasSyncedUserDoc';
+
   /// True once both Firebase Auth and SharedPreferences have resolved.
   /// Dashboard and partner-dependent features should wait for this.
   bool get isReady => _user != null && _currentUser != null;
@@ -240,6 +254,7 @@ class AuthService extends ChangeNotifier {
         'partnerUsername': partnerUsername,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+      Logger.i('users doc synced for $_currentUser ($myUid)');
 
       // Remaining work doesn't block first paint — fire-and-forget.
       unawaited(
@@ -258,7 +273,10 @@ class AuthService extends ChangeNotifier {
       );
     } catch (e) {
       _hasSyncedUserDoc = false;
-      Logger.e("AuthService._syncUserDoc failed", error: e);
+      Logger.e(
+        'AuthService._syncUserDoc failed for $_currentUser ($myUid)',
+        error: e,
+      );
     }
   }
 
