@@ -38,8 +38,9 @@ class AuthService extends ChangeNotifier {
         // see permission-denied streams and false-empty shelves. Drop the
         // false session so the gateway forces a real login instead.
         if (user.isAnonymous && isCoupleUser) {
-          Logger.w(
-            'Clearing anonymous session for couple user $_currentUser — real login required',
+          // ignore: avoid_print
+          print(
+            '[AuthService] clearing anonymous session for couple user $_currentUser — real login required',
           );
           unawaited(_auth.signOut());
         } else {
@@ -59,8 +60,9 @@ class AuthService extends ChangeNotifier {
       // with a couple username can never read couple data. Sign out so the
       // gateway asks for a real login instead of showing empty shelves.
       if (isCoupleUser && _auth.currentUser?.isAnonymous == true) {
-        Logger.w(
-          'Clearing persisted anonymous session for $_currentUser — real login required',
+        // ignore: avoid_print
+        print(
+          '[AuthService] clearing persisted anonymous session for $_currentUser — real login required',
         );
         try {
           await _auth.signOut();
@@ -254,7 +256,8 @@ class AuthService extends ChangeNotifier {
         'partnerUsername': partnerUsername,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-      Logger.i('users doc synced for $_currentUser ($myUid)');
+      // ignore: avoid_print
+      print('[AuthService] users doc synced for $_currentUser ($myUid)');
 
       // Remaining work doesn't block first paint — fire-and-forget.
       unawaited(
@@ -273,10 +276,8 @@ class AuthService extends ChangeNotifier {
       );
     } catch (e) {
       _hasSyncedUserDoc = false;
-      Logger.e(
-        'AuthService._syncUserDoc failed for $_currentUser ($myUid)',
-        error: e,
-      );
+      // ignore: avoid_print
+      print('[AuthService] _syncUserDoc failed for $_currentUser ($myUid): $e');
     }
   }
 
