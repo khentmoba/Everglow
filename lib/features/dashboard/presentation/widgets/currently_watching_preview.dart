@@ -103,7 +103,7 @@ class _CurrentlyWatchingHeaderState extends State<_CurrentlyWatchingHeader> {
         // anime series live in the Anime rail. Filtering on isCinemaItem
         // (instead of bare !isAnime) keeps anime films in this shelf so
         // movie lovers never lose them from Currently Watching.
-        final filtered = items.where((i) => i.isCinemaItem).toList();
+        final filtered = items.cinemaItems;
         if (!mounted) return;
         setState(() => _items = filtered);
       },
@@ -196,7 +196,7 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
       (items) {
         _retryCount = 0;
         // Same cinema rule as the header: every movie counts here.
-        final filtered = items.where((i) => i.isCinemaItem).toList();
+        final filtered = items.cinemaItems;
         if (!mounted) return;
         setState(() {
           _items = filtered;
