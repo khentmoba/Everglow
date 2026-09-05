@@ -460,3 +460,31 @@ class MediaItem {
     );
   }
 }
+
+/// Shared status filters for cinema/anime shelves.
+///
+/// Every tab and preview splits the same watchlist the same way
+/// (`watching` / `to-watch` / `watched`, cinema vs anime). Use these
+/// instead of repeating `.where((i) => ...)` one-liners.
+extension MediaItemLists on List<MediaItem> {
+  /// Cinema rails: every movie plus non-anime TV (see [MediaItem.isCinemaItem]).
+  List<MediaItem> get cinemaItems => where((i) => i.isCinemaItem).toList();
+
+  /// Currently watching, any shelf.
+  List<MediaItem> get currentlyWatching =>
+      where((i) => i.isCurrentlyWatching).toList();
+
+  /// Queued to watch, any shelf.
+  List<MediaItem> get toWatch => where((i) => i.isToWatch).toList();
+
+  /// Watched, any shelf.
+  List<MediaItem> get watched => where((i) => i.isWatched).toList();
+
+  /// Watched cinema titles (dashboard shelves, library counts).
+  List<MediaItem> get watchedCinema =>
+      where((i) => i.isWatched && i.isCinemaItem).toList();
+
+  /// Currently-watching cinema titles.
+  List<MediaItem> get watchingCinema =>
+      where((i) => i.isCurrentlyWatching && i.isCinemaItem).toList();
+}

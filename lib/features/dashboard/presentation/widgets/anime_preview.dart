@@ -454,7 +454,7 @@ class _AnimeShelfState extends State<_AnimeShelf> {
     _streamSub = _service.getAnimeWatchListStream(widget.userName).listen(
       (items) {
         _retryCount = 0;
-        final watched = items.where((i) => i.isWatched).toList();
+        final watched = items.watched;
         watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
         if (!mounted) return;
         setState(() {
