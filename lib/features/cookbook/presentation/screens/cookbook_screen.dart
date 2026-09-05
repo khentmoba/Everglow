@@ -5,10 +5,10 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
-import '../../../../shared/widgets/everglow/everglow_error_state.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
+import '../../../../shared/widgets/everglow/everglow_stream_view.dart';
 import '../../../../shared/widgets/everglow/everglow_scaffold.dart';
 import '../../../../shared/widgets/everglow/everglow_segmented_control.dart';
 import '../../../../shared/widgets/everglow/everglow_search_field.dart';
@@ -207,8 +207,20 @@ class _CookbookScreenState extends State<CookbookScreen> {
     );
   }
 
+  /// Client filters shared by the grid and its empty check.
+  List<Recipe> _visibleRecipes(List<Recipe> all) {
+    var recipes = all;
+    if (_categoryFilter != null) {
+      recipes = recipes.where((r) => r.category == _categoryFilter).toList();
+    }
+    if (_favoritesOnly) {
+      recipes = recipes.where((r) => r.isFavorite).toList();
+    }
+    return recipes;
+  }
+
   Widget _buildRecipesGrid(CookbookService service) {
-    return StreamBuilder<List<Recipe>>(
+    return EverglowStreamView<List<Recipe>>(
       stream: _searchQuery.isNotEmpty
           ? service.watchAll().map(
               (list) => list
@@ -229,34 +241,21 @@ class _CookbookScreenState extends State<CookbookScreen> {
                   .toList(),
             )
           : service.watchAll(),
-      builder: (context, snap) {
-        if (snap.hasError) {
-          return EverglowErrorState(
-            message: 'Could not load recipes',
-            onRetry: () => setState(() {}),
-            icon: Icons.restaurant_rounded,
-          );
-        }
-        if (!snap.hasData) {
-          return const Padding(
-            padding: EdgeInsets.all(16),
-            child: EverglowSkeleton(
-              width: double.infinity,
-              height: 140,
-              radius: 16,
-            ),
-          );
-        }
-        var recipes = snap.data!;
-        if (_categoryFilter != null) {
-          recipes = recipes
-              .where((r) => r.category == _categoryFilter)
-              .toList();
-        }
-        if (_favoritesOnly) {
-          recipes = recipes.where((r) => r.isFavorite).toList();
-        }
-        if (recipes.isEmpty) {
+      streamLabel: 'cookbook-recipes',
+      errorMessage: 'Could not load recipes',
+      errorIcon: Icons.restaurant_rounded,
+      onRetry: () => setState(() {}),
+      loadingView: const Padding(
+        padding: EdgeInsets.all(16),
+        child: EverglowSkeleton(
+          width: double.infinity,
+          height: 140,
+          radius: 16,
+        ),
+      ),
+      isEmpty: (all) => _visibleRecipes(all).isEmpty,
+      emptyView: Builder(
+        builder: (context) {
           final isFiltered =
               _categoryFilter != null ||
               _favoritesOnly ||
@@ -272,7 +271,10 @@ class _CookbookScreenState extends State<CookbookScreen> {
             ctaLabel: isFiltered ? null : 'Add Recipe',
             onCta: isFiltered ? null : _showAddDialog,
           );
-        }
+        },
+      ),
+      builder: (context, all) {
+        final recipes = _visibleRecipes(all);
         return GridView.builder(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
