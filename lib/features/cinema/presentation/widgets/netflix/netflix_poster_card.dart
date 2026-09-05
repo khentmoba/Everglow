@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../../../shared/widgets/app_network_image.dart';
 
 import '../../../../../core/theme/app_motion.dart';
 import '../../../data/models/media_item.dart';
@@ -210,12 +211,11 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
             fit: StackFit.expand,
             children: [
               if (_posterUrl.isNotEmpty)
-                Image.network(
-                  _posterUrl,
+                AppNetworkImage(
+                  imageUrl: _posterUrl,
                   fit: BoxFit.cover,
                   cacheWidth: 420,
-                  errorBuilder: (_, _, _) =>
-                      _PosterFallback(title: widget.item.title),
+                  errorWidget: _PosterFallback(title: widget.item.title),
                 )
               else
                 _PosterFallback(title: widget.item.title),
@@ -406,12 +406,13 @@ class _NetflixContinueCardState extends State<NetflixContinueCard> {
                       fit: StackFit.expand,
                       children: [
                         if (_backdropUrl.isNotEmpty)
-                          Image.network(
-                            _backdropUrl,
+                          AppNetworkImage(
+                            imageUrl: _backdropUrl,
                             fit: BoxFit.cover,
                             cacheWidth: 520,
-                            errorBuilder: (_, _, _) =>
-                                _PosterFallback(title: widget.item.title),
+                            errorWidget: _PosterFallback(
+                              title: widget.item.title,
+                            ),
                           )
                         else
                           _PosterFallback(title: widget.item.title),
