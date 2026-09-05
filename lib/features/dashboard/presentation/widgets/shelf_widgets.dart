@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -438,11 +439,11 @@ class _ShelfCardState extends State<ShelfCard> {
               fit: StackFit.expand,
               children: [
                 if (_resolvedImageUrl.isNotEmpty)
-                  Image.network(
-                    _resolvedImageUrl,
+                  AppNetworkImage(
+                    imageUrl: _resolvedImageUrl,
                     fit: BoxFit.cover,
                     cacheWidth: 400,
-                    errorBuilder: (_, _, _) => _Placeholder(
+                    errorWidget: _Placeholder(
                       accent: widget.accent,
                       title: widget.title,
                     ),
@@ -515,7 +516,10 @@ class _ShelfCardState extends State<ShelfCard> {
                             letterSpacing: 0.1,
                             shadows: const [
                               Shadow(color: Color(0xDD000000), blurRadius: 6),
-                              Shadow(color: AppColors.scrimStrong, blurRadius: 12),
+                              Shadow(
+                                color: AppColors.scrimStrong,
+                                blurRadius: 12,
+                              ),
                             ],
                           ),
                           maxLines: 2,
@@ -608,7 +612,9 @@ class _ShelfCardState extends State<ShelfCard> {
                           Text(
                             widget.topBadge!,
                             style: AppTypography.outfitWhite.copyWith(
-                              color: AppColors.petalWhite.withValues(alpha: 0.95),
+                              color: AppColors.petalWhite.withValues(
+                                alpha: 0.95,
+                              ),
                               fontSize: 8,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 0.7,
@@ -797,7 +803,9 @@ class ShelfEmpty extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: AppColors.petalWhite.withValues(alpha: 0.06),
-              border: Border.all(color: AppColors.petalWhite.withValues(alpha: 0.10)),
+              border: Border.all(
+                color: AppColors.petalWhite.withValues(alpha: 0.10),
+              ),
             ),
             child: Icon(
               Icons.add_rounded,
