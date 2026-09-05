@@ -38,13 +38,12 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
   List<MediaItem> get _visible {
     // Every movie (live-action or anime) plus non-anime TV lives here —
     // see MediaItem.isCinemaItem. Anime series live in the anime section.
-    final all = widget.watchlist.where((i) => i.isCinemaItem).toList();
+    final all = widget.watchlist.cinemaItems;
     return switch (_filter) {
       _LibraryFilter.all => all,
-      _LibraryFilter.watching =>
-        all.where((i) => i.isCurrentlyWatching).toList(),
-      _LibraryFilter.toWatch => all.where((i) => i.isToWatch).toList(),
-      _LibraryFilter.watched => all.where((i) => i.isWatched).toList(),
+      _LibraryFilter.watching => all.currentlyWatching,
+      _LibraryFilter.toWatch => all.toWatch,
+      _LibraryFilter.watched => all.watched,
     };
   }
 
@@ -93,7 +92,7 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 2),
                   child: Text(
-                    '${widget.watchlist.where((i) => i.isCinemaItem).length} ${widget.watchlist.where((i) => i.isCinemaItem).length == 1 ? 'title' : 'titles'}',
+                    '${widget.watchlist.cinemaItems.length} ${widget.watchlist.cinemaItems.length == 1 ? 'title' : 'titles'}',
                     style: AppTypography.outfitWhite.copyWith(
                       fontSize: 13,
                       color: NetflixColors.textMuted,

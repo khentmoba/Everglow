@@ -9,7 +9,7 @@ import '../../../../../shared/widgets/shelf/anime_hero_banner.dart';
 import '../../../../../shared/widgets/shelf/shelf_icon_button.dart';
 import '../../../../../shared/widgets/shelf/shelf_poster_card.dart';
 import '../../../../../shared/widgets/shelf/shelf_section_header.dart';
-import '../../../../../shared/widgets/shelf/shimmer_box.dart';
+import '../../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../../../shared/widgets/shelf/staggered_entrance.dart';
 import '../../../../../shared/widgets/shelf/cinema_sections.dart';
 import '../../../../ai/presentation/widgets/ai_recommendations.dart';
@@ -168,7 +168,7 @@ class AnimeHomeTab extends StatelessWidget {
           ],
 
           // ── LIBRARY SECTIONS ───────────────────────────────────
-          if (library.where((i) => i.isCurrentlyWatching).isNotEmpty) ...[
+          if (library.currentlyWatching.isNotEmpty) ...[
             StaggeredEntrance(
               index: homeSections.length + 3 + genreRows.length,
               child: Padding(
@@ -179,18 +179,18 @@ class AnimeHomeTab extends StatelessWidget {
                   subtitle: 'Pick up where you left off',
                   icon: Icons.play_circle_filled_rounded,
                   accent: AppColors.cinemaOrange,
-                  count: library.where((i) => i.isCurrentlyWatching).length,
+                  count: library.currentlyWatching.length,
                   countLabel: 'titles',
                 ),
               ),
             ),
             _buildContinueWatchingRow(
               context,
-              library.where((i) => i.isCurrentlyWatching).toList(),
+              library.currentlyWatching,
             ),
             const SizedBox(height: 24),
           ],
-          if (library.where((i) => i.isToWatch).isNotEmpty) ...[
+          if (library.toWatch.isNotEmpty) ...[
             StaggeredEntrance(
               index: homeSections.length + 4 + genreRows.length,
               child: Padding(
@@ -201,18 +201,18 @@ class AnimeHomeTab extends StatelessWidget {
                   subtitle: 'Anime you plan to watch',
                   icon: Icons.bookmark_rounded,
                   accent: _cGold,
-                  count: library.where((i) => i.isToWatch).length,
+                  count: library.toWatch.length,
                   countLabel: 'titles',
                 ),
               ),
             ),
             _buildPosterRow(
               context,
-              library.where((i) => i.isToWatch).toList(),
+              library.toWatch,
             ),
             const SizedBox(height: 24),
           ],
-          if (library.where((i) => i.isWatched).isNotEmpty) ...[
+          if (library.watched.isNotEmpty) ...[
             StaggeredEntrance(
               index: homeSections.length + 5 + genreRows.length,
               child: Padding(
@@ -223,14 +223,14 @@ class AnimeHomeTab extends StatelessWidget {
                   subtitle: 'Anime you\'ve completed',
                   icon: Icons.remove_red_eye_rounded,
                   accent: _cGold,
-                  count: library.where((i) => i.isWatched).length,
+                  count: library.watched.length,
                   countLabel: 'titles',
                 ),
               ),
             ),
             _buildPosterRow(
               context,
-              library.where((i) => i.isWatched).toList(),
+              library.watched,
             ),
             const SizedBox(height: 24),
           ],
@@ -469,13 +469,20 @@ class AnimeHomeTab extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-      child: ShimmerPosterRow(
+      child: SizedBox(
         height: height - 14,
-        width: shimmerWidth,
-        count: 5,
-        padding: EdgeInsets.zero,
-        base: AppColors.shimmerBase,
-        highlight: AppColors.shimmerHighlight,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          itemCount: 5,
+          separatorBuilder: (_, _) => const SizedBox(width: 12),
+          itemBuilder: (_, _) => EverglowSkeleton(
+            width: shimmerWidth,
+            height: height - 14,
+            radius: 12,
+          ),
+        ),
       ),
     );
   }

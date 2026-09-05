@@ -7,9 +7,10 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_elevation.dart';
 import '../../../core/theme/app_motion.dart';
 
-/// Unified empty state for ALL screens.
+/// Unified page-level empty state for ALL screens.
 ///
-/// Replaces both `ShelfEmpty` and `ShelfEmptyState`.
+/// Replaces `ShelfEmptyState`. (Dashboard preview strips use a smaller
+/// inline-row style on purpose — different job, different widget.)
 /// Shows an icon medallion + title + subtitle + optional CTA button.
 class EverglowEmptyState extends StatelessWidget {
   final IconData icon;

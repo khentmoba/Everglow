@@ -6,7 +6,7 @@ import '../../../data/models/media_item.dart';
 import '../netflix/netflix_billboard.dart';
 import '../netflix/netflix_colors.dart';
 import '../netflix/netflix_row.dart';
-import '../../../../../shared/widgets/shelf/shimmer_box.dart';
+import '../../../../../shared/widgets/everglow/everglow_skeleton.dart';
 
 /// Featured genre definitions used for both data fetching (in the parent
 /// screen) and display (in this tab). Made public so the parent can import.
@@ -253,11 +253,11 @@ class _HomeShimmer extends StatelessWidget {
     return CustomScrollView(
       physics: const NeverScrollableScrollPhysics(),
       slivers: [
-        const SliverToBoxAdapter(child: ShimmerBox(height: 520, radius: 0)),
+        const SliverToBoxAdapter(child: EverglowSkeleton(height: 520, radius: 0)),
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.fromLTRB(pad, 32, pad, 14),
-            child: const ShimmerBox(height: 22, width: 220, radius: 4),
+            child: const EverglowSkeleton(height: 22, width: 220, radius: 4),
           ),
         ),
         SliverToBoxAdapter(
@@ -268,7 +268,7 @@ class _HomeShimmer extends StatelessWidget {
                 isDesktop ? 6 : 3,
                 (i) => Padding(
                   padding: const EdgeInsets.only(right: 10),
-                  child: ShimmerBox(
+                  child: EverglowSkeleton(
                     height: isDesktop ? 258 : 186,
                     width: isDesktop ? 172 : 124,
                     radius: 6,

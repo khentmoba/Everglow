@@ -322,6 +322,31 @@ function composeTodayRecap({
   return parts.join(' ');
 }
 
+/// Flattens an Agnes message content block (string or parts array) to text.
+function getMessageText(content) {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => (typeof part === 'string' ? part : (part?.text || '')))
+      .join(' ');
+  }
+  return '';
+}
+
+/// Rough input-token estimate for Agnes prompts.
+/// Counts CJK characters (roughly 1.5 tokens each); the rest ~4 chars/token.
+function estimateTokens(text) {
+  if (!text) return 0;
+  // Count CJK characters (roughly 1.5 tokens each) and emoji (1 token each)
+  const cjk = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g) || []).length;
+  const nonCjk = text.length - cjk;
+  return Math.ceil(nonCjk / 4) + Math.ceil(cjk * 1.5);
+}
+
+// Agnes 2.5 Flash: 512K context window, generous token budget.
+// Use ~25% of context for input safety; reserve rest for output + tool loops.
+const AGNES_INPUT_TOKEN_BUDGET = 120000;
+
 module.exports = {
   tokenize,
   parseFactStructure,
@@ -331,4 +356,7 @@ module.exports = {
   generateTrivia,
   computeInsights,
   composeTodayRecap,
+  getMessageText,
+  estimateTokens,
+  AGNES_INPUT_TOKEN_BUDGET,
 };
