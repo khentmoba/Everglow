@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -101,12 +102,13 @@ class ThisWeekView extends StatelessWidget {
                     borderRadius: const BorderRadius.horizontal(
                       left: Radius.circular(14),
                     ),
-                    child: Image.network(
-                      GalleryService.displayUrl(p.imageUrl),
+                    child: AppNetworkImage(
+                      imageUrl: GalleryService.displayUrl(p.imageUrl),
                       width: 90,
                       height: 90,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Container(
+                      cacheWidth: 200,
+                      errorWidget: Container(
                         width: 90,
                         height: 90,
                         color: AppColors.twilight,
@@ -157,7 +159,9 @@ class ThisWeekView extends StatelessWidget {
                             '${p.uploadedAt.month}/${p.uploadedAt.day}/${p.uploadedAt.year} • by ${p.uploadedBy}${p.locationName != null ? ' • 📍 ${p.locationName}' : ''}',
                             style: AppTypography.outfitWhite.copyWith(
                               fontSize: 10,
-                              color: AppColors.petalWhite.withValues(alpha: 0.5),
+                              color: AppColors.petalWhite.withValues(
+                                alpha: 0.5,
+                              ),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
