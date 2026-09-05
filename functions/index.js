@@ -20,6 +20,9 @@ const {
   composeTodayRecap,
   simpleEmbedding,
   isNearDuplicate,
+  getMessageText,
+  estimateTokens,
+  AGNES_INPUT_TOKEN_BUDGET,
 } = require('./mochi_core.js');
 const {
   STALE_PRESENCE_MS,
@@ -228,17 +231,6 @@ async function checkHallucinations(replyText) {
 // memory schema forward-compatible. When AGNES embeddings are enabled,
 // getEmbedding(text) will return a float[] and rankMemories can use
 // cosine similarity alongside token scoring.
-function cosineSimilarity(a, b) {
-  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length || a.length === 0) return 0;
-  let dot = 0, normA = 0, normB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
-  }
-  if (normA === 0 || normB === 0) return 0;
-  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
-}
 async function getEmbedding(text) {
   const normalized = String(text||'').trim();
   if (!normalized) return null;
@@ -1119,63 +1111,9 @@ async function getBudgetContext() {
   } catch (_) { return ''; }
 }
 
-function getMessageText(content) {
-  if (typeof content === 'string') return content;
-  if (Array.isArray(content)) {
-    return content
-      .map((part) => (typeof part === 'string' ? part : (part?.text || '')))
-      .join(' ');
-  }
-  return '';
-}
-
-function estimateTokens(text) {
-  if (!text) return 0;
-  // Count CJK characters (roughly 1.5 tokens each) and emoji (1 token each)
-  const cjk = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g) || []).length;
-  const nonCjk = text.length - cjk;
-  return Math.ceil(nonCjk / 4) + Math.ceil(cjk * 1.5);
-}
-
-// Agnes 2.5 Flash: 512K context window, generous token budget.
-// Use ~25% of context for input safety; reserve rest for output + tool loops.
-const AGNES_INPUT_TOKEN_BUDGET = 120000;
-
 // ── Server-Side Memory Filtering ─────────────────────────────────
 // Replaces client-side memory injection with TF-IDF keyword matching.
 // Fetches all memories from Firestore, filters by relevance, decays stale ones.
-
-const MEMORY_STOP_WORDS = new Set([
-  'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
-  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
-  'should', 'may', 'might', 'shall', 'can', 'to', 'of', 'in', 'for',
-  'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during',
-  'before', 'after', 'above', 'below', 'between', 'out', 'off', 'over',
-  'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when',
-  'where', 'why', 'how', 'all', 'each', 'every', 'both', 'few', 'more',
-  'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own',
-  'same', 'so', 'than', 'too', 'very', 'just', 'because', 'but', 'and',
-  'or', 'if', 'while', 'about', 'up', 'it', 'its', 'i', 'me', 'my',
-  'you', 'your', 'he', 'him', 'his', 'she', 'her', 'we', 'us', 'our',
-  'they', 'them', 'their', 'this', 'that', 'these', 'those', 'what',
-  'which', 'who', 'whom', 'mochi', 'mew', 'prr', 'nya',
-]);
-
-function extractKeywords(text) {
-  return text.toLowerCase()
-    .replace(/[^a-z0-9\s]/g, '')
-    .split(/\s+/)
-    .filter(w => w.length > 2 && !MEMORY_STOP_WORDS.has(w));
-}
-
-function memoryRelevanceScore(fact, queryKeywords) {
-  const factWords = fact.toLowerCase().split(/\s+/);
-  let matches = 0;
-  for (const kw of queryKeywords) {
-    if (factWords.some(fw => fw.includes(kw) || kw.includes(fw))) matches++;
-  }
-  return matches / Math.max(queryKeywords.length, 1);
-}
 
 async function selectRelevantMemories(clientMemories, userMessage, maxResults = 30) {
   // Client-provided memories are plain strings in older clients; treat

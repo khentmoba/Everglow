@@ -138,12 +138,8 @@ class _CinemaScreenState extends State<CinemaScreen> {
   void _splitWatchlists() {
     // Cinema's rails own every movie (live-action or anime) plus non-anime
     // TV — see MediaItem.isCinemaItem. Anime series live in the anime rail.
-    _watchedList = _watchlist
-        .where((item) => item.isWatched && item.isCinemaItem)
-        .toList();
-    _watchingList = _watchlist
-        .where((item) => item.isCurrentlyWatching && item.isCinemaItem)
-        .toList();
+    _watchedList = _watchlist.watchedCinema;
+    _watchingList = _watchlist.watchingCinema;
   }
 
   Future<void> _fetchHomeData() async {

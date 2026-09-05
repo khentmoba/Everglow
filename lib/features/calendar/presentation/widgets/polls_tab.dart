@@ -6,8 +6,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
-import '../../../../shared/widgets/everglow/everglow_error_state.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
+import '../../../../shared/widgets/everglow/everglow_stream_view.dart';
 import '../../data/models/date_poll.dart';
 import '../../data/services/calendar_poll_service.dart';
 import '../../data/services/calendar_service.dart';
@@ -23,44 +23,35 @@ class PollsTab extends StatelessWidget {
     final auth = context.read<AuthService>();
     final currentUser = auth.currentUser ?? '';
 
-    return StreamBuilder<List<DatePoll>>(
+    return EverglowStreamView<List<DatePoll>>(
       stream: pollService.watchAll(),
-      builder: (context, snap) {
-        if (snap.hasError) {
-          return EverglowErrorState(
-            message: 'Could not load polls',
-            onRetry: () {},
-            icon: Icons.poll_outlined,
-          );
-        }
-        if (!snap.hasData) {
-          return const Padding(
-            padding: EdgeInsets.all(20),
-            child: EverglowSkeleton(
-              width: double.infinity,
-              height: 100,
-              radius: 16,
-            ),
-          );
-        }
-        final polls = snap.data!;
-        if (polls.isEmpty) {
-          return EverglowEmptyState(
-            icon: Icons.how_to_vote_rounded,
-            title: 'No date polls yet',
-            subtitle:
-                'Create a Rallly-style poll to pick the perfect date together',
-            ctaLabel: 'Create Poll',
-            onCta: () => _showAddPoll(context),
-          );
-        }
-        return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-          itemCount: polls.length,
-          itemBuilder: (context, idx) =>
-              _PollCard(poll: polls[idx], currentUser: currentUser),
-        );
-      },
+      streamLabel: 'calendar-polls',
+      errorMessage: 'Could not load polls',
+      errorIcon: Icons.poll_outlined,
+      onRetry: () {},
+      loadingView: const Padding(
+        padding: EdgeInsets.all(20),
+        child: EverglowSkeleton(
+          width: double.infinity,
+          height: 100,
+          radius: 16,
+        ),
+      ),
+      isEmpty: (polls) => polls.isEmpty,
+      emptyView: EverglowEmptyState(
+        icon: Icons.how_to_vote_rounded,
+        title: 'No date polls yet',
+        subtitle:
+            'Create a Rallly-style poll to pick the perfect date together',
+        ctaLabel: 'Create Poll',
+        onCta: () => _showAddPoll(context),
+      ),
+      builder: (context, polls) => ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+        itemCount: polls.length,
+        itemBuilder: (context, idx) =>
+            _PollCard(poll: polls[idx], currentUser: currentUser),
+      ),
     );
   }
 

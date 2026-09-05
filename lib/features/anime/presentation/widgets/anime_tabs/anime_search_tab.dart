@@ -13,7 +13,7 @@ import '../../../../cinema/data/services/tmdb_service.dart';
 import '../../../../../core/services/auth_service.dart';
 import '../../../../../shared/widgets/shelf/shelf_icon_button.dart';
 import '../../../../../shared/widgets/shelf/shelf_poster_card.dart';
-import '../../../../../shared/widgets/shelf/shimmer_box.dart';
+import '../../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../../../core/theme/app_typography.dart';
 
 // ── Anime palette (subset used by the Search tab) ───────────────
@@ -676,7 +676,7 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                     ),
                     itemCount: 12,
                     itemBuilder: (_, _) =>
-                        const ShimmerBox(height: 220, radius: 14),
+                        const EverglowSkeleton(height: 220, radius: 14),
                   ),
                 )
               : _searchResults.isEmpty
