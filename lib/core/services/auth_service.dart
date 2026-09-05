@@ -248,9 +248,8 @@ class AuthService extends ChangeNotifier {
     if (_hasSyncedUserDoc) return;
     _hasSyncedUserDoc = true;
 
+    final db = FirebaseFirestore.instance;
     try {
-      final db = FirebaseFirestore.instance;
-
       await db.collection('users').doc(myUid).set({
         'username': _currentUser,
         'partnerUsername': partnerUsername,
@@ -275,10 +274,63 @@ class AuthService extends ChangeNotifier {
         ]),
       );
     } catch (e) {
-      _hasSyncedUserDoc = false;
-      // ignore: avoid_print
-      print('[AuthService] _syncUserDoc failed for $_currentUser ($myUid): $e');
+      // Self-heal: a stale users doc (username from an older app version
+      // or fields outside the rules allow-list) rejects every update via
+      // the keys/username rule, which permanently breaks isCouple() and
+      // with it every couple read. Delete and recreate it in the current
+      // shape instead of failing forever.
+      var repaired = false;
+      try {
+        repaired = await _repairStaleUserDoc(db, myUid);
+      } catch (e2) {
+        // ignore: avoid_print
+        print(
+          '[AuthService] users doc repair failed for $_currentUser ($myUid): $e2',
+        );
+      }
+      if (!repaired) {
+        _hasSyncedUserDoc = false;
+        // ignore: avoid_print
+        print(
+          '[AuthService] _syncUserDoc failed for $_currentUser ($myUid): $e',
+        );
+      }
     }
+  }
+
+  /// Deletes and recreates the own users doc when it is stale, i.e. its
+  /// `username` no longer matches the signed-in profile or it carries
+  /// fields the rules no longer allow. Returns true when a repair ran.
+  /// The doc only holds identity fields, so recreating it loses nothing.
+  Future<bool> _repairStaleUserDoc(FirebaseFirestore db, String myUid) async {
+    final doc = await db.collection('users').doc(myUid).get();
+    if (!doc.exists) return false;
+    final data = doc.data() ?? {};
+    if (!needsUserDocRepair(data, _currentUser)) return false;
+    // ignore: avoid_print
+    print('[AuthService] repairing stale users doc for $_currentUser ($myUid)');
+    await db.collection('users').doc(myUid).delete();
+    await db.collection('users').doc(myUid).set({
+      'username': _currentUser,
+      'partnerUsername': partnerUsername,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    // ignore: avoid_print
+    print('[AuthService] users doc repaired for $_currentUser ($myUid)');
+    return true;
+  }
+
+  /// True when a users doc can never satisfy the update rule and must be
+  /// recreated: username drifted from the signed-in profile, or the doc
+  /// carries fields outside the allow-list.
+  @visibleForTesting
+  static bool needsUserDocRepair(
+    Map<String, dynamic> data,
+    String? currentUser,
+  ) {
+    const allowed = {'username', 'partnerUsername', 'updatedAt', 'createdAt'};
+    if (data['username'] != currentUser) return true;
+    return !data.keys.every(allowed.contains);
   }
 
   /// Queries /users to find the partner's UID by username. If the partner's
