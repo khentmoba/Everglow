@@ -134,6 +134,38 @@ async function getVerifiedUsername(decoded) {
   return null;
 }
 
+// ─── External API cache (TMDB/weather/books/anime) ───────────
+// Deduplicates repeat searches within tool-loop rounds and across rapid
+// user messages. TTLs: TMDB 10m, weather 15m, books 30m, anime 10m.
+// Size-capped at 200 entries to bound memory. Lives here (not index.js)
+// so both index.js and mochi_context.js share one Map.
+const _externalCache = new Map();
+const _EXTERNAL_CACHE_TTLS = {
+  tmdb: 10 * 60 * 1000,
+  weather: 15 * 60 * 1000,
+  books: 30 * 60 * 1000,
+  anime: 10 * 60 * 1000,
+  trending: 10 * 60 * 1000,
+  web_search: 15 * 60 * 1000,
+  web_page: 30 * 60 * 1000,
+};
+function _getExternalCache(key, ttlMs) {
+  const entry = _externalCache.get(key);
+  if (!entry) return null;
+  if ((Date.now() - entry.ts) > ttlMs) {
+    _externalCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+function _setExternalCache(key, data) {
+  _externalCache.set(key, { data, ts: Date.now() });
+  if (_externalCache.size > 200) {
+    const oldest = _externalCache.keys().next().value;
+    _externalCache.delete(oldest);
+  }
+}
+
 module.exports = {
   APP_VERSION,
   getAdmin,
@@ -144,4 +176,7 @@ module.exports = {
   isPrivateIp,
   isPublicDnsHost,
   isAllowedBookTextUrl,
+  _getExternalCache,
+  _setExternalCache,
+  _EXTERNAL_CACHE_TTLS,
 };

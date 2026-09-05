@@ -13,6 +13,8 @@ import '../../../../core/services/auth_service.dart';
 import '_partner_label.dart';
 import 'partner_subrow.dart';
 import 'shelf_widgets.dart';
+import '../../../../shared/widgets/everglow/everglow_marquee.dart';
+import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 
 /// "Our Books" shelf on the dashboard.
 ///
@@ -288,9 +290,10 @@ class _PersonalBooksShelfState extends State<_PersonalBooksShelf> {
                   );
                 }
                 if (!snapshot.hasData) {
-                  return const SizedBox(
-                    height: 194,
-                    child: ShelfMarquee(hasLoaded: false, children: []),
+                  return const EverglowSkeletonRow(
+                    count: 5,
+                    itemWidth: 128,
+                    itemHeight: 194,
                   );
                 }
                 final items = snapshot.data!;
@@ -300,8 +303,10 @@ class _PersonalBooksShelfState extends State<_PersonalBooksShelf> {
                     message: 'No books yet. Find your next read!',
                   );
                 }
-                return ShelfMarquee(
+                return EverglowMarquee(
+                  height: 194,
                   children: items
+                      .take(12)
                       .map(
                         (item) => Padding(
                           padding: const EdgeInsets.only(right: 12),
