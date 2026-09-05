@@ -4,6 +4,8 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
+import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
+import '../../../../shared/widgets/everglow/everglow_stream_view.dart';
 import '../../data/models/trip.dart';
 import '../../data/services/travel_service.dart';
 import '../widgets/add_pin_dialog.dart';
@@ -33,31 +35,30 @@ class TripDetailScreen extends StatelessWidget {
             ),
           ),
           SafeArea(
-            child: StreamBuilder<List<Trip>>(
+            child: EverglowStreamView<List<Trip>>(
               stream: service.watchTrips(),
-              builder: (context, snap) {
-                final trips = snap.data ?? [];
-                final trip = trips.where((t) => t.id == tripId).isEmpty
-                    ? null
-                    : trips.firstWhere((t) => t.id == tripId);
-                if (trip == null) {
-                  if (snap.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.deepRose,
-                        strokeWidth: 2,
-                      ),
-                    );
-                  }
-                  return Center(
-                    child: Text(
-                      'Trip not found',
-                      style: AppTypography.outfitWhite.copyWith(
-                        color: AppColors.petalWhite,
-                      ),
-                    ),
-                  );
-                }
+              streamLabel: 'trip-detail',
+              errorMessage: 'Could not load trip',
+              loadingView: const Padding(
+                padding: EdgeInsets.all(16),
+                child: EverglowSkeleton(
+                  width: double.infinity,
+                  height: 140,
+                  radius: 16,
+                ),
+              ),
+              isEmpty: (trips) =>
+                  trips.where((t) => t.id == tripId).isEmpty,
+              emptyView: Center(
+                child: Text(
+                  'Trip not found',
+                  style: AppTypography.outfitWhite.copyWith(
+                    color: AppColors.petalWhite,
+                  ),
+                ),
+              ),
+              builder: (context, trips) {
+                final trip = trips.firstWhere((t) => t.id == tripId);
                 return Column(
                   children: [
                     EverglowFeatureHeader(
