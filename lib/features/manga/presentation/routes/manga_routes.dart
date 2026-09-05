@@ -35,7 +35,7 @@ final List<GoRoute> mangaRoutes = [
   ),
 ];
 
-/// Args for [MangaReaderScreen] (complex object, can'"'"'t be URL params).
+/// Args for [MangaReaderScreen] (complex object, can't be URL params).
 class MangaReaderArgs {
   final MangaItem manga;
   final MangaChapter chapter;
