@@ -92,10 +92,11 @@ backdrops with equivalent custom loading/error states.
    drawer/nav — needs cross-feature conversion), cinema/anime/jukebox
    (dashboard-preview coupled), episode drawer (dashboard coupled).
 
-2. **Milestone photos -> JPEG** — SHIPPED: the five ~900KB photo PNGs
-   are now quality-82 JPEGs (4.63MB -> 0.45MB, ~10x). Verified visually
-   (no transparency in these photos). References updated in
-   `gateway_page.dart` + `seed_first_date.dart`; PNGs deleted.
+2. **Milestone photos -> JPEG** — SHIPPED. Milestones dir total
+   ~10.9MB -> ~2.6MB: the five ~900KB PNGs became quality-82 JPEGs
+   (refs updated, PNGs deleted) and the remaining 18 originals were
+   recompressed at quality 80 (6.31MB -> 2.18MB, filenames unchanged).
+   Verified visually; no transparency in these photos.
 3. **Font subset** — SHIPPED: all 17 TTFs subset to latin + latin-ext
    (1.77MB -> 1.15MB, saves ~662KB). Family/weight names preserved,
    full suite green, no new golden diffs.
