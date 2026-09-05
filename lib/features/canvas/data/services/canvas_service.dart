@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/models/doodle_stroke.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 import 'canvas_point_utils.dart';
 
 class CanvasService {
@@ -7,16 +8,19 @@ class CanvasService {
   final String _collection = 'canvas_strokes';
 
   Stream<List<DoodleStroke>> getStrokesStream() {
-    return _db
-        .collection(_collection)
-        .orderBy('createdAt', descending: false)
-        .limit(300)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => DoodleStroke.fromFirestore(doc))
-              .toList(),
-        );
+    return withFirestoreTimeout(
+      _db
+          .collection(_collection)
+          .orderBy('createdAt', descending: false)
+          .limit(300)
+          .snapshots()
+          .map(
+            (snapshot) => snapshot.docs
+                .map((doc) => DoodleStroke.fromFirestore(doc))
+                .toList(),
+          ),
+      label: 'canvas-strokes',
+    );
   }
 
   Future<void> saveStroke(DoodleStroke stroke) async {
@@ -38,15 +42,18 @@ class CanvasService {
   }
 
   Stream<List<DoodleStroke>> getLiveStrokesStream() {
-    return _db
-        .collection('live_canvas')
-        .limit(50)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => DoodleStroke.fromFirestore(doc))
-              .toList(),
-        );
+    return withFirestoreTimeout(
+      _db
+          .collection('live_canvas')
+          .limit(50)
+          .snapshots()
+          .map(
+            (snapshot) => snapshot.docs
+                .map((doc) => DoodleStroke.fromFirestore(doc))
+                .toList(),
+          ),
+      label: 'canvas-live',
+    );
   }
 
   Future<void> clearAllStrokes() async {

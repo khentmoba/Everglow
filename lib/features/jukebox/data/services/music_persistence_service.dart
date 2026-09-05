@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/music_status.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 
 class MusicPersistenceService {
@@ -39,14 +40,17 @@ class MusicPersistenceService {
   }
 
   Stream<Map<String, MusicStatus>> musicStatusStream(List<String> usernames) {
-    return _firestore.collection(_collectionPath).snapshots().map((snapshot) {
-      final Map<String, MusicStatus> results = {};
-      for (var doc in snapshot.docs) {
-        if (usernames.contains(doc.id)) {
-          results[doc.id] = MusicStatus.fromMap(doc.data());
+    return withFirestoreTimeout(
+      _firestore.collection(_collectionPath).snapshots().map((snapshot) {
+        final Map<String, MusicStatus> results = {};
+        for (var doc in snapshot.docs) {
+          if (usernames.contains(doc.id)) {
+            results[doc.id] = MusicStatus.fromMap(doc.data());
+          }
         }
-      }
-      return results;
-    });
+        return results;
+      }),
+      label: 'music-status',
+    );
   }
 }

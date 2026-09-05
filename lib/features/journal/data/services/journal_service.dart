@@ -78,23 +78,26 @@ class JournalService {
   Stream<List<JournalEntry>> search(String query) {
     final q = query.toLowerCase().trim();
     if (q.isEmpty) return watchAll();
-    return _db
-        .collection(_collection)
-        .orderBy('createdAt', descending: true)
-        .limit(80)
-        .snapshots()
-        .map(
-          (snap) => snap.docs
-              .map((d) => JournalEntry.fromFirestore(d))
-              .where(
-                (e) =>
-                    e.title.toLowerCase().contains(q) ||
-                    e.content.toLowerCase().contains(q) ||
-                    e.tags.any((t) => t.toLowerCase().contains(q)) ||
-                    e.category.name.contains(q),
-              )
-              .toList(),
-        );
+    return withFirestoreTimeout(
+      _db
+          .collection(_collection)
+          .orderBy('createdAt', descending: true)
+          .limit(80)
+          .snapshots()
+          .map(
+            (snap) => snap.docs
+                .map((d) => JournalEntry.fromFirestore(d))
+                .where(
+                  (e) =>
+                      e.title.toLowerCase().contains(q) ||
+                      e.content.toLowerCase().contains(q) ||
+                      e.tags.any((t) => t.toLowerCase().contains(q)) ||
+                      e.category.name.contains(q),
+                )
+                .toList(),
+          ),
+      label: 'journal-search',
+    );
   }
 
   /// On This Day — same monthDay
