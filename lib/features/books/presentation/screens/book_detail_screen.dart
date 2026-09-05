@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -330,11 +331,11 @@ class _BookDetailScreenState extends State<BookDetailScreen>
               width: 132,
               height: 196,
               child: cover.isNotEmpty
-                  ? Image.network(
-                      cover,
+                  ? AppNetworkImage(
+                      imageUrl: cover,
                       fit: BoxFit.cover,
                       cacheWidth: 600,
-                      errorBuilder: (_, _, _) => Container(color: _cCard),
+                      errorWidget: Container(color: _cCard),
                     )
                   : Container(
                       color: _cCard,
