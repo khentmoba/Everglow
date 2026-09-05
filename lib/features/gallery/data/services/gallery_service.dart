@@ -1,7 +1,10 @@
 import 'dart:typed_data';
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
 import '../../domain/models/memory_photo.dart';
 import '../../../../core/utils/logger.dart';
 
@@ -128,17 +131,55 @@ class GalleryService {
       // Delete from Firestore
       await _db.collection(_collection).doc(photo.id).delete();
 
-      // Delete from Storage (best-effort)
+      // Delete from Storage (best-effort). The direct delete only works
+      // for the uploader's own files; for the partner's photo it falls back
+      // to the couple-only cloud function so no orphaned file is left behind.
       try {
         final ref = _storage.refFromURL(photo.imageUrl);
         await ref.delete();
       } catch (_) {
-        // Storage deletion is best-effort
+        await _deleteStorageViaFunction(photo.imageUrl);
       }
 
       Logger.i("Photo deleted: ${photo.id}");
     } catch (e) {
       debugPrint("Error deleting photo: $e");
+    }
+  }
+
+  /// Server-side Storage delete for the partner's photos. Best-effort:
+  /// never throws, so a failed cleanup can't fail the whole delete.
+  Future<void> _deleteStorageViaFunction(String imageUrl) async {
+    try {
+      final idToken =
+          await FirebaseAuth.instance.currentUser?.getIdToken() ?? '';
+      if (idToken.isEmpty) return;
+      final urls = <Uri>[
+        if (kIsWeb) Uri.parse('/api/deleteGalleryPhoto'),
+        Uri.parse(
+          'https://us-central1-everglow-1c6db.cloudfunctions.net/deleteGalleryPhoto',
+        ),
+      ];
+      for (final url in urls) {
+        try {
+          final resp = await http
+              .post(
+                url,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer $idToken',
+                },
+                body: jsonEncode({'imageUrl': imageUrl}),
+              )
+              .timeout(const Duration(seconds: 10));
+          if (resp.statusCode == 200) return;
+          Logger.e('deleteGalleryPhoto $url -> ${resp.statusCode}');
+        } catch (_) {
+          // Try the next URL.
+        }
+      }
+    } catch (_) {
+      // Best-effort only.
     }
   }
 
