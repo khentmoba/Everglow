@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import 'package:intl/intl.dart';
 import '../../data/models/music_status.dart';
 import '../../data/models/top_music_track.dart';
@@ -51,7 +52,11 @@ class TopTrackRow extends StatelessWidget {
         children: [
           _RankBadge(rank: track.rank, isPink: isPink),
           const SizedBox(width: AppSpacing.md),
-          _PodiumArtwork(imageUrl: track.imageUrl, rank: track.rank, isPink: isPink),
+          _PodiumArtwork(
+            imageUrl: track.imageUrl,
+            rank: track.rank,
+            isPink: isPink,
+          ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
@@ -369,7 +374,9 @@ class _PlayCountPill extends StatelessWidget {
             style: AppTypography.outfitMedium.copyWith(
               fontSize: 9,
               fontWeight: FontWeight.w600,
-              color: isPink ? AppColors.roseQuartz.withValues(alpha: 0.72) : AppColors.textMuted,
+              color: isPink
+                  ? AppColors.roseQuartz.withValues(alpha: 0.72)
+                  : AppColors.textMuted,
               letterSpacing: 1.3,
             ),
           ),
@@ -425,7 +432,11 @@ class _PodiumArtwork extends StatelessWidget {
   final String? imageUrl;
   final int rank;
   final bool isPink;
-  const _PodiumArtwork({this.imageUrl, required this.rank, this.isPink = false});
+  const _PodiumArtwork({
+    this.imageUrl,
+    required this.rank,
+    this.isPink = false,
+  });
   @override
   Widget build(BuildContext context) {
     final isPodium = rank <= 3;
@@ -469,11 +480,11 @@ class _PodiumArtwork extends StatelessWidget {
               builder: (_) {
                 final url = cleanLastfmImageUrl(imageUrl);
                 if (url == null) return const _ArtworkFallback();
-                return Image.network(
-                  url,
+                return AppNetworkImage(
+                  imageUrl: url,
                   fit: BoxFit.cover,
                   cacheWidth: 200,
-                  errorBuilder: (c, e, s) => const _ArtworkFallback(),
+                  errorWidget: const _ArtworkFallback(),
                 );
               },
             ),
@@ -546,7 +557,9 @@ class _PodiumArtwork extends StatelessWidget {
               size: 11,
               color: isPink
                   ? (rank == 1 ? AppColors.roseDark : const Color(0xFF2A2340))
-                  : (rank == 1 ? AppColors.goldShadow : const Color(0xFF2A2340)),
+                  : (rank == 1
+                        ? AppColors.goldShadow
+                        : const Color(0xFF2A2340)),
             ),
           ),
         ),
@@ -718,43 +731,71 @@ class _PodiumBadge extends StatelessWidget {
         ? switch (rank) {
             1 => (
               AppColors.cinemaPink,
-              [AppColors.blushTint, const Color(0xFFFF8FAB), AppColors.cinemaPink],
+              [
+                AppColors.blushTint,
+                const Color(0xFFFF8FAB),
+                AppColors.cinemaPink,
+              ],
               Icons.favorite_rounded,
             ),
             2 => (
               AppColors.roseQuartz,
-              [AppColors.petalWhite, AppColors.roseQuartz, const Color(0xFFB76B8A)],
+              [
+                AppColors.petalWhite,
+                AppColors.roseQuartz,
+                const Color(0xFFB76B8A),
+              ],
               Icons.favorite_rounded,
             ),
             3 => (
               AppColors.softLavender,
-              [AppColors.moonlight, AppColors.softLavender, const Color(0xFF8A5A8A)],
+              [
+                AppColors.moonlight,
+                AppColors.softLavender,
+                const Color(0xFF8A5A8A),
+              ],
               Icons.favorite_rounded,
             ),
-            _ => (AppColors.auroraRose, [AppColors.petalWhite, AppColors.petalWhite], Icons.star_rounded),
+            _ => (
+              AppColors.auroraRose,
+              [AppColors.petalWhite, AppColors.petalWhite],
+              Icons.star_rounded,
+            ),
           }
         : switch (rank) {
             1 => (
               AppColors.auroraGold,
-              [const Color(0xFFFFF6CC), AppColors.auroraGold, const Color(0xFFC49A2B)],
+              [
+                const Color(0xFFFFF6CC),
+                AppColors.auroraGold,
+                const Color(0xFFC49A2B),
+              ],
               Icons.emoji_events_rounded,
             ),
             2 => (
               AppColors.rankSilverCool,
-              [AppColors.petalWhite, const Color(0xFFD8D6F0), const Color(0xFF9A98C2)],
+              [
+                AppColors.petalWhite,
+                const Color(0xFFD8D6F0),
+                const Color(0xFF9A98C2),
+              ],
               Icons.workspace_premium_rounded,
             ),
             3 => (
               AppColors.rankBronzeWarm,
-              [const Color(0xFFFFE0C2), AppColors.rankBronzeWarm, const Color(0xFF8B5A2B)],
-        Icons.military_tech_rounded,
-      ),
-      _ => (
-        AppColors.blushGold,
-        [AppColors.petalWhite, AppColors.petalWhite],
-        Icons.star_rounded,
-      ),
-    };
+              [
+                const Color(0xFFFFE0C2),
+                AppColors.rankBronzeWarm,
+                const Color(0xFF8B5A2B),
+              ],
+              Icons.military_tech_rounded,
+            ),
+            _ => (
+              AppColors.blushGold,
+              [AppColors.petalWhite, AppColors.petalWhite],
+              Icons.star_rounded,
+            ),
+          };
     final size = rank == 1 ? 36.0 : 34.0;
     return Container(
       width: size,
@@ -824,12 +865,11 @@ class _TrackArtwork extends StatelessWidget {
       child: ClipRRect(
         borderRadius: AppRadius.radiusMd,
         child: url != null
-            ? Image.network(
-                url,
+            ? AppNetworkImage(
+                imageUrl: url,
                 fit: BoxFit.cover,
                 cacheWidth: 200,
-                errorBuilder: (context, error, stack) =>
-                    const _ArtworkFallback(),
+                errorWidget: const _ArtworkFallback(),
               )
             : const _ArtworkFallback(),
       ),

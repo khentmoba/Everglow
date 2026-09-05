@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../shared/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_radius.dart';
@@ -283,20 +284,21 @@ class _LovedTracksSectionState extends State<LovedTracksSection> {
                                                         BorderRadius.circular(
                                                           8,
                                                         ),
-                                                    child: Image.network(
-                                                      cleanLastfmImageUrl(
+                                                    child: AppNetworkImage(
+                                                      imageUrl:
+                                                          cleanLastfmImageUrl(
                                                             d.imageUrl,
                                                           ) ??
                                                           d.imageUrl!,
                                                       fit: BoxFit.cover,
-                                                      errorBuilder: (_, _, _) =>
-                                                          const Icon(
-                                                            Icons
-                                                                .music_note_rounded,
-                                                            size: 16,
-                                                            color: AppColors
-                                                                .roseQuartz,
-                                                          ),
+                                                      cacheWidth: 150,
+                                                      errorWidget: const Icon(
+                                                        Icons
+                                                            .music_note_rounded,
+                                                        size: 16,
+                                                        color: AppColors
+                                                            .roseQuartz,
+                                                      ),
                                                     ),
                                                   ),
                                           ),
@@ -409,10 +411,11 @@ class _LovedTracksSectionState extends State<LovedTracksSection> {
                             color: AppColors.roseQuartz,
                           );
                         }
-                        return Image.network(
-                          u,
+                        return AppNetworkImage(
+                          imageUrl: u,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const Icon(
+                          cacheWidth: 150,
+                          errorWidget: const Icon(
                             Icons.music_note_rounded,
                             color: AppColors.roseQuartz,
                           ),
@@ -645,10 +648,11 @@ class _LovedCard extends StatelessWidget {
                         color: AppColors.roseQuartz,
                       );
                     }
-                    return Image.network(
-                      u,
+                    return AppNetworkImage(
+                      imageUrl: u,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const Icon(
+                      cacheWidth: 150,
+                      errorWidget: const Icon(
                         Icons.music_note_rounded,
                         size: 24,
                         color: AppColors.roseQuartz,

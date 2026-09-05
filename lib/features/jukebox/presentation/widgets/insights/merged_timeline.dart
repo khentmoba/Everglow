@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../shared/widgets/app_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../../../core/theme/app_colors.dart';
@@ -410,10 +411,11 @@ class _Art extends StatelessWidget {
       height: 44,
       color: AppColors.velvet,
       child: url != null
-          ? Image.network(
-              url,
+          ? AppNetworkImage(
+              imageUrl: url,
               fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => const Icon(
+              cacheWidth: 150,
+              errorWidget: const Icon(
                 Icons.music_note_rounded,
                 size: 18,
                 color: AppColors.roseQuartz,

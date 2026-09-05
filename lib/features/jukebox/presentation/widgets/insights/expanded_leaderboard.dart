@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../shared/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_radius.dart';
@@ -574,7 +575,9 @@ class _Rank extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          border: Border.all(color: AppColors.petalWhite.withValues(alpha: 0.7)),
+          border: Border.all(
+            color: AppColors.petalWhite.withValues(alpha: 0.7),
+          ),
           boxShadow: [
             BoxShadow(color: c.withValues(alpha: 0.35), blurRadius: 10),
           ],
@@ -633,10 +636,11 @@ class _Art extends StatelessWidget {
                 size: 18,
                 color: AppColors.roseQuartz,
               )
-            : Image.network(
-                u,
+            : AppNetworkImage(
+                imageUrl: u,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Icon(
+                cacheWidth: 150,
+                errorWidget: Icon(
                   isArtist ? Icons.person_rounded : Icons.music_note_rounded,
                   size: 18,
                   color: AppColors.roseQuartz,
