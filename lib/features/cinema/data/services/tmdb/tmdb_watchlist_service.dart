@@ -354,8 +354,8 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
   Stream<List<MediaItem>> getWatchListStream(String userName) {
     if (userName.isEmpty) return Stream.value(const []);
     return firestore
-        .collection('"'"'watch_list'"'"')
-        .where('"'"'userName'"'"', isEqualTo: userName)
+        .collection('watch_list')
+        .where('userName', isEqualTo: userName)
         .limit(streamLimit)
         .snapshots()
         .map((snapshot) {
@@ -432,13 +432,13 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
 
   /// Stream of anime-only items for a single user. Same source collection
   /// (`watch_list`) as the regular stream — we filter by `isAnime == true`
-  /// in Dart so the dashboard'"'"'s Anime rail and the AnimeScreen only show
+  /// in Dart so the dashboard's Anime rail and the AnimeScreen only show
   /// Japanese animation, no matter where the title was added.
   Stream<List<MediaItem>> getAnimeWatchListStream(String userName) {
     if (userName.isEmpty) return Stream.value(const []);
     return firestore
-        .collection('"'"'watch_list'"'"')
-        .where('"'"'userName'"'"', isEqualTo: userName)
+        .collection('watch_list')
+        .where('userName', isEqualTo: userName)
         .limit(streamLimit)
         .snapshots()
         .map((snapshot) {
@@ -509,8 +509,8 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
   Stream<List<MediaItem>> getCurrentlyWatchingStream(String userName) {
     if (userName.isEmpty) return Stream.value(const []);
     return firestore
-        .collection('"'"'watch_list'"'"')
-        .where('"'"'userName'"'"', isEqualTo: userName)
+        .collection('watch_list')
+        .where('userName', isEqualTo: userName)
         .limit(streamLimit)
         .snapshots()
         .map((snapshot) {
@@ -581,8 +581,8 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
   Stream<List<MediaItem>> getCurrentlyWatchingAnimeStream(String userName) {
     if (userName.isEmpty) return Stream.value(const []);
     return firestore
-        .collection('"'"'watch_list'"'"')
-        .where('"'"'userName'"'"', isEqualTo: userName)
+        .collection('watch_list')
+        .where('userName', isEqualTo: userName)
         .limit(streamLimit)
         .snapshots()
         .map((snapshot) {
