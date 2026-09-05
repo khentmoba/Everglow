@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_motion.dart';
+import '../../../core/theme/app_typography.dart';
 
 /// Unified skeleton/loading placeholder.
 ///
@@ -161,6 +162,45 @@ class EverglowSkeletonGrid extends StatelessWidget {
             ),
       itemCount: count,
       itemBuilder: (_, _) => const EverglowSkeleton(radius: 14),
+    );
+  }
+}
+
+/// Centered loading spinner with optional message.
+///
+/// The ONE spinner for the entire app. Use this instead of raw
+/// `CircularProgressIndicator` in content areas so every screen shows
+/// the same deep-rose spinner.
+class EverglowLoadingState extends StatelessWidget {
+  final String? message;
+  const EverglowLoadingState({super.key, this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.deepRose,
+            ),
+          ),
+          if (message != null) ...[
+            const SizedBox(height: 16),
+            Text(
+              message!,
+              style: AppTypography.outfitWhite.copyWith(
+                fontSize: 13,
+                color: AppColors.roseQuartz.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
