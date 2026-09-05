@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import '../../data/models/book_item.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -47,11 +48,11 @@ class BookCoverCard extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               if (item.coverUrl.isNotEmpty)
-                Image.network(
-                  item.coverUrl,
+                AppNetworkImage(
+                  imageUrl: item.coverUrl,
                   fit: BoxFit.cover,
                   cacheWidth: 300,
-                  errorBuilder: (_, _, _) => _placeholder(),
+                  errorWidget: _placeholder(),
                 )
               else
                 _placeholder(),
