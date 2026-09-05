@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../app_network_image.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
-
 
 /// Item the [ShelfHeroCarousel] can render.
 class ShelfHeroItem {
@@ -204,12 +204,11 @@ class _HeroSlide extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 if (item.imageUrl.isNotEmpty)
-                  Image.network(
-                    item.imageUrl,
+                  AppNetworkImage(
+                    imageUrl: item.imageUrl,
                     fit: BoxFit.cover,
                     cacheWidth: 900,
-                    errorBuilder: (_, _, _) =>
-                        Container(color: AppColors.velvet),
+                    errorWidget: Container(color: AppColors.velvet),
                   )
                 else
                   Container(color: AppColors.velvet),
