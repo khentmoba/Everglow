@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../shared/widgets/app_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../../../core/theme/app_colors.dart';
@@ -379,7 +380,9 @@ class _PersonDay extends StatelessWidget {
                               borderRadius: BorderRadius.circular(8),
                               color: AppColors.velvet,
                               border: Border.all(
-                                color: AppColors.petalWhite.withValues(alpha: 0.08),
+                                color: AppColors.petalWhite.withValues(
+                                  alpha: 0.08,
+                                ),
                               ),
                             ),
                             child: ClipRRect(
@@ -393,10 +396,11 @@ class _PersonDay extends StatelessWidget {
                                     color: AppColors.roseQuartz,
                                   );
                                 }
-                                return Image.network(
-                                  u,
+                                return AppNetworkImage(
+                                  imageUrl: u,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => const Icon(
+                                  cacheWidth: 150,
+                                  errorWidget: const Icon(
                                     Icons.music_note_rounded,
                                     size: 16,
                                     color: AppColors.roseQuartz,

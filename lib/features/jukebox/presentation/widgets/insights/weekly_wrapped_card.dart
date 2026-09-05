@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../shared/widgets/app_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../../../core/theme/app_colors.dart';
@@ -153,10 +154,14 @@ class WeeklyWrappedCard extends StatelessWidget {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.petalWhite.withValues(alpha: 0.06),
+                              color: AppColors.petalWhite.withValues(
+                                alpha: 0.06,
+                              ),
                               borderRadius: BorderRadius.circular(99),
                               border: Border.all(
-                                color: AppColors.petalWhite.withValues(alpha: 0.08),
+                                color: AppColors.petalWhite.withValues(
+                                  alpha: 0.08,
+                                ),
                               ),
                             ),
                             child: Row(
@@ -190,7 +195,9 @@ class WeeklyWrappedCard extends StatelessWidget {
                             color: AppColors.petalWhite.withValues(alpha: 0.04),
                             borderRadius: AppRadius.radiusMd,
                             border: Border.all(
-                              color: AppColors.petalWhite.withValues(alpha: 0.06),
+                              color: AppColors.petalWhite.withValues(
+                                alpha: 0.06,
+                              ),
                             ),
                           ),
                           child: Column(
@@ -232,7 +239,9 @@ class WeeklyWrappedCard extends StatelessWidget {
                                   const SizedBox(height: 14),
                                   Container(
                                     height: 1,
-                                    color: AppColors.petalWhite.withValues(alpha: 0.06),
+                                    color: AppColors.petalWhite.withValues(
+                                      alpha: 0.06,
+                                    ),
                                   ),
                                   const SizedBox(height: 14),
                                   _PersonWeekly(
@@ -436,7 +445,9 @@ class _WrappedRow extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               color: AppColors.velvet,
-              border: Border.all(color: AppColors.petalWhite.withValues(alpha: 0.08)),
+              border: Border.all(
+                color: AppColors.petalWhite.withValues(alpha: 0.08),
+              ),
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
@@ -449,10 +460,11 @@ class _WrappedRow extends StatelessWidget {
                     color: AppColors.roseQuartz,
                   );
                 }
-                return Image.network(
-                  u,
+                return AppNetworkImage(
+                  imageUrl: u,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const Icon(
+                  cacheWidth: 150,
+                  errorWidget: const Icon(
                     Icons.music_note_rounded,
                     size: 14,
                     color: AppColors.roseQuartz,
