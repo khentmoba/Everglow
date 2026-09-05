@@ -88,8 +88,8 @@ class _RankingTile extends StatelessWidget {
                 width: 44,
                 height: 62,
                 child: item.coverUrl.isNotEmpty
-                    ? Image.network(
-                        item.coverUrl,
+                    ? AppNetworkImage(
+                        imageUrl: item.coverUrl,
                         fit: BoxFit.cover,
                         cacheWidth: 120,
                       )
@@ -264,12 +264,11 @@ class _ContinueReadingRail extends StatelessWidget {
                           fit: StackFit.expand,
                           children: [
                             if (item.coverUrl.isNotEmpty)
-                              Image.network(
-                                item.coverUrl,
+                              AppNetworkImage(
+                                imageUrl: item.coverUrl,
                                 fit: BoxFit.cover,
                                 cacheWidth: 300,
-                                errorBuilder: (_, _, _) =>
-                                    Container(color: _cCard),
+                                errorWidget: Container(color: _cCard),
                               )
                             else
                               Container(color: _cCard),
@@ -428,11 +427,11 @@ class _BookResultRow extends StatelessWidget {
                   width: 58,
                   height: 82,
                   child: result.coverUrl.isNotEmpty
-                      ? Image.network(
-                          result.coverUrl,
+                      ? AppNetworkImage(
+                          imageUrl: result.coverUrl,
                           fit: BoxFit.cover,
                           cacheWidth: 160,
-                          errorBuilder: (_, _, _) => Container(color: _cBlack),
+                          errorWidget: Container(color: _cBlack),
                         )
                       : Container(
                           color: _cBlack,

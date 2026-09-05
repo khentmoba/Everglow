@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/theme/app_theme.dart';
@@ -394,12 +395,11 @@ class _OurBooksScreenState extends State<OurBooksScreen> {
                           width: 80,
                           height: 120,
                           child: item.coverUrl.isNotEmpty
-                              ? Image.network(
-                                  item.coverUrl,
+                              ? AppNetworkImage(
+                                  imageUrl: item.coverUrl,
                                   fit: BoxFit.cover,
                                   cacheWidth: 240,
-                                  errorBuilder: (_, _, _) =>
-                                      _posterPlaceholder(),
+                                  errorWidget: _posterPlaceholder(),
                                 )
                               : _posterPlaceholder(),
                         ),

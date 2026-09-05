@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -178,11 +179,11 @@ class _BookDetailsDrawerState extends State<BookDetailsDrawer> {
           height: 320,
           width: double.infinity,
           child: widget.item.coverUrl.isNotEmpty
-              ? Image.network(
-                  widget.item.coverUrl,
+              ? AppNetworkImage(
+                  imageUrl: widget.item.coverUrl,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) =>
-                      Container(color: AppTheme.twilight),
+                  cacheWidth: 800,
+                  errorWidget: Container(color: AppTheme.twilight),
                 )
               : Container(color: AppTheme.twilight),
         ),
