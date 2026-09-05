@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/services/auth_service.dart';
@@ -30,67 +31,74 @@ class _TravelScreenState extends State<TravelScreen> {
   Widget build(BuildContext context) {
     final service = TravelService();
     final auth = context.read<AuthService>();
-        return EverglowScaffold(
+    return EverglowScaffold(
       backgroundColor: AppColors.inkDeep,
-      glows: [const RadialGlow(color: AppColors.auroraTeal, alignment: Alignment(-0.6, -0.9), size: 0.85, opacity: 0.12)],
+      glows: [
+        const RadialGlow(
+          color: AppColors.auroraTeal,
+          alignment: Alignment(-0.6, -0.9),
+          size: 0.85,
+          opacity: 0.12,
+        ),
+      ],
       body: Column(
-              children: [
-                EverglowFeatureHeader(
-                  title: 'Atlas',
-                  subtitle: 'where we\'ve been • Dawarich × AdventureLog',
-                  icon: Icons.map_rounded,
-                  hue: AppColors.auroraTeal,
-                  actions: [
-                    EverglowIconButton(
-                      icon: Icons.add_location_alt_rounded,
-                      onPressed: () => _showAddTrip(auth),
-                      semanticLabel: '''New trip''',
-                      tooltip: '''New trip''',
-                      iconColor: AppColors.blushGold,
-                    ),
-                  ],
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: EverglowSegmentedControl(
-                    selectedIndex: _tabIndex,
-                    onChanged: (i) => setState(() => _tabIndex = i),
-                    activeColor: AppColors.auroraTeal,
-                    items: const [
-                      SegmentItem('Trips', Icons.card_travel_rounded),
-                      SegmentItem('Atlas', Icons.public_rounded),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: _tabIndex == 1
-                      ? const TravelAtlasView()
-                      : EverglowStreamView<List<Trip>>(
-                          stream: service.watchTrips(),
-                          streamLabel: 'travel-trips',
-                          errorMessage: 'Could not load trips',
-                          errorIcon: Icons.map_rounded,
-                          onRetry: () => setState(() {}),
-                          isEmpty: (trips) => trips.isEmpty,
-                          emptyView: EverglowEmptyState(
-                            icon: Icons.map_rounded,
-                            title: 'No trips yet',
-                            subtitle:
-                                'Plan your first getaway — pins, itinerary, auto-journal',
-                            ctaLabel: 'New Trip',
-                            onCta: () => _showAddTrip(auth),
-                          ),
-                          builder: (context, trips) => ListView.builder(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                            itemCount: trips.length,
-                            itemBuilder: (context, idx) =>
-                                _TripCard(trip: trips[idx]),
-                          ),
-                        ),
-                ),
+        children: [
+          EverglowFeatureHeader(
+            title: 'Atlas',
+            subtitle: 'where we\'ve been • Dawarich × AdventureLog',
+            icon: Icons.map_rounded,
+            hue: AppColors.auroraTeal,
+            actions: [
+              EverglowIconButton(
+                icon: Icons.add_location_alt_rounded,
+                onPressed: () => _showAddTrip(auth),
+                semanticLabel: '''New trip''',
+                tooltip: '''New trip''',
+                iconColor: AppColors.blushGold,
+              ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: EverglowSegmentedControl(
+              selectedIndex: _tabIndex,
+              onChanged: (i) => setState(() => _tabIndex = i),
+              activeColor: AppColors.auroraTeal,
+              items: const [
+                SegmentItem('Trips', Icons.card_travel_rounded),
+                SegmentItem('Atlas', Icons.public_rounded),
               ],
             ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: _tabIndex == 1
+                ? const TravelAtlasView()
+                : EverglowStreamView<List<Trip>>(
+                    stream: service.watchTrips(),
+                    streamLabel: 'travel-trips',
+                    errorMessage: 'Could not load trips',
+                    errorIcon: Icons.map_rounded,
+                    onRetry: () => setState(() {}),
+                    isEmpty: (trips) => trips.isEmpty,
+                    emptyView: EverglowEmptyState(
+                      icon: Icons.map_rounded,
+                      title: 'No trips yet',
+                      subtitle:
+                          'Plan your first getaway — pins, itinerary, auto-journal',
+                      ctaLabel: 'New Trip',
+                      onCta: () => _showAddTrip(auth),
+                    ),
+                    builder: (context, trips) => ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+                      itemCount: trips.length,
+                      itemBuilder: (context, idx) =>
+                          _TripCard(trip: trips[idx]),
+                    ),
+                  ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddTrip(auth),
         backgroundColor: AppColors.auroraTeal,
@@ -127,17 +135,47 @@ class _TripCard extends StatelessWidget {
         child: Row(
           children: [
             ClipRRect(
-              borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
+              borderRadius: const BorderRadius.horizontal(
+                left: Radius.circular(16),
+              ),
               child: Container(
                 width: 90,
                 height: 90,
                 color: statusColor.withValues(alpha: 0.15),
                 child: trip.coverUrl.isNotEmpty
-                    ? Image.network(trip.coverUrl, fit: BoxFit.cover, errorBuilder: (_,_,_) => Center(child: Text(_statusEmoji(trip.status), style: const TextStyle(fontSize: 32))))
+                    ? AppNetworkImage(
+                        imageUrl: trip.coverUrl,
+                        fit: BoxFit.cover,
+                        cacheWidth: 200,
+                        errorWidget: Center(
+                          child: Text(
+                            _statusEmoji(trip.status),
+                            style: const TextStyle(fontSize: 32),
+                          ),
+                        ),
+                      )
                     : Stack(
                         children: [
-                          Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(colors: [statusColor.withValues(alpha: 0.18), AppColors.inkDeep.withValues(alpha: 0.6)], begin: Alignment.topLeft, end: Alignment.bottomRight)))),
-                          Center(child: Text(_statusEmoji(trip.status), style: const TextStyle(fontSize: 32))),
+                          Positioned.fill(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    statusColor.withValues(alpha: 0.18),
+                                    AppColors.inkDeep.withValues(alpha: 0.6),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Center(
+                            child: Text(
+                              _statusEmoji(trip.status),
+                              style: const TextStyle(fontSize: 32),
+                            ),
+                          ),
                         ],
                       ),
               ),

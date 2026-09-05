@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/services/auth_service.dart';
@@ -78,124 +79,137 @@ class _VaultScreenState extends State<VaultScreen> {
     final stream = _folderFilter == 'all'
         ? service.watchAll()
         : service.watchByFolder(_folderFilter);
-        return EverglowScaffold(
+    return EverglowScaffold(
       backgroundColor: AppColors.inkDeep,
-      glows: [const RadialGlow(color: AppColors.auroraTeal, alignment: Alignment(-0.7, -0.8), size: 0.9, opacity: 0.12)],
+      glows: [
+        const RadialGlow(
+          color: AppColors.auroraTeal,
+          alignment: Alignment(-0.7, -0.8),
+          size: 0.9,
+          opacity: 0.12,
+        ),
+      ],
       body: Column(
-              children: [
-                EverglowFeatureHeader(
-                  title: 'Vault',
-                  subtitle: 'our private drive • FileBrowser',
-                  icon: Icons.folder_special_rounded,
-                  hue: AppColors.auroraTeal,
-                  actions: [
-                    EverglowIconButton(
-                      icon: Icons.upload_rounded,
-                      onPressed: _upload,
-                      semanticLabel: '''Upload file''',
-                      tooltip: '''Upload''',
-                      iconColor: AppColors.blushGold,
-                    ),
-                  ],
-                ),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: AppSpacing.pageH(context)),
-                  child: EverglowFadeRow(
-                    child: Row(
-                      children: _folders.map((f) => EverglowChip(label: f, selected: _folderFilter == f, onTap: () => setState(() => _folderFilter = f))).toList(),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                FutureBuilder<Map<String, int>>(
-                  future: service.getStorageStats(),
-                  builder: (context, snap) {
-                    final count = snap.data?['count'] ?? 0;
-                    final bytes = snap.data?['bytes'] ?? 0;
-                    final mb = (bytes / (1024 * 1024)).toStringAsFixed(1);
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.panelGlass,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppColors.moonlight.withValues(alpha: 0.10),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.storage_rounded,
-                              size: 14,
-                              color: AppColors.auroraTeal,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '$count files • $mb MB',
-                              style: AppTypography.outfitWhite.copyWith(
-                                fontSize: 11,
-                                color: AppTheme.petalWhite.withValues(
-                                  alpha: 0.7,
-                                ),
-                              ),
-                            ),
-                            const Spacer(),
-                            Text(
-                              'Firebase Storage',
-                              style: AppTypography.outfitWhite.copyWith(
-                                fontSize: 10,
-                                color: AppColors.auroraTeal,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 10),
-                Expanded(
-                  child: EverglowStreamView<List<VaultEntry>>(
-                    stream: stream,
-                    streamLabel: 'vault-entries',
-                    errorMessage: 'Could not load vault',
-                    errorIcon: Icons.folder_open_rounded,
-                    onRetry: () => setState(() {}),
-                    isEmpty: (entries) => entries.isEmpty,
-                    emptyView: EverglowEmptyState(
-                      icon: Icons.folder_open_rounded,
-                      title: 'Vault is empty',
-                      subtitle: _folderFilter == 'all'
-                          ? 'Upload your first file — receipts, tickets, IDs, photos'
-                          : 'No files in "$_folderFilter"',
-                      ctaLabel: 'Upload',
-                      onCta: _upload,
-                    ),
-                    builder: (context, entries) => GridView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                      gridDelegate:
-                          const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 220,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio: 0.82,
-                          ),
-                      itemCount: entries.length,
-                      itemBuilder: (context, idx) => _VaultCard(
-                        entry: entries[idx],
-                        onDelete: () =>
-                            VaultService().deleteEntry(entries[idx]),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+        children: [
+          EverglowFeatureHeader(
+            title: 'Vault',
+            subtitle: 'our private drive • FileBrowser',
+            icon: Icons.folder_special_rounded,
+            hue: AppColors.auroraTeal,
+            actions: [
+              EverglowIconButton(
+                icon: Icons.upload_rounded,
+                onPressed: _upload,
+                semanticLabel: '''Upload file''',
+                tooltip: '''Upload''',
+                iconColor: AppColors.blushGold,
+              ),
+            ],
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: AppSpacing.pageH(context),
             ),
+            child: EverglowFadeRow(
+              child: Row(
+                children: _folders
+                    .map(
+                      (f) => EverglowChip(
+                        label: f,
+                        selected: _folderFilter == f,
+                        onTap: () => setState(() => _folderFilter = f),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          FutureBuilder<Map<String, int>>(
+            future: service.getStorageStats(),
+            builder: (context, snap) {
+              final count = snap.data?['count'] ?? 0;
+              final bytes = snap.data?['bytes'] ?? 0;
+              final mb = (bytes / (1024 * 1024)).toStringAsFixed(1);
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.panelGlass,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.moonlight.withValues(alpha: 0.10),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.storage_rounded,
+                        size: 14,
+                        color: AppColors.auroraTeal,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '$count files • $mb MB',
+                        style: AppTypography.outfitWhite.copyWith(
+                          fontSize: 11,
+                          color: AppTheme.petalWhite.withValues(alpha: 0.7),
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        'Firebase Storage',
+                        style: AppTypography.outfitWhite.copyWith(
+                          fontSize: 10,
+                          color: AppColors.auroraTeal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+          Expanded(
+            child: EverglowStreamView<List<VaultEntry>>(
+              stream: stream,
+              streamLabel: 'vault-entries',
+              errorMessage: 'Could not load vault',
+              errorIcon: Icons.folder_open_rounded,
+              onRetry: () => setState(() {}),
+              isEmpty: (entries) => entries.isEmpty,
+              emptyView: EverglowEmptyState(
+                icon: Icons.folder_open_rounded,
+                title: 'Vault is empty',
+                subtitle: _folderFilter == 'all'
+                    ? 'Upload your first file — receipts, tickets, IDs, photos'
+                    : 'No files in "$_folderFilter"',
+                ctaLabel: 'Upload',
+                onCta: _upload,
+              ),
+              builder: (context, entries) => GridView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 220,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 0.82,
+                ),
+                itemCount: entries.length,
+                itemBuilder: (context, idx) => _VaultCard(
+                  entry: entries[idx],
+                  onDelete: () => VaultService().deleteEntry(entries[idx]),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _upload,
         backgroundColor: AppColors.auroraTeal,
@@ -228,11 +242,12 @@ class _VaultCard extends StatelessWidget {
                 top: Radius.circular(16),
               ),
               child: entry.isImage
-                  ? Image.network(
-                      entry.fileUrl,
+                  ? AppNetworkImage(
+                      imageUrl: entry.fileUrl,
                       width: double.infinity,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Container(
+                      cacheWidth: 600,
+                      errorWidget: Container(
                         color: AppColors.twilight,
                         child: Icon(
                           Icons.image_outlined,
