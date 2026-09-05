@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../core/theme/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -99,9 +100,10 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(20),
                           child: _status.imageUrl != null
-                              ? Image.network(
-                                  _status.imageUrl!,
+                              ? AppNetworkImage(
+                                  imageUrl: _status.imageUrl!,
                                   fit: BoxFit.cover,
+                                  cacheWidth: 600,
                                 )
                               : Container(
                                   color: AppColors.twilight,
@@ -136,7 +138,11 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(20),
                     child: _status.imageUrl != null
-                        ? Image.network(_status.imageUrl!, fit: BoxFit.cover)
+                        ? AppNetworkImage(
+                            imageUrl: _status.imageUrl!,
+                            fit: BoxFit.cover,
+                            cacheWidth: 600,
+                          )
                         : Container(
                             color: AppColors.twilight,
                             child: const Icon(

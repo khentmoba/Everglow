@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import 'package:intl/intl.dart';
 import '../../data/models/music_status.dart';
 import 'listen_along_popup.dart';
@@ -135,7 +136,9 @@ class _MusicCardState extends State<MusicCard> with TickerProviderStateMixin {
                       ],
                     )
                   : null,
-              color: isLive ? null : AppColors.moonlight.withValues(alpha: 0.10),
+              color: isLive
+                  ? null
+                  : AppColors.moonlight.withValues(alpha: 0.10),
               border: Border.all(
                 color: isLive
                     ? AppColors.blushGold.withValues(
@@ -199,9 +202,15 @@ class _MusicCardState extends State<MusicCard> with TickerProviderStateMixin {
                                     gradient: LinearGradient(
                                       colors: [
                                         Colors.transparent,
-                                        AppColors.petalWhite.withValues(alpha: 0.0),
-                                        AppColors.petalWhite.withValues(alpha: 0.08),
-                                        AppColors.petalWhite.withValues(alpha: 0.0),
+                                        AppColors.petalWhite.withValues(
+                                          alpha: 0.0,
+                                        ),
+                                        AppColors.petalWhite.withValues(
+                                          alpha: 0.08,
+                                        ),
+                                        AppColors.petalWhite.withValues(
+                                          alpha: 0.0,
+                                        ),
                                         Colors.transparent,
                                       ],
                                       stops: const [0.0, 0.2, 0.5, 0.8, 1.0],
@@ -417,14 +426,14 @@ class _MusicCardState extends State<MusicCard> with TickerProviderStateMixin {
                                         ),
                                         curve: AppMotion.easeOutStrong,
                                         child: widget.status.imageUrl != null
-                                            ? Image.network(
-                                                widget.status.imageUrl!,
+                                            ? AppNetworkImage(
+                                                imageUrl:
+                                                    widget.status.imageUrl!,
                                                 fit: BoxFit.cover,
                                                 cacheWidth: 220,
-                                                errorBuilder: (c, e, s) =>
-                                                    _FallbackArt(
-                                                      isLive: isLive,
-                                                    ),
+                                                errorWidget: _FallbackArt(
+                                                  isLive: isLive,
+                                                ),
                                               )
                                             : _FallbackArt(isLive: isLive),
                                       ),
@@ -456,9 +465,10 @@ class _MusicCardState extends State<MusicCard> with TickerProviderStateMixin {
                                               16,
                                             ),
                                             border: Border.all(
-                                              color: AppColors.petalWhite.withValues(
-                                                alpha: isLive ? 0.10 : 0.06,
-                                              ),
+                                              color: AppColors.petalWhite
+                                                  .withValues(
+                                                    alpha: isLive ? 0.10 : 0.06,
+                                                  ),
                                             ),
                                             gradient: LinearGradient(
                                               begin: Alignment.topLeft,
@@ -496,9 +506,8 @@ class _MusicCardState extends State<MusicCard> with TickerProviderStateMixin {
                                               ),
                                               shape: BoxShape.circle,
                                               border: Border.all(
-                                                color: AppColors.petalWhite.withValues(
-                                                  alpha: 0.18,
-                                                ),
+                                                color: AppColors.petalWhite
+                                                    .withValues(alpha: 0.18),
                                               ),
                                             ),
                                             child: const Icon(
