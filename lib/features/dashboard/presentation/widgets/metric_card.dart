@@ -4,16 +4,18 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_typography.dart';
 
-/// Anniversary counter tile — distilled.
+/// Anniversary counter tile — distilled heirloom.
 ///
-/// Keeps romance, drops weight: smaller numeral, single shadow,
-/// no watermark, calmer gold. The live seconds no longer pulses;
-/// the whole row reads as a quiet heirloom, not a scoreboard.
+/// Keeps romance, drops weight: warm gradient wash, single shadow,
+/// calm gold numeral with a soft candle shadow. The live seconds tile
+/// gets a tiny rose dot so Clair can see it ticking, without pulsing
+/// the whole card.
 class MetricCard extends StatelessWidget {
   final String label;
   final int value;
   final bool animate;
   final bool pulse;
+  final bool isLive;
 
   const MetricCard({
     super.key,
@@ -21,41 +23,57 @@ class MetricCard extends StatelessWidget {
     required this.value,
     this.animate = false,
     this.pulse = false,
+    this.isLive = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final borderColor = isLive
+        ? AppColors.auroraRose.withValues(alpha: 0.26)
+        : AppColors.moonlight.withValues(alpha: 0.12);
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: AppColors.velvet.withValues(alpha: 0.72),
-        borderRadius: AppRadius.radiusXl,
-        border: Border.all(
-          color: AppColors.moonlight.withValues(alpha: 0.10),
-          width: 1,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.silk.withValues(alpha: 0.92),
+            AppColors.velvet.withValues(alpha: 0.94),
+          ],
         ),
+        borderRadius: AppRadius.radiusXl,
+        border: Border.all(color: borderColor, width: 1),
         boxShadow: [
           BoxShadow(
-            color: AppColors.inkDeep.withValues(alpha: 0.32),
+            color: AppColors.inkDeep.withValues(alpha: 0.36),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
+          if (isLive)
+            BoxShadow(
+              color: AppColors.auroraRose.withValues(alpha: 0.10),
+              blurRadius: 18,
+              offset: const Offset(0, 4),
+            ),
         ],
       ),
       child: Stack(
         children: [
-          // Hairline — single, muted, no glow even for seconds
+          // Hairline — single, warm, no glow even for seconds
           Positioned(
             top: 0,
-            left: 18,
-            right: 18,
+            left: 20,
+            right: 20,
             child: Container(
               height: 1,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
                     Colors.transparent,
-                    AppColors.blushGold.withValues(alpha: 0.32),
+                    AppColors.blushGold.withValues(
+                      alpha: isLive ? 0.45 : 0.34,
+                    ),
                     Colors.transparent,
                   ],
                 ),
@@ -88,36 +106,60 @@ class MetricCard extends StatelessWidget {
                     value.toString().padLeft(2, '0'),
                     key: ValueKey<int>(value),
                     style: AppTypography.cormorantExtraBold.copyWith(
-                      color: AppColors.auroraGold.withValues(alpha: 0.96),
-                      fontSize: 34,
+                      color: AppColors.auroraGold.withValues(alpha: 0.98),
+                      fontSize: 37,
                       height: 1.0,
-                      letterSpacing: -0.8,
+                      letterSpacing: -0.5,
+                      shadows: [
+                        Shadow(
+                          color: AppColors.goldShadow.withValues(alpha: 0.38),
+                          blurRadius: 12,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 9),
                 Container(
-                  width: 18,
+                  width: 20,
                   height: 1,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
                         Colors.transparent,
-                        AppColors.blushGold.withValues(alpha: 0.35),
+                        AppColors.blushGold.withValues(alpha: 0.42),
                         Colors.transparent,
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  label.toUpperCase(),
-                  style: AppTypography.outfitHeading.copyWith(
-                    color: AppColors.roseQuartz.withValues(alpha: 0.62),
-                    fontSize: 9,
-                    letterSpacing: 2.2,
-                    fontWeight: FontWeight.w700,
-                  ),
+                const SizedBox(height: 9),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (isLive) ...[
+                      Container(
+                        width: 5,
+                        height: 5,
+                        decoration: const BoxDecoration(
+                          color: AppColors.auroraRose,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    Text(
+                      label.toUpperCase(),
+                      style: AppTypography.outfitHeading.copyWith(
+                        color: AppColors.roseQuartz.withValues(alpha: 0.74),
+                        fontSize: 9.5,
+                        letterSpacing: 2.0,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
