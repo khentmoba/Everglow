@@ -59,6 +59,46 @@ class _NoActivePartyCard extends StatelessWidget {
   }
 }
 
+/// Shown when the room listener errors (hang, permission flap on web).
+/// Retry builds a fresh stream: the failed one already terminated.
+class _PartyErrorCard extends StatelessWidget {
+  final VoidCallback onRetry;
+
+  const _PartyErrorCard({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: NetflixColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: NetflixColors.hairline),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.refresh_rounded,
+            color: NetflixColors.textMuted,
+            size: 28,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              'Could not load the movie night. Check connection, then retry.',
+              style: AppTypography.outfitWhite.copyWith(
+                fontSize: 13,
+                color: NetflixColors.textMuted,
+              ),
+            ),
+          ),
+          TextButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
+      ),
+    );
+  }
+}
+
 class _ActivePartyCard extends StatelessWidget {
   final WatchPartyRoom room;
 
@@ -295,7 +335,10 @@ class _WatchTogetherStage extends StatelessWidget {
                           gradient: const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [NetflixColors.accent, AppColors.rosePressed],
+                            colors: [
+                              NetflixColors.accent,
+                              AppColors.rosePressed,
+                            ],
                           ),
                           shape: BoxShape.circle,
                           boxShadow: [
