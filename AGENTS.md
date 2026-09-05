@@ -10,7 +10,7 @@ A private love-letter app for Khent and Clair.
 Live at https://everglow-1c6db.web.app. Version in `pubspec.yaml`.
 
 Clair is the one we are building for. Everything should feel warm,
-simple, and obvious to her.
+simple, and obvious to her. Clair mainly uses Phone and a Tablet so always make sure that its perfect on those.
 
 ## Khent's note (how to work)
 
@@ -19,6 +19,8 @@ simple, and obvious to her.
 - Understand the real constraint, then fight for the smallest model that makes the correct behavior unsurprising.
 - Channel both "measure twice, cut once" and "yagni". Fight scope creep.
 - Try to honor the dev's intent in both a minimal and realistic fashion.
+- Clair loves watching movies and series so the cinema is an important factor to us and i think netflix has basically the best experience people can have while watching so thats exactly why we made it netflix inspired.
+- Overall this is all for Clair and Me so the idea here is that this is a couple site for us two in which this is basically the software kind of core for "us" so we will iterate and improve this as time goes by with the core purpose of this website as something a couple (me and clair) would basically need and love to have, like a software proof of the existence of our love,
 - The rest of this document is meant to help you navigate the codebase and make changes effectively. Think of these instructions less as "hard rules", more as "good defaults". The developer's preferences should be able to override anything here.
 
 ## Where things live
