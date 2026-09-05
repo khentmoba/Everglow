@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 
 import '../models/watch_party_room.dart';
 
@@ -88,15 +89,18 @@ class WatchPartyService {
   /// (e.g. the partner hasn't opened the sheet yet), otherwise the
   /// parsed [WatchPartyRoom].
   Stream<WatchPartyRoom?> getRoomStream(String roomId) {
-    return _db.collection(_collection).doc(roomId).snapshots().map((snap) {
-      if (!snap.exists) return null;
-      try {
-        return WatchPartyRoom.fromFirestore(snap);
-      } catch (e) {
-        debugPrint('WatchPartyService.getRoomStream parse error: $e');
-        return null;
-      }
-    });
+    return withFirestoreTimeout(
+      _db.collection(_collection).doc(roomId).snapshots().map((snap) {
+        if (!snap.exists) return null;
+        try {
+          return WatchPartyRoom.fromFirestore(snap);
+        } catch (e) {
+          debugPrint('WatchPartyService.getRoomStream parse error: $e');
+          return null;
+        }
+      }),
+      label: 'watch-party-room',
+    );
   }
 
   /// One-shot fetch — used to decide whether the dashboard "Watch
