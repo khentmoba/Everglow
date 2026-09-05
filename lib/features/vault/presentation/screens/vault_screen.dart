@@ -14,6 +14,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
+import '../../../../shared/widgets/everglow/everglow_stream_view.dart';
 import '../../data/models/vault_entry.dart';
 import '../../data/services/vault_service.dart';
 
@@ -159,56 +160,38 @@ class _VaultScreenState extends State<VaultScreen> {
                 ),
                 const SizedBox(height: 10),
                 Expanded(
-                  child: StreamBuilder<List<VaultEntry>>(
+                  child: EverglowStreamView<List<VaultEntry>>(
                     stream: stream,
-                    builder: (context, snap) {
-                      if (snap.hasError) {
-                        return Center(
-                          child: Text(
-                            'Error loading vault',
-                            style: AppTypography.outfitWhite.copyWith(
-                              color: AppColors.error,
-                            ),
+                    streamLabel: 'vault-entries',
+                    errorMessage: 'Could not load vault',
+                    errorIcon: Icons.folder_open_rounded,
+                    onRetry: () => setState(() {}),
+                    isEmpty: (entries) => entries.isEmpty,
+                    emptyView: EverglowEmptyState(
+                      icon: Icons.folder_open_rounded,
+                      title: 'Vault is empty',
+                      subtitle: _folderFilter == 'all'
+                          ? 'Upload your first file — receipts, tickets, IDs, photos'
+                          : 'No files in "$_folderFilter"',
+                      ctaLabel: 'Upload',
+                      onCta: _upload,
+                    ),
+                    builder: (context, entries) => GridView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+                      gridDelegate:
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 220,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 0.82,
                           ),
-                        );
-                      }
-                      if (!snap.hasData) {
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            color: AppColors.deepRose,
-                            strokeWidth: 2,
-                          ),
-                        );
-                      }
-                      final entries = snap.data!;
-                      if (entries.isEmpty) {
-                        return EverglowEmptyState(
-                          icon: Icons.folder_open_rounded,
-                          title: 'Vault is empty',
-                          subtitle: _folderFilter == 'all'
-                              ? 'Upload your first file — receipts, tickets, IDs, photos'
-                              : 'No files in "$_folderFilter"',
-                          ctaLabel: 'Upload',
-                          onCta: _upload,
-                        );
-                      }
-                      return GridView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                        gridDelegate:
-                            const SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: 220,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 0.82,
-                            ),
-                        itemCount: entries.length,
-                        itemBuilder: (context, idx) => _VaultCard(
-                          entry: entries[idx],
-                          onDelete: () =>
-                              VaultService().deleteEntry(entries[idx]),
-                        ),
-                      );
-                    },
+                      itemCount: entries.length,
+                      itemBuilder: (context, idx) => _VaultCard(
+                        entry: entries[idx],
+                        onDelete: () =>
+                            VaultService().deleteEntry(entries[idx]),
+                      ),
+                    ),
                   ),
                 ),
               ],
