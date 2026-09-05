@@ -10,6 +10,8 @@ import '../../../../core/services/auth_service.dart';
 import '_partner_label.dart';
 import 'partner_subrow.dart';
 import 'shelf_widgets.dart';
+import '../../../../shared/widgets/everglow/everglow_marquee.dart';
+import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 
 /// "Currently Watching" shelf on the dashboard.
 ///
@@ -305,9 +307,10 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
     final cards = _buildCards();
     if (widget.label == null) {
       if (!_hasLoaded) {
-        return const SizedBox(
-          height: 194,
-          child: ShelfMarquee(hasLoaded: false, children: []),
+        return const EverglowSkeletonRow(
+          count: 5,
+          itemWidth: 128,
+          itemHeight: 194,
         );
       }
       if (cards.isEmpty) {
@@ -318,7 +321,10 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
               : 'Nothing playing right now. Start a movie or show!',
         );
       }
-      return SizedBox(height: 194, child: ShelfMarquee(children: cards));
+      return EverglowMarquee(
+        height: 194,
+        children: cards.take(12).toList(),
+      );
     }
     // Couple path: show shimmer while the Firestore stream is still
     // loading, otherwise the emptyMessage flashes for 300ms and looks
@@ -331,9 +337,10 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
           children: [
             _CoupleShimmerLabel(label: widget.label!, accent: ShelfAccent.cinema),
             const SizedBox(height: 8),
-            const SizedBox(
-              height: 194,
-              child: ShelfMarquee(hasLoaded: false, children: []),
+            const EverglowSkeletonRow(
+              count: 5,
+              itemWidth: 128,
+              itemHeight: 194,
             ),
           ],
         ),

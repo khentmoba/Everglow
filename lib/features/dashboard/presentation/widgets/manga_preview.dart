@@ -12,6 +12,8 @@ import '../../../../core/services/auth_service.dart';
 import '_partner_label.dart';
 import 'partner_subrow.dart';
 import 'shelf_widgets.dart';
+import '../../../../shared/widgets/everglow/everglow_marquee.dart';
+import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 
 /// "Reading" shelf on the dashboard.
 ///
@@ -240,9 +242,10 @@ class _MangaShelfState extends State<_MangaShelf> {
     final cards = _buildCards();
     if (widget.label == null) {
       if (!_hasLoaded) {
-        return const SizedBox(
-          height: 194,
-          child: ShelfMarquee(hasLoaded: false, children: []),
+        return const EverglowSkeletonRow(
+          count: 5,
+          itemWidth: 128,
+          itemHeight: 194,
         );
       }
       if (cards.isEmpty) {
@@ -251,7 +254,10 @@ class _MangaShelfState extends State<_MangaShelf> {
           message: 'No manga in your library yet. Find your next read!',
         );
       }
-      return SizedBox(height: 194, child: ShelfMarquee(children: cards));
+      return EverglowMarquee(
+        height: 194,
+        children: cards.take(12).toList(),
+      );
     }
     return PartnerSubrow(
       label: widget.label!,
