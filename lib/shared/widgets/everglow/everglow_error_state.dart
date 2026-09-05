@@ -94,3 +94,22 @@ class EverglowErrorState extends StatelessWidget {
     );
   }
 }
+
+/// Offline state with connectivity message.
+///
+/// Thin wrapper around [EverglowErrorState] so screens have one
+/// obvious widget to reach for when connectivity is lost.
+class EverglowOfflineState extends StatelessWidget {
+  final VoidCallback? onRetry;
+
+  const EverglowOfflineState({super.key, this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return EverglowErrorState(
+      message:
+          'You appear to be offline.\nCheck your connection and try again.',
+      onRetry: onRetry,
+    );
+  }
+}
