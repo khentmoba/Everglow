@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../shared/widgets/app_network_image.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/services/tmdb_service.dart';
@@ -184,12 +185,11 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                   fit: StackFit.expand,
                   children: [
                     if (_backdropUrl.isNotEmpty)
-                      Image.network(
-                        _backdropUrl,
+                      AppNetworkImage(
+                        imageUrl: _backdropUrl,
                         fit: BoxFit.cover,
                         cacheWidth: 720,
-                        errorBuilder: (_, _, _) =>
-                            Container(color: NetflixColors.surface),
+                        errorWidget: Container(color: NetflixColors.surface),
                       )
                     else
                       Container(color: NetflixColors.surface),

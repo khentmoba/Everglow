@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 
 import '../../data/services/tmdb_service.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -278,12 +279,11 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
                       width: 180,
                       height: 76,
                       child: stillPath != null && stillPath.isNotEmpty
-                          ? Image.network(
-                              '$_imageBase$stillPath',
+                          ? AppNetworkImage(
+                              imageUrl: '$_imageBase$stillPath',
                               fit: BoxFit.cover,
                               cacheWidth: 360,
-                              errorBuilder: (_, _, _) =>
-                                  _buildPlaceholder(epNum),
+                              errorWidget: _buildPlaceholder(epNum),
                             )
                           : _buildPlaceholder(epNum),
                     ),
