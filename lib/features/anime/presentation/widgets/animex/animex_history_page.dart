@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../shared/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 
 import '../../../data/models/animex_models.dart';
@@ -158,11 +159,13 @@ class _HistoryRow extends StatelessWidget {
                   height: 88,
                   child: entry.coverUrl.isEmpty
                       ? Container(color: AnimeXTokens.surfaceRaised)
-                      : Image.network(
-                          entry.coverUrl,
+                      : AppNetworkImage(
+                          imageUrl: entry.coverUrl,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) =>
-                              Container(color: AnimeXTokens.surfaceRaised),
+                          cacheWidth: 150,
+                          errorWidget: Container(
+                            color: AnimeXTokens.surfaceRaised,
+                          ),
                         ),
                 ),
               ),

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../../../../shared/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../../core/theme/app_breakpoints.dart';
@@ -150,11 +151,12 @@ class _AnimeSearchTabState extends State<AnimeSearchTab> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(14),
                     child: item.posterUrl.isNotEmpty
-                        ? Image.network(
-                            item.posterUrl,
+                        ? AppNetworkImage(
+                            imageUrl: item.posterUrl,
                             width: 90,
                             height: 130,
                             fit: BoxFit.cover,
+                            cacheWidth: 200,
                           )
                         : Container(
                             width: 90,
