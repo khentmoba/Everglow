@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../app_network_image.dart';
 import '../../../core/theme/app_typography.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -114,12 +115,11 @@ class _ForYouCardState extends State<_ForYouCard> {
                       fit: StackFit.expand,
                       children: [
                         if (widget.item.imageUrl.isNotEmpty)
-                          Image.network(
-                            widget.item.imageUrl,
+                          AppNetworkImage(
+                            imageUrl: widget.item.imageUrl,
                             fit: BoxFit.cover,
                             cacheWidth: 400,
-                            errorBuilder: (_, _, _) =>
-                                Container(color: AppColors.animeCard),
+                            errorWidget: Container(color: AppColors.animeCard),
                           )
                         else
                           Container(color: AppColors.animeCard),
@@ -408,12 +408,11 @@ class _RankingTileState extends State<_RankingTile> {
                   width: 44,
                   height: 62,
                   child: widget.item.imageUrl.isNotEmpty
-                      ? Image.network(
-                          widget.item.imageUrl,
+                      ? AppNetworkImage(
+                          imageUrl: widget.item.imageUrl,
                           fit: BoxFit.cover,
                           cacheWidth: 150,
-                          errorBuilder: (_, _, _) =>
-                              Container(color: AppColors.animeCard),
+                          errorWidget: Container(color: AppColors.animeCard),
                         )
                       : Container(color: AppColors.animeCard),
                 ),
@@ -617,12 +616,13 @@ class _ProviderRowWidget extends StatelessWidget {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(12),
                           child: item.imageUrl.isNotEmpty
-                              ? Image.network(
-                                  item.imageUrl,
+                              ? AppNetworkImage(
+                                  imageUrl: item.imageUrl,
                                   fit: BoxFit.cover,
                                   cacheWidth: 300,
-                                  errorBuilder: (_, _, _) =>
-                                      Container(color: AppColors.animeCard),
+                                  errorWidget: Container(
+                                    color: AppColors.animeCard,
+                                  ),
                                 )
                               : Container(color: AppColors.animeCard),
                         ),
@@ -787,12 +787,11 @@ class _ContinueCard extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               if (item.imageUrl.isNotEmpty)
-                Image.network(
-                  item.imageUrl,
+                AppNetworkImage(
+                  imageUrl: item.imageUrl,
                   fit: BoxFit.cover,
                   cacheWidth: 900,
-                  errorBuilder: (_, _, _) =>
-                      Container(color: AppColors.animeCard),
+                  errorWidget: Container(color: AppColors.animeCard),
                 )
               else
                 Container(color: AppColors.animeCard),
