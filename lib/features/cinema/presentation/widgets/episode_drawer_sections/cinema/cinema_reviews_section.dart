@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../../shared/widgets/app_network_image.dart';
 import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../core/theme/app_typography.dart';
 import '../drawer_helpers.dart';
@@ -103,13 +104,13 @@ class CinemaReviewsSection extends StatelessWidget {
                         ),
                         child: ClipOval(
                           child: hasAvatar
-                              ? Image.network(
-                                  review['avatar'],
+                              ? AppNetworkImage(
+                                  imageUrl: review['avatar'],
                                   width: 44,
                                   height: 44,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) =>
-                                      buildCastInitial(author),
+                                  cacheWidth: 150,
+                                  errorWidget: buildCastInitial(author),
                                 )
                               : buildCastInitial(author),
                         ),

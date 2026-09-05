@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../../shared/widgets/app_network_image.dart';
 import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../core/theme/app_typography.dart';
 import '../drawer_helpers.dart';
@@ -136,10 +137,11 @@ class _CastMemberCardState extends State<_CastMemberCard> {
                   ),
                   child: ClipOval(
                     child: hasPhoto
-                        ? Image.network(
-                            m['profilePath'],
+                        ? AppNetworkImage(
+                            imageUrl: m['profilePath'],
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => _buildInitial(primary),
+                            cacheWidth: 150,
+                            errorWidget: _buildInitial(primary),
                           )
                         : _buildInitial(primary),
                   ),
