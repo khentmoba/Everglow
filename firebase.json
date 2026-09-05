@@ -184,6 +184,10 @@
         "function": "spotifyCurrentlyPlaying"
       },
       {
+        "source": "/api/deleteGalleryPhoto",
+        "function": "deleteGalleryPhoto"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
