@@ -11,6 +11,8 @@ import '../../../../core/theme/app_typography.dart';
 import '_partner_label.dart';
 import 'partner_subrow.dart';
 import 'shelf_widgets.dart';
+import '../../../../shared/widgets/everglow/everglow_marquee.dart';
+import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 
 /// "Anime" shelf on the dashboard.
 ///
@@ -374,9 +376,10 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
     final cards = _buildCards();
     if (widget.label == null) {
       if (!_hasLoaded) {
-        return const SizedBox(
-          height: 194,
-          child: ShelfMarquee(hasLoaded: false, children: []),
+        return const EverglowSkeletonRow(
+          count: 5,
+          itemWidth: 128,
+          itemHeight: 194,
         );
       }
       if (cards.isEmpty) {
@@ -387,7 +390,10 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
               : 'No anime in progress. Start one to see it here!',
         );
       }
-      return SizedBox(height: 194, child: ShelfMarquee(children: cards));
+      return EverglowMarquee(
+        height: 194,
+        children: cards.take(12).toList(),
+      );
     }
     return PartnerSubrow(
       label: widget.label!,
@@ -533,9 +539,10 @@ class _AnimeShelfState extends State<_AnimeShelf> {
     final cards = _buildCards();
     if (widget.label == null) {
       if (!_hasLoaded) {
-        return const SizedBox(
-          height: 194,
-          child: ShelfMarquee(hasLoaded: false, children: []),
+        return const EverglowSkeletonRow(
+          count: 5,
+          itemWidth: 128,
+          itemHeight: 194,
         );
       }
       if (cards.isEmpty) {
@@ -546,7 +553,10 @@ class _AnimeShelfState extends State<_AnimeShelf> {
               : 'No anime watched yet. Time for a binge!',
         );
       }
-      return SizedBox(height: 194, child: ShelfMarquee(children: cards));
+      return EverglowMarquee(
+        height: 194,
+        children: cards.take(12).toList(),
+      );
     }
     return PartnerSubrow(
       label: widget.label!,

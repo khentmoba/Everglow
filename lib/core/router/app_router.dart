@@ -61,7 +61,6 @@ GoRouter createAppRouter() => GoRouter(
     return null;
   },
 
-  // legacy export: keep appRouter for existing imports
   initialLocation: '/',
   debugLogDiagnostics: false,
   routes: [
@@ -95,4 +94,3 @@ GoRouter createAppRouter() => GoRouter(
   ],
   errorBuilder: (context, state) => AppErrorPage(uri: state.uri),
 );
-final GoRouter appRouter = createAppRouter();
