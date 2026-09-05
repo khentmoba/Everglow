@@ -7,8 +7,8 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
-import '../../../../shared/widgets/everglow/everglow_error_state.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
+import '../../../../shared/widgets/everglow/everglow_stream_view.dart';
 import '../../../../shared/widgets/everglow/everglow_scaffold.dart';
 import '../../../../shared/widgets/everglow/everglow_search_field.dart';
 import '../../data/models/journal_entry.dart';
@@ -30,6 +30,34 @@ class _JournalScreenState extends State<JournalScreen> {
   String? _authorFilter; // username or null
   bool _pinnedOnly = false;
   bool _lockedOnly = false;
+
+  /// Client filters + pinned-first sort, shared by the list and its
+  /// empty check so both always agree on what "visible" means.
+  List<JournalEntry> _visibleEntries(List<JournalEntry> all) {
+    var entries = all;
+    if (_categoryFilter != null) {
+      entries = entries.where((e) => e.category == _categoryFilter).toList();
+    }
+    if (_authorFilter != null) {
+      entries = entries
+          .where((e) => e.author.toLowerCase() == _authorFilter)
+          .toList();
+    }
+    if (_pinnedOnly) {
+      entries = entries.where((e) => e.isPinned).toList();
+    }
+    if (_lockedOnly) {
+      entries = entries.where((e) => e.isLocked).toList();
+    }
+
+    // Pinned first, then newest
+    entries.sort((a, b) {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return b.createdAt.compareTo(a.createdAt);
+    });
+    return entries;
+  }
 
   @override
   void dispose() {
@@ -139,57 +167,25 @@ class _JournalScreenState extends State<JournalScreen> {
                 _buildOnThisDay(service),
                 // Entries list
                 Expanded(
-                  child: StreamBuilder<List<JournalEntry>>(
+                  child: EverglowStreamView<List<JournalEntry>>(
                     stream: _searchQuery.isNotEmpty
                         ? service.search(_searchQuery)
                         : service.watchAll(),
-                    builder: (context, snap) {
-                      if (snap.hasError) {
-                        return EverglowErrorState(
-                          message: 'Could not load journal',
-                          onRetry: () => setState(() {}),
-                          icon: Icons.menu_book_outlined,
-                        );
-                      }
-                      if (!snap.hasData) {
-                        return const Padding(
-                          padding: EdgeInsets.all(20),
-                          child: EverglowSkeleton(
-                            width: double.infinity,
-                            height: 120,
-                            radius: 16,
-                          ),
-                        );
-                      }
-                      var entries = snap.data!;
-                      // Client filters
-                      if (_categoryFilter != null) {
-                        entries = entries
-                            .where((e) => e.category == _categoryFilter)
-                            .toList();
-                      }
-                      if (_authorFilter != null) {
-                        entries = entries
-                            .where(
-                              (e) => e.author.toLowerCase() == _authorFilter,
-                            )
-                            .toList();
-                      }
-                      if (_pinnedOnly) {
-                        entries = entries.where((e) => e.isPinned).toList();
-                      }
-                      if (_lockedOnly) {
-                        entries = entries.where((e) => e.isLocked).toList();
-                      }
-
-                      // Pinned first, then newest
-                      entries.sort((a, b) {
-                        if (a.isPinned && !b.isPinned) return -1;
-                        if (!a.isPinned && b.isPinned) return 1;
-                        return b.createdAt.compareTo(a.createdAt);
-                      });
-
-                      if (entries.isEmpty) {
+                    streamLabel: 'journal-entries',
+                    errorMessage: 'Could not load journal',
+                    errorIcon: Icons.menu_book_outlined,
+                    onRetry: () => setState(() {}),
+                    loadingView: const Padding(
+                      padding: EdgeInsets.all(20),
+                      child: EverglowSkeleton(
+                        width: double.infinity,
+                        height: 120,
+                        radius: 16,
+                      ),
+                    ),
+                    isEmpty: (all) => _visibleEntries(all).isEmpty,
+                    emptyView: Builder(
+                      builder: (context) {
                         final isFiltered =
                             _categoryFilter != null ||
                             _authorFilter != null ||
@@ -207,8 +203,10 @@ class _JournalScreenState extends State<JournalScreen> {
                           ctaLabel: isFiltered ? null : 'New Entry',
                           onCta: isFiltered ? null : () => _showAddDialog(auth),
                         );
-                      }
-
+                      },
+                    ),
+                    builder: (context, all) {
+                      final entries = _visibleEntries(all);
                       return ListView.separated(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
                         itemCount: entries.length,
