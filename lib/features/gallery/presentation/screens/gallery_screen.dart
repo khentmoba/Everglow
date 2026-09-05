@@ -11,6 +11,7 @@ import '../../../../shared/widgets/everglow/everglow_segmented_control.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
+import '../../../../shared/widgets/everglow/everglow_stream_view.dart';
 import '../../domain/models/memory_photo.dart';
 import '../../data/services/gallery_service.dart';
 import '../widgets/add_photo_dialog.dart';
@@ -79,49 +80,46 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 if (_tabIndex == 0) const SizedBox(height: 4),
                 Expanded(
                   child: _tabIndex == 1
-                      ? StreamBuilder<List<MemoryPhoto>>(
-                          stream: _galleryService.getPhotosWithLocationStream(),
-                          builder: (context, snap) {
-                            final photos = snap.data ?? [];
-                            if (snap.connectionState ==
-                                ConnectionState.waiting) {
-                              return const Padding(
-                                padding: EdgeInsets.all(20),
-                                child: EverglowSkeleton(width: double.infinity, height: 200, radius: 16),
-                              );
-                            }
-                            return GalleryMapView(photos: photos);
-                          },
+                      ? EverglowStreamView<List<MemoryPhoto>>(
+                          stream:
+                              _galleryService.getPhotosWithLocationStream(),
+                          streamLabel: 'gallery-map',
+                          errorMessage: 'Could not load map photos',
+                          errorIcon: Icons.map_rounded,
+                          onRetry: () => setState(() {}),
+                          loadingView: const Padding(
+                            padding: EdgeInsets.all(20),
+                            child: EverglowSkeleton(width: double.infinity, height: 200, radius: 16),
+                          ),
+                          builder: (context, photos) =>
+                              GalleryMapView(photos: photos),
                         )
                       : _tabIndex == 2
                       ? const ThisWeekView()
-                      : StreamBuilder<List<MemoryPhoto>>(
+                      : EverglowStreamView<List<MemoryPhoto>>(
                           stream: _searchQuery.isNotEmpty
                               ? _galleryService.searchPhotos(_searchQuery)
                               : _galleryService.getPhotosStream(),
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return const EverglowSkeletonGrid(
-                                count: 6,
-                                maxCrossAxisExtent: 220,
-                                itemHeight: 200,
-                                spacing: 10,
-                                childAspectRatio: 0.75,
-                              );
-                            }
-
-                            final photos = snapshot.data ?? [];
-                            if (photos.isEmpty) {
-                              return EverglowEmptyState(
-                                icon: Icons.photo_library_outlined,
-                                title: 'No memories yet',
-                                subtitle: 'Tap + to add your first photo',
-                                ctaLabel: 'Add Photo',
-                                onCta: _openAddPhoto,
-                              );
-                            }
-
+                          streamLabel: 'gallery-grid',
+                          errorMessage: 'Could not load photos',
+                          errorIcon: Icons.photo_library_outlined,
+                          onRetry: () => setState(() {}),
+                          loadingView: const EverglowSkeletonGrid(
+                            count: 6,
+                            maxCrossAxisExtent: 220,
+                            itemHeight: 200,
+                            spacing: 10,
+                            childAspectRatio: 0.75,
+                          ),
+                          isEmpty: (photos) => photos.isEmpty,
+                          emptyView: EverglowEmptyState(
+                            icon: Icons.photo_library_outlined,
+                            title: 'No memories yet',
+                            subtitle: 'Tap + to add your first photo',
+                            ctaLabel: 'Add Photo',
+                            onCta: _openAddPhoto,
+                          ),
+                          builder: (context, photos) {
                             return GridView.builder(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
