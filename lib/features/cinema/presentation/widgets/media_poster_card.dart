@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../data/models/media_item.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -34,12 +35,11 @@ class MediaPosterCard extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               if (item.posterUrl.isNotEmpty)
-                Image.network(
-                  item.posterUrl,
+                AppNetworkImage(
+                  imageUrl: item.posterUrl,
                   fit: BoxFit.cover,
                   cacheWidth: 400,
-                  errorBuilder: (context, error, stackTrace) =>
-                      _buildPlaceholder(),
+                  errorWidget: _buildPlaceholder(),
                 )
               else
                 _buildPlaceholder(),
