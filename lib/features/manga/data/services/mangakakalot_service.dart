@@ -268,6 +268,7 @@ class MangaKakalotService with ConnectivityAware {
     return _firestore
         .collection('manga_library')
         .where('userName', isEqualTo: userName)
+        .limit(500)
         .snapshots()
         .map((snapshot) {
           final items =
@@ -290,6 +291,7 @@ class MangaKakalotService with ConnectivityAware {
     return _firestore
         .collection('manga_library')
         .where('userName', isEqualTo: userName)
+        .limit(500)
         .snapshots()
         .map((snapshot) {
           final items =
@@ -320,6 +322,7 @@ class MangaKakalotService with ConnectivityAware {
       subA = _firestore
           .collection('manga_library')
           .where('userName', isEqualTo: userA)
+          .limit(500)
           .snapshots()
           .listen((snapshot) {
             itemsA = snapshot.docs
@@ -330,6 +333,7 @@ class MangaKakalotService with ConnectivityAware {
       subB = _firestore
           .collection('manga_library')
           .where('userName', isEqualTo: userB)
+          .limit(500)
           .snapshots()
           .listen((snapshot) {
             itemsB = snapshot.docs

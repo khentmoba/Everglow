@@ -40,6 +40,7 @@ class LetterboxService {
       _db
           .collection('notes')
           .orderBy('unlockDate', descending: false)
+          .limit(200)
           .snapshots()
           .map(_mapSnapshot),
       label: 'letterbox-notes',

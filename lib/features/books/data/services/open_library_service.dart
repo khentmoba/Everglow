@@ -336,6 +336,7 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
       _firestore
           .collection('read_list')
           .where('userName', isEqualTo: userName)
+          .limit(500)
           .snapshots()
           .map((snapshot) {
             final items =

@@ -17,6 +17,7 @@ class WikiService {
     _db
         .collection(_shelves)
         .orderBy('order')
+        .limit(100)
         .snapshots()
         .map((s) => s.docs.map((d) => WikiShelf.fromFirestore(d)).toList()),
     label: 'wiki-shelves',
@@ -27,6 +28,7 @@ class WikiService {
         .collection(_books)
         .where('shelfId', isEqualTo: shelfId)
         .orderBy('order')
+        .limit(200)
         .snapshots()
         .map((s) => s.docs.map((d) => WikiBook.fromFirestore(d)).toList()),
     label: 'wiki-books-$shelfId',
@@ -47,6 +49,7 @@ class WikiService {
         .collection(_pages)
         .where('bookId', isEqualTo: bookId)
         .orderBy('updatedAt', descending: true)
+        .limit(200)
         .snapshots()
         .map((s) => s.docs.map((d) => WikiPage.fromFirestore(d)).toList()),
     label: 'wiki-pages-$bookId',
