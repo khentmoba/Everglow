@@ -91,6 +91,10 @@ backdrops with equivalent custom loading/error states.
    alone. Blocked subtrees and why: books reader (shared with manga
    drawer/nav — needs cross-feature conversion), cinema/anime/jukebox
    (dashboard-preview coupled), episode drawer (dashboard coupled).
+   Remeasured Sep 2026 (release, no source maps): main.dart.js 5.98MB
+   + 15 deferred chunks (~290KB), fonts 1.15MB, milestones 2.63MB,
+   build/web total ~123MB (canvaskit + engine dominate). Build green,
+   so all recompressed assets and subset fonts resolve.
 
 2. **Milestone photos -> JPEG** — SHIPPED. Milestones dir total
    ~10.9MB -> ~2.6MB: the five ~900KB PNGs became quality-82 JPEGs
@@ -100,8 +104,11 @@ backdrops with equivalent custom loading/error states.
 3. **Font subset** — SHIPPED: all 17 TTFs subset to latin + latin-ext
    (1.77MB -> 1.15MB, saves ~662KB). Family/weight names preserved,
    full suite green, no new golden diffs.
-4. **Audit remaining 80 `snapshots()`** for missing `limit()`/indexes and
-   migrate bare `Image.network` files (see table above).
+4. **Audit `snapshots()` + migrate images** — SHIPPED: watch-list caps,
+   14 more caps on growth lists (read list, bookmarks, manga library,
+   our books, notes, wiki, heatmap guard, milestones), doc/time-bounded
+   queries left alone; image migration finished except deliberate keeps
+   (see image rules). No new indexes needed (limit-only additions).
 5. **Measure**: `flutter build web --release` then check `build/web` sizes;
    profile scroll FPS in Chrome DevTools Performance tab with CPU 4x
    throttling on cinema/anime grids and dashboard.
