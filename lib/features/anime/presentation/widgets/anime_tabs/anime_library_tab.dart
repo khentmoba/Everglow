@@ -35,11 +35,9 @@ class AnimeLibraryTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentlyWatching = library
-        .where((i) => i.isCurrentlyWatching)
-        .toList();
-    final wantToWatch = library.where((i) => i.isToWatch).toList();
-    final watched = library.where((i) => i.isWatched).toList();
+    final currentlyWatching = library.currentlyWatching;
+    final wantToWatch = library.toWatch;
+    final watched = library.watched;
 
     if (currentlyWatching.isEmpty && wantToWatch.isEmpty && watched.isEmpty) {
       return _buildEmptyState(context);

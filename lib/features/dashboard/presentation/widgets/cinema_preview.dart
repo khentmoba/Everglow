@@ -92,7 +92,7 @@ class _CinemaHeaderState extends State<_CinemaHeader> {
         // non-anime TV — see MediaItem.isCinemaItem. Anime series live in
         // the Anime rail.
         final watched =
-            items.where((i) => i.isWatched && i.isCinemaItem).toList();
+            items.watchedCinema;
         watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
         if (!mounted) return;
         setState(() => _items = watched);
@@ -188,7 +188,7 @@ class _CinemaShelfState extends State<_CinemaShelf> {
         // non-anime TV — see MediaItem.isCinemaItem. Anime series live in
         // the Anime rail.
         final watched =
-            items.where((i) => i.isWatched && i.isCinemaItem).toList();
+            items.watchedCinema;
         watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
         if (!mounted) return;
         setState(() {

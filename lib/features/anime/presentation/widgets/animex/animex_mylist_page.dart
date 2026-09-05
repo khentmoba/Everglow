@@ -45,9 +45,9 @@ class _AnimeXMyListPageState extends State<AnimeXMyListPage> {
   @override
   Widget build(BuildContext context) {
     final library = widget.controller.library;
-    final watching = library.where((i) => i.isCurrentlyWatching).toList();
-    final toWatch = library.where((i) => i.isToWatch).toList();
-    final watched = library.where((i) => i.isWatched).toList();
+    final watching = library.currentlyWatching;
+    final toWatch = library.toWatch;
+    final watched = library.watched;
 
     return ListView(
       physics: const BouncingScrollPhysics(),
