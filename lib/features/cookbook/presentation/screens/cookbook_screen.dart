@@ -672,10 +672,17 @@ class _ShoppingListView extends StatelessWidget {
             return FutureBuilder<Map<String, String>>(
               future: service.generateShoppingList(plans, map),
               builder: (context, snap) {
-                final list = snap.data ?? {};
-                if (list.isEmpty) {
-                  return const Center(child: CircularProgressIndicator());
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: EverglowSkeleton(
+                      width: double.infinity,
+                      height: 140,
+                      radius: 16,
+                    ),
+                  );
                 }
+                final list = snap.data ?? {};
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
                   children: [
