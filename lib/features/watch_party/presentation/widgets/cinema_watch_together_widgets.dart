@@ -166,12 +166,13 @@ class _ActivePartyCard extends StatelessWidget {
                         size: 34,
                       ),
                     )
-                  : Image.network(
-                      _posterUrl,
+                  : AppNetworkImage(
+                      imageUrl: _posterUrl,
                       width: 96,
                       height: 136,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Container(
+                      cacheWidth: 250,
+                      errorWidget: Container(
                         width: 96,
                         height: 136,
                         color: NetflixColors.surface,
@@ -691,12 +692,13 @@ class _JellyfinSearchDialogState extends State<_JellyfinSearchDialog> {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(6),
-                  child: Image.network(
-                    widget.service.posterUrlFor(movie.id, tag: movie.imageTag),
+                  child: AppNetworkImage(
+                    imageUrl: widget.service.posterUrlFor(movie.id, tag: movie.imageTag),
                     width: 48,
                     height: 68,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
+                    cacheWidth: 150,
+                    errorWidget: Container(
                       width: 48,
                       height: 68,
                       color: NetflixColors.surface,
@@ -801,12 +803,13 @@ class _JellyfinMovieCard extends StatelessWidget {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    posterUrl,
+                  child: AppNetworkImage(
+                    imageUrl: posterUrl,
                     width: 132,
                     height: 190,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
+                    cacheWidth: 300,
+                    errorWidget: Container(
                       width: 132,
                       height: 190,
                       color: NetflixColors.surface,

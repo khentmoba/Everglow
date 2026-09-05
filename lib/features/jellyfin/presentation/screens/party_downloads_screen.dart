@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -218,12 +219,13 @@ class _PartyDownloadsScreenState extends State<PartyDownloadsScreen> {
           children: [
             ClipRRect(
               borderRadius: AppRadius.radiusMd,
-              child: Image.network(
-                movie.thumbnailUrl,
+              child: AppNetworkImage(
+                imageUrl: movie.thumbnailUrl,
                 width: 88,
                 height: 124,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
+                cacheWidth: 200,
+                errorWidget: Container(
                   width: 88,
                   height: 124,
                   color: AppColors.velvet,
@@ -322,12 +324,13 @@ class _PartyDownloadsScreenState extends State<PartyDownloadsScreen> {
           children: [
             ClipRRect(
               borderRadius: AppRadius.radiusLg,
-              child: Image.network(
-                movie.thumbnailUrl,
+              child: AppNetworkImage(
+                imageUrl: movie.thumbnailUrl,
                 width: 120,
                 height: 170,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
+                cacheWidth: 300,
+                errorWidget: Container(
                   width: 120,
                   height: 170,
                   color: AppColors.velvet,

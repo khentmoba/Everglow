@@ -23,13 +23,13 @@ class _MessageImages extends StatelessWidget {
                     gaplessPlayback: true,
                     errorBuilder: (_, _, _) => _BrokenImageTile(),
                   )
-                : Image.network(
-                    url,
+                : AppNetworkImage(
+                    imageUrl: url,
                     width: 180,
                     height: 180,
                     fit: BoxFit.cover,
-                    gaplessPlayback: true,
-                    errorBuilder: (_, _, _) => _BrokenImageTile(),
+                    cacheWidth: 400,
+                    errorWidget: _BrokenImageTile(),
                   ),
           ),
         );
@@ -803,7 +803,11 @@ class _ToolResultCards extends StatelessWidget {
           final tool = r['tool'] as String? ?? 'tool';
           final success = r['success'] == true;
           final needsConfirm = r['needs_confirmation'] == true;
-          final title = r['title'] as String? ?? r['fact'] as String? ?? r['id'] as String? ?? '';
+          final title =
+              r['title'] as String? ??
+              r['fact'] as String? ??
+              r['id'] as String? ??
+              '';
           final msg = r['message'] as String? ?? '';
           Color accent = _toolAccent(tool);
           IconData icon = _toolIcon(tool);
@@ -812,8 +816,7 @@ class _ToolResultCards extends StatelessWidget {
             label = 'Needs confirmation';
           } else if (success) {
             label = '$label ✓';
-          }
-          else if (r['error'] != null) {
+          } else if (r['error'] != null) {
             label = 'Failed';
           }
 
@@ -834,10 +837,45 @@ class _ToolResultCards extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(label, style: AppTypography.bodySmall().copyWith(fontSize: 11, color: accent, fontWeight: FontWeight.w600)),
-                      if (title.isNotEmpty) Text(title, style: AppTypography.bodySmall().copyWith(fontSize: 11, color: AppColors.textHigh), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      if (msg.isNotEmpty && !needsConfirm) Text(msg, style: AppTypography.bodySmall().copyWith(fontSize: 10, color: AppColors.textMuted), maxLines: 2, overflow: TextOverflow.ellipsis),
-                      if (needsConfirm && msg.isNotEmpty) Text(msg, style: AppTypography.bodySmall().copyWith(fontSize: 10, color: AppColors.textMuted, fontStyle: FontStyle.italic), maxLines: 3, overflow: TextOverflow.ellipsis),
+                      Text(
+                        label,
+                        style: AppTypography.bodySmall().copyWith(
+                          fontSize: 11,
+                          color: accent,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (title.isNotEmpty)
+                        Text(
+                          title,
+                          style: AppTypography.bodySmall().copyWith(
+                            fontSize: 11,
+                            color: AppColors.textHigh,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      if (msg.isNotEmpty && !needsConfirm)
+                        Text(
+                          msg,
+                          style: AppTypography.bodySmall().copyWith(
+                            fontSize: 10,
+                            color: AppColors.textMuted,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      if (needsConfirm && msg.isNotEmpty)
+                        Text(
+                          msg,
+                          style: AppTypography.bodySmall().copyWith(
+                            fontSize: 10,
+                            color: AppColors.textMuted,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                     ],
                   ),
                 ),
