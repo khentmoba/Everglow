@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -180,11 +181,12 @@ class GalleryMapView extends StatelessWidget {
                           borderRadius: const BorderRadius.vertical(
                             top: Radius.circular(12),
                           ),
-                          child: Image.network(
-                            GalleryService.displayUrl(p.imageUrl),
+                          child: AppNetworkImage(
+                            imageUrl: GalleryService.displayUrl(p.imageUrl),
                             width: 140,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Container(
+                            cacheWidth: 300,
+                            errorWidget: Container(
                               color: AppColors.velvet,
                               child: Icon(
                                 Icons.image_outlined,
@@ -242,11 +244,14 @@ class GalleryMapView extends StatelessWidget {
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(16),
                 ),
-                child: Image.network(
-                  GalleryService.displayUrl(p.imageUrl),
+                child: AppNetworkImage(
+                  imageUrl: GalleryService.displayUrl(p.imageUrl),
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) =>
-                      Container(height: 200, color: AppColors.twilight),
+                  cacheWidth: 600,
+                  errorWidget: Container(
+                    height: 200,
+                    color: AppColors.twilight,
+                  ),
                 ),
               ),
               Padding(
@@ -385,12 +390,13 @@ class _MapPinState extends State<_MapPin> {
                 border: Border.all(color: AppColors.deepRose, width: 1.2),
               ),
               child: ClipOval(
-                child: Image.network(
-                  GalleryService.displayUrl(widget.photo.imageUrl),
+                child: AppNetworkImage(
+                  imageUrl: GalleryService.displayUrl(widget.photo.imageUrl),
                   width: _hovered ? 38 : 32,
                   height: _hovered ? 38 : 32,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => Container(
+                  cacheWidth: 100,
+                  errorWidget: Container(
                     width: 32,
                     height: 32,
                     color: AppColors.blushGold,
