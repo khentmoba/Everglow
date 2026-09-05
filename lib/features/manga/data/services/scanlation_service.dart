@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/utils/connectivity_aware.dart';
 import '../models/manga_item.dart';
+import '../models/chapter_num.dart';
 
 /// Scrapes scanlation-group websites for chapter lists and page images.
 /// Each supported site is defined as a [_ScanSite] with URL patterns
@@ -165,8 +166,8 @@ class ScanlationService with ConnectivityAware {
       }
     }
     all.sort((a, b) {
-      final na = double.tryParse(a.chapter) ?? 0;
-      final nb = double.tryParse(b.chapter) ?? 0;
+      final na = chapterNumValue(a.chapter);
+      final nb = chapterNumValue(b.chapter);
       return nb.compareTo(na); // newest first
     });
     return all;
@@ -203,7 +204,7 @@ class ScanlationService with ConnectivityAware {
     Map<String, String> siteSlugs,
     String chapterNumber,
   ) async {
-    final normalizedTarget = _normalizeChapterNum(chapterNumber);
+    final normalizedTarget = normalizeChapterNum(chapterNumber);
     for (final entry in siteSlugs.entries) {
       final site = _findSite(entry.key);
       if (site == null) continue;
@@ -212,7 +213,7 @@ class ScanlationService with ConnectivityAware {
         final chapters = await _getChapters(site, entry.value);
         MangaChapter? match;
         for (final c in chapters) {
-          if (_normalizeChapterNum(c.chapter) == normalizedTarget) {
+          if (normalizeChapterNum(c.chapter) == normalizedTarget) {
             match = c;
             break;
           }
@@ -232,15 +233,6 @@ class ScanlationService with ConnectivityAware {
   String proxiedImageUrl(String originalUrl) {
     if (originalUrl.isEmpty) return '';
     return '$_proxyImageUrl?url=${Uri.encodeComponent(originalUrl)}';
-  }
-
-  /// Normalize chapter numbers so "1", "1.0", "001" all map to "1".
-  static String _normalizeChapterNum(String raw) {
-    if (raw.isEmpty) return '';
-    final n = double.tryParse(raw);
-    if (n == null) return raw;
-    if (n == n.roundToDouble()) return n.toInt().toString();
-    return n.toString();
   }
 
   // ── INTERNAL SCRAPING ─────────────────────────────────────
