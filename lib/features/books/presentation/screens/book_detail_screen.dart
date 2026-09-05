@@ -11,7 +11,7 @@ import '../../data/services/book_catalog_service.dart';
 import '../../data/services/book_download_helper.dart';
 import '../../data/services/open_library_service.dart';
 import '../../../../core/services/auth_service.dart';
-import '../../../../shared/widgets/shelf/shelf_empty_state.dart';
+import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../../../shared/widgets/shelf/shelf_poster_card.dart';
 import '../../../../core/theme/app_colors.dart';
 part 'book_detail_widgets.dart';
@@ -772,11 +772,10 @@ class _BookDetailScreenState extends State<BookDetailScreen>
       );
     }
     if (_similar.isEmpty) {
-      return const ShelfEmptyState(
+      return const EverglowEmptyState(
         icon: Icons.local_library_rounded,
         title: 'No similar titles found',
         subtitle: 'Try exploring the search tab for more books.',
-        accent: _cAmber,
       );
     }
     return ListView.builder(

@@ -16,7 +16,7 @@ import '../../../../shared/widgets/shelf/scroll_edge_fade.dart';
 import '../../../../shared/widgets/shelf/shelf_icon_button.dart';
 import '../../../../shared/widgets/shelf/shelf_poster_card.dart';
 import '../../../../shared/widgets/shelf/shelf_section_header.dart';
-import '../../../../shared/widgets/shelf/shelf_empty_state.dart';
+import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../../shared/widgets/shelf/shelf_pill_bottom_nav.dart';
 import '../../../../shared/widgets/shelf/staggered_entrance.dart';
@@ -536,7 +536,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
           SizedBox(
             height: (_responsiveListHeight(context, fallback: 480)),
             child: _trendingRankings.isEmpty
-                ? const ShelfEmptyState(
+                ? const EverglowEmptyState(
                     icon: Icons.emoji_events_outlined,
                     title: 'No rankings available',
                     subtitle: 'Check back soon — the chart refreshes weekly.',
@@ -929,7 +929,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
         const SizedBox(height: 16),
         Expanded(
           child: list.isEmpty
-              ? ShelfEmptyState(
+              ? EverglowEmptyState(
                   icon: isReadTab
                       ? Icons.auto_stories_outlined
                       : Icons.bookmark_border_rounded,
@@ -939,7 +939,6 @@ class _BooksScreenState extends _BooksScreenStateBase {
                   subtitle: isReadTab
                       ? 'Books you mark as read will live here so you can revisit them anytime.'
                       : 'Tap the bookmark on any book to add it to your reading queue.',
-                  accent: _cAmber,
                 )
               : GridView.builder(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
