@@ -7,6 +7,8 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
+import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
+import '../../../../shared/widgets/everglow/everglow_stream_view.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../data/models/wiki_page.dart';
 import '../../data/services/wiki_service.dart';
@@ -37,31 +39,30 @@ class BookScreen extends StatelessWidget {
             ),
           ),
           SafeArea(
-            child: StreamBuilder<List<WikiBook>>(
+            child: EverglowStreamView<List<WikiBook>>(
               stream: service.watchAllBooks(),
-              builder: (context, snap) {
-                final books = snap.data ?? [];
-                final book = books.where((b) => b.id == bookId).isEmpty
-                    ? null
-                    : books.firstWhere((b) => b.id == bookId);
-                if (book == null) {
-                  if (snap.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.deepRose,
-                        strokeWidth: 2,
-                      ),
-                    );
-                  }
-                  return Center(
-                    child: Text(
-                      'Book not found',
-                      style: AppTypography.outfitWhite.copyWith(
-                        color: AppColors.petalWhite,
-                      ),
-                    ),
-                  );
-                }
+              streamLabel: 'wiki-book',
+              errorMessage: 'Could not load book',
+              loadingView: const Padding(
+                padding: EdgeInsets.all(16),
+                child: EverglowSkeleton(
+                  width: double.infinity,
+                  height: 140,
+                  radius: 16,
+                ),
+              ),
+              isEmpty: (books) =>
+                  books.where((b) => b.id == bookId).isEmpty,
+              emptyView: Center(
+                child: Text(
+                  'Book not found',
+                  style: AppTypography.outfitWhite.copyWith(
+                    color: AppColors.petalWhite,
+                  ),
+                ),
+              ),
+              builder: (context, books) {
+                final book = books.firstWhere((b) => b.id == bookId);
                 return Column(
                   children: [
                     EverglowFeatureHeader(

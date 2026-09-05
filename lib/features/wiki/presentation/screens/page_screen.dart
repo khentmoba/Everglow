@@ -3,6 +3,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
+import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
+import '../../../../shared/widgets/everglow/everglow_stream_view.dart';
 import '../../data/models/wiki_page.dart';
 import '../../data/services/wiki_service.dart';
 
@@ -50,31 +52,30 @@ class _PageScreenState extends State<PageScreen> {
             ),
           ),
           SafeArea(
-            child: StreamBuilder<List<WikiPage>>(
+            child: EverglowStreamView<List<WikiPage>>(
               stream: service.watchAllPages(),
-              builder: (context, snap) {
-                final pages = snap.data ?? [];
-                final page = pages.where((p) => p.id == widget.pageId).isEmpty
-                    ? null
-                    : pages.firstWhere((p) => p.id == widget.pageId);
-                if (page == null) {
-                  if (snap.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.deepRose,
-                        strokeWidth: 2,
-                      ),
-                    );
-                  }
-                  return Center(
-                    child: Text(
-                      'Page not found',
-                      style: AppTypography.outfitWhite.copyWith(
-                        color: AppColors.petalWhite,
-                      ),
-                    ),
-                  );
-                }
+              streamLabel: 'wiki-page',
+              errorMessage: 'Could not load page',
+              loadingView: const Padding(
+                padding: EdgeInsets.all(16),
+                child: EverglowSkeleton(
+                  width: double.infinity,
+                  height: 140,
+                  radius: 16,
+                ),
+              ),
+              isEmpty: (pages) =>
+                  pages.where((p) => p.id == widget.pageId).isEmpty,
+              emptyView: Center(
+                child: Text(
+                  'Page not found',
+                  style: AppTypography.outfitWhite.copyWith(
+                    color: AppColors.petalWhite,
+                  ),
+                ),
+              ),
+              builder: (context, pages) {
+                final page = pages.firstWhere((p) => p.id == widget.pageId);
                 if (_editing) {
                   // Editing mode
                   return Column(
