@@ -51,8 +51,11 @@ Goal: fast first paint, 60fps scroll, minimal Firestore/listeners cost.
 | 280px hero | 560 | `AppNetworkImage` |
 | Full-width/detail | 800-1200 | `AppNetworkImage` + `FilterQuality.medium` |
 
-Never use bare `Image.network` for remote art. 37 files still predate this —
-grep `Image.network` + missing `cacheWidth` and migrate per table.
+Never use bare `Image.network` for remote art. Migration is done except
+deliberate keeps: readers/photo-viewer/gallery-grid (custom loading or
+DPR-aware decode widths a fixed widget would regress), `KatanaNetworkImage`
+(uses `WebHtmlElementStrategy.prefer` on purpose), and drawer/hero
+backdrops with equivalent custom loading/error states.
 
 ## Firestore / realtime rules
 
