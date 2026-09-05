@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../shared/widgets/app_network_image.dart';
 import 'package:provider/provider.dart';
 
 import '../../../data/models/animex_models.dart';
@@ -216,11 +217,13 @@ class _ScheduleRow extends StatelessWidget {
                   height: 80,
                   child: media.posterUrl.isEmpty
                       ? Container(color: AnimeXTokens.surfaceRaised)
-                      : Image.network(
-                          media.posterUrl,
+                      : AppNetworkImage(
+                          imageUrl: media.posterUrl,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) =>
-                              Container(color: AnimeXTokens.surfaceRaised),
+                          cacheWidth: 150,
+                          errorWidget: Container(
+                            color: AnimeXTokens.surfaceRaised,
+                          ),
                         ),
                 ),
               ),

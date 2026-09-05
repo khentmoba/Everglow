@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../../../../shared/widgets/app_network_image.dart';
 
 import '../../../../cinema/data/models/media_item.dart';
 
@@ -208,11 +209,11 @@ class _SlideLayer extends StatelessWidget {
         },
         child: url.isEmpty
             ? Container(color: AnimeXTokens.surfaceRaised)
-            : Image.network(
-                url,
+            : AppNetworkImage(
+                imageUrl: url,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) =>
-                    Container(color: AnimeXTokens.surfaceRaised),
+                cacheWidth: 1200,
+                errorWidget: Container(color: AnimeXTokens.surfaceRaised),
               ),
       ),
     );

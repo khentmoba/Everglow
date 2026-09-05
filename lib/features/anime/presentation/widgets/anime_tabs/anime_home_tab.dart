@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart' hide FilterChip;
+import '../../../../../shared/widgets/app_network_image.dart';
 import '../../../../../core/theme/app_breakpoints.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_theme.dart';
@@ -184,10 +185,7 @@ class AnimeHomeTab extends StatelessWidget {
                 ),
               ),
             ),
-            _buildContinueWatchingRow(
-              context,
-              library.currentlyWatching,
-            ),
+            _buildContinueWatchingRow(context, library.currentlyWatching),
             const SizedBox(height: 24),
           ],
           if (library.toWatch.isNotEmpty) ...[
@@ -206,10 +204,7 @@ class AnimeHomeTab extends StatelessWidget {
                 ),
               ),
             ),
-            _buildPosterRow(
-              context,
-              library.toWatch,
-            ),
+            _buildPosterRow(context, library.toWatch),
             const SizedBox(height: 24),
           ],
           if (library.watched.isNotEmpty) ...[
@@ -228,10 +223,7 @@ class AnimeHomeTab extends StatelessWidget {
                 ),
               ),
             ),
-            _buildPosterRow(
-              context,
-              library.watched,
-            ),
+            _buildPosterRow(context, library.watched),
             const SizedBox(height: 24),
           ],
         ],
@@ -674,23 +666,23 @@ class AnimeHomeTab extends StatelessWidget {
                     fit: StackFit.expand,
                     children: [
                       if (item.backdropUrl.isNotEmpty)
-                        Image.network(
-                          item.backdropUrl,
+                        AppNetworkImage(
+                          imageUrl: item.backdropUrl,
                           fit: BoxFit.cover,
                           cacheWidth: 900,
-                          errorBuilder: (_, _, _) => Image.network(
-                            item.posterPath,
+                          errorWidget: AppNetworkImage(
+                            imageUrl: item.posterPath,
                             fit: BoxFit.cover,
                             cacheWidth: 400,
-                            errorBuilder: (_, _, _) => Container(color: _cCard),
+                            errorWidget: Container(color: _cCard),
                           ),
                         )
                       else if (item.posterPath.isNotEmpty)
-                        Image.network(
-                          item.posterPath,
+                        AppNetworkImage(
+                          imageUrl: item.posterPath,
                           fit: BoxFit.cover,
                           cacheWidth: 400,
-                          errorBuilder: (_, _, _) => Container(color: _cCard),
+                          errorWidget: Container(color: _cCard),
                         )
                       else
                         Container(color: _cCard),
