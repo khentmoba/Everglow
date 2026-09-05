@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
+import '../../../../shared/widgets/everglow/everglow_stream_view.dart';
 import '../../data/models/trip.dart';
 import '../../data/services/travel_service.dart';
 
@@ -10,20 +12,20 @@ class TravelAtlasView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final service = TravelService();
-    return StreamBuilder<List<TripPin>>(
+    return EverglowStreamView<List<TripPin>>(
       stream: service.watchAllPins(),
-      builder: (context, snap) {
-        final pins = snap.data ?? [];
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(
-              color: AppColors.deepRose,
-              strokeWidth: 2,
-            ),
-          );
-        }
-        if (pins.isEmpty) {
-          return Center(
+      streamLabel: 'travel-atlas',
+      errorMessage: 'Could not load atlas',
+      loadingView: const Padding(
+        padding: EdgeInsets.all(16),
+        child: EverglowSkeleton(
+          width: double.infinity,
+          height: 140,
+          radius: 16,
+        ),
+      ),
+      isEmpty: (pins) => pins.isEmpty,
+      emptyView: Center(
             child: Padding(
               padding: const EdgeInsets.all(32),
               child: Column(
@@ -54,8 +56,8 @@ class TravelAtlasView extends StatelessWidget {
                 ],
               ),
             ),
-          );
-        }
+          ),
+        builder: (context, pins) {
         // Stylized map same as gallery map
         double minLat = pins.map((p) => p.lat).reduce((a, b) => a < b ? a : b);
         double maxLat = pins.map((p) => p.lat).reduce((a, b) => a > b ? a : b);
