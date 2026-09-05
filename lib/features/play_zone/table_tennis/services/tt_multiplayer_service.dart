@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/tt_room.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 
 class TTMultiplayerService {
   final FirebaseFirestore _fs;
@@ -74,9 +75,16 @@ class TTMultiplayerService {
   }
 
   Stream<TTRoom> watchRoom(String roomId) {
-    return _doc(roomId).snapshots().map((snap) {
-      return TTRoom.fromDoc(snap.id, snap.data());
-    });
+    // Generous first-event guard: match joins on slow networks can take
+    // a few seconds; after the first snapshot the stream passes through
+    // untouched for the whole rally.
+    return withFirestoreTimeout(
+      _doc(roomId).snapshots().map((snap) {
+        return TTRoom.fromDoc(snap.id, snap.data());
+      }),
+      label: 'tt-room-$roomId',
+      duration: const Duration(seconds: 15),
+    );
   }
 
   Future<void> writeHostState({

@@ -212,7 +212,7 @@ class EverglowApp extends StatelessWidget {
         title: 'Everglow ${AppVersion.display}',
         debugShowCheckedModeBanner: false,
         theme: custom_theme.AppTheme.gamifiedTheme,
-        routerConfig: appRouter,
+        routerConfig: createAppRouter(),
         scaffoldMessengerKey: _scaffoldMessengerKey,
         builder: (context, child) => AppRoot(child: child!),
       ),

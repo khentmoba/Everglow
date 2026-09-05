@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'chapter_num.dart';
+
 /// Models for the Manga Katana catalog clone.
 ///
 /// Everything here is scraped from `mangakatana.com` and mirrors the
@@ -46,10 +48,7 @@ class KatanaChapter {
     return 'Chapter';
   }
 
-  double get numeric {
-    final n = double.tryParse(num);
-    return n ?? 0;
-  }
+  double get numeric => chapterNumValue(num);
 }
 
 /// A manga entry from the Manga Katana catalog.
