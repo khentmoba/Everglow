@@ -6,7 +6,7 @@ import '../../../../cinema/data/models/media_item.dart';
 import '../../../../../shared/widgets/shelf/filter_chip.dart';
 import '../../../../../shared/widgets/shelf/shelf_poster_card.dart';
 import '../../../../../shared/widgets/shelf/shelf_empty_state.dart';
-import '../../../../../shared/widgets/shelf/shimmer_box.dart';
+import '../../../../../shared/widgets/everglow/everglow_skeleton.dart';
 
 import 'anime_models.dart';
 import '../../../../../core/theme/app_typography.dart';
@@ -274,7 +274,7 @@ class AnimeBrowseTab extends StatelessWidget {
               crossAxisSpacing: 14,
               mainAxisSpacing: 14,
             ),
-            itemBuilder: (_, _) => const ShimmerBox(height: 220, radius: 14),
+            itemBuilder: (_, _) => const EverglowSkeleton(height: 220, radius: 14),
           ),
         )
       else if (row.items.isEmpty)
