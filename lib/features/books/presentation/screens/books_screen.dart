@@ -19,6 +19,7 @@ import '../../../../shared/widgets/shelf/shelf_section_header.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../../shared/widgets/shelf/shelf_pill_bottom_nav.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/shelf/staggered_entrance.dart';
 import '../../../../core/theme/app_breakpoints.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -1014,11 +1015,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
           ),
         ),
         const SliverToBoxAdapter(
-          child: EverglowSkeletonRow(
-            count: 6,
-            itemWidth: 150,
-            itemHeight: 240,
-          ),
+          child: EverglowSkeletonRow(count: 6, itemWidth: 150, itemHeight: 240),
         ),
       ],
     );
