@@ -15,6 +15,7 @@ class MilestoneService {
       _db
           .collection('milestones')
           .orderBy('date', descending: false)
+          .limit(500)
           .snapshots()
           .map((snapshot) {
             return snapshot.docs
