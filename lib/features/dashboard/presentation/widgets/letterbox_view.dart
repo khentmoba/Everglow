@@ -28,10 +28,22 @@ class _LetterboxViewState extends State<LetterboxView> {
   bool _hasError = false;
   int _retryCount = 0;
   static const int _maxRetries = 3;
+  // Dashboard rail only shows a short strip — a capped query avoids
+  // evaluating the `isCouple()` rule + downloading the whole collection
+  // on every dashboard open (the cold-start slowness).
+  static const int _previewLimit = 10;
 
   @override
   void initState() {
     super.initState();
+    // Cache-first: if the archive (or a previous dashboard visit) already
+    // loaded letters, paint them immediately and revalidate silently.
+    // Only show the skeleton on a true cold start with nothing cached.
+    final cached = _letterboxService.cachedNotes;
+    if (cached.isNotEmpty) {
+      _notes = cached.take(_previewLimit).toList();
+      _isLoading = false;
+    }
     _subscribe();
   }
 
@@ -45,7 +57,7 @@ class _LetterboxViewState extends State<LetterboxView> {
   void _subscribe() {
     _sub?.cancel();
     _retryTimer?.cancel();
-    _sub = _letterboxService.notes.listen(
+    _sub = _letterboxService.notesPreview(limit: _previewLimit).listen(
       (data) {
         if (!mounted) return;
         _retryCount = 0;
@@ -256,12 +268,18 @@ class _LetterboxViewState extends State<LetterboxView> {
 
   Widget _buildRail() {
     // While loading — including silent background retries after a cold-start
-    // Firestore timeout — keep the skeleton up. The error card only appears
-    // after all retries are exhausted, so first load never flashes
-    // "Could not load letters".
-    if (_isLoading) {
-      return const Center(
-        child: EverglowSkeleton(width: 120, height: 160, radius: 16),
+    // Firestore timeout — keep a rail-shaped shimmer up. It matches the
+    // final NoteCard size (150x180) so first paint doesn't jump, and the
+    // error card only appears after all retries are exhausted, so first
+    // load never flashes "Could not load letters".
+    // When cached letters are already on screen, keep showing them while
+    // the preview stream revalidates instead of flashing a skeleton.
+    if (_isLoading && _notes.isEmpty) {
+      return const EverglowSkeletonRow(
+        count: 3,
+        itemWidth: 150,
+        itemHeight: 180,
+        spacing: 16,
       );
     }
 

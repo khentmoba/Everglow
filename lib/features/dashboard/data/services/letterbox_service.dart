@@ -10,7 +10,27 @@ class LetterboxService {
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // Stream of all notes, shared globally, ordered by unlock date.
+  // In-memory cache shared by the dashboard rail and the archive screen.
+  // Lets a revisit (or rail -> View All) paint instantly while the live
+  // stream revalidates in the background (stale-while-revalidate).
+  List<HiddenNote> _cachedNotes = const [];
+  List<HiddenNote> get cachedNotes => _cachedNotes;
+
+  List<HiddenNote> _mapSnapshot(QuerySnapshot snapshot) {
+    final out = <HiddenNote>[];
+    for (final doc in snapshot.docs) {
+      try {
+        out.add(HiddenNote.fromFirestore(doc));
+      } catch (e) {
+        Logger.e('Letterbox: skipping malformed note ${doc.id}', error: e);
+      }
+    }
+    _cachedNotes = List.unmodifiable(out);
+    return _cachedNotes;
+  }
+
+  // Full stream of all notes, shared globally, ordered by unlock date.
+  // Used by the archive screen (needs everything for search/filter).
   // Wrapped with timeout so UI never hangs on web navigation.
   // Individual doc parse errors are swallowed so one malformed letter
   // does not kill the entire rail (the bug that left Letterbox empty
@@ -21,18 +41,42 @@ class LetterboxService {
           .collection('notes')
           .orderBy('unlockDate', descending: false)
           .snapshots()
+          .map(_mapSnapshot),
+      label: 'letterbox-notes',
+    );
+  }
+
+  // Lightweight preview for the dashboard rail. The rail only shows a
+  // horizontal strip, so fetching the whole collection wastes a rule
+  // `get(/users/{uid})` evaluation per letter plus bandwidth on every
+  // dashboard open — the main reason the rail felt slow on cold start.
+  Stream<List<HiddenNote>> notesPreview({int limit = 10}) {
+    return withFirestoreTimeout(
+      _db
+          .collection('notes')
+          .orderBy('unlockDate', descending: false)
+          .limit(limit)
+          .snapshots()
           .map((snapshot) {
+            // Preview must not clobber the full cache when the archive
+            // already holds more letters — only widen, never shrink.
             final out = <HiddenNote>[];
             for (final doc in snapshot.docs) {
               try {
                 out.add(HiddenNote.fromFirestore(doc));
               } catch (e) {
-                Logger.e('Letterbox: skipping malformed note ${doc.id}', error: e);
+                Logger.e(
+                  'Letterbox: skipping malformed note ${doc.id}',
+                  error: e,
+                );
               }
+            }
+            if (out.length >= _cachedNotes.length) {
+              _cachedNotes = List.unmodifiable(out);
             }
             return out;
           }),
-      label: 'letterbox-notes',
+      label: 'letterbox-notes-preview',
     );
   }
 

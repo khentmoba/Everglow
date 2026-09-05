@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_elevation.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_spacing.dart';
 import 'package:intl/intl.dart';
 import '../../domain/models/milestone.dart';
 import '../../data/services/milestone_service.dart';
 import './memory_detail_view.dart';
-import '../../../../shared/widgets/glass_container.dart';
 import '../../../../core/theme/app_typography.dart';
 
 class TimelineView extends StatefulWidget {
@@ -297,39 +299,122 @@ class _TimelineViewState extends State<TimelineView> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Section Header
+        // Section header — candlelit keepsake masthead.
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
-          child: Row(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.x3,
+            AppSpacing.x3,
+            AppSpacing.x3,
+            AppSpacing.sm,
+          ),
+          child: Column(
             children: [
-              Expanded(
-                child: Divider(
-                  color: AppColors.blushGold.withValues(alpha: 0.15),
-                  thickness: 1,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: 6,
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Text(
-                  'LIVING ARCHIVE',
-                  style: AppTypography.cormorantBlack.copyWith(
-                    fontSize: 22,
-                    letterSpacing: 2.0,
-                    shadows: [
-                      BoxShadow(
-                        color: AppColors.deepRose.withValues(alpha: 0.5),
-                        blurRadius: 10,
-                      ),
-                    ],
+                decoration: BoxDecoration(
+                  color: AppColors.moonlight.withValues(alpha: 0.06),
+                  borderRadius: AppRadius.radiusFull,
+                  border: Border.all(
+                    color: AppColors.moonlight.withValues(alpha: 0.12),
                   ),
                 ),
-              ),
-              Expanded(
-                child: Divider(
-                  color: AppColors.blushGold.withValues(alpha: 0.15),
-                  thickness: 1,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.favorite_rounded,
+                      size: 10,
+                      color: AppColors.auroraRose,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'FOR CLAIR',
+                      style: AppTypography.outfitHeading.copyWith(
+                        fontSize: 10,
+                        letterSpacing: 3.0,
+                        color: AppColors.blushGold,
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 1,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.transparent,
+                            AppColors.blushGold.withValues(alpha: 0.45),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
+                    ),
+                    child: Text(
+                      'LIVING ARCHIVE',
+                      style: AppTypography.cormorantBlack.copyWith(
+                        fontSize: 26,
+                        letterSpacing: 3.0,
+                        color: AppColors.petalWhite,
+                        shadows: [
+                          BoxShadow(
+                            color: AppColors.deepRose.withValues(alpha: 0.45),
+                            blurRadius: 14,
+                          ),
+                          const BoxShadow(
+                            color: AppColors.scrimMedium,
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      height: 1,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.blushGold.withValues(alpha: 0.45),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'little moments, kept forever',
+                style: AppTypography.handwrittenTitle().copyWith(
+                  fontSize: 19,
+                  color: AppColors.blushGold.withValues(alpha: 0.92),
+                ),
+              ),
+              if (_milestones.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  '♡ ${_milestones.length} frame${_milestones.length == 1 ? '' : 's'} kept ♡',
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 11,
+                    letterSpacing: 1.6,
+                    color: AppColors.roseQuartz.withValues(alpha: 0.62),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -353,6 +438,7 @@ class _MilestoneCarouselCard extends StatefulWidget {
 class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
   final PageController _imgController = PageController();
   Timer? _imgTimer;
+  int _currentImg = 0;
 
   @override
   void initState() {
@@ -363,8 +449,12 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
   void _startImgScroll() {
     _imgTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       if (!mounted) return;
-      if (_imgController.hasClients && widget.milestone.imageUrls.length > 1) {
-        int next = (_imgController.page?.round() ?? 0) + 1;
+      if (!_imgController.hasClients) return;
+      if (widget.milestone.imageUrls.length <= 1) return;
+      try {
+        if (!_imgController.position.hasContentDimensions) return;
+        final current = _imgController.page?.round() ?? _currentImg;
+        final next = current + 1;
         if (next >= widget.milestone.imageUrls.length) {
           _imgController.animateToPage(
             0,
@@ -377,6 +467,8 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
             curve: Curves.easeInOut,
           );
         }
+      } catch (_) {
+        return;
       }
     });
   }
@@ -388,125 +480,449 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
     super.dispose();
   }
 
+  void _openMemory() {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: '',
+      barrierColor: AppColors.inkDeep.withValues(alpha: 0.72),
+      transitionDuration: const Duration(milliseconds: 400),
+      pageBuilder: (context, anim1, anim2) {
+        return MemoryDetailOverlay(milestone: widget.milestone);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        showGeneralDialog(
-          context: context,
-          barrierDismissible: true,
-          barrierLabel: '',
-          barrierColor: AppColors.inkDeep.withValues(alpha: 0.72),
-          transitionDuration: const Duration(milliseconds: 400),
-          pageBuilder: (context, anim1, anim2) {
-            return MemoryDetailOverlay(milestone: widget.milestone);
-          },
-        );
-      },
-      child: GlassContainer(
-        width: 320,
-        height: 500,
-        borderRadius: BorderRadius.circular(24),
-        padding: const EdgeInsets.all(4),
-        child: Column(
-          children: [
-            // Film Header
-            _buildFilmStripEdge(),
+    final milestone = widget.milestone;
+    final imageCount = milestone.imageUrls.length;
 
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Column(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: widget.milestone.imageUrls.isEmpty
-                          ? Container(
-                              color: AppColors.deepRose.withValues(alpha: 0.08),
-                              child: Center(
-                                child: Icon(
-                                  Icons.image_rounded,
-                                  color: AppColors.roseQuartz.withValues(
-                                    alpha: 0.3,
-                                  ),
-                                  size: 32,
-                                ),
-                              ),
-                            )
-                          : PageView.builder(
-                              controller: _imgController,
-                              padEnds: false,
-                              itemCount: widget.milestone.imageUrls.length,
-                              itemBuilder: (context, idx) =>
-                                  _buildImage(widget.milestone.imageUrls[idx]),
-                            ),
+    return Semantics(
+      button: true,
+      label: 'Open memory ${milestone.title}',
+      child: GestureDetector(
+        onTap: _openMemory,
+        child: Container(
+          width: 320,
+          height: 500,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppColors.silk, AppColors.velvet, AppColors.inkDeep],
+              stops: [0.0, 0.55, 1.0],
+            ),
+            borderRadius: AppRadius.radiusX3,
+            border: Border.all(
+              color: AppColors.blushGold.withValues(alpha: 0.32),
+            ),
+            boxShadow: [
+              ...AppElevation.e3,
+              ...AppElevation.glowRose,
+              BoxShadow(
+                color: AppColors.blushGold.withValues(alpha: 0.10),
+                blurRadius: 14,
+                spreadRadius: -6,
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: AppRadius.radiusX3,
+            child: Column(
+              children: [
+                // Candlelight hairline — warm glow across the top.
+                Container(
+                  height: 1,
+                  margin: const EdgeInsets.symmetric(horizontal: 28),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.transparent,
+                        AppColors.blushGold.withValues(alpha: 0.6),
+                        Colors.transparent,
+                      ],
                     ),
-                    Expanded(
-                      flex: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.milestone.title,
-                              style: AppTypography.cormorantBold.copyWith(
-                                fontSize: 22,
+                  ),
+                ),
+
+                // Film leader (top)
+                _buildFilmStripEdge(isTop: true),
+
+                // Photo — full-bleed with scrims + floating keepsake pills.
+                Expanded(
+                  flex: 3,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (milestone.imageUrls.isEmpty)
+                        Container(
+                          color: AppColors.deepRose.withValues(alpha: 0.08),
+                          child: Center(
+                            child: Icon(
+                              Icons.image_rounded,
+                              color: AppColors.roseQuartz.withValues(
+                                alpha: 0.3,
+                              ),
+                              size: 32,
+                            ),
+                          ),
+                        )
+                      else
+                        PageView.builder(
+                          controller: _imgController,
+                          padEnds: false,
+                          itemCount: imageCount,
+                          onPageChanged: (i) => setState(() => _currentImg = i),
+                          itemBuilder: (context, idx) =>
+                              _buildImage(milestone.imageUrls[idx]),
+                        ),
+
+                      // Top scrim for pill legibility.
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: 72,
+                        child: IgnorePointer(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  AppColors.inkDeep.withValues(alpha: 0.5),
+                                  Colors.transparent,
+                                ],
                               ),
                             ),
-                            Text(
-                              DateFormat(
-                                'MMMM d, yyyy',
-                              ).format(widget.milestone.date),
-                              style: AppTypography.outfitBold.copyWith(
-                                fontSize: 13,
-                                color: AppColors.blushGold,
+                          ),
+                        ),
+                      ),
+
+                      // Bottom scrim — melts the photo into the story below.
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: 120,
+                        child: IgnorePointer(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  AppColors.inkDeep.withValues(alpha: 0.85),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            Text(
-                              widget.milestone.description,
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.outfitWhite.copyWith(
-                                color: AppColors.petalWhite.withValues(
-                                  alpha: 0.8,
+                          ),
+                        ),
+                      ),
+
+                      // Category keepsake pill.
+                      Positioned(
+                        top: 12,
+                        left: 12,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.inkDeep.withValues(alpha: 0.62),
+                            borderRadius: AppRadius.radiusFull,
+                            border: Border.all(
+                              color: AppColors.moonlight.withValues(
+                                alpha: 0.18,
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                milestone.category.emoji,
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                milestone.category.displayName.toUpperCase(),
+                                style: AppTypography.outfitHeading.copyWith(
+                                  fontSize: 10,
+                                  letterSpacing: 1.4,
+                                  color: AppColors.petalWhite.withValues(
+                                    alpha: 0.92,
+                                  ),
                                 ),
-                                height: 1.4,
-                                fontSize: 13,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // Photo counter.
+                      if (imageCount > 1)
+                        Positioned(
+                          top: 12,
+                          right: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.inkDeep.withValues(alpha: 0.62),
+                              borderRadius: AppRadius.radiusFull,
+                              border: Border.all(
+                                color: AppColors.moonlight.withValues(
+                                  alpha: 0.18,
+                                ),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.photo_library_rounded,
+                                  size: 11,
+                                  color: AppColors.blushGold,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${_currentImg + 1} / $imageCount',
+                                  style: AppTypography.outfitWhite.copyWith(
+                                    fontSize: 11,
+                                    letterSpacing: 0.8,
+                                    color: AppColors.petalWhite.withValues(
+                                      alpha: 0.9,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                      // Date candle — gold pill stamped on the photo.
+                      Positioned(
+                        left: 12,
+                        bottom: 12,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 11,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.auroraGold,
+                            borderRadius: AppRadius.radiusFull,
+                            boxShadow: const [
+                              BoxShadow(
+                                color: AppColors.scrimMedium,
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.calendar_month_rounded,
+                                size: 13,
+                                color: AppColors.inkDeep,
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                DateFormat(
+                                  'MMM d, yyyy',
+                                ).format(milestone.date).toUpperCase(),
+                                style: AppTypography.outfitHeading.copyWith(
+                                  fontSize: 11,
+                                  letterSpacing: 1.0,
+                                  color: AppColors.inkDeep,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // Image dots.
+                      if (imageCount > 1 && imageCount <= 6)
+                        Positioned(
+                          right: 12,
+                          bottom: 18,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: List.generate(imageCount, (i) {
+                              final active = i == _currentImg;
+                              return AnimatedContainer(
+                                duration: const Duration(milliseconds: 300),
+                                margin: const EdgeInsets.only(left: 5),
+                                width: active ? 18 : 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: active
+                                      ? AppColors.auroraGold
+                                      : AppColors.moonlight.withValues(
+                                          alpha: 0.4,
+                                        ),
+                                  borderRadius: AppRadius.radiusFull,
+                                ),
+                              );
+                            }),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+
+                // Story.
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          milestone.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.cormorantBoldWhite.copyWith(
+                            fontSize: 22,
+                            height: 1.15,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Container(
+                              width: 5,
+                              height: 5,
+                              decoration: const BoxDecoration(
+                                color: AppColors.auroraGold,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                milestone.author != null
+                                    ? 'Memory by ${milestone.author} ♡'
+                                    : 'Kept with love ♡',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.outfitWhite.copyWith(
+                                  fontSize: 12,
+                                  fontStyle: FontStyle.italic,
+                                  letterSpacing: 0.3,
+                                  color: AppColors.blushGold.withValues(
+                                    alpha: 0.9,
+                                  ),
+                                ),
                               ),
                             ),
                           ],
                         ),
-                      ),
+                        const SizedBox(height: 8),
+                        Text(
+                          milestone.description,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.outfitWhite.copyWith(
+                            color: AppColors.petalWhite.withValues(alpha: 0.78),
+                            height: 1.5,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const Spacer(),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Open our story',
+                                  style: AppTypography.outfitBold.copyWith(
+                                    fontSize: 12,
+                                    letterSpacing: 0.4,
+                                    color: AppColors.blushGold,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.arrow_forward_rounded,
+                                  size: 14,
+                                  color: AppColors.blushGold,
+                                ),
+                              ],
+                            ),
+                            const Icon(
+                              Icons.favorite_rounded,
+                              size: 14,
+                              color: AppColors.auroraRose,
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
 
-            // Film Footer
-            _buildFilmStripEdge(),
-          ],
+                // Film leader (bottom)
+                _buildFilmStripEdge(isTop: false),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildFilmStripEdge() {
+  Widget _buildFilmStripEdge({required bool isTop}) {
     return Container(
-      height: 20,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      height: 30,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: AppColors.inkDeep.withValues(alpha: 0.6),
+        border: isTop
+            ? Border(
+                bottom: BorderSide(
+                  color: AppColors.blushGold.withValues(alpha: 0.16),
+                ),
+              )
+            : Border(
+                top: BorderSide(
+                  color: AppColors.blushGold.withValues(alpha: 0.16),
+                ),
+              ),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: List.generate(
           8,
           (index) => Container(
-            width: 12,
-            height: 12,
+            width: 22,
+            height: 10,
             decoration: BoxDecoration(
-              color: AppColors.moonlight.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(2),
+              color: AppColors.moonlight.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(
+                color: AppColors.moonlight.withValues(alpha: 0.14),
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color: AppColors.scrimMedium,
+                  blurRadius: 2,
+                  offset: Offset(0, 1),
+                ),
+              ],
             ),
           ),
         ),
@@ -515,7 +931,42 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
   }
 
   Widget _buildImage(String path) {
-    if (path.startsWith('assets/')) return Image.asset(path, fit: BoxFit.cover);
-    return Image.network(path, fit: BoxFit.cover, cacheWidth: 300);
+    if (path.startsWith('assets/')) {
+      return Image.asset(path, fit: BoxFit.cover, width: double.infinity);
+    }
+    return Image.network(
+      path,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      cacheWidth: 600,
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) return child;
+        return Container(
+          color: AppColors.silk,
+          child: const Center(
+            child: SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.blushGold,
+              ),
+            ),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stack) {
+        return Container(
+          color: AppColors.deepRose.withValues(alpha: 0.08),
+          child: Center(
+            child: Icon(
+              Icons.broken_image_rounded,
+              color: AppColors.roseQuartz.withValues(alpha: 0.4),
+              size: 28,
+            ),
+          ),
+        );
+      },
+    );
   }
 }

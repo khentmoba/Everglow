@@ -81,6 +81,13 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
   @override
   void initState() {
     super.initState();
+    // Cache-first: the dashboard rail usually loaded already — paint it
+    // instantly and let the full stream revalidate silently underneath.
+    final cached = _service.cachedNotes;
+    if (cached.isNotEmpty) {
+      _allNotes = cached;
+      _isLoading = false;
+    }
     _subscribe();
   }
 
