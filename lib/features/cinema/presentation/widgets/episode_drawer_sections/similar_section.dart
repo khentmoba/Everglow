@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../shared/widgets/app_network_image.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../data/models/media_item.dart';
 import 'drawer_helpers.dart';
@@ -59,7 +60,11 @@ class SimilarSection extends StatelessWidget {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: item.posterUrl.isNotEmpty
-                            ? Image.network(item.posterUrl, fit: BoxFit.cover)
+                            ? AppNetworkImage(
+                                imageUrl: item.posterUrl,
+                                fit: BoxFit.cover,
+                                cacheWidth: 300,
+                              )
                             : Container(
                                 color: AppColors.shimmerBase,
                                 child: const Center(
