@@ -21,7 +21,7 @@ class OurBooksService {
 
   Stream<List<OurBooksItem>> getOurBooksStream() {
     return withFirestoreTimeout(
-      _firestore.collection(_collection).snapshots().map((snapshot) {
+      _firestore.collection(_collection).limit(300).snapshots().map((snapshot) {
         final items = snapshot.docs
             .map((doc) => OurBooksItem.fromFirestore(doc.data(), doc.id))
             .toList();
@@ -42,6 +42,7 @@ class OurBooksService {
       _firestore
           .collection(_collection)
           .where('addedBy', isEqualTo: adder)
+          .limit(300)
           .snapshots()
           .map((snapshot) {
             final items = snapshot.docs

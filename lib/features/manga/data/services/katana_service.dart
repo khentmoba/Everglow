@@ -339,6 +339,7 @@ class KatanaService {
     if (userName.isEmpty) return Stream.value(const []);
     return _bookmarks
         .where('userName', isEqualTo: userName)
+        .limit(500)
         .snapshots()
         .map(
           (snap) =>

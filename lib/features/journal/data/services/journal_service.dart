@@ -195,6 +195,7 @@ class JournalService {
     return _db
         .collection(_collection)
         .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .limit(1000)
         .snapshots()
         .map((snap) {
           final map = <String, int>{};
