@@ -14,6 +14,10 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
 
   TMDBWatchlistService(this._cacheService);
 
+  // Bounds every live watch-list query below. A couple list stays far
+  // under this in practice; the cap keeps Firestore reads finite.
+  static const int streamLimit = 500;
+
   // ─── CRUD ──────────────────────────────────────────────────────────────
 
   Future<void> saveToWatchList(
@@ -352,6 +356,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     return firestore
         .collection('"'"'watch_list'"'"')
         .where('"'"'userName'"'"', isEqualTo: userName)
+        .limit(streamLimit)
         .snapshots()
         .map((snapshot) {
           final items = snapshot.docs
@@ -395,6 +400,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       subA = firestore
           .collection('watch_list')
           .where('userName', isEqualTo: userA)
+          .limit(streamLimit)
           .snapshots()
           .listen((snapshot) {
             itemsA = snapshot.docs
@@ -405,6 +411,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       subB = firestore
           .collection('watch_list')
           .where('userName', isEqualTo: userB)
+          .limit(streamLimit)
           .snapshots()
           .listen((snapshot) {
             itemsB = snapshot.docs
@@ -432,6 +439,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     return firestore
         .collection('"'"'watch_list'"'"')
         .where('"'"'userName'"'"', isEqualTo: userName)
+        .limit(streamLimit)
         .snapshots()
         .map((snapshot) {
           final items = snapshot.docs
@@ -467,6 +475,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       subA = firestore
           .collection('watch_list')
           .where('userName', isEqualTo: userA)
+          .limit(streamLimit)
           .snapshots()
           .listen((snapshot) {
             itemsA = snapshot.docs
@@ -477,6 +486,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       subB = firestore
           .collection('watch_list')
           .where('userName', isEqualTo: userB)
+          .limit(streamLimit)
           .snapshots()
           .listen((snapshot) {
             itemsB = snapshot.docs
@@ -501,6 +511,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     return firestore
         .collection('"'"'watch_list'"'"')
         .where('"'"'userName'"'"', isEqualTo: userName)
+        .limit(streamLimit)
         .snapshots()
         .map((snapshot) {
           final items = snapshot.docs
@@ -536,6 +547,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       subA = firestore
           .collection('watch_list')
           .where('userName', isEqualTo: userA)
+          .limit(streamLimit)
           .snapshots()
           .listen((snapshot) {
             itemsA = snapshot.docs
@@ -546,6 +558,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       subB = firestore
           .collection('watch_list')
           .where('userName', isEqualTo: userB)
+          .limit(streamLimit)
           .snapshots()
           .listen((snapshot) {
             itemsB = snapshot.docs
@@ -570,6 +583,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     return firestore
         .collection('"'"'watch_list'"'"')
         .where('"'"'userName'"'"', isEqualTo: userName)
+        .limit(streamLimit)
         .snapshots()
         .map((snapshot) {
           final items = snapshot.docs
@@ -607,6 +621,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       subA = firestore
           .collection('watch_list')
           .where('userName', isEqualTo: userA)
+          .limit(streamLimit)
           .snapshots()
           .listen((snapshot) {
             itemsA = snapshot.docs
@@ -617,6 +632,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       subB = firestore
           .collection('watch_list')
           .where('userName', isEqualTo: userB)
+          .limit(streamLimit)
           .snapshots()
           .listen((snapshot) {
             itemsB = snapshot.docs
