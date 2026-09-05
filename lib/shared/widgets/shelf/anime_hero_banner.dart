@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../app_network_image.dart';
 import '../../../core/theme/app_breakpoints.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -184,21 +185,22 @@ class _HeroBannerSlide extends StatelessWidget {
                     Transform.scale(
                       scale: 1.1,
                       child: kIsWeb
-                          ? Image.network(
-                              item.imageUrl,
+                          ? AppNetworkImage(
+                              imageUrl: item.imageUrl,
                               fit: BoxFit.cover,
                               cacheWidth: 1200,
-                              errorBuilder: (_, _, _) =>
-                                  Container(color: AppColors.velvet),
+                              errorWidget: Container(color: AppColors.velvet),
                             )
                           : ImageFiltered(
-                              imageFilter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                              child: Image.network(
-                                item.imageUrl,
+                              imageFilter: ImageFilter.blur(
+                                sigmaX: 10,
+                                sigmaY: 10,
+                              ),
+                              child: AppNetworkImage(
+                                imageUrl: item.imageUrl,
                                 fit: BoxFit.cover,
                                 cacheWidth: 1200,
-                                errorBuilder: (_, _, _) =>
-                                    Container(color: AppColors.velvet),
+                                errorWidget: Container(color: AppColors.velvet),
                               ),
                             ),
                     )
@@ -317,7 +319,9 @@ class _HeroBannerSlide extends StatelessWidget {
                             maxLines: isDesktop ? 4 : 3,
                             overflow: TextOverflow.ellipsis,
                             style: AppTypography.outfitWhite.copyWith(
-                              color: AppColors.petalWhite.withValues(alpha: 0.6),
+                              color: AppColors.petalWhite.withValues(
+                                alpha: 0.6,
+                              ),
                               fontSize: isDesktop ? 13 : 11,
                               height: 1.5,
                             ),
@@ -398,22 +402,22 @@ class _FloatingPoster extends StatelessWidget {
               child: kIsWeb
                   ? Opacity(
                       opacity: 0.5,
-                      child: Image.network(
-                        posterUrl,
+                      child: AppNetworkImage(
+                        imageUrl: posterUrl,
                         fit: BoxFit.cover,
                         cacheWidth: 400,
-                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                        errorWidget: const SizedBox.shrink(),
                       ),
                     )
                   : ImageFiltered(
                       imageFilter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                       child: Opacity(
                         opacity: 0.5,
-                        child: Image.network(
-                          posterUrl,
+                        child: AppNetworkImage(
+                          imageUrl: posterUrl,
                           fit: BoxFit.cover,
                           cacheWidth: 400,
-                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                          errorWidget: const SizedBox.shrink(),
                         ),
                       ),
                     ),
@@ -422,11 +426,11 @@ class _FloatingPoster extends StatelessWidget {
           // Main poster
           ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: Image.network(
-              posterUrl,
+            child: AppNetworkImage(
+              imageUrl: posterUrl,
               fit: BoxFit.cover,
               cacheWidth: 500,
-              errorBuilder: (_, _, _) => Container(
+              errorWidget: Container(
                 color: AppColors.velvet,
                 child: Center(
                   child: Icon(
@@ -508,7 +512,11 @@ class _MetaChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: AppColors.petalWhite.withValues(alpha: 0.6)),
+          Icon(
+            icon,
+            size: 12,
+            color: AppColors.petalWhite.withValues(alpha: 0.6),
+          ),
           const SizedBox(width: 5),
           Flexible(
             child: Text(
@@ -553,7 +561,9 @@ class _ActionButton extends StatelessWidget {
           curve: ShelfMotion.easeOutStrong,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           decoration: BoxDecoration(
-            color: primary ? accent : AppColors.petalWhite.withValues(alpha: 0.06),
+            color: primary
+                ? accent
+                : AppColors.petalWhite.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(24),
             border: primary
                 ? null
@@ -615,7 +625,9 @@ class _DotIndicator extends StatelessWidget {
           width: isActive ? 22 : 5,
           height: 5,
           decoration: BoxDecoration(
-            color: isActive ? accent : AppColors.petalWhite.withValues(alpha: 0.2),
+            color: isActive
+                ? accent
+                : AppColors.petalWhite.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(3),
             boxShadow: isActive
                 ? [
