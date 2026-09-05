@@ -6,7 +6,7 @@ import 'package:everglow/shared/widgets/shelf/shelf_poster_card.dart';
 Widget _card(int i) {
   return ShelfPosterCard(
     imageUrl: '',
-    title: 'A Very Long Shelf Title Number ' + i.toString() + ' That Must Ellipsize Instead Of Overflowing',
+    title: 'A Very Long Shelf Title Number $i That Must Ellipsize Instead Of Overflowing',
     subtitle: '2026 - An extra long subtitle line for wrapping stress',
     badge: 'TOP 10',
     rankNumber: (i + 1).toDouble(),
