@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../../../shared/widgets/app_network_image.dart';
 
 import '../../../../../core/theme/app_motion.dart';
 import '../../../../../core/theme/app_typography.dart';
@@ -280,12 +281,11 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
               loop: true,
             )
           else if (_backdropUrl.isNotEmpty)
-            Image.network(
-              _backdropUrl,
+            AppNetworkImage(
+              imageUrl: _backdropUrl,
               fit: BoxFit.cover,
               cacheWidth: 1600,
-              errorBuilder: (_, _, _) =>
-                  Container(color: NetflixColors.surface),
+              errorWidget: Container(color: NetflixColors.surface),
             )
           else
             Container(color: NetflixColors.surface),
