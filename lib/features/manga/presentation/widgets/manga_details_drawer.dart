@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -415,10 +416,11 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
         fit: StackFit.expand,
         children: [
           if (_item.coverUrl.isNotEmpty)
-            Image.network(
-              _mangaDexService.proxiedImageUrl(_item.coverUrl),
+            AppNetworkImage(
+              imageUrl: _mangaDexService.proxiedImageUrl(_item.coverUrl),
               fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Container(color: AppColors.velvet),
+              cacheWidth: 800,
+              errorWidget: Container(color: AppColors.velvet),
             )
           else
             Container(color: AppColors.velvet),
