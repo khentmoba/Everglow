@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -161,10 +162,11 @@ class _MangaSearchModalState extends State<MangaSearchModal> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: item.coverUrl.isNotEmpty
-                      ? Image.network(
-                          _mangaDex.proxiedImageUrl(item.coverUrl),
+                      ? AppNetworkImage(
+                          imageUrl: _mangaDex.proxiedImageUrl(item.coverUrl),
                           height: 180,
                           fit: BoxFit.cover,
+                          cacheWidth: 400,
                         )
                       : Container(height: 180, color: AppTheme.twilight),
                 ),
