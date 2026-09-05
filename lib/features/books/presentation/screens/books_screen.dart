@@ -17,7 +17,7 @@ import '../../../../shared/widgets/shelf/shelf_icon_button.dart';
 import '../../../../shared/widgets/shelf/shelf_poster_card.dart';
 import '../../../../shared/widgets/shelf/shelf_section_header.dart';
 import '../../../../shared/widgets/shelf/shelf_empty_state.dart';
-import '../../../../shared/widgets/shelf/shimmer_box.dart';
+import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../../shared/widgets/shelf/shelf_pill_bottom_nav.dart';
 import '../../../../shared/widgets/shelf/staggered_entrance.dart';
 import '../../../../core/theme/app_breakpoints.dart';
@@ -993,29 +993,33 @@ class _BooksScreenState extends _BooksScreenStateBase {
               20,
               20,
             ),
-            child: const ShimmerBox(height: 40, width: 160, radius: 8),
+            child: const EverglowSkeleton(height: 40, width: 160, radius: 8),
           ),
         ),
         const SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 12),
-            child: ShimmerBox(height: 320, radius: 24),
+            child: EverglowSkeleton(height: 320, radius: 24),
           ),
         ),
         const SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.fromLTRB(20, 32, 20, 0),
-            child: ShimmerBox(height: 280, radius: 16),
+            child: EverglowSkeleton(height: 280, radius: 16),
           ),
         ),
         const SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.fromLTRB(20, 32, 20, 14),
-            child: ShimmerBox(height: 36, width: 200, radius: 8),
+            child: EverglowSkeleton(height: 36, width: 200, radius: 8),
           ),
         ),
         const SliverToBoxAdapter(
-          child: ShimmerPosterRow(height: 240, width: 150, count: 6),
+          child: EverglowSkeletonRow(
+            count: 6,
+            itemWidth: 150,
+            itemHeight: 240,
+          ),
         ),
       ],
     );
