@@ -11,6 +11,7 @@ import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
+import '../../../../shared/widgets/everglow/everglow_stream_view.dart';
 import '../../../heartbeat/data/services/mood_service.dart';
 import '../../data/models/habit.dart';
 import '../../data/models/workout.dart';
@@ -337,24 +338,23 @@ class _HabitsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final service = WellnessService();
-    return StreamBuilder<List<Habit>>(
+    return EverglowStreamView<List<Habit>>(
       stream: service.watchHabits(),
-      builder: (context, snap) {
-        final habits = snap.data ?? [];
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const Padding(
-            padding: EdgeInsets.all(16),
-            child: EverglowSkeleton(height: 120, radius: 16),
-          );
-        }
-        if (habits.isEmpty) {
-          return const EverglowEmptyState(
-            icon: Icons.check_circle_outline_rounded,
-            title: 'No habits yet',
-            subtitle: 'Create a shared habit — Habitica style streaks',
-            ctaLabel: null,
-          );
-        }
+      streamLabel: 'wellness-habits',
+      errorMessage: 'Could not load habits',
+      errorIcon: Icons.check_circle_outline_rounded,
+      loadingView: const Padding(
+        padding: EdgeInsets.all(16),
+        child: EverglowSkeleton(height: 120, radius: 16),
+      ),
+      isEmpty: (habits) => habits.isEmpty,
+      emptyView: const EverglowEmptyState(
+        icon: Icons.check_circle_outline_rounded,
+        title: 'No habits yet',
+        subtitle: 'Create a shared habit — Habitica style streaks',
+        ctaLabel: null,
+      ),
+      builder: (context, habits) {
         return ListView.builder(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
           itemCount: habits.length,
@@ -516,26 +516,19 @@ class _WorkoutsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final service = WellnessService();
-    return StreamBuilder<List<Workout>>(
+    return EverglowStreamView<List<Workout>>(
       stream: service.watchWorkouts(),
-      builder: (context, snap) {
-        final workouts = snap.data ?? [];
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(
-              color: AppColors.deepRose,
-              strokeWidth: 2,
-            ),
-          );
-        }
-        if (workouts.isEmpty) {
-          return const EverglowEmptyState(
-            icon: Icons.fitness_center_rounded,
-            title: 'No workouts yet',
-            subtitle: 'Log a wger-style workout together',
-            ctaLabel: null,
-          );
-        }
+      streamLabel: 'wellness-workouts',
+      errorMessage: 'Could not load workouts',
+      errorIcon: Icons.fitness_center_rounded,
+      isEmpty: (workouts) => workouts.isEmpty,
+      emptyView: const EverglowEmptyState(
+        icon: Icons.fitness_center_rounded,
+        title: 'No workouts yet',
+        subtitle: 'Log a wger-style workout together',
+        ctaLabel: null,
+      ),
+      builder: (context, workouts) {
         return ListView.builder(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
           itemCount: workouts.length,
