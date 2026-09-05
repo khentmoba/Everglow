@@ -520,11 +520,10 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
         'Search any book, author, or subject across the full database.',
     IconData icon = Icons.travel_explore_rounded,
   }) {
-    return ShelfEmptyState(
+    return EverglowEmptyState(
       icon: icon,
       title: title,
       subtitle: subtitle,
-      accent: _cDeepRose,
     );
   }
 }

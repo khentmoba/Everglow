@@ -5,7 +5,7 @@ import '../../../data/anime_categories.dart';
 import '../../../../cinema/data/models/media_item.dart';
 import '../../../../../shared/widgets/shelf/filter_chip.dart';
 import '../../../../../shared/widgets/shelf/shelf_poster_card.dart';
-import '../../../../../shared/widgets/shelf/shelf_empty_state.dart';
+import '../../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../../../../shared/widgets/everglow/everglow_skeleton.dart';
 
 import 'anime_models.dart';
@@ -334,12 +334,11 @@ class AnimeBrowseTab extends StatelessWidget {
                       ],
                     ),
                   )
-                : ShelfEmptyState(
+                : const EverglowEmptyState(
                     icon: Icons.travel_explore_rounded,
                     title: 'No matches in this category yet',
                     subtitle:
                         'Try another filter, or pull to refresh to fetch the latest.',
-                    accent: option.color,
                   ),
           ),
         )
