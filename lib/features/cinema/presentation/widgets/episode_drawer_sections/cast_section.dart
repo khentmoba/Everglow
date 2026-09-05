@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../shared/widgets/app_network_image.dart';
 import '../../../../../core/theme/app_colors.dart';
 import 'drawer_helpers.dart';
 import '../../../../../core/theme/app_typography.dart';
@@ -62,11 +63,11 @@ class CastSection extends StatelessWidget {
                       ),
                       child: ClipOval(
                         child: hasPhoto
-                            ? Image.network(
-                                m['profilePath'],
+                            ? AppNetworkImage(
+                                imageUrl: m['profilePath'],
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) =>
-                                    buildCastInitial(name),
+                                cacheWidth: 150,
+                                errorWidget: buildCastInitial(name),
                               )
                             : buildCastInitial(name),
                       ),
