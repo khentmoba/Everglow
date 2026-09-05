@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../../shared/widgets/app_network_image.dart';
 import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../core/theme/app_typography.dart';
 import '../../../../data/models/media_item.dart';
@@ -116,10 +117,11 @@ class _SimilarCardState extends State<_SimilarCard> {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(14),
                     child: item.posterUrl.isNotEmpty
-                        ? Image.network(
-                            item.posterUrl,
+                        ? AppNetworkImage(
+                            imageUrl: item.posterUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => _fallback(),
+                            cacheWidth: 300,
+                            errorWidget: _fallback(),
                           )
                         : _fallback(),
                   ),
