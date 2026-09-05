@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/services/on_this_day_service.dart';
@@ -232,10 +233,11 @@ class _MemoryCardState extends State<_MemoryCard> {
                       ? Stack(
                           fit: StackFit.expand,
                           children: [
-                            Image.network(
-                              resolvedUrl,
+                            AppNetworkImage(
+                              imageUrl: resolvedUrl,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => _CardPlaceholder(
+                              cacheWidth: 300,
+                              errorWidget: _CardPlaceholder(
                                 icon: _sourceIcon,
                                 color: _sourceColor,
                               ),
