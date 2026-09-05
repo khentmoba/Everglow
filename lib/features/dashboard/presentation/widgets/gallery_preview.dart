@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../gallery/domain/models/memory_photo.dart';
 import '../../../gallery/data/services/gallery_service.dart';
 import 'shelf_widgets.dart';
+import '../../../../shared/widgets/everglow/everglow_marquee.dart';
 import '../../../../core/theme/app_typography.dart';
 import 'feature_section.dart';
 
@@ -48,12 +49,11 @@ class GalleryPreview extends StatelessWidget {
                       ),
                     ],
                   )
-                : SizedBox(
+                : EverglowMarquee(
                     height: 194,
-                    child: ShelfMarquee(
-                      itemStride: 140.0,
-                      children: [
-                        for (final photo in photos) ...[
+                    itemSpacing: 12,
+                    children: [
+                      for (final photo in photos.take(12)) ...[
                           Padding(
                             padding: const EdgeInsets.only(right: 12),
                             child: ShelfCard(
@@ -68,7 +68,6 @@ class GalleryPreview extends StatelessWidget {
                         ],
                       ],
                     ),
-                  ),
           ),
         );
       },

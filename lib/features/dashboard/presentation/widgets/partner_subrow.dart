@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import 'shelf_widgets.dart';
+import '../../../../shared/widgets/everglow/everglow_marquee.dart';
 import '../../../../core/theme/app_typography.dart';
 
 /// One labeled horizontal rail inside a dashboard shelf, used to render
@@ -56,9 +57,9 @@ class PartnerSubrow extends StatelessWidget {
           _SubrowLabel(label: label, accent: accent),
           const SizedBox(height: 8),
           if (hasItems)
-            SizedBox(
+            EverglowMarquee(
               height: height,
-              child: ShelfMarquee(children: children),
+              children: children.take(12).toList(),
             )
           else if (emptyMessage != null)
             _SubrowEmptyLine(message: emptyMessage!, accent: accent)
