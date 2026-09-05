@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import '../../../../../shared/widgets/app_network_image.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -320,11 +321,11 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         fit: StackFit.expand,
         children: [
           if (banner.isNotEmpty)
-            Image.network(
-              banner,
+            AppNetworkImage(
+              imageUrl: banner,
               fit: BoxFit.cover,
-              errorBuilder: (_, _, _) =>
-                  Container(color: AnimeXTokens.surfaceRaised),
+              cacheWidth: 1200,
+              errorWidget: Container(color: AnimeXTokens.surfaceRaised),
             )
           else
             Container(color: AnimeXTokens.surfaceRaised),
@@ -387,11 +388,13 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                     height: 160,
                     child: _item.posterUrl.isEmpty
                         ? Container(color: AnimeXTokens.surfaceRaised)
-                        : Image.network(
-                            _item.posterUrl,
+                        : AppNetworkImage(
+                            imageUrl: _item.posterUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) =>
-                                Container(color: AnimeXTokens.surfaceRaised),
+                            cacheWidth: 250,
+                            errorWidget: Container(
+                              color: AnimeXTokens.surfaceRaised,
+                            ),
                           ),
                   ),
                 ),
