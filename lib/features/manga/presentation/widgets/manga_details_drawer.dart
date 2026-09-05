@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../data/models/manga_item.dart';
+import '../../data/models/chapter_num.dart';
 import '../../data/services/comick_service.dart';
 import '../../data/services/mangadex_service.dart';
 import '../../data/services/mangakakalot_service.dart';
@@ -213,7 +214,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
     final byChapter = <String, MangaChapter>{};
     for (final list in results) {
       for (final ch in list) {
-        final key = _normalizeChapterNum(ch.chapter);
+        final key = normalizeChapterNum(ch.chapter);
         if (key.isEmpty) {
           // Chapters without a number get unique keys by id
           byChapter['id:${ch.id}'] = ch;
@@ -239,23 +240,12 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
     // Sort by chapter number ascending
     final merged = byChapter.values.toList()
       ..sort((a, b) {
-        final na = double.tryParse(_normalizeChapterNum(a.chapter)) ?? 0;
-        final nb = double.tryParse(_normalizeChapterNum(b.chapter)) ?? 0;
+        final na = chapterNumValue(a.chapter);
+        final nb = chapterNumValue(b.chapter);
         return na.compareTo(nb);
       });
 
     return merged;
-  }
-
-  /// Normalize chapter numbers so "1", "1.0", "001" all map to "1".
-  /// Returns empty string if [raw] is empty or not parseable.
-  static String _normalizeChapterNum(String raw) {
-    if (raw.isEmpty) return '';
-    final n = double.tryParse(raw);
-    if (n == null) return raw;
-    // Use integer representation when there's no fractional part
-    if (n == n.roundToDouble()) return n.toInt().toString();
-    return n.toString();
   }
 
   Future<void> _openReader(MangaChapter chapter) async {

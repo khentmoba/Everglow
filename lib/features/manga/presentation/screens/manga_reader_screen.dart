@@ -6,6 +6,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../data/models/manga_item.dart';
+import '../../data/models/chapter_num.dart';
 import '../../data/services/bato_service.dart';
 import '../../data/services/mangadex_service.dart';
 import '../../data/services/mangakakalot_service.dart';
@@ -107,17 +108,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
     }
   }
 
-  /// Compare two chapter numbers accounting for formatting differences
-  /// (e.g. "1" vs "1.0" vs "001").
-  bool _chaptersMatch(String a, String b) {
-    if (a == b) return true;
-    final na = double.tryParse(a);
-    final nb = double.tryParse(b);
-    if (na != null && nb != null) return na == nb;
-    return false;
-  }
-
-  Future<void> _loadPages() async {
+  void _loadPages() async {
     setState(() {
       _isLoading = true;
       _loadError = null;
@@ -176,7 +167,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
               final chapters = await _kakalotService.getChapterFeed(slug);
               MangaChapter? match;
               for (final c in chapters) {
-                if (_chaptersMatch(c.chapter, widget.chapter.chapter)) {
+                if (chaptersMatch(c.chapter, widget.chapter.chapter)) {
                   match = c;
                   break;
                 }
@@ -252,7 +243,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
   ) async {
     final mdChapters = await _mangaDexService.getChapterFeed(mangaDexId);
     final targetChapter = mdChapters.cast<MangaChapter?>().firstWhere(
-      (c) => c != null && _chaptersMatch(c.chapter, widget.chapter.chapter),
+      (c) => c != null && chaptersMatch(c.chapter, widget.chapter.chapter),
       orElse: () => null,
     );
     if (targetChapter != null) {
@@ -274,7 +265,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
       final chapters = await _mangakatanaService.getChapterFeed(slug);
       MangaChapter? match;
       for (final c in chapters) {
-        if (_chaptersMatch(c.chapter, widget.chapter.chapter)) {
+        if (chaptersMatch(c.chapter, widget.chapter.chapter)) {
           match = c;
           break;
         }
