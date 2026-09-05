@@ -152,6 +152,15 @@ class WatchPartyRoom {
   bool get isPaused => state == 'paused';
   bool get isBuffering => state == 'buffering';
 
+  /// True while the party is genuinely live: flagged active AND the
+  /// heartbeat is fresh. The party screen ticks `updatedAt` every 5s,
+  /// so anything older than [staleAfter] means both clients are gone
+  /// (closed tab, crash) and the room is a leftover. UIs showing
+  /// resume affordances should use this instead of [active] so a dead
+  /// room is never offered for rejoin.
+  bool isLive({Duration staleAfter = const Duration(minutes: 15)}) =>
+      active && DateTime.now().difference(updatedAt) < staleAfter;
+
   /// Pretty "0:23" / "1:02:45" rendering for the sync overlay.
   String get formattedCurrentTime =>
       _formatDuration(Duration(milliseconds: (currentTime * 1000).round()));

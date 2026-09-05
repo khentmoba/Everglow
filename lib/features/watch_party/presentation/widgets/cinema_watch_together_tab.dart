@@ -49,6 +49,7 @@ class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
   final WatchPartyService _service = WatchPartyService();
   final JellyfinApiService _jellyfin = const JellyfinApiService();
   Stream<WatchPartyRoom?>? _roomStream;
+  String? _roomId;
 
   List<JellyfinMediaItem> _jellyfinMovies = const [];
   bool _loadingJellyfin = true;
@@ -194,10 +195,23 @@ class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
     final myUid = auth.uid;
     final partnerUid = auth.partnerUid;
     if (myUid != null && partnerUid != null) {
-      _roomStream ??= _service.getRoomStream(
-        WatchPartyRoom.buildRoomId(myUid, partnerUid),
-      );
+      _roomId ??= WatchPartyRoom.buildRoomId(myUid, partnerUid);
+      final roomId = _roomId;
+      if (roomId != null) {
+        _roomStream ??= _service.getRoomStream(roomId);
+      }
     }
+  }
+
+  /// Re-subscribes the room stream after a listener error (timeout or
+  /// permission flap on web). The old stream already terminated, so a
+  /// fresh one is the only way back to live updates.
+  void _retryRoomStream() {
+    final roomId = _roomId;
+    if (roomId == null) return;
+    setState(() {
+      _roomStream = _service.getRoomStream(roomId);
+    });
   }
 
   @override
@@ -314,8 +328,11 @@ class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
               child: StreamBuilder<WatchPartyRoom?>(
                 stream: _roomStream,
                 builder: (context, snap) {
+                  if (snap.hasError) {
+                    return _PartyErrorCard(onRetry: _retryRoomStream);
+                  }
                   final room = snap.data;
-                  if (room == null || !room.active) {
+                  if (room == null || !room.isLive()) {
                     return const _NoActivePartyCard();
                   }
                   return _ActivePartyCard(room: room);
