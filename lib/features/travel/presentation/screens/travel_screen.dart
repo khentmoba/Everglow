@@ -10,6 +10,7 @@ import '../../../../shared/widgets/everglow/everglow_segmented_control.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
+import '../../../../shared/widgets/everglow/everglow_stream_view.dart';
 import '../../data/models/trip.dart';
 import '../../data/services/travel_service.dart';
 import '../widgets/add_trip_dialog.dart';
@@ -65,36 +66,27 @@ class _TravelScreenState extends State<TravelScreen> {
                 Expanded(
                   child: _tabIndex == 1
                       ? const TravelAtlasView()
-                      : StreamBuilder<List<Trip>>(
+                      : EverglowStreamView<List<Trip>>(
                           stream: service.watchTrips(),
-                          builder: (context, snap) {
-                            if (snap.connectionState ==
-                                ConnectionState.waiting) {
-                              return const Center(
-                                child: CircularProgressIndicator(
-                                  color: AppColors.deepRose,
-                                  strokeWidth: 2,
-                                ),
-                              );
-                            }
-                            final trips = snap.data ?? [];
-                            if (trips.isEmpty) {
-                              return EverglowEmptyState(
-                                icon: Icons.map_rounded,
-                                title: 'No trips yet',
-                                subtitle:
-                                    'Plan your first getaway — pins, itinerary, auto-journal',
-                                ctaLabel: 'New Trip',
-                                onCta: () => _showAddTrip(auth),
-                              );
-                            }
-                            return ListView.builder(
-                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                              itemCount: trips.length,
-                              itemBuilder: (context, idx) =>
-                                  _TripCard(trip: trips[idx]),
-                            );
-                          },
+                          streamLabel: 'travel-trips',
+                          errorMessage: 'Could not load trips',
+                          errorIcon: Icons.map_rounded,
+                          onRetry: () => setState(() {}),
+                          isEmpty: (trips) => trips.isEmpty,
+                          emptyView: EverglowEmptyState(
+                            icon: Icons.map_rounded,
+                            title: 'No trips yet',
+                            subtitle:
+                                'Plan your first getaway — pins, itinerary, auto-journal',
+                            ctaLabel: 'New Trip',
+                            onCta: () => _showAddTrip(auth),
+                          ),
+                          builder: (context, trips) => ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+                            itemCount: trips.length,
+                            itemBuilder: (context, idx) =>
+                                _TripCard(trip: trips[idx]),
+                          ),
                         ),
                 ),
               ],
