@@ -5,9 +5,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/widgets/everglow/everglow_scaffold.dart';
 import '../../../../shared/widgets/everglow/everglow_chip.dart';
 import '../../../../core/services/auth_service.dart';
-import '../../../../shared/widgets/everglow/everglow_error_state.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
+import '../../../../shared/widgets/everglow/everglow_stream_view.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../data/models/bucket_item.dart';
 import '../../data/services/bucket_list_service.dart';
@@ -31,6 +31,29 @@ class _BucketListScreenState extends State<BucketListScreen> {
   String? _assigneeFilter; // null=all, 'unassigned', or username
   BucketPriority? _priorityFilter;
   bool _overdueOnly = false;
+
+  /// Client-side filters (avoids extra composite indexes). Sorting stays
+  /// with the list view — the board orders its own columns.
+  List<BucketItem> _filteredItems(List<BucketItem> all) {
+    var items = all;
+    if (_filter != null) {
+      items = items.where((i) => i.status == _filter).toList();
+    }
+    if (_assigneeFilter != null) {
+      if (_assigneeFilter == 'unassigned') {
+        items = items.where((i) => i.assignedTo == null).toList();
+      } else {
+        items = items.where((i) => i.assignedTo == _assigneeFilter).toList();
+      }
+    }
+    if (_priorityFilter != null) {
+      items = items.where((i) => i.priority == _priorityFilter).toList();
+    }
+    if (_overdueOnly) {
+      items = items.where((i) => i.isOverdue).toList();
+    }
+    return items;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -184,53 +207,19 @@ class _BucketListScreenState extends State<BucketListScreen> {
 
                 // List / Board
                 Expanded(
-                  child: StreamBuilder<List<BucketItem>>(
+                  child: EverglowStreamView<List<BucketItem>>(
                     stream: service.watchAll(),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasError) {
-                        return EverglowErrorState(
-                          message: 'Could not load bucket list',
-                          onRetry: () => setState(() {}),
-                          icon: Icons.cloud_off_outlined,
-                        );
-                      }
-
-                      if (!snapshot.hasData) {
-                        return const EverglowSkeleton(
-                          width: double.infinity,
-                          height: 80,
-                          radius: 16,
-                        );
-                      }
-
-                      var items = snapshot.data!;
-                      // Client-side filters (avoids extra composite indexes)
-                      if (_filter != null) {
-                        items = items
-                            .where((i) => i.status == _filter)
-                            .toList();
-                      }
-                      if (_assigneeFilter != null) {
-                        if (_assigneeFilter == 'unassigned') {
-                          items = items
-                              .where((i) => i.assignedTo == null)
-                              .toList();
-                        } else {
-                          items = items
-                              .where((i) => i.assignedTo == _assigneeFilter)
-                              .toList();
-                        }
-                      }
-                      if (_priorityFilter != null) {
-                        items = items
-                            .where((i) => i.priority == _priorityFilter)
-                            .toList();
-                      }
-                      if (_overdueOnly) {
-                        items = items.where((i) => i.isOverdue).toList();
-                      }
-
-                      if (items.isEmpty) {
+                    streamLabel: 'bucket-list',
+                    errorMessage: 'Could not load bucket list',
+                    onRetry: () => setState(() {}),
+                    loadingView: const EverglowSkeleton(
+                      width: double.infinity,
+                      height: 80,
+                      radius: 16,
+                    ),
+                    isEmpty: (all) => _filteredItems(all).isEmpty,
+                    emptyView: Builder(
+                      builder: (context) {
                         final isFiltered =
                             _filter != null ||
                             _assigneeFilter != null ||
@@ -249,8 +238,10 @@ class _BucketListScreenState extends State<BucketListScreen> {
                               ? null
                               : () => _showAddDialog(context, auth),
                         );
-                      }
-
+                      },
+                    ),
+                    builder: (context, all) {
+                      final items = _filteredItems(all);
                       if (_viewMode == _ViewMode.board) {
                         return BucketKanbanBoard(
                           items: items,
