@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../app_network_image.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 
@@ -145,12 +146,14 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
           fit: StackFit.expand,
           children: [
             if (_resolvedImageUrl.isNotEmpty)
-              Image.network(
-                _resolvedImageUrl,
+              AppNetworkImage(
+                imageUrl: _resolvedImageUrl,
                 fit: BoxFit.cover,
                 cacheWidth: 400,
-                errorBuilder: (_, _, _) =>
-                    _Placeholder(title: widget.title, accent: badgeColor),
+                errorWidget: _Placeholder(
+                  title: widget.title,
+                  accent: badgeColor,
+                ),
               )
             else
               _Placeholder(title: widget.title, accent: badgeColor),
@@ -275,7 +278,11 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (widget.badgeIcon != null) ...[
-                        Icon(widget.badgeIcon, color: AppColors.petalWhite, size: 9),
+                        Icon(
+                          widget.badgeIcon,
+                          color: AppColors.petalWhite,
+                          size: 9,
+                        ),
                         const SizedBox(width: 3),
                       ],
                       Text(
@@ -323,7 +330,9 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                     boxShadow: widget.rankNumber! <= 3
                         ? [
                             BoxShadow(
-                              color: AppColors.blushGold.withValues(alpha: 0.65),
+                              color: AppColors.blushGold.withValues(
+                                alpha: 0.65,
+                              ),
                               blurRadius: 8,
                               spreadRadius: 1,
                             ),
