@@ -14,6 +14,8 @@ const {
   isAllowedBookTextUrl,
 } = require('./common.js');
 
+const { resolveGalleryDeletePath } = require('./media_proxy_core.js');
+
 const proxyBookText = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -678,6 +680,60 @@ const cleanupGallery = functions.https.onRequest(async (req, res) => {
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
   res.json({ deleted });
+});
+
+/**
+ * Deletes one gallery Storage file as the couple. The client SDK Storage
+ * rules only let each user delete under their own uid prefix, so when
+ * Clair deletes one of Khent's photos (or vice versa) the direct delete
+ * fails and the file is orphaned. This endpoint closes that gap.
+ *
+ * Accepts:
+ *   POST /deleteGalleryPhoto  { imageUrl: <Storage download URL> }
+ *
+ * Auth required (Khent or Clair only). The path is derived server-side
+ * from the download URL and restricted to the `gallery/` prefix, so the
+ * caller can never aim this at other files.
+ */
+const deleteGalleryPhoto = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Only POST is accepted' });
+    return;
+  }
+
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
+  const username = await getVerifiedUsername(decoded);
+  if (username !== 'khentsgdz' && username !== 'clairjassen') {
+    res.status(403).json({ error: 'Couple only' });
+    return;
+  }
+
+  let objectPath;
+  try {
+    objectPath = resolveGalleryDeletePath(req.body && req.body.imageUrl);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+    return;
+  }
+
+  try {
+    await getAdmin().storage().bucket().file(objectPath).delete({ ignoreNotFound: true });
+  } catch (e) {
+    console.warn('deleteGalleryPhoto failed:', objectPath, e.message);
+    res.status(502).json({ error: 'Storage delete failed' });
+    return;
+  }
+  res.json({ ok: true });
 });
 
 /**
@@ -1711,6 +1767,7 @@ module.exports = {
   proxyAnimeImage,
   proxyGalleryImage,
   cleanupGallery,
+  deleteGalleryPhoto,
   proxyScanlation,
   proxyFetchHtml,
   proxyEmbed,
