@@ -9,6 +9,7 @@ import '../../../../shared/widgets/everglow/everglow_scaffold.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
+import '../../../../shared/widgets/everglow/everglow_stream_view.dart';
 import '../../data/models/wiki_page.dart';
 import '../../data/services/wiki_service.dart';
 
@@ -83,28 +84,22 @@ class _WikiScreenState extends State<WikiScreen> {
                 ),
                 const SizedBox(height: 12),
                 Expanded(
-                  child: StreamBuilder<List<WikiShelf>>(
+                  child: EverglowStreamView<List<WikiShelf>>(
                     stream: service.watchShelves(),
-                    builder: (context, snap) {
-                      final shelves = snap.data ?? [];
-                      if (snap.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            color: AppColors.deepRose,
-                            strokeWidth: 2,
-                          ),
-                        );
-                      }
-                      if (shelves.isEmpty) {
-                        return EverglowEmptyState(
-                          icon: Icons.library_books_rounded,
-                          title: 'No shelves yet',
-                          subtitle:
-                              'Create your first shelf — e.g., Our Story, Travel Lore, Inside Jokes',
-                          ctaLabel: 'New Shelf',
-                          onCta: _showAddShelf,
-                        );
-                      }
+                    streamLabel: 'wiki-shelves',
+                    errorMessage: 'Could not load shelves',
+                    errorIcon: Icons.library_books_rounded,
+                    onRetry: () => setState(() {}),
+                    isEmpty: (shelves) => shelves.isEmpty,
+                    emptyView: EverglowEmptyState(
+                      icon: Icons.library_books_rounded,
+                      title: 'No shelves yet',
+                      subtitle:
+                          'Create your first shelf — e.g., Our Story, Travel Lore, Inside Jokes',
+                      ctaLabel: 'New Shelf',
+                      onCta: _showAddShelf,
+                    ),
+                    builder: (context, shelves) {
                       return ListView.builder(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
                         itemCount: shelves.length,
