@@ -383,11 +383,11 @@ class _BooksScreenState extends _BooksScreenStateBase {
               fit: StackFit.expand,
               children: [
                 item.coverUrl.isNotEmpty
-                    ? Image.network(
-                        item.coverUrl,
+                    ? AppNetworkImage(
+                        imageUrl: item.coverUrl,
                         fit: BoxFit.cover,
                         cacheWidth: 800,
-                        errorBuilder: (_, _, _) => Container(color: _cCard),
+                        errorWidget: Container(color: _cCard),
                       )
                     : Container(color: _cCard),
                 Container(
