@@ -89,9 +89,10 @@ grep `Image.network` + missing `cacheWidth` and migrate per table.
    drawer/nav — needs cross-feature conversion), cinema/anime/jukebox
    (dashboard-preview coupled), episode drawer (dashboard coupled).
 
-2. **Milestone photos -> WebP/JPEG**: `assets/images/milestones/` holds
-   ~900KB PNGs that are photos. Re-encode to quality-80 JPEG/WebP (~5-6x
-   smaller) and keep PNG only where transparency matters.
+2. **Milestone photos -> JPEG** — SHIPPED: the five ~900KB photo PNGs
+   are now quality-82 JPEGs (4.63MB -> 0.45MB, ~10x). Verified visually
+   (no transparency in these photos). References updated in
+   `gateway_page.dart` + `seed_first_date.dart`; PNGs deleted.
 3. **Font subset**: 17 TTFs across 6 families ship to every visitor. Drop
    unused weights (e.g. Outfit Black/ExtraBold if unused) or subset to latin.
 4. **Audit remaining 80 `snapshots()`** for missing `limit()`/indexes and

@@ -75,7 +75,7 @@ class _GatewayPageState extends State<GatewayPage> {
               "Okay what happened here is i asked her out for valentines and it seems she was shocked i guess? I dont know why pero she was like “OMLLLL” pero its understandable since from her words, its her first time having someone ask her out for valentines pud daw, and for me, its also gonna be my first time giving out flowers so im kinda nervous too, so fast forward nagkita mi at 5:30 since mao na ang sabot and it was kinda cute kay nag tago sya atbang sa csu and not exactly at our meetup place which is 7/11, cutiee kaayo na and damn was i starstruck sa iyahang beauty, i know shes beautiful already based from her pics pero the beauty when seen personally is even a whole’nother level so i kinda forgot my script and even when i finally remembered it, it’s useless cause pan os na ang scene pero either way wa mi nagdugay didto csu since niadto mi diretso sa zackies and we talked there, thats where i knew her abit, specially her hobbies and about her love with ethel cain and her songs, the highlight really was just the fact that she didnt get uncomfy i guess? She really was in the mood to talk maybe cause i asked about ethel cain and the convo swayed from there making it work out best, either way i can say rhat i really did clutch Valentines, we took cute pictures and did a trend nga kabalo sya which was to put the flower para tabunan among faces in rhat video, it will look like a lowkey fit check or ootd something which was cuteee. Ofc ended the night nga gihatud nako sya and it seems tapok2 sya? Or maybe wa ra kaabot, idk pero didto sya sa luyo sa csu, i hope maka adto gyud ko door to door",
           imageUrls: [
             'assets/images/milestones/valentines_khent_1.jpg',
-            'assets/images/milestones/valentines_khent_2.png',
+            'assets/images/milestones/valentines_khent_2.jpg',
             'assets/images/milestones/valentines_khent_3.jpg',
             'assets/images/milestones/valentines_khent_4.jpg',
           ],
@@ -95,7 +95,7 @@ class _GatewayPageState extends State<GatewayPage> {
             'assets/images/milestones/kiss_khent_1.jpg',
             'assets/images/milestones/kiss_khent_2.jpg',
             'assets/images/milestones/kiss_khent_3.jpg',
-            'assets/images/milestones/kiss_khent_4.png',
+            'assets/images/milestones/kiss_khent_4.jpg',
             'assets/images/milestones/kiss_khent_5.jpg',
           ],
         ),
@@ -115,7 +115,7 @@ class _GatewayPageState extends State<GatewayPage> {
             'assets/images/milestones/birthday_pre_khent_2.jpg',
             'assets/images/milestones/birthday_pre_khent_3.jpg',
             'assets/images/milestones/birthday_pre_khent_4.jpg',
-            'assets/images/milestones/birthday_pre_khent_5.png',
+            'assets/images/milestones/birthday_pre_khent_5.jpg',
           ],
         ),
       );
@@ -131,8 +131,8 @@ class _GatewayPageState extends State<GatewayPage> {
               """Time flies fast, its been a month since i met her, we planned to meet at 4pm but it got delayed to 4:30pm since mag ready padaw sya which is cute pero as i go there, timing pud mao pay pag gawas niya, fate really moves in mysterious ways, and one thing thats interesting is that i said that we will go to puting bato to check that good view and she excitedly said yes pero ofc i dont know what changed her mind, probably gas price or the distance in which kapuyon ata ko, but she said ayaw nalang daw kay layo, pero ofcourse once i made up my mind, i go for it so we just go, then after byahe of 30-40min kaabot nami didtos peak where we can see the S view of the road and it was a moment of my life that i will never forget, shes probably the first woman that ive been with to enjoy that view, we took pictures, did a public display of affection despite there being people around and best of all, we get to spend time with each other talking about random stuff. As time passed, nag rain naman so we quickly got out and got down, and then we planned to go to that coffee something shop in which she said that she saw on facebook or tiktok and unfortunately the owner said its closed already which put a frown on her face for abit but like i said, fate moves in mysterious ways, the owner or ang nagbantay actually said that its still fine to go and standby so ofcourse we took up her offer, and we got there and little did we know it really was what she saw in social media which made her act childish and to my eyes it was insanely cute, like a child finally getting their favorite toy, and ofcourse doing the usual, we spent time, hugging always sa duyan never breaking contact and i believe it was an hour, the time that we were like that, we did a few kisses here and there and talked casually, spending time together and damn i wish it would just last forever cause as time passed and we need to go back cbr, we ate ilocos impanada didto sa terminal in which the taste wasnt really what i liked unfortunately, so i wasnt able to finish it which was sad but i really just cant, grabe ka bidli HAHAHAHAHAH, either way tho, we go to zackies and ate, we watched a few funny tiktok clips while waiting for our order to get served then after it finally got served we ate and i was very full, full of protein it seems due to how much chicken i ate and rice i gobbled up, which probably looks like im bulking or something, another lovely time moment spent and then after that we ended it on our usual place rhats close to her house, which is creek, unfortunately there were guards and police in the end of where we stayed so we can let losse and theres also a few randoms here and there but it seems she just can hold it back and we did it despite the guards and police being there and it spiced it up it seems, the thought of being caught just made it more.. good? Either way as time goes by and the inevitable thing of me taking her back home is etching and etching closer, i somehow kinda regret not cherishing the time at the coffe shop view didtos puting bato, i did hug her always there but i kinda just dozed off and let myself comfortable rather than actively feeling that kind of situation which was quite sad, the inevitable happened as i finally got her didtos luyo sa csu and ofcourse as per the usual, we ended the moment with a hot kiss, and by hot i meant REAL hot. From 4:30pm to 10pm, a mere 5 and a half hours yet alot has happened in those 5 hours, and it felt like its been 5 days really, i just hope i can spend more time casually with her, but thats not going to happen, not until i can introduce her to my fam or the other way around.""",
           imageUrls: [
             'assets/images/milestones/puting_bato_khent_1.jpg',
-            'assets/images/milestones/puting_bato_khent_2.png',
-            'assets/images/milestones/puting_bato_khent_3.png',
+            'assets/images/milestones/puting_bato_khent_2.jpg',
+            'assets/images/milestones/puting_bato_khent_3.jpg',
             'assets/images/milestones/puting_bato_khent_4.jpg',
             'assets/images/milestones/puting_bato_khent_5.jpg',
           ],
