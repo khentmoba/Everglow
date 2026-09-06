@@ -435,9 +435,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 12)),
                         _animatedSliver(
-                          DashboardPair(
+                          const DashboardPair(
                             left: UpcomingCountdowns(),
-                            right: const LetterboxView(),
+                            right: LetterboxView(),
                           ),
                           delayMs: 440,
                           placeholderHeight: 320,

@@ -14,17 +14,139 @@ import '../../../calendar/domain/models/calendar_event.dart';
 import '../../../calendar/presentation/widgets/calendar_event_style.dart';
 import 'feature_section.dart';
 
-class UpcomingCountdowns extends StatelessWidget {
-  final CalendarService _calendarService = CalendarService();
+class UpcomingCountdowns extends StatefulWidget {
+  const UpcomingCountdowns({super.key});
 
-  UpcomingCountdowns({super.key});
+  @override
+  State<UpcomingCountdowns> createState() => _UpcomingCountdownsState();
+}
+
+class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
+  late final CalendarService _calendarService;
+  late Stream<List<CalendarEvent>> _upcoming;
+
+  @override
+  void initState() {
+    super.initState();
+    // Cache the stream so dashboard rebuilds don't resubscribe and
+    // restart the Firestore listener on every frame.
+    _calendarService = CalendarService();
+    _upcoming = _calendarService.getUpcomingEvents(days: 60);
+  }
+
+  void _retry() {
+    setState(() {
+      _upcoming = _calendarService.getUpcomingEvents(days: 60);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<CalendarEvent>>(
-      stream: _calendarService.getUpcomingEvents(days: 60),
+      stream: _upcoming,
       builder: (context, snapshot) {
-        final events = snapshot.data ?? [];
+        // Error (or timeout-closed with no data) must never masquerade as
+        // "empty" — the calendar screen would still show dates on tap.
+        if (snapshot.hasError ||
+            (!snapshot.hasData &&
+                snapshot.connectionState == ConnectionState.done)) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: FeatureSection(
+              icon: Icons.event_rounded,
+              hue: AppColors.warmAmber,
+              title: 'Coming Up',
+              subtitle: 'could not load dates',
+              trailing: TextButton(
+                onPressed: () => context.push('/calendar'),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  foregroundColor: AppColors.blushGold,
+                ),
+                child: Text(
+                  'Calendar',
+                  style: AppTypography.outfitBold.copyWith(
+                    fontSize: 11,
+                    color: AppColors.blushGold,
+                  ),
+                ),
+              ),
+              onTap: () => context.push('/calendar'),
+              child: GestureDetector(
+                onTap: _retry,
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.refresh_rounded,
+                      color: AppColors.warmAmber,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Could not load dates — tap here to retry.',
+                        style: AppTypography.outfitWhite.copyWith(
+                          fontSize: 12,
+                          color: AppColors.petalWhite.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
+                    const SectionChevron(hue: AppColors.warmAmber),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        // Waiting for the first snapshot is loading, not empty.
+        if (!snapshot.hasData) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: FeatureSection(
+              icon: Icons.event_rounded,
+              hue: AppColors.warmAmber,
+              title: 'Coming Up',
+              subtitle: 'loading dates…',
+              trailing: TextButton(
+                onPressed: () => context.push('/calendar'),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  foregroundColor: AppColors.blushGold,
+                ),
+                child: Text(
+                  'Calendar',
+                  style: AppTypography.outfitBold.copyWith(
+                    fontSize: 11,
+                    color: AppColors.blushGold,
+                  ),
+                ),
+              ),
+              onTap: () => context.push('/calendar'),
+              child: Row(
+                children: [
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Loading upcoming dates…',
+                      style: AppTypography.outfitWhite.copyWith(
+                        fontSize: 12,
+                        color: AppColors.petalWhite.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final events = snapshot.data!;
         final displayEvents = events.take(3).toList();
 
         return Padding(
