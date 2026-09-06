@@ -860,7 +860,7 @@ class _StreamingBubble extends StatelessWidget {
                           backgroundColor: AppColors.moonlight.withValues(
                             alpha: 0.14,
                           ),
-                          valueColor: AlwaysStoppedAnimation(
+                          valueColor: const AlwaysStoppedAnimation(
                             AppColors.blushGold,
                           ),
                         ),
