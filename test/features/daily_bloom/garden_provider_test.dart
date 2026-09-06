@@ -23,7 +23,7 @@ class FakeGardenSource implements GardenStatsSource {
   }
 
   @override
-  Stream<GardenStats> watchPartnerStats(String partnerUid) => Stream.empty();
+  Stream<GardenStats> watchPartnerStats(String partnerUid) => const Stream.empty();
 
   @override
   Future<void> recordInteraction(String userId) async {
@@ -90,7 +90,7 @@ void main() {
 
     test('stream closing without data surfaces hasError', () async {
       final provider = GardenProvider(
-        service: FakeGardenSource([Stream<GardenStats>.empty()]),
+        service: FakeGardenSource([const Stream<GardenStats>.empty()]),
       );
 
       provider.updateUserId('uid-1');
