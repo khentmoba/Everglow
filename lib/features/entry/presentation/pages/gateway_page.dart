@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../dashboard/domain/models/milestone.dart';
+import '../../../dashboard/data/services/milestone_service.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../cinema/data/services/tmdb_service.dart';
 import '../../../../core/config/env_config.dart';
@@ -156,6 +157,18 @@ class _GatewayPageState extends State<GatewayPage> {
           ],
         ),
       );
+
+      // Repair docs saved before milestone photos were renamed from
+      // `.png` to `.jpg` — seedIfMissing never touches existing docs, so
+      // without this those photos stay blank forever.
+      try {
+        final repaired = await MilestoneService().repairLegacyAssetPaths();
+        if (repaired > 0) {
+          Logger.i("Repaired $repaired milestone(s) with stale image paths");
+        }
+      } catch (e) {
+        Logger.e("Error repairing milestone image paths", error: e);
+      }
 
       Logger.i("Seeding process complete.");
     } catch (e) {

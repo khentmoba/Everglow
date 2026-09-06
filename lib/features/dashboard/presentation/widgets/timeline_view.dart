@@ -575,7 +575,7 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
                           itemCount: imageCount,
                           onPageChanged: (i) => setState(() => _currentImg = i),
                           itemBuilder: (context, idx) =>
-                              _buildImage(milestone.imageUrls[idx]),
+                              MilestonePhoto(path: milestone.imageUrls[idx]),
                         ),
 
                       // Top scrim for pill legibility.
@@ -929,10 +929,25 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
       ),
     );
   }
+}
 
-  Widget _buildImage(String path) {
+/// Renders one Living Archive photo. Bundled assets and network photos
+/// share the same fallback so a missing file never shows as a confusing
+/// blank frame again.
+class MilestonePhoto extends StatelessWidget {
+  final String path;
+
+  const MilestonePhoto({super.key, required this.path});
+
+  @override
+  Widget build(BuildContext context) {
     if (path.startsWith('assets/')) {
-      return Image.asset(path, fit: BoxFit.cover, width: double.infinity);
+      return Image.asset(
+        path,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        errorBuilder: (context, error, stack) => _photoFallback(),
+      );
     }
     return Image.network(
       path,
@@ -955,18 +970,20 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
           ),
         );
       },
-      errorBuilder: (context, error, stack) {
-        return Container(
-          color: AppColors.deepRose.withValues(alpha: 0.08),
-          child: Center(
-            child: Icon(
-              Icons.broken_image_rounded,
-              color: AppColors.roseQuartz.withValues(alpha: 0.4),
-              size: 28,
-            ),
-          ),
-        );
-      },
+      errorBuilder: (context, error, stack) => _photoFallback(),
+    );
+  }
+
+  Widget _photoFallback() {
+    return Container(
+      color: AppColors.deepRose.withValues(alpha: 0.08),
+      child: Center(
+        child: Icon(
+          Icons.broken_image_rounded,
+          color: AppColors.roseQuartz.withValues(alpha: 0.4),
+          size: 28,
+        ),
+      ),
     );
   }
 }
