@@ -33,6 +33,7 @@ class AIService extends ChangeNotifier {
   AIConversation? get guardianConversation => _conversationRepo.guardian;
 
   bool _isLoading = false;
+  int _activeRequest = 0;
   String? _lastError;
   String _draftResponse = '';
   String _draftReasoning = '';
@@ -92,6 +93,8 @@ class AIService extends ChangeNotifier {
     List<String> imageUrls = const [],
   }) async {
     _isLoading = true;
+    _activeRequest++;
+    final myRequest = _activeRequest;
     _lastError = null;
     _resetDraftState();
 
@@ -144,32 +147,40 @@ class AIService extends ChangeNotifier {
           feature,
           caller,
           (chunk) {
+            if (myRequest != _activeRequest) return;
             _draftResponse += chunk;
             draftResponseNotifier.value = _draftResponse;
             draftRevisionNotifier.value++;
           },
           onReasoning: (reasoning) {
+            if (myRequest != _activeRequest) return;
             _draftReasoning += reasoning;
             draftReasoningNotifier.value = _draftReasoning;
             draftRevisionNotifier.value++;
           },
           onToolStatus: (status) {
+            if (myRequest != _activeRequest) return;
             _toolStatus = status;
             toolStatusNotifier.value = status;
             draftRevisionNotifier.value++;
           },
           onToolResult: (result) {
+            if (myRequest != _activeRequest) return;
             _toolResults.add(result);
             toolResultsNotifier.value = List.from(_toolResults);
             draftRevisionNotifier.value++;
           },
           onError: (error) {
+            if (myRequest != _activeRequest) return;
             _lastError = error;
             _resetDraftState();
             notifyListeners();
           },
           enableThinking: enableThinking,
         );
+        // Superseded by cancelCurrentReply() or a newer request: that path
+        // already published its own state, so leave it untouched.
+        if (myRequest != _activeRequest) return reply;
         _resetDraftState();
       } else {
         // ── Non-streaming mode ─────────────────────────
@@ -224,6 +235,8 @@ class AIService extends ChangeNotifier {
 
       return reply;
     } catch (e) {
+      // A superseded request must not clobber the newer request's state.
+      if (myRequest != _activeRequest) return '';
       _isLoading = false;
       _resetDraftState();
       _lastError = e.toString();
@@ -239,6 +252,31 @@ class AIService extends ChangeNotifier {
       notifyListeners();
       rethrow;
     }
+  }
+
+  /// Stops the in-flight assistant reply (user-pressed Stop).
+  ///
+  /// Keeps the optimistic user message and persists whatever partial text
+  /// has streamed so far. Late stream callbacks from the abandoned request
+  /// are ignored via [_activeRequest]. Returns false when nothing is running.
+  bool cancelCurrentReply() {
+    if (!_isLoading || _activeRequest == 0) return false;
+    _activeRequest = 0;
+    final conv = _conversationRepo.assistant;
+    final partial = _draftResponse.trimLeft();
+    if (conv != null && partial.isNotEmpty) {
+      conv.messages.add(AIMessage(role: 'assistant', content: partial));
+      if (conv.messages.length > 50) {
+        conv.messages.removeRange(0, conv.messages.length - 50);
+      }
+      _setConversation('assistant', conv);
+      unawaited(_saveConversation(conv));
+    }
+    _isLoading = false;
+    _lastError = null;
+    _resetDraftState();
+    notifyListeners();
+    return true;
   }
 
   /// Send a message without persisting to conversation history (for one-shot queries).
