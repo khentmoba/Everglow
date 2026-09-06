@@ -7,10 +7,10 @@ void main() {
   group('WatchPartyServer', () {
     test('round-trips through JSON', () {
       const server = WatchPartyServer(
-        id: 'jellyfin-home',
-        name: 'Jellyfin at home',
-        shortName: 'Jellyfin',
-        host: 'jellyfin',
+        id: 'home-server',
+        name: 'Home server',
+        shortName: 'Home',
+        host: 'home-server',
         type: 'hls',
         streamUrl: 'https://media.example.com/stream/master.m3u8',
         subtitleUrl: 'https://media.example.com/stream/en.vtt',
@@ -20,9 +20,9 @@ void main() {
 
       final restored = WatchPartyServer.fromJson(server.toJson());
 
-      expect(restored.id, 'jellyfin-home');
-      expect(restored.name, 'Jellyfin at home');
-      expect(restored.host, 'jellyfin');
+      expect(restored.id, 'home-server');
+      expect(restored.name, 'Home server');
+      expect(restored.host, 'home-server');
       expect(restored.isHls, isTrue);
       expect(restored.streamUrl, server.streamUrl);
       expect(restored.subtitleUrl, server.subtitleUrl);
@@ -104,8 +104,8 @@ void main() {
     test('toFirestore persists server identity fields', () {
       final room = baseRoom(
         serverType: 'hls',
-        serverName: 'Jellyfin',
-        serverHost: 'jellyfin',
+        serverName: 'Home server',
+        serverHost: 'home-server',
         streamUrl: 'https://media.example.com/master.m3u8',
         subtitleUrl: 'https://media.example.com/en.vtt',
         proxyEnabled: true,
@@ -113,8 +113,8 @@ void main() {
 
       final data = room.toFirestore();
       expect(data['serverType'], 'hls');
-      expect(data['serverName'], 'Jellyfin');
-      expect(data['serverHost'], 'jellyfin');
+      expect(data['serverName'], 'Home server');
+      expect(data['serverHost'], 'home-server');
       expect(data['streamUrl'], 'https://media.example.com/master.m3u8');
       expect(data['subtitleUrl'], 'https://media.example.com/en.vtt');
       expect(data['proxyEnabled'], isTrue);

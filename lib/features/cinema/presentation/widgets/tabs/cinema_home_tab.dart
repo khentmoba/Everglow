@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart' hide FilterChip;
 
 import '../../../../../core/theme/app_breakpoints.dart';
-import '../../../../ai/presentation/widgets/ai_recommendations.dart';
 import '../../../data/models/media_item.dart';
 import '../netflix/netflix_billboard.dart';
 import '../netflix/netflix_colors.dart';
@@ -204,18 +203,6 @@ class CinemaHomeTab extends StatelessWidget {
                 onPlayContinue: onPlayItem,
               ),
             ),
-
-          SliverToBoxAdapter(
-            child: AIRecommendations(
-              title: "Mochi's Picks",
-              autoLoad: true,
-              netflixStyle: true,
-              onTapItem: onMediaTap,
-              preloadedTrending: trendingGlobal,
-              preloadedNowPlaying: nowShowing,
-              preloadedUpcoming: newlyReleased,
-            ),
-          ),
 
           _row(title: 'Trending Now', items: trendingGlobal),
           _row(
