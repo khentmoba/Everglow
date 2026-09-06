@@ -3,20 +3,89 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../../features/journal/data/models/journal_entry.dart';
 import '../../../../features/journal/data/services/journal_service.dart';
 import 'feature_section.dart';
 
-class JournalPreview extends StatelessWidget {
+class JournalPreview extends StatefulWidget {
   const JournalPreview({super.key});
 
   @override
+  State<JournalPreview> createState() => _JournalPreviewState();
+}
+
+class _JournalPreviewState extends State<JournalPreview> {
+  late Stream<List<JournalEntry>> _stream;
+
+  @override
+  void initState() {
+    super.initState();
+    // Cache the stream so dashboard rebuilds don't resubscribe and
+    // restart the Firestore listener on every frame.
+    _stream = JournalService().watchAll();
+  }
+
+  void _retry() {
+    setState(() {
+      _stream = JournalService().watchAll();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final service = JournalService();
     return StreamBuilder<List<JournalEntry>>(
-      stream: service.watchAll(),
+      stream: _stream,
       builder: (context, snap) {
-        final entries = snap.data ?? [];
+        // Error (or timeout-closed with no data) must never masquerade as
+        // "empty" — the journal screen would still show entries on tap.
+        if (snap.hasError ||
+            (!snap.hasData &&
+                snap.connectionState == ConnectionState.done)) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: FeatureSection(
+              icon: Icons.menu_book_rounded,
+              hue: AppColors.softLavender,
+              title: 'Our Journal',
+              subtitle: 'Could not load journal',
+              trailing: const SectionChevron(hue: AppColors.softLavender),
+              onTap: () => context.push('/journal'),
+              child: GestureDetector(
+                onTap: _retry,
+                child: const _EmptyRow(
+                  hue: AppColors.softLavender,
+                  icon: Icons.refresh_rounded,
+                  text: 'Could not load entries — tap here to retry.',
+                ),
+              ),
+            ),
+          );
+        }
+
+        // Waiting for the first snapshot is loading, not empty.
+        if (!snap.hasData) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: FeatureSection(
+              icon: Icons.menu_book_rounded,
+              hue: AppColors.softLavender,
+              title: 'Our Journal',
+              subtitle: 'Loading memories…',
+              trailing: const SectionChevron(hue: AppColors.softLavender),
+              onTap: () => context.push('/journal'),
+              child: const Column(
+                children: [
+                  EverglowSkeleton(height: 38),
+                  SizedBox(height: 8),
+                  EverglowSkeleton(height: 38),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final entries = snap.data!;
         final count = entries.length;
         final pinned = entries.where((e) => e.isPinned).length;
         final recent = entries.take(3).toList();
