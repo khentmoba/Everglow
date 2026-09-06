@@ -37,7 +37,12 @@ class VideoSourceService extends ChangeNotifier {
   /// Returns the cached list immediately if already loaded; otherwise
   /// kicks off a Firestore fetch and falls back to the hardcoded list
   /// while waiting.
-  static const Set<String> _noAdsIds = {'videasy', 'movish', 'vidbolt'};
+  static const Set<String> _noAdsIds = {
+    'everglow-embed',
+    'videasy',
+    'movish',
+    'vidbolt',
+  };
 
   static bool _isNoAds(VideoSourceConfig p) =>
       p.sandboxSafe || _noAdsIds.contains(p.id);
@@ -152,6 +157,16 @@ class VideoSourceService extends ChangeNotifier {
   // Hardcoded fallback defaults (mirrors the old 9-provider list)
   // ---------------------------------------------------------------------------
   static final List<VideoSourceConfig> _hardcodedDefaults = [
+    const VideoSourceConfig(
+      id: 'everglow-embed',
+      name: 'Everglow',
+      shortName: 'EG',
+      desc: 'No ads — Everglow player',
+      movieUrl: 'https://everglow-1c6db.web.app/embed.html',
+      tvUrl: 'https://everglow-1c6db.web.app/embed.html',
+      isRecommended: true,
+      sandboxSafe: true,
+    ),
     const VideoSourceConfig(
       id: 'videasy',
       name: 'Videasy',

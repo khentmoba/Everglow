@@ -20,12 +20,29 @@ class CinemaVideoSources {
     sandboxSafe: true,
   );
 
-  /// Ordered cinema-only servers verified in live testing.
-  static const List<VideoSourceConfig> cinemaOnly = [cineSrc];
+  /// First-party Everglow player page hosted on Firebase Hosting.
+  ///
+  /// Wraps the no-ads upstreams in a double-sandboxed nested iframe with
+  /// popup blocking, served under our own URL:
+  /// `https://everglow-1c6db.web.app/embed.html?tmdbId=..&type=..`.
+  static const VideoSourceConfig everglowEmbed = VideoSourceConfig(
+    id: 'everglow-embed',
+    name: 'Everglow',
+    shortName: 'EG',
+    desc: 'No ads — Everglow player',
+    movieUrl: 'https://everglow-1c6db.web.app/embed.html',
+    tvUrl: 'https://everglow-1c6db.web.app/embed.html',
+    isRecommended: true,
+    sandboxSafe: true,
+  );
 
-  static const Set<String> _cinemaIds = {'flux-cinesrc'};
+  /// Ordered cinema-only servers verified in live testing.
+  static const List<VideoSourceConfig> cinemaOnly = [everglowEmbed, cineSrc];
+
+  static const Set<String> _cinemaIds = {'everglow-embed', 'flux-cinesrc'};
 
   static const Set<String> _noAdsIds = {
+    'everglow-embed',
     'flux-cinesrc',
     'videasy',
     'movish',
@@ -85,6 +102,13 @@ class CinemaVideoSources {
     required int episode,
   }) {
     if (!_cinemaIds.contains(provider.id)) return null;
+
+    if (provider.id == 'everglow-embed') {
+      if (mediaType == 'tv') {
+        return '${provider.tvUrl}?tmdbId=$id&type=tv&s=$season&e=$episode';
+      }
+      return '${provider.movieUrl}?tmdbId=$id&type=movie';
+    }
 
     if (mediaType == 'tv') {
       return '${provider.tvUrl}$id?s=$season&e=$episode';
