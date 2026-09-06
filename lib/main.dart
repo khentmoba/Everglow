@@ -177,7 +177,13 @@ Future<void> _startEverglow() async {
   final result = await bootstrap.run();
   Logger.i(
     'Everglow ${AppVersion.current} ready in '
-    '${result.elapsed.inMilliseconds}ms; backend=${result.health.status}',
+    '${result.elapsed.inMilliseconds}ms',
+  );
+  // Health lands after first frame; log it when it arrives.
+  unawaited(
+    result.healthFuture.then(
+      (health) => Logger.i('Everglow backend health: ${health.status}'),
+    ),
   );
   runApp(const EverglowApp());
 }
