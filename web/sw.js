@@ -1,4 +1,4 @@
-// BUILD=6.0.0+1-d43be55
+// BUILD=6.0.0+1-90a66d5
 // Everglow service worker: app-shell + asset caching + push.
 //
 // Pairing with firebase.json (last matching header rule wins there):
@@ -18,7 +18,7 @@
 // (firebase-messaging-sw.js) would replace this one and kill offline
 // caching, or vice versa — so that file is just a thin importScripts
 // wrapper around this one, and both behave identically.
-const CACHE="6.0.0+1-d43be55-CACHE-v1";
+const CACHE="6.0.0+1-90a66d5-CACHE-v1";
 const CORE=["main.dart.js"];
 // Never cached: entry points, loaders, worker scripts, version probes.
 const NO_STORE=["/","/index.html","/version.json","/sw.js","/firebase-messaging-sw.js","/flutter.js","/flutter_bootstrap.js","/flutter_service_worker.js","/manifest.json"];
