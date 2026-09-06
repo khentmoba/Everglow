@@ -1031,7 +1031,10 @@ class _FlipCardState extends State<_FlipCard>
             ),
           ),
           const SizedBox(height: 12),
-          SelectableText(
+          // Plain Text on purpose: SelectableText swallows taps for
+          // selection, which would break tap-to-flip on the words
+          // themselves (Clair taps the words, not the margins).
+          Text(
             text,
             textAlign: TextAlign.center,
             style: AppTypography.titleMedium().copyWith(
