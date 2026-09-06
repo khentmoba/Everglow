@@ -8,12 +8,16 @@ class CalendarService {
   final String _collection = 'calendar_events';
 
   /// Stream of events for a specific month.
+  ///
+  /// Re-attaches once when the first snapshot is slow: cold dashboard
+  /// loads attach every preview at the same moment, and a single-shot
+  /// budget flipped them all to the error state at once.
   Stream<List<CalendarEvent>> getEventsForMonth(DateTime month) {
-    final startOfMonth = DateTime(month.year, month.month, 1);
-    final endOfMonth = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
+    Stream<List<CalendarEvent>> subscribe() {
+      final startOfMonth = DateTime(month.year, month.month, 1);
+      final endOfMonth = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
 
-    return withFirestoreTimeout(
-      _db
+      return _db
           .collection(_collection)
           .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth))
           .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endOfMonth))
@@ -24,20 +28,29 @@ class CalendarService {
             (snapshot) => snapshot.docs
                 .map((doc) => CalendarEvent.fromFirestore(doc))
                 .toList(),
-          ),
+          );
+    }
+
+    return withFirestoreTimeout(
+      subscribe(),
+      resubscribe: subscribe,
       label: 'calendar-month',
-      duration: const Duration(seconds: 6),
+      duration: const Duration(seconds: 8),
     );
   }
 
   /// Get upcoming events within N days. Wrapped with timeout so a slow
   /// Firestore WebChannel doesn't keep Coming Up in skeleton forever.
+  ///
+  /// Re-attaches once when the first snapshot is slow (see
+  /// [getEventsForMonth]): this stream backs both the Coming Up and the
+  /// Upcoming Dates previews, which were the most frequent false errors.
   Stream<List<CalendarEvent>> getUpcomingEvents({int days = 30}) {
-    final now = DateTime.now();
-    final endDate = now.add(Duration(days: days));
+    Stream<List<CalendarEvent>> subscribe() {
+      final now = DateTime.now();
+      final endDate = now.add(Duration(days: days));
 
-    return withFirestoreTimeout(
-      _db
+      return _db
           .collection(_collection)
           .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(now))
           .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endDate))
@@ -48,9 +61,14 @@ class CalendarService {
             (snapshot) => snapshot.docs
                 .map((doc) => CalendarEvent.fromFirestore(doc))
                 .toList(),
-          ),
+          );
+    }
+
+    return withFirestoreTimeout(
+      subscribe(),
+      resubscribe: subscribe,
       label: 'calendar-upcoming',
-      duration: const Duration(seconds: 6),
+      duration: const Duration(seconds: 8),
     );
   }
 

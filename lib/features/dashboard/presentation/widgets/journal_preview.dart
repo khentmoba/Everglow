@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../../features/journal/data/models/journal_entry.dart';
 import '../../../../features/journal/data/services/journal_service.dart';
@@ -53,10 +54,11 @@ class _JournalPreviewState extends State<JournalPreview> {
               onTap: () => context.push('/journal'),
               child: GestureDetector(
                 onTap: _retry,
-                child: const _EmptyRow(
+                child: _EmptyRow(
                   hue: AppColors.softLavender,
                   icon: Icons.refresh_rounded,
-                  text: 'Could not load entries — tap here to retry.',
+                  text:
+                      '${firestoreErrorHint(snap.error)} — tap here to retry.',
                 ),
               ),
             ),
