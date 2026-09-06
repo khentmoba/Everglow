@@ -330,6 +330,7 @@ class _ComposerInput extends StatefulWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final VoidCallback onSend;
+  final VoidCallback onStop;
   final VoidCallback onPickImages;
   final List<String> attachedImages;
   final void Function(int) onRemoveImage;
@@ -340,6 +341,7 @@ class _ComposerInput extends StatefulWidget {
     required this.controller,
     required this.focusNode,
     required this.onSend,
+    required this.onStop,
     required this.onPickImages,
     this.attachedImages = const [],
     required this.onRemoveImage,
@@ -394,6 +396,7 @@ class _ComposerInputState extends State<_ComposerInput> {
       selector: (_, ai) => ai.isLoading,
       builder: (context, isLoading, _) {
         final ai = context.read<AIService>();
+        final canSend = _hasText || widget.attachedImages.isNotEmpty;
         final inner = Container(
           key: widget.inputKey,
           padding: EdgeInsets.fromLTRB(
@@ -535,56 +538,52 @@ class _ComposerInputState extends State<_ComposerInput> {
                       Padding(
                         padding: const EdgeInsets.only(right: 8, bottom: 4),
                         child: GestureDetector(
-                          onTap:
-                              (ai.isLoading ||
-                                  (!_hasText && widget.attachedImages.isEmpty))
-                              ? null
-                              : widget.onSend,
-                          child: AnimatedContainer(
-                            duration: AppMotion.fast,
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              gradient:
-                                  (!ai.isLoading &&
-                                      (_hasText ||
-                                          widget.attachedImages.isNotEmpty))
-                                  ? const LinearGradient(
-                                      colors: [
-                                        AppColors.blushGold,
-                                        AppColors.deepRose,
-                                      ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    )
-                                  : null,
-                              color:
-                                  (!ai.isLoading &&
-                                      (_hasText ||
-                                          widget.attachedImages.isNotEmpty))
-                                  ? null
-                                  : AppColors.velvet.withValues(alpha: 0.4),
-                              borderRadius: AppRadius.radiusLg,
-                            ),
-                            child: Center(
-                              child: ai.isLoading
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: AppColors.blushGold,
+                          onTap: ai.isLoading
+                              ? widget.onStop
+                              : (!canSend ? null : widget.onSend),
+                          child: Tooltip(
+                            message: ai.isLoading
+                                ? 'Stop generating'
+                                : 'Send message',
+                            child: AnimatedContainer(
+                              duration: AppMotion.fast,
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                gradient: (!ai.isLoading && canSend)
+                                    ? const LinearGradient(
+                                        colors: [
+                                          AppColors.blushGold,
+                                          AppColors.deepRose,
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      )
+                                    : null,
+                                color: ai.isLoading
+                                    ? AppColors.deepRose.withValues(alpha: 0.35)
+                                    : (!canSend
+                                          ? AppColors.velvet.withValues(
+                                              alpha: 0.4,
+                                            )
+                                          : null),
+                                borderRadius: AppRadius.radiusLg,
+                              ),
+                              child: Center(
+                                child: ai.isLoading
+                                    ? const Icon(
+                                        Icons.stop_rounded,
+                                        color: AppColors.petalWhite,
+                                        size: 20,
+                                      )
+                                    : Icon(
+                                        Icons.arrow_upward_rounded,
+                                        color: canSend
+                                            ? AppColors.petalWhite
+                                            : AppColors.textDisabled,
+                                        size: 20,
                                       ),
-                                    )
-                                  : Icon(
-                                      Icons.arrow_upward_rounded,
-                                      color:
-                                          (_hasText ||
-                                              widget.attachedImages.isNotEmpty)
-                                          ? AppColors.petalWhite
-                                          : AppColors.textDisabled,
-                                      size: 20,
-                                    ),
+                              ),
                             ),
                           ),
                         ),
