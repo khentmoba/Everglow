@@ -19,25 +19,57 @@ void main() {
     });
   });
 
-  group('buildStudyMessage', () {
+  group('study shelf', () {
+    const a = StudyDoc(fileName: 'a.pdf', text: 'aaa', truncated: false);
+    const b = StudyDoc(fileName: 'b.pdf', text: 'bb', truncated: false);
+
+    test('totals source characters', () {
+      expect(studyTotalChars([a, b]), 5);
+      expect(studyTotalChars(const []), 0);
+    });
+
+    test('keeps docs that fit the budget', () {
+      expect(fitStudyDoc(a, [b]).text, 'aaa');
+    });
+
+    test('trims a doc to the remaining room', () {
+      final full = StudyDoc(
+        fileName: 'big.pdf',
+        text: 'x' * kMaxStudyTotalChars,
+        truncated: false,
+      );
+      final fitted = fitStudyDoc(full, [a]);
+      expect(fitted.text.length, kMaxStudyTotalChars - 3);
+      expect(fitted.truncated, isTrue);
+    });
+
+    test('refuses when the shelf is full', () {
+      final full = StudyDoc(
+        fileName: 'full.pdf',
+        text: 'x' * (kMaxStudyTotalChars - 500),
+        truncated: false,
+      );
+      expect(
+        () => fitStudyDoc(a, [full]),
+        throwsA(isA<StudyDocException>()),
+      );
+    });
+  });
+
+  group('buildSourcesBlock', () {
     const doc = StudyDoc(fileName: 'notes.pdf', text: 'photosynthesis', truncated: false);
 
-    test('wraps doc text, name, and prompt', () {
-      final msg = buildStudyMessage(doc: doc, userPrompt: 'Quiz us');
-      expect(msg, contains('notes.pdf'));
-      expect(msg, contains('photosynthesis'));
-      expect(msg, contains('Quiz us'));
+    test('names every source and grounds the answer', () {
+      final block = buildSourcesBlock([doc]);
+      expect(block, contains('notes.pdf'));
+      expect(block, contains('photosynthesis'));
+      expect(block, contains('ONLY these sources'));
     });
 
-    test('defaults to summarize when prompt is empty', () {
-      final msg = buildStudyMessage(doc: doc, userPrompt: '   ');
-      expect(msg, contains(StudyPrompts.summarize));
-    });
-
-    test('notes when the material was cut', () {
+    test('notes when a source was cut', () {
       const cut = StudyDoc(fileName: 'big.pdf', text: 'start', truncated: true);
-      expect(buildStudyMessage(doc: cut, userPrompt: 'hi'), contains('cut here'));
-      expect(buildStudyMessage(doc: doc, userPrompt: 'hi'), isNot(contains('cut here')));
+      expect(buildSourcesBlock([cut]), contains('Cut here'));
+      expect(buildSourcesBlock([doc]), isNot(contains('Cut here')));
     });
   });
 
