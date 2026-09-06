@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../calendar/domain/models/calendar_event.dart';
 import '../../../calendar/data/services/calendar_service.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -61,7 +62,7 @@ class _CalendarPreviewState extends State<CalendarPreview> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Could not load dates — tap here to retry.',
+                        '${firestoreErrorHint(snapshot.error)} — tap here to retry.',
                         style: AppTypography.outfitWhite.copyWith(
                           fontSize: 12,
                           color: AppColors.petalWhite.withValues(alpha: 0.6),
