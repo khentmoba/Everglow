@@ -337,11 +337,31 @@ exports.proxyTmdb = functions.https.onRequest(async (req, res) => {
     return;
   }
 
+  // TMDB metadata is public and slow-moving: cache it per instance so the
+  // ~30 calls behind one Cinema open (and repeat opens) don't each pay a
+  // TMDB round trip. Auth + path validation above still run on every call;
+  // only HTTP 200 bodies are cached. TTL lives in common.js (10m for TMDB).
+  const cacheProbe = new URL(upstream.toString());
+  cacheProbe.searchParams.delete('api_key');
+  cacheProbe.searchParams.sort();
+  const cacheKey = `tmdb:proxy:${cacheProbe.pathname}?${cacheProbe.searchParams.toString()}`;
+  const cached = _getExternalCache(cacheKey, _EXTERNAL_CACHE_TTLS.tmdb);
+  if (cached) {
+    res.status(cached.status)
+      .set('Content-Type', cached.contentType)
+      .send(cached.body);
+    return;
+  }
+
   try {
     const response = await fetch(upstream, { signal: AbortSignal.timeout(12000) });
     const body = await response.text();
+    const contentType = response.headers.get('content-type') || 'application/json';
+    if (response.status === 200) {
+      _setExternalCache(cacheKey, { status: 200, contentType, body });
+    }
     res.status(response.status)
-      .set('Content-Type', response.headers.get('content-type') || 'application/json')
+      .set('Content-Type', contentType)
       .send(body);
   } catch (e) {
     console.warn('[proxyTmdb] failed:', e.message);

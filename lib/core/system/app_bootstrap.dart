@@ -18,14 +18,20 @@ typedef FirestoreConfigurer = Future<void> Function();
 typedef UrlStrategyConfigurer = void Function();
 
 /// Immutable summary of the startup sequence.
+///
+/// [health] is the instant snapshot (`checking` while the probe runs — the
+/// probe never blocks [AppBootstrap.run]); await [healthFuture] for the
+/// probed backend status.
 class BootstrapResult {
   final bool environmentLoaded;
   final SystemStatus health;
+  final Future<SystemStatus> healthFuture;
   final Duration elapsed;
 
   const BootstrapResult({
     required this.environmentLoaded,
     required this.health,
+    required this.healthFuture,
     required this.elapsed,
   });
 
@@ -89,26 +95,34 @@ class AppBootstrap {
     // Push notification setup is non-critical; never block first frame.
     unawaited(_startNotifications());
 
-    var health = SystemStatus.unreachable(error: 'Health probe not configured');
-    final probe = _probeHealth;
-    if (probe != null) {
-      try {
-        health = await probe();
-      } catch (e) {
-        health = SystemStatus.unreachable(error: e.toString());
-      }
-    }
+    // Backend health never blocks the first frame: the probe runs in the
+    // background (like notifications) and its result lands on healthFuture.
+    final healthFuture = _probeHealthInBackground(_probeHealth);
 
     stopwatch.stop();
     Logger.i(
       'Everglow ${AppVersion.current} booted in '
-      '${stopwatch.elapsedMilliseconds}ms (health=${health.status})',
+      '${stopwatch.elapsedMilliseconds}ms',
     );
     return BootstrapResult(
       environmentLoaded: environmentLoaded,
-      health: health,
+      health: const SystemStatus(status: 'checking'),
+      healthFuture: healthFuture,
       elapsed: stopwatch.elapsed,
     );
+  }
+
+  /// Runs the health probe to completion without ever throwing: failures
+  /// degrade to [SystemStatus.unreachable] instead of failing startup.
+  Future<SystemStatus> _probeHealthInBackground(HealthProbe? probe) async {
+    if (probe == null) {
+      return SystemStatus.unreachable(error: 'Health probe not configured');
+    }
+    try {
+      return await probe();
+    } catch (e) {
+      return SystemStatus.unreachable(error: e.toString());
+    }
   }
 
   Future<void> _startNotifications() async {

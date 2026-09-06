@@ -36,11 +36,17 @@ Goal: fast first paint, 60fps scroll, minimal Firestore/listeners cost.
    - Default count 20 -> 12 (capped at 24), zero-alpha circles skipped,
      ticker pauses on background, static single paint under reduced motion.
 
-6. **Service worker (`tool/generate_sw.dart`)**
+6. **Service worker (`tool/generate_sw.dart`, registered from `index.html`)**
    - Cache-first for shell + immutable assets (canvaskit/WASM/fonts/models),
      network-only for entry probes, network-first-with-bounded-cache for the
      rest. Old caches purged on activate. Regenerate via `dart tool/generate_sw.dart`
      (also runs inside `deploy.ps1`).
+   - `web/flutter_bootstrap.js` is a custom bootstrap that loads Flutter with
+     NO serviceWorkerSettings, so the deprecated Flutter shim worker never
+     registers and can't flap against ours on the same scope. Do not add
+     service-worker settings back without removing the `index.html`
+     registration first. `/` is no-cache in `firebase.json` so deploys
+     propagate past the HTTP cache.
 
 ## Image rules (all new code)
 
