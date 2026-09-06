@@ -46,7 +46,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
           borderRadius: BorderRadius.circular(20),
           side: BorderSide(color: AppColors.blushGold.withValues(alpha: 0.25)),
         ),
-        title: Text('Delete Photo?', style: AppTypography.cormorantBold),
+        title: const Text('Delete Photo?', style: AppTypography.cormorantBold),
         content: Text(
           'This action cannot be undone.',
           style: AppTypography.outfitWhite.copyWith(

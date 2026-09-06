@@ -153,7 +153,7 @@ class _OLSearchModalState extends State<OLSearchModal> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       ChoiceChip(
-                        label: Text(
+                        label: const Text(
                           'To Read',
                           style: AppTypography.outfitWhite,
                         ),
@@ -173,7 +173,7 @@ class _OLSearchModalState extends State<OLSearchModal> {
                       ),
                       const SizedBox(width: 8),
                       ChoiceChip(
-                        label: Text('Read', style: AppTypography.outfitWhite),
+                        label: const Text('Read', style: AppTypography.outfitWhite),
                         selected: status == 'read',
                         onSelected: (selected) {
                           if (selected) {
