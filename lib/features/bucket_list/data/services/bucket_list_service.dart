@@ -14,8 +14,8 @@ class BucketListService {
 
   /// All items, newest first.
   Stream<List<BucketItem>> watchAll() {
-    return withFirestoreTimeout(
-      _db
+    Stream<List<BucketItem>> subscribe() {
+      return _db
           .collection(_collection)
           .orderBy('createdAt', descending: true)
           .limit(100)
@@ -24,8 +24,16 @@ class BucketListService {
             (snapshot) => snapshot.docs
                 .map((doc) => BucketItem.fromFirestore(doc))
                 .toList(),
-          ),
+          );
+    }
+
+    // Re-attach once when the first snapshot is slow: the dreams preview
+    // was flipping to "could not load" on cold dashboard loads.
+    return withFirestoreTimeout(
+      subscribe(),
+      resubscribe: subscribe,
       label: 'bucket-list-all',
+      duration: const Duration(seconds: 8),
     );
   }
 

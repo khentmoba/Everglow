@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:everglow/core/utils/firestore_stream_utils.dart';
 
@@ -86,5 +87,139 @@ void main() {
         expect(received, equals([1, 2]));
       },
     );
+
+    test('re-attaches when the first attempt hangs', () async {
+      var calls = 0;
+      Stream<List<int>> factory() {
+        calls++;
+        if (calls == 1) {
+          return Stream<List<int>>.fromFuture(Completer<List<int>>().future);
+        }
+        return Stream<List<int>>.value([1, 2]);
+      }
+
+      final result = await withFirestoreTimeout(
+        factory(),
+        resubscribe: factory,
+        duration: const Duration(milliseconds: 100),
+        retryDelay: const Duration(milliseconds: 50),
+        label: 'hang-then-ok',
+      ).toList();
+
+      expect(result, equals([
+        [1, 2],
+      ]));
+      expect(calls, 2);
+    });
+
+    test('re-attaches when the first attempt errors before any data',
+        () async {
+      var calls = 0;
+      Stream<List<int>> factory() {
+        calls++;
+        if (calls == 1) {
+          return Stream<List<int>>.error(Exception('boom'));
+        }
+        return Stream<List<int>>.value([7]);
+      }
+
+      final result = await withFirestoreTimeout(
+        factory(),
+        resubscribe: factory,
+        duration: const Duration(seconds: 2),
+        retryDelay: const Duration(milliseconds: 50),
+        label: 'error-then-ok',
+      ).toList();
+
+      expect(result, equals([
+        [7],
+      ]));
+      expect(calls, 2);
+    });
+
+    test('surfaces a TimeoutException when every attempt hangs', () async {
+      var calls = 0;
+      Stream<List<int>> factory() {
+        calls++;
+        return Stream<List<int>>.fromFuture(Completer<List<int>>().future);
+      }
+
+      final results = <List<int>>[];
+      final errDone = Completer<Object>();
+      final subscription = withFirestoreTimeout(
+        factory(),
+        resubscribe: factory,
+        duration: const Duration(milliseconds: 100),
+        retryDelay: const Duration(milliseconds: 50),
+        maxAttempts: 2,
+        label: 'always-hang',
+      ).listen(results.add, onError: errDone.complete);
+      // NOTE: do not chain .asFuture() here — on this SDK the future
+      // claims the error and the listen onError never fires.
+      final seenError = await errDone.future.timeout(
+        const Duration(seconds: 5),
+      );
+      await subscription.cancel();
+
+      expect(results, isEmpty);
+      expect(seenError, isA<TimeoutException>());
+      expect(calls, 2);
+    });
+
+    test('does not re-attach after the listener unsubscribes', () async {
+      var calls = 0;
+      Stream<List<int>> factory() {
+        calls++;
+        return Stream<List<int>>.fromFuture(Completer<List<int>>().future);
+      }
+
+      final subscription = withFirestoreTimeout(
+        factory(),
+        resubscribe: factory,
+        duration: const Duration(milliseconds: 80),
+        retryDelay: const Duration(milliseconds: 200),
+        label: 'cancelled',
+      ).listen((_) {});
+
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await subscription.cancel();
+      // Both the budget and the backoff windows pass here; neither may
+      // trigger a second attach after cancel.
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+
+      expect(calls, 1);
+    });
+  });
+
+  group('firestoreErrorHint', () {
+    test('names common failure modes', () {
+      expect(firestoreErrorHint(null), 'Could not load');
+      expect(firestoreErrorHint(TimeoutException('slow')), 'Timed out');
+      expect(
+        firestoreErrorHint(
+          FirebaseException(
+            plugin: 'cloud_firestore',
+            code: 'permission-denied',
+          ),
+        ),
+        contains('Access denied'),
+      );
+      expect(
+        firestoreErrorHint(
+          FirebaseException(
+            plugin: 'cloud_firestore',
+            code: 'unavailable',
+          ),
+        ),
+        'Network hiccup',
+      );
+      expect(
+        firestoreErrorHint(
+          Exception('SocketException: Failed host lookup'),
+        ),
+        'You may be offline',
+      );
+      expect(firestoreErrorHint(Exception('kaboom')), 'Could not load');
+    });
   });
 }
