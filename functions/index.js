@@ -963,6 +963,26 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
     systemPrompt += `\n## Remembered Facts\n${relevantMemories.map(m => `- ${m}`).join('\n')}`;
   }
 
+  // ── Study mode: interactive artifacts (quiz / flashcards) ──
+  // The Study screen renders these hidden blocks as tappable UI (quiz
+  // options, flippable cards) — Claude-Artifacts style. The visible text
+  // stays warm and human; the JSON block powers the interactive canvas.
+  if (feature === 'study') {
+    systemPrompt += `
+## Study Mode — grounded + interactive
+- Answer using ONLY the attached study sources. If the answer is not in them, say so warmly instead of guessing.
+- When they ask for a quiz: show the friendly quiz first (numbered questions with A-D options), then append a hidden block:
+  \`\`\`quiz-json
+  [{"q":"question","options":["a","b","c","d"],"answer":0,"why":"one-line gentle explanation"}]
+  \`\`\`
+  answer is the 0-based index of the correct option. JSON only inside the block.
+- When they ask for flashcards: show each card as "Front: ..." / "Back: ..." lines first, then append a hidden block:
+  \`\`\`flashcards-json
+  [{"front":"...","back":"..."}]
+  \`\`\`
+  JSON only inside the block.`;
+  }
+
   // ── System prompt size guard ────────────────────────────
   // With 512K context, we can be generous with the system prompt.
   const PROMPT_CHAR_LIMIT = 50_000;
