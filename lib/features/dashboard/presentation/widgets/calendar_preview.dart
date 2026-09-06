@@ -14,12 +14,20 @@ class CalendarPreview extends StatefulWidget {
 }
 
 class _CalendarPreviewState extends State<CalendarPreview> {
-  late final Stream<List<CalendarEvent>> _upcoming;
+  late final CalendarService _service;
+  late Stream<List<CalendarEvent>> _upcoming;
 
   @override
   void initState() {
     super.initState();
-    _upcoming = CalendarService().getUpcomingEvents(days: 30);
+    _service = CalendarService();
+    _upcoming = _service.getUpcomingEvents(days: 30);
+  }
+
+  void _retry() {
+    setState(() {
+      _upcoming = _service.getUpcomingEvents(days: 30);
+    });
   }
 
   @override
@@ -27,7 +35,81 @@ class _CalendarPreviewState extends State<CalendarPreview> {
     return StreamBuilder<List<CalendarEvent>>(
       stream: _upcoming,
       builder: (context, snapshot) {
-        final events = snapshot.data ?? [];
+        // Error (or timeout-closed with no data) must never masquerade as
+        // "empty" — the calendar screen would still show dates on tap.
+        if (snapshot.hasError ||
+            (!snapshot.hasData &&
+                snapshot.connectionState == ConnectionState.done)) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: FeatureSection(
+              icon: Icons.calendar_month_rounded,
+              hue: AppColors.warmAmber,
+              title: 'Upcoming Dates',
+              subtitle: 'could not load calendar',
+              trailing: const SectionChevron(hue: AppColors.warmAmber),
+              onTap: () => context.push('/calendar'),
+              child: GestureDetector(
+                onTap: _retry,
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.refresh_rounded,
+                      color: AppColors.warmAmber,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Could not load dates — tap here to retry.',
+                        style: AppTypography.outfitWhite.copyWith(
+                          fontSize: 12,
+                          color: AppColors.petalWhite.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        // Waiting for the first snapshot is loading, not empty.
+        if (!snapshot.hasData) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: FeatureSection(
+              icon: Icons.calendar_month_rounded,
+              hue: AppColors.warmAmber,
+              title: 'Upcoming Dates',
+              subtitle: 'loading dates…',
+              trailing: const SectionChevron(hue: AppColors.warmAmber),
+              onTap: () => context.push('/calendar'),
+              child: Row(
+                children: [
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Loading upcoming dates…',
+                      style: AppTypography.outfitWhite.copyWith(
+                        fontSize: 12,
+                        color: AppColors.petalWhite.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final events = snapshot.data!;
 
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
