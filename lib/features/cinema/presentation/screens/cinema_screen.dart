@@ -78,6 +78,11 @@ class _CinemaScreenState extends State<CinemaScreen> {
 
   bool _isLoadingHome = true;
 
+  /// Below-the-fold rails (genre + discovery rows) wait for the first scroll
+  /// so opening Cinema only pays for the rows Claire can actually see.
+  bool _deepRowsStarted = false;
+  Timer? _deepRowsFallbackTimer;
+
   @override
   void initState() {
     super.initState();
@@ -103,6 +108,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
   @override
   void dispose() {
     _watchlistSubscription?.cancel();
+    _deepRowsFallbackTimer?.cancel();
     super.dispose();
   }
 
@@ -144,181 +150,224 @@ class _CinemaScreenState extends State<CinemaScreen> {
 
   Future<void> _fetchHomeData() async {
     setState(() => _isLoadingHome = true);
+    _deepRowsStarted = false;
+    _deepRowsFallbackTimer?.cancel();
 
-    final results = await Future.wait([
-      _tmdbService.fetchTrending(region: 'all', timeWindow: 'week'),
-      _tmdbService.fetchTrending(region: 'PH', timeWindow: 'week'),
-      _tmdbService.fetchTopRatedMovies(),
-      _tmdbService.fetchPopularTVShows(),
-      _tmdbService.fetchNowPlaying(region: 'PH'),
-      _tmdbService.fetchUpcoming(region: 'PH'),
-      _tmdbService.fetchGenreList('movie'),
-      _tmdbService.fetchGenreList('tv'),
-      // Discovery rows (Phase 3a)
-      _tmdbService.fetchPopularMovies(),
-      _tmdbService.fetchTopRatedTV(),
-      _tmdbService.fetchAiringToday(),
-      _tmdbService.fetchOnTheAir(),
-    ]);
-
-    if (!mounted) return;
-
-    // Filter out anime from all cinema lists — the dedicated Anime tab
-    // already covers Japanese animation content.
-    final trendingGlobal = (results[0] as List<MediaItem>)
-        .where((m) => !m.isAnime)
-        .toList();
-    final trendingPH = (results[1] as List<MediaItem>)
-        .where((m) => !m.isAnime)
-        .toList();
-    final topRated = (results[2] as List<MediaItem>)
-        .where((m) => !m.isAnime)
-        .toList();
-    final popularTV = (results[3] as List<MediaItem>)
-        .where((m) => !m.isAnime)
-        .toList();
-    final nowShowing = (results[4] as List<MediaItem>)
-        .where((m) => !m.isAnime)
-        .toList();
+    // Fire every home request at once, but paint each rail the moment its own
+    // call lands — the billboard + first rows show without waiting for the
+    // slowest of the 12. Each row is error-isolated: one failing call leaves
+    // an empty rail instead of a stuck shimmer.
     final currentYear = DateTime.now().year;
-    final newlyReleased = (results[5] as List<MediaItem>)
-        .where((m) => !m.isAnime)
-        .where((m) {
+    await Future.wait([
+      _loadRow(
+        _tmdbService.fetchTrending(region: 'all', timeWindow: 'week'),
+        (items) {
+          _trendingGlobal = items;
+          _trendingCarousel = items.take(5).toList();
+        },
+        dismissShimmer: true,
+      ),
+      _loadRow(
+        _tmdbService.fetchTrending(region: 'PH', timeWindow: 'week'),
+        (items) => _trendingPH = items,
+      ),
+      _loadRow(
+        _tmdbService.fetchTopRatedMovies(),
+        (items) => _topRatedMovies = items,
+      ),
+      _loadRow(
+        _tmdbService.fetchPopularTVShows(),
+        (items) => _popularTVShows = items,
+      ),
+      _loadRow(
+        _tmdbService.fetchNowPlaying(region: 'PH'),
+        (items) => _nowShowing = items,
+      ),
+      _loadRow(
+        _tmdbService.fetchUpcoming(region: 'PH'),
+        (items) => _newlyReleased = items.where((m) {
           // Exclude obviously old movies (TMDB upcoming sometimes leaks
           // outdated entries like a 2004 film).
           final y = int.tryParse(m.year);
           return y == null || y >= currentYear - 1;
-        })
-        .toList();
-    final movieGenres = results[6] as Map<int, String>;
-    final tvGenres = results[7] as Map<int, String>;
-    final popularMovies = (results[8] as List<MediaItem>)
-        .where((m) => !m.isAnime)
-        .toList();
-    final topRatedTV = (results[9] as List<MediaItem>)
-        .where((m) => !m.isAnime)
-        .toList();
-    final airingToday = (results[10] as List<MediaItem>)
-        .where((m) => !m.isAnime)
-        .toList();
-    final onTheAir = (results[11] as List<MediaItem>)
-        .where((m) => !m.isAnime)
-        .toList();
-
-    setState(() {
-      _trendingGlobal = trendingGlobal;
-      _trendingPH = trendingPH;
-      _trendingCarousel = trendingGlobal.take(5).toList();
-      _topRatedMovies = topRated;
-      _popularTVShows = popularTV;
-      _nowShowing = nowShowing;
-      _newlyReleased = newlyReleased;
-      _popularMovies = popularMovies;
-      _topRatedTV = topRatedTV;
-      _airingToday = airingToday;
-      _onTheAir = onTheAir;
-      _movieGenres
-        ..clear()
-        ..addAll(movieGenres);
-      _tvGenres
-        ..clear()
-        ..addAll(tvGenres);
-      _isLoadingHome = false;
-    });
-
-    _fetchGenreLists();
-    _fetchDiscoveryRows();
-  }
-
-  Future<void> _fetchGenreLists() async {
-    for (final genre in featuredGenres) {
-      final items = await _tmdbService.discoverByGenre(
-        genreId: genre['id'] as int,
-        mediaType: genre['type'] as String,
-      );
-      final filtered = items.where((m) => !m.isAnime).toList();
-      if (mounted && filtered.isNotEmpty) {
-        setState(() {
-          _genreLists['${genre['name']}'] = filtered;
-        });
-      }
-    }
-  }
-
-  /// Fetches extended discovery rows — language and decade-based
-  /// curated collections that are loaded after the main home data.
-  Future<void> _fetchDiscoveryRows() async {
-    final languageRows = await Future.wait([
-      _tmdbService.discoverMedia(
-        mediaType: 'tv',
-        withOriginalLanguage: 'ko',
-        sortBy: 'vote_average.desc',
-        voteAverageGte: 7.0,
+        }).toList(),
       ),
-      _tmdbService.discoverMedia(
-        mediaType: 'movie',
-        withOriginalLanguage: 'hi',
-        sortBy: 'vote_average.desc',
-        voteAverageGte: 7.0,
+      _loadGenres('movie', _movieGenres),
+      _loadGenres('tv', _tvGenres),
+      // Discovery rows (Phase 3a)
+      _loadRow(
+        _tmdbService.fetchPopularMovies(),
+        (items) => _popularMovies = items,
       ),
-      _tmdbService.discoverMedia(
-        mediaType: 'movie',
-        withOriginalLanguage: 'es',
-        sortBy: 'vote_average.desc',
-        voteAverageGte: 7.0,
+      _loadRow(
+        _tmdbService.fetchTopRatedTV(),
+        (items) => _topRatedTV = items,
       ),
-      _tmdbService.discoverMedia(
-        mediaType: 'movie',
-        withOriginalLanguage: 'fr',
-        sortBy: 'vote_average.desc',
-        voteAverageGte: 7.0,
+      _loadRow(
+        _tmdbService.fetchAiringToday(),
+        (items) => _airingToday = items,
       ),
-    ]);
-
-    final decadeRows = await Future.wait([
-      _tmdbService.discoverMedia(
-        mediaType: 'movie',
-        yearGte: 2010,
-        yearLte: 2019,
-        voteAverageGte: 7.0,
-      ),
-      _tmdbService.discoverMedia(
-        mediaType: 'movie',
-        yearGte: 2000,
-        yearLte: 2009,
-        voteAverageGte: 7.0,
-      ),
-      _tmdbService.discoverMedia(
-        mediaType: 'movie',
-        yearLte: 1999,
-        voteAverageGte: 7.0,
-        voteCountGte: 500,
+      _loadRow(
+        _tmdbService.fetchOnTheAir(),
+        (items) => _onTheAir = items,
       ),
     ]);
 
     if (!mounted) return;
+    // Safety net: if the critical row failed, don't trap the user on shimmer.
+    if (_isLoadingHome) setState(() => _isLoadingHome = false);
+    // Below-the-fold rails load on first scroll (see _onScrollNotification);
+    // the timer covers screens where nothing scrolls.
+    _deepRowsFallbackTimer = Timer(
+      const Duration(seconds: 12),
+      _startDeepRows,
+    );
+  }
+
+  /// Awaits one home request and paints its rail on arrival. Anime is filtered
+  /// here — the dedicated Anime tab already covers Japanese animation.
+  Future<void> _loadRow(
+    Future<List<MediaItem>> request,
+    void Function(List<MediaItem> items) apply, {
+    bool dismissShimmer = false,
+  }) async {
+    late final List<MediaItem> items;
+    try {
+      items = await request;
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
     setState(() {
-      _discoveryRows['korean_dramas'] = languageRows[0]
-          .where((m) => !m.isAnime)
-          .toList();
-      _discoveryRows['bollywood'] = languageRows[1]
-          .where((m) => !m.isAnime)
-          .toList();
-      _discoveryRows['spanish_cinema'] = languageRows[2]
-          .where((m) => !m.isAnime)
-          .toList();
-      _discoveryRows['french_cinema'] = languageRows[3]
-          .where((m) => !m.isAnime)
-          .toList();
-      _discoveryRows['decade_2010s'] = decadeRows[0]
-          .where((m) => !m.isAnime)
-          .toList();
-      _discoveryRows['decade_2000s'] = decadeRows[1]
-          .where((m) => !m.isAnime)
-          .toList();
-      _discoveryRows['classic_films'] = decadeRows[2]
-          .where((m) => !m.isAnime)
-          .toList();
+      apply(items.where((m) => !m.isAnime).toList());
+      if (dismissShimmer) _isLoadingHome = false;
+    });
+  }
+
+  Future<void> _loadGenres(String mediaType, Map<int, String> target) async {
+    late final Map<int, String> genres;
+    try {
+      genres = await _tmdbService.fetchGenreList(mediaType);
+    } catch (_) {
+      return;
+    }
+    if (!mounted) return;
+    setState(() => target
+      ..clear()
+      ..addAll(genres));
+  }
+
+  /// Starts the below-the-fold rails once, either from the first scroll or
+  /// the fallback timer. Each rail paints as its own call lands.
+  void _startDeepRows() {
+    if (_deepRowsStarted || !mounted) return;
+    _deepRowsStarted = true;
+    _deepRowsFallbackTimer?.cancel();
+    unawaited(_fetchGenreLists());
+    unawaited(_fetchDiscoveryRows());
+  }
+
+  Future<void> _fetchGenreLists() async {
+    // Chunked so 10 genres don't take 10xRTT serially; each chunk paints
+    // its rails as it lands.
+    const concurrency = 4;
+    for (var i = 0; i < featuredGenres.length; i += concurrency) {
+      final chunk = featuredGenres.skip(i).take(concurrency);
+      final settled = await Future.wait(
+        chunk.map((genre) async {
+          try {
+            final items = await _tmdbService.discoverByGenre(
+              genreId: genre['id'] as int,
+              mediaType: genre['type'] as String,
+            );
+            return MapEntry(
+              '${genre['name']}',
+              items.where((m) => !m.isAnime).toList(),
+            );
+          } catch (_) {
+            return MapEntry('${genre['name']}', <MediaItem>[]);
+          }
+        }),
+      );
+      if (!mounted) return;
+      setState(() {
+        for (final entry in settled) {
+          if (entry.value.isNotEmpty) _genreLists[entry.key] = entry.value;
+        }
+      });
+    }
+  }
+
+  /// Fetches extended discovery rows — language and decade-based
+  /// curated collections that load after the main home data (see
+  /// [_startDeepRows]). All 7 fire at once instead of 4-then-3.
+  Future<void> _fetchDiscoveryRows() async {
+    late final List<List<MediaItem>> rows;
+    try {
+      rows = await Future.wait([
+        _tmdbService.discoverMedia(
+          mediaType: 'tv',
+          withOriginalLanguage: 'ko',
+          sortBy: 'vote_average.desc',
+          voteAverageGte: 7.0,
+        ),
+        _tmdbService.discoverMedia(
+          mediaType: 'movie',
+          withOriginalLanguage: 'hi',
+          sortBy: 'vote_average.desc',
+          voteAverageGte: 7.0,
+        ),
+        _tmdbService.discoverMedia(
+          mediaType: 'movie',
+          withOriginalLanguage: 'es',
+          sortBy: 'vote_average.desc',
+          voteAverageGte: 7.0,
+        ),
+        _tmdbService.discoverMedia(
+          mediaType: 'movie',
+          withOriginalLanguage: 'fr',
+          sortBy: 'vote_average.desc',
+          voteAverageGte: 7.0,
+        ),
+        _tmdbService.discoverMedia(
+          mediaType: 'movie',
+          yearGte: 2010,
+          yearLte: 2019,
+          voteAverageGte: 7.0,
+        ),
+        _tmdbService.discoverMedia(
+          mediaType: 'movie',
+          yearGte: 2000,
+          yearLte: 2009,
+          voteAverageGte: 7.0,
+        ),
+        _tmdbService.discoverMedia(
+          mediaType: 'movie',
+          yearLte: 1999,
+          voteAverageGte: 7.0,
+          voteCountGte: 500,
+        ),
+      ]);
+    } catch (_) {
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _discoveryRows['korean_dramas'] =
+          rows[0].where((m) => !m.isAnime).toList();
+      _discoveryRows['bollywood'] =
+          rows[1].where((m) => !m.isAnime).toList();
+      _discoveryRows['spanish_cinema'] =
+          rows[2].where((m) => !m.isAnime).toList();
+      _discoveryRows['french_cinema'] =
+          rows[3].where((m) => !m.isAnime).toList();
+      _discoveryRows['decade_2010s'] =
+          rows[4].where((m) => !m.isAnime).toList();
+      _discoveryRows['decade_2000s'] =
+          rows[5].where((m) => !m.isAnime).toList();
+      _discoveryRows['classic_films'] =
+          rows[6].where((m) => !m.isAnime).toList();
     });
   }
 
@@ -438,6 +487,12 @@ class _CinemaScreenState extends State<CinemaScreen> {
     final scrolled = notification.metrics.pixels > 12;
     if (scrolled != _desktopScrolled) {
       setState(() => _desktopScrolled = scrolled);
+    }
+    // First real scroll past the billboard: start the below-the-fold rails.
+    final metrics = notification.metrics;
+    if (metrics.maxScrollExtent > 0 &&
+        metrics.pixels > metrics.maxScrollExtent * 0.25) {
+      _startDeepRows();
     }
     return false;
   }
