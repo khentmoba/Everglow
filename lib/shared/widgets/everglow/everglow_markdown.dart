@@ -90,10 +90,14 @@ class EverglowMarkdown extends StatelessWidget {
         continue;
       }
 
-      // Table: consecutive lines starting with |
-      if (trimmed.startsWith('|') && trimmed.contains('|')) {
+      // Table: consecutive lines starting with |, or header + separator
+      // pattern (some models omit the leading pipe: `A | B` + `---|---`).
+      if (_looksLikeTableStart(lines, i)) {
         final tableLines = <String>[];
-        while (i < lines.length && lines[i].trim().startsWith('|')) {
+        while (i < lines.length && lines[i].contains('|') && lines[i].trim().isNotEmpty) {
+          // Stop if we hit a clearly non-table block starter.
+          final t = lines[i].trim();
+          if (t.startsWith('```') || t.startsWith('>') || RegExp(r'^#{1,4}\s*\S').hasMatch(t)) break;
           tableLines.add(lines[i]);
           i++;
         }
@@ -109,9 +113,10 @@ class EverglowMarkdown extends StatelessWidget {
         continue;
       }
 
-      // Heading #, ##, ###, ####
-      final heading = RegExp(r'^(#{1,4})\s+(.*)$').firstMatch(trimmed);
-      if (heading != null) {
+      // Heading #, ##, ###, #### — tolerant of missing space (`###Title`)
+      // since the model often omits it, as in the Study screenshots.
+      final heading = RegExp(r'^(#{1,4})\s*(.+?)\s*$').firstMatch(trimmed);
+      if (heading != null && (heading.group(2) ?? '').isNotEmpty) {
         final level = heading.group(1)!.length;
         final content = heading.group(2)!.trim();
         blocks.add(_Heading(level: level, content: content, base: base));
@@ -155,7 +160,7 @@ class EverglowMarkdown extends StatelessWidget {
         while (j < lines.length) {
           final next = lines[j];
           if (next.trim().isEmpty) break;
-          if (RegExp(r'^([-*•]|\d+[.)]|#{1,4}\s|```|\||>|\|)').hasMatch(
+          if (RegExp(r'^([-*•]|\d+[.)]|#{1,4}|```|\||>|\|)').hasMatch(
             next.trim(),
           )) {
             break;
@@ -205,7 +210,8 @@ class EverglowMarkdown extends StatelessWidget {
         if (nt.startsWith('```') ||
             nt.startsWith('|') ||
             nt.startsWith('>') ||
-            RegExp(r'^(#{1,4})\s+').hasMatch(nt) ||
+            _looksLikeTableStart(lines, i) ||
+            RegExp(r'^#{1,4}\s*\S').hasMatch(nt) ||
             RegExp(r'^(-{3,}|\*{3,}|_{3,})$').hasMatch(nt) ||
             RegExp(r'^([-*•])\s+').hasMatch(nt) ||
             RegExp(r'^(\d+)[.)]\s+').hasMatch(nt)) {
@@ -604,4 +610,21 @@ List<TextSpan> parseInline(String input, TextStyle base) {
   }
   if (spans.isEmpty) return [TextSpan(text: input)];
   return spans;
+}
+
+/// True when [lines[index]] starts a markdown table — either classic
+/// pipe-leading rows (`| A | B |`) or header + separator without a
+/// leading pipe (`A | B` followed by `---|---`).
+bool _looksLikeTableStart(List<String> lines, int index) {
+  final first = lines[index].trim();
+  if (first.isEmpty || !first.contains('|')) return false;
+  if (first.startsWith('|')) return true;
+  // Needs a separator row right below to avoid mistaking a stray `|`
+  // in prose for a table.
+  if (index + 1 >= lines.length) return false;
+  final second = lines[index + 1].trim();
+  if (!second.contains('|') && !second.contains('-')) return false;
+  final cells = second.split('|').map((c) => c.trim()).where((c) => c.isNotEmpty).toList();
+  if (cells.isEmpty) return false;
+  return cells.every((c) => RegExp(r'^:?-{1,}:?$').hasMatch(c));
 }
