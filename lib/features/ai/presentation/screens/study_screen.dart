@@ -4,11 +4,13 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_elevation.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../../shared/widgets/everglow/everglow_chat_bubble.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/everglow/everglow_markdown.dart';
 import '../../data/services/ai_service.dart';
@@ -792,6 +794,7 @@ class _HeaderIconButton extends StatelessWidget {
   }
 }
 
+/// User question — global rose bubble shared with Mochi chat.
 class _UserBubble extends StatelessWidget {
   final String text;
   const _UserBubble({required this.text});
@@ -800,64 +803,13 @@ class _UserBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 56, bottom: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Flexible(
-            child: GestureDetector(
-              onLongPress: () {
-                HapticFeedback.selectionClick();
-                Clipboard.setData(ClipboardData(text: text));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Copied', style: AppTypography.bodySmall()),
-                    duration: const Duration(seconds: 1),
-                    backgroundColor: AppColors.velvet,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: AppRadius.radiusLg,
-                    ),
-                    margin: const EdgeInsets.all(16),
-                  ),
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 11,
-                ),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.deepRose.withValues(alpha: 0.55),
-                      AppColors.deepRose.withValues(alpha: 0.30),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
-                    bottomLeft: Radius.circular(20),
-                    bottomRight: Radius.circular(6),
-                  ),
-                ),
-                child: SelectableText(
-                  text,
-                  style: AppTypography.bodyMedium().copyWith(
-                    color: AppColors.petalWhite,
-                    height: 1.5,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+      child: EverglowUserBubble(text: text),
     );
   }
 }
 
+/// Mochi answer — the same global assistant bubble Mochi chat uses,
+/// so a fix here upgrades both surfaces at once.
 class _AnswerBubble extends StatelessWidget {
   final String text;
   const _AnswerBubble({required this.text});
@@ -866,102 +818,11 @@ class _AnswerBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(right: 8, bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: AppRadius.radiusSm,
-            child: Image.asset(
-              'assets/images/mochi_avatar.png',
-              width: 30,
-              height: 30,
-              fit: BoxFit.cover,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(15, 11, 15, 12),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceGlass,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(6),
-                  topRight: Radius.circular(18),
-                  bottomLeft: Radius.circular(18),
-                  bottomRight: Radius.circular(18),
-                ),
-                border: Border.all(color: AppColors.border, width: 0.5),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        'MOCHI',
-                        style: AppTypography.labelSmall().copyWith(
-                          fontSize: 10,
-                          color: AppColors.blushGold,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '· from your PDFs',
-                        style: AppTypography.bodySmall().copyWith(
-                          fontSize: 10,
-                          color: AppColors.textDisabled,
-                        ),
-                      ),
-                      const Spacer(),
-                      InkWell(
-                        onTap: () {
-                          HapticFeedback.selectionClick();
-                          Clipboard.setData(ClipboardData(text: text));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Copied',
-                                style: AppTypography.bodySmall(),
-                              ),
-                              duration: const Duration(seconds: 1),
-                              backgroundColor: AppColors.velvet,
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: AppRadius.radiusLg,
-                              ),
-                              margin: const EdgeInsets.all(16),
-                            ),
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(8),
-                        child: Padding(
-                          padding: const EdgeInsets.all(5),
-                          child: Icon(
-                            Icons.copy_rounded,
-                            size: 13,
-                            color: AppColors.textDisabled.withValues(
-                              alpha: 0.7,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  EverglowMarkdown(
-                    text: text,
-                    baseStyle: AppTypography.bodyMedium().copyWith(
-                      color: AppColors.textHigh,
-                      height: 1.55,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+      child: EverglowAssistantBubble(
+        text: text,
+        title: 'Mochi',
+        subtitle: 'from your PDFs',
+        timeLabel: 'Mochi • grounded only on your pages',
       ),
     );
   }
@@ -978,28 +839,62 @@ class _StreamingBubble extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
-            borderRadius: AppRadius.radiusSm,
-            child: Image.asset(
-              'assets/images/mochi_avatar.png',
-              width: 30,
-              height: 30,
-              fit: BoxFit.cover,
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              borderRadius: AppRadius.radiusSm,
+              border: Border.all(
+                color: AppColors.blushGold.withValues(alpha: 0.35),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.blushGold.withValues(alpha: 0.25),
+                  blurRadius: 10,
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: AppRadius.radiusSm,
+              child: Image.asset(
+                'assets/images/mochi_avatar.png',
+                width: 34,
+                height: 34,
+                fit: BoxFit.cover,
+              ),
             ),
           ),
           const SizedBox(width: 10),
           Flexible(
             child: Container(
-              padding: const EdgeInsets.fromLTRB(15, 11, 15, 12),
+              padding: const EdgeInsets.fromLTRB(16, 13, 16, 12),
               decoration: BoxDecoration(
-                color: AppColors.surfaceGlass,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(6),
-                  topRight: Radius.circular(18),
-                  bottomLeft: Radius.circular(18),
-                  bottomRight: Radius.circular(18),
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.moonlight.withValues(alpha: 0.13),
+                    AppColors.moonlight.withValues(alpha: 0.07),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                border: Border.all(color: AppColors.border, width: 0.5),
+                color: AppColors.panelGlass,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(AppRadius.xs),
+                  topRight: Radius.circular(AppRadius.xl),
+                  bottomLeft: Radius.circular(AppRadius.xl),
+                  bottomRight: Radius.circular(AppRadius.xl),
+                ),
+                border: Border.all(
+                  color: AppColors.moonlight.withValues(alpha: 0.16),
+                ),
+                boxShadow: [
+                  ...AppElevation.e2,
+                  BoxShadow(
+                    color: AppColors.auroraLilac.withValues(alpha: 0.10),
+                    blurRadius: 20,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
               child: ValueListenableBuilder<String>(
                 valueListenable: ai.draftResponseNotifier,
@@ -1035,7 +930,7 @@ class _StreamingBubble extends StatelessWidget {
                         text: draft,
                         baseStyle: AppTypography.bodyMedium().copyWith(
                           color: AppColors.textHigh,
-                          height: 1.55,
+                          height: 1.65,
                           fontSize: 14,
                         ),
                       ),

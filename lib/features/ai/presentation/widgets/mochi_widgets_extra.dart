@@ -107,13 +107,29 @@ class _MessageBubbleState extends State<_MessageBubble> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!widget.isUser) ...[
-            ClipRRect(
-              borderRadius: AppRadius.radiusSm,
-              child: Image.asset(
-                'assets/images/mochi_avatar.png',
-                width: 28,
-                height: 28,
-                fit: BoxFit.cover,
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                borderRadius: AppRadius.radiusSm,
+                border: Border.all(
+                  color: AppColors.blushGold.withValues(alpha: 0.35),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.blushGold.withValues(alpha: 0.25),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: AppRadius.radiusSm,
+                child: Image.asset(
+                  'assets/images/mochi_avatar.png',
+                  width: 34,
+                  height: 34,
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
             const SizedBox(width: 10),
@@ -138,39 +154,87 @@ class _MessageBubbleState extends State<_MessageBubble> {
               },
               child: Container(
                 constraints: BoxConstraints(
-                  maxWidth: MediaQuery.sizeOf(context).width * 0.75,
+                  maxWidth: MediaQuery.sizeOf(context).width *
+                      (widget.isUser ? 0.78 : 0.82),
                 ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
+                padding: const EdgeInsets.fromLTRB(16, 13, 16, 12),
                 decoration: BoxDecoration(
                   gradient: widget.isUser
-                      ? LinearGradient(
-                          colors: [
-                            AppColors.deepRose.withValues(alpha: 0.55),
-                            AppColors.deepRose.withValues(alpha: 0.3),
-                          ],
+                      ? const LinearGradient(
+                          colors: [AppColors.deepRose, AppColors.roseDepths],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         )
-                      : null,
-                  color: widget.isUser ? null : AppColors.surfaceGlass,
+                      : LinearGradient(
+                          colors: [
+                            AppColors.moonlight.withValues(alpha: 0.13),
+                            AppColors.moonlight.withValues(alpha: 0.07),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                  color: widget.isUser ? null : AppColors.panelGlass,
                   borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(widget.isUser ? AppRadius.lg : 4),
-                    topRight: Radius.circular(widget.isUser ? 4 : AppRadius.lg),
-                    bottomLeft: const Radius.circular(AppRadius.lg),
-                    bottomRight: const Radius.circular(AppRadius.lg),
+                    topLeft: Radius.circular(
+                      widget.isUser ? AppRadius.x2 : AppRadius.xs,
+                    ),
+                    topRight: Radius.circular(
+                      widget.isUser ? AppRadius.x2 : AppRadius.xl,
+                    ),
+                    bottomLeft: const Radius.circular(AppRadius.xl),
+                    bottomRight: Radius.circular(
+                      widget.isUser ? AppRadius.xs : AppRadius.xl,
+                    ),
                   ),
-                  border: widget.isUser
-                      ? null
-                      : Border.all(color: AppColors.border, width: 0.5),
+                  border: Border.all(
+                    color: widget.isUser
+                        ? AppColors.petalWhite.withValues(alpha: 0.14)
+                        : AppColors.moonlight.withValues(alpha: 0.16),
+                  ),
+                  boxShadow: [
+                    ...AppElevation.e2,
+                    BoxShadow(
+                      color: widget.isUser
+                          ? AppColors.deepRose.withValues(alpha: 0.30)
+                          : AppColors.auroraLilac.withValues(alpha: 0.10),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: widget.isUser
                       ? CrossAxisAlignment.end
                       : CrossAxisAlignment.start,
                   children: [
+                    if (!widget.isUser)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 9),
+                        child: Row(
+                          children: [
+                            Text(
+                              'MOCHI',
+                              style: AppTypography.labelSmall().copyWith(
+                                fontSize: 10,
+                                color: AppColors.blushGold,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                '· your cat who remembers',
+                                style: AppTypography.bodySmall().copyWith(
+                                  fontSize: 10,
+                                  color: AppColors.textDisabled,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const Spacer(),
+                            EverglowCopyIconButton(textToCopy: displayText),
+                          ],
+                        ),
+                      ),
                     if (hasReasoning)
                       GestureDetector(
                         onTap: () =>
@@ -253,7 +317,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         widget.text,
                         style: AppTypography.bodyMedium().copyWith(
                           color: AppColors.petalWhite,
-                          height: 1.5,
+                          height: 1.55,
+                          fontSize: 14,
                         ),
                       )
                     else if (widget.isStreaming && bubbleText.isEmpty)
@@ -267,7 +332,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               text: bubbleText,
                               baseStyle: AppTypography.bodyMedium().copyWith(
                                 color: AppColors.textHigh,
-                                height: 1.55,
+                                height: 1.65,
+                                fontSize: 14,
                               ),
                             ),
                           ),
@@ -283,12 +349,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         padding: EdgeInsets.only(top: 7),
                         child: _StreamingProgressBar(),
                       ),
-                    // W5 citation footer — subtle source hint for assistant replies
-                    if (!widget.isUser &&
-                        !widget.isStreaming &&
-                        widget.text.length > 60)
+                    // Source + time footer — one quiet line for assistant replies.
+                    if (!widget.isUser && !widget.isStreaming)
                       Padding(
-                        padding: const EdgeInsets.only(top: 6),
+                        padding: const EdgeInsets.only(top: 8),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -296,24 +360,29 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               Icons.shield_outlined,
                               size: 10,
                               color: AppColors.textDisabled.withValues(
-                                alpha: 0.5,
+                                alpha: 0.55,
                               ),
                             ),
                             const SizedBox(width: 4),
-                            Text(
-                              'Mochi • private memory + Everglow context',
-                              style: AppTypography.bodySmall().copyWith(
-                                fontSize: 9,
-                                color: AppColors.textDisabled.withValues(
-                                  alpha: 0.5,
+                            Flexible(
+                              child: Text(
+                                widget.timestamp != null
+                                    ? 'Mochi • private memory · ${isToday ? timeStr : fullDateStr}'
+                                    : 'Mochi • private memory + Everglow context',
+                                style: AppTypography.bodySmall().copyWith(
+                                  fontSize: 10,
+                                  color: AppColors.textDisabled.withValues(
+                                    alpha: 0.65,
+                                  ),
+                                  fontStyle: FontStyle.italic,
                                 ),
-                                fontStyle: FontStyle.italic,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    if (widget.timestamp != null || widget.isStreaming)
+                    if ((widget.timestamp != null && widget.isUser) ||
+                        widget.isStreaming)
                       Padding(
                         padding: const EdgeInsets.only(top: 5),
                         child: Row(
@@ -350,7 +419,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                 fontSize: 10,
                                 color: widget.isUser
                                     ? AppColors.petalWhite.withValues(
-                                        alpha: 0.5,
+                                        alpha: 0.65,
                                       )
                                     : AppColors.textMuted.withValues(
                                         alpha: 0.6,
