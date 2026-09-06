@@ -113,7 +113,7 @@ class ChatBubble extends StatelessWidget {
                     text,
                     style: AppTypography.bodyMedium().copyWith(
                       color: AppColors.petalWhite,
-                      height: 1.4,
+                      height: 1.5,
                     ),
                   ),
                   const SizedBox(height: 4),
