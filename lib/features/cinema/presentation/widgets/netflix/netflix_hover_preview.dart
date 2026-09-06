@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../../shared/widgets/app_network_image.dart';
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/services/tmdb_service.dart';
@@ -9,28 +10,46 @@ import 'netflix_colors.dart';
 /// hover popover only fetches each title once per session.
 final Map<String, Map<String, dynamic>> _netflixDetailCache = {};
 
-/// Computes a viewport-safe top-left position for the hover popover so it
-/// floats above the anchored card and stays fully on screen.
+/// Estimated popover height for a given width. Kept in one place so the
+/// row, grid card, and position helper agree.
+double netflixPreviewHeight(double width) => width * 0.5625 + 232;
+
+/// Computes a viewport-safe top-left position for the hover popover.
+///
+/// Prefers floating above the anchored card (Netflix behavior). When there
+/// is not enough room above (first rail, near the billboard) it drops
+/// below the card instead of clamping over the hero text.
 Offset positionHoverPreview({
   required Rect anchor,
   required Size previewSize,
   required Size screen,
 }) {
   var left = anchor.center.dx - previewSize.width / 2;
-  left = left.clamp(
-    12.0,
-    (screen.width - previewSize.width - 12).clamp(12.0, screen.width),
-  );
-  var top = anchor.top + 20 - previewSize.height;
-  top = top.clamp(8.0, screen.height - previewSize.height - 8);
+  final maxLeft =
+      (screen.width - previewSize.width - 12).clamp(12.0, screen.width)
+          .toDouble();
+  left = left.clamp(12.0, maxLeft);
+
+  const topChrome = 76.0;
+  final above = anchor.top - previewSize.height - 10;
+  final below = anchor.bottom + 10;
+  double top;
+  if (above >= topChrome) {
+    top = above;
+  } else if (below + previewSize.height <= screen.height - 8) {
+    top = below;
+  } else {
+    top = (screen.height - previewSize.height - 8).clamp(8.0, screen.height);
+  }
   return Offset(left, top);
 }
 
 /// Netflix-style hover popover with real title details.
 ///
-/// Shows backdrop art, available metadata, synopsis, genres and quick
-/// actions. TMDB details are fetched on demand (cached) so the popover
-/// never shows placeholder copy when the row payload only has a poster.
+/// Order matches Netflix: backdrop art, action row, metadata, title,
+/// synopsis, genres. TMDB details are fetched on demand (cached) so the
+/// popover never shows placeholder copy when the row payload only has
+/// a poster.
 class NetflixHoverPreview extends StatefulWidget {
   final MediaItem item;
   final double width;
@@ -129,7 +148,7 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
     final seasons = _details?['number_of_seasons'] as num?;
     final episodes = _details?['number_of_episodes'] as num?;
     if (seasons != null && seasons > 0 && episodes != null && episodes > 0) {
-      return '$seasons Season${seasons == 1 ? '' : 's'} · $episodes eps';
+      return '$seasons Season${seasons == 1 ? '' : 's'}';
     }
     if (seasons != null && seasons > 0) {
       return '$seasons Season${seasons == 1 ? '' : 's'}';
@@ -159,159 +178,119 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            color: NetflixColors.surfaceElevated,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.8),
-                blurRadius: 32,
-                offset: const Offset(0, 16),
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.96, end: 1.0),
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOutCubic,
+      builder: (context, scale, child) => Transform.scale(
+        scale: scale,
+        alignment: Alignment.center,
+        child: Opacity(
+          opacity: ((scale - 0.96) / 0.04).clamp(0.0, 1.0),
+          child: child,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: Container(
+            width: widget.width,
+            decoration: BoxDecoration(
+              color: NetflixColors.surfaceElevated,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.moonlight.withValues(alpha: 0.16),
+                width: 1,
               ),
-            ],
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if (_backdropUrl.isNotEmpty)
-                      AppNetworkImage(
-                        imageUrl: _backdropUrl,
-                        fit: BoxFit.cover,
-                        cacheWidth: 720,
-                        errorWidget: Container(color: NetflixColors.surface),
-                      )
-                    else
-                      Container(color: NetflixColors.surface),
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.45),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Center(
-                      child: Container(
-                        width: 52,
-                        height: 52,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.play_arrow_rounded,
-                          color: Colors.black,
-                          size: 30,
-                        ),
-                      ),
-                    ),
-                  ],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.75),
+                  blurRadius: 40,
+                  spreadRadius: 4,
+                  offset: const Offset(0, 20),
                 ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                BoxShadow(
+                  color: AppColors.deepRose.withValues(alpha: 0.08),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Backdrop art melts into the card body ──
+                AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: Stack(
+                    fit: StackFit.expand,
                     children: [
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          if (_matchPercent > 0)
-                            Text(
-                              '$_matchPercent% Match',
-                              style: AppTypography.outfitHeading.copyWith(
-                                fontSize: 12,
-                                color: NetflixColors.match,
+                      if (_backdropUrl.isNotEmpty)
+                        AppNetworkImage(
+                          imageUrl: _backdropUrl,
+                          fit: BoxFit.cover,
+                          cacheWidth: 720,
+                          errorWidget: Container(
+                            color: NetflixColors.surface,
+                          ),
+                        )
+                      else
+                        Container(color: NetflixColors.surface),
+                      // Blend image into the body so there is no hard cut.
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.black.withValues(alpha: 0.08),
+                              Colors.transparent,
+                              NetflixColors.surfaceElevated.withValues(
+                                alpha: 0.0,
                               ),
-                            ),
-                          if (_year.isNotEmpty)
-                            Text(
-                              _year,
-                              style: AppTypography.outfitMuted.copyWith(
-                                fontSize: 12,
-                                color: NetflixColors.textSecondary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          if (_runtime != null)
-                            Text(
-                              _runtime!,
-                              style: AppTypography.outfitMuted.copyWith(
-                                fontSize: 12,
-                                color: NetflixColors.textSecondary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          if (_seriesInfo != null)
-                            Text(
-                              _seriesInfo!,
-                              style: AppTypography.outfitMuted.copyWith(
-                                fontSize: 12,
-                                color: NetflixColors.textSecondary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          const _HdBadge(),
-                        ],
-                      ),
-                      const SizedBox(height: 7),
-                      Text(
-                        widget.item.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.outfitHeading.copyWith(
-                          fontSize: 15,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Expanded(
-                        child: Text(
-                          _synopsis,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.outfitMuted.copyWith(
-                            fontSize: 11.5,
-                            color: NetflixColors.textSecondary,
-                            height: 1.35,
+                              NetflixColors.surfaceElevated,
+                            ],
+                            stops: const [0.0, 0.45, 0.82, 1.0],
                           ),
                         ),
                       ),
-                      if (_genres.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          _genres.take(3).join(' · '),
+                      // Title treatment over the art, like Netflix.
+                      Positioned(
+                        left: 14,
+                        right: 14,
+                        bottom: 10,
+                        child: Text(
+                          widget.item.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppTypography.outfitMuted.copyWith(
-                            fontSize: 10.5,
-                            color: NetflixColors.textMuted,
+                          style: AppTypography.outfitHeading.copyWith(
+                            fontSize: 16,
+                            letterSpacing: 0.2,
+                            shadows: const [
+                              Shadow(
+                                color: Color(0xCC000000),
+                                blurRadius: 12,
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                      const SizedBox(height: 10),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ── Actions first: Play leads, info docks right ──
                       Row(
                         children: [
-                          _HoverActionButton(
-                            icon: Icons.play_arrow_rounded,
-                            tooltip: 'Play',
+                          _HoverActionButton.play(
                             onTap: () {
                               widget.onTap?.call();
                               widget.onPlay?.call();
@@ -331,7 +310,9 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                           ),
                           const SizedBox(width: 8),
                           _HoverActionButton(
-                            icon: Icons.thumb_up_outlined,
+                            icon: _rating == 1
+                                ? Icons.thumb_up_rounded
+                                : Icons.thumb_up_outlined,
                             selected: _rating == 1,
                             tooltip: 'I like this',
                             onTap: () {
@@ -342,30 +323,117 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                           ),
                           const SizedBox(width: 8),
                           _HoverActionButton(
-                            icon: Icons.thumb_down_outlined,
+                            icon: _rating == -1
+                                ? Icons.thumb_down_rounded
+                                : Icons.thumb_down_outlined,
                             selected: _rating == -1,
-                            tooltip: "Not for me",
+                            tooltip: 'Not for me',
                             onTap: () {
                               final next = _rating == -1 ? null : -1.0;
                               setState(() => _rating = next);
                               widget.onRate?.call(next);
                             },
                           ),
-                          const SizedBox(width: 8),
+                          const Spacer(),
                           _HoverActionButton(
-                            icon: Icons.info_outline_rounded,
+                            icon: Icons.keyboard_arrow_down_rounded,
                             tooltip: 'More Info',
                             onTap: widget.onTap,
                           ),
                         ],
                       ),
+                      const SizedBox(height: 12),
+                      // ── Metadata ──
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (_matchPercent > 0)
+                            Text(
+                              '$_matchPercent% Match',
+                              style: AppTypography.outfitHeading.copyWith(
+                                fontSize: 13,
+                                color: NetflixColors.match,
+                              ),
+                            ),
+                          if (_year.isNotEmpty)
+                            _MetaText(_year),
+                          if (_runtime != null) _MetaText(_runtime!),
+                          if (_seriesInfo != null) _MetaText(_seriesInfo!),
+                          const _HdBadge(),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _synopsis,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.outfitMedium.copyWith(
+                          fontSize: 12.5,
+                          color: NetflixColors.textSecondary,
+                          height: 1.45,
+                        ),
+                      ),
+                      if (_genres.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            for (var i = 0;
+                                i < _genres.take(3).length;
+                                i++) ...[
+                              if (i > 0)
+                                Container(
+                                  width: 3,
+                                  height: 3,
+                                  decoration: BoxDecoration(
+                                    color: NetflixColors.textMuted.withValues(
+                                      alpha: 0.7,
+                                    ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              Text(
+                                _genres[i],
+                                style: AppTypography.outfitMuted.copyWith(
+                                  fontSize: 11,
+                                  color: NetflixColors.textSecondary.withValues(
+                                    alpha: 0.9,
+                                  ),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _MetaText extends StatelessWidget {
+  final String text;
+  const _MetaText(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: AppTypography.outfitMedium.copyWith(
+        fontSize: 12,
+        color: NetflixColors.textSecondary,
+        fontWeight: FontWeight.w500,
       ),
     );
   }
@@ -379,14 +447,16 @@ class _HdBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.white.withValues(alpha: 0.55)),
+        border: Border.all(
+          color: NetflixColors.textSecondary.withValues(alpha: 0.6),
+        ),
         borderRadius: BorderRadius.circular(3),
       ),
       child: Text(
         'HD',
         style: AppTypography.outfitHeading.copyWith(
           fontSize: 9,
-          color: Colors.white.withValues(alpha: 0.9),
+          color: NetflixColors.textSecondary,
           letterSpacing: 0.5,
         ),
       ),
@@ -398,55 +468,106 @@ class _HoverActionButton extends StatefulWidget {
   final IconData icon;
   final String tooltip;
   final bool selected;
+  final bool isPlay;
   final VoidCallback? onTap;
 
   const _HoverActionButton({
     required this.icon,
     required this.tooltip,
     this.selected = false,
+    this.isPlay = false,
     this.onTap,
   });
+
+  factory _HoverActionButton.play({VoidCallback? onTap}) =>
+      const _HoverActionButton(
+        icon: Icons.play_arrow_rounded,
+        tooltip: 'Play',
+        isPlay: true,
+      )._withTap(onTap);
+
+  _HoverActionButton _withTap(VoidCallback? tap) => _HoverActionButton(
+    icon: icon,
+    tooltip: tooltip,
+    selected: selected,
+    isPlay: isPlay,
+    onTap: tap,
+  );
 
   @override
   State<_HoverActionButton> createState() => _HoverActionButtonState();
 }
 
 class _HoverActionButtonState extends State<_HoverActionButton> {
+  bool _hovered = false;
   bool _pressed = false;
 
   @override
   Widget build(BuildContext context) {
+    final isPlay = widget.isPlay;
+    final size = isPlay ? 38.0 : 34.0;
+    final bg = isPlay
+        ? (_hovered
+              ? AppColors.petalWhite.withValues(alpha: 0.92)
+              : AppColors.petalWhite)
+        : (widget.selected || _pressed
+              ? AppColors.petalWhite
+              : (_hovered
+                    ? AppColors.petalWhite.withValues(alpha: 0.14)
+                    : Colors.transparent));
     return Tooltip(
       message: widget.tooltip,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: widget.onTap == null
-            ? null
-            : (_) => setState(() => _pressed = true),
-        onTapUp: widget.onTap == null
-            ? null
-            : (_) {
-                setState(() => _pressed = false);
-                widget.onTap?.call();
-              },
-        onTapCancel: widget.onTap == null
-            ? null
-            : () => setState(() => _pressed = false),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color: widget.selected || _pressed
-                ? Colors.white
-                : Colors.white.withValues(alpha: .18),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withValues(alpha: .45)),
-          ),
-          child: Icon(
-            widget.icon,
-            size: 19,
-            color: widget.selected || _pressed ? Colors.black : Colors.white,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: widget.onTap == null
+              ? null
+              : (_) => setState(() => _pressed = true),
+          onTapUp: widget.onTap == null
+              ? null
+              : (_) {
+                  setState(() => _pressed = false);
+                  widget.onTap?.call();
+                },
+          onTapCancel: widget.onTap == null
+              ? null
+              : () => setState(() => _pressed = false),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOutCubic,
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: bg,
+              shape: BoxShape.circle,
+              border: isPlay
+                  ? Border.all(color: AppColors.petalWhite, width: 2)
+                  : Border.all(
+                      color: AppColors.petalWhite.withValues(
+                        alpha: widget.selected || _hovered ? 0.9 : 0.45,
+                      ),
+                      width: 1.5,
+                    ),
+              boxShadow: isPlay
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Icon(
+              widget.icon,
+              size: isPlay ? 24 : 17,
+              color: isPlay || widget.selected || _pressed
+                  ? Colors.black.withValues(alpha: 0.9)
+                  : AppColors.petalWhite,
+            ),
           ),
         ),
       ),
