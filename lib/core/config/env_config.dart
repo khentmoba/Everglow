@@ -19,7 +19,6 @@ class EnvConfig {
     'OCTAGRAM_PASSCODE': String.fromEnvironment('OCTAGRAM_PASSCODE'),
     'LASTFM_USER_KHENT': String.fromEnvironment('LASTFM_USER_KHENT'),
     'LASTFM_USER_CLAIR': String.fromEnvironment('LASTFM_USER_CLAIR'),
-    'JELLYFIN_API_KEY': String.fromEnvironment('JELLYFIN_API_KEY'),
     'FCM_VAPID_KEY': String.fromEnvironment('FCM_VAPID_KEY'),
     'SPOTIFY_CLIENT_ID': String.fromEnvironment('SPOTIFY_CLIENT_ID'),
   };
@@ -60,7 +59,6 @@ class EnvConfig {
       _from('LASTFM_USER_KHENT', fallback: 'khentsgdz');
   static String get lastfmUserClair =>
       _from('LASTFM_USER_CLAIR', fallback: 'clairjassen');
-  static String get jellyfinApiKey => _from('JELLYFIN_API_KEY');
   static String get spotifyClientId => _from('SPOTIFY_CLIENT_ID');
 
   static const String _kFcmVapidKey =
@@ -72,7 +70,6 @@ class EnvConfig {
       breyanEmail.isNotEmpty && breyanPassword.isNotEmpty;
   static bool get hasOctagramCreds =>
       octagramEmail.isNotEmpty && octagramPassword.isNotEmpty;
-  static bool get hasJellyfinKey => jellyfinApiKey.isNotEmpty;
   static bool get hasSpotifyClientId => spotifyClientId.isNotEmpty;
 
   static bool get hasAnyPasscodes =>

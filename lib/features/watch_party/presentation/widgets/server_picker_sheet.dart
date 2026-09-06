@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/watch_party_server.dart';
@@ -12,7 +11,6 @@ const _cCard = AppColors.shimmerBase;
 const _cDeepRose = AppColors.deepRose;
 const _cGold = AppColors.animeGold;
 const _cGreen = AppColors.success;
-const _cTeal = AppColors.auroraTeal;
 const _cAmber = AppColors.warmAmber;
 const _cWhite = AppColors.petalWhite;
 const _cMuted = AppColors.mutedPurple;
@@ -194,37 +192,6 @@ class _ServerPickerSheetState extends State<ServerPickerSheet> {
             ],
             const SizedBox(height: 2),
             GestureDetector(
-              onTap: () {
-                Navigator.of(context).pop();
-                context.go('/party-downloads');
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  border: Border.all(color: _cTeal.withValues(alpha: 0.55)),
-                  borderRadius: BorderRadius.circular(14),
-                  color: _cTeal.withValues(alpha: 0.12),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.download_rounded, color: _cTeal, size: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Find a movie to host',
-                      style: AppTypography.outfitHeading.copyWith(
-                        color: _cWhite,
-                        fontSize: 12.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 6),
-            GestureDetector(
               onTap: () => setState(() => _showForm = !_showForm),
               child: Container(
                 padding: const EdgeInsets.symmetric(
@@ -403,10 +370,10 @@ class _ServerPickerSheetState extends State<ServerPickerSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _label('Name'),
-        _input(_name, hint: 'Jellyfin at home', style: inputStyle),
+        _input(_name, hint: 'Home server', style: inputStyle),
         const SizedBox(height: 10),
         _label('Host'),
-        _input(_host, hint: 'jellyfin', style: inputStyle),
+        _input(_host, hint: 'media-server', style: inputStyle),
         const SizedBox(height: 10),
         _label('Type'),
         Row(

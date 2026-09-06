@@ -13,7 +13,6 @@ import '../../../../../shared/widgets/shelf/shelf_section_header.dart';
 import '../../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../../../shared/widgets/shelf/staggered_entrance.dart';
 import '../../../../../shared/widgets/shelf/cinema_sections.dart';
-import '../../../../ai/presentation/widgets/ai_recommendations.dart';
 
 import 'anime_models.dart';
 import '../../../../../core/theme/app_typography.dart';
@@ -122,23 +121,10 @@ class AnimeHomeTab extends StatelessWidget {
             const SizedBox(height: 24),
           ],
 
-          // ── AI RECOMMENDATIONS ─────────────────────────────────
-          StaggeredEntrance(
-            index: homeSections.length + 1,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: AIRecommendations(
-                title: "Mochi's Picks",
-                autoLoad: true,
-                onTapItem: (item) => onTapItem(item),
-              ),
-            ),
-          ),
-
           // ── TOP 10 RANKING ─────────────────────────────────────
           if (topTenItems.isNotEmpty)
             StaggeredEntrance(
-              index: homeSections.length + 2,
+              index: homeSections.length + 1,
               child: TopTenRankingSection(
                 items: buildRankingItems(
                   items: topTenItems,
@@ -158,7 +144,7 @@ class AnimeHomeTab extends StatelessWidget {
           // ── GENRE ROWS ─────────────────────────────────────────
           for (var gi = 0; gi < genreRows.length; gi++) ...[
             StaggeredEntrance(
-              index: homeSections.length + 3 + gi,
+              index: homeSections.length + 2 + gi,
               child: _buildGenreRow(
                 context,
                 genreRows.keys.elementAt(gi),
@@ -171,7 +157,7 @@ class AnimeHomeTab extends StatelessWidget {
           // ── LIBRARY SECTIONS ───────────────────────────────────
           if (library.currentlyWatching.isNotEmpty) ...[
             StaggeredEntrance(
-              index: homeSections.length + 3 + genreRows.length,
+              index: homeSections.length + 2 + genreRows.length,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
                 child: ShelfSectionHeader(
@@ -190,7 +176,7 @@ class AnimeHomeTab extends StatelessWidget {
           ],
           if (library.toWatch.isNotEmpty) ...[
             StaggeredEntrance(
-              index: homeSections.length + 4 + genreRows.length,
+              index: homeSections.length + 3 + genreRows.length,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
                 child: ShelfSectionHeader(
@@ -209,7 +195,7 @@ class AnimeHomeTab extends StatelessWidget {
           ],
           if (library.watched.isNotEmpty) ...[
             StaggeredEntrance(
-              index: homeSections.length + 5 + genreRows.length,
+              index: homeSections.length + 4 + genreRows.length,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
                 child: ShelfSectionHeader(
@@ -314,8 +300,6 @@ class AnimeHomeTab extends StatelessWidget {
         return 'Fan Favourites';
       case 'hidden-gems':
         return 'Worth Discovering';
-      case 'editors-picks':
-        return "Mochi's Picks";
       case 'you-might-like':
         return 'Curated For You';
       case 'trending':
@@ -336,8 +320,6 @@ class AnimeHomeTab extends StatelessWidget {
         return 'Enduring fan favourites';
       case 'hidden-gems':
         return 'Underrated picks worth discovering';
-      case 'editors-picks':
-        return 'Mochi\'s personal recommendations';
       case 'you-might-like':
         return 'Curated based on your taste';
       case 'trending':

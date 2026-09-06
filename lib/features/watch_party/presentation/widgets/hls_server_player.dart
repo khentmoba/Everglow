@@ -91,9 +91,9 @@ class HlsServerPlayer extends StatefulWidget {
   final double startSeconds;
   final bool autoplay;
 
-  /// Optional WebVTT subtitle track URL (e.g. Jellyfin's subtitle
-  /// endpoint). Added as a `<track>` child on the real `<video>` element
-  /// so sidecar/embedded subtitles render natively in the browser.
+  /// Optional WebVTT subtitle track URL. Added as a `<track>` child on
+  /// the real `<video>` element so sidecar/embedded subtitles render
+  /// natively in the browser.
   final String? subtitleUrl;
 
   /// Unique platform view id. Keep it stable for the same room so the
