@@ -42,6 +42,10 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
   Timer? _timer;
   bool _muted = true;
   bool _ready = false;
+  // Trailer lookups stay off the open path on phones: details (runtime,
+  // synopsis, match %) load immediately, the YouTube key only resolves
+  // after the still has painted or the user taps Play.
+  bool _trailerArmed = false;
 
   MediaItem get _item => widget.items[_index];
 
@@ -80,6 +84,10 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
     _timer?.cancel();
     _timer = Timer(_hold, () {
       if (!mounted || widget.items.length < 2) return;
+      final isDesktop = MediaQuery.sizeOf(context).width >= 1024;
+      // Trailer autoplay is desktop-only: arming on phones would fetch a
+      // YouTube key + spin up a WebView the user never sees.
+      if (isDesktop) _armTrailer();
       _select((_index + 1) % widget.items.length);
     });
   }
@@ -94,16 +102,30 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
     if (index < 0 || index >= widget.items.length) return Future.value();
     final item = widget.items[index];
     final key = '${item.tmdbId}:${item.mediaType}';
-    if (_trailerCache.containsKey(key) && _detailCache.containsKey(key)) {
-      setState(() => _ready = true);
+    final needsDetails = !_detailCache.containsKey(key);
+    final needsTrailer =
+        _trailerArmed && !_trailerCache.containsKey(key);
+    if (!needsDetails && !needsTrailer) {
+      if (!_ready && mounted) setState(() => _ready = true);
       return Future.value();
     }
-    return Future.wait([
-      _ensureTrailer(item, key),
-      _ensureDetails(item, key),
-    ]).then((_) {
+    final pending = <Future<void>>[];
+    if (needsDetails) pending.add(_ensureDetails(item, key));
+    if (needsTrailer) pending.add(_ensureTrailer(item, key));
+    return Future.wait(pending).then((_) {
       if (mounted && index == _index) setState(() => _ready = true);
     });
+  }
+
+  /// Resolves the YouTube key after the still is on screen. Called once
+  /// from the engage path (Play tap arms it via the parent) and from the
+  /// rotation timer on desktop; on phones the muted autoplay player never
+  /// mounts, so this typically never fires there.
+  void _armTrailer() {
+    if (_trailerArmed) return;
+    _trailerArmed = true;
+    if (widget.items.isEmpty) return;
+    _loadFor(_index);
   }
 
   Future<void> _ensureTrailer(MediaItem item, String key) async {
@@ -268,12 +290,15 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
   }
 
   Widget _buildMedia(bool isDesktop) {
+    // Phones get the still only — the autoplaying trailer player (YouTube
+    // WebView/iframe) stays desktop-only so open never mounts video.
+    final showTrailer = isDesktop && _trailerKey != null && _ready;
     return KeyedSubtree(
       key: ValueKey('billboard-${_item.tmdbId}-$isDesktop'),
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (_trailerKey != null && _ready)
+          if (showTrailer)
             TrailerPlayer(
               videoKey: _trailerKey!,
               muted: _muted,
@@ -284,7 +309,8 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
             AppNetworkImage(
               imageUrl: _backdropUrl,
               fit: BoxFit.cover,
-              cacheWidth: 1600,
+              cacheWidth: isDesktop ? 1280 : 780,
+              filterQuality: FilterQuality.medium,
               errorWidget: Container(color: NetflixColors.surface),
             )
           else
