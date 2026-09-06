@@ -43,4 +43,39 @@ void main() {
       expect(map['author'], 'Khent');
     });
   });
+
+  group('repairLegacyImageUrl', () {
+    test('rewrites each stale .png milestone photo to its .jpg', () {
+      expect(
+        Milestone.legacyAssetPathFixes.entries,
+        hasLength(5),
+        reason: 'five photos were renamed from .png to .jpg',
+      );
+      for (final entry in Milestone.legacyAssetPathFixes.entries) {
+        expect(
+          Milestone.repairLegacyImageUrl(entry.key),
+          entry.value,
+          reason: '${entry.key} should be repaired',
+        );
+      }
+    });
+
+    test('leaves current paths and download URLs untouched', () {
+      const untouched = [
+        'assets/images/milestones/valentines_khent_1.jpg',
+        'assets/images/milestones/puting_bato_khent_1.jpg',
+        'assets/images/milestones/some_future_photo.png',
+        'https://firebasestorage.example.com/milestones/photo.jpg',
+        'https://example.com/image.png',
+        '',
+      ];
+      for (final url in untouched) {
+        expect(
+          Milestone.repairLegacyImageUrl(url),
+          url,
+          reason: '$url should pass through unchanged',
+        );
+      }
+    });
+  });
 }
