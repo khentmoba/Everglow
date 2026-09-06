@@ -114,7 +114,7 @@ class _NetflixRowState extends State<NetflixRow> {
     final overlay = Overlay.of(context);
     final screen = MediaQuery.sizeOf(context);
     final width = (screen.width * 0.26).clamp(300.0, 360.0);
-    final height = width * 0.5625 + 218;
+    final height = netflixPreviewHeight(width);
     final offset = positionHoverPreview(
       anchor: rect,
       previewSize: Size(width, height),
@@ -127,7 +127,6 @@ class _NetflixRowState extends State<NetflixRow> {
         left: offset.dx,
         top: offset.dy,
         width: width,
-        height: height,
         child: MouseRegion(
           onEnter: (_) => _pointerInPreview = true,
           onExit: (_) {
@@ -320,7 +319,7 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
       final overlay = Overlay.of(context);
       final screen = MediaQuery.sizeOf(context);
       final width = (screen.width * 0.26).clamp(300.0, 360.0);
-      final height = width * 0.5625 + 218;
+      final height = netflixPreviewHeight(width);
       final offset = positionHoverPreview(
         anchor: rect,
         previewSize: Size(width, height),
@@ -332,7 +331,6 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
           left: offset.dx,
           top: offset.dy,
           width: width,
-          height: height,
           child: MouseRegion(
             onEnter: (_) => _pointerInPreview = true,
             onExit: (_) {
