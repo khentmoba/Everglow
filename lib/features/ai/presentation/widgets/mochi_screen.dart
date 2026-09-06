@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../data/services/ai_service.dart';
+import '../../data/services/study_doc_service.dart';
 import '../../domain/models/ai_conversation.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -48,6 +49,10 @@ class _MochiScreenState extends State<MochiScreen> {
   final List<String> _attachedImageUrls = [];
   final ImagePicker _picker = ImagePicker();
   final MochiWebBridge _webBridge = MochiWebBridge();
+  final StudyDocService _studyDocs = StudyDocService();
+  StudyDoc? _studyDoc;
+  bool _studyDocSent = false;
+  bool _pickingDoc = false;
 
   @override
   void initState() {
@@ -173,10 +178,16 @@ class _MochiScreenState extends State<MochiScreen> {
 
   Future<void> _send({bool retry = false}) async {
     if (_isSending) return;
-    final text = retry ? (_lastSentMessage ?? '').trim() : _input.text.trim();
+    final rawText = retry ? (_lastSentMessage ?? '').trim() : _input.text.trim();
     final hasImages = !retry && _attachedImageUrls.isNotEmpty;
-    if (text.isEmpty && !hasImages) return;
+    final hasStudy = !retry && _studyDoc != null && !_studyDocSent;
+    if (rawText.isEmpty && !hasImages && !hasStudy) return;
     _isSending = true;
+    // Study doc text rides along on its first send only; after that it
+    // lives in history. Retry resends the already-built message as-is.
+    final text = hasStudy
+        ? buildStudyMessage(doc: _studyDoc!, userPrompt: rawText)
+        : rawText;
     _lastSentMessage = text;
     _input.clear();
     if (mounted) setState(() {});
@@ -190,6 +201,7 @@ class _MochiScreenState extends State<MochiScreen> {
       setState(() {
         _attachedImages.clear();
         _attachedImageUrls.clear();
+        if (hasStudy) _studyDocSent = true;
       });
       await aiService.sendMessage(
         feature: 'assistant',
@@ -261,6 +273,38 @@ class _MochiScreenState extends State<MochiScreen> {
     });
   }
 
+  Future<void> _pickStudyDoc() async {
+    if (_pickingDoc) return;
+    setState(() => _pickingDoc = true);
+    try {
+      final doc = await _studyDocs.pickAndExtract();
+      if (!mounted || doc == null) return; // user cancelled
+      setState(() {
+        _studyDoc = doc;
+        _studyDocSent = false;
+      });
+      _focusNode.requestFocus();
+    } on StudyDocException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message, style: AppTypography.bodySmall()),
+            backgroundColor: AppColors.deepRose.withValues(alpha: 0.9),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _pickingDoc = false);
+    }
+  }
+
+  void _removeStudyDoc() {
+    setState(() {
+      _studyDoc = null;
+      _studyDocSent = false;
+    });
+  }
+
   void _newChat() async {
     final ai = context.read<AIService>();
     try {
@@ -279,7 +323,12 @@ class _MochiScreenState extends State<MochiScreen> {
       }
     }
     if (!mounted) return;
-    setState(() => _isSidebarOpen = false);
+    setState(() {
+      _isSidebarOpen = false;
+      // Study docs live in one chat only — a new chat drops them.
+      _studyDoc = null;
+      _studyDocSent = false;
+    });
     _scrollToBottom(animated: false);
   }
 
@@ -373,6 +422,7 @@ class _MochiScreenState extends State<MochiScreen> {
                           return _QuickReplyChips(
                             onSelect: _sendQuick,
                             centered: true,
+                            studyActive: _studyDoc != null,
                           );
                         },
                       ),
@@ -389,6 +439,11 @@ class _MochiScreenState extends State<MochiScreen> {
                         attachedImages: _attachedImages,
                         onRemoveImage: _removeImage,
                         centered: true,
+                        onPickStudyDoc: _pickingDoc ? null : _pickStudyDoc,
+                        studyDocName: _studyDoc?.fileName,
+                        studyDocSent: _studyDocSent,
+                        studyDocTruncated: _studyDoc?.truncated ?? false,
+                        onRemoveStudyDoc: _removeStudyDoc,
                       ),
                     ],
                   ),
@@ -453,6 +508,7 @@ class _MochiScreenState extends State<MochiScreen> {
                     return _QuickReplyChips(
                       onSelect: _sendQuick,
                       centered: false,
+                      studyActive: _studyDoc != null,
                     );
                   },
                 ),
@@ -469,6 +525,11 @@ class _MochiScreenState extends State<MochiScreen> {
                   attachedImages: _attachedImages,
                   onRemoveImage: _removeImage,
                   centered: false,
+                  onPickStudyDoc: _pickingDoc ? null : _pickStudyDoc,
+                  studyDocName: _studyDoc?.fileName,
+                  studyDocSent: _studyDocSent,
+                  studyDocTruncated: _studyDoc?.truncated ?? false,
+                  onRemoveStudyDoc: _removeStudyDoc,
                 ),
               ],
             ),
