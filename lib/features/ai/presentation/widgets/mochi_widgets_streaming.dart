@@ -334,6 +334,11 @@ class _ComposerInput extends StatefulWidget {
   final List<String> attachedImages;
   final void Function(int) onRemoveImage;
   final bool centered;
+  final VoidCallback? onPickStudyDoc;
+  final String? studyDocName;
+  final bool studyDocSent;
+  final bool studyDocTruncated;
+  final VoidCallback? onRemoveStudyDoc;
 
   const _ComposerInput({
     required this.inputKey,
@@ -344,6 +349,11 @@ class _ComposerInput extends StatefulWidget {
     this.attachedImages = const [],
     required this.onRemoveImage,
     this.centered = false,
+    this.onPickStudyDoc,
+    this.studyDocName,
+    this.studyDocSent = false,
+    this.studyDocTruncated = false,
+    this.onRemoveStudyDoc,
   });
 
   @override
@@ -394,6 +404,10 @@ class _ComposerInputState extends State<_ComposerInput> {
       selector: (_, ai) => ai.isLoading,
       builder: (context, isLoading, _) {
         final ai = context.read<AIService>();
+        final hasPendingStudy =
+            widget.studyDocName != null && !widget.studyDocSent;
+        final canSend =
+            _hasText || widget.attachedImages.isNotEmpty || hasPendingStudy;
         final inner = Container(
           key: widget.inputKey,
           padding: EdgeInsets.fromLTRB(
@@ -458,6 +472,64 @@ class _ComposerInputState extends State<_ComposerInput> {
                     ),
                   ),
                 ),
+              if (widget.studyDocName != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.blushGold.withValues(alpha: 0.08),
+                      borderRadius: AppRadius.radiusMd,
+                      border: Border.all(
+                        color: AppColors.blushGold.withValues(alpha: 0.25),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.picture_as_pdf_rounded,
+                          size: 16,
+                          color: AppColors.blushGold,
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            widget.studyDocSent
+                                ? '${widget.studyDocName} — in this chat'
+                                : widget.studyDocTruncated
+                                ? '${widget.studyDocName} — start kept, ask away'
+                                : '${widget.studyDocName} — ask away',
+                            style: AppTypography.bodySmall().copyWith(
+                              fontSize: 11,
+                              color: AppColors.textMedium,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        GestureDetector(
+                          onTap: widget.onRemoveStudyDoc,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: AppColors.inkDeep.withValues(alpha: 0.72),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              size: 12,
+                              color: AppColors.petalWhite,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               Container(
                 decoration: BoxDecoration(
                   color: AppColors.surfaceGlass,
@@ -487,6 +559,17 @@ class _ComposerInputState extends State<_ComposerInput> {
                           size: 22,
                         ),
                         tooltip: 'Attach images',
+                      ),
+                      IconButton(
+                        onPressed: widget.onPickStudyDoc,
+                        icon: Icon(
+                          Icons.picture_as_pdf_rounded,
+                          color: widget.studyDocName != null
+                              ? AppColors.blushGold
+                              : AppColors.textMuted,
+                          size: 22,
+                        ),
+                        tooltip: 'Study a PDF with Mochi',
                       ),
                       if (_bridge.isSpeechSupported)
                         IconButton(
@@ -518,8 +601,9 @@ class _ComposerInputState extends State<_ComposerInput> {
                           maxLines: 6,
                           textInputAction: TextInputAction.newline,
                           decoration: InputDecoration(
-                            hintText:
-                                'Talk to Mochi...  (Enter to send, Shift+Enter for newline)',
+                            hintText: hasPendingStudy
+                                ? 'Ask about your PDF… (Enter to send)'
+                                : 'Talk to Mochi...  (Enter to send, Shift+Enter for newline)',
                             hintStyle: AppTypography.bodyMedium().copyWith(
                               color: AppColors.textDisabled,
                               fontSize: 13,
@@ -535,9 +619,7 @@ class _ComposerInputState extends State<_ComposerInput> {
                       Padding(
                         padding: const EdgeInsets.only(right: 8, bottom: 4),
                         child: GestureDetector(
-                          onTap:
-                              (ai.isLoading ||
-                                  (!_hasText && widget.attachedImages.isEmpty))
+                          onTap: (ai.isLoading || !canSend)
                               ? null
                               : widget.onSend,
                           child: AnimatedContainer(
@@ -545,10 +627,7 @@ class _ComposerInputState extends State<_ComposerInput> {
                             width: 36,
                             height: 36,
                             decoration: BoxDecoration(
-                              gradient:
-                                  (!ai.isLoading &&
-                                      (_hasText ||
-                                          widget.attachedImages.isNotEmpty))
+                              gradient: (!ai.isLoading && canSend)
                                   ? const LinearGradient(
                                       colors: [
                                         AppColors.blushGold,
@@ -558,10 +637,7 @@ class _ComposerInputState extends State<_ComposerInput> {
                                       end: Alignment.bottomRight,
                                     )
                                   : null,
-                              color:
-                                  (!ai.isLoading &&
-                                      (_hasText ||
-                                          widget.attachedImages.isNotEmpty))
+                              color: (!ai.isLoading && canSend)
                                   ? null
                                   : AppColors.velvet.withValues(alpha: 0.4),
                               borderRadius: AppRadius.radiusLg,
@@ -578,9 +654,7 @@ class _ComposerInputState extends State<_ComposerInput> {
                                     )
                                   : Icon(
                                       Icons.arrow_upward_rounded,
-                                      color:
-                                          (_hasText ||
-                                              widget.attachedImages.isNotEmpty)
+                                      color: canSend
                                           ? AppColors.petalWhite
                                           : AppColors.textDisabled,
                                       size: 20,
