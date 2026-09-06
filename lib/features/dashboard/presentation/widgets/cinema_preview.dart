@@ -7,7 +7,6 @@ import '../../../cinema/data/models/media_item.dart';
 import '../../../cinema/data/services/tmdb_service.dart';
 import '../../../cinema/presentation/widgets/episode_drawer.dart';
 import '../../../../core/services/auth_service.dart';
-import '../../../ai/presentation/widgets/ai_recommendations.dart';
 import '_partner_label.dart';
 import 'partner_subrow.dart';
 import 'shelf_widgets.dart';
@@ -38,7 +37,6 @@ class CinemaPreview extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _CinemaHeader(userName: userName),
-          const AIRecommendations(title: "Mochi's Picks"),
           if (isCouple && partner != null && partner.isNotEmpty) ...[
             _CinemaShelf(userName: userName, label: 'ME', isSelf: true),
             _CinemaShelf(userName: partner, label: partnerLabel, isSelf: false),
