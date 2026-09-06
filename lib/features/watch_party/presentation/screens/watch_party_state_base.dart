@@ -760,6 +760,14 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     );
 
     String base;
+    if (provider.id == 'everglow-embed') {
+      if (_room.mediaType == 'tv') {
+        final s = _room.season ?? 1;
+        final e = _room.episode ?? 1;
+        return '$tvBase?tmdbId=$id&type=tv&s=$s&e=$e';
+      }
+      return '$movieBase?tmdbId=$id&type=movie';
+    }
     if (_room.mediaType == 'tv') {
       final s = _room.season ?? 1;
       final e = _room.episode ?? 1;
