@@ -7,7 +7,7 @@
 /// pushed from Firestore (`config/watch_party_servers`) without a
 /// client release, exactly like AniChan's server API.
 class WatchPartyServer {
-  /// Stable id, e.g. "jellyfin-khent" or "plex-clair".
+  /// Stable id, e.g. "home-khent" or "plex-clair".
   final String id;
 
   /// Full display name shown in the server picker.
@@ -16,7 +16,7 @@ class WatchPartyServer {
   /// Short label for compact UI (chips, header badges).
   final String shortName;
 
-  /// Machine identity reported with playback, e.g. "jellyfin" or "plex".
+  /// Machine identity reported with playback, e.g. "plex" or "home-server".
   final String host;
 
   /// 'hls' (m3u8 played with hls.js) or 'embed' (iframe page).

@@ -66,7 +66,7 @@ class WatchPartyRoom {
   /// 'hls' | 'embed' | null. Null means the legacy embed-provider list.
   final String? serverType;
 
-  /// Display label of the active server (e.g. "★ Jellyfin").
+  /// Display label of the active server (e.g. "★ Home server").
   final String? serverName;
 
   /// Host identity reported for the active server.
