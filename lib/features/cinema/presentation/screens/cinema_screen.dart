@@ -59,7 +59,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
 
   List<MediaItem> _trendingCarousel = [];
   List<MediaItem> _trendingGlobal = [];
-  List<MediaItem> _trendingPH = [];
   List<MediaItem> _topRatedMovies = [];
   List<MediaItem> _popularTVShows = [];
   List<MediaItem> _nowShowing = [];
@@ -71,12 +70,12 @@ class _CinemaScreenState extends State<CinemaScreen> {
   List<MediaItem> _airingToday = [];
   List<MediaItem> _onTheAir = [];
   final Map<String, List<MediaItem>> _discoveryRows = {};
-
   final Map<String, List<MediaItem>> _genreLists = {};
-  final Map<int, String> _movieGenres = {};
-  final Map<int, String> _tvGenres = {};
 
   bool _isLoadingHome = true;
+
+  /// Watch Together mounts lazily (see build) — flipped on first visit.
+  bool _hasVisitedTogether = false;
 
   /// Below-the-fold rails (genre + discovery rows) wait for the first scroll
   /// so opening Cinema only pays for the rows Claire can actually see.
@@ -93,6 +92,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
     } else {
       _currentIndex = widget.initialTab.clamp(0, 4);
     }
+    if (_currentIndex == 4) _hasVisitedTogether = true;
     _fetchHomeData();
     // Read auth-dependent state after the first frame so Provider is available.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -126,18 +126,20 @@ class _CinemaScreenState extends State<CinemaScreen> {
     _watchlistSubscription = _tmdbService.getWatchListStream(userName).listen((
       items,
     ) async {
-      if (mounted) {
-        // Same healing the dashboard's currently-watching shelf does:
-        // items created by the player (played before being added to the
-        // watchlist) can land in Firestore with an empty posterPath, so
-        // backfill them before splitting into the continue-watching row.
-        var refreshed = await _tmdbService.backfillMissingPosters(items);
-        refreshed = await _tmdbService.refreshAnimePosters(refreshed);
-        setState(() {
-          _watchlist = refreshed;
-          _splitWatchlists();
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _watchlist = items;
+        _splitWatchlists();
+      });
+      // Poster healing runs after paint so the list shows instantly; each
+      // pass only touches items still missing art.
+      var refreshed = await _tmdbService.backfillMissingPosters(items);
+      refreshed = await _tmdbService.refreshAnimePosters(refreshed);
+      if (!mounted) return;
+      setState(() {
+        _watchlist = refreshed;
+        _splitWatchlists();
+      });
     });
   }
 
@@ -153,10 +155,10 @@ class _CinemaScreenState extends State<CinemaScreen> {
     _deepRowsStarted = false;
     _deepRowsFallbackTimer?.cancel();
 
-    // Fire every home request at once, but paint each rail the moment its own
-    // call lands — the billboard + first rows show without waiting for the
-    // slowest of the 12. Each row is error-isolated: one failing call leaves
-    // an empty rail instead of a stuck shimmer.
+    // Open pays for 5 visible rows only: billboard + trending, top rated,
+    // popular series, now showing, new releases. Genre + discovery rails
+    // wait for the first scroll (see _startDeepRows) so Claire's phone
+    // isn't opening 13+ authenticated proxy calls at once.
     final currentYear = DateTime.now().year;
     await Future.wait([
       _loadRow(
@@ -166,10 +168,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
           _trendingCarousel = items.take(5).toList();
         },
         dismissShimmer: true,
-      ),
-      _loadRow(
-        _tmdbService.fetchTrending(region: 'PH', timeWindow: 'week'),
-        (items) => _trendingPH = items,
       ),
       _loadRow(
         _tmdbService.fetchTopRatedMovies(),
@@ -191,25 +189,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
           final y = int.tryParse(m.year);
           return y == null || y >= currentYear - 1;
         }).toList(),
-      ),
-      _loadGenres('movie', _movieGenres),
-      _loadGenres('tv', _tvGenres),
-      // Discovery rows (Phase 3a)
-      _loadRow(
-        _tmdbService.fetchPopularMovies(),
-        (items) => _popularMovies = items,
-      ),
-      _loadRow(
-        _tmdbService.fetchTopRatedTV(),
-        (items) => _topRatedTV = items,
-      ),
-      _loadRow(
-        _tmdbService.fetchAiringToday(),
-        (items) => _airingToday = items,
-      ),
-      _loadRow(
-        _tmdbService.fetchOnTheAir(),
-        (items) => _onTheAir = items,
       ),
     ]);
 
@@ -244,27 +223,40 @@ class _CinemaScreenState extends State<CinemaScreen> {
     });
   }
 
-  Future<void> _loadGenres(String mediaType, Map<int, String> target) async {
-    late final Map<int, String> genres;
-    try {
-      genres = await _tmdbService.fetchGenreList(mediaType);
-    } catch (_) {
-      return;
-    }
-    if (!mounted) return;
-    setState(() => target
-      ..clear()
-      ..addAll(genres));
-  }
-
   /// Starts the below-the-fold rails once, either from the first scroll or
-  /// the fallback timer. Each rail paints as its own call lands.
+  /// the fallback timer. The 4 mid-page rails paint as their own calls land;
+  /// genre + decade rails wait until those finish so the proxy + TMDB
+  /// never serve 17 concurrent calls from one phone.
   void _startDeepRows() {
     if (_deepRowsStarted || !mounted) return;
     _deepRowsStarted = true;
     _deepRowsFallbackTimer?.cancel();
-    unawaited(_fetchGenreLists());
-    unawaited(_fetchDiscoveryRows());
+    unawaited(_fetchMidRows().then((_) {
+      if (!mounted) return;
+      unawaited(_fetchGenreLists());
+      unawaited(_fetchDiscoveryRows());
+    }));
+  }
+
+  Future<void> _fetchMidRows() async {
+    await Future.wait([
+      _loadRow(
+        _tmdbService.fetchPopularMovies(),
+        (items) => _popularMovies = items,
+      ),
+      _loadRow(
+        _tmdbService.fetchTopRatedTV(),
+        (items) => _topRatedTV = items,
+      ),
+      _loadRow(
+        _tmdbService.fetchAiringToday(),
+        (items) => _airingToday = items,
+      ),
+      _loadRow(
+        _tmdbService.fetchOnTheAir(),
+        (items) => _onTheAir = items,
+      ),
+    ]);
   }
 
   Future<void> _fetchGenreLists() async {
@@ -396,7 +388,10 @@ class _CinemaScreenState extends State<CinemaScreen> {
 
   void _switchTab(int index) {
     HapticFeedback.selectionClick();
-    setState(() => _currentIndex = index);
+    setState(() {
+      _currentIndex = index;
+      if (index == 4) _hasVisitedTogether = true;
+    });
   }
 
   /// Opens the Browse tab seeded with [optionId] (used by nav links).
@@ -564,7 +559,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
                   watchingList: _watchingList,
                   watchedList: _watchedList,
                   trendingGlobal: _trendingGlobal,
-                  trendingPH: _trendingPH,
                   onRefresh: _fetchHomeData,
                   onMediaTap: _showMediaDetails,
                   onPlay: _playNow,
@@ -603,11 +597,17 @@ class _CinemaScreenState extends State<CinemaScreen> {
                   onRateItem: _rateItem,
                   onSwitchTab: _switchTab,
                 ),
-                CinemaWatchTogetherTab(
-                  watchlist: _watchlist,
-                  onMediaTap: _showMediaDetails,
-                  onSwitchTab: _switchTab,
-                ),
+                // Watch Together holds a Jellyfin fetch + room stream, so it
+                // only mounts once visited — otherwise every Cinema open pays
+                // for a tab Claire may never tap.
+                if (_hasVisitedTogether)
+                  CinemaWatchTogetherTab(
+                    watchlist: _watchlist,
+                    onMediaTap: _showMediaDetails,
+                    onSwitchTab: _switchTab,
+                  )
+                else
+                  const SizedBox.shrink(),
               ],
             ),
             if (!isDesktop && !_mobileSidebarOpen)

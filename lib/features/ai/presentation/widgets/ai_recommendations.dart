@@ -58,8 +58,9 @@ class _AIRecommendationsState extends State<AIRecommendations> {
     super.initState();
     if (widget.autoLoad) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        // Wait a bit for the provider tree and auth to be ready
-        Future.delayed(const Duration(milliseconds: 500), () {
+        // Deferred well past paint: the AI call (Firestore get + Mochi
+        // function + up to 5 TMDB searches) must never race the rails.
+        Future.delayed(const Duration(seconds: 4), () {
           if (mounted) _getRecommendations();
         });
       });

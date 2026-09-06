@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -8,13 +10,28 @@ import '../../../../shared/widgets/everglow/everglow_marquee.dart';
 import '../../../../core/theme/app_typography.dart';
 import 'feature_section.dart';
 
-class GalleryPreview extends StatelessWidget {
+class GalleryPreview extends StatefulWidget {
   const GalleryPreview({super.key});
+
+  @override
+  State<GalleryPreview> createState() => _GalleryPreviewState();
+}
+
+class _GalleryPreviewState extends State<GalleryPreview> {
+  late final GalleryService _service;
+  late final Stream<List<MemoryPhoto>> _recentPhotos;
+
+  @override
+  void initState() {
+    super.initState();
+    _service = GalleryService();
+    _recentPhotos = _service.getRecentPhotos(limit: 6);
+  }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<MemoryPhoto>>(
-      stream: GalleryService().getRecentPhotos(limit: 6),
+      stream: _recentPhotos,
       builder: (context, snapshot) {
         final photos = snapshot.data ?? [];
 
