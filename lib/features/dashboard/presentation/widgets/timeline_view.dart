@@ -245,10 +245,13 @@ class _TimelineViewState extends State<TimelineView> {
         // ClampingScrollPhysics prevents the PageView from fighting the
         // outer CustomScrollView's vertical drag (gesture arena stack
         // overflow seen as k1.IT/Ld at framework.dart:6944).
+        // NOTE: padEnds must stay true (the default). With viewportFraction
+        // < 1, padEnds:false left-aligns the first/last page, which pushed
+        // the Living Archive card left-of-center on mobile.
         physics: const ClampingScrollPhysics(),
         clipBehavior: Clip.hardEdge,
         allowImplicitScrolling: false,
-        padEnds: false,
+        padEnds: true,
         itemCount: milestones.length,
         itemBuilder: (context, index) {
           final milestone = milestones[index];
@@ -503,9 +506,17 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
       label: 'Open memory ${milestone.title}',
       child: GestureDetector(
         onTap: _openMemory,
-        child: Container(
-          width: 320,
-          height: 500,
+        // Horizontal padding + maxWidth (instead of a fixed 320 width) so
+        // the card stays centered on narrow phones: a hard 320px width
+        // overflowed the 0.85-fraction page (~306px on a 360px phone) and
+        // got clipped off-center by the PageView's Clip.hardEdge.
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: Container(
+                height: 500,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
@@ -878,6 +889,9 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
                 // Film leader (bottom)
                 _buildFilmStripEdge(isTop: false),
               ],
+            ),
+          ),
+              ),
             ),
           ),
         ),
