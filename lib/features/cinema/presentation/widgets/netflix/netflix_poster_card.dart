@@ -121,7 +121,7 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
     final overlay = Overlay.of(context);
     final screen = MediaQuery.sizeOf(context);
     final width = (screen.width * 0.26).clamp(300.0, 360.0);
-    final height = width * 0.5625 + 218;
+    final height = netflixPreviewHeight(width);
     final offset = positionHoverPreview(
       anchor: rect,
       previewSize: Size(width, height),
@@ -132,7 +132,6 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
         left: offset.dx,
         top: offset.dy,
         width: width,
-        height: height,
         child: MouseRegion(
           onEnter: (_) => _pointerInPreview = true,
           onExit: (_) {
@@ -175,11 +174,9 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
     final isDesktop = MediaQuery.sizeOf(context).width >= 1024;
     final scale = _pressed
         ? 0.96
-        : (_hovered && isDesktop ? (widget.compact ? 1.06 : 1.25) : 1.0);
-    final lift = _hovered && isDesktop && !widget.compact ? -18.0 : 0.0;
+        : (_hovered && isDesktop ? (widget.compact ? 1.05 : 1.08) : 1.0);
 
-    final transform = Matrix4.diagonal3Values(scale, scale, 1.0)
-      ..setTranslationRaw(0.0, lift, 0.0);
+    final transform = Matrix4.diagonal3Values(scale, scale, 1.0);
 
     return AnimatedContainer(
       duration: AppMotion.orZero(const Duration(milliseconds: 220)),
