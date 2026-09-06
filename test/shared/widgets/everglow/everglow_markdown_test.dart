@@ -61,7 +61,7 @@ void main() {
       tester,
       '- First point\n- Second point\n\n1. Step one\n2. Step two\n\n---\n\nDone',
     );
-    expect(find.byType(Divider), findsOneWidget);
+    expect(find.byType(EverglowDivider), findsOneWidget);
     expect(find.textContaining('---', findRichText: true), findsNothing);
     expect(find.textContaining('First point', findRichText: true), findsWidgets);
     expect(find.textContaining('Step one', findRichText: true), findsWidgets);
