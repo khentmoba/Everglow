@@ -39,8 +39,9 @@ class EverglowMarkdown extends StatelessWidget {
         baseStyle ??
         AppTypography.bodyMedium().copyWith(
           color: AppColors.textHigh,
-          height: 1.65,
-          fontSize: 14,
+          height: 1.6,
+          fontSize: 14.5,
+          fontWeight: FontWeight.w500,
         );
     final blocks = _parseBlocks(text.trim(), base);
     if (blocks.isEmpty) return const SizedBox.shrink();
@@ -305,13 +306,14 @@ class _EverglowTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final headerStyle = AppTypography.bodySmall().copyWith(
-      fontSize: 12,
+      fontSize: 12.5,
       fontWeight: FontWeight.w700,
       color: AppColors.blushGold,
       height: 1.4,
     );
     final cellStyle = AppTypography.bodySmall().copyWith(
-      fontSize: 13,
+      fontSize: 13.5,
+      fontWeight: FontWeight.w500,
       color: AppColors.textHigh,
       height: 1.55,
     );
@@ -452,7 +454,7 @@ class _Heading extends StatelessWidget {
         break;
       default:
         style = AppTypography.bodyMedium().copyWith(
-          fontSize: 14,
+          fontSize: 14.5,
           fontWeight: FontWeight.w700,
           color: AppColors.blushGold,
           height: 1.4,
@@ -498,7 +500,7 @@ class _Subhead extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = AppTypography.bodyMedium().copyWith(
-      fontSize: 13.5,
+      fontSize: 14,
       fontWeight: FontWeight.w700,
       color: AppColors.blushGold,
       height: 1.4,
@@ -530,10 +532,10 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = AppTypography.bodySmall().copyWith(
-      fontSize: 12.5,
-      fontWeight: FontWeight.w800,
+      fontSize: 13,
+      fontWeight: FontWeight.w700,
       color: AppColors.blushGold,
-      letterSpacing: 0.7,
+      letterSpacing: 0.4,
       height: 1.4,
     );
     return Padding(
@@ -681,7 +683,7 @@ class _Numbered extends StatelessWidget {
                 number,
                 style: AppTypography.bodySmall().copyWith(
                   fontSize: 12,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   color: AppColors.petalWhite,
                   height: 1.0,
                 ),
@@ -882,7 +884,8 @@ class _CodeBlock extends StatelessWidget {
               code,
               style: AppTypography.bodySmall().copyWith(
                 fontFamily: 'monospace',
-                fontSize: 12.5,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
                 color: AppColors.auroraTeal,
                 height: 1.6,
               ),

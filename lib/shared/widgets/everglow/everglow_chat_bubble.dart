@@ -81,7 +81,8 @@ class EverglowUserBubble extends StatelessWidget {
                     style: AppTypography.bodyMedium().copyWith(
                       color: AppColors.petalWhite,
                       height: 1.55,
-                      fontSize: 14,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   if (timeLabel != null && timeLabel!.isNotEmpty) ...[
@@ -89,8 +90,9 @@ class EverglowUserBubble extends StatelessWidget {
                     Text(
                       timeLabel!,
                       style: AppTypography.bodySmall().copyWith(
-                        fontSize: 10,
-                        color: AppColors.petalWhite.withValues(alpha: 0.65),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.petalWhite.withValues(alpha: 0.75),
                       ),
                     ),
                   ],
@@ -162,6 +164,9 @@ class EverglowAssistantBubble extends StatelessWidget {
                 avatarAsset!,
                 width: 34,
                 height: 34,
+                cacheWidth: 102,
+                cacheHeight: 102,
+                filterQuality: FilterQuality.high,
                 fit: BoxFit.cover,
               ),
             ),
@@ -209,7 +214,8 @@ class EverglowAssistantBubble extends StatelessWidget {
                     Text(
                       title.toUpperCase(),
                       style: AppTypography.labelSmall().copyWith(
-                        fontSize: 10,
+                        fontSize: 11,
+                        letterSpacing: 0.5,
                         color: AppColors.blushGold,
                       ),
                     ),
@@ -219,8 +225,9 @@ class EverglowAssistantBubble extends StatelessWidget {
                         child: Text(
                           '· $subtitle',
                           style: AppTypography.bodySmall().copyWith(
-                            fontSize: 10,
-                            color: AppColors.textDisabled,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textMuted,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -242,8 +249,9 @@ class EverglowAssistantBubble extends StatelessWidget {
                     text: text.trimLeft(),
                     baseStyle: AppTypography.bodyMedium().copyWith(
                       color: AppColors.textHigh,
-                      height: 1.65,
-                      fontSize: 14,
+                      height: 1.6,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 if (isStreaming && text.trimLeft().isNotEmpty) ...[
@@ -265,11 +273,9 @@ class EverglowAssistantBubble extends StatelessWidget {
                         child: Text(
                           timeLabel!,
                           style: AppTypography.bodySmall().copyWith(
-                            fontSize: 10,
-                            color: AppColors.textDisabled.withValues(
-                              alpha: 0.65,
-                            ),
-                            fontStyle: FontStyle.italic,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textMuted,
                           ),
                         ),
                       ),
@@ -299,8 +305,8 @@ class EverglowCopyIconButton extends StatelessWidget {
         padding: const EdgeInsets.all(5),
         child: Icon(
           Icons.copy_rounded,
-          size: 13,
-          color: AppColors.textDisabled.withValues(alpha: 0.75),
+          size: 14,
+          color: AppColors.textMuted,
         ),
       ),
     );
