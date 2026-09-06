@@ -20,6 +20,7 @@ class _MessageImages extends StatelessWidget {
                     width: 180,
                     height: 180,
                     fit: BoxFit.cover,
+                    filterQuality: FilterQuality.high,
                     gaplessPlayback: true,
                     errorBuilder: (_, _, _) => _BrokenImageTile(),
                   )
@@ -28,7 +29,7 @@ class _MessageImages extends StatelessWidget {
                     width: 180,
                     height: 180,
                     fit: BoxFit.cover,
-                    cacheWidth: 400,
+                    cacheWidth: 540,
                     errorWidget: _BrokenImageTile(),
                   ),
           ),
@@ -128,6 +129,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   'assets/images/mochi_avatar.png',
                   width: 34,
                   height: 34,
+                  cacheWidth: 102,
+                  cacheHeight: 102,
+                  filterQuality: FilterQuality.high,
                   fit: BoxFit.cover,
                 ),
               ),
@@ -215,7 +219,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
                             Text(
                               'MOCHI',
                               style: AppTypography.labelSmall().copyWith(
-                                fontSize: 10,
+                                fontSize: 11,
+                                letterSpacing: 0.5,
                                 color: AppColors.blushGold,
                               ),
                             ),
@@ -224,8 +229,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               child: Text(
                                 '· your cat who remembers',
                                 style: AppTypography.bodySmall().copyWith(
-                                  fontSize: 10,
-                                  color: AppColors.textDisabled,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.textMuted,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -272,10 +278,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                   Text(
                                     'Thinking${widget.isStreaming ? '...' : ''}',
                                     style: AppTypography.bodySmall().copyWith(
-                                      fontSize: 10,
-                                      color: AppColors.textMuted.withValues(
-                                        alpha: 0.8,
-                                      ),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.textMuted,
                                     ),
                                   ),
                                   const SizedBox(width: 6),
@@ -294,11 +299,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                   text: widget.reasoning!,
                                   paragraphGap: 4,
                                   baseStyle: AppTypography.bodySmall().copyWith(
-                                    fontSize: 10,
-                                    color: AppColors.textMuted.withValues(
-                                      alpha: 0.6,
-                                    ),
-                                    height: 1.4,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.textMuted,
+                                    height: 1.5,
                                     fontStyle: FontStyle.italic,
                                   ),
                                 ),
@@ -318,7 +322,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         style: AppTypography.bodyMedium().copyWith(
                           color: AppColors.petalWhite,
                           height: 1.55,
-                          fontSize: 14,
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w500,
                         ),
                       )
                     else if (widget.isStreaming && bubbleText.isEmpty)
@@ -332,8 +337,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               text: bubbleText,
                               baseStyle: AppTypography.bodyMedium().copyWith(
                                 color: AppColors.textHigh,
-                                height: 1.65,
-                                fontSize: 14,
+                                height: 1.6,
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),
@@ -370,11 +376,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                     ? 'Mochi • private memory · ${isToday ? timeStr : fullDateStr}'
                                     : 'Mochi • private memory + Everglow context',
                                 style: AppTypography.bodySmall().copyWith(
-                                  fontSize: 10,
-                                  color: AppColors.textDisabled.withValues(
-                                    alpha: 0.65,
-                                  ),
-                                  fontStyle: FontStyle.italic,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.textMuted,
                                 ),
                               ),
                             ),
@@ -416,14 +420,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                   ? timeStr
                                   : fullDateStr,
                               style: AppTypography.bodySmall().copyWith(
-                                fontSize: 10,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
                                 color: widget.isUser
                                     ? AppColors.petalWhite.withValues(
-                                        alpha: 0.65,
+                                        alpha: 0.75,
                                       )
-                                    : AppColors.textMuted.withValues(
-                                        alpha: 0.6,
-                                      ),
+                                    : AppColors.textMuted,
                               ),
                             ),
                           ],
@@ -793,7 +796,8 @@ class _QuickReplyChips extends StatelessWidget {
               label: Text(
                 e.$1,
                 style: AppTypography.bodySmall().copyWith(
-                  fontSize: 11,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w500,
                   color: AppColors.textMedium,
                 ),
               ),
@@ -879,7 +883,8 @@ class _ToolResultCards extends StatelessWidget {
                         Text(
                           title,
                           style: AppTypography.bodySmall().copyWith(
-                            fontSize: 11,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
                             color: AppColors.textHigh,
                           ),
                           maxLines: 1,
@@ -889,7 +894,7 @@ class _ToolResultCards extends StatelessWidget {
                         Text(
                           msg,
                           style: AppTypography.bodySmall().copyWith(
-                            fontSize: 10,
+                            fontSize: 11.5,
                             color: AppColors.textMuted,
                           ),
                           maxLines: 2,
@@ -899,7 +904,7 @@ class _ToolResultCards extends StatelessWidget {
                         Text(
                           msg,
                           style: AppTypography.bodySmall().copyWith(
-                            fontSize: 10,
+                            fontSize: 11.5,
                             color: AppColors.textMuted,
                             fontStyle: FontStyle.italic,
                           ),
