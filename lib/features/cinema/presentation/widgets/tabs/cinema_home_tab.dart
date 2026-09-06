@@ -40,7 +40,6 @@ class CinemaHomeTab extends StatelessWidget {
   final List<MediaItem> watchingList;
   final List<MediaItem> watchedList;
   final List<MediaItem> trendingGlobal;
-  final List<MediaItem> trendingPH;
   final VoidCallback onRefresh;
   final void Function(MediaItem) onMediaTap;
   final void Function(MediaItem) onPlay;
@@ -67,7 +66,6 @@ class CinemaHomeTab extends StatelessWidget {
     required this.watchingList,
     required this.watchedList,
     required this.trendingGlobal,
-    required this.trendingPH,
     required this.onRefresh,
     required this.onMediaTap,
     required this.onPlay,

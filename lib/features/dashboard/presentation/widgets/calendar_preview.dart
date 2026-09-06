@@ -6,13 +6,26 @@ import '../../../calendar/data/services/calendar_service.dart';
 import '../../../../core/theme/app_typography.dart';
 import 'feature_section.dart';
 
-class CalendarPreview extends StatelessWidget {
+class CalendarPreview extends StatefulWidget {
   const CalendarPreview({super.key});
+
+  @override
+  State<CalendarPreview> createState() => _CalendarPreviewState();
+}
+
+class _CalendarPreviewState extends State<CalendarPreview> {
+  late final Stream<List<CalendarEvent>> _upcoming;
+
+  @override
+  void initState() {
+    super.initState();
+    _upcoming = CalendarService().getUpcomingEvents(days: 30);
+  }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<CalendarEvent>>(
-      stream: CalendarService().getUpcomingEvents(days: 30),
+      stream: _upcoming,
       builder: (context, snapshot) {
         final events = snapshot.data ?? [];
 
