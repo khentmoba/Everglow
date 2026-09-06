@@ -380,7 +380,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.velvet,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text('Add Text', style: AppTypography.cormorantBold),
+        title: const Text('Add Text', style: AppTypography.cormorantBold),
         content: TextField(
           controller: controller,
           autofocus: true,

@@ -38,7 +38,7 @@ class _LetterArchiveSearchDelegate extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text('Search Letters', style: AppTypography.cormorantBold),
+        title: const Text('Search Letters', style: AppTypography.cormorantBold),
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
