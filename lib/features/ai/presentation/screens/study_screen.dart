@@ -10,6 +10,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
+import '../../../../shared/widgets/everglow/everglow_markdown.dart';
 import '../../data/services/ai_service.dart';
 import '../../data/services/study_doc_service.dart';
 
@@ -46,6 +47,7 @@ class _StudyScreenState extends State<StudyScreen> {
   bool _picking = false;
   bool _hasText = false;
   bool _userScrolledUp = false;
+  bool _showJumpButton = false;
 
   @override
   void initState() {
@@ -77,9 +79,14 @@ class _StudyScreenState extends State<StudyScreen> {
   }
 
   void _onScroll() {
-    _userScrolledUp =
-        _scroll.hasClients &&
-        _scroll.position.maxScrollExtent - _scroll.position.pixels > 120;
+    if (!_scroll.hasClients) return;
+    final distance =
+        _scroll.position.maxScrollExtent - _scroll.position.pixels;
+    _userScrolledUp = distance > 120;
+    final showJump = distance > 320;
+    if (showJump != _showJumpButton) {
+      setState(() => _showJumpButton = showJump);
+    }
   }
 
   void _onDraft() {
@@ -337,31 +344,48 @@ class _StudyScreenState extends State<StudyScreen> {
   Widget _buildChat() {
     if (_turns.isEmpty && !_sending) {
       return Center(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.menu_book_rounded,
-                size: 40,
-                color: AppColors.softLavender,
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.softLavender.withValues(alpha: 0.12),
+                  border: Border.all(
+                    color: AppColors.softLavender.withValues(alpha: 0.30),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.softLavender.withValues(alpha: 0.18),
+                      blurRadius: 28,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.menu_book_rounded,
+                  size: 32,
+                  color: AppColors.softLavender,
+                ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Text(
-                _sources.isEmpty
-                    ? 'Add a class PDF above,'
-                    : 'Sources ready — ask away,',
-                style: AppTypography.titleLarge().copyWith(fontSize: 17),
+                _sources.isEmpty ? 'Add a class PDF above' : 'Sources ready — ask away',
+                style: AppTypography.titleLarge().copyWith(fontSize: 18),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Text(
                 _sources.isEmpty
-                    ? 'then Mochi will study it with you.'
-                    : 'or tap Summarize, Quiz, Flashcards below.',
-                style: AppTypography.bodySmall().copyWith(
+                    ? 'Mochi will read it with you, then answer\nonly from your pages.'
+                    : 'Ask anything, or tap Summarize, Quiz,\nFlashcards below to start.',
+                style: AppTypography.bodyMedium().copyWith(
                   color: AppColors.textMuted,
+                  height: 1.5,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -370,42 +394,101 @@ class _StudyScreenState extends State<StudyScreen> {
         ),
       );
     }
-    return ListView.builder(
-      controller: _scroll,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      itemCount: _turns.length + (_sending ? 1 : 0),
-      itemBuilder: (_, i) {
-        if (i == _turns.length) return const _StreamingBubble();
-        final turn = _turns[i];
-        return turn.fromUser ? _UserBubble(text: turn.text) : _AnswerBubble(text: turn.text);
-      },
+    return Stack(
+      children: [
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 700),
+            child: ListView.builder(
+              controller: _scroll,
+              keyboardDismissBehavior:
+                  ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              itemCount: _turns.length + (_sending ? 1 : 0),
+              itemBuilder: (_, i) {
+                if (i == _turns.length) return const _StreamingBubble();
+                final turn = _turns[i];
+                return turn.fromUser
+                    ? _UserBubble(text: turn.text)
+                    : _AnswerBubble(text: turn.text);
+              },
+            ),
+          ),
+        ),
+        if (_showJumpButton)
+          Positioned(
+            bottom: 12,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: GestureDetector(
+                onTap: () => _scrollToBottom(),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.panelGlass,
+                    borderRadius: AppRadius.radiusFull,
+                    border: Border.all(color: AppColors.border),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: AppColors.textMuted,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
   Widget _buildStudyChips() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Row(
-        children: [
-          for (final chip in StudyPrompts.chips)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ActionChip(
-                label: Text(
-                  chip.$1,
-                  style: AppTypography.bodySmall().copyWith(
-                    fontSize: 11,
-                    color: AppColors.textMedium,
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 700),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(
+            children: [
+              for (final chip in StudyPrompts.chips)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ActionChip(
+                    label: Text(
+                      chip.$1,
+                      style: AppTypography.bodySmall().copyWith(
+                        fontSize: 12,
+                        color: AppColors.textMedium,
+                        height: 1.3,
+                      ),
+                    ),
+                    backgroundColor: AppColors.surfaceGlass,
+                    side: BorderSide(color: AppColors.border),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: AppRadius.radiusFull,
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    onPressed: _sending ? null : () => _ask(chip.$2),
                   ),
                 ),
-                backgroundColor: AppColors.surfaceGlass,
-                side: BorderSide(color: AppColors.border),
-                shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusFull),
-                onPressed: () => _ask(chip.$2),
-              ),
-            ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -423,12 +506,15 @@ class _StudyScreenState extends State<StudyScreen> {
           top: BorderSide(color: AppColors.blushGold.withValues(alpha: 0.06)),
         ),
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surfaceGlass,
-          borderRadius: AppRadius.radiusX2,
-          border: Border.all(color: AppColors.border, width: 0.5),
-        ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 700),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.surfaceGlass,
+              borderRadius: AppRadius.radiusX2,
+              border: Border.all(color: AppColors.border, width: 0.5),
+            ),
         child: Focus(
           onKeyEvent: (node, event) {
             if (event is KeyDownEvent &&
@@ -446,7 +532,7 @@ class _StudyScreenState extends State<StudyScreen> {
                 child: TextField(
                   controller: _input,
                   focusNode: _focusNode,
-                  style: AppTypography.bodyMedium(),
+                  style: AppTypography.bodyMedium().copyWith(height: 1.5),
                   minLines: 1,
                   maxLines: 6,
                   textInputAction: TextInputAction.newline,
@@ -454,14 +540,14 @@ class _StudyScreenState extends State<StudyScreen> {
                   decoration: InputDecoration(
                     hintText: _sources.isEmpty
                         ? 'Add a PDF first…'
-                        : 'Ask about your sources… (Enter to send)',
+                        : 'Ask about your sources…',
                     hintStyle: AppTypography.bodyMedium().copyWith(
                       color: AppColors.textDisabled,
                       fontSize: 13,
                     ),
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 14,
+                      horizontal: 16,
                       vertical: 14,
                     ),
                   ),
@@ -512,6 +598,8 @@ class _StudyScreenState extends State<StudyScreen> {
             ],
           ),
         ),
+          ),
+        ),
       ),
     );
   }
@@ -524,24 +612,57 @@ class _UserBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 48, bottom: 10),
+      padding: const EdgeInsets.only(left: 56, bottom: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppColors.deepRose.withValues(alpha: 0.28),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                  bottomLeft: Radius.circular(16),
-                  bottomRight: Radius.circular(4),
+            child: GestureDetector(
+              onLongPress: () {
+                HapticFeedback.selectionClick();
+                Clipboard.setData(ClipboardData(text: text));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Copied', style: AppTypography.bodySmall()),
+                    duration: const Duration(seconds: 1),
+                    backgroundColor: AppColors.velvet,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: AppRadius.radiusLg,
+                    ),
+                    margin: const EdgeInsets.all(16),
+                  ),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 11,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.deepRose.withValues(alpha: 0.55),
+                      AppColors.deepRose.withValues(alpha: 0.30),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                    bottomLeft: Radius.circular(20),
+                    bottomRight: Radius.circular(6),
+                  ),
+                ),
+                child: SelectableText(
+                  text,
+                  style: AppTypography.bodyMedium().copyWith(
+                    color: AppColors.petalWhite,
+                    height: 1.5,
+                  ),
                 ),
               ),
-              child: Text(text, style: AppTypography.bodyMedium()),
             ),
           ),
         ],
@@ -557,21 +678,103 @@ class _AnswerBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(right: 24, bottom: 10),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceGlass,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(16),
-            topRight: Radius.circular(16),
-            bottomLeft: Radius.circular(4),
-            bottomRight: Radius.circular(16),
+      padding: const EdgeInsets.only(right: 8, bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: AppRadius.radiusSm,
+            child: Image.asset(
+              'assets/images/mochi_avatar.png',
+              width: 30,
+              height: 30,
+              fit: BoxFit.cover,
+            ),
           ),
-          border: Border.all(color: AppColors.border, width: 0.5),
-        ),
-        child: SelectableText(text, style: AppTypography.bodyMedium()),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(15, 11, 15, 12),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceGlass,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(6),
+                  topRight: Radius.circular(18),
+                  bottomLeft: Radius.circular(18),
+                  bottomRight: Radius.circular(18),
+                ),
+                border: Border.all(color: AppColors.border, width: 0.5),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'MOCHI',
+                        style: AppTypography.labelSmall().copyWith(
+                          fontSize: 10,
+                          color: AppColors.blushGold,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '· from your PDFs',
+                        style: AppTypography.bodySmall().copyWith(
+                          fontSize: 10,
+                          color: AppColors.textDisabled,
+                        ),
+                      ),
+                      const Spacer(),
+                      InkWell(
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          Clipboard.setData(ClipboardData(text: text));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Copied',
+                                style: AppTypography.bodySmall(),
+                              ),
+                              duration: const Duration(seconds: 1),
+                              backgroundColor: AppColors.velvet,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: AppRadius.radiusLg,
+                              ),
+                              margin: const EdgeInsets.all(16),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.all(5),
+                          child: Icon(
+                            Icons.copy_rounded,
+                            size: 13,
+                            color: AppColors.textDisabled.withValues(
+                              alpha: 0.7,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  EverglowMarkdown(
+                    text: text,
+                    baseStyle: AppTypography.bodyMedium().copyWith(
+                      color: AppColors.textHigh,
+                      height: 1.55,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -584,32 +787,91 @@ class _StreamingBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final ai = context.read<AIService>();
     return Padding(
-      padding: const EdgeInsets.only(right: 24, bottom: 10),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceGlass,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(16),
-            topRight: Radius.circular(16),
-            bottomLeft: Radius.circular(4),
-            bottomRight: Radius.circular(16),
+      padding: const EdgeInsets.only(right: 8, bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: AppRadius.radiusSm,
+            child: Image.asset(
+              'assets/images/mochi_avatar.png',
+              width: 30,
+              height: 30,
+              fit: BoxFit.cover,
+            ),
           ),
-          border: Border.all(color: AppColors.border, width: 0.5),
-        ),
-        child: ValueListenableBuilder<String>(
-          valueListenable: ai.draftResponseNotifier,
-          builder: (_, draft, _) {
-            final text = draft.isEmpty ? 'Mochi is reading…' : draft;
-            return Text(
-              text,
-              style: AppTypography.bodyMedium().copyWith(
-                color: draft.isEmpty ? AppColors.textDisabled : null,
+          const SizedBox(width: 10),
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(15, 11, 15, 12),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceGlass,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(6),
+                  topRight: Radius.circular(18),
+                  bottomLeft: Radius.circular(18),
+                  bottomRight: Radius.circular(18),
+                ),
+                border: Border.all(color: AppColors.border, width: 0.5),
               ),
-            );
-          },
-        ),
+              child: ValueListenableBuilder<String>(
+                valueListenable: ai.draftResponseNotifier,
+                builder: (_, draft, _) {
+                  if (draft.isEmpty) {
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Mochi is reading',
+                          style: AppTypography.bodyMedium().copyWith(
+                            color: AppColors.textDisabled,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.blushGold,
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      EverglowMarkdown(
+                        text: draft,
+                        baseStyle: AppTypography.bodyMedium().copyWith(
+                          color: AppColors.textHigh,
+                          height: 1.55,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          minHeight: 2,
+                          backgroundColor: AppColors.moonlight.withValues(
+                            alpha: 0.14,
+                          ),
+                          valueColor: const AlwaysStoppedAnimation(
+                            AppColors.blushGold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
