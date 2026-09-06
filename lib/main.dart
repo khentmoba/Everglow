@@ -92,13 +92,13 @@ Future<void> _startEverglow() async {
                   const SizedBox(height: 8),
                   Text(
                     'Something went dark — $widgetName — tap to retry',
-                    style: const TextStyle(color: Color(0xFFFFF5F5), fontSize: 11, fontWeight: FontWeight.w600),
+                    style: const TextStyle(color: Color(0xFFFFF5F5), fontSize: 13, fontWeight: FontWeight.w600),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
                     msg.length > 180 ? '${msg.substring(0, 180)}…' : msg,
-                    style: TextStyle(color: const Color(0xFFF4C2C2).withValues(alpha: 0.8), fontSize: 8),
+                    style: TextStyle(color: const Color(0xFFF4C2C2).withValues(alpha: 0.85), fontSize: 11.5),
                     textAlign: TextAlign.center,
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
@@ -107,7 +107,7 @@ Future<void> _startEverglow() async {
                     const SizedBox(height: 8),
                     Text(
                       shortStack,
-                      style: TextStyle(color: const Color(0xFFFFF5F5).withValues(alpha: 0.45), fontSize: 7, height: 1.2),
+                      style: TextStyle(color: const Color(0xFFFFF5F5).withValues(alpha: 0.65), fontSize: 10, height: 1.35),
                       textAlign: TextAlign.left,
                       maxLines: 6,
                       overflow: TextOverflow.ellipsis,
@@ -146,7 +146,7 @@ Future<void> _startEverglow() async {
                         color: const Color(0xFFC2185B).withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(999),
                       ),
-                      child: const Text('Retry', style: TextStyle(color: Color(0xFFFFF5F5), fontSize: 11, fontWeight: FontWeight.w600)),
+                      child: const Text('Retry', style: TextStyle(color: Color(0xFFFFF5F5), fontSize: 13, fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ],
