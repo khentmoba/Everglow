@@ -213,6 +213,9 @@ class CinemaHomeTab extends StatelessWidget {
               autoLoad: true,
               netflixStyle: true,
               onTapItem: onMediaTap,
+              preloadedTrending: trendingGlobal,
+              preloadedNowPlaying: nowShowing,
+              preloadedUpcoming: newlyReleased,
             ),
           ),
 
