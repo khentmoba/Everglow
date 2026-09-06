@@ -202,6 +202,7 @@ service cloud.firestore {
     match /ai_memories/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
     match /ai_memories/{docId}/facts/{factId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 10240; allow update: if isCouple() && request.resource.data.size() < 10240; allow delete: if isCouple(); }
     match /ai_memories/{docId}/sessions/{sessionId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /ai_memories/{docId}/study_sessions/{studySessionId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
     match /recent_activity/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
 
     // ---------- Shared app data for all four profiles ----------
