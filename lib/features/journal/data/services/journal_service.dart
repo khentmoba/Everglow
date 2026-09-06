@@ -15,8 +15,8 @@ class JournalService {
   final String _collection = 'journal_entries';
 
   Stream<List<JournalEntry>> watchAll() {
-    return withFirestoreTimeout(
-      _db
+    Stream<List<JournalEntry>> subscribe() {
+      return _db
           .collection(_collection)
           .orderBy('createdAt', descending: true)
           .limit(100)
@@ -24,8 +24,16 @@ class JournalService {
           .map(
             (snap) =>
                 snap.docs.map((d) => JournalEntry.fromFirestore(d)).toList(),
-          ),
+          );
+    }
+
+    // Re-attach once when the first snapshot is slow: the journal preview
+    // was flipping to "could not load" on cold dashboard loads.
+    return withFirestoreTimeout(
+      subscribe(),
+      resubscribe: subscribe,
       label: 'journal-all',
+      duration: const Duration(seconds: 8),
     );
   }
 

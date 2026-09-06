@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../data/models/bucket_item.dart';
 import '../../data/services/bucket_list_service.dart';
 
@@ -63,9 +64,10 @@ class _BucketListPreviewState extends State<BucketListPreview> {
                 ),
                 child: GestureDetector(
                   onTap: _retry,
-                  child: const _EmptyAddRow(
+                  child: _EmptyAddRow(
                     hue: hue,
-                    text: 'Could not load dreams — tap here to retry.',
+                    text:
+                        '${firestoreErrorHint(snapshot.error)} — tap here to retry.',
                   ),
                 ),
               ),
