@@ -4,7 +4,9 @@ import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 
 class MusicPersistenceService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  // Lazy so test fakes can subclass and override the methods without
+  // touching Firebase singletons at construction time.
+  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
   static const String _collectionPath = 'music_status';
 
   Future<void> saveMusicStatus(MusicStatus status) async {
