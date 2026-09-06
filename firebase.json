@@ -42,7 +42,7 @@
           },
           {
             "key": "Cross-Origin-Opener-Policy",
-            "value": "same-origin"
+            "value": "same-origin-allow-popups"
           }
         ],
         "source": "**"
@@ -51,66 +51,61 @@
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "no-cache, no-store, must-revalidate"
-          },
-          {
-            "key": "Pragma",
-            "value": "no-cache"
-          },
-          {
-            "key": "Expires",
-            "value": "0"
+            "value": "public, max-age=0, must-revalidate"
           }
         ],
-        "source": "/version.json"
+        "source": "**/*.@(js|css|png|jpg|jpeg|gif|webp|svg|woff|woff2|ttf|otf|eot|ico|glb|gltf|bin|wasm|data|mp3|map|json)"
       },
       {
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "no-cache, no-store, must-revalidate"
-          },
-          {
-            "key": "Pragma",
-            "value": "no-cache"
-          },
-          {
-            "key": "Expires",
-            "value": "0"
+            "value": "public, max-age=0, must-revalidate"
           }
         ],
-        "source": "/sw.js"
+        "source": "/canvaskit/**"
       },
       {
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "no-cache, no-store, must-revalidate"
-          },
-          {
-            "key": "Pragma",
-            "value": "no-cache"
-          },
-          {
-            "key": "Expires",
-            "value": "0"
+            "value": "public, max-age=0, must-revalidate"
           }
         ],
-        "source": "/index.html"
+        "source": "/assets/**"
       },
       {
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "no-cache, no-store, must-revalidate"
-          },
+            "value": "public, max-age=0, must-revalidate"
+          }
+        ],
+        "source": "/icons/**"
+      },
+      {
+        "headers": [
           {
-            "key": "Pragma",
+            "key": "Cache-Control",
+            "value": "public, max-age=0, must-revalidate"
+          }
+        ],
+        "source": "/main.dart.js*"
+      },
+      {
+        "headers": [
+          {
+            "key": "Cache-Control",
             "value": "no-cache"
-          },
+          }
+        ],
+        "source": "/**/!(*.*)"
+      },
+      {
+        "headers": [
           {
-            "key": "Expires",
-            "value": "0"
+            "key": "Cache-Control",
+            "value": "no-cache"
           }
         ],
         "source": "/"
@@ -119,15 +114,16 @@
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "no-cache, no-store, must-revalidate"
-          },
-          {
-            "key": "Pragma",
             "value": "no-cache"
-          },
+          }
+        ],
+        "source": "/index.html"
+      },
+      {
+        "headers": [
           {
-            "key": "Expires",
-            "value": "0"
+            "key": "Cache-Control",
+            "value": "no-cache"
           }
         ],
         "source": "/flutter_bootstrap.js"
@@ -136,15 +132,7 @@
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "no-cache, no-store, must-revalidate"
-          },
-          {
-            "key": "Pragma",
             "value": "no-cache"
-          },
-          {
-            "key": "Expires",
-            "value": "0"
           }
         ],
         "source": "/flutter.js"
@@ -153,10 +141,46 @@
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "public, max-age=31536000, immutable"
+            "value": "no-cache"
           }
         ],
-        "source": "**/*.@(js|css|png|jpg|jpeg|gif|webp|svg|woff|woff2|ttf|otf|eot|ico|glb|gltf|bin|wasm|data|mp3|map)"
+        "source": "/flutter_service_worker.js"
+      },
+      {
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ],
+        "source": "/sw.js"
+      },
+      {
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ],
+        "source": "/firebase-messaging-sw.js"
+      },
+      {
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ],
+        "source": "/version.json"
+      },
+      {
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ],
+        "source": "/manifest.json"
       }
     ],
     "rewrites": [
