@@ -733,13 +733,8 @@ class _ToolStatusChip extends StatelessWidget {
 class _QuickReplyChips extends StatelessWidget {
   final ValueChanged<String> onSelect;
   final bool centered;
-  final bool studyActive;
 
-  const _QuickReplyChips({
-    required this.onSelect,
-    this.centered = false,
-    this.studyActive = false,
-  });
+  const _QuickReplyChips({required this.onSelect, this.centered = false});
 
   static const _chips = [
     ('What should we watch? 🎬', 'What should we watch tonight?'),
@@ -754,10 +749,6 @@ class _QuickReplyChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = [
-      if (studyActive) ...StudyPrompts.chips,
-      ..._chips,
-    ];
     final inner = SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: EdgeInsets.symmetric(
@@ -765,7 +756,7 @@ class _QuickReplyChips extends StatelessWidget {
         vertical: 6,
       ),
       child: Row(
-        children: items.map((e) {
+        children: _chips.map((e) {
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: ActionChip(
