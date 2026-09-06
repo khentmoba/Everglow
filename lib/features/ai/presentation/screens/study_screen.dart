@@ -419,15 +419,17 @@ class _StudyScreenState extends State<StudyScreen> {
               Text(
                 full ? 'Shelf full (3)' : 'Add PDF',
                 style: AppTypography.bodySmall().copyWith(
-                  fontSize: 12,
-                  color: enabled ? AppColors.petalWhite : AppColors.textDisabled,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: enabled ? AppColors.petalWhite : AppColors.textMuted,
                 ),
               ),
               Text(
                 'Mochi reads it',
                 style: AppTypography.bodySmall().copyWith(
-                  fontSize: 10,
-                  color: AppColors.textDisabled,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textMuted,
                 ),
               ),
             ],
@@ -474,9 +476,10 @@ class _StudyScreenState extends State<StudyScreen> {
               child: Text(
                 doc.fileName,
                 style: AppTypography.bodySmall().copyWith(
-                  fontSize: 12,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
                   color: AppColors.petalWhite,
-                  height: 1.3,
+                  height: 1.35,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -486,8 +489,9 @@ class _StudyScreenState extends State<StudyScreen> {
               '${(doc.text.length / 1000).toStringAsFixed(1)}k chars'
               '${doc.truncated ? ' · start only' : ''}',
               style: AppTypography.bodySmall().copyWith(
-                fontSize: 10,
-                color: AppColors.textDisabled,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textMuted,
               ),
             ),
           ],
@@ -624,7 +628,8 @@ class _StudyScreenState extends State<StudyScreen> {
                     label: Text(
                       chip.$1,
                       style: AppTypography.bodySmall().copyWith(
-                        fontSize: 12,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
                         color: AppColors.textMedium,
                         height: 1.3,
                       ),
@@ -687,7 +692,12 @@ class _StudyScreenState extends State<StudyScreen> {
                 child: TextField(
                   controller: _input,
                   focusNode: _focusNode,
-                  style: AppTypography.bodyMedium().copyWith(height: 1.5),
+                  style: AppTypography.bodyMedium().copyWith(
+                    height: 1.5,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textHigh,
+                  ),
                   minLines: 1,
                   maxLines: 6,
                   textInputAction: TextInputAction.newline,
@@ -697,8 +707,9 @@ class _StudyScreenState extends State<StudyScreen> {
                         ? 'Add a PDF first…'
                         : 'Ask about your sources…',
                     hintStyle: AppTypography.bodyMedium().copyWith(
-                      color: AppColors.textDisabled,
-                      fontSize: 13,
+                      color: AppColors.textMuted,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
                     ),
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(
@@ -860,6 +871,9 @@ class _StreamingBubble extends StatelessWidget {
                 'assets/images/mochi_avatar.png',
                 width: 34,
                 height: 34,
+                cacheWidth: 102,
+                cacheHeight: 102,
+                filterQuality: FilterQuality.high,
                 fit: BoxFit.cover,
               ),
             ),
@@ -906,8 +920,10 @@ class _StreamingBubble extends StatelessWidget {
                         Text(
                           'Mochi is reading',
                           style: AppTypography.bodyMedium().copyWith(
-                            color: AppColors.textDisabled,
+                            color: AppColors.textMuted,
                             height: 1.5,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -930,8 +946,9 @@ class _StreamingBubble extends StatelessWidget {
                         text: draft,
                         baseStyle: AppTypography.bodyMedium().copyWith(
                           color: AppColors.textHigh,
-                          height: 1.65,
-                          fontSize: 14,
+                          height: 1.6,
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                       const SizedBox(height: 8),

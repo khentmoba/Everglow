@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../services/notification_service.dart';
 import '../utils/logger.dart';
@@ -85,7 +84,6 @@ class AppBootstrap {
     await _initializeFirebase();
 
     await (_configureFirestore ?? _defaultFirestoreSettings)();
-    GoogleFonts.config.allowRuntimeFetching = false;
 
     final messengerKey = scaffoldMessengerKey;
     if (messengerKey != null) {
