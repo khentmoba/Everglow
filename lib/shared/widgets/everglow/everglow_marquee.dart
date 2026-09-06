@@ -7,6 +7,12 @@ import "../../../core/theme/app_motion.dart";
 /// Replaces `ShelfMarquee`. When `AppMotion.reduced` is true,
 /// the ticker is paused (content shown statically).
 ///
+/// Rows that fit the viewport render statically with each child shown
+/// exactly once. Only rows that overflow the viewport auto-scroll, using
+/// a second copy of the set for a seamless wrap. Tiling short rows to
+/// fill the viewport reads as duplicate data (the same cover N times),
+/// so it is deliberately not done.
+///
 /// Performance notes (why this file looks the way it does):
 /// - The offset is a [ValueNotifier] consumed by a single [AnimatedBuilder]
 ///   around the [Transform] only. Older code called `setState` 60x/sec, which
@@ -43,6 +49,7 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   AnimationController? _controller;
   final ValueNotifier<double> _offset = ValueNotifier<double>(0);
   bool _hovered = false;
+  bool _canScroll = true;
   List<Widget> _items = const [];
   double _loopWidth = 1;
 
@@ -85,10 +92,12 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   }
 
   void _onTick() {
-    if (_hovered || widget.children.isEmpty) return;
+    if (_hovered || !_canScroll || widget.children.isEmpty) return;
     // No setState: only the AnimatedBuilder around Transform rebuilds.
     var next = _offset.value + widget.pixelsPerSecond / 60;
-    if (next >= _loopWidth) next -= _loopWidth;
+    // Modulo (not a single subtraction) so a stale offset stays in range
+    // even when the item list — and therefore _loopWidth — shrinks.
+    if (next >= _loopWidth) next %= _loopWidth;
     _offset.value = next;
   }
 
@@ -146,10 +155,22 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   Widget _buildContent(double viewportWidth) {
     final singleSetWidth = _estimateSetWidth();
 
-    // Only tile when content is shorter than viewport.
-    final needsLoop = singleSetWidth < viewportWidth;
-    final sets = needsLoop ? 3 : 1;
+    // Short rows fit entirely on screen: show each child exactly once
+    // with no auto-scroll. (An unbounded viewport trivially fits.)
+    final overflows =
+        viewportWidth.isFinite && singleSetWidth > viewportWidth;
+    // Plain field write — no setState — consumed by the ticker only.
+    _canScroll = overflows;
+    if (!overflows) {
+      return SizedBox(
+        height: widget.height,
+        child: Row(children: _items),
+      );
+    }
 
+    // Overflowing rows keep the infinite marquee. Two copies plus the
+    // inter-set gap form one seamless wrap period of exactly _loopWidth,
+    // so the second set slides in as the first slides out (no blank gap).
     return SizedBox(
       height: widget.height,
       child: OverflowBox(
@@ -162,11 +183,11 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
             child: child,
           ),
           child: Row(
-            children: List.generate(
-              sets,
-              (_) => Row(children: _items),
-              growable: false,
-            ),
+            children: [
+              Row(children: _items),
+              SizedBox(width: widget.itemSpacing),
+              Row(children: _items),
+            ],
           ),
         ),
       ),
@@ -174,8 +195,14 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   }
 
   double _estimateSetWidth() {
-    // Rough estimate based on item count and typical widths
+    // Pitch model for the dashboard shelves: a 128-wide ShelfCard plus
+    // the caller's 12px right padding plus the 12px inter-item spacer,
+    // minus the trailing spacer the final card omits. Over-counting
+    // generic children is the safe direction: a wrongly-static row would
+    // clip its tail with no way to reach it, while a wrongly-scrolling
+    // row still shows every child.
     // In production, use a GlobalKey + RenderBox for precise measurement
-    return widget.children.length * 122.0;
+    if (widget.children.isEmpty) return 0;
+    return widget.children.length * 152.0 - widget.itemSpacing;
   }
 }
