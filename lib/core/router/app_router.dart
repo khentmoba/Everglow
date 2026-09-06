@@ -13,7 +13,6 @@ import '../../features/daily_bloom/presentation/routes/garden_routes.dart';
 import '../../features/dashboard/presentation/routes/dashboard_routes.dart';
 import '../../features/entry/presentation/routes/entry_routes.dart';
 import '../../features/gallery/presentation/routes/gallery_routes.dart';
-import '../../features/jellyfin/presentation/routes/jellyfin_routes.dart';
 import '../../features/manga/presentation/routes/manga_routes.dart';
 import '../../features/play_zone/presentation/routes/play_zone_routes.dart';
 import '../../features/starlight_jar/presentation/routes/starlight_routes.dart';
@@ -81,7 +80,6 @@ GoRouter createAppRouter() => GoRouter(
     ...galleryRoutes,
     ...calendarRoutes,
     ...watchPartyRoutes,
-    ...jellyfinRoutes,
     ...jukeboxRoutes,
     ...journalRoutes,
     ...cookbookRoutes,
