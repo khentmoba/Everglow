@@ -3,44 +3,13 @@
 
   var UPSTREAMS = [
     {
-      id: 'videasy',
-      label: 'Videasy',
-      movie: function (tmdbId) {
-        return 'https://player.videasy.net/movie/' + tmdbId + '?autoplay=true';
-      },
-      tv: function (tmdbId, s, e) {
-        return 'https://player.videasy.net/tv/' + tmdbId + '/' + s + '/' + e +
-          '?autoplay=true&nextButton=true&episodeSelector=true';
-      }
-    },
-    {
       id: 'cinesrc',
-      label: 'CineSrc',
+      label: 'Everglow',
       movie: function (tmdbId) {
         return 'https://cinesrc.st/embed/movie/' + tmdbId;
       },
       tv: function (tmdbId, s, e) {
         return 'https://cinesrc.st/embed/tv/' + tmdbId + '?s=' + s + '&e=' + e;
-      }
-    },
-    {
-      id: 'movish',
-      label: 'Movish',
-      movie: function (tmdbId) {
-        return 'https://movish.to/moviebox-embed/move/' + tmdbId;
-      },
-      tv: function (tmdbId, s, e) {
-        return 'https://movish.to/moviebox-embed/tv/' + tmdbId + '/' + s + '/' + e;
-      }
-    },
-    {
-      id: 'vidbolt',
-      label: 'VidBolt',
-      movie: function (tmdbId) {
-        return 'https://vidbolt.xyz/movie/' + tmdbId;
-      },
-      tv: function (tmdbId, s, e) {
-        return 'https://vidbolt.xyz/tv/' + tmdbId + '/' + s + '/' + e;
       }
     }
   ];
@@ -91,7 +60,11 @@
   var errorBox = document.getElementById('error');
   var retryBtn = document.getElementById('retry');
 
-  var queue = [0, 1, 2, 3];
+  if (UPSTREAMS.length <= 1) {
+    bar.style.display = 'none';
+  }
+
+  var queue = [0];
   var queuePos = 0;
   var current = -1;
   var timer = null;
@@ -149,7 +122,7 @@
   }
 
   function defaultQueue() {
-    return [0, 1, 2, 3];
+    return [0];
   }
 
   frame.addEventListener('load', function () {

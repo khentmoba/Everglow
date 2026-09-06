@@ -28,7 +28,7 @@ class CinemaVideoSources {
   static const VideoSourceConfig everglowEmbed = VideoSourceConfig(
     id: 'everglow-embed',
     name: 'Everglow',
-    shortName: 'EG',
+    shortName: 'Everglow',
     desc: 'No ads — Everglow player',
     movieUrl: 'https://everglow-1c6db.web.app/embed.html',
     tvUrl: 'https://everglow-1c6db.web.app/embed.html',
