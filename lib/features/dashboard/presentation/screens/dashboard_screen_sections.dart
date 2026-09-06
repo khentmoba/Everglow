@@ -214,8 +214,7 @@ extension _DashboardScreenSections on _DashboardScreenState {
   }
 
   Widget _buildQuickActions(BuildContext context) {
-    // Distill: 6 editorial picks visible, 10 more behind a soft expand.
-    // Keeps 60-second decision under 6 items (Miller), reduces wall tax.
+    // 9 keepsakes in a balanced 3x3 grid — quick to scan for Clair.
     final primary = <QuickAction>[
       const QuickAction(
         label: 'Gallery',
@@ -269,34 +268,6 @@ extension _DashboardScreenSections on _DashboardScreenState {
         caption: 'Diary',
       ),
       const QuickAction(
-        label: 'Cookbook',
-        icon: Icons.restaurant_menu_rounded,
-        route: '/cookbook',
-        hue: AppColors.warmAmber,
-        caption: 'Recipes',
-      ),
-      const QuickAction(
-        label: 'Vault',
-        icon: Icons.folder_special_rounded,
-        route: '/vault',
-        hue: AppColors.auroraTeal,
-        caption: 'Drive',
-      ),
-      const QuickAction(
-        label: 'Atlas',
-        icon: Icons.map_rounded,
-        route: '/travel',
-        hue: AppColors.auroraTeal,
-        caption: 'Trips',
-      ),
-      const QuickAction(
-        label: 'Universe',
-        icon: Icons.auto_stories_rounded,
-        route: '/wiki',
-        hue: AppColors.softLavender,
-        caption: 'Lore',
-      ),
-      const QuickAction(
         label: 'Bucket List',
         icon: Icons.card_travel_rounded,
         route: '/bucket-list',
@@ -304,32 +275,11 @@ extension _DashboardScreenSections on _DashboardScreenState {
         caption: 'Dreams',
       ),
       const QuickAction(
-        label: 'Wellness',
-        icon: Icons.favorite_rounded,
-        route: '/wellness',
-        hue: AppColors.auroraRose,
-        caption: 'Habits',
-      ),
-      const QuickAction(
-        label: 'Budget',
-        icon: Icons.account_balance_wallet_rounded,
-        route: '/budget',
-        hue: AppColors.warmAmber,
-        caption: 'Money',
-      ),
-      const QuickAction(
         label: 'Letterbox',
         icon: Icons.mail_outline_rounded,
         route: '/letterbox',
         hue: AppColors.blushGold,
         caption: 'Letters',
-      ),
-      const QuickAction(
-        label: 'Ask',
-        icon: Icons.search_rounded,
-        route: '/rag',
-        hue: AppColors.auroraLilac,
-        caption: 'RAG',
       ),
     ];
 
@@ -346,7 +296,8 @@ extension _DashboardScreenSections on _DashboardScreenState {
         const SizedBox(height: 14),
         LayoutBuilder(
           builder: (context, constraints) {
-            final columns = constraints.maxWidth < 300 ? 3 : 4;
+            // 3 columns keeps the 9 tiles in a tidy 3x3 on phone + tablet.
+            const columns = 3;
             final tileWidth = (constraints.maxWidth - ((columns - 1) * 12)) / columns;
             return Wrap(
               spacing: 12,
