@@ -57,13 +57,7 @@ _Previous releases: [v5.3.0](https://github.com/khentmoba/Everglow/releases/tag/
 | **Starlight Jar** | Drop gratitude notes and memories into a virtual jar | 1.1.0 / 6.0.0 |
 | **Relationship Timeline** | Visual timeline of relationship milestones on the dashboard | **6.0.0** |
 | **Upcoming Countdowns** | Countdown timers to next special day on the dashboard | **6.0.0** |
-| **Budget** | Couple finances — transactions, monthly budgets, expense split | **6.0.0** |
-| **Cookbook** | Shared recipe collection with Firestore persistence | **6.0.0** |
 | **Journal** | Shared journal with locked/private entries and tags | **6.0.0** |
-| **Travel** | Shared trips — itinerary pins, atlas map view, reorderable stops | **6.0.0** |
-| **Vault** | Private file vault (Firebase Storage) | **6.0.0** |
-| **Wellness** | Habits + workout tracking with streaks | **6.0.0** |
-| **Wiki** | Shared worldbuilding/wiki pages | **6.0.0** |
 
 ### Entertainment
 
@@ -141,12 +135,10 @@ lib/
     ai/                              # Mochi AI assistant (Agnes 2.5 Flash + 11 function tools via apihub.agnes-ai.com)
     books/                           # Book discovery & reader (Open Library) + Our Books list
     bucket_list/                     # Shared bucket list kanban (todo / doing / done)
-    budget/                          # Couple finances — transactions, monthly budgets, expense split
     calendar/                        # Shared calendar + date polls (Rallly-style voting)
     canvas/                          # Collaborative drawing (real-time Firestore sync)
     chat/                            # Sanctuary private couple chat (real-time)
     cinema/                          # Watchlist — TMDB, multi-provider video, trailers, episode drawer
-    cookbook/                        # Shared recipe collection
     daily_bloom/                     # Virtual garden (5 plant types, seasonal, shared)
     dashboard/                       # Main hub — anniversary counter, milestone cards, previews
     date_randomizer/                 # Date idea generator (1000+ ideas, shake gesture)
@@ -159,11 +151,7 @@ lib/
     manga/                           # Manga library — MangaDex, Bato, Comick, Mangakakalot, Mangasee123
     play_zone/                       # Games hub + Table Tennis (WebGL + Firestore multiplayer)
     starlight_jar/                   # Gratitude notes jar
-    travel/                          # Shared trips — itinerary pins, atlas map, reorderable stops
-    vault/                           # Private file vault (Firebase Storage)
     watch_party/                     # Watch party with WebRTC voice chat (ac-relay)
-    wellness/                        # Habits + workout tracking with streaks
-    wiki/                            # Shared worldbuilding/wiki pages
     xp/                              # XP/leveling system
   shared/
     utils/text_utils.dart            # stripMarkdown, extractTitles
