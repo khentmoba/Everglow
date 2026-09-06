@@ -70,6 +70,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   Timer? _heartbeatRetryTimer;
   int _heartbeatRetryCount = 0;
   static const int _maxHeartbeatRetries = 5;
+  String? _lastGardenUid;
   final ScrollController _scrollController = ScrollController();
   final Map<String, GlobalKey> _sectionKeys = {
     'zone-today': GlobalKey(),
@@ -105,13 +106,8 @@ class _DashboardScreenState extends State<DashboardScreen>
         // Raw print: Logger is silent in release builds.
         // ignore: avoid_print
         print('[AuthDiag] ${authService.diagLine}');
-        final gardenProvider = context.read<GardenProvider>();
-
-        final uid = authService.uid;
-        if (uid != null && uid.isNotEmpty) {
-          gardenProvider.updateUserId(uid);
-          gardenProvider.recordInteraction();
-        }
+        // Garden sync rides along with _syncPresenceHeartbeat below so it
+        // retries while the UID is unavailable instead of running once.
 
         // These Firestore reads need a signed-in session. Guarding them
         // prevents permission-denied errors when the dashboard is opened
@@ -223,6 +219,21 @@ class _DashboardScreenState extends State<DashboardScreen>
       presence.startHeartbeat(uid: uid, username: username);
       _lastHeartbeatUid = uid;
       _lastHeartbeatUsername = username;
+    }
+    _syncGarden(uid);
+  }
+
+  /// Starts the DailyBloom garden stream for [uid]. Runs inside the heartbeat
+  /// retry loop so a cold start (UID not restored yet on the first tick)
+  /// still picks up the garden a moment later instead of leaving DailyBloom
+  /// permanently empty. The visit is recorded once per UID per session.
+  void _syncGarden(String uid) {
+    if (!mounted) return;
+    final garden = context.read<GardenProvider>();
+    garden.updateUserId(uid);
+    if (_lastGardenUid != uid) {
+      _lastGardenUid = uid;
+      garden.recordInteraction();
     }
   }
 

@@ -3,9 +3,20 @@ import '../../../../core/utils/firestore_stream_utils.dart';
 import '../models/garden_stats.dart';
 import '../../../../core/utils/logger.dart';
 
-class GardenService {
+/// Source of garden stats. [GardenService] is the Firestore-backed
+/// implementation; tests substitute a fake so [GardenProvider]'s retry
+/// behavior can be verified without Firebase.
+abstract class GardenStatsSource {
+  Stream<GardenStats> watchStats(String userId);
+  Stream<GardenStats> watchPartnerStats(String partnerUid);
+  Future<void> recordInteraction(String userId);
+  Future<void> setPlantType(String userId, String plantType);
+}
+
+class GardenService implements GardenStatsSource {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  @override
   Stream<GardenStats> watchStats(String userId) {
     return withFirestoreTimeout(
       _db
@@ -24,6 +35,7 @@ class GardenService {
     );
   }
 
+  @override
   Future<void> recordInteraction(String userId) async {
     final docRef = _db
         .collection('users')
@@ -93,11 +105,13 @@ class GardenService {
   }
 
   /// Watch partner's garden stats for the shared garden view.
+  @override
   Stream<GardenStats> watchPartnerStats(String partnerUid) {
     return watchStats(partnerUid);
   }
 
   /// Update the user's selected plant type.
+  @override
   Future<void> setPlantType(String userId, String plantType) async {
     final docRef = _db
         .collection('users')
