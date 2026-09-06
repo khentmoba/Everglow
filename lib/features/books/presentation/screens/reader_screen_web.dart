@@ -222,7 +222,7 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
           TextButton.icon(
             onPressed: hasPrev ? _prevChapter : null,
             icon: const Icon(Icons.chevron_left_rounded, size: 20),
-            label: Text('Previous', style: AppTypography.outfitWhite),
+            label: const Text('Previous', style: AppTypography.outfitWhite),
           ),
           Text(
             '${_currentChapter + 1} of ${_chapters.length}',
@@ -234,7 +234,7 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
           TextButton.icon(
             onPressed: hasNext ? _nextChapter : null,
             icon: const Icon(Icons.chevron_right_rounded, size: 20),
-            label: Text('Next', style: AppTypography.outfitWhite),
+            label: const Text('Next', style: AppTypography.outfitWhite),
             // label after icon order swap
           ),
         ],
@@ -425,7 +425,7 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
                 }
               },
               icon: const Icon(Icons.open_in_new_rounded, size: 16),
-              label: Text('Full Screen', style: AppTypography.outfitBold),
+              label: const Text('Full Screen', style: AppTypography.outfitBold),
             ),
         ],
       ),

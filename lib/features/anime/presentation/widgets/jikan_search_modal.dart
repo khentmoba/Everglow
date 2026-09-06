@@ -161,7 +161,7 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   ChoiceChip(
-                    label: Text('To Watch', style: AppTypography.outfitWhite),
+                    label: const Text('To Watch', style: AppTypography.outfitWhite),
                     selected: status == 'to-watch',
                     onSelected: (selected) {
                       if (selected) setDialogState(() => status = 'to-watch');
@@ -176,7 +176,7 @@ class _JikanSearchModalState extends State<JikanSearchModal> {
                   ),
                   const SizedBox(width: 8),
                   ChoiceChip(
-                    label: Text('Watched', style: AppTypography.outfitWhite),
+                    label: const Text('Watched', style: AppTypography.outfitWhite),
                     selected: status == 'watched',
                     onSelected: (selected) {
                       if (selected) setDialogState(() => status = 'watched');
