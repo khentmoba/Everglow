@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:everglow/features/cinema/data/models/video_source_config.dart';
+import 'package:everglow/features/cinema/data/services/cinema_video_sources.dart';
 import 'package:everglow/features/cinema/data/services/video_source_url_builder.dart';
 
 void main() {
@@ -77,6 +78,33 @@ void main() {
           episode: 1,
         ),
         'https://multiembed.mov/?video_id=603&tmdb=1',
+      );
+    });
+
+    test('builds Everglow embed movie URLs with start passthrough', () {
+      expect(
+        buildVideoSourceUrl(
+          CinemaVideoSources.everglowEmbed,
+          mediaType: 'movie',
+          id: '603',
+          season: 1,
+          episode: 1,
+          startSeconds: 90,
+        ),
+        'https://everglow-1c6db.web.app/embed.html?tmdbId=603&type=movie&start=90',
+      );
+    });
+
+    test('builds Everglow embed TV URLs with season and episode', () {
+      expect(
+        buildVideoSourceUrl(
+          CinemaVideoSources.everglowEmbed,
+          mediaType: 'tv',
+          id: '1399',
+          season: 2,
+          episode: 3,
+        ),
+        'https://everglow-1c6db.web.app/embed.html?tmdbId=1399&type=tv&s=2&e=3',
       );
     });
   });

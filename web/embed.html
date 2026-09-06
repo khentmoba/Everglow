@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
+<title>Everglow Player</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; background: #000; overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  #stage { position: fixed; inset: 0; background: #000; }
+  #upstream { position: absolute; inset: 0; width: 100%; height: 100%;
+    border: 0; background: #000; }
+  #upstream.hidden { visibility: hidden; }
+  #loader { position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 16px; color: #a78bfa;
+    background: #000; z-index: 5; }
+  #loader.hidden { display: none; }
+  .spinner { width: 44px; height: 44px; border-radius: 50%;
+    border: 3px solid rgba(167, 139, 250, 0.2); border-top-color: #a78bfa;
+    animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loader p { font-size: 13px; color: #8b8b9e; letter-spacing: 0.04em; }
+  #loader p b { color: #c4b5fd; font-weight: 600; }
+  #bar { position: absolute; top: 10px; left: 10px; z-index: 10;
+    display: flex; gap: 6px; align-items: center;
+    opacity: 0; transition: opacity 0.25s ease; pointer-events: none; }
+  #stage:hover #bar, #bar:focus-within { opacity: 1; pointer-events: auto; }
+  #bar button { background: rgba(20, 20, 28, 0.85); color: #d6d6e2;
+    border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 8px;
+    font-size: 11px; font-weight: 600; padding: 6px 10px; cursor: pointer;
+    backdrop-filter: blur(6px); }
+  #bar button:hover { background: rgba(60, 50, 90, 0.9); color: #fff; }
+  #bar button.active { background: rgba(124, 93, 250, 0.85); color: #fff;
+    border-color: rgba(167, 139, 250, 0.6); }
+  #error { position: absolute; inset: 0; display: none; flex-direction: column;
+    align-items: center; justify-content: center; gap: 12px; z-index: 6;
+    background: #000; color: #e2e2ea; text-align: center; padding: 24px; }
+  #error.visible { display: flex; }
+  #error h2 { font-size: 16px; font-weight: 700; }
+  #error p { font-size: 13px; color: #8b8b9e; max-width: 420px; }
+  #error button { background: #7c5dfa; color: #fff; border: 0; border-radius: 10px;
+    font-size: 13px; font-weight: 700; padding: 10px 22px; cursor: pointer; }
+  #error button:hover { background: #8f74ff; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <iframe id="upstream" title="Everglow player" allowfullscreen
+    webkitallowfullscreen mozallowfullscreen frameborder="0" scrolling="no"
+    referrerpolicy="no-referrer"
+    sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock"
+    allow="autoplay *; fullscreen *; encrypted-media *; picture-in-picture *; accelerometer *; gyroscope *; clipboard-write *"></iframe>
+  <div id="loader"><div class="spinner"></div><p>Loading <b id="serverName">Everglow</b>…</p></div>
+  <div id="bar" role="toolbar" aria-label="Upstream servers"></div>
+  <div id="error">
+    <h2>All upstreams failed</h2>
+    <p>This title could not be loaded right now. Try again, or pick another server in the cinema player.</p>
+    <button id="retry" type="button">Try again</button>
+  </div>
+</div>
+<script src="embed.js"></script>
+</body>
+</html>

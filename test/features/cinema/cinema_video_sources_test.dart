@@ -29,6 +29,7 @@ void main() {
       );
 
       expect(providers.map((p) => p.id).toList(), [
+        'everglow-embed',
         'flux-cinesrc',
         'videasy',
         'movish',
@@ -63,7 +64,11 @@ void main() {
         ], isAnime: false);
 
         expect(providers.where((p) => p.id == 'flux-cinesrc').length, 1);
-        expect(providers.first.name, 'Remote CineSrc');
+        expect(
+          providers.firstWhere((p) => p.id == 'flux-cinesrc').name,
+          'Remote CineSrc',
+        );
+        expect(providers.first.id, 'everglow-embed');
       },
     );
   });
@@ -92,6 +97,32 @@ void main() {
           episode: 3,
         ),
         'https://cinesrc.st/embed/tv/1399?s=2&e=3',
+      );
+    });
+
+    test('builds Everglow embed movie URLs with tmdbId query', () {
+      expect(
+        CinemaVideoSources.buildUrl(
+          CinemaVideoSources.everglowEmbed,
+          mediaType: 'movie',
+          id: '603',
+          season: 1,
+          episode: 1,
+        ),
+        'https://everglow-1c6db.web.app/embed.html?tmdbId=603&type=movie',
+      );
+    });
+
+    test('builds Everglow embed TV URLs with season and episode', () {
+      expect(
+        CinemaVideoSources.buildUrl(
+          CinemaVideoSources.everglowEmbed,
+          mediaType: 'tv',
+          id: '1399',
+          season: 2,
+          episode: 3,
+        ),
+        'https://everglow-1c6db.web.app/embed.html?tmdbId=1399&type=tv&s=2&e=3',
       );
     });
 
