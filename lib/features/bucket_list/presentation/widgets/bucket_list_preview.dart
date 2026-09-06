@@ -18,16 +18,103 @@ class BucketListPreview extends StatefulWidget {
 
 class _BucketListPreviewState extends State<BucketListPreview> {
   bool _hovered = false;
+  late final BucketListService _service;
+  late Stream<List<BucketItem>> _stream;
+
+  @override
+  void initState() {
+    super.initState();
+    // Cache the stream so dashboard rebuilds don't resubscribe and
+    // restart the Firestore listener on every frame.
+    _service = BucketListService();
+    _stream = _service.watchAll();
+  }
+
+  void _retry() {
+    setState(() {
+      _stream = _service.watchAll();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final service = BucketListService();
     const hue = AppColors.blushGold;
 
     return StreamBuilder<List<BucketItem>>(
-      stream: service.watchAll(),
+      stream: _stream,
       builder: (context, snapshot) {
-        final all = snapshot.data ?? [];
+        // Error (or timeout-closed with no data) must never masquerade as
+        // "empty" — the bucket-list screen would still show dreams on tap.
+        if (snapshot.hasError ||
+            (!snapshot.hasData &&
+                snapshot.connectionState == ConnectionState.done)) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: GestureDetector(
+              onTap: () => context.push('/bucket-list'),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.petalWhite.withValues(alpha: 0.04),
+                  borderRadius: AppRadius.radiusX2,
+                  border: Border.all(
+                    color: AppColors.petalWhite.withValues(alpha: 0.07),
+                  ),
+                ),
+                child: GestureDetector(
+                  onTap: _retry,
+                  child: const _EmptyAddRow(
+                    hue: hue,
+                    text: 'Could not load dreams — tap here to retry.',
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        // Waiting for the first snapshot is loading, not empty.
+        if (!snapshot.hasData) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: GestureDetector(
+              onTap: () => context.push('/bucket-list'),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.petalWhite.withValues(alpha: 0.04),
+                  borderRadius: AppRadius.radiusX2,
+                  border: Border.all(
+                    color: AppColors.petalWhite.withValues(alpha: 0.07),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: LinearProgressIndicator(
+                        minHeight: 6,
+                        backgroundColor: hue.withValues(alpha: 0.12),
+                        valueColor: const AlwaysStoppedAnimation(hue),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Loading dreams…',
+                      style: AppTypography.outfitWhite.copyWith(
+                        fontSize: 11,
+                        color: AppColors.petalWhite.withValues(alpha: 0.50),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        final all = snapshot.data!;
         final completed = all
             .where((i) => i.status == BucketStatus.completed)
             .length;
