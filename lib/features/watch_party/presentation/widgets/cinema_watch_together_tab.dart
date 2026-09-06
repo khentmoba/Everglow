@@ -53,13 +53,17 @@ class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
   String? _roomId;
 
   List<JellyfinMediaItem> _jellyfinMovies = const [];
-  bool _loadingJellyfin = true;
+  bool _loadingJellyfin = false;
   String? _jellyfinError;
 
   @override
   void initState() {
     super.initState();
-    _loadJellyfinLibrary();
+    // Deferred: the parent only mounts this tab after first visit, but even
+    // then the Jellyfin fetch waits a frame so the tab switch paints first.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadJellyfinLibrary();
+    });
   }
 
   Future<void> _loadJellyfinLibrary() async {

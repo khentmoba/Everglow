@@ -318,7 +318,11 @@ exports.proxyTmdb = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.set('Cache-Control', 'private, no-store');
+  // Authenticated per-user responses stay private, but the CDN may serve
+  // the identical TMDB catalog payload across users for 5 minutes. The
+  // browser still revalidates via the in-memory instance cache below;
+  // this header only lets Google's edge absorb repeat opens.
+  res.set('Cache-Control', 'private, max-age=0, s-maxage=300');
 
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
   if (req.method !== 'GET') { res.status(405).json({ error: 'GET only' }); return; }
@@ -349,6 +353,7 @@ exports.proxyTmdb = functions.https.onRequest(async (req, res) => {
   if (cached) {
     res.status(cached.status)
       .set('Content-Type', cached.contentType)
+      .set('X-Cache', 'HIT')
       .send(cached.body);
     return;
   }
@@ -362,6 +367,7 @@ exports.proxyTmdb = functions.https.onRequest(async (req, res) => {
     }
     res.status(response.status)
       .set('Content-Type', contentType)
+      .set('X-Cache', 'MISS')
       .send(body);
   } catch (e) {
     console.warn('[proxyTmdb] failed:', e.message);

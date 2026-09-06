@@ -45,7 +45,7 @@ mixin TMDBBase {
   final String tmdbBaseUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyTmdb';
   final String imageBaseUrl = 'https://image.tmdb.org/t/p/w500';
-  final String imageBaseOriginal = 'https://image.tmdb.org/t/p/original';
+  final String imageBaseBackdrop = 'https://image.tmdb.org/t/p/w780';
   final String profileBaseUrl = 'https://image.tmdb.org/t/p/w185';
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
@@ -83,7 +83,7 @@ mixin TMDBBase {
       mediaType: mediaType,
       posterPath: posterPath != null ? '$imageBaseUrl$posterPath' : '',
       backdropPath: item['backdrop_path'] != null
-          ? '$imageBaseOriginal${item['backdrop_path']}'
+          ? '$imageBaseBackdrop${item['backdrop_path']}'
           : '',
       status: '',
       isAnime: detectAnime(item),

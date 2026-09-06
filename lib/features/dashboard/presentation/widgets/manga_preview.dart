@@ -30,10 +30,10 @@ class MangaPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthService>();
-    final userName = auth.currentUser ?? '';
-    final isCouple = auth.isCoupleUser;
-    final partner = auth.partnerUsername;
+    final userName =
+        context.select<AuthService, String>((a) => a.currentUser ?? '');
+    final isCouple = context.select<AuthService, bool>((a) => a.isCoupleUser);
+    final partner = context.select<AuthService, String?>((a) => a.partnerUsername);
     final partnerLabel = partnerEyebrowLabelFor(userName);
 
     return Padding(
