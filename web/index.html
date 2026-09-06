@@ -181,7 +181,7 @@
     // Lazy media libs: 3D cat engine, <model-viewer>, and hls.js used to load
     // in <head> on EVERY visit (3 CDN round-trips + parse before first paint)
     // even though they are only needed deep in the app (guardian 3D,
-    // cinema/jellyfin/watch-party video). Now they load once, after first
+    // cinema/watch-party video). Now they load once, after first
     // frame or on explicit demand from Dart via JS interop:
     //   __everglowEnsureMediaLibs() / __everglowWhenHlsReady()
     window.__everglowMediaState = window.__everglowMediaState || {

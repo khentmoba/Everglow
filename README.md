@@ -76,7 +76,6 @@ _Previous releases: [v5.3.0](https://github.com/khentmoba/Everglow/releases/tag/
 | **Jukebox** | Live music status from Last.fm for both partners | 1.1.0 |
 | **Academy** | Trivia game with 8 categories, solo study, and 1v1 challenges | 1.1.0 |
 | **Canvas** | Collaborative drawing with real-time Firestore sync | 1.1.0 |
-| **Jellyfin** | Jellyfin media server integration + party downloads | 6.0.0 |
 
 ### Play Zone
 
@@ -113,7 +112,7 @@ _Previous releases: [v5.3.0](https://github.com/khentmoba/Everglow/releases/tag/
 | **Backend** | Firebase (Auth, Firestore, Storage, Hosting, Cloud Functions, FCM) |
 | **State Management** | Provider (ChangeNotifierProvider, Selector) |
 | **Routing** | go_router |
-| **External APIs** | TMDB, Open Library, OpenTDB, Last.fm, Jikan, AniList, MangaDex, Comick, MangaKakalot, Mangasee123, Bato, Spotify, Jellyfin |
+| **External APIs** | TMDB, Open Library, OpenTDB, Last.fm, Jikan, AniList, MangaDex, Comick, MangaKakalot, Mangasee123, Bato, Spotify |
 | **Real-Time** | Firestore snapshots (chat, canvas, presence, watchlist, multiplayer) |
 | **Voice Chat** | WebRTC via ac-relay signaling server |
 | **AI** | Agnes 2.5 Flash via SSE streaming with 11 function-calling tools |
@@ -155,7 +154,6 @@ lib/
     gallery/                         # Photo gallery with map view + memories
     guardian/                        # Animated cat mascot with AI-powered messages
     heartbeat/                       # Daily mood tracking (mood picker, partner status)
-    jellyfin/                        # Jellyfin media server integration + party downloads
     journal/                         # Shared journal with locked/private entries and tags
     jukebox/                         # Last.fm + Spotify sync, listen-along, insights
     manga/                           # Manga library — MangaDex, Bato, Comick, Mangakakalot, Mangasee123

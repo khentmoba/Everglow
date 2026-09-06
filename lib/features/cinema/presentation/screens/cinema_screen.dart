@@ -597,7 +597,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
                   onRateItem: _rateItem,
                   onSwitchTab: _switchTab,
                 ),
-                // Watch Together holds a Jellyfin fetch + room stream, so it
+                // Watch Together holds a room stream, so it
                 // only mounts once visited — otherwise every Cinema open pays
                 // for a tab Claire may never tap.
                 if (_hasVisitedTogether)
