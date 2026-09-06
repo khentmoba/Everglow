@@ -216,6 +216,11 @@ class _MochiScreenState extends State<MochiScreen> {
     _send();
   }
 
+  void _stop() {
+    context.read<AIService>().cancelCurrentReply();
+    if (mounted) setState(() => _isSending = false);
+  }
+
   Future<void> _pickImages() async {
     try {
       final images = await _picker.pickMultiImage(imageQuality: 85);
@@ -367,12 +372,10 @@ class _MochiScreenState extends State<MochiScreen> {
                       Selector<AIService, bool>(
                         selector: (_, ai) => ai.isLoading,
                         builder: (context, loading, _) {
-                          if (loading || _isSending) {
-                            return const SizedBox.shrink();
-                          }
                           return _QuickReplyChips(
                             onSelect: _sendQuick,
                             centered: true,
+                            enabled: !loading && !_isSending,
                           );
                         },
                       ),
@@ -385,6 +388,7 @@ class _MochiScreenState extends State<MochiScreen> {
                         controller: _input,
                         focusNode: _focusNode,
                         onSend: _send,
+                        onStop: _stop,
                         onPickImages: _pickImages,
                         attachedImages: _attachedImages,
                         onRemoveImage: _removeImage,
@@ -449,10 +453,10 @@ class _MochiScreenState extends State<MochiScreen> {
                 Selector<AIService, bool>(
                   selector: (_, ai) => ai.isLoading,
                   builder: (context, loading, _) {
-                    if (loading || _isSending) return const SizedBox.shrink();
                     return _QuickReplyChips(
                       onSelect: _sendQuick,
                       centered: false,
+                      enabled: !loading && !_isSending,
                     );
                   },
                 ),
@@ -465,6 +469,7 @@ class _MochiScreenState extends State<MochiScreen> {
                   controller: _input,
                   focusNode: _focusNode,
                   onSend: _send,
+                  onStop: _stop,
                   onPickImages: _pickImages,
                   attachedImages: _attachedImages,
                   onRemoveImage: _removeImage,
@@ -494,6 +499,7 @@ class _MochiScreenState extends State<MochiScreen> {
           ),
           builder: (context, snapshot, _) {
             final ai = context.read<AIService>();
+            final callerName = context.read<AuthService>().currentUser;
             final allMsgs = snapshot.$1?.messages ?? const <AIMessage>[];
             final loading = snapshot.$3;
 
@@ -571,14 +577,16 @@ class _MochiScreenState extends State<MochiScreen> {
                   );
                 }
                 final msg = allMsgs[i];
+                final isUserMsg = msg.role == 'user';
                 final bubble = _MessageBubble(
                   key: ValueKey(
                     'msg_${msg.timestamp.millisecondsSinceEpoch}_$i',
                   ),
                   text: msg.content,
-                  isUser: msg.role == 'user',
+                  isUser: isUserMsg,
                   timestamp: msg.timestamp,
                   imageUrls: msg.imageUrls,
+                  senderName: isUserMsg ? callerName : null,
                 );
                 if (!centered) return bubble;
                 return Center(
