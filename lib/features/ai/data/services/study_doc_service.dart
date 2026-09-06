@@ -10,6 +10,11 @@ const int kMaxStudyPdfBytes = 10 * 1024 * 1024;
 /// alongside Mochi's system prompt and recent history.
 const int kMaxStudyChars = 15000;
 
+/// Max sources per study session and max source text overall (~7k tokens).
+/// Keeps every turn inside the proxy's input budget with room to spare.
+const int kMaxStudyDocs = 3;
+const int kMaxStudyTotalChars = 30000;
+
 /// A PDF study doc attached to the current Mochi chat only.
 /// Nothing is saved — a new chat drops it.
 class StudyDoc {
@@ -40,21 +45,42 @@ class StudyDocException implements Exception {
   return (text: cleaned.substring(0, maxChars).trimRight(), truncated: true);
 }
 
-/// Wraps the extracted doc text and the user's ask into one chat message.
-/// The model needs no special prompt — the brackets say what the text is.
-String buildStudyMessage({
-  required StudyDoc doc,
-  required String userPrompt,
-}) {
-  final buffer = StringBuffer()
-    ..writeln('📄 Study material from "${doc.fileName}":')
-    ..writeln(doc.text);
-  if (doc.truncated) {
-    buffer.writeln('[Material cut here to fit — this is the start of the PDF.]');
+/// Total source characters currently attached.
+int studyTotalChars(Iterable<StudyDoc> docs) =>
+    docs.fold(0, (sum, doc) => sum + doc.text.length);
+
+/// Trims [candidate] to fit the session's shared budget.
+/// Throws [StudyDocException] when the shelf is too full to be useful.
+StudyDoc fitStudyDoc(StudyDoc candidate, List<StudyDoc> current) {
+  final room = kMaxStudyTotalChars - studyTotalChars(current);
+  if (room < 1000) {
+    throw StudyDocException('Sources are full — remove one first.');
   }
-  buffer
-    ..writeln()
-    ..write(userPrompt.trim().isEmpty ? StudyPrompts.summarize : userPrompt.trim());
+  if (candidate.text.length <= room) return candidate;
+  final cut = truncateStudyText(candidate.text, room);
+  return StudyDoc(
+    fileName: candidate.fileName,
+    text: cut.text,
+    truncated: true,
+  );
+}
+
+/// Formats attached sources as the grounding block prepended to every
+/// study question. Display text never contains this — chat bubbles show
+/// the question only, so long PDFs never flood the screen.
+String buildSourcesBlock(List<StudyDoc> docs) {
+  final buffer = StringBuffer()
+    ..writeln('Study sources (${docs.length}): '
+        '${docs.map((d) => '"${d.fileName}"').join(', ')}.');
+  for (final doc in docs) {
+    buffer
+      ..writeln('--- ${doc.fileName} ---')
+      ..writeln(doc.text);
+    if (doc.truncated) {
+      buffer.writeln('[Cut here to fit — this is the start of the PDF.]');
+    }
+  }
+  buffer.write('Answer using ONLY these sources.');
   return buffer.toString();
 }
 

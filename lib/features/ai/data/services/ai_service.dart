@@ -302,6 +302,85 @@ class AIService extends ChangeNotifier {
     }
   }
 
+  // ─── Study Mode (Notebook-style, session-only) ─────────────────
+
+  /// Streams one grounded answer for the Study screen.
+  ///
+  /// Unlike [sendMessage], nothing is persisted: no Firestore write, no
+  /// memory extraction, no conversation thread. [history] holds prior
+  /// display-only turns (question + answer text, never source material);
+  /// [sourcesBlock] is prepended to [question] so the model answers from
+  /// the attached PDFs only. Reuses the draft notifiers so the Study
+  /// screen streams exactly like Mochi chat.
+  Future<String> streamStudyReply({
+    required List<Map<String, String>> history,
+    required String sourcesBlock,
+    required String question,
+    String? callerName,
+    bool enableThinking = true,
+  }) async {
+    _isLoading = true;
+    _lastError = null;
+    _resetDraftState();
+    notifyListeners();
+
+    final caller = callerName ?? _auth.currentUser?.uid ?? 'unknown';
+    try {
+      final messages = <Map<String, dynamic>>[
+        for (final turn in history)
+          {'role': turn['role'], 'content': turn['content']},
+        {
+          'role': 'user',
+          'content': '$sourcesBlock\n\n$question',
+        },
+      ];
+
+      final reply = await _callProxyAIStream(
+        messages,
+        '',
+        const [],
+        'study',
+        caller,
+        (chunk) {
+          _draftResponse += chunk;
+          draftResponseNotifier.value = _draftResponse;
+          draftRevisionNotifier.value++;
+        },
+        onReasoning: (reasoning) {
+          _draftReasoning += reasoning;
+          draftReasoningNotifier.value = _draftReasoning;
+          draftRevisionNotifier.value++;
+        },
+        onToolStatus: (status) {
+          _toolStatus = status;
+          toolStatusNotifier.value = status;
+          draftRevisionNotifier.value++;
+        },
+        onToolResult: (result) {
+          _toolResults.add(result);
+          toolResultsNotifier.value = List.from(_toolResults);
+          draftRevisionNotifier.value++;
+        },
+        onError: (error) {
+          _lastError = error;
+          notifyListeners();
+        },
+        enableThinking: enableThinking,
+      );
+
+      _isLoading = false;
+      _resetDraftState();
+      notifyListeners();
+      return reply;
+    } catch (e) {
+      _isLoading = false;
+      _lastError = e.toString();
+      _resetDraftState();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   // ─── Feature-Specific Methods ──────────────────────────────────
 
   Future<String> getRecommendation({String? mood}) async {
