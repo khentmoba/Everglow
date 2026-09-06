@@ -4,15 +4,8 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../bucket_list/presentation/widgets/bucket_list_preview.dart';
 import 'journal_preview.dart';
-import 'cookbook_preview.dart';
-import 'wellness_preview.dart';
-import 'vault_preview.dart';
-import 'travel_preview.dart';
-import 'wiki_preview.dart';
-import 'budget_preview.dart';
-import 'rag_preview.dart';
 
-/// Atelier — all keepsakes always visible, no collapse.
+/// Atelier — dreams + journal, always visible, no collapse.
 class KeepsakesCluster extends StatelessWidget {
   const KeepsakesCluster({super.key});
 
@@ -72,65 +65,21 @@ class KeepsakesCluster extends StatelessWidget {
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(0, 18, 0, 12),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(0, 18, 0, 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16),
                       child: _ClusterHeader(),
                     ),
-                    const SizedBox(height: 16),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isWide = constraints.maxWidth >= 720;
-                        return Column(
-                          children: [
-                            if (isWide) ...[
-                              const BucketListPreview(),
-                              const Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(child: JournalPreview()),
-                                  Expanded(child: CookbookPreview()),
-                                ],
-                              ),
-                              const Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(child: TravelPreview()),
-                                  Expanded(child: VaultPreview()),
-                                ],
-                              ),
-                              const Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(child: WellnessPreview()),
-                                  Expanded(child: WikiPreview()),
-                                ],
-                              ),
-                              const Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(child: BudgetPreview()),
-                                  Expanded(child: RagPreview()),
-                                ],
-                              ),
-                            ] else ...[
-                              const BucketListPreview(),
-                              const JournalPreview(),
-                              const CookbookPreview(),
-                              const TravelPreview(),
-                              const VaultPreview(),
-                              const WellnessPreview(),
-                              const WikiPreview(),
-                              const BudgetPreview(),
-                              const RagPreview(),
-                            ],
-                          ],
-                        );
-                      },
+                    SizedBox(height: 16),
+                    Column(
+                      children: [
+                        BucketListPreview(),
+                        JournalPreview(),
+                      ],
                     ),
                   ],
                 ),
@@ -208,7 +157,7 @@ class _ClusterHeader extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          'Dreams, recipes, maps — all your worlds, always here.',
+          'Dreams & letters, just for us',
           style: AppTypography.outfitWhite.copyWith(fontSize: 12, height: 1.4, color: AppColors.petalWhite.withValues(alpha: 0.48)),
         ),
       ],
