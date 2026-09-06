@@ -184,16 +184,6 @@ class _MochiHeader extends StatelessWidget {
               ),
             ),
           ),
-          if (!isDesktop)
-            IconButton(
-              onPressed: onSidebarToggle,
-              icon: Icon(
-                sidebarOpen ? Icons.close_rounded : Icons.menu_rounded,
-                color: AppColors.textMuted,
-                size: 20,
-              ),
-              tooltip: sidebarOpen ? 'Close history' : 'History',
-            ),
         ],
       ),
     );
@@ -458,6 +448,7 @@ class _MessageBubble extends StatefulWidget {
   final String? reasoning;
   final String? toolStatus;
   final List<String> imageUrls;
+  final String? senderName;
 
   const _MessageBubble({
     super.key,
@@ -468,6 +459,7 @@ class _MessageBubble extends StatefulWidget {
     this.reasoning,
     this.toolStatus,
     this.imageUrls = const [],
+    this.senderName,
   });
 
   @override

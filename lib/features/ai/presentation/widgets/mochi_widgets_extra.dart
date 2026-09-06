@@ -366,17 +366,34 @@ class _MessageBubbleState extends State<_MessageBubble> {
           ),
           if (widget.isUser) ...[
             const SizedBox(width: 10),
-            ClipRRect(
-              borderRadius: AppRadius.radiusSm,
-              child: Image.asset(
-                'assets/images/mochi_avatar.png',
-                width: 28,
-                height: 28,
-                fit: BoxFit.cover,
-              ),
-            ),
+            _UserAvatar(name: widget.senderName),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Initial-letter avatar for the user's own messages, so they are visually
+/// distinct from Mochi's cat avatar.
+class _UserAvatar extends StatelessWidget {
+  final String? name;
+
+  const _UserAvatar({this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    final trimmed = (name ?? '').trim();
+    final initial = trimmed.isEmpty ? '?' : trimmed[0].toUpperCase();
+    return CircleAvatar(
+      radius: 14,
+      backgroundColor: AppColors.deepRose.withValues(alpha: 0.35),
+      child: Text(
+        initial,
+        style: AppTypography.bodySmall().copyWith(
+          color: AppColors.petalWhite,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -733,8 +750,13 @@ class _ToolStatusChip extends StatelessWidget {
 class _QuickReplyChips extends StatelessWidget {
   final ValueChanged<String> onSelect;
   final bool centered;
+  final bool enabled;
 
-  const _QuickReplyChips({required this.onSelect, this.centered = false});
+  const _QuickReplyChips({
+    required this.onSelect,
+    this.centered = false,
+    this.enabled = true,
+  });
 
   static const _chips = [
     ('What should we watch? 🎬', 'What should we watch tonight?'),
@@ -770,7 +792,7 @@ class _QuickReplyChips extends StatelessWidget {
               backgroundColor: AppColors.surfaceGlass,
               side: BorderSide(color: AppColors.border),
               shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusFull),
-              onPressed: () => onSelect(e.$2),
+              onPressed: enabled ? () => onSelect(e.$2) : null,
             ),
           );
         }).toList(),
