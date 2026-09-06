@@ -337,6 +337,13 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
                               Icons.bolt_rounded,
                               () => _showCategoryPicker(_startMatchmaking),
                             ),
+                            const SizedBox(height: AppSpacing.x2),
+                            _buildModeButton(
+                              'Study with Mochi',
+                              'Ask about your PDFs',
+                              Icons.picture_as_pdf_rounded,
+                              () => context.push('/study'),
+                            ),
                             if (_statusMessage != null) ...[
                               const SizedBox(height: AppSpacing.xl),
                               Text(
