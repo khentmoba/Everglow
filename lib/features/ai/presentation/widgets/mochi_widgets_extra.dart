@@ -226,9 +226,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               ),
                               if (_showReasoning) ...[
                                 const SizedBox(height: 4),
-                                Text(
-                                  widget.reasoning!,
-                                  style: AppTypography.bodySmall().copyWith(
+                                EverglowMarkdown(
+                                  text: widget.reasoning!,
+                                  paragraphGap: 4,
+                                  baseStyle: AppTypography.bodySmall().copyWith(
                                     fontSize: 10,
                                     color: AppColors.textMuted.withValues(
                                       alpha: 0.6,
@@ -252,7 +253,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         widget.text,
                         style: AppTypography.bodyMedium().copyWith(
                           color: AppColors.petalWhite,
-                          height: 1.45,
+                          height: 1.5,
                         ),
                       )
                     else if (widget.isStreaming && bubbleText.isEmpty)
@@ -266,7 +267,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               text: bubbleText,
                               baseStyle: AppTypography.bodyMedium().copyWith(
                                 color: AppColors.textHigh,
-                                height: 1.45,
+                                height: 1.55,
                               ),
                             ),
                           ),
