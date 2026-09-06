@@ -45,12 +45,18 @@
   <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
   <link rel="preconnect" href="https://firebase.googleapis.com" crossorigin>
   <link rel="preconnect" href="https://www.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link rel="dns-prefetch" href="https://unpkg.com">
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
   <link rel="dns-prefetch" href="https://ajax.googleapis.com">
 
   <!-- Bootstrap is the critical script: preload it at high priority. -->
   <link rel="preload" href="flutter_bootstrap.js" as="script" fetchpriority="high">
+  <!-- main.dart.js (~6MB) always follows bootstrap: hint it early so the
+       download starts in parallel instead of waiting for bootstrap to run.
+       Served cache-first by sw.js on repeat visits; revalidated (304) by
+       HTTP on the very first visit after a deploy. -->
+  <link rel="preload" href="main.dart.js" as="script" fetchpriority="high">
 
   <style>
     /* Instant dark splash: avoids white flash and gives LCP feedback before
