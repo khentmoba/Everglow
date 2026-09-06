@@ -13,13 +13,16 @@ import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/everglow/everglow_markdown.dart';
 import '../../data/services/ai_service.dart';
 import '../../data/services/study_doc_service.dart';
+import '../../data/services/study_history_service.dart';
+import '../widgets/study_history_panel.dart';
 
 /// Study — a Notebook-style corner of Everglow for Khent and Clair.
 ///
 /// Sources (up to 3 PDFs) sit on the shelf up top; the chat below is
 /// grounded on them. Bubbles show questions and answers only — source
 /// text goes to the model, never on screen, so long PDFs can't flood
-/// the chat. Everything is session-only: leaving drops sources and turns.
+/// the chat. Sessions auto-save to Firestore history so leaving and
+/// coming back keeps the shelf and turns.
 class StudyScreen extends StatefulWidget {
   const StudyScreen({super.key});
 
@@ -43,6 +46,12 @@ class _StudyScreenState extends State<StudyScreen> {
 
   final List<StudyDoc> _sources = [];
   final List<_StudyTurn> _turns = [];
+  final StudyHistoryService _history = StudyHistoryService();
+  final GlobalKey<StudyHistoryPanelState> _historyKey =
+      GlobalKey<StudyHistoryPanelState>();
+  String? _sessionId;
+  bool _historyOpen = false;
+  bool _restoring = false;
   bool _sending = false;
   bool _picking = false;
   bool _hasText = false;
@@ -115,6 +124,7 @@ class _StudyScreenState extends State<StudyScreen> {
       final doc = await _studyDocs.pickAndExtract();
       if (!mounted || doc == null) return; // user cancelled
       setState(() => _sources.add(fitStudyDoc(doc, _sources)));
+      _persistSession();
       _focusNode.requestFocus();
     } on StudyDocException catch (e) {
       if (mounted) _snack(e.message, isError: true);
@@ -125,6 +135,81 @@ class _StudyScreenState extends State<StudyScreen> {
 
   void _removeSource(int index) {
     setState(() => _sources.removeAt(index));
+    _persistSession();
+  }
+
+  /// Saves the current shelf + turns to Firestore history (fire-and-forget).
+  /// Skips empty shelves so the history list never fills with blank entries.
+  Future<void> _persistSession() async {
+    if (_sources.isEmpty && _turns.isEmpty) return;
+    try {
+      final turns = [
+        for (final t in _turns)
+          t.fromUser
+              ? StudyHistoryTurn.user(t.text)
+              : StudyHistoryTurn.assistant(t.text),
+      ];
+      final id = await _history.saveSession(
+        sessionId: _sessionId,
+        sources: List<StudyDoc>.of(_sources),
+        turns: turns,
+      );
+      if (!mounted) return;
+      if (id != null && _sessionId == null) {
+        setState(() => _sessionId = id);
+      }
+      _historyKey.currentState?.refresh();
+    } catch (_) {
+      // History must never break the chat — fail silently.
+    }
+  }
+
+  void _newStudy() {
+    if (_sources.isEmpty && _turns.isEmpty) {
+      setState(() => _historyOpen = false);
+      return;
+    }
+    // Current work is already auto-saved on every turn — just clear the desk.
+    setState(() {
+      _sessionId = null;
+      _sources.clear();
+      _turns.clear();
+      _historyOpen = false;
+    });
+    _snack('Fresh page — shelf cleared. History kept on the left.');
+    _focusNode.requestFocus();
+  }
+
+  Future<void> _restoreSession(StudySession session) async {
+    if (_restoring) return;
+    setState(() {
+      _restoring = true;
+      _historyOpen = false;
+    });
+    try {
+      // List payloads already carry full sources + turns; re-fetch to be safe
+      // against a stale list entry (e.g. edited on the partner's device).
+      final full = await _history.loadSession(session.id) ?? session;
+      if (!mounted) return;
+      setState(() {
+        _sessionId = full.id;
+        _sources
+          ..clear()
+          ..addAll(full.sources);
+        _turns
+          ..clear()
+          ..addAll(
+            full.turns.map(
+              (t) => t.fromUser
+                  ? _StudyTurn.user(t.text)
+                  : _StudyTurn.assistant(t.text),
+            ),
+          );
+      });
+      _scrollToBottom(animated: false);
+    } finally {
+      if (mounted) setState(() => _restoring = false);
+    }
   }
 
   Future<void> _ask(String prompt) async {
@@ -157,6 +242,7 @@ class _StudyScreenState extends State<StudyScreen> {
       }
       setState(() => _turns.add(_StudyTurn.assistant(reply.trim())));
       _scrollToBottom();
+      _persistSession();
     } catch (_) {
       if (mounted) _snack('Mochi had trouble — check connection and retry.', isError: true);
     } finally {
@@ -178,6 +264,7 @@ class _StudyScreenState extends State<StudyScreen> {
   @override
   Widget build(BuildContext context) {
     final canSend = _hasText && _sources.isNotEmpty && !_sending;
+    final isDesktop = MediaQuery.sizeOf(context).width >= 1024;
     return Scaffold(
       backgroundColor: AppColors.inkDeep,
       body: Stack(
@@ -186,28 +273,94 @@ class _StudyScreenState extends State<StudyScreen> {
             child: EverglowBackground(baseColor: AppColors.inkDeep),
           ),
           SafeArea(
-            child: Column(
-              children: [
-                EverglowFeatureHeader(
-                  title: 'Study',
-                  subtitle: 'your PDFs, Mochi on top',
-                  icon: Icons.school_rounded,
-                  hue: AppColors.softLavender,
-                  onBack: () => context.pop(),
-                ),
-                _buildSources(),
-                Divider(
-                  height: 1,
-                  color: AppColors.blushGold.withValues(alpha: 0.06),
-                ),
-                Expanded(child: _buildChat()),
-                if (_sources.isNotEmpty && !_sending) _buildStudyChips(),
-                _buildComposer(canSend),
-              ],
-            ),
+            child: isDesktop
+                ? Row(
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOutCubic,
+                        width: _historyOpen ? 320 : 0,
+                        child: OverflowBox(
+                          maxWidth: 320,
+                          minWidth: 320,
+                          alignment: Alignment.centerLeft,
+                          child: IgnorePointer(
+                            ignoring: !_historyOpen,
+                            child: AnimatedOpacity(
+                              duration: const Duration(milliseconds: 200),
+                              opacity: _historyOpen ? 1 : 0,
+                              child: StudyHistoryPanel(
+                                key: _historyKey,
+                                isOpen: true,
+                                activeSessionId: _sessionId,
+                                onClose: () =>
+                                    setState(() => _historyOpen = false),
+                                onNewStudy: _newStudy,
+                                onSelect: _restoreSession,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(child: _buildMainColumn(canSend)),
+                    ],
+                  )
+                : Stack(
+                    children: [
+                      _buildMainColumn(canSend),
+                      StudyHistoryPanel(
+                        key: _historyKey,
+                        isOpen: _historyOpen,
+                        activeSessionId: _sessionId,
+                        onClose: () => setState(() => _historyOpen = false),
+                        onNewStudy: _newStudy,
+                        onSelect: _restoreSession,
+                      ),
+                    ],
+                  ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMainColumn(bool canSend) {
+    return Column(
+      children: [
+        EverglowFeatureHeader(
+          title: 'Study',
+          subtitle: 'your PDFs, Mochi on top',
+          icon: Icons.school_rounded,
+          hue: AppColors.softLavender,
+          onBack: () => context.pop(),
+          actions: [
+            _HeaderIconButton(
+              icon: Icons.history_rounded,
+              tooltip: 'Study history',
+              onTap: () => setState(() => _historyOpen = !_historyOpen),
+            ),
+            _HeaderIconButton(
+              icon: Icons.add_rounded,
+              tooltip: 'New study',
+              onTap: _newStudy,
+            ),
+          ],
+        ),
+        if (_restoring)
+          const LinearProgressIndicator(
+            minHeight: 2,
+            backgroundColor: Colors.transparent,
+            valueColor: AlwaysStoppedAnimation(AppColors.blushGold),
+          ),
+        _buildSources(),
+        Divider(
+          height: 1,
+          color: AppColors.blushGold.withValues(alpha: 0.06),
+        ),
+        Expanded(child: _buildChat()),
+        if (_sources.isNotEmpty && !_sending) _buildStudyChips(),
+        _buildComposer(canSend),
+      ],
     );
   }
 
@@ -599,6 +752,40 @@ class _StudyScreenState extends State<StudyScreen> {
           ),
         ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Small circular action used in the Study header (history / new study).
+class _HeaderIconButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _HeaderIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.radiusFull,
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.surfaceGlass,
+            border: Border.all(color: AppColors.border, width: 0.5),
+          ),
+          child: Icon(icon, size: 18, color: AppColors.textMuted),
         ),
       ),
     );
