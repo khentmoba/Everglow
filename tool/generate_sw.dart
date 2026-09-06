@@ -1,5 +1,6 @@
 // ignore_for_file: avoid_print
-// Build tool: prints the generated build stamp for CI logs.
+// Build tool: stamps web/sw.js with the current version+commit, writes
+// web/version.json for the in-app update check, and prints the stamp.
 import "dart:io";
 
 void main() {
@@ -12,45 +13,51 @@ void main() {
 
   final sw = """
 // BUILD=$buildConst
-// Everglow service worker: app-shell + immutable-asset caching.
+// Everglow service worker: app-shell + asset caching + push.
 //
-// Strategy:
-// - CORE (flutter_bootstrap.js, main.dart.js): cache-first, populated on
-//   install. These are content-hashed per Flutter build; the BUILD-stamped
-//   CACHE name guarantees a fresh shell after every deploy, and `activate`
-//   deletes all older caches so users never run mixed old-shell/new-asset.
-// - IMMUTABLE (canvaskit/*, *.wasm, fonts, models, icons): cache-first with
-//   runtime population. Canvaskit WASM (~7MB) and chibi_cat.glb (~4MB) are the
-//   heaviest repeat-visit bytes; serving them from CacheStorage cuts repeat
-//   load to near-zero network.
-// - HTML/version probes (/, /index.html, /version.json, /sw.js,
-//   /flutter_bootstrap.js is CORE so excluded here): network-only, no-store.
-//   The app shell must never serve a stale entry point.
-// - Everything else (posters, API proxies): network-first with cache
-//   fallback, bounded to 120 entries to avoid unbounded CacheStorage growth
-//   from TMDB/Spotify artwork.
+// Pairing with firebase.json (last matching header rule wins there):
+// - Entry points (/, /index.html, flutter_bootstrap.js, version.json, sw.js)
+//   are served `no-cache` over HTTP, and network-only here. The shell can
+//   never go stale: a deploy is live on the next navigation.
+// - main.dart.js + CanvasKit/WASM/fonts/models are cache-first in a
+//   BUILD-stamped cache. Filenames are STABLE across Flutter builds (nothing
+//   here is content-hashed), so freshness comes from the stamp: `activate`
+//   deletes every older cache, atomically swapping shell versions.
+// - Repeat visits serve heavy bytes from CacheStorage with zero network;
+//   HTTP `must-revalidate` (304s) is only the fallback when no worker
+//   controls the page yet (very first visit).
+//
+// Push: this worker ALSO handles FCM background messages so a single
+// registration owns the "/" scope. A second worker on the same scope
+// (firebase-messaging-sw.js) would replace this one and kill offline
+// caching, or vice versa — so that file is just a thin importScripts
+// wrapper around this one, and both behave identically.
 const CACHE="$buildConst-CACHE-v1";
-const CORE=["flutter_bootstrap.js","main.dart.js"];
+const CORE=["main.dart.js"];
+// Never cached: entry points, loaders, worker scripts, version probes.
+const NO_STORE=["/","/index.html","/version.json","/sw.js","/firebase-messaging-sw.js","/flutter.js","/flutter_bootstrap.js","/flutter_service_worker.js","/manifest.json"];
+function isNoStore(path) {
+  for (const n of NO_STORE) if (path === n) return true;
+  return false;
+}
 function isCore(path) {
   for (const a of CORE) if (path.endsWith(a)) return true;
   return false;
 }
 function isImmutable(url) {
   const p = new URL(url).pathname;
+  if (isNoStore(p)) return false;
   if (p.startsWith("/canvaskit/")) return true;
   if (p.startsWith("/assets/") || p.startsWith("/icons/")) return true;
   return /\\.(wasm|ttf|otf|woff2|glb|gltf|bin|data|mp3|js|css)\$/.test(p);
-}
-function isNoStore(path) {
-  return path === "/" || path === "/index.html" || path === "/version.json" ||
-    path === "/sw.js" || path === "/flutter.js";
 }
 async function trimRuntime(cacheName, maxEntries) {
   try {
     const c = await caches.open(cacheName);
     const keys = await c.keys();
-    if (keys.length > maxEntries) {
-      await c.delete(keys[0]);
+    const excess = keys.length - maxEntries;
+    for (let i = 0; i < excess; i++) {
+      await c.delete(keys[i]);
     }
   } catch (_) {}
 }
@@ -72,8 +79,8 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
   const url = new URL(e.request.url);
-  // Only handle same-origin; CDN media (unpkg/jsdelivr/googleapis) keeps its
-  // own HTTP-cache behavior and must not pollute the versioned cache.
+  // Only handle same-origin; CDN media (unpkg/jsdelivr/googleapis/gstatic)
+  // keeps its own HTTP-cache behavior and must not pollute the versioned cache.
   if (url.origin !== self.location.origin) return;
   const path = url.pathname;
   if (isNoStore(path)) {
@@ -105,6 +112,52 @@ self.addEventListener("fetch", (e) => {
         return res;
       })
       .catch(() => caches.match(e.request)),
+  );
+});
+// --- Push (merged here so one worker owns the scope) ---
+// Guarded: importScripts throws when gstatic is unreachable (offline first
+// install) — caching above must still work, so push is best-effort.
+try {
+  importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js");
+  importScripts("https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js");
+  firebase.initializeApp({
+    apiKey: "AIzaSyBMk0z4e-k_SAYzaLypYKJn3euwfx0fW5c",
+    authDomain: "everglow-1c6db.firebaseapp.com",
+    projectId: "everglow-1c6db",
+    storageBucket: "everglow-1c6db.firebasestorage.app",
+    messagingSenderId: "220334592353",
+    appId: "1:220334592353:web:6b31555509529613647520",
+  });
+  const messaging = firebase.messaging();
+  // Show a native notification when a push arrives while the
+  // browser tab is closed or in the background.
+  messaging.onBackgroundMessage(function(payload) {
+    const title = payload.notification?.title || "Everglow";
+    const body = payload.notification?.body || "";
+    const data = payload.data || {};
+    self.registration.showNotification(title, {
+      body,
+      icon: "/icons/Icon-192.png",
+      badge: "/icons/Icon-192.png",
+      data,
+      tag: data.type || "everglow",
+    });
+  });
+} catch (_) {
+  // Push unavailable (offline at install, or blocked CDN) — caching unaffected.
+}
+// When the user taps the notification, focus or open the app.
+self.addEventListener("notificationclick", function(event) {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then(function(clientList) {
+      // If the app is already open, focus it.
+      for (const client of clientList) {
+        if ("focus" in client) return client.focus();
+      }
+      // Otherwise open a new window.
+      return clients.openWindow("/");
+    })
   );
 });
 """;

@@ -17,6 +17,7 @@ import 'core/theme/app_theme.dart' as custom_theme;
 import 'core/utils/connectivity_service.dart';
 import 'core/utils/logger.dart';
 import 'firebase_options.dart';
+import 'shared/widgets/everglow/app_update_prompt.dart';
 
 /// Global key for SnackBar notifications.
 final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -220,7 +221,8 @@ class EverglowApp extends StatelessWidget {
         theme: custom_theme.AppTheme.gamifiedTheme,
         routerConfig: createAppRouter(),
         scaffoldMessengerKey: _scaffoldMessengerKey,
-        builder: (context, child) => AppRoot(child: child!),
+        builder: (context, child) =>
+            AppUpdatePrompt(child: AppRoot(child: child!)),
       ),
     );
   }

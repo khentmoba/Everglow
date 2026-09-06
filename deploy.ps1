@@ -6,7 +6,7 @@ dart tool/generate_sw.dart
 if ($LASTEXITCODE -ne 0) { Write-Host "SW generation failed"; exit 1 }
 
 Write-Host "Running flutter build web (prod: no source maps)..."
-$dartDefines = @("--release", "--no-source-maps")
+$buildArgs = @("--release", "--no-source-maps")
 # Only public client values may enter a web bundle. Server-only credentials
 # (TMDB, Last.fm, couple account credentials) must stay in Cloud Functions.
 $allowedClientKeys = @('FCM_VAPID_KEY', 'SPOTIFY_CLIENT_ID')
@@ -14,12 +14,14 @@ if (Test-Path "assets/env.txt") {
   Get-Content "assets/env.txt" | ForEach-Object {
     if ($_ -match '^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$') {
       if ($allowedClientKeys -contains $matches[1]) {
-        $dartDefines += "--dart-define=$($matches[1])=$($matches[2])"
+        $buildArgs += "--dart-define=$($matches[1])=$($matches[2])"
       }
     }
   }
 }
-flutter build web @dartDefines
+# tool/build_web.dart forwards these to `flutter build web` and adds the
+# engine-pinned gstatic CanvasKit URL when reachable (falls back safely).
+dart tool/build_web.dart -- @buildArgs
 if ($LASTEXITCODE -ne 0) { Write-Host "Build failed"; exit 1 }
 
 Write-Host "Deploying to Firebase..."
