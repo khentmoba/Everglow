@@ -89,9 +89,15 @@ abstract final class StudyPrompts {
   static const summarize =
       'Summarize this for us so we can study it — key points first, then details. Keep it warm and simple.';
   static const quiz =
-      'Quiz us on this! Ask 5 multiple-choice questions based ONLY on the material above. Ask them all now, wait for our answers, then correct us gently.';
+      'Quiz us on this! Ask 5 multiple-choice questions based ONLY on the material above. '
+      'Ask them all now with A–D options, wait for our answers, then correct us gently. '
+      'After the friendly quiz, append a hidden fenced block named quiz-json with the same questions as JSON: '
+      '[{"q":"question","options":["a","b","c","d"],"answer":0,"why":"one-line gentle explanation"}] '
+      'where answer is the 0-based index of the correct option. JSON only inside the block, no commentary.';
   static const flashcards =
-      'Make us flashcards from this — one question line followed by its answer line, 10 cards max, based ONLY on the material above.';
+      'Make us flashcards from this — show each card as "Front: ..." then "Back: ..." lines, 10 cards max, based ONLY on the material above. '
+      'After the friendly cards, append a hidden fenced block named flashcards-json with the same cards as JSON: '
+      '[{"front":"...","back":"..."}]. JSON only inside the block, no commentary.';
   static const explain =
       'Explain this simply, like we are seeing it for the first time. Use everyday examples.';
 

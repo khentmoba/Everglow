@@ -14,8 +14,10 @@ import '../../../../shared/widgets/everglow/everglow_chat_bubble.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/everglow/everglow_markdown.dart';
 import '../../data/services/ai_service.dart';
+import '../../data/services/study_artifact.dart';
 import '../../data/services/study_doc_service.dart';
 import '../../data/services/study_history_service.dart';
+import '../widgets/study_artifact_sheet.dart';
 import '../widgets/study_history_panel.dart';
 
 /// Study — a Notebook-style corner of Everglow for Khent and Clair.
@@ -820,20 +822,29 @@ class _UserBubble extends StatelessWidget {
 }
 
 /// Mochi answer — the same global assistant bubble Mochi chat uses,
-/// so a fix here upgrades both surfaces at once.
+/// so a fix here upgrades both surfaces at once. When the reply carries
+/// a quiz or flashcards, one big button opens the interactive canvas
+/// (tappable answers, flippable cards); the hidden data block is stripped
+/// so Clair never sees raw JSON.
 class _AnswerBubble extends StatelessWidget {
   final String text;
   const _AnswerBubble({required this.text});
 
   @override
   Widget build(BuildContext context) {
+    final artifacts = parseStudyArtifacts(text);
+    final displayText =
+        artifacts.isEmpty ? text : stripArtifactBlocks(text);
     return Padding(
       padding: const EdgeInsets.only(right: 8, bottom: 12),
       child: EverglowAssistantBubble(
-        text: text,
+        text: displayText,
         title: 'Mochi',
         subtitle: 'from your PDFs',
         timeLabel: 'Mochi • grounded only on your pages',
+        leadingReasoning: artifacts.isEmpty
+            ? null
+            : StudyArtifactEntry(artifacts: artifacts),
       ),
     );
   }
@@ -913,6 +924,7 @@ class _StreamingBubble extends StatelessWidget {
               child: ValueListenableBuilder<String>(
                 valueListenable: ai.draftResponseNotifier,
                 builder: (_, draft, _) {
+                  draft = stripStreamingArtifacts(draft);
                   if (draft.isEmpty) {
                     return Row(
                       mainAxisSize: MainAxisSize.min,
