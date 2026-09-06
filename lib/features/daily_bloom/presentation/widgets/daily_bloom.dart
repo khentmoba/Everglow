@@ -157,7 +157,25 @@ class _DailyBloomState extends State<DailyBloom> {
             ),
 
             // Interaction Stats + Actions
-            if (stats != null)
+            if (stats == null)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: provider.hasError
+                    ? _buildActionChip(
+                        icon: Icons.refresh_rounded,
+                        label: 'Garden unavailable — retry',
+                        onTap: provider.retry,
+                      )
+                    : const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.blushGold,
+                        ),
+                      ),
+              )
+            else
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: Column(
