@@ -18,6 +18,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../shared/utils/text_utils.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../../shared/widgets/everglow/everglow_markdown.dart';
 import '../../domain/mochi_quality.dart';
 import 'mochi_web_bridge.dart';
 import 'mochi_sidebar.dart';

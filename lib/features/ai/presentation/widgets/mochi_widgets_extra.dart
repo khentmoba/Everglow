@@ -383,6 +383,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
 }
 
 // ─── Markdown renderer ───────────────────────────────────────────
+// Delegates to the shared EverglowMarkdown so Mochi and Study render
+// headings, lists, tables, and dividers identically (no raw `**` / `|`).
 
 class _MarkdownText extends StatelessWidget {
   final String text;
@@ -392,79 +394,15 @@ class _MarkdownText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style =
-        baseStyle ??
-        AppTypography.bodyMedium().copyWith(
-          color: AppColors.textHigh,
-          height: 1.5,
-        );
-
-    return RichText(
-      text: TextSpan(style: style, children: _parseInline(text, style)),
+    return EverglowMarkdown(
+      text: text,
+      baseStyle:
+          baseStyle ??
+          AppTypography.bodyMedium().copyWith(
+            color: AppColors.textHigh,
+            height: 1.55,
+          ),
     );
-  }
-
-  List<TextSpan> _parseInline(String input, TextStyle base) {
-    final spans = <TextSpan>[];
-    final regex = RegExp(
-      r'(\*\*(.+?)\*\*|__(.+?)__|\*(.+?)\*|_(.+?)_|`(.+?)`|```[\s\S]*?```)',
-    );
-
-    int lastEnd = 0;
-    for (final match in regex.allMatches(input)) {
-      if (match.start > lastEnd) {
-        spans.add(TextSpan(text: input.substring(lastEnd, match.start)));
-      }
-
-      final full = match.group(0)!;
-      if (full.startsWith('**')) {
-        spans.add(
-          TextSpan(
-            text: match.group(2),
-            style: base.copyWith(fontWeight: FontWeight.w700),
-          ),
-        );
-      } else if (full.startsWith('__')) {
-        spans.add(
-          TextSpan(
-            text: match.group(3),
-            style: base.copyWith(fontWeight: FontWeight.w700),
-          ),
-        );
-      } else if (full.startsWith('*')) {
-        spans.add(
-          TextSpan(
-            text: match.group(4),
-            style: base.copyWith(fontStyle: FontStyle.italic),
-          ),
-        );
-      } else if (full.startsWith('_')) {
-        spans.add(
-          TextSpan(
-            text: match.group(5),
-            style: base.copyWith(fontStyle: FontStyle.italic),
-          ),
-        );
-      } else if (full.startsWith('`')) {
-        spans.add(
-          TextSpan(
-            text: match.group(6),
-            style: base.copyWith(
-              fontFamily: 'monospace',
-              backgroundColor: AppColors.velvet.withValues(alpha: 0.5),
-            ),
-          ),
-        );
-      }
-
-      lastEnd = match.end;
-    }
-
-    if (lastEnd < input.length) {
-      spans.add(TextSpan(text: input.substring(lastEnd)));
-    }
-
-    return spans.isNotEmpty ? spans : [TextSpan(text: input)];
   }
 }
 
