@@ -25,6 +25,13 @@ class AIRecommendations extends StatefulWidget {
   /// enables this; Anime and Dashboard keep the legacy card.
   final bool netflixStyle;
 
+  /// Lists the parent screen already fetched. When provided and non-empty,
+  /// Mochi's prompt context reuses them instead of firing duplicate TMDB
+  /// calls for the same data.
+  final List<MediaItem>? preloadedTrending;
+  final List<MediaItem>? preloadedNowPlaying;
+  final List<MediaItem>? preloadedUpcoming;
+
   const AIRecommendations({
     super.key,
     this.mood,
@@ -32,6 +39,9 @@ class AIRecommendations extends StatefulWidget {
     this.onTapItem,
     this.autoLoad = false,
     this.netflixStyle = false,
+    this.preloadedTrending,
+    this.preloadedNowPlaying,
+    this.preloadedUpcoming,
   });
 
   @override
@@ -84,9 +94,12 @@ class _AIRecommendationsState extends State<AIRecommendations> {
         contextParts.add('Our watchlist:\n$items');
       }
 
-      // Pre-fetch real TMDB data so Mochi recommends actual movies
+      // Real TMDB data so Mochi recommends actual movies. Prefer lists the
+      // parent already fetched; only hit the network when none were passed.
       try {
-        final trending = await tmdb.fetchTrending(timeWindow: 'week');
+        final trending = widget.preloadedTrending?.isNotEmpty == true
+            ? widget.preloadedTrending!
+            : await tmdb.fetchTrending(timeWindow: 'week');
         if (trending.isNotEmpty) {
           final list = trending
               .take(10)
@@ -99,7 +112,9 @@ class _AIRecommendationsState extends State<AIRecommendations> {
       }
 
       try {
-        final nowPlaying = await tmdb.fetchNowPlaying();
+        final nowPlaying = widget.preloadedNowPlaying?.isNotEmpty == true
+            ? widget.preloadedNowPlaying!
+            : await tmdb.fetchNowPlaying();
         if (nowPlaying.isNotEmpty) {
           final list = nowPlaying
               .take(8)
@@ -112,7 +127,9 @@ class _AIRecommendationsState extends State<AIRecommendations> {
       }
 
       try {
-        final upcoming = await tmdb.fetchUpcoming();
+        final upcoming = widget.preloadedUpcoming?.isNotEmpty == true
+            ? widget.preloadedUpcoming!
+            : await tmdb.fetchUpcoming();
         if (upcoming.isNotEmpty) {
           final list = upcoming
               .take(8)
