@@ -14,6 +14,7 @@ import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../../shared/widgets/everglow/everglow_stream_view.dart';
 import '../../domain/models/memory_photo.dart';
 import '../../data/services/gallery_service.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import '../widgets/add_photo_dialog.dart';
 import '../widgets/gallery_map_view.dart';
 import '../widgets/this_week_view.dart';
@@ -335,34 +336,23 @@ class _PhotoCardState extends State<_PhotoCard> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.network(
-                  GalleryService.displayUrl(photo.imageUrl),
+                AppNetworkImage(
+                  imageUrl: GalleryService.displayUrl(
+                    photo.imageUrl,
+                    thumb: true,
+                  ),
                   fit: BoxFit.cover,
                   cacheWidth: 440,
-                  loadingBuilder: (context, child, progress) {
-                    if (progress == null) return child;
-                    return Container(
-                      color: AppColors.twilight,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.petalWhite.withValues(alpha: 0.42),
-                          strokeWidth: 2,
-                        ),
+                  errorWidget: Container(
+                    color: AppColors.twilight,
+                    child: const Center(
+                      child: Icon(
+                        Icons.broken_image_rounded,
+                        color: AppColors.roseQuartz,
+                        size: 32,
                       ),
-                    );
-                  },
-                  errorBuilder: (context, error, stack) {
-                    return Container(
-                      color: AppColors.twilight,
-                      child: const Center(
-                        child: Icon(
-                          Icons.broken_image_rounded,
-                          color: AppColors.roseQuartz,
-                          size: 32,
-                        ),
-                      ),
-                    );
-                  },
+                    ),
+                  ),
                 ),
                 // Bottom gradient + caption
                 Positioned(

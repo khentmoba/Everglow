@@ -96,7 +96,11 @@ class _BooksHeaderState extends State<_BooksHeader> {
   }
 
   void _subscribe() {
-    _sub = widget.ourBooksService.getOurBooksStream().listen((items) {
+    // Header only shows the badge count: 24 docs is plenty instead of
+    // the full 300-doc collection stream.
+    _sub = widget.ourBooksService
+        .getOurBooksCountPreviewStream(limit: 24)
+        .listen((items) {
       if (!mounted) return;
       setState(() => _count = items.length);
     });
@@ -161,7 +165,11 @@ class _OurBooksSubrowState extends State<_OurBooksSubrow> {
   }
 
   void _subscribe() {
-    _sub = widget.ourBooksService.getOurBooksByAdderStream(widget.adder).listen(
+    // Preview cap (24): the rail renders up to 12 cards per sub-row.
+    // Full 300-doc history stays on the books screen.
+    _sub = widget.ourBooksService
+        .getOurBooksByAdderPreviewStream(widget.adder, limit: 24)
+        .listen(
       (items) {
         if (!mounted) return;
         setState(() {
@@ -248,9 +256,11 @@ class _PersonalBooksShelfState extends State<_PersonalBooksShelf> {
   }
 
   void _bind() {
+    // Rail renders up to 12 cards: 24 docs is plenty instead of the
+    // 500-doc read-list stream.
     _stream = widget.userName.isEmpty
         ? null
-        : _openLibraryService.getReadListStream(widget.userName);
+        : _openLibraryService.getReadListStream(widget.userName, limit: 24);
   }
 
   void _openDetails(BuildContext context, BookItem item) {

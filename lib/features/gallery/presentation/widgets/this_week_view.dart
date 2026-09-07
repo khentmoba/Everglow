@@ -103,7 +103,7 @@ class ThisWeekView extends StatelessWidget {
                       left: Radius.circular(14),
                     ),
                     child: AppNetworkImage(
-                      imageUrl: GalleryService.displayUrl(p.imageUrl),
+                      imageUrl: GalleryService.displayUrl(p.imageUrl, thumb: true),
                       width: 90,
                       height: 90,
                       fit: BoxFit.cover,

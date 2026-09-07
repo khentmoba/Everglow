@@ -287,11 +287,22 @@ class MangaKakalotService with ConnectivityAware {
   /// other's. Filtering is done in Dart so we don't need a composite
   /// Firestore index.
   Stream<List<MangaItem>> getReadingStream(String userName) {
+    return getReadingPreviewStream(userName, limit: 500);
+  }
+
+  // Capped preview for the dashboard rail: each partner sub-row renders
+  // up to 12 cards, so the default 500-doc stream is heavy on every
+  // dashboard visit. Full library stays on getReadingStream / the
+  // manga screens.
+  Stream<List<MangaItem>> getReadingPreviewStream(
+    String userName, {
+    int limit = 24,
+  }) {
     if (userName.isEmpty) return Stream.value(const <MangaItem>[]);
     return _firestore
         .collection('manga_library')
         .where('userName', isEqualTo: userName)
-        .limit(500)
+        .limit(limit)
         .snapshots()
         .map((snapshot) {
           final items =
@@ -308,6 +319,22 @@ class MangaKakalotService with ConnectivityAware {
     String userA = 'khentsgdz',
     String userB = 'clairjassen',
   }) {
+    return getCoupleLibraryPreviewStream(
+      userA: userA,
+      userB: userB,
+      limit: 500,
+    );
+  }
+
+  // Capped preview for the dashboard header: it only shows the badge
+  // count, but today it merges two 500-doc realtime streams to do it.
+  // Default cap (24 per partner) is plenty for a count badge; the
+  // manga screens keep the full stream.
+  Stream<List<MangaItem>> getCoupleLibraryPreviewStream({
+    String userA = 'khentsgdz',
+    String userB = 'clairjassen',
+    int limit = 24,
+  }) {
     final controller = StreamController<List<MangaItem>>.broadcast();
     List<MangaItem> itemsA = const [];
     List<MangaItem> itemsB = const [];
@@ -322,7 +349,7 @@ class MangaKakalotService with ConnectivityAware {
       subA = _firestore
           .collection('manga_library')
           .where('userName', isEqualTo: userA)
-          .limit(500)
+          .limit(limit)
           .snapshots()
           .listen((snapshot) {
             itemsA = snapshot.docs
@@ -333,7 +360,7 @@ class MangaKakalotService with ConnectivityAware {
       subB = _firestore
           .collection('manga_library')
           .where('userName', isEqualTo: userB)
-          .limit(500)
+          .limit(limit)
           .snapshots()
           .listen((snapshot) {
             itemsB = snapshot.docs
