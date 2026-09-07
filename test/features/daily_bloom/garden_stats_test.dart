@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:everglow/features/daily_bloom/data/models/garden_stats.dart';
@@ -62,6 +63,55 @@ void main() {
       expect(stats.currentStage, 3);
       expect(stats.streakCount, 3);
       expect(stats.totalInteractions, 10);
+      expect(stats.plantType, 'lily');
+    });
+  });
+
+  group('GardenStats.fromMap', () {
+    test('reads every field', () {
+      final stats = GardenStats.fromMap({
+        'currentStage': 4,
+        'lastVisit': Timestamp.fromDate(DateTime.utc(2026, 9, 5)),
+        'streakCount': 7,
+        'totalInteractions': 42,
+        'plantType': 'rose',
+      });
+
+      expect(stats.currentStage, 4);
+      expect(
+        stats.lastVisit.millisecondsSinceEpoch,
+        DateTime.utc(2026, 9, 5).millisecondsSinceEpoch,
+      );
+      expect(stats.streakCount, 7);
+      expect(stats.totalInteractions, 42);
+      expect(stats.plantType, 'rose');
+    });
+
+    test('missing lastVisit never crashes the garden', () {
+      final stats = GardenStats.fromMap({
+        'currentStage': 2,
+        'streakCount': 2,
+        'totalInteractions': 10,
+      });
+
+      expect(stats.currentStage, 2);
+      expect(stats.lastVisit, isA<DateTime>());
+      expect(stats.plantType, 'lily');
+    });
+
+    test('wrong types fall back instead of throwing', () {
+      final stats = GardenStats.fromMap({
+        'currentStage': 3.0,
+        'lastVisit': 'not-a-date',
+        'streakCount': null,
+        'totalInteractions': null,
+        'plantType': null,
+      });
+
+      expect(stats.currentStage, 3);
+      expect(stats.lastVisit, isA<DateTime>());
+      expect(stats.streakCount, 0);
+      expect(stats.totalInteractions, 0);
       expect(stats.plantType, 'lily');
     });
   });
