@@ -19,6 +19,7 @@ const routes = {
   '/jukebox': () => import('./jukebox.js').then((m) => ({ view: m.Jukebox })),
   '/books': () => import('./books.js').then((m) => ({ view: m.Books })),
   '/anime': () => import('./anime.js').then((m) => ({ view: m.Anime })),
+  '/spotify/callback': () => import('./spotify_callback.js').then((m) => ({ view: m.SpotifyCallback })),
 };
 
 function nav(hash) {
