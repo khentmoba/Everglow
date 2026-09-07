@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../data/services/ai_service.dart';
+import '../../data/services/study_artifact.dart';
 import '../../domain/models/ai_conversation.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -24,6 +25,7 @@ import '../../../../shared/widgets/everglow/everglow_markdown.dart';
 import '../../domain/mochi_quality.dart';
 import 'mochi_web_bridge.dart';
 import 'mochi_sidebar.dart';
+import 'study_artifact_sheet.dart';
 part 'mochi_widgets.dart';
 part 'mochi_widgets_streaming.dart';
 part 'mochi_widgets_extra.dart';
@@ -45,6 +47,10 @@ class _MochiScreenState extends State<MochiScreen> {
   bool _userScrolledUp = false;
   bool _deepThink = true;
   bool _deepThinkTouched = false;
+  // Canvas toggle — when off, Mochi just chats normally (no interactive
+  // quiz / flashcards buttons). Defaults ON so Clair gets the fun view
+  // without hunting for it.
+  bool _canvasEnabled = true;
   String? _lastSentMessage;
   bool _isSidebarOpen = false;
   final List<String> _attachedImages = [];
@@ -396,6 +402,10 @@ class _MochiScreenState extends State<MochiScreen> {
                         attachedImages: _attachedImages,
                         onRemoveImage: _removeImage,
                         centered: true,
+                        canvasEnabled: _canvasEnabled,
+                        onToggleCanvas: () => setState(
+                          () => _canvasEnabled = !_canvasEnabled,
+                        ),
                       ),
                     ],
                   ),
@@ -477,6 +487,10 @@ class _MochiScreenState extends State<MochiScreen> {
                   attachedImages: _attachedImages,
                   onRemoveImage: _removeImage,
                   centered: false,
+                  canvasEnabled: _canvasEnabled,
+                  onToggleCanvas: () => setState(
+                    () => _canvasEnabled = !_canvasEnabled,
+                  ),
                 ),
               ],
             ),
@@ -543,6 +557,7 @@ class _MochiScreenState extends State<MochiScreen> {
                                     text: ai.draftResponse,
                                     isUser: false,
                                     isStreaming: true,
+                                    showArtifacts: _canvasEnabled,
                                     reasoning: ai.draftReasoning.isNotEmpty
                                         ? ai.draftReasoning
                                         : null,
@@ -587,6 +602,7 @@ class _MochiScreenState extends State<MochiScreen> {
                   ),
                   text: msg.content,
                   isUser: isUserMsg,
+                  showArtifacts: _canvasEnabled,
                   timestamp: msg.timestamp,
                   imageUrls: msg.imageUrls,
                   senderName: isUserMsg ? callerName : null,

@@ -61,6 +61,9 @@ class _StudyScreenState extends State<StudyScreen> {
   bool _hasText = false;
   bool _userScrolledUp = false;
   bool _showJumpButton = false;
+  // Canvas toggle — ON shows the interactive quiz / flashcards buttons,
+  // OFF keeps plain text. Defaults ON so Clair gets the fun view.
+  bool _canvasEnabled = true;
 
   @override
   void initState() {
@@ -571,7 +574,10 @@ class _StudyScreenState extends State<StudyScreen> {
                 final turn = _turns[i];
                 return turn.fromUser
                     ? _UserBubble(text: turn.text)
-                    : _AnswerBubble(text: turn.text);
+                    : _AnswerBubble(
+                        text: turn.text,
+                        showArtifacts: _canvasEnabled,
+                      );
               },
             ),
           ),
@@ -690,6 +696,25 @@ class _StudyScreenState extends State<StudyScreen> {
           },
           child: Row(
             children: [
+              // Canvas toggle — one tap turns the interactive quiz /
+              // flashcards view on or off. Gold when ON.
+              IconButton(
+                onPressed: () => setState(
+                  () => _canvasEnabled = !_canvasEnabled,
+                ),
+                icon: Icon(
+                  _canvasEnabled
+                      ? Icons.dashboard_customize_rounded
+                      : Icons.dashboard_customize_outlined,
+                  color: _canvasEnabled
+                      ? AppColors.blushGold
+                      : AppColors.textMuted,
+                  size: 22,
+                ),
+                tooltip: _canvasEnabled
+                    ? 'Canvas: on — quizzes open as interactive cards'
+                    : 'Canvas: off — plain text only',
+              ),
               Expanded(
                 child: TextField(
                   controller: _input,
@@ -828,7 +853,10 @@ class _UserBubble extends StatelessWidget {
 /// so Clair never sees raw JSON.
 class _AnswerBubble extends StatelessWidget {
   final String text;
-  const _AnswerBubble({required this.text});
+  // Canvas toggle from the Study bar — when false the bubble stays plain
+  // text (hidden blocks still stripped so raw JSON never shows).
+  final bool showArtifacts;
+  const _AnswerBubble({required this.text, this.showArtifacts = true});
 
   @override
   Widget build(BuildContext context) {
@@ -842,7 +870,7 @@ class _AnswerBubble extends StatelessWidget {
         title: 'Mochi',
         subtitle: 'from your PDFs',
         timeLabel: 'Mochi • grounded only on your pages',
-        leadingReasoning: artifacts.isEmpty
+        leadingReasoning: !showArtifacts || artifacts.isEmpty
             ? null
             : StudyArtifactEntry(artifacts: artifacts),
       ),
