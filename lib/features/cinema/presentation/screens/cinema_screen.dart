@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 
 import '../../data/models/media_item.dart';
 import '../../data/services/tmdb_service.dart';
-import '../widgets/cinema_sidebar.dart';
 import '../widgets/episode_drawer.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_breakpoints.dart';
@@ -47,8 +46,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
   int _browseSeed = 0;
   String? _pendingBrowseOption;
 
-  // ── Sidebar state ──────────────────────────────────────────────
-  bool _mobileSidebarOpen = false;
   bool _desktopScrolled = false;
 
   StreamSubscription<List<MediaItem>>? _watchlistSubscription;
@@ -465,18 +462,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
     _switchTab(tab);
   }
 
-  void _toggleSidebar() {
-    HapticFeedback.selectionClick();
-    setState(() => _mobileSidebarOpen = !_mobileSidebarOpen);
-  }
-
-  void _handleSidebarSelect(int tab, String? browseOptionId) {
-    if (_mobileSidebarOpen) {
-      setState(() => _mobileSidebarOpen = false);
-    }
-    _onNavSelect(tab, browseOptionId);
-  }
-
   bool _onScrollNotification(ScrollNotification notification) {
     if (notification.metrics.axis != Axis.vertical) return false;
     final scrolled = notification.metrics.pixels > 12;
@@ -499,38 +484,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
     final isCoupleUser = auth.isCoupleUser;
     final isCinemaOnlyUser = auth.isCinemaOnlyUser;
     final userName = auth.currentUser ?? '';
-
-    // Sidebar widget (reused for both layouts, just different toggle behavior)
-    Widget buildSidebar({
-      required bool collapsed,
-      required VoidCallback onToggle,
-    }) {
-      final router = GoRouter.of(context);
-      return CinemaSidebar(
-        currentIndex: _currentIndex,
-        activeBrowseOption: _pendingBrowseOption,
-        isCollapsed: false,
-        onToggle: onToggle,
-        onSelect: _handleSidebarSelect,
-        onAnimeTap: () {
-          if (_mobileSidebarOpen) {
-            setState(() => _mobileSidebarOpen = false);
-          }
-          router.go('/anime');
-        },
-        onDashboardTap: isCoupleUser ? () => router.go('/dashboard') : null,
-        onLogout: () async {
-          if (_mobileSidebarOpen) {
-            setState(() => _mobileSidebarOpen = false);
-          }
-          await auth.logout();
-          if (!mounted) return;
-          router.go('/');
-        },
-        userName: userName,
-        isCinemaOnlyUser: isCinemaOnlyUser,
-      );
-    }
 
     // Main cinema content. The desktop top bar overlays it so the hero
     // can remain full bleed, just like the streaming-service pattern.
@@ -610,29 +563,49 @@ class _CinemaScreenState extends State<CinemaScreen> {
                   const SizedBox.shrink(),
               ],
             ),
-            if (!isDesktop && !_mobileSidebarOpen)
+            // Floating back button (mobile/tablet): couple users return to
+            // the dashboard; cinema-only profiles have no dashboard, so
+            // they get a logout action instead (their only mobile exit,
+            // mirroring the desktop profile menu).
+            if (!isDesktop)
               Positioned(
                 top: 0,
-                right: 0,
+                left: 0,
                 child: SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.only(right: 12, top: 10),
-                    child: Material(
-                      color: const Color(0xFF14101A),
-                      shape: const CircleBorder(
-                        side: BorderSide(color: Color(0x1AFFFFFF)),
-                      ),
-                      elevation: 8,
-                      child: InkWell(
-                        onTap: _toggleSidebar,
-                        customBorder: const CircleBorder(),
-                        child: const SizedBox(
-                          width: 42,
-                          height: 42,
-                          child: Icon(
-                            Icons.person_outline_rounded,
-                            color: Colors.white,
-                            size: 22,
+                    padding: const EdgeInsets.only(left: 12, top: 10),
+                    child: Tooltip(
+                      message: isCoupleUser ? 'Dashboard' : 'Logout',
+                      child: Material(
+                        color: const Color(0xFF14101A),
+                        shape: const CircleBorder(
+                          side: BorderSide(color: Color(0x1AFFFFFF)),
+                        ),
+                        elevation: 8,
+                        child: InkWell(
+                          onTap: isCoupleUser
+                              ? () {
+                                  HapticFeedback.selectionClick();
+                                  GoRouter.of(context).go('/dashboard');
+                                }
+                              : () async {
+                                  HapticFeedback.selectionClick();
+                                  final router = GoRouter.of(context);
+                                  await auth.logout();
+                                  if (!mounted) return;
+                                  router.go('/');
+                                },
+                          customBorder: const CircleBorder(),
+                          child: SizedBox(
+                            width: 42,
+                            height: 42,
+                            child: Icon(
+                              isCoupleUser
+                                  ? Icons.arrow_back_rounded
+                                  : Icons.logout_rounded,
+                              color: Colors.white,
+                              size: 22,
+                            ),
                           ),
                         ),
                       ),
@@ -686,41 +659,11 @@ class _CinemaScreenState extends State<CinemaScreen> {
       );
     }
 
-    // ── Mobile / Tablet: overlay drawer ───────────────────────────
+    // ── Mobile / Tablet: content + bottom nav ───────────────────────
     return Scaffold(
       extendBody: true,
       backgroundColor: NetflixColors.background,
-      body: Stack(
-        children: [
-          buildCinemaContent(),
-          if (_mobileSidebarOpen) ...[
-            // Scrim
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: () => setState(() => _mobileSidebarOpen = false),
-                child: Container(color: Colors.black.withValues(alpha: 0.55)),
-              ),
-            ),
-            // Drawer panel — slides in from the left
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              child: Material(
-                color: const Color(0xFF0F0A14),
-                elevation: 24,
-                child: SizedBox(
-                  width: 280,
-                  child: buildSidebar(
-                    collapsed: false,
-                    onToggle: () => setState(() => _mobileSidebarOpen = false),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
+      body: buildCinemaContent(),
       bottomNavigationBar: NetflixNavBar(
         scrolled: false,
         currentIndex: _currentIndex,
