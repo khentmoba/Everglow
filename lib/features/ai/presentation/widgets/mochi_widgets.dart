@@ -257,6 +257,7 @@ class _SuggestedGrid extends StatelessWidget {
       Icons.auto_awesome_outlined,
     ),
     _Suggestion('Quiz us with 5 fun questions', Icons.edit_note_rounded),
+    _Suggestion('Build us a tiny game', Icons.sports_esports_rounded),
     _Suggestion('Plan a date for us', Icons.calendar_month_outlined),
     _Suggestion('How are we doing today?', Icons.favorite_outline_rounded),
     _Suggestion(

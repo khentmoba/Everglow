@@ -802,6 +802,7 @@ class _QuickReplyChips extends StatelessWidget {
     ('What should we watch? 🎬', 'What should we watch tonight?'),
     ('Quiz us ✍️', 'Quiz us! Make a fun 5-question quiz for us with A-D options.'),
     ('Flashcards 🃏', 'Make us flashcards — 8 cards on something fun for us to learn together.'),
+    ('Build a game 🎮', 'Make us a little game we can play right here — like tic-tac-toe!'),
     ('Save to Starlight ✨', 'Save this to our Starlight Jar'),
     ('Log my mood 💭', 'I want to log my mood'),
     ('Plan a date 🌙', 'Plan a cozy date night for us'),
