@@ -81,8 +81,8 @@ class NetflixNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Top bar removed — always render the bottom bar variant.
-    // Desktop layouts don’t use this widget at all (they show the
-    // persistent [CinemaSidebar] instead); mobile/tablet layouts mount
+    // Desktop layouts don't use this widget at all (they show the
+    // transparent catalog top bar instead); mobile/tablet layouts mount
     // it as bottomNavigationBar.
     return _NetflixBottomNav(
       currentIndex: currentIndex,
