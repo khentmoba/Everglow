@@ -11,7 +11,7 @@
     "runtime": "nodejs22"
   },
   "hosting": {
-    "public": "web-lite",
+    "public": "build/web",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -51,19 +51,46 @@
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "public, max-age=31536000, immutable"
+            "value": "public, max-age=0, must-revalidate"
           }
         ],
-        "source": "**/*.@(js|css|png|jpg|jpeg|gif|webp|svg|woff|woff2|ttf|otf|eot|ico|mp3|map|json)"
+        "source": "**/*.@(js|css|png|jpg|jpeg|gif|webp|svg|woff|woff2|ttf|otf|eot|ico|glb|gltf|bin|wasm|data|mp3|map|json)"
       },
       {
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "no-cache"
+            "value": "public, max-age=0, must-revalidate"
           }
         ],
-        "source": "/index.html"
+        "source": "/canvaskit/**"
+      },
+      {
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=0, must-revalidate"
+          }
+        ],
+        "source": "/assets/**"
+      },
+      {
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=0, must-revalidate"
+          }
+        ],
+        "source": "/icons/**"
+      },
+      {
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=0, must-revalidate"
+          }
+        ],
+        "source": "/main.dart.js*"
       },
       {
         "headers": [
@@ -91,6 +118,78 @@
           }
         ],
         "source": "/index.html"
+      },
+      {
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ],
+        "source": "/flutter_bootstrap.js"
+      },
+      {
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ],
+        "source": "/flutter.js"
+      },
+      {
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ],
+        "source": "/flutter_service_worker.js"
+      },
+      {
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ],
+        "source": "/sw.js"
+      },
+      {
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ],
+        "source": "/firebase-messaging-sw.js"
+      },
+      {
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ],
+        "source": "/version.json"
+      },
+      {
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ],
+        "source": "/embed.html"
+      },
+      {
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ],
+        "source": "/embed.js"
       },
       {
         "headers": [
