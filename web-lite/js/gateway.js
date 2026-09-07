@@ -14,7 +14,7 @@ export function Gateway(el, nav) {
           <h1 class="serif">Everglow</h1>
           <p>our little world, behind one small door</p>
         </div>
-        <div class="card center" id="door">
+        <div class="card center door" id="door">
           <p class="muted small" style="margin:0">Enter our 4-digit passcode</p>
           <div class="dots" aria-hidden="true">${dots}</div>
           ${error ? `<p class="err small" role="alert" style="margin:0 0 8px">${esc(error)}</p>` : ''}

@@ -30,7 +30,7 @@ export async function Dashboard(el, nav) {
   if (!u) return;
   const name = session.username;
   Shell(el, 'home', `
-    <div class="topbar"><div><h2 class="serif">Hello, ${esc(displayName(name))}</h2><p class="sub">our days, glowing softly</p></div></div>
+    <div class="topbar"><div><p class="sub gold" style="letter-spacing:0.2em;font-size:11px">EST. FEBRUARY 14, 2026 — KHENT &amp; CLAIR</p><h2 class="serif">Hello, ${esc(displayName(name))}</h2><p class="sub">our days, glowing softly</p></div></div>
     <div class="stack" style="margin-top:12px">
       <div class="card center" id="counter"><div class="skel"></div></div>
       <div class="tiles">
@@ -56,8 +56,8 @@ export async function Dashboard(el, nav) {
   function tick() {
     const p = ageParts();
     c.innerHTML = `<p class="muted small" style="margin:0">loving each other for</p>
-      <p class="serif" style="font-size:40px;margin:4px 0;line-height:1">${p.totalDays} <span style="font-size:18px">days</span></p>
-      <p class="muted small" style="margin:0">${p.years}y · ${p.months}m · ${p.days}d · ${p.hours}h ${p.minutes}m ${p.seconds}s</p>`;
+      <p class="serif counter-num">${p.totalDays} <span style="font-size:18px">days</span></p>
+      <p class="counter-sub">${p.years}y · ${p.months}m · ${p.days}d · ${p.hours}h ${p.minutes}m ${p.seconds}s</p>`;
   }
   tick();
   const timer = setInterval(() => { if (!document.body.contains(c)) clearInterval(timer); else tick(); }, 1000);
