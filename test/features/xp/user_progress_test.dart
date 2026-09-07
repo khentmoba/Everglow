@@ -108,13 +108,33 @@ void main() {
       expect(copy.lastActivity, original.lastActivity);
     });
 
-    test('XP to level formula: level = floor(xp / 1000) + 1', () {
-      // This mirrors the formula in XPService.addXp
-      expect((0 / 1000).floor() + 1, 1);
-      expect((999 / 1000).floor() + 1, 1);
-      expect((1000 / 1000).floor() + 1, 2);
-      expect((2500 / 1000).floor() + 1, 3);
-      expect((10000 / 1000).floor() + 1, 11);
+    test('XP to level formula: level = floor(xp / 200) + 1', () {
+      // This mirrors the curve in UserProgress.levelForXp.
+      expect(UserProgress.levelForXp(0), 1);
+      expect(UserProgress.levelForXp(199), 1);
+      expect(UserProgress.levelForXp(200), 2);
+      expect(UserProgress.levelForXp(450), 3);
+      expect(UserProgress.levelForXp(2000), 11);
+    });
+
+    test('xpIntoLevel and xpToNextLevel follow xpPerLevel', () {
+      expect(UserProgress.xpPerLevel, 200);
+      expect(UserProgress.xpIntoLevel(450), 50);
+      expect(UserProgress.xpToNextLevel(450), 150);
+      expect(UserProgress.xpToNextLevel(200), 200);
+    });
+
+    test('stored level eventually converges to the curve via addXp', () {
+      // addXp writes levelForXp(newXp), and fromMap keeps the stored value,
+      // so one award after a curve change heals the level. Simulate that.
+      final healed = UserProgress.fromMap('uid-heal', {
+        'xpTotal': 450,
+        'level': UserProgress.levelForXp(450),
+        'streak': 0,
+        'lastActivity': Timestamp.fromDate(DateTime(2026, 9, 1)),
+      });
+
+      expect(healed.level, 3);
     });
   });
 }
