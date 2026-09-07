@@ -458,6 +458,12 @@ class _MessageBubble extends StatefulWidget {
   // text (hidden blocks still stripped so raw JSON never shows).
   final bool showArtifacts;
 
+  /// When true the bubble keeps the full visible question/option list
+  /// (the user explicitly asked to see it inline — see
+  /// [userAskedForVisibleQuiz]). Defaults to false: collapse into the
+  /// "Try the quiz" button.
+  final bool keepFullText;
+
   const _MessageBubble({
     super.key,
     required this.text,
@@ -469,6 +475,7 @@ class _MessageBubble extends StatefulWidget {
     this.imageUrls = const [],
     this.senderName,
     this.showArtifacts = true,
+    this.keepFullText = false,
   });
 
   @override
