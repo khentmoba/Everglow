@@ -62,8 +62,9 @@ class _StudyScreenState extends State<StudyScreen> {
   bool _userScrolledUp = false;
   bool _showJumpButton = false;
   // Canvas toggle — ON shows the interactive quiz / flashcards buttons,
-  // OFF keeps plain text. Defaults ON so Clair gets the fun view.
-  bool _canvasEnabled = true;
+  // OFF keeps plain text. Defaults OFF so quick questions stay plain
+  // chat; toggle it on for the interactive sheet.
+  bool _canvasEnabled = false;
 
   @override
   void initState() {

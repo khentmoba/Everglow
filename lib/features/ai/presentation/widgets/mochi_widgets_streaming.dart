@@ -339,7 +339,7 @@ class _ComposerInput extends StatefulWidget {
   final void Function(int) onRemoveImage;
   final bool centered;
   // Canvas toggle — ON shows the interactive quiz / flashcards buttons,
-  // OFF keeps Mochi as plain chat. Defaults ON.
+  // OFF keeps Mochi as plain chat. Defaults OFF.
   final bool canvasEnabled;
   final VoidCallback? onToggleCanvas;
 
@@ -353,7 +353,7 @@ class _ComposerInput extends StatefulWidget {
     this.attachedImages = const [],
     required this.onRemoveImage,
     this.centered = false,
-    this.canvasEnabled = true,
+    this.canvasEnabled = false,
     this.onToggleCanvas,
   });
 

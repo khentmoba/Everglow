@@ -1881,11 +1881,14 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   // Trim aggressively as best-effort so the model doesn't
   // waste context on stale history, but don't hard-block — let Agnes handle
   // it if trimming can't fit within Cloud Run's limit.
+  // Output budget: a self-contained HTML game can approach the ~30KB
+  // artifact cap (~8k tokens) before visible text + thinking tokens, so
+  // 8k truncates games mid-block (no closing fence = no Preview button).
   const agnesBody = JSON.stringify({
     model,
     messages: nimMessages,
     tools,
-    max_tokens: 8192,
+    max_tokens: 16384,
     temperature: 0.6,
     top_p: 0.95,
     stream: req.body.stream === true,
@@ -1901,7 +1904,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
         model,
         messages: nimMessages,
         tools,
-        max_tokens: 8192,
+        max_tokens: 16384,
         temperature: 0.6,
         top_p: 0.95,
         stream: req.body.stream === true,
@@ -1935,7 +1938,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
         model,
         messages: nimMessages,
         tools,
-        max_tokens: 8192,
+        max_tokens: 16384,
         temperature: 0.6,
         top_p: 0.95,
         stream: req.body.stream === true,
@@ -3222,7 +3225,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
                 messages: currentMessages,
                 tools,
                 tool_choice: 'auto',
-                max_tokens: 8192,
+                max_tokens: 16384,
                 temperature: 0.6,
                 top_p: 0.95,
                 stream: true,
@@ -3406,7 +3409,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
           messages: nimMessages,
           tools,
           tool_choice: 'auto',
-          max_tokens: 8192,
+          max_tokens: 16384,
           temperature: 0.6,
           top_p: 0.95,
           stream: false,
