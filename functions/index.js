@@ -1021,7 +1021,8 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   [{"front":"...","back":"..."}]
   \`\`\`
   JSON only inside the block, no commentary inside it.
-- Use those exact fence names (quiz-json, flashcards-json, html-artifact) with valid JSON/HTML inside — the chat turns each block into a tappable Preview / Try-it button. Only emit a block when they asked for that kind of thing (quiz/test/trivia, cards, or something to play/use); a summary or explanation stays plain text.
+- Use those exact fence names (quiz-json, flashcards-json, html-artifact) with valid JSON/HTML inside — the chat turns each block into a tappable Preview / Try-it button. Only emit a block when they asked for that kind of thing (quiz/test/trivia, cards, or something to play/use); a summary or explanation stays plain text.`;
+  }
 
   // ── System prompt size guard ────────────────────────────
   // With 512K context, we can be generous with the system prompt.
