@@ -1,14 +1,16 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../../data/services/mood_service.dart';
 
 class MoodController extends ChangeNotifier {
   final MoodSource _service;
+  final Future<bool> Function(String uid)? _awardMoodXp;
 
   bool _isCheckingIn = false;
   int? _selectedScore;
   bool _hasSubmittedToday = false;
 
-  MoodController(this._service);
+  MoodController(this._service, {Future<bool> Function(String uid)? awardMoodXp})
+      : _awardMoodXp = awardMoodXp;
 
   bool get isCheckingIn => _isCheckingIn;
   int? get selectedScore => _selectedScore;
@@ -34,6 +36,7 @@ class MoodController extends ChangeNotifier {
     required String username,
     required int score,
     required String emoji,
+    String? uid,
   }) async {
     _selectedScore = score;
     notifyListeners();
@@ -50,5 +53,12 @@ class MoodController extends ChangeNotifier {
     _hasSubmittedToday = true;
     _isCheckingIn = false;
     notifyListeners();
+
+    final award = _awardMoodXp;
+    if (uid != null && uid.isNotEmpty && award != null) {
+      try {
+        await award(uid);
+      } catch (_) {}
+    }
   }
 }
