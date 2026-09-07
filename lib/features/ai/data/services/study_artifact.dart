@@ -43,21 +43,42 @@ class Flashcard {
   const Flashcard({required this.front, required this.back});
 }
 
+/// A runnable mini-app from Mochi — a game, a page, a tool — as one
+/// self-contained HTML file. Rendered in a sandboxed preview (scripts run,
+/// but the frame can't touch the app or the network identity).
+class HtmlArtifact {
+  final String title;
+  final String html;
+
+  const HtmlArtifact({required this.title, required this.html});
+}
+
 /// What an assistant reply contains, after parsing.
 class StudyArtifacts {
   final List<QuizQuestion> quiz;
   final List<Flashcard> flashcards;
+  final List<HtmlArtifact> html;
 
-  const StudyArtifacts({this.quiz = const [], this.flashcards = const []});
+  const StudyArtifacts({
+    this.quiz = const [],
+    this.flashcards = const [],
+    this.html = const [],
+  });
 
   bool get hasQuiz => quiz.isNotEmpty;
   bool get hasFlashcards => flashcards.isNotEmpty;
-  bool get isEmpty => !hasQuiz && !hasFlashcards;
+  bool get hasHtml => html.isNotEmpty;
+  bool get isEmpty => !hasQuiz && !hasFlashcards && !hasHtml;
 }
 
 /// Max items kept per artifact (prompts ask 5 quiz / 10 cards; room to spare).
 const int kMaxQuizQuestions = 12;
 const int kMaxFlashcards = 20;
+
+/// Max HTML kept per app block (~30KB, matching the server prompt cap).
+/// Oversize blocks are dropped so a runaway reply can't flood the chat.
+const int kMaxHtmlChars = 30000;
+const int kMaxHtmlArtifacts = 3;
 
 /// Parse every artifact in [text]. Never throws — bad blocks are skipped.
 StudyArtifacts parseStudyArtifacts(String text) {
@@ -72,6 +93,9 @@ StudyArtifacts parseStudyArtifacts(String text) {
   return StudyArtifacts(
     quiz: quiz.take(kMaxQuizQuestions).toList(),
     flashcards: cards.take(kMaxFlashcards).toList(),
+    html: _parseHtmlArtifactBlocks(
+      text,
+    ).take(kMaxHtmlArtifacts).toList(),
   );
 }
 
@@ -85,7 +109,7 @@ String stripArtifactBlocks(String text) {
 String stripStreamingArtifacts(String draft) {
   final withoutComplete = _withoutFencedBlocks(draft);
   final open = RegExp(
-    r'```\s*(quiz-json|flashcards-json)[\s\S]*$',
+    r'```\s*(quiz-json|flashcards-json|html-artifact)[\s\S]*$',
     caseSensitive: false,
   ).firstMatch(withoutComplete);
   if (open != null) {
@@ -101,7 +125,11 @@ final _fencePattern = RegExp(r'```(\w[\w-]*)\s*\n([\s\S]*?)```');
 String _withoutFencedBlocks(String text) {
   return text.replaceAllMapped(_fencePattern, (m) {
     final tag = m.group(1)!.toLowerCase();
-    if (tag == 'quiz-json' || tag == 'flashcards-json') return '';
+    if (tag == 'quiz-json' ||
+        tag == 'flashcards-json' ||
+        tag == 'html-artifact') {
+      return '';
+    }
     return m.group(0)!;
   });
 }
@@ -210,6 +238,46 @@ Flashcard? _cardFromJson(dynamic item) {
   if (front.isEmpty || back.isEmpty) return null;
   if (front.length > 500 || back.length > 800) return null;
   return Flashcard(front: front, back: back);
+}
+
+// ─── HTML apps (preview canvas) ───────────────────────────────
+
+List<HtmlArtifact> _parseHtmlArtifactBlocks(String text) {
+  final out = <HtmlArtifact>[];
+  for (final body in _fencedBodies(text, 'html-artifact')) {
+    final html = body.trim();
+    // Must look like a page, and stay inside the size cap so one wild
+    // reply can't flood the chat or the saved conversation.
+    if (html.length < 50 || html.length > kMaxHtmlChars) continue;
+    if (!html.toLowerCase().contains('<html') &&
+        !html.toLowerCase().contains('<!doctype')) {
+      continue;
+    }
+    out.add(HtmlArtifact(title: _htmlTitle(html), html: html));
+  }
+  return out;
+}
+
+/// Title for the Preview button: <title> first, then an optional
+/// <!-- title: ... --> note, else a plain fallback.
+String _htmlTitle(String html) {
+  final titleTag = RegExp(
+    r'<title\s*>(.*?)</title\s*>',
+    caseSensitive: false,
+    dotAll: true,
+  ).firstMatch(html)?.group(1)?.trim();
+  if (titleTag != null && titleTag.isNotEmpty) {
+    return titleTag.length > 80 ? '${titleTag.substring(0, 80)}…' : titleTag;
+  }
+  final comment = RegExp(
+    r'<!--\s*title\s*:(.*?)-->',
+    caseSensitive: false,
+    dotAll: true,
+  ).firstMatch(html)?.group(1)?.trim();
+  if (comment != null && comment.isNotEmpty) {
+    return comment.length > 80 ? '${comment.substring(0, 80)}…' : comment;
+  }
+  return 'Preview';
 }
 
 // ─── Plain-markdown fallback (older sessions) ───────────────────
