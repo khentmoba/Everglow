@@ -1,5 +1,4 @@
 import { db, getIdToken } from './lib.js';
-import { auth } from './auth.js';
 
 const DIRECT = 'https://us-central1-everglow-1c6db.cloudfunctions.net';
 const SCOPES = [
