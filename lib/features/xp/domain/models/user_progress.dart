@@ -7,6 +7,20 @@ class UserProgress {
   final int streak;
   final DateTime lastActivity;
 
+  static const int xpPerLevel = 200;
+
+  static int levelForXp(int xpTotal) {
+    if (xpTotal <= 0) return 1;
+    return xpTotal ~/ xpPerLevel + 1;
+  }
+
+  static int xpIntoLevel(int xpTotal) {
+    if (xpTotal <= 0) return 0;
+    return xpTotal % xpPerLevel;
+  }
+
+  static int xpToNextLevel(int xpTotal) => xpPerLevel - xpIntoLevel(xpTotal);
+
   UserProgress({
     required this.uid,
     required this.xpTotal,
@@ -16,11 +30,12 @@ class UserProgress {
   });
 
   factory UserProgress.fromMap(String uid, Map<String, dynamic> map) {
+    final xp = (map['xpTotal'] as num?)?.toInt() ?? 0;
     return UserProgress(
       uid: uid,
-      xpTotal: map['xpTotal'] ?? 0,
-      level: map['level'] ?? 1,
-      streak: map['streak'] ?? 0,
+      xpTotal: xp,
+      level: (map['level'] as num?)?.toInt() ?? 1,
+      streak: (map['streak'] as num?)?.toInt() ?? 0,
       lastActivity:
           (map['lastActivity'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
