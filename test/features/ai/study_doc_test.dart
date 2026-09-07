@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui';
 
 import 'package:everglow/features/ai/data/services/study_doc_service.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,40 +20,41 @@ void main() {
     });
   });
 
-  group('study shelf', () {
-    const a = StudyDoc(fileName: 'a.pdf', text: 'aaa', truncated: false);
-    const b = StudyDoc(fileName: 'b.pdf', text: 'bb', truncated: false);
-
-    test('totals source characters', () {
-      expect(studyTotalChars([a, b]), 5);
-      expect(studyTotalChars(const []), 0);
-    });
-
-    test('keeps docs that fit the budget', () {
-      expect(fitStudyDoc(a, [b]).text, 'aaa');
-    });
-
-    test('trims a doc to the remaining room', () {
-      final full = StudyDoc(
+  group('uncapped sources', () {
+    test('grounds answers on the full text with no cut note', () {
+      final doc = StudyDoc(
         fileName: 'big.pdf',
-        text: 'x' * kMaxStudyTotalChars,
+        text: 'x' * 100000,
         truncated: false,
       );
-      final fitted = fitStudyDoc(full, [a]);
-      expect(fitted.text.length, kMaxStudyTotalChars - 3);
-      expect(fitted.truncated, isTrue);
+      final block = buildSourcesBlock([doc]);
+      expect(block, contains('x' * 1000));
+      expect(block, isNot(contains('Cut here')));
     });
 
-    test('refuses when the shelf is full', () {
-      final full = StudyDoc(
-        fileName: 'full.pdf',
-        text: 'x' * (kMaxStudyTotalChars - 500),
-        truncated: false,
+    test('keeps a whole PDF past the old 15k cut', () async {
+      final document = PdfDocument();
+      final font = PdfStandardFont(PdfFontFamily.helvetica, 12);
+      for (var p = 0; p < 10; p++) {
+        final page = document.pages.add();
+        for (var line = 0; line < 40; line++) {
+          page.graphics.drawString(
+            'Mochi uncapped p$p l$line ${'z' * 50}',
+            font,
+            bounds: Rect.fromLTWH(0, line * 20, 500, 20),
+          );
+        }
+      }
+      final bytes = Uint8List.fromList(await document.save());
+      document.dispose();
+
+      final service = StudyDocService(
+        pickFile: () async => (name: 'big.pdf', bytes: bytes),
       );
-      expect(
-        () => fitStudyDoc(a, [full]),
-        throwsA(isA<StudyDocException>()),
-      );
+      final doc = await service.pickAndExtract();
+      expect(doc, isNotNull);
+      expect(doc!.truncated, isFalse);
+      expect(doc.text.length, greaterThan(15000));
     });
   });
 

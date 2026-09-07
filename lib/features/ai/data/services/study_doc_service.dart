@@ -6,20 +6,19 @@ import 'package:syncfusion_flutter_pdf/pdf.dart';
 /// Max PDF file size Mochi will open (10 MB keeps memory and payloads sane).
 const int kMaxStudyPdfBytes = 10 * 1024 * 1024;
 
-/// Max extracted characters kept per doc. ~3.5k tokens, so the doc fits
-/// alongside Mochi's system prompt and recent history.
-const int kMaxStudyChars = 15000;
-
-/// Max sources per study session and max source text overall (~7k tokens).
-/// Keeps every turn inside the proxy's input budget with room to spare.
+/// Max sources per study session. Source text itself is uncapped — the
+/// whole PDF goes to Mochi every turn.
 const int kMaxStudyDocs = 3;
-const int kMaxStudyTotalChars = 30000;
 
-/// A PDF study doc attached to the current Mochi chat only.
-/// Nothing is saved — a new chat drops it.
+/// A PDF study doc attached to the current Mochi study session.
+/// The live session keeps the full text; history stores a snapshot
+/// (see trimSourcesForStorage) so giant PDFs still fit Firestore.
 class StudyDoc {
   final String fileName;
   final String text;
+
+  /// True only for older history restores (or trimmed history snapshots)
+  /// where just the start of the PDF was kept.
   final bool truncated;
 
   const StudyDoc({
@@ -39,30 +38,12 @@ class StudyDocException implements Exception {
 }
 
 /// Trims [text] to [maxChars], reporting whether anything was cut.
+/// Live sessions no longer trim; only history snapshots use this so giant
+/// PDFs still fit Firestore (see trimSourcesForStorage).
 ({String text, bool truncated}) truncateStudyText(String text, int maxChars) {
   final cleaned = text.trim();
   if (cleaned.length <= maxChars) return (text: cleaned, truncated: false);
   return (text: cleaned.substring(0, maxChars).trimRight(), truncated: true);
-}
-
-/// Total source characters currently attached.
-int studyTotalChars(Iterable<StudyDoc> docs) =>
-    docs.fold(0, (sum, doc) => sum + doc.text.length);
-
-/// Trims [candidate] to fit the session's shared budget.
-/// Throws [StudyDocException] when the shelf is too full to be useful.
-StudyDoc fitStudyDoc(StudyDoc candidate, List<StudyDoc> current) {
-  final room = kMaxStudyTotalChars - studyTotalChars(current);
-  if (room < 1000) {
-    throw StudyDocException('Sources are full — remove one first.');
-  }
-  if (candidate.text.length <= room) return candidate;
-  final cut = truncateStudyText(candidate.text, room);
-  return StudyDoc(
-    fileName: candidate.fileName,
-    text: cut.text,
-    truncated: true,
-  );
 }
 
 /// Formats attached sources as the grounding block prepended to every
@@ -143,8 +124,7 @@ class StudyDocService {
         'Mochi could not find any text in there — it may be scanned photos. Try a text-based PDF.',
       );
     }
-    final cut = truncateStudyText(text, kMaxStudyChars);
-    return StudyDoc(fileName: file.name, text: cut.text, truncated: cut.truncated);
+    return StudyDoc(fileName: file.name, text: text.trim(), truncated: false);
   }
 }
 
