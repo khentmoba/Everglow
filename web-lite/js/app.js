@@ -26,15 +26,19 @@ function nav(hash) {
 async function render() {
   try { if (cleanup) cleanup(); } catch {}
   cleanup = null;
-  const path = (location.hash || '#/').slice(1);
+  const path = (location.hash || '#/').slice(1) || '/';
   const load = routes[path] || routes['/'];
   app.innerHTML = '';
   const host = document.createElement('div');
   host.id = 'view';
   host.cleanup = null;
   app.appendChild(host);
-  const { view } = await load();
-  await view(host, nav);
+  const { view } = await load().catch(() => ({ view: null }));
+  if (!view) {
+    host.innerHTML = `<div class="wrap"><div class="card center"><p>That page could not open.</p><a class="btn ghost" href="#/">Back to the door</a></div></div>`;
+  } else {
+    await view(host, nav);
+  }
   if (host.cleanup) cleanup = host.cleanup;
   splash.classList.add('done');
   window.scrollTo(0, 0);

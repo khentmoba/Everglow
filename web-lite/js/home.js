@@ -79,7 +79,7 @@ export async function Dashboard(el, nav) {
     }
     const [films, dreams, dates, pages, stars] = await Promise.all([
       f.getDocs(f.query(f.collection(d, 'watch_list'), f.where('userName', '==', name), f.limit(1))).catch(() => null),
-      f.getDocs(f.query(f.collection(d, 'bucket_list'), f.where('status', '!=', 'completed'), f.limit(1))).catch(() => null),
+      f.getDocs(f.query(f.collection(d, 'bucket_list'), f.orderBy('createdAt', 'desc'), f.limit(1))).catch(() => null),
       f.getDocs(f.query(f.collection(d, 'calendar_events'), f.where('date', '>=', new Date()), f.orderBy('date', 'asc'), f.limit(1))).catch(() => null),
       f.getDocs(f.query(f.collection(d, 'journal_entries'), f.orderBy('createdAt', 'desc'), f.limit(1))).catch(() => null),
       f.getDocs(f.query(f.collection(d, 'starlight_jar'), f.orderBy('timestamp', 'desc'), f.limit(1))).catch(() => null),
