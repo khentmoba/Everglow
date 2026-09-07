@@ -94,8 +94,10 @@ class _PasscodeInputState extends State<PasscodeInput>
           duration: AppMotion.orZero(const Duration(milliseconds: 220)),
           curve: AppMotion.easeOutStrong,
           margin: const EdgeInsets.symmetric(horizontal: 10),
-          width: isFilled ? 22 : 14,
-          height: 14,
+          // Keep width == height so BoxShape.circle stays a true circle.
+          // Filled dots grow + glow yellow, deleted dots shrink back.
+          width: isFilled ? 18 : 14,
+          height: isFilled ? 18 : 14,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: widget.isError
