@@ -205,6 +205,7 @@ class _MochiScreenState extends State<MochiScreen> {
         message: text,
         callerName: authService.currentUser,
         stream: true,
+        canvasEnabled: _canvasEnabled,
         enableThinking: _deepThinkTouched
             ? _deepThink
             : _deepThink || const MochiQuality().shouldAutoThink(text),
