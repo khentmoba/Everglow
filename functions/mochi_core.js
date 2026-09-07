@@ -273,6 +273,7 @@ function composeTodayRecap({
   activities = [],
   watchlist = [],
   starlight = [],
+  journal = [],
   memories = [],
   insights = [],
   now,
@@ -300,6 +301,14 @@ function composeTodayRecap({
 
   if (watchlist && watchlist.length > 0) {
     parts.push(`On the watchlist: ${watchlist.slice(0, 2).join(', ')}.`);
+  }
+
+  const journalLines = (journal || [])
+    .map((j) => String(j == null ? '' : (typeof j === 'string' ? j : (j.title || ''))).trim())
+    .filter(Boolean)
+    .slice(0, 2);
+  if (journalLines.length > 0) {
+    parts.push(`From the journal: ${journalLines.join(' · ')}.`);
   }
 
   const onThisDay = (memories || []).filter((m) => {

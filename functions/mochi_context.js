@@ -9,6 +9,19 @@ const {
   _setExternalCache,
   _EXTERNAL_CACHE_TTLS,
 } = require('./common.js');
+const { selectContextBlocks } = require('./mochi_core.js');
+
+// Per-query context cache (5 min TTL) so rapid chat turns don't
+// re-read every collection. Keyed by feature + caller + message hash.
+const _contextCache = new Map();
+const _CONTEXT_CACHE_TTL_MS = 5 * 60 * 1000;
+
+function _pruneContextCache() {
+  if (_contextCache.size > 200) {
+    const oldest = _contextCache.keys().next().value;
+    _contextCache.delete(oldest);
+  }
+}
 
 async function buildContextForFeature(feature, callerUid, userMessage = '') {
   try {
@@ -17,7 +30,7 @@ async function buildContextForFeature(feature, callerUid, userMessage = '') {
       : '';
     const cacheKey = `${feature}:${callerUid || 'anon'}${queryHint}`;
     const cached = _contextCache.get(cacheKey);
-    if (cached && (Date.now() - cached.ts) < 300000) {
+    if (cached && (Date.now() - cached.ts) < _CONTEXT_CACHE_TTL_MS) {
       return cached.value;
     }
 
@@ -25,6 +38,7 @@ async function buildContextForFeature(feature, callerUid, userMessage = '') {
     switch (feature) {
       case 'assistant': {
         const ctxPromises = [
+          ['today', Promise.resolve(getTodayHeader())],
           ['proactive', getProactiveContext()],
           ['daily', getDailyDigest()],
           ['mood', getMoodContext()],
@@ -52,8 +66,23 @@ async function buildContextForFeature(feature, callerUid, userMessage = '') {
             value: await promise,
           }))
         );
-        const selected = selectContextBlocks(resolved, userMessage || '', 8);
-        result = selected.map(b => b.value).filter(Boolean).join('\n\n');
+        // Always keep date + journal so Mochi stays updated on daily life
+        // even when the question isn't about the journal. The rest compete
+        // for the remaining slots by keyword relevance.
+        const ALWAYS_KEEP = new Set(['today', 'proactive', 'journal']);
+        const always = resolved.filter(
+          (b) => ALWAYS_KEEP.has(b.key) && b.value,
+        );
+        const rest = resolved.filter((b) => !ALWAYS_KEEP.has(b.key));
+        const selected = selectContextBlocks(
+          rest,
+          userMessage || '',
+          Math.max(0, 8 - always.length),
+        );
+        result = [...always, ...selected]
+          .map((b) => b.value)
+          .filter(Boolean)
+          .join('\n\n');
         break;
       }
       case 'guardian':
@@ -85,11 +114,27 @@ async function buildContextForFeature(feature, callerUid, userMessage = '') {
     }
 
     _contextCache.set(cacheKey, { ts: Date.now(), value: result });
+    _pruneContextCache();
     return result;
   } catch (e) {
     console.warn('buildContextForFeature error:', e.message);
     return '';
   }
+}
+
+// Always-on date header so Mochi knows what "today" means.
+// Cheap, sync, and never empty — Mochi stays oriented on daily life.
+// Asia/Manila is UTC+8 with no DST, so shifting the instant is exact.
+function getTodayHeader(now = new Date()) {
+  const pht = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  const yyyy = pht.getUTCFullYear();
+  const mm = String(pht.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(pht.getUTCDate()).padStart(2, '0');
+  const weekday = pht.toLocaleDateString('en-US', {
+    timeZone: 'Asia/Manila',
+    weekday: 'long',
+  });
+  return `Today is ${yyyy}-${mm}-${dd} (${weekday}, Asia/Manila). Treat journal entries, moods, and activities dated today as "today"; older dates are memories, not today.`;
 }
 
 function getProactiveContext() {
@@ -476,9 +521,15 @@ async function getJournalContext() {
     if (snap.empty) return '';
     const lines = snap.docs.map(d => {
       const v = d.data();
-      return `${v.title || 'Untitled'} (${v.category||'daily'}) by ${v.author||''} - ${(v.content||'').slice(0,120).replace(/\n/g,' ')}`;
+      const dt = v.createdAt?.toDate?.()?.toISOString()?.slice(0, 10)
+        || v.updatedAt?.toDate?.()?.toISOString()?.slice(0, 10)
+        || '';
+      const preview = String(v.content || '').replace(/\s+/g, ' ').trim().slice(0, 140);
+      const locked = v.isLocked === true ? ' [locked: preview only]' : '';
+      const mood = v.mood ? ` mood:${v.mood}` : '';
+      return `- ${dt} "${v.title || 'Untitled'}" (${v.category || 'daily'}) by ${v.author || 'unknown'}${mood}${locked} — ${preview}`;
     }).join('\n');
-    return `Recent journal:\n${lines}`;
+    return `Recent journal (newest first, Mochi reads this every reply to stay updated on daily life):\n${lines}`;
   } catch (_) { return ''; }
 }
 
@@ -543,4 +594,6 @@ async function getBudgetContext() {
 module.exports = {
   buildContextForFeature,
   getTmdbKey,
+  getTodayHeader,
+  getJournalContext,
 };

@@ -116,6 +116,7 @@ class _MochiTodayScreenState extends State<MochiTodayScreen> {
       activities: snapshot.activities,
       watchlist: snapshot.watchlist,
       starlight: snapshot.starlight,
+      journal: snapshot.journal,
       memories: snapshot.memories,
       now: date,
     );
@@ -241,6 +242,24 @@ class _MochiTodayScreenState extends State<MochiTodayScreen> {
               ],
             ],
           ),
+        ),
+        _Section(
+          title: 'Journal',
+          icon: Icons.menu_book_rounded,
+          color: AppColors.blushGold,
+          child: snapshot.journal.isEmpty
+              ? const _EmptyLine('No journal entries yet.')
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: snapshot.journal
+                      .map(
+                        (j) => Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                          child: Text('📔 $j', style: AppTypography.outfitMedium),
+                        ),
+                      )
+                      .toList(),
+                ),
         ),
         if (insights.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.lg),

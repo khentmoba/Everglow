@@ -9,6 +9,7 @@ String composeTodayRecap({
   List<String> activities = const [],
   List<String> watchlist = const [],
   List<String> starlight = const [],
+  List<String> journal = const [],
   List<MemoryFact> memories = const [],
   DateTime? now,
 }) {
@@ -30,6 +31,14 @@ String composeTodayRecap({
   }
   if (watchlist.isNotEmpty) {
     parts.add('On the watchlist: ${watchlist.take(2).join(', ')}.');
+  }
+  final journalLines = journal
+      .map((j) => j.trim())
+      .where((j) => j.isNotEmpty)
+      .take(2)
+      .toList();
+  if (journalLines.isNotEmpty) {
+    parts.add('From the journal: ${journalLines.join(' · ')}.');
   }
 
   final onThisDay = memories.where((m) => m.isOnThisDay(current)).toList();

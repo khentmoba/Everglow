@@ -10,6 +10,7 @@ class TodaySnapshot {
   final List<String> activities;
   final List<String> watchlist;
   final List<String> starlight;
+  final List<String> journal;
   final List<MemoryFact> memories;
 
   const TodaySnapshot({
@@ -18,6 +19,7 @@ class TodaySnapshot {
     this.activities = const [],
     this.watchlist = const [],
     this.starlight = const [],
+    this.journal = const [],
     this.memories = const [],
   });
 }
@@ -52,6 +54,11 @@ class MochiTodayService {
             .limit(3)
             .get(),
         _db
+            .collection('journal_entries')
+            .orderBy('createdAt', descending: true)
+            .limit(3)
+            .get(),
+        _db
             .collection('ai_memories')
             .doc('shared')
             .collection('facts')
@@ -64,7 +71,8 @@ class MochiTodayService {
       final activityDocs = results[1].docs;
       final watchDocs = results[2].docs;
       final starDocs = results[3].docs;
-      final memoryDocs = results[4].docs;
+      final journalDocs = results[4].docs;
+      final memoryDocs = results[5].docs;
 
       return TodaySnapshot(
         date: current,
@@ -90,6 +98,23 @@ class MochiTodayService {
             .toList(),
         starlight: starDocs
             .map((doc) => (doc.data()['content'] as String?) ?? '')
+            .where((value) => value.isNotEmpty)
+            .toList(),
+        journal: journalDocs
+            .map((doc) {
+              final data = doc.data();
+              final title = (data['title'] as String?) ?? 'Untitled';
+              final content =
+                  ((data['content'] as String?) ?? '')
+                      .replaceAll(RegExp(r'\s+'), ' ')
+                      .trim();
+              final preview = content.length > 100
+                  ? content.substring(0, 100)
+                  : content;
+              return preview.isNotEmpty
+                  ? '"$title" — $preview'
+                  : '"$title"';
+            })
             .where((value) => value.isNotEmpty)
             .toList(),
         memories: memoryDocs

@@ -19,11 +19,12 @@ const mochiDailyDigest = onSchedule({
   const db = getDb();
   const today = new Date().toISOString().slice(0, 10);
 
-  const [moodsSnap, activitySnap, starSnap, watchSnap, memorySnap] = await Promise.all([
+  const [moodsSnap, activitySnap, starSnap, watchSnap, journalSnap, memorySnap] = await Promise.all([
     db.collection('moods').where('date', '==', today).get(),
     db.collection('recent_activity').orderBy('timestamp', 'desc').limit(5).get(),
     db.collection('starlight_jar').orderBy('timestamp', 'desc').limit(3).get(),
     db.collection('our_cinema').limit(5).get(),
+    db.collection('journal_entries').orderBy('createdAt', 'desc').limit(3).get(),
     db.collection('ai_memories').doc('shared').collection('facts')
       .orderBy('createdAt', 'desc').limit(300).get(),
   ]);
@@ -39,6 +40,12 @@ const mochiDailyDigest = onSchedule({
     ),
     starlight: starSnap.docs.map(d => d.data().content || '').filter(Boolean),
     watchlist: watchSnap.docs.map(d => d.data().title || '').filter(Boolean),
+    journal: journalSnap.docs.map(d => {
+      const v = d.data();
+      const title = v.title || 'Untitled';
+      const preview = String(v.content || '').replace(/\s+/g, ' ').trim().slice(0, 100);
+      return preview ? `"${title}" — ${preview}` : `"${title}"`;
+    }).filter(Boolean),
     memories: memorySnap.docs.map(d => {
       const data = d.data();
       return {
@@ -103,10 +110,11 @@ const mochiNightRecap = onSchedule({
 }, async () => {
   const db = getDb();
   const today = new Date().toISOString().slice(0, 10);
-  const [moodSnap, activitySnap, starSnap, memorySnap] = await Promise.all([
+  const [moodSnap, activitySnap, starSnap, journalSnap, memorySnap] = await Promise.all([
     db.collection('moods').where('date', '==', today).get(),
     db.collection('recent_activity').orderBy('timestamp', 'desc').limit(5).get(),
     db.collection('starlight_jar').orderBy('timestamp', 'desc').limit(3).get(),
+    db.collection('journal_entries').orderBy('createdAt', 'desc').limit(3).get(),
     db.collection('ai_memories').doc('shared').collection('facts')
       .orderBy('createdAt', 'desc').limit(300).get(),
   ]);
@@ -121,6 +129,12 @@ const mochiNightRecap = onSchedule({
       d => d.data().activity || d.data().description || ''
     ),
     starlight: starSnap.docs.map(d => d.data().content || '').filter(Boolean),
+    journal: journalSnap.docs.map(d => {
+      const v = d.data();
+      const title = v.title || 'Untitled';
+      const preview = String(v.content || '').replace(/\s+/g, ' ').trim().slice(0, 100);
+      return preview ? `"${title}" — ${preview}` : `"${title}"`;
+    }).filter(Boolean),
     memories: memorySnap.docs.map(d => {
       const data = d.data();
       return {
@@ -299,11 +313,12 @@ const mochiWeeklyRecap = onSchedule({
   const todayStr = now.toISOString().slice(0, 10);
   const weekStartStr = weekAgo.toISOString().slice(0, 10);
   try {
-    const [moodsSnap, activitySnap, starSnap, watchSnap, memorySnap] = await Promise.all([
+    const [moodsSnap, activitySnap, starSnap, watchSnap, journalSnap, memorySnap] = await Promise.all([
       db.collection('moods').where('timestamp', '>=', weekAgo).limit(50).get(),
       db.collection('recent_activity').orderBy('timestamp', 'desc').limit(10).get(),
       db.collection('starlight_jar').orderBy('timestamp', 'desc').limit(5).get(),
       db.collection('our_cinema').limit(5).get(),
+      db.collection('journal_entries').orderBy('createdAt', 'desc').limit(5).get(),
       db.collection('ai_memories').doc('shared').collection('facts').orderBy('createdAt', 'desc').limit(300).get(),
     ]);
     const recapData = {
@@ -315,6 +330,12 @@ const mochiWeeklyRecap = onSchedule({
       activities: activitySnap.docs.map(d => d.data().activity || d.data().description || '').filter(Boolean),
       starlight: starSnap.docs.map(d => d.data().content || '').filter(Boolean),
       watchlist: watchSnap.docs.map(d => d.data().title || '').filter(Boolean),
+      journal: journalSnap.docs.map(d => {
+        const v = d.data();
+        const title = v.title || 'Untitled';
+        const preview = String(v.content || '').replace(/\s+/g, ' ').trim().slice(0, 100);
+        return preview ? `"${title}" — ${preview}` : `"${title}"`;
+      }).filter(Boolean),
       memories: memorySnap.docs.map(d => ({
         fact: d.data().fact || '',
         occurredAt: d.data().occurredAt?.toDate?.() || null,
@@ -332,7 +353,7 @@ const mochiWeeklyRecap = onSchedule({
           body: JSON.stringify({
             model: 'agnes-2.5-flash',
             messages: [
-              { role: 'system', content: 'You are Mochi 🍡, a warm white cat companion for Khent and Clair. Write a cozy 3-4 sentence weekly recap for their week — reference real moods, activities, starlight notes, and watchlist naturally. Stay warm, celebrate their rhythm, and don\'t list raw fields.' },
+              { role: 'system', content: 'You are Mochi 🍡, a warm white cat companion for Khent and Clair. Write a cozy 3-4 sentence weekly recap for their week — reference real moods, activities, starlight notes, journal entries, and watchlist naturally. Stay warm, celebrate their rhythm, and don\'t list raw fields.' },
               { role: 'user', content: `Week ${weekStartStr} to ${todayStr} data:\n${dataBlob}` },
             ],
             max_tokens: 400,

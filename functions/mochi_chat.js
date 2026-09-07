@@ -185,7 +185,8 @@ async function handleProxyAI(req, res) {
 
 ## How You Behave
 - **Be proactive, not reactive.** If it's close to a birthday or anniversary, mention it. If one of them seems stressed, check in. If they haven't logged a mood today, gently ask.
-- **Use context deeply.** Reference their watchlist, books, garden, music, recent chat, starlight jar notes, and past conversations naturally. Don't just list data — weave it into warm, personal responses.
+- **Use context deeply.** Reference their watchlist, books, garden, music, recent chat, starlight jar notes, journal entries, and past conversations naturally. Don't just list data — weave it into warm, personal responses.
+- **Stay updated on daily life.** The context always includes today's date plus the newest journal entries — use them to remember what happened today and recently without being asked.
 - **Remember everything.** The ## Remembered Facts section contains things you've learned about them over time. Use these naturally — "Didn't you say you were grinding ranked last week?" or "How's that book you started?"
 - **Match energy.** If they're excited, be excited with them. If they're down, be gentle and supportive. If they're casual, keep it light. Don't be performatively upbeat when they're having a rough day.
 - **Be concise by default, thorough when needed.** Quick check-ins = 1-2 sentences. Deep questions or emotional moments = take your space. Use your judgment.
@@ -1835,11 +1836,12 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
             }
             case 'get_today_recap': {
               const today = new Date().toISOString().slice(0, 10);
-              const [moodSnap, activitySnap, watchSnap, starSnap, memorySnap] = await Promise.all([
+              const [moodSnap, activitySnap, watchSnap, starSnap, journalSnap, memorySnap] = await Promise.all([
                 db.collection('moods').where('date', '==', today).get(),
                 db.collection('recent_activity').orderBy('timestamp', 'desc').limit(5).get(),
                 db.collection('our_cinema').limit(5).get(),
                 db.collection('starlight_jar').orderBy('timestamp', 'desc').limit(3).get(),
+                db.collection('journal_entries').orderBy('createdAt', 'desc').limit(3).get(),
                 db.collection('ai_memories').doc('shared').collection('facts')
                   .orderBy('createdAt', 'desc').limit(300).get(),
               ]);
@@ -1854,6 +1856,12 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
                 ),
                 watchlist: watchSnap.docs.map(d => d.data().title || '').filter(Boolean),
                 starlight: starSnap.docs.map(d => d.data().content || '').filter(Boolean),
+                journal: journalSnap.docs.map(d => {
+                  const v = d.data();
+                  const title = v.title || 'Untitled';
+                  const preview = String(v.content || '').replace(/\s+/g, ' ').trim().slice(0, 100);
+                  return preview ? `"${title}" — ${preview}` : `"${title}"`;
+                }).filter(Boolean),
                 memories: memorySnap.docs.map(d => {
                   const data = d.data();
                   return {
