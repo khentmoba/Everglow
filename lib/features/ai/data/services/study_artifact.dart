@@ -109,7 +109,7 @@ String stripArtifactBlocks(String text) {
 String stripStreamingArtifacts(String draft) {
   final withoutComplete = _withoutFencedBlocks(draft);
   final open = RegExp(
-    r'```\s*(quiz-json|flashcards-json|html-artifact)[\s\S]*$',
+    r'```\s*(quiz[\s_-]*json|quiz|flashcards?[\s_-]*json|flashcards?|html[\s_-]*artifacts?|html)[\s\S]*$',
     caseSensitive: false,
   ).firstMatch(withoutComplete);
   if (open != null) {
@@ -120,14 +120,39 @@ String stripStreamingArtifacts(String draft) {
 
 // ─── Fenced JSON (primary) ──────────────────────────────────────
 
-final _fencePattern = RegExp(r'```(\w[\w-]*)\s*\n([\s\S]*?)```');
+// Tolerant fence: tag may have extra spaces and the body may start on the
+// same line (` ```quiz-json [...]``` ). The model doesn't always emit the
+// exact fence shape, so accept close variants — unknown tags (e.g. dart)
+// are still left alone by [_withoutFencedBlocks].
+final _fencePattern = RegExp(r'```[ \t]*([\w-]+)[ \t]*\n?([\s\S]*?)```');
+
+/// Canonical artifact tags. The model sometimes emits `quiz_json`,
+/// `quizjson`, `quiz`, or plain `html` — treat those as the same block.
+String _normTag(String tag) {
+  final t = tag.toLowerCase().replaceAll('_', '-');
+  if (t == 'quiz-json' || t == 'quizjson' || t == 'quiz') return 'quiz-json';
+  if (t == 'flashcards-json' ||
+      t == 'flashcardsjson' ||
+      t == 'flashcards' ||
+      t == 'flash-cards-json' ||
+      t == 'flashcard-json' ||
+      t == 'flashcard') {
+    return 'flashcards-json';
+  }
+  if (t == 'html-artifact' ||
+      t == 'htmlartifact' ||
+      t == 'html-artifacts' ||
+      t == 'html') {
+    return 'html-artifact';
+  }
+  return t;
+}
 
 String _withoutFencedBlocks(String text) {
   return text.replaceAllMapped(_fencePattern, (m) {
-    final tag = m.group(1)!.toLowerCase();
-    if (tag == 'quiz-json' ||
-        tag == 'flashcards-json' ||
-        tag == 'html-artifact') {
+    if (_normTag(m.group(1)!) == 'quiz-json' ||
+        _normTag(m.group(1)!) == 'flashcards-json' ||
+        _normTag(m.group(1)!) == 'html-artifact') {
       return '';
     }
     return m.group(0)!;
@@ -136,23 +161,140 @@ String _withoutFencedBlocks(String text) {
 
 Iterable<String> _fencedBodies(String text, String tag) sync* {
   for (final m in _fencePattern.allMatches(text)) {
-    if (m.group(1)!.toLowerCase() != tag) continue;
+    if (_normTag(m.group(1)!) != tag) continue;
     final body = m.group(2)!.trim();
     if (body.isNotEmpty) yield body;
   }
+}
+
+/// Decode a JSON list leniently. The model sometimes wraps the array in
+/// prose ("Here is the JSON: [...] hope it helps!"), adds trailing commas,
+/// or emits one object per line — a strict single jsonDecode would drop
+/// the whole block and the chat would fall back to plain text.
+List _decodeJsonList(String body) {
+  // 1. Strict decode first (fast path for well-formed blocks).
+  try {
+    final decoded = jsonDecode(body);
+    if (decoded is List) return decoded;
+    if (decoded is Map) {
+      for (final key in const ['questions', 'cards', 'items', 'data']) {
+        if (decoded[key] is List) return decoded[key] as List;
+      }
+    }
+  } catch (_) {
+    // Fall through to lenient extraction.
+  }
+  // 2. Extract the outermost [...] (or {...}) span, dropping surrounding prose.
+  final arraySpan = _outerSpan(body, '[', ']');
+  if (arraySpan != null) {
+    try {
+      final decoded = jsonDecode(_stripTrailingCommas(arraySpan));
+      if (decoded is List) return decoded;
+    } catch (_) {
+      // Fall through to per-object scan.
+    }
+    // 3. Last resort: parse each {...} object inside the span individually
+    // so one bad entry can't sink the whole quiz.
+    final items = <dynamic>[];
+    for (final span in _objectSpans(arraySpan)) {
+      try {
+        items.add(jsonDecode(_stripTrailingCommas(span)));
+      } catch (_) {
+        // Skip the bad entry, keep the rest.
+      }
+    }
+    if (items.isNotEmpty) return items;
+  }
+  // 4. NDJSON: one JSON object per line, no enclosing array.
+  final lines = <dynamic>[];
+  for (final line in body.split('\n')) {
+    final t = line.trim();
+    if (!t.startsWith('{') || !t.endsWith('}')) continue;
+    try {
+      lines.add(jsonDecode(_stripTrailingCommas(t)));
+    } catch (_) {
+      // Skip bad lines.
+    }
+  }
+  return lines;
+}
+
+/// Outermost balanced [open..close] span in [s], or null when unbalanced.
+String? _outerSpan(String s, String open, String close) {
+  final start = s.indexOf(open);
+  if (start == -1) return null;
+  var depth = 0;
+  var inStr = false;
+  var escape = false;
+  for (var i = start; i < s.length; i++) {
+    final c = s[i];
+    if (inStr) {
+      if (escape) {
+        escape = false;
+      } else if (c == '\\') {
+        escape = true;
+      } else if (c == '"') {
+        inStr = false;
+      }
+      continue;
+    }
+    if (c == '"') {
+      inStr = true;
+    } else if (c == open) {
+      depth++;
+    } else if (c == close) {
+      depth--;
+      if (depth == 0) return s.substring(start, i + 1);
+    }
+  }
+  return null;
+}
+
+/// Every top-level {...} object span inside [arraySpan].
+Iterable<String> _objectSpans(String arraySpan) sync* {
+  var depth = 0;
+  var start = -1;
+  var inStr = false;
+  var escape = false;
+  for (var i = 0; i < arraySpan.length; i++) {
+    final c = arraySpan[i];
+    if (inStr) {
+      if (escape) {
+        escape = false;
+      } else if (c == '\\') {
+        escape = true;
+      } else if (c == '"') {
+        inStr = false;
+      }
+      continue;
+    }
+    if (c == '"') {
+      inStr = true;
+    } else if (c == '{') {
+      if (depth == 0) start = i;
+      depth++;
+    } else if (c == '}') {
+      depth--;
+      if (depth == 0 && start != -1) {
+        yield arraySpan.substring(start, i + 1);
+        start = -1;
+      }
+    }
+  }
+}
+
+String _stripTrailingCommas(String s) {
+  return s.replaceAllMapped(
+    RegExp(r',(\s*[}\]])'),
+    (m) => m.group(1)!,
+  );
 }
 
 List<QuizQuestion> _parseQuizJsonBlocks(String text) {
   final out = <QuizQuestion>[];
   for (final body in _fencedBodies(text, 'quiz-json')) {
     try {
-      final decoded = jsonDecode(body);
-      final list = decoded is List
-          ? decoded
-          : decoded is Map && decoded['questions'] is List
-              ? decoded['questions'] as List
-              : const [];
-      for (final item in list) {
+      for (final item in _decodeJsonList(body)) {
         final q = _quizFromJson(item);
         if (q != null) out.add(q);
       }
@@ -172,7 +314,7 @@ QuizQuestion? _quizFromJson(dynamic item) {
       .map((o) => o.toString().trim())
       .where((o) => o.isNotEmpty)
       .toList();
-  if (options.length < 2 || options.length > 5) return null;
+  if (options.length < 2 || options.length > 6) return null;
   final answer = _answerToIndex(item['answer'], options.length);
   if (answer == null) return null;
   final why = (item['why'] ?? item['explanation'] ?? '').toString().trim();
@@ -211,13 +353,7 @@ List<Flashcard> _parseFlashcardsJsonBlocks(String text) {
   final out = <Flashcard>[];
   for (final body in _fencedBodies(text, 'flashcards-json')) {
     try {
-      final decoded = jsonDecode(body);
-      final list = decoded is List
-          ? decoded
-          : decoded is Map && decoded['cards'] is List
-              ? decoded['cards'] as List
-              : const [];
-      for (final item in list) {
+      for (final item in _decodeJsonList(body)) {
         final card = _cardFromJson(item);
         if (card != null) out.add(card);
       }
@@ -246,16 +382,47 @@ List<HtmlArtifact> _parseHtmlArtifactBlocks(String text) {
   final out = <HtmlArtifact>[];
   for (final body in _fencedBodies(text, 'html-artifact')) {
     final html = body.trim();
-    // Must look like a page, and stay inside the size cap so one wild
-    // reply can't flood the chat or the saved conversation.
-    if (html.length < 50 || html.length > kMaxHtmlChars) continue;
-    if (!html.toLowerCase().contains('<html') &&
-        !html.toLowerCase().contains('<!doctype')) {
-      continue;
-    }
-    out.add(HtmlArtifact(title: _htmlTitle(html), html: html));
+    // Stay inside the size cap so one wild reply can't flood the chat
+    // or the saved conversation.
+    if (html.length < 20 || html.length > kMaxHtmlChars) continue;
+    final lower = html.toLowerCase();
+    final isFullPage =
+        lower.contains('<html') || lower.contains('<!doctype');
+    // Accept fragments too (a bare `style`/`div`/`script` game): the model
+    // doesn't always emit a full document, so wrap fragments into one.
+    // Anything without at least one HTML tag is prose, not an app.
+    final hasTag = RegExp(r'<[a-z][a-z0-9-]*(\s[^<>]*)?>', caseSensitive: false)
+        .hasMatch(html);
+    if (!isFullPage && !hasTag) continue;
+    out.add(
+      HtmlArtifact(
+        title: _htmlTitle(html),
+        html: isFullPage ? html : _wrapHtmlFragment(html),
+      ),
+    );
   }
   return out;
+}
+
+/// Wrap a bare HTML fragment (no `html` wrapper) into a runnable page so
+/// the sandboxed preview can run it as-is.
+String _wrapHtmlFragment(String fragment) {
+  final title = _htmlTitle(fragment);
+  final safeTitle = title == 'Preview' ? 'Mochi Canvas' : title;
+  return '<!DOCTYPE html><html><head><meta charset="utf-8">'
+      '<meta name="viewport" content="width=device-width,initial-scale=1">'
+      '<title>${_escapeHtml(safeTitle)}</title>'
+      '<style>body{margin:0;padding:16px;font-family:system-ui,-apple-system,'
+      'sans-serif;background:#fff;color:#111}*{box-sizing:border-box}</style>'
+      '</head><body>$fragment</body></html>';
+}
+
+String _escapeHtml(String s) {
+  return s
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;');
 }
 
 /// Title for the Preview button: <title> first, then an optional
@@ -301,7 +468,7 @@ List<QuizQuestion> _parseQuizMarkdownFallback(String text) {
     final question = _cleanInline(qMatch.group(2)!);
     final options = <String>[];
     var j = i + 1;
-    while (j < lines.length && options.length < 5) {
+    while (j < lines.length && options.length < 6) {
       final opt = RegExp(r'^\s*(?:[-*•]\s*)?([A-E])[.)]\s+(.+?)\s*$')
           .firstMatch(lines[j]);
       if (opt == null) break;
