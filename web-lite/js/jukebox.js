@@ -1,6 +1,7 @@
 import { db, esc, errMsg, getIdToken, session } from './lib.js';
 import { requireCouple } from './auth.js';
 import { Shell } from './home.js';
+import { linkSpotify, linkStatus, currentlyPlaying, unlinkSpotify } from './spotify.js';
 
 const LASTFM = 'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyLastfm';
 const SPOTIFY_SEARCH = 'https://us-central1-everglow-1c6db.cloudfunctions.net/proxySpotifySearch';
@@ -53,6 +54,8 @@ export async function Jukebox(el, nav) {
   Shell(el, 'jukebox', `
     <div class="topbar"><div><h2 class="serif">Jukebox</h2><p class="sub">what we are vibing to</p></div></div>
     <div class="stack" style="margin-top:12px">
+      <div class="card" id="spotify"><div class="skel"></div></div>
+      <div class="card" id="now"><div class="skel"></div></div>
       <div class="card" id="live"><div class="skel"></div></div>
       <div class="card"><strong>Recent plays</strong><div class="stack" id="recent" style="margin-top:8px"><div class="skel"></div></div></div>
       <div class="card"><strong>Top songs</strong><div class="stack" id="top" style="margin-top:8px"><div class="skel"></div></div></div>
@@ -65,6 +68,8 @@ export async function Jukebox(el, nav) {
         </form></div>
       <div class="card"><strong>Dedications</strong><div class="stack" id="deds" style="margin-top:8px"><div class="skel"></div></div></div>
     </div>`);
+  const spot = el.querySelector('#spotify');
+  const now = el.querySelector('#now');
   const live = el.querySelector('#live');
   const recent = el.querySelector('#recent');
   const top = el.querySelector('#top');
@@ -78,6 +83,60 @@ export async function Jukebox(el, nav) {
       <div class="muted small">${esc(labelFor(t.username))}${t.isPlaying ? ' · <span class="ok">playing now</span>' : t.ts ? ` · ${esc(new Date(t.ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }))}` : ''}</div></div>
       <button class="ghost" type="button" data-listen='${esc(JSON.stringify({ artist: t.artistName, track: t.trackName }))}'>▶</button>
     </div>`;
+  }
+
+  async function paintSpotify() {
+    try {
+      const st = await linkStatus(u.uid);
+      if (!st.linked) {
+        spot.innerHTML = `<div class="row"><span style="font-size:28px">🎧</span>
+          <div class="grow"><strong>Connect Spotify</strong>
+          <div class="muted small">For live currently-playing (your login stays ours).</div></div>
+          <button type="button" id="link">Connect</button></div>`;
+        spot.querySelector('#link').addEventListener('click', async () => {
+          try {
+            await linkSpotify();
+          } catch {
+            spot.insertAdjacentHTML('beforeend', `<p class="err small">Spotify is not configured yet — ask Khent to check the server keys.</p>`);
+          }
+        });
+        return;
+      }
+      spot.innerHTML = `<div class="row"><span style="font-size:28px">🎧</span>
+        <div class="grow"><strong>Spotify linked</strong>
+        <div class="muted small">${esc(st.name || 'Premium ✓')}</div></div>
+        <button class="ghost" type="button" id="unlink">Unlink</button></div>`;
+      spot.querySelector('#unlink').addEventListener('click', async () => {
+        await unlinkSpotify(u.uid);
+        await paintSpotify();
+        await paintNow();
+      });
+    } catch {
+      spot.innerHTML = `<p class="muted small" style="margin:0">Spotify status unavailable.</p>`;
+    }
+  }
+
+  async function paintNow() {
+    try {
+      const cp = await currentlyPlaying();
+      if (!cp || !cp.connected) {
+        now.innerHTML = `<p class="muted small" style="margin:0">Connect Spotify above to see live currently-playing here.</p>`;
+        return;
+      }
+      if (!cp.isPlaying || !cp.trackName) {
+        now.innerHTML = `<p class="muted small" style="margin:0">Nothing playing on Spotify right now. 🤍</p>`;
+        return;
+      }
+      now.innerHTML = `<div class="row">
+        ${cp.imageUrl ? `<img loading="lazy" width="56" height="56" style="border-radius:12px" src="${esc(cp.imageUrl)}" alt="" onerror="this.remove()">` : '<span style="font-size:32px">🎵</span>'}
+        <div class="grow"><strong>${esc(cp.trackName)}</strong>
+        <div class="muted small">${esc(cp.artistName || '')}${cp.albumName ? ` · ${esc(cp.albumName)}` : ''}</div>
+        <div class="muted small">playing now on Spotify · <span class="ok">live</span></div></div>
+        ${cp.spotifyUrl ? `<a class="btn ghost small" href="${esc(cp.spotifyUrl)}" target="_blank" rel="noopener">Open</a>` : ''}
+      </div>`;
+    } catch {
+      now.innerHTML = `<p class="muted small" style="margin:0">Live Spotify check failed.</p>`;
+    }
   }
 
   async function paintLive() {
@@ -224,6 +283,8 @@ export async function Jukebox(el, nav) {
     } catch (e) { alert(errMsg(e)); }
   });
 
+  await paintSpotify();
+  await paintNow();
   await paintLive();
   await paintDeds();
   paintRecent();
