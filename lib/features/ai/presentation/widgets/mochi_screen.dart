@@ -47,6 +47,10 @@ class _MochiScreenState extends State<MochiScreen> {
   bool _userScrolledUp = false;
   bool _deepThink = true;
   bool _deepThinkTouched = false;
+  // Canvas toggle — when off, Mochi just chats normally (no interactive
+  // quiz / flashcards buttons). Defaults ON so Clair gets the fun view
+  // without hunting for it.
+  bool _canvasEnabled = true;
   String? _lastSentMessage;
   bool _isSidebarOpen = false;
   final List<String> _attachedImages = [];
@@ -398,6 +402,10 @@ class _MochiScreenState extends State<MochiScreen> {
                         attachedImages: _attachedImages,
                         onRemoveImage: _removeImage,
                         centered: true,
+                        canvasEnabled: _canvasEnabled,
+                        onToggleCanvas: () => setState(
+                          () => _canvasEnabled = !_canvasEnabled,
+                        ),
                       ),
                     ],
                   ),
@@ -479,6 +487,10 @@ class _MochiScreenState extends State<MochiScreen> {
                   attachedImages: _attachedImages,
                   onRemoveImage: _removeImage,
                   centered: false,
+                  canvasEnabled: _canvasEnabled,
+                  onToggleCanvas: () => setState(
+                    () => _canvasEnabled = !_canvasEnabled,
+                  ),
                 ),
               ],
             ),
@@ -545,6 +557,7 @@ class _MochiScreenState extends State<MochiScreen> {
                                     text: ai.draftResponse,
                                     isUser: false,
                                     isStreaming: true,
+                                    showArtifacts: _canvasEnabled,
                                     reasoning: ai.draftReasoning.isNotEmpty
                                         ? ai.draftReasoning
                                         : null,
@@ -589,6 +602,7 @@ class _MochiScreenState extends State<MochiScreen> {
                   ),
                   text: msg.content,
                   isUser: isUserMsg,
+                  showArtifacts: _canvasEnabled,
                   timestamp: msg.timestamp,
                   imageUrls: msg.imageUrls,
                   senderName: isUserMsg ? callerName : null,

@@ -338,6 +338,10 @@ class _ComposerInput extends StatefulWidget {
   final List<String> attachedImages;
   final void Function(int) onRemoveImage;
   final bool centered;
+  // Canvas toggle — ON shows the interactive quiz / flashcards buttons,
+  // OFF keeps Mochi as plain chat. Defaults ON.
+  final bool canvasEnabled;
+  final VoidCallback? onToggleCanvas;
 
   const _ComposerInput({
     required this.inputKey,
@@ -349,6 +353,8 @@ class _ComposerInput extends StatefulWidget {
     this.attachedImages = const [],
     required this.onRemoveImage,
     this.centered = false,
+    this.canvasEnabled = true,
+    this.onToggleCanvas,
   });
 
   @override
@@ -515,6 +521,24 @@ class _ComposerInputState extends State<_ComposerInput> {
                               ? 'Listening...'
                               : 'Voice input',
                         ),
+                      // Canvas toggle — one tap turns the interactive
+                      // quiz / flashcards view on or off. Highlighted
+                      // gold when ON so Clair can see the state at a glance.
+                      IconButton(
+                        onPressed: widget.onToggleCanvas,
+                        icon: Icon(
+                          widget.canvasEnabled
+                              ? Icons.dashboard_customize_rounded
+                              : Icons.dashboard_customize_outlined,
+                          color: widget.canvasEnabled
+                              ? AppColors.blushGold
+                              : AppColors.textMuted,
+                          size: 22,
+                        ),
+                        tooltip: widget.canvasEnabled
+                            ? 'Canvas: on — quizzes open as interactive cards'
+                            : 'Canvas: off — Mochi chats normally',
+                      ),
                       Expanded(
                         child: TextField(
                           controller: widget.controller,
