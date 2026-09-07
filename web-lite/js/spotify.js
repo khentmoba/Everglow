@@ -37,7 +37,7 @@ export async function spotifyClientId() {
 }
 
 function redirectUri() {
-  return `${location.origin}/#/spotify/callback`;
+  return `${location.origin}/spotify/callback`;
 }
 
 function randVerifier() {
@@ -69,7 +69,13 @@ export async function linkSpotify() {
 }
 
 export async function handleSpotifyCallback() {
-  const params = new URLSearchParams(location.hash.split('?')[1] || '');
+  const harvest = () => {
+    const qs = new URLSearchParams(location.search || '');
+    if (qs.get('code') || qs.get('error')) return qs;
+    const hs = new URLSearchParams((location.hash.split('?')[1] || ''));
+    return hs;
+  };
+  const params = harvest();
   const code = params.get('code');
   const error = params.get('error');
   if (error) return { ok: false, error };

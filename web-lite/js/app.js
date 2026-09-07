@@ -30,8 +30,11 @@ function nav(hash) {
 async function render() {
   try { if (cleanup) cleanup(); } catch {}
   cleanup = null;
+  if (location.pathname === '/spotify/callback') {
+    history.replaceState(null, '', `/#${location.pathname}${location.search}`);
+  }
   const path = (location.hash || '#/').slice(1) || '/';
-  const load = routes[path] || routes['/'];
+  const load = routes[path.split('?')[0]] || routes['/'];
   app.innerHTML = '';
   const host = document.createElement('div');
   host.id = 'view';
