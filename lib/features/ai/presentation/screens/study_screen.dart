@@ -573,12 +573,19 @@ class _StudyScreenState extends State<StudyScreen> {
               itemBuilder: (_, i) {
                 if (i == _turns.length) return const _StreamingBubble();
                 final turn = _turns[i];
-                return turn.fromUser
-                    ? _UserBubble(text: turn.text)
-                    : _AnswerBubble(
-                        text: turn.text,
-                        showArtifacts: _canvasEnabled,
-                      );
+                if (turn.fromUser) return _UserBubble(text: turn.text);
+                var keepFull = false;
+                for (var k = i - 1; k >= 0; k--) {
+                  if (_turns[k].fromUser) {
+                    keepFull = userAskedForVisibleQuiz(_turns[k].text);
+                    break;
+                  }
+                }
+                return _AnswerBubble(
+                  text: turn.text,
+                  showArtifacts: _canvasEnabled,
+                  keepFullText: keepFull,
+                );
               },
             ),
           ),
@@ -859,13 +866,21 @@ class _AnswerBubble extends StatelessWidget {
   // Canvas toggle from the Study bar — when false the bubble stays plain
   // text (hidden blocks still stripped so raw JSON never shows).
   final bool showArtifacts;
-  const _AnswerBubble({required this.text, this.showArtifacts = true});
+  // When true the full visible question list is kept: the user explicitly
+  // asked to see it inline (see userAskedForVisibleQuiz).
+  final bool keepFullText;
+  const _AnswerBubble({
+    required this.text,
+    this.showArtifacts = true,
+    this.keepFullText = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final artifacts = parseStudyArtifacts(text);
-    final displayText =
-        artifacts.isEmpty ? text : stripArtifactBlocks(text);
+    final displayText = artifacts.isEmpty
+        ? text
+        : stripArtifactBlocks(text, collapseVisibleLists: !keepFullText);
     return Padding(
       padding: const EdgeInsets.only(right: 8, bottom: 12),
       child: EverglowAssistantBubble(

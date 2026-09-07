@@ -88,6 +88,90 @@ void main() {}
     });
   });
 
+  group('clean chat collapse (quiz/cards stay in the sheet)', () {
+    test('collapses the visible A-D list when quiz-json is present', () {
+      const text = '''
+Nice! Let's see how well you remembered, Dada 💕
+
+Quiz: Block Diagrams & Flowcharts (CpE 316)
+
+1. What is a key characteristic of a block diagram compared to a schematic?
+A. It shows every wire and switch in detail
+B. It portrays the necessary detail for physical construction
+C. It provides a high-level overview without showing complete design details
+D. It uses only circular shapes to represent components
+
+```quiz-json
+[{"q":"What is a key characteristic of a block diagram compared to a schematic?","options":["It shows every wire and switch in detail","It portrays the necessary detail for physical construction","It provides a high-level overview without showing complete design details","It uses only circular shapes to represent components"],"answer":2,"why":"Block diagrams stay high-level."}]
+```''';
+      final stripped = stripArtifactBlocks(text);
+      expect(stripped, contains("Let's see how well you remembered"));
+      expect(stripped, isNot(contains('It shows every wire')));
+      expect(stripped, isNot(contains('1. What is a key')));
+      expect(stripped, isNot(contains('quiz-json')));
+      // The interactive sheet still gets the full question.
+      expect(parseStudyArtifacts(text).quiz, hasLength(1));
+    });
+
+    test('leaves numbered prose alone when no quiz-json block exists', () {
+      const text = '''
+Here are the steps:
+1. Open the app
+2. Tap the garden
+Hope that helps!''';
+      expect(stripArtifactBlocks(text), contains('Open the app'));
+      expect(parseStudyArtifacts(text).hasQuiz, isFalse);
+    });
+
+    test('keeps the full list when the user explicitly asked inline', () {
+      const text = '''
+Nice! Let's see how well you remembered 💕
+
+1. What is 2+2?
+A. 3
+B. 4
+
+```quiz-json
+[{"q":"What is 2+2?","options":["3","4"],"answer":1,"why":"Basic math."}]
+```''';
+      const userAsk =
+          'Quiz us on this! Ask 5 multiple-choice questions based ONLY on the material above. Ask them all now with A-D options, wait for our answers, then correct us gently.';
+      expect(userAskedForVisibleQuiz(userAsk), isTrue);
+      final kept = stripArtifactBlocks(text, collapseVisibleLists: false);
+      expect(kept, contains('1. What is 2+2?'));
+      expect(kept, contains('B. 4'));
+      expect(kept, isNot(contains('quiz-json')));
+    });
+
+    test('plain quiz asks still collapse (no explicit inline signal)', () {
+      expect(userAskedForVisibleQuiz('Quiz me on chapter 5'), isFalse);
+      expect(userAskedForVisibleQuiz('Give me flashcards for bio'), isFalse);
+      expect(
+        userAskedForVisibleQuiz('Show me the flashcards here in chat'),
+        isTrue,
+      );
+      expect(userAskedForVisibleQuiz('What is photosynthesis?'), isFalse);
+    });
+
+    test('collapses the visible Front/Back list when cards-json is present', () {
+      const text = '''
+Made you some cards 🃏
+
+Front: Mitochondria
+Back: Powerhouse of the cell
+Front: Nucleus
+Back: Holds DNA
+
+```flashcards-json
+[{"front":"Mitochondria","back":"Powerhouse of the cell"},{"front":"Nucleus","back":"Holds DNA"}]
+```''';
+      final stripped = stripArtifactBlocks(text);
+      expect(stripped, contains('Made you some cards'));
+      expect(stripped, isNot(contains('Mitochondria')));
+      expect(parseStudyArtifacts(text).flashcards, hasLength(2));
+    });
+  });
+
   group('plain-markdown fallback (older sessions)', () {
     test('parses numbered questions with answer keys', () {
       const text = '''
