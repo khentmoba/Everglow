@@ -130,7 +130,7 @@ class _StudyScreenState extends State<StudyScreen> {
     try {
       final doc = await _studyDocs.pickAndExtract();
       if (!mounted || doc == null) return; // user cancelled
-      setState(() => _sources.add(fitStudyDoc(doc, _sources)));
+      setState(() => _sources.add(doc));
       _persistSession();
       _focusNode.requestFocus();
     } on StudyDocException catch (e) {
