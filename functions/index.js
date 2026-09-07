@@ -798,7 +798,11 @@ async function handleProxyAI(req, res) {
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
 
-  const { messages, context, systemPrompt: customSystemPrompt, memories, feature, caller: clientCaller, enableThinking } = req.body;
+  const { messages, context, systemPrompt: customSystemPrompt, memories, feature, caller: clientCaller, enableThinking, canvas } = req.body;
+  // Canvas toggle from the chat bar. When the user turns it OFF, Mochi must
+  // not create any interactive artifacts at all — plain text only, even for
+  // quizzes. Defaults ON so older app versions keep working.
+  const canvasOn = canvas !== false;
 
   // Thinking mode: OFF by default for fast responses.
   // Pass enableThinking: true from the client for complex queries that need reasoning.
@@ -967,7 +971,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   // The Study screen renders these hidden blocks as tappable UI (quiz
   // options, flippable cards) — Claude-Artifacts style. The visible text
   // stays warm and human; the JSON block powers the interactive canvas.
-  if (feature === 'study') {
+  if (feature === 'study' && canvasOn) {
     systemPrompt += `
 ## Study Mode — grounded + interactive
 - Answer using ONLY the attached study sources. If the answer is not in them, say so warmly instead of guessing.
@@ -993,7 +997,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   // Unlike Study mode this is NOT source-grounded — use Everglow context +
   // general knowledge. Never emit the blocks unasked (a summary or explanation
   // stays plain text); only when they ask for a quiz, test, trivia, or cards.
-  if (feature === 'assistant') {
+  if (feature === 'assistant' && canvasOn) {
     systemPrompt += `
 ## Interactive Canvas — quiz & flashcards
 - When they ask for a quiz, test, or trivia questions: show the friendly quiz first (numbered questions with A-D options, 5 questions unless they ask for more), then append a hidden block:
@@ -1002,6 +1006,11 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   \`\`\`
   answer is the 0-based index of the correct option. JSON only inside the block, no commentary inside it.
 - IMPORTANT: this applies even when you quiz THEM (they answer, you grade after — "drop your answers and I'll grade you"). In that case keep the correct answers OUT of the visible text, but STILL append the hidden quiz-json block with the real answers. The hidden block is what opens the tappable interactive quiz; without it there is no button.
+- When Canvas is on and they ask for something to PLAY or USE — a game (chess, checkers, tic-tac-toe), a little app, a website, a tool: build it as ONE self-contained HTML file (inline <style> and <script> only — no external files, no CDN links, no localStorage, no network calls), then append it as a hidden block:
+  \`\`\`html-artifact
+  <!DOCTYPE html>... the full game/app here ...
+  \`\`\`
+  Keep it compact (under ~30KB) and fully working from the single file. Put a <title> with its name. HTML only inside the block, no commentary inside it. The visible reply stays warm and short ("Made you chess — tap Preview to play!").
 - When they ask for flashcards or study cards: show each card as "Front: ..." / "Back: ..." lines first (10 cards max), then append a hidden block:
   \`\`\`flashcards-json
   [{"front":"...","back":"..."}]

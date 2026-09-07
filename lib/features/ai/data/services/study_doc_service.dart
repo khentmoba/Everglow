@@ -88,6 +88,30 @@ abstract final class StudyPrompts {
     ('Flashcards 🃏', flashcards),
     ('Explain simply 💡', explain),
   ];
+
+  /// Plain-text Quiz ask for when the Canvas toggle is OFF — no hidden
+  /// block instruction, so Mochi creates no interactive data at all.
+  static const quizPlain =
+      'Quiz us on this! Ask 5 multiple-choice questions based ONLY on the material above. '
+      'Ask them all now with A–D options, wait for our answers, then correct us gently. '
+      'Plain text only — no hidden blocks.';
+
+  /// Plain-text Flashcards ask for when the Canvas toggle is OFF.
+  static const flashcardsPlain =
+      'Make us flashcards from this — show each card as "Front: ..." then "Back: ..." lines, 10 cards max, based ONLY on the material above. '
+      'Plain text only — no hidden blocks.';
+
+  /// Chips honoring the Canvas toggle: when OFF, Quiz/Flashcards ask in
+  /// plain text so Mochi creates no interactive quiz data at all.
+  static List<(String, String)> chipsFor({required bool canvasOn}) {
+    if (canvasOn) return chips;
+    return [
+      ('Summarize 📝', summarize),
+      ('Quiz us ✍️', quizPlain),
+      ('Flashcards 🃏', flashcardsPlain),
+      ('Explain simply 💡', explain),
+    ];
+  }
 }
 
 /// Picks a single PDF file: its display name plus raw bytes.
