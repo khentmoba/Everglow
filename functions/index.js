@@ -990,7 +990,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   \`\`\`html-artifact
   <!DOCTYPE html>... the full game/app here ...
   \`\`\`
-  Keep it compact (under ~30KB) and fully working from the single file. Put a <title> with its name. HTML only inside the block. The visible reply stays warm and short ("Made you chess — tap Preview to play!").`;
+  Keep it compact (under ~30KB) and fully working from the single file. Put a <title> with its name. Design it to fill the whole preview: responsive full-viewport layout that uses the full width and height (no narrow fixed-width centered column). HTML only inside the block. The visible reply stays warm and short ("Made you chess — tap Preview to play!").`;
   }
 
   // ── Main Mochi chat: same interactive canvas (Canvas / Artifacts style) ──
@@ -1015,7 +1015,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   \`\`\`html-artifact
   <!DOCTYPE html>... the full game/app here ...
   \`\`\`
-  Keep it compact (under ~30KB) and fully working from the single file. Put a <title> with its name. HTML only inside the block, no commentary inside it. The visible reply stays warm and short ("Made you chess — tap Preview to play!").
+  Keep it compact (under ~30KB) and fully working from the single file. Put a <title> with its name. Design it to fill the whole preview: responsive full-viewport layout that uses the full width and height (no narrow fixed-width centered column). HTML only inside the block, no commentary inside it. The visible reply stays warm and short ("Made you chess — tap Preview to play!").
 - When they ask for flashcards or study cards: keep the visible reply warm and short (1-2 lines), do NOT list Front/Back lines in the text — put the cards ONLY in the hidden block (10 cards max):
   \`\`\`flashcards-json
   [{"front":"...","back":"..."}]
