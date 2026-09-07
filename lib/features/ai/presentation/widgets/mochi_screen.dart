@@ -48,9 +48,9 @@ class _MochiScreenState extends State<MochiScreen> {
   bool _deepThink = true;
   bool _deepThinkTouched = false;
   // Canvas toggle — when off, Mochi just chats normally (no interactive
-  // quiz / flashcards buttons). Defaults ON so Clair gets the fun view
-  // without hunting for it.
-  bool _canvasEnabled = true;
+  // quiz / flashcards / game buttons). Defaults OFF so quick questions
+  // stay plain chat; toggle it on when a quiz, cards, or game is wanted.
+  bool _canvasEnabled = false;
   String? _lastSentMessage;
   bool _isSidebarOpen = false;
   final List<String> _attachedImages = [];
