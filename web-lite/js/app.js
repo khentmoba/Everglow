@@ -40,7 +40,11 @@ async function render() {
   if (!view) {
     host.innerHTML = `<div class="wrap"><div class="card center"><p>That page could not open.</p><a class="btn ghost" href="#/">Back to the door</a></div></div>`;
   } else {
-    await view(host, nav);
+    try {
+      await view(host, nav);
+    } catch {
+      host.innerHTML = `<div class="wrap"><div class="card center"><p>That page could not open.</p><a class="btn ghost" href="#/">Back to the door</a></div></div>`;
+    }
   }
   if (host.cleanup) cleanup = host.cleanup;
   splash.classList.add('done');

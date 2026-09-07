@@ -1,5 +1,4 @@
-import { db, esc } from './lib.js';
-import { auth } from './auth.js';
+import { db, esc, auth } from './lib.js';
 
 const ROUTES = {
   chat_message: ['💌', '#/chat'],
