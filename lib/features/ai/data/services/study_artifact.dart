@@ -81,14 +81,23 @@ const int kMaxHtmlChars = 30000;
 const int kMaxHtmlArtifacts = 3;
 
 /// Parse every artifact in [text]. Never throws — bad blocks are skipped.
+///
+/// The markdown fallback only runs when no fenced block of the same kind
+/// exists: otherwise a reply that lists its cards visibly AND carries the
+/// JSON block would parse every card twice (once per source) and the sheet
+/// would show duplicates.
 StudyArtifacts parseStudyArtifacts(String text) {
+  final hasQuizJson = _fencedBodies(text, 'quiz-json').isNotEmpty;
+  final hasCardsJson = _fencedBodies(text, 'flashcards-json').isNotEmpty;
   final quiz = <QuizQuestion>[
     ..._parseQuizJsonBlocks(text),
-    ..._parseQuizMarkdownFallback(_withoutFencedBlocks(text)),
+    if (!hasQuizJson)
+      ..._parseQuizMarkdownFallback(_withoutFencedBlocks(text)),
   ];
   final cards = <Flashcard>[
     ..._parseFlashcardsJsonBlocks(text),
-    ..._parseFlashcardsMarkdownFallback(_withoutFencedBlocks(text)),
+    if (!hasCardsJson)
+      ..._parseFlashcardsMarkdownFallback(_withoutFencedBlocks(text)),
   ];
   return StudyArtifacts(
     quiz: quiz.take(kMaxQuizQuestions).toList(),
@@ -100,8 +109,129 @@ StudyArtifacts parseStudyArtifacts(String text) {
 }
 
 /// Remove the hidden JSON blocks so the chat bubble never shows raw JSON.
-String stripArtifactBlocks(String text) {
-  return _withoutFencedBlocks(text).trim();
+///
+/// When the reply also carries a quiz / flashcards JSON block, the visible
+/// question/option (or Front/Back) list is collapsed too: the bubble keeps
+/// only the warm intro ("Nice, let's see how you do!") and the tappable
+/// "Try the quiz" button opens the interactive sheet. That keeps the chat
+/// short and avoids spoiling answers in the transcript. Replies without a
+/// JSON block (older markdown-only sessions) are left untouched.
+String stripArtifactBlocks(String text, {bool collapseVisibleLists = true}) {
+  final withoutBlocks = _withoutFencedBlocks(text);
+  if (!collapseVisibleLists) return withoutBlocks.trim();
+  var out = withoutBlocks;
+  if (_parseQuizJsonBlocks(text).isNotEmpty) {
+    out = _collapseVisibleQuiz(out);
+  }
+  if (_parseFlashcardsJsonBlocks(text).isNotEmpty) {
+    out = _collapseVisibleCards(out);
+  }
+  return out.trim();
+}
+
+/// Whether [userText] explicitly asks for the questions/cards as visible
+/// text (e.g. "ask them all now with A-D options", "show me the cards
+/// here in chat"). When true, the bubble keeps the full list instead of
+/// collapsing it into the "Try the quiz" button — an explicit ask wins
+/// over the tidy default. Conservative on purpose: a plain "quiz me on
+/// chapter 5" still collapses, since the sheet holds the same questions.
+bool userAskedForVisibleQuiz(String userText) {
+  final t = userText.toLowerCase();
+  final mentionsQuiz = t.contains('quiz') ||
+      t.contains('question') ||
+      t.contains('trivia') ||
+      t.contains('test me') ||
+      t.contains('flashcard') ||
+      t.contains('study card');
+  if (!mentionsQuiz) return false;
+  const signals = [
+    'ask them all',
+    'all now',
+    'all here',
+    'in chat',
+    'right here',
+    'here in',
+    'type them',
+    'type it out',
+    'type out',
+    'write them',
+    'write it out',
+    'write out',
+    'list them',
+    'list it',
+    'show them',
+    'show me',
+    'show all',
+    'display them',
+    'post them',
+    'send them',
+    'spell them out',
+  ];
+  return signals.any(t.contains);
+}
+
+/// Cut the visible numbered-question + A-D option list, keeping the intro.
+///
+/// Only call when a quiz-json block is present (guarded above), so plain
+/// explanations that happen to contain a numbered list are never touched.
+String _collapseVisibleQuiz(String text) {
+  final lines = text.split('\n');
+  final start = _visibleQuizStart(lines);
+  if (start == -1) return text;
+  final intro = lines.sublist(0, start).join('\n').trimRight();
+  if (intro.isEmpty) return 'Your quiz is ready — tap below to start ✍️';
+  return intro;
+}
+
+/// Cut the visible Front/Back list, keeping the intro. Same guard idea as
+/// [_collapseVisibleQuiz]: only call when a flashcards-json block exists.
+String _collapseVisibleCards(String text) {
+  final lines = text.split('\n');
+  final pattern = RegExp(
+    r'^(?:Q\s*[:\-]|Front\s*[:\-]|Card\s+\d+\s*[:\-])',
+    caseSensitive: false,
+  );
+  for (var i = 0; i < lines.length; i++) {
+    if (pattern.hasMatch(lines[i].trim())) {
+      final intro = lines.sublist(0, i).join('\n').trimRight();
+      if (intro.isEmpty) {
+        return 'Your flashcards are ready — tap below to flip 🃏';
+      }
+      return intro;
+    }
+  }
+  return text;
+}
+
+/// Index of the first visible quiz question line, or -1 when the text has
+/// no question-followed-by-options shape.
+int _visibleQuizStart(List<String> lines) {
+  for (var i = 0; i < lines.length; i++) {
+    if (!_looksLikeQuestion(lines[i])) continue;
+    for (var j = i + 1; j < lines.length && j <= i + 6; j++) {
+      if (_looksLikeQuestion(lines[j])) break;
+      if (_looksLikeOption(lines[j])) return i;
+    }
+  }
+  return -1;
+}
+
+bool _looksLikeQuestion(String line) {
+  final t = line.trim().replaceAll('*', '').trim();
+  if (RegExp(r'^\d+[.)]\s+\S').hasMatch(t)) return true;
+  if (RegExp(
+    r'^(?:question\s*\d*|q\s*\d+)\s*[:.)\-]\s*\S',
+    caseSensitive: false,
+  ).hasMatch(t)) {
+    return true;
+  }
+  return false;
+}
+
+bool _looksLikeOption(String line) {
+  var t = line.trim();
+  t = t.replaceAll(RegExp(r'^[•\-*]\s+'), '').replaceAll('*', '').trim();
+  return RegExp(r'^[A-E][.)]\s+\S').hasMatch(t);
 }
 
 /// Same idea for mid-stream drafts: drop complete blocks plus a trailing
