@@ -1,3 +1,10 @@
+// Live-network smoke test (hits the deployed proxy + MangaKatana site),
+// so CI excludes it with --exclude-tags, same as golden picture tests.
+// Run it by hand when touching the manga scraper:
+//   flutter test --tags=network test/katana_smoke_test.dart
+@Tags(['network'])
+library;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:everglow/features/manga/data/services/katana_service.dart';
 
