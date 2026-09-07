@@ -51,6 +51,31 @@ class StudySession {
   });
 }
 
+/// Max source characters kept in a stored history snapshot. Live sessions
+/// are uncapped, but Firestore caps a doc at 1 MiB — so monster PDFs are
+/// trimmed here (flagged truncated) while the live chat keeps everything.
+const int kMaxStoredStudySourceChars = 500000;
+
+/// Trims [sources] to fit the history snapshot budget. Returns the same
+/// list untouched when it already fits; otherwise each doc keeps an even
+/// share of the budget, flagged truncated so the shelf label stays honest.
+List<StudyDoc> trimSourcesForStorage(List<StudyDoc> sources) {
+  final total = sources.fold(0, (a, d) => a + d.text.length);
+  if (total <= kMaxStoredStudySourceChars || sources.isEmpty) return sources;
+  final share = kMaxStoredStudySourceChars ~/ sources.length;
+  return [
+    for (final d in sources)
+      if (d.text.length <= share)
+        d
+      else
+        StudyDoc(
+          fileName: d.fileName,
+          text: truncateStudyText(d.text, share).text,
+          truncated: true,
+        ),
+  ];
+}
+
 /// Builds a readable session title from the first user question.
 String studySessionTitle(List<StudyHistoryTurn> turns) {
   for (final turn in turns) {
@@ -92,17 +117,18 @@ class StudyHistoryService {
               : '${sources.length} source${sources.length == 1 ? '' : 's'} — ${sources.first.fileName}')
         : studySessionTitle(turns);
 
-    // Cap stored turns so the doc stays under the 100 KB rule limit
-    // (sources are already capped at ~30k chars by the study shelf).
+    // Cap stored turns and sources so the doc stays under Firestore's
+    // 1 MiB ceiling. The live session keeps full text either way.
     final storedTurns = turns.length > 60
         ? turns.sublist(turns.length - 60)
         : turns;
+    final storedSources = trimSourcesForStorage(sources);
 
     final payload = <String, dynamic>{
       'title': title,
       'sourceNames': sources.map((d) => d.fileName).toList(),
       'sources': [
-        for (final d in sources)
+        for (final d in storedSources)
           {
             'fileName': d.fileName,
             'text': d.text,
