@@ -10,6 +10,7 @@ import "../../features/guardian/data/services/guardian_service.dart";
 import "../../features/guardian/presentation/controllers/guardian_controller.dart";
 import "../../features/heartbeat/data/services/mood_service.dart";
 import "../../features/heartbeat/presentation/controllers/mood_controller.dart";
+import "../../features/xp/data/services/xp_service.dart";
 import "../../features/jukebox/data/services/spotify_auth_service.dart";
 import "../../features/jukebox/data/services/spotify_player_service.dart";
 import "../../features/jukebox/presentation/providers/jukebox_provider.dart";
@@ -49,7 +50,12 @@ final List<SingleChildWidget> appProviders = [
   Provider(create: (_) => ChatService(), lazy: true),
   ChangeNotifierProvider(create: (_) => GardenProvider()),
   Provider(create: (_) => MoodService(), lazy: true),
-  ChangeNotifierProvider(create: (ctx) => MoodController(ctx.read<MoodService>())),
+  ChangeNotifierProvider(
+    create: (ctx) => MoodController(
+      ctx.read<MoodService>(),
+      awardMoodXp: (uid) => XPService().awardMood(uid),
+    ),
+  ),
   ChangeNotifierProvider(create: (_) => AIService()),
   ChangeNotifierProvider(
     create: (ctx) => GuardianController(
@@ -70,6 +76,11 @@ final List<SingleChildWidget> appProviders = [
       return player;
     },
   ),
-  ChangeNotifierProvider(create: (_) => JukeboxProvider()),
+  ChangeNotifierProvider(
+    create: (ctx) => JukeboxProvider(
+      authService: ctx.read<AuthService>(),
+      awardListenXp: (uid) => XPService().awardListen(uid),
+    ),
+  ),
   ChangeNotifierProvider(create: (_) => MusicStatsProvider()),
 ];

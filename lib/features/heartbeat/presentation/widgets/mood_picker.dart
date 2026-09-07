@@ -90,6 +90,7 @@ class MoodPicker extends StatelessWidget {
                       username: currentUsername,
                       score: score,
                       emoji: mood['emoji'] as String,
+                      uid: authService.uid,
                     );
                     if (context.mounted) {
                       context.read<GuardianController>().dismissMoodPrompt();
