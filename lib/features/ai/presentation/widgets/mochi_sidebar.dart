@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -31,85 +32,126 @@ class MochiSidebar extends StatefulWidget {
 }
 
 class _MochiSidebarState extends State<MochiSidebar> {
-  List<AISession> _sessions = [];
+  List<AISession> _archived = [];
   bool _isLoading = true;
   String? _activeSessionId;
   String _query = '';
   final TextEditingController _searchCtl = TextEditingController();
+  AIService? _ai;
+  StreamSubscription<List<AISession>>? _sessionsSub;
 
   @override
-  void initState() {
-    super.initState();
-    _loadSessions();
-  }
-
-  @override
-  void didUpdateWidget(MochiSidebar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isOpen && !oldWidget.isOpen) {
-      _loadSessions();
-    }
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final ai = context.read<AIService>();
+    if (identical(ai, _ai)) return;
+    _ai?.removeListener(_onAiChanged);
+    _sessionsSub?.cancel();
+    _ai = ai;
+    ai.addListener(_onAiChanged);
+    // Live Firestore stream: archives and deletes push a fresh list on
+    // their own, so the sidebar never needs a manual refresh.
+    _sessionsSub = ai.watchSessions(limit: 50).listen(
+      _onSessionsData,
+      onError: _onSessionsError,
+    );
   }
 
   @override
   void dispose() {
+    _ai?.removeListener(_onAiChanged);
+    _sessionsSub?.cancel();
     _searchCtl.dispose();
     super.dispose();
   }
 
+  void _onSessionsData(List<AISession> sessions) {
+    if (!mounted) return;
+    setState(() {
+      _archived = sessions;
+      _isLoading = false;
+      _reconcileActiveId(_liveSession != null);
+    });
+  }
+
+  void _onSessionsError(Object _) {
+    // Stream stays subscribed, so a later event still recovers on its
+    // own. Stop the spinner; the refresh button retries one-shot.
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  /// The in-memory conversation isn't archived yet — AIService only calls
+  /// notifyListeners, so rebuild the synthetic entry on every change.
+  void _onAiChanged() {
+    if (!mounted) return;
+    setState(() => _reconcileActiveId(_liveSession != null));
+  }
+
+  /// Synthetic entry for the conversation being typed in right now.
+  AISession? get _liveSession {
+    final live = _ai?.assistantConversation;
+    if (live == null || live.messages.isEmpty) return null;
+    final preview = live.messages
+        .firstWhere(
+          (m) => m.role == 'user',
+          orElse: () => live.messages.first,
+        )
+        .content;
+    final title = preview.length > 56
+        ? '${preview.substring(0, 56)}…'
+        : preview;
+    return AISession(
+      id: '__live__',
+      feature: live.feature,
+      messageCount: live.messages.length,
+      hasSummary: false,
+      summary: null,
+      createdAt: live.updatedAt,
+      title: title.isEmpty ? 'Current conversation' : title,
+    );
+  }
+
+  /// Archived sessions plus the live entry on top (unless it duplicates
+  /// the most recent archived snapshot).
+  List<AISession> get _sessions {
+    final live = _liveSession;
+    if (live == null) return _archived;
+    final hasLiveDup = _archived.any(
+      (s) => s.messageCount == live.messageCount && s.title == live.title,
+    );
+    if (hasLiveDup) return _archived;
+    return [live, ..._archived];
+  }
+
+  void _reconcileActiveId(bool hasLiveMessages) {
+    if (!hasLiveMessages && _activeSessionId == '__live__') {
+      // Cleared chat → drop the stale live highlight.
+      _activeSessionId = null;
+      return;
+    }
+    if (_activeSessionId == null) {
+      if (hasLiveMessages) _activeSessionId = '__live__';
+      return;
+    }
+    // If the active session was deleted, fall back to live (if any) or clear.
+    if (_activeSessionId != '__live__' &&
+        !_archived.any((s) => s.id == _activeSessionId)) {
+      _activeSessionId = hasLiveMessages ? '__live__' : null;
+    }
+  }
+
+  /// Manual refresh button: one-shot re-fetch. The stream already keeps
+  /// the list live; this is just a retry path after an error.
   Future<void> _loadSessions() async {
+    final ai = _ai ?? context.read<AIService>();
     setState(() => _isLoading = true);
     try {
-      final ai = context.read<AIService>();
-      var sessions = await ai.listSessions(limit: 50);
-      final live = ai.assistantConversation;
-      final hasLiveMessages = live != null && live.messages.isNotEmpty;
-      if (hasLiveMessages) {
-        final preview = live.messages
-            .firstWhere(
-              (m) => m.role == 'user',
-              orElse: () => live.messages.first,
-            )
-            .content;
-        final title = preview.length > 56
-            ? '${preview.substring(0, 56)}…'
-            : preview;
-        final liveSession = AISession(
-          id: '__live__',
-          feature: live.feature,
-          messageCount: live.messages.length,
-          hasSummary: false,
-          summary: null,
-          createdAt: live.updatedAt,
-          title: title.isEmpty ? 'Current conversation' : title,
-        );
-        // Avoid showing a duplicate of the most recent archived session.
-        final hasLiveDup = sessions.any(
-          (s) =>
-              s.messageCount == liveSession.messageCount &&
-              s.title == liveSession.title,
-        );
-        if (!hasLiveDup) sessions = [liveSession, ...sessions];
-        _activeSessionId ??= '__live__';
-      } else {
-        // No live messages → new chat state. Clear stale active highlight if it
-        // pointed to a deleted session or the synthetic live entry.
-        if (_activeSessionId == '__live__' ||
-            (_activeSessionId != null &&
-                !sessions.any((s) => s.id == _activeSessionId))) {
-          _activeSessionId = null;
-        }
-      }
+      final sessions = await ai.listSessions(limit: 50);
       if (mounted) {
         setState(() {
-          _sessions = sessions;
+          _archived = sessions;
           _isLoading = false;
-          // If the active session was deleted, fall back to live (if any) or clear.
-          if (_activeSessionId != null &&
-              _activeSessionId != '__live__' &&
-              !sessions.any((s) => s.id == _activeSessionId)) {
-            _activeSessionId = hasLiveMessages ? '__live__' : null;
-          }
+          _reconcileActiveId(_liveSession != null);
         });
       }
     } catch (e) {
@@ -216,7 +258,8 @@ class _MochiSidebarState extends State<MochiSidebar> {
         );
       }
     }
-    if (mounted) await _loadSessions();
+    // No manual reload: the sessions stream pushes the deletion on its own
+    // (and clearConversation notifies for the live entry).
   }
 
   List<AISession> get _filtered {
@@ -603,14 +646,17 @@ class _SidebarPanel extends StatelessWidget {
                 size: 18,
               ),
               const SizedBox(width: 10),
-              Text(
-                'New conversation',
-                style: AppTypography.bodySmall().copyWith(
-                  color: AppColors.petalWhite,
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: Text(
+                  'New conversation',
+                  style: AppTypography.bodySmall().copyWith(
+                    color: AppColors.petalWhite,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const Spacer(),
               Icon(
                 Icons.edit_rounded,
                 color: AppColors.petalWhite.withValues(alpha: 0.9),

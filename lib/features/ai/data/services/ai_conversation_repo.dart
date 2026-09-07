@@ -437,61 +437,80 @@ class AIConversationRepository implements IAIConversationRepository {
 
   // ─── Session Management ─────────────────────────────────────────
 
+  /// Sessions query shared by [listSessions] and [watchSessions].
+  ///
+  /// Same shape (feature filter + createdAt order) so both use the one
+  /// composite index — the stream needs no extra index.
+  Query<Map<String, dynamic>> _sessionsQuery({int limit = 50}) => _db
+      .collection('ai_memories')
+      .doc('shared')
+      .collection('sessions')
+      .where('feature', isEqualTo: 'assistant')
+      .orderBy('createdAt', descending: true)
+      .limit(limit);
+
+  AISession _sessionFromDoc(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data() ?? {};
+    final messages = data['messages'] as List? ?? [];
+    final hasSummary = data['hasSummary'] as bool? ?? true;
+    final summary = data['summary'] as String?;
+    final createdAt =
+        (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
+
+    // Generate title from first user message or summary
+    String title = 'New conversation';
+    if (hasSummary && summary != null && summary.isNotEmpty) {
+      title = summary.length > 60 ? '${summary.substring(0, 60)}…' : summary;
+    } else if (messages.isNotEmpty) {
+      final firstUserMsg = messages.firstWhere(
+        (m) => (m as Map<String, dynamic>)['role'] == 'user',
+        orElse: () => null,
+      );
+      if (firstUserMsg != null) {
+        final content =
+            (firstUserMsg as Map<String, dynamic>)['content'] as String? ?? '';
+        title = content.length > 60 ? '${content.substring(0, 60)}…' : content;
+      }
+    }
+
+    return AISession(
+      id: doc.id,
+      feature: data['feature'] ?? 'assistant',
+      messageCount: data['messageCount'] ?? messages.length,
+      hasSummary: hasSummary,
+      summary: summary,
+      createdAt: createdAt,
+      title: title,
+    );
+  }
+
   /// List all archived sessions, newest first.
   @override
   Future<List<AISession>> listSessions({int limit = 50}) async {
     try {
-      final snapshot = await _db
-          .collection('ai_memories')
-          .doc('shared')
-          .collection('sessions')
-          .where('feature', isEqualTo: 'assistant')
-          .orderBy('createdAt', descending: true)
-          .limit(limit)
-          .get();
-
-      return snapshot.docs.map((doc) {
-        final data = doc.data();
-        final messages = data['messages'] as List? ?? [];
-        final hasSummary = data['hasSummary'] as bool? ?? true;
-        final summary = data['summary'] as String?;
-        final createdAt =
-            (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
-
-        // Generate title from first user message or summary
-        String title = 'New conversation';
-        if (hasSummary && summary != null && summary.isNotEmpty) {
-          title = summary.length > 60
-              ? '${summary.substring(0, 60)}…'
-              : summary;
-        } else if (messages.isNotEmpty) {
-          final firstUserMsg = messages.firstWhere(
-            (m) => (m as Map<String, dynamic>)['role'] == 'user',
-            orElse: () => null,
-          );
-          if (firstUserMsg != null) {
-            final content =
-                (firstUserMsg as Map<String, dynamic>)['content'] as String? ??
-                '';
-            title = content.length > 60
-                ? '${content.substring(0, 60)}…'
-                : content;
-          }
-        }
-
-        return AISession(
-          id: doc.id,
-          feature: data['feature'] ?? 'assistant',
-          messageCount: data['messageCount'] ?? messages.length,
-          hasSummary: hasSummary,
-          summary: summary,
-          createdAt: createdAt,
-          title: title,
-        );
-      }).toList();
+      final snapshot = await _sessionsQuery(limit: limit).get();
+      return snapshot.docs.map(_sessionFromDoc).toList();
     } catch (e) {
       if (kDebugMode) debugPrint('Failed to list sessions: $e');
       return [];
+    }
+  }
+
+  /// Realtime stream of archived sessions, newest first.
+  ///
+  /// Powers the sidebar's auto-refresh: archives and deletes push a new
+  /// list on their own, so no manual reload is needed.
+  @override
+  Stream<List<AISession>> watchSessions({int limit = 50}) {
+    try {
+      return _sessionsQuery(
+        limit: limit,
+      ).snapshots().map((snapshot) => snapshot.docs.map(_sessionFromDoc).toList());
+    } catch (e) {
+      if (kDebugMode) debugPrint('Failed to watch sessions: $e');
+      return Stream.value(const []);
     }
   }
 
