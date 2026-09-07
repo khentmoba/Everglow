@@ -11,6 +11,11 @@ const routes = {
   '/gallery': () => import('./gallery.js').then((m) => ({ view: m.Gallery })),
   '/moods': () => import('./moods.js').then((m) => ({ view: m.Moods })),
   '/garden': () => import('./garden.js').then((m) => ({ view: m.Garden })),
+  '/cinema': () => import('./cinema.js').then((m) => ({ view: m.Cinema })),
+  '/bucket': () => import('./bucket.js').then((m) => ({ view: m.Bucket })),
+  '/calendar': () => import('./calendar.js').then((m) => ({ view: m.Calendar })),
+  '/journal': () => import('./journal.js').then((m) => ({ view: m.Journal })),
+  '/jar': () => import('./jar.js').then((m) => ({ view: m.Jar })),
 };
 
 function nav(hash) {

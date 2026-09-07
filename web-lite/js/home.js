@@ -2,15 +2,23 @@ import { db, session, esc, ageParts } from './lib.js';
 import { displayName, logout, requireCouple } from './auth.js';
 
 export function Shell(el, active, inner) {
+  const more = ['cinema', 'bucket', 'calendar', 'journal', 'jar'].includes(active);
   el.innerHTML = `
     <div class="wrap">${inner}</div>
     <nav class="nav" aria-label="Everglow">
       <a href="#/home" ${active === 'home' ? 'aria-current="page"' : ''}><span class="i">🏠</span>Home</a>
       <a href="#/chat" ${active === 'chat' ? 'aria-current="page"' : ''}><span class="i">💬</span>Chat</a>
-      <a href="#/gallery" ${active === 'gallery' ? 'aria-current="page"' : ''}><span class="i">🖼️</span>Photos</a>
-      <a href="#/moods" ${active === 'moods' ? 'aria-current="page"' : ''}><span class="i">💖</span>Moods</a>
+      <a href="#/cinema" ${active === 'cinema' ? 'aria-current="page"' : ''}><span class="i">🎬</span>${more && active === 'cinema' ? 'Cinema' : 'Films'}</a>
+      <a href="#/bucket" ${active === 'bucket' ? 'aria-current="page"' : ''}><span class="i">✨</span>${more && active === 'bucket' ? 'Dreams' : 'More'}</a>
       <a href="#/garden" ${active === 'garden' ? 'aria-current="page"' : ''}><span class="i">🌷</span>Garden</a>
-    </nav>`;
+    </nav>${more ? `<div class="wrap" style="padding-top:0"><div class="row" style="flex-wrap:wrap">
+      <a class="btn ghost small" href="#/gallery">🖼️ Photos</a>
+      <a class="btn ghost small" href="#/moods">💖 Moods</a>
+      <a class="btn ghost small" href="#/bucket">✨ Dreams</a>
+      <a class="btn ghost small" href="#/calendar">📅 Dates</a>
+      <a class="btn ghost small" href="#/journal">📔 Journal</a>
+      <a class="btn ghost small" href="#/jar">⭐ Stars</a>
+    </div></div>` : ''}`;
 }
 
 export async function Dashboard(el, nav) {
@@ -26,6 +34,11 @@ export async function Dashboard(el, nav) {
         <a class="tile" href="#/gallery"><span class="t">🖼️</span><strong>Gallery</strong><span id="pv-gallery">our latest photos…</span></a>
         <a class="tile" href="#/moods"><span class="t">💖</span><strong>Heartbeat</strong><span id="pv-moods">how we feel today…</span></a>
         <a class="tile" href="#/garden"><span class="t">🌷</span><strong>Garden</strong><span id="pv-garden">our little bloom…</span></a>
+        <a class="tile" href="#/cinema"><span class="t">🎬</span><strong>Cinema</strong><span id="pv-cinema">movies for us…</span></a>
+        <a class="tile" href="#/bucket"><span class="t">✨</span><strong>Dreams</strong><span id="pv-bucket">things we will do…</span></a>
+        <a class="tile" href="#/calendar"><span class="t">📅</span><strong>Dates</strong><span id="pv-calendar">what is coming…</span></a>
+        <a class="tile" href="#/journal"><span class="t">📔</span><strong>Journal</strong><span id="pv-journal">our pages…</span></a>
+        <a class="tile" href="#/jar"><span class="t">⭐</span><strong>Star jar</strong><span id="pv-jar">little lights…</span></a>
       </div>
       <button class="ghost" id="logout" type="button">Lock the door</button>
     </div>`);
@@ -64,8 +77,25 @@ export async function Dashboard(el, nav) {
       const s = me.data();
       el.querySelector('#pv-garden').textContent = `stage ${s.currentStage ?? 0} · ${s.streakCount ?? 0}-day streak`;
     }
+    const [films, dreams, dates, pages, stars] = await Promise.all([
+      f.getDocs(f.query(f.collection(d, 'watch_list'), f.where('userName', '==', name), f.limit(1))).catch(() => null),
+      f.getDocs(f.query(f.collection(d, 'bucket_list'), f.where('status', '!=', 'completed'), f.limit(1))).catch(() => null),
+      f.getDocs(f.query(f.collection(d, 'calendar_events'), f.where('date', '>=', new Date()), f.orderBy('date', 'asc'), f.limit(1))).catch(() => null),
+      f.getDocs(f.query(f.collection(d, 'journal_entries'), f.orderBy('createdAt', 'desc'), f.limit(1))).catch(() => null),
+      f.getDocs(f.query(f.collection(d, 'starlight_jar'), f.orderBy('timestamp', 'desc'), f.limit(1))).catch(() => null),
+    ]);
+    const set = (id, v) => { const n = el.querySelector('#' + id); if (n && v) n.textContent = v; };
+    if (films && !films.empty) set('pv-cinema', `${films.size || 'our'} saved to watch`);
+    if (dreams && !dreams.empty) { const x = dreams.docs[0].data(); set('pv-bucket', String(x.title || 'a dream waiting').slice(0, 42)); }
+    if (dates && !dates.empty) {
+      const x = dates.docs[0].data();
+      const t = x.date && typeof x.date.toDate === 'function' ? x.date.toDate() : new Date(x.date);
+      set('pv-calendar', `${String(x.title || 'a date').slice(0, 30)} · ${t.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`);
+    }
+    if (pages && !pages.empty) set('pv-journal', String(pages.docs[0].data().title || 'a new page').slice(0, 42));
+    if (stars && !stars.empty) set('pv-jar', String(stars.docs[0].data().content || 'a little light').slice(0, 42));
   } catch (e) {
-    ['pv-chat', 'pv-gallery', 'pv-moods', 'pv-garden'].forEach((id) => {
+    ['pv-chat', 'pv-gallery', 'pv-moods', 'pv-garden', 'pv-cinema', 'pv-bucket', 'pv-calendar', 'pv-journal', 'pv-jar'].forEach((id) => {
       const n = el.querySelector('#' + id);
       if (n) n.textContent = 'open to refresh';
     });
