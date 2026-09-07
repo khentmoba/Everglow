@@ -36,5 +36,31 @@ void main() {
       expect(map['monthDay'], '09-05');
       expect(map.containsKey('timestamp'), isTrue);
     });
+
+    test('toMap pads single-digit month and day', () {
+      final jan = ChatMessage(
+        id: 'm2',
+        sender: 'khent',
+        senderUid: 'uid2',
+        text: 'hi',
+        timestamp: DateTime.utc(2026, 1, 5),
+      ).toMap();
+      expect(jan['monthDay'], '01-05');
+
+      final dec = ChatMessage(
+        id: 'm3',
+        sender: 'clair',
+        senderUid: 'uid1',
+        text: 'bye',
+        timestamp: DateTime.utc(2026, 12, 31),
+      ).toMap();
+      expect(dec['monthDay'], '12-31');
+    });
+
+    test('parseTimestamp never crashes on garbage', () {
+      expect(ChatMessage.parseTimestamp(null), isA<DateTime>());
+      expect(ChatMessage.parseTimestamp('not-a-date'), isA<DateTime>());
+      expect(ChatMessage.parseTimestamp(123.45), isA<DateTime>());
+    });
   });
 }
