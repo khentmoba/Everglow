@@ -453,6 +453,9 @@ class _MessageBubble extends StatefulWidget {
   final String? toolStatus;
   final List<String> imageUrls;
   final String? senderName;
+  // Canvas toggle from the chat bar — when false the bubble stays plain
+  // text (hidden blocks still stripped so raw JSON never shows).
+  final bool showArtifacts;
 
   const _MessageBubble({
     super.key,
@@ -464,6 +467,7 @@ class _MessageBubble extends StatefulWidget {
     this.toolStatus,
     this.imageUrls = const [],
     this.senderName,
+    this.showArtifacts = true,
   });
 
   @override
