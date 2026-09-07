@@ -19,6 +19,12 @@ abstract class IAIConversationRepository {
   /// List all archived sessions, newest first.
   Future<List<AISession>> listSessions({int limit = 50});
 
+  /// Realtime stream of archived sessions, newest first.
+  ///
+  /// Same query as [listSessions] but live: any archive or delete —
+  /// on this device or another — pushes a fresh list automatically.
+  Stream<List<AISession>> watchSessions({int limit = 50});
+
   /// Load a specific session's messages into the assistant conversation.
   Future<void> loadSession(String sessionId);
 
