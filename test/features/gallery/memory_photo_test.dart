@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:everglow/features/gallery/domain/models/memory_photo.dart';
@@ -66,6 +67,47 @@ void main() {
       expect(cleared.locationName, isNull);
       expect(cleared.caption, base.caption);
       expect(cleared.takenAt, base.takenAt);
+    });
+
+    test('fromMap reads every field', () {
+      final photo = MemoryPhoto.fromMap(
+        {
+          'imageUrl': 'u',
+          'caption': 'c',
+          'uploadedBy': 'clair',
+          'uploadedAt': Timestamp.fromDate(DateTime.utc(2026, 9, 1)),
+          'tags': ['beach'],
+          'latitude': 14.5,
+          'longitude': 120.9,
+        },
+        id: 'p9',
+      );
+
+      expect(photo.id, 'p9');
+      expect(photo.caption, 'c');
+      expect(photo.tags, ['beach']);
+      expect(photo.hasLocation, isTrue);
+    });
+
+    test('fromMap never crashes on odd field types', () {
+      final photo = MemoryPhoto.fromMap({
+        'imageUrl': null,
+        'caption': null,
+        'uploadedBy': null,
+        'uploadedAt': null,
+        'tags': 'beach',
+        'latitude': '14.5',
+        'longitude': 'nope',
+      });
+
+      expect(photo.imageUrl, isEmpty);
+      expect(photo.caption, isEmpty);
+      expect(photo.uploadedBy, isEmpty);
+      expect(photo.uploadedAt, isA<DateTime>());
+      expect(photo.tags, isEmpty);
+      expect(photo.latitude, 14.5);
+      expect(photo.longitude, isNull);
+      expect(photo.hasLocation, isFalse);
     });
   });
 }
