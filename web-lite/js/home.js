@@ -1,5 +1,6 @@
 import { db, session, esc, ageParts } from './lib.js';
 import { displayName, logout, requireCouple } from './auth.js';
+import { startPushToasts } from './push.js';
 
 export function Shell(el, active, inner) {
   const more = ['cinema', 'bucket', 'calendar', 'journal', 'jar', 'jukebox', 'books', 'anime'].includes(active);
@@ -49,6 +50,7 @@ export async function Dashboard(el, nav) {
       <button class="ghost" id="logout" type="button">Lock the door</button>
     </div>`);
   el.querySelector('#logout').addEventListener('click', async () => { await logout(); nav('#/'); });
+  startPushToasts();
 
   const c = el.querySelector('#counter');
   function tick() {
