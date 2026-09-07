@@ -179,11 +179,15 @@ class _GatewayPageState extends State<GatewayPage> {
   Future<void> _onStateChange() async {
     if (!mounted) return;
 
+    // Always rebuild so the passcode dots follow typing/deleting.
+    // Input length changes don't change GatewayState, so the
+    // state-equality guard below would otherwise skip the rebuild
+    // and the yellow dot would get stuck after the first digit.
+    setState(() {});
+
     final newState = _notifier.currentState;
     if (newState == _lastProcessedState) return;
     _lastProcessedState = newState;
-
-    setState(() {});
 
     if (newState == GatewayState.unlocking) {
       final passcode = _notifier.lastEnteredPasscode;
