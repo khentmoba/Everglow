@@ -8,6 +8,7 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/services/study_artifact.dart';
+import 'canvas_preview_sheet.dart';
 
 /// Study canvas — the Artifacts-style interactive layer for Study replies.
 ///
@@ -98,6 +99,17 @@ class StudyArtifactEntry extends StatelessWidget {
           ),
         ),
       );
+    }
+    if (artifacts.hasHtml) {
+      for (final app in artifacts.html) {
+        buttons.add(
+          _LaunchButton(
+            icon: Icons.play_circle_fill_rounded,
+            label: 'Preview 🔍 · ${app.title}',
+            onTap: () => openCanvasPreview(context, app),
+          ),
+        );
+      }
     }
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
