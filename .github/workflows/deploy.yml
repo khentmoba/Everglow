@@ -44,7 +44,10 @@ jobs:
         id: test-flutter
         # Golden-image tests are excluded: committed PNGs are generated on
         # Windows and font/Skia rasterization differs on Linux CI.
-        run: flutter test --exclude-tags=golden
+        # Network-tagged tests are excluded: they hit live external sites
+        # (e.g. MangaKatana) and cannot pass in sandboxed CI. Run by hand:
+        #   flutter test --tags=network test/katana_smoke_test.dart
+        run: flutter test --exclude-tags="golden,network"
 
       - name: Build web
         id: build-web
