@@ -140,6 +140,7 @@ class _GalleryPreviewState extends State<GalleryPreview> {
                               accent: ShelfAccent.gallery,
                               imageUrl: GalleryService.displayUrl(
                                 photo.imageUrl,
+                                thumb: true,
                               ),
                               title: '',
                               onTap: () => context.push('/gallery'),

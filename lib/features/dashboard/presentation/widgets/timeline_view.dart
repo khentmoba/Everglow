@@ -9,6 +9,7 @@ import '../../domain/models/milestone.dart';
 import '../../data/services/milestone_service.dart';
 import './memory_detail_view.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 
 class TimelineView extends StatefulWidget {
   const TimelineView({super.key});
@@ -43,7 +44,7 @@ class _TimelineViewState extends State<TimelineView> {
   void _subscribe() {
     _sub?.cancel();
     _retryTimer?.cancel();
-    _sub = _milestoneService.milestones.listen(
+    _sub = _milestoneService.milestonesPreview(limit: 50).listen(
       (data) {
         if (!mounted) return;
         _retryCount = 0;
@@ -956,35 +957,24 @@ class MilestonePhoto extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (path.startsWith('assets/')) {
+      // cacheWidth matches the ~320px card at 2x DPR: the bundled
+      // milestone JPGs decode full-res otherwise, on every rebuild.
       return Image.asset(
         path,
         fit: BoxFit.cover,
         width: double.infinity,
+        cacheWidth: 640,
         errorBuilder: (context, error, stack) => _photoFallback(),
       );
     }
-    return Image.network(
-      path,
+    // Disk + memory cached: the carousel auto-scrolls every 5s and each
+    // card has its own 3s photo pager, so uncached network photos
+    // re-fetch constantly while sitting still.
+    return AppNetworkImage(
+      imageUrl: path,
       fit: BoxFit.cover,
-      width: double.infinity,
       cacheWidth: 600,
-      loadingBuilder: (context, child, progress) {
-        if (progress == null) return child;
-        return Container(
-          color: AppColors.silk,
-          child: const Center(
-            child: SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.blushGold,
-              ),
-            ),
-          ),
-        );
-      },
-      errorBuilder: (context, error, stack) => _photoFallback(),
+      errorWidget: _photoFallback(),
     );
   }
 

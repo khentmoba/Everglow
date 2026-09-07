@@ -34,7 +34,11 @@ class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator> {
   @override
   void initState() {
     super.initState();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+    // Freshness ticker: the online window is 4 minutes (see
+    // PresenceStatus.onlineThreshold), so 30s granularity is plenty.
+    // The previous 1s setState rebuilt this whole subtree — plus the
+    // StreamBuilder below — 60x more often than any label can change.
+    _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) setState(() => _now = DateTime.now());
     });
   }
@@ -47,18 +51,23 @@ class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator> {
 
   @override
   Widget build(BuildContext context) {
-    final authService = context.watch<AuthService>();
+    // select() instead of watch(): partner fields change rarely, and a
+    // full watch rebuilds this indicator (and re-evaluates the stream
+    // builder below) on every unrelated auth notify.
+    final partnerUid = context.select<AuthService, String?>((a) => a.partnerUid);
+    final partnerName = context.select<AuthService, String>((a) => a.partnerName);
+    final isCoupleUser = context.select<AuthService, bool>((a) => a.isCoupleUser);
+    final isResolvingPartner = context.select<AuthService, bool>((a) => a.isResolvingPartner);
+    final refreshPartnerLink = context.read<AuthService>().refreshPartnerLink;
     final presence = context.read<PresenceService>();
-    final partnerUid = authService.partnerUid;
-    final partnerName = authService.partnerName;
 
     if (partnerUid == null) {
       // Cinema-only profiles have no partner; stay silent like the doodle
       // indicator does instead of showing a misleading error.
-      if (!authService.isCoupleUser) {
+      if (!isCoupleUser) {
         return const SizedBox.shrink();
       }
-      if (authService.isResolvingPartner) {
+      if (isResolvingPartner) {
         return _buildRow(
           context,
           dot: SizedBox(
@@ -78,7 +87,7 @@ class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator> {
       // transient error). Offer tap-to-retry so the link self-heals
       // instead of demanding a full re-login.
       return GestureDetector(
-        onTap: () => authService.refreshPartnerLink(),
+        onTap: refreshPartnerLink,
         behavior: HitTestBehavior.opaque,
         child: _buildRow(
           context,

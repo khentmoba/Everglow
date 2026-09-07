@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../data/models/manga_item.dart';
 import '../../data/services/mangadex_service.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 
 /// Grid card for a manga / manhwa / manhua cover.
 /// Features: hover/press scale, shimmer loading, consistent tokens.
@@ -22,7 +23,6 @@ class _MangaCoverCardState extends State<MangaCoverCard>
     with SingleTickerProviderStateMixin {
   bool _isHovered = false;
   bool _isPressed = false;
-  bool _imageLoaded = false;
 
   // Singleton — never create per build
   static final MangaDexService _mangaDex = MangaDexService();
@@ -93,29 +93,13 @@ class _MangaCoverCardState extends State<MangaCoverCard>
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      // Shimmer placeholder while image loads
-                      if (!_imageLoaded) _buildShimmer(),
-
                       if (_coverUrl.isNotEmpty)
-                        Image.network(
-                          _coverUrl,
+                        AppNetworkImage(
+                          imageUrl: _coverUrl,
                           fit: BoxFit.cover,
                           cacheWidth: 300,
-                          frameBuilder:
-                              (ctx, child, frame, wasSynchronouslyLoaded) {
-                                if (frame != null && !_imageLoaded) {
-                                  WidgetsBinding.instance.addPostFrameCallback((
-                                    _,
-                                  ) {
-                                    if (mounted) {
-                                      setState(() => _imageLoaded = true);
-                                    }
-                                  });
-                                }
-                                return child;
-                              },
-                          errorBuilder: (context, error, stackTrace) =>
-                              _buildPlaceholder(),
+                          placeholder: _buildShimmer(),
+                          errorWidget: _buildPlaceholder(),
                         )
                       else
                         _buildPlaceholder(),

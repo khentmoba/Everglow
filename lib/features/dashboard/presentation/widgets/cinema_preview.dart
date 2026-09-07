@@ -85,7 +85,9 @@ class _CinemaHeaderState extends State<_CinemaHeader> {
       return;
     }
     _streamSub?.cancel();
-    _streamSub = _service.getWatchListStream(widget.userName).listen(
+    // Header only shows the badge count: 24 docs is plenty instead of
+    // the 500-doc watch-list stream (sort/filter in Dart, unchanged).
+    _streamSub = _service.getWatchListStream(widget.userName, limit: 24).listen(
       (items) {
         _retryCount = 0;
         // Cinema owns every watched movie (live-action or anime) plus
@@ -181,7 +183,9 @@ class _CinemaShelfState extends State<_CinemaShelf> {
       return;
     }
     _streamSub?.cancel();
-    _streamSub = _service.getWatchListStream(widget.userName).listen(
+    // Each sub-row renders up to 12 cards: 24 docs is plenty instead of
+    // the 500-doc watch-list stream (sort/filter in Dart, unchanged).
+    _streamSub = _service.getWatchListStream(widget.userName, limit: 24).listen(
       (items) {
         _retryCount = 0;
         // Cinema owns every watched movie (live-action or anime) plus

@@ -18,6 +18,12 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
   // under this in practice; the cap keeps Firestore reads finite.
   static const int streamLimit = 500;
 
+  // Bound for dashboard preview rails: each shelf sub-row renders up to
+  // 12 cards and headers only show counts, so a 500-doc realtime stream
+  // per sub-row is heavy on every dashboard visit. Full history stays
+  // on the un-capped streams for the cinema/anime screens.
+  static const int previewLimit = 24;
+
   // ─── CRUD ──────────────────────────────────────────────────────────────
 
   Future<void> saveToWatchList(
@@ -351,12 +357,12 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
 
   /// Stream of watch list items for a specific user (Firestore-based).
   /// We filter+sort in Dart to avoid needing a composite index in Firestore.
-  Stream<List<MediaItem>> getWatchListStream(String userName) {
+  Stream<List<MediaItem>> getWatchListStream(String userName, {int? limit}) {
     if (userName.isEmpty) return Stream.value(const []);
     return firestore
         .collection('watch_list')
         .where('userName', isEqualTo: userName)
-        .limit(streamLimit)
+        .limit(limit ?? streamLimit)
         .snapshots()
         .map((snapshot) {
           final items = snapshot.docs
@@ -434,12 +440,12 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
   /// (`watch_list`) as the regular stream — we filter by `isAnime == true`
   /// in Dart so the dashboard's Anime rail and the AnimeScreen only show
   /// Japanese animation, no matter where the title was added.
-  Stream<List<MediaItem>> getAnimeWatchListStream(String userName) {
+  Stream<List<MediaItem>> getAnimeWatchListStream(String userName, {int? limit}) {
     if (userName.isEmpty) return Stream.value(const []);
     return firestore
         .collection('watch_list')
         .where('userName', isEqualTo: userName)
-        .limit(streamLimit)
+        .limit(limit ?? streamLimit)
         .snapshots()
         .map((snapshot) {
           final items = snapshot.docs
@@ -506,12 +512,12 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
   }
 
   /// Stream of currently watching items for a single user.
-  Stream<List<MediaItem>> getCurrentlyWatchingStream(String userName) {
+  Stream<List<MediaItem>> getCurrentlyWatchingStream(String userName, {int? limit}) {
     if (userName.isEmpty) return Stream.value(const []);
     return firestore
         .collection('watch_list')
         .where('userName', isEqualTo: userName)
-        .limit(streamLimit)
+        .limit(limit ?? streamLimit)
         .snapshots()
         .map((snapshot) {
           final items = snapshot.docs
@@ -578,12 +584,12 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
   }
 
   /// Anime-only currently watching for a single user.
-  Stream<List<MediaItem>> getCurrentlyWatchingAnimeStream(String userName) {
+  Stream<List<MediaItem>> getCurrentlyWatchingAnimeStream(String userName, {int? limit}) {
     if (userName.isEmpty) return Stream.value(const []);
     return firestore
         .collection('watch_list')
         .where('userName', isEqualTo: userName)
-        .limit(streamLimit)
+        .limit(limit ?? streamLimit)
         .snapshots()
         .map((snapshot) {
           final items = snapshot.docs

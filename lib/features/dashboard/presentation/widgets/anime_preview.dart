@@ -166,7 +166,9 @@ class _AnimeHeaderState extends State<_AnimeHeader> {
       return;
     }
     _streamSub?.cancel();
-    _streamSub = _service.getAnimeWatchListStream(widget.userName).listen(
+    // Header only shows the badge count: 24 docs is plenty instead of
+    // the 500-doc anime stream.
+    _streamSub = _service.getAnimeWatchListStream(widget.userName, limit: 24).listen(
       (items) {
         _retryCount = 0;
         // Count both watching and finished so the header never reads
@@ -263,7 +265,9 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
       return;
     }
     _streamSub?.cancel();
-    _streamSub = _service.getCurrentlyWatchingAnimeStream(widget.userName).listen(
+    // Each sub-row renders up to 12 cards: 24 docs is plenty instead of
+    // the 500-doc anime stream.
+    _streamSub = _service.getCurrentlyWatchingAnimeStream(widget.userName, limit: 24).listen(
       (items) {
         _retryCount = 0;
         // Already anime+watching filtered by the service; sort by most recent progress.
@@ -326,10 +330,11 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
   }
 
   static final _cssArtifactRegex = RegExp(r'\bcss-[a-zA-Z0-9_-]+\b');
+  static final _multiSpaceRegex = RegExp(r'\s{2,}');
 
   static String _sanitizeTitle(String title) {
     var cleaned = title.replaceAll(_cssArtifactRegex, ' ').trim();
-    cleaned = cleaned.replaceAll(RegExp(r'\s{2,}'), ' ');
+    cleaned = cleaned.replaceAll(_multiSpaceRegex, ' ');
     return cleaned.isNotEmpty ? cleaned : title;
   }
 
@@ -457,7 +462,9 @@ class _AnimeShelfState extends State<_AnimeShelf> {
       return;
     }
     _streamSub?.cancel();
-    _streamSub = _service.getAnimeWatchListStream(widget.userName).listen(
+    // Each sub-row renders up to 12 cards: 24 docs is plenty instead of
+    // the 500-doc anime stream.
+    _streamSub = _service.getAnimeWatchListStream(widget.userName, limit: 24).listen(
       (items) {
         _retryCount = 0;
         final watched = items.watched;
