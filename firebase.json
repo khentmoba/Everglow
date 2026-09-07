@@ -243,6 +243,10 @@
         "function": "spotifyCurrentlyPlaying"
       },
       {
+        "source": "/api/spotifyClientId",
+        "function": "spotifyClientId"
+      },
+      {
         "source": "/api/deleteGalleryPhoto",
         "function": "deleteGalleryPhoto"
       },

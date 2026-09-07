@@ -37,7 +37,7 @@ const {
   onNewMilestone,
 } = require('./triggers.js');
 
-const { proxySpotifySearch, spotifyExchange, spotifyRefresh, spotifyCurrentlyPlaying } = require('./spotify.js');
+const { proxySpotifySearch, spotifyExchange, spotifyRefresh, spotifyCurrentlyPlaying, spotifyClientId } = require('./spotify.js');
 const { verifyPasscode } = require('./passcode.js');
 const { health, sweepStalePresence } = require('./system_functions.js');
 exports.health = health;
@@ -101,6 +101,7 @@ module.exports = Object.assign({}, module.exports, {
   spotifyExchange,
   spotifyRefresh,
   spotifyCurrentlyPlaying,
+  spotifyClientId,
   verifyPasscode,
   onNewChatMessage,
   onNewMood,

@@ -245,10 +245,31 @@ const spotifyCurrentlyPlaying = functions.https.onRequest(async (req, res) => {
   }
 });
 
+/**
+ * Returns the public Spotify client ID for the lite OAuth flow.
+ * GET /spotifyClientId
+ * Auth required (couple-only app). The client ID is public by design
+ * (it ships in every OAuth authorize URL); the secret never leaves
+ * the server.
+ */
+const spotifyClientId = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
+  if (req.method !== 'GET') { res.status(405).json({ error: 'Only GET' }); return; }
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return;
+  const { id } = _getSpotifyCreds();
+  if (!id) { res.status(503).json({ error: 'Spotify not configured' }); return; }
+  res.json({ clientId: id });
+});
+
 module.exports = {
   proxySpotifySearch,
   spotifyExchange,
   spotifyRefresh,
   spotifyCurrentlyPlaying,
+  spotifyClientId,
 };
 
