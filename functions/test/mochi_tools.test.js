@@ -7,16 +7,16 @@ const path = require('node:path');
 
 const tools = require('../mochi_tools.js');
 
-test('tool loop constants match index.js', () => {
-  const index = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
+test('tool loop constants match mochi_chat.js', () => {
+  const index = fs.readFileSync(path.join(__dirname, '..', 'mochi_chat.js'), 'utf8');
   assert.equal(tools.TOOL_TIMEOUT_MS, 25000);
   assert.equal(tools.MAX_TOOL_ROUNDS, 8);
   assert.match(index, /const TOOL_TIMEOUT_MS = 25000;/);
   assert.match(index, /const MAX_TOOL_ROUNDS = 8;/);
 });
 
-test('TOOL_NAMES covers every tool declared in index.js MOCHI_TOOLS', () => {
-  const index = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
+test('TOOL_NAMES covers every tool declared in mochi_chat.js MOCHI_TOOLS', () => {
+  const index = fs.readFileSync(path.join(__dirname, '..', 'mochi_chat.js'), 'utf8');
   const declared = [...index.matchAll(/name: '([a-z_]+)',/g)].map((m) => m[1]);
   assert.ok(declared.length >= 48, `expected >=48 tools, saw ${declared.length}`);
   for (const name of declared) {
@@ -25,7 +25,7 @@ test('TOOL_NAMES covers every tool declared in index.js MOCHI_TOOLS', () => {
 });
 
 test('every executeTool case has a known tool name', () => {
-  const index = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
+  const index = fs.readFileSync(path.join(__dirname, '..', 'mochi_chat.js'), 'utf8');
   const cases = [...index.matchAll(/case '([a-z_]+)': \{/g)].map((m) => m[1]);
   const nonTools = new Set(['assistant', 'guardian', 'recommendations', 'date_ideas']);
   for (const name of cases) {
