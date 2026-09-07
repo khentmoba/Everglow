@@ -1,3 +1,4 @@
+import 'package:everglow/features/ai/data/services/study_doc_service.dart';
 import 'package:everglow/features/ai/data/services/study_history_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -34,6 +35,28 @@ void main() {
 
     test('returns fallback for empty turns', () {
       expect(studySessionTitle(const []), 'Untitled study');
+    });
+  });
+
+  group('trimSourcesForStorage', () {
+    test('returns small shelves untouched', () {
+      const sources = [
+        StudyDoc(fileName: 'a.pdf', text: 'aaa', truncated: false),
+      ];
+      expect(trimSourcesForStorage(sources), same(sources));
+    });
+
+    test('trims monster shelves and flags them', () {
+      final sources = [
+        StudyDoc(
+          fileName: 'big.pdf',
+          text: 'x' * (kMaxStoredStudySourceChars + 1),
+          truncated: false,
+        ),
+      ];
+      final trimmed = trimSourcesForStorage(sources);
+      expect(trimmed.single.text.length, kMaxStoredStudySourceChars);
+      expect(trimmed.single.truncated, isTrue);
     });
   });
 
