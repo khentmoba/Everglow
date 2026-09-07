@@ -182,4 +182,53 @@ void main() {}
       expect(stripStreamingArtifacts(draft), 'Making chess!');
     });
   });
+
+  group('lenient parsing (model variations)', () {
+    test('parses quiz block wrapped in prose with trailing commas', () {
+      const text = '''
+Here you go! 💕
+```quiz-json
+Here is the JSON:
+[{"q":"What is 2+2?","options":["3","4",],"answer":1,"why":"Basic math.",},]
+Hope it helps!
+```''';
+      final artifacts = parseStudyArtifacts(text);
+      expect(artifacts.hasQuiz, isTrue);
+      expect(artifacts.quiz.first.question, 'What is 2+2?');
+      expect(artifacts.quiz.first.answerIndex, 1);
+      expect(stripArtifactBlocks(text), isNot(contains('"q"')));
+    });
+
+    test('accepts alias fence names and same-line bodies', () {
+      const text = '```quiz_json [{"q":"Q?","options":["a","b"],"answer":0}]```';
+      expect(parseStudyArtifacts(text).hasQuiz, isTrue);
+      const cards = '```flashcards [{"front":"f","back":"b"}]```';
+      expect(parseStudyArtifacts(cards).hasFlashcards, isTrue);
+    });
+
+    test('wraps HTML fragments into a runnable page', () {
+      const text = '''
+```html-artifact
+<!-- title: Tiny Chess -->
+<div id="board"></div><script>console.log("play")</script>
+```''';
+      final artifacts = parseStudyArtifacts(text);
+      expect(artifacts.hasHtml, isTrue);
+      expect(artifacts.html.first.title, 'Tiny Chess');
+      expect(artifacts.html.first.html, contains('<!DOCTYPE html>'));
+      expect(artifacts.html.first.html, contains('id="board"'));
+    });
+
+    test('accepts plain html fence name', () {
+      const text = '```html\n<div>hello game world, play me now please</div>\n```';
+      final artifacts = parseStudyArtifacts(text);
+      expect(artifacts.hasHtml, isTrue);
+      expect(artifacts.html.first.html, contains('<!DOCTYPE html>'));
+    });
+
+    test('still drops prose-only html blocks', () {
+      const text = '```html-artifact\njust some words, not a page at all\n```';
+      expect(parseStudyArtifacts(text).hasHtml, isFalse);
+    });
+  });
 }

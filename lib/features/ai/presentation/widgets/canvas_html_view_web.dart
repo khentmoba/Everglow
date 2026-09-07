@@ -35,6 +35,8 @@ class _CanvasHtmlViewState extends State<CanvasHtmlView> {
         // sandbox token list apply reliably across browsers.
         iframe.setAttribute('srcdoc', source);
         iframe.setAttribute('sandbox', 'allow-scripts');
+        iframe.setAttribute('referrerpolicy', 'no-referrer');
+        iframe.setAttribute('title', 'Mochi canvas preview');
         iframe.style.width = '100%';
         iframe.style.height = '100%';
         iframe.style.border = '0';

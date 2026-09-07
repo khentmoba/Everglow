@@ -985,7 +985,12 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   \`\`\`flashcards-json
   [{"front":"...","back":"..."}]
   \`\`\`
-  JSON only inside the block.`;
+  JSON only inside the block.
+- When they ask for something to PLAY or USE — a game (chess, checkers, tic-tac-toe), a little app, a tool: build it as ONE self-contained HTML file (inline <style> and <script> only — no external files, no CDN links, no localStorage, no network calls), then append it as a hidden block:
+  \`\`\`html-artifact
+  <!DOCTYPE html>... the full game/app here ...
+  \`\`\`
+  Keep it compact (under ~30KB) and fully working from the single file. Put a <title> with its name. HTML only inside the block. The visible reply stays warm and short ("Made you chess — tap Preview to play!").`;
   }
 
   // ── Main Mochi chat: same interactive canvas (Canvas / Artifacts style) ──
@@ -1015,8 +1020,8 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   \`\`\`flashcards-json
   [{"front":"...","back":"..."}]
   \`\`\`
-  JSON only inside the block, no commentary inside it.`;
-  }
+  JSON only inside the block, no commentary inside it.
+- Use those exact fence names (quiz-json, flashcards-json, html-artifact) with valid JSON/HTML inside — the chat turns each block into a tappable Preview / Try-it button. Only emit a block when they asked for that kind of thing (quiz/test/trivia, cards, or something to play/use); a summary or explanation stays plain text.
 
   // ── System prompt size guard ────────────────────────────
   // With 512K context, we can be generous with the system prompt.
