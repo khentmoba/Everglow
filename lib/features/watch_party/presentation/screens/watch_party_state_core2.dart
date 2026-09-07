@@ -81,7 +81,11 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
     final completer = Completer<bool>();
     setState(() {
       _showEndDialog = true;
-      _endDialogCallback = completer.complete;
+      // Guarded: a raw `completer.complete` tear-off would throw
+      // "Future already completed" on a rapid double-tap.
+      _endDialogCallback = (value) {
+        if (!completer.isCompleted) completer.complete(value);
+      };
     });
     final result = await completer.future;
     if (result != true) return;
