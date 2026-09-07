@@ -8,6 +8,8 @@ import '../../data/models/music_status.dart';
 import '../../data/services/spotify_auth_service.dart';
 import '../../data/services/spotify_player_service.dart';
 import '../../data/services/spotify_resolve_service.dart';
+import '../../../xp/data/services/xp_service.dart';
+import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
 import 'spotify_embed_view.dart';
 
@@ -52,8 +54,14 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
   Future<void> _playInEverglow() async {
     if (!_status.hasSpotifyTrack) return;
     final player = context.read<SpotifyPlayerService>();
+    final auth = context.read<AuthService>();
     await player.init();
     await player.playTrack(_status.spotifyTrackId!);
+    final uid = auth.uid;
+    if (uid == null || uid.isEmpty) return;
+    try {
+      await XPService().awardPlay(uid);
+    } catch (_) {}
   }
 
   @override

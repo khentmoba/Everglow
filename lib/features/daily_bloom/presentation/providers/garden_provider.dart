@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../data/models/garden_stats.dart';
 import '../../data/services/garden_service.dart';
+import '../../../xp/data/services/xp_service.dart';
 import '../../../../core/utils/logger.dart';
 
 class GardenProvider extends ChangeNotifier {
@@ -150,7 +151,11 @@ class GardenProvider extends ChangeNotifier {
       await _service.recordInteraction(_userId!);
     } catch (e) {
       Logger.e('Garden recordInteraction failed', error: e);
+      return;
     }
+    try {
+      await XPService().awardGarden(_userId!);
+    } catch (_) {}
   }
 
   /// Change the user's plant type.

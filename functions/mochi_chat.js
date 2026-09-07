@@ -43,6 +43,17 @@ const PARTNER_UID = {
   clairjassen: "khentsgdz",
 };
 
+// ── XP curve (200 XP per level) ──────────────────────────
+// Mirrors lib/features/xp/domain/models/user_progress.dart so Mochi,
+// the client, and the progress bar always agree on the level.
+// Level math: level = floor(xp / 200) + 1.
+const XP_PER_LEVEL = 200;
+function levelForXp(xpTotal) {
+  const xp = Number(xpTotal) || 0;
+  if (xp <= 0) return 1;
+  return Math.floor(xp / XP_PER_LEVEL) + 1;
+}
+
 function _getSpotifyCreds() {
   const id = (process.env.SPOTIFY_CLIENT_ID || "").trim() || (functions.config().spotify && functions.config().spotify.client_id) || "";
   const secret = (process.env.SPOTIFY_CLIENT_SECRET || "").trim() || (functions.config().spotify && functions.config().spotify.client_secret) || "";
@@ -206,7 +217,7 @@ You have access to custom tools:
 - edit_memory — Edit a memory's text
 - mark_watchlist_item_watched — Mark watchlist items as watched
 - update_book_progress — Update reading progress in Our Books
-- add_xp — Award XP for completed activities
+- add_xp — Award XP for completed activities (levels land every 200 XP)
 - send_note_to_partner — Pass a private note to the other partner
 - get_relationship_insights — Find gentle patterns in moods and activities
 - get_memory_trivia — Make a mini memory game from real facts
@@ -824,11 +835,11 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
       type: 'function',
       function: {
         name: 'add_xp',
-        description: 'Award XP to the caller for a completed activity or achievement inside Everglow. Use sparingly and only when an action clearly deserves it.',
+        description: 'Award XP to the caller for a completed activity or achievement inside Everglow. Be generous — every 200 XP is a level up, so meaningful moments deserve 20-50 XP and small wins 10-20.',
         parameters: {
           type: 'object',
           properties: {
-            amount: { type: 'number', description: 'XP amount (1-100, default 10)' },
+            amount: { type: 'number', description: 'XP amount (1-100, default 25)' },
             reason: { type: 'string', description: 'Short reason for the XP' },
           },
         },
@@ -1755,13 +1766,13 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
               });
             }
             case 'add_xp': {
-              const amount = Math.min(Math.max(Number(args.amount) || 10, 1), 100);
+              const amount = Math.min(Math.max(Number(args.amount) || 25, 1), 100);
               const uid = callerUid || 'khentsgdz';
               const ref = db.collection('users').doc(uid).collection('progress').doc('main');
               const doc = await ref.get();
               const current = (doc.exists && doc.data()?.xpTotal) || 0;
               const xpTotal = current + amount;
-              const level = Math.floor(xpTotal / 1000) + 1;
+              const level = levelForXp(xpTotal);
               await ref.set({
                 xpTotal,
                 level,
