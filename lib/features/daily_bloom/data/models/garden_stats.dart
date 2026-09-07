@@ -26,14 +26,30 @@ class GardenStats {
   }
 
   factory GardenStats.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    return GardenStats.fromMap(doc.data() as Map<String, dynamic>);
+  }
+
+  factory GardenStats.fromMap(Map<String, dynamic> data) {
     return GardenStats(
-      currentStage: data['currentStage'] ?? 0,
-      lastVisit: (data['lastVisit'] as Timestamp).toDate(),
-      streakCount: data['streakCount'] ?? 0,
-      totalInteractions: data['totalInteractions'] ?? 0,
-      plantType: data['plantType'] ?? 'lily',
+      currentStage: (data['currentStage'] as num?)?.toInt() ?? 0,
+      lastVisit: _parseTimestamp(data['lastVisit']),
+      streakCount: (data['streakCount'] as num?)?.toInt() ?? 0,
+      totalInteractions: (data['totalInteractions'] as num?)?.toInt() ?? 0,
+      plantType: data['plantType'] as String? ?? 'lily',
     );
+  }
+
+  static DateTime _parseTimestamp(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    if (value is String) {
+      try {
+        return DateTime.parse(value);
+      } catch (_) {
+        return DateTime.now();
+      }
+    }
+    return DateTime.now();
   }
 
   Map<String, dynamic> toFirestore() {
