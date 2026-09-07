@@ -14,22 +14,31 @@ import 'canvas_html_view.dart';
 /// sandboxed frame:
 ///
 /// - Phone / tablet (Clair's world): a near-full bottom sheet she can drag.
-/// - Desktop: a centered wide dialog, same content.
+/// - Desktop: a near-full-screen takeover, so games get real room instead
+///   of a cramped centered box.
 Future<void> openCanvasPreview(BuildContext context, HtmlArtifact app) {
-  final sheet = CanvasPreviewSheet(app: app);
-  if (MediaQuery.sizeOf(context).width >= 1024) {
+  final size = MediaQuery.sizeOf(context);
+  if (size.width >= 1024) {
+    // Near-full-screen: a fixed-size stage leaves games no dead margins.
+    // The sheet fills it via [CanvasPreviewSheet.expanded].
+    final stageWidth = size.width - 32;
+    final stageHeight = size.height - 32;
     return showDialog(
       context: context,
       builder: (_) => Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 900, maxHeight: 700),
-          child: _PreviewChrome(child: sheet),
+        insetPadding: const EdgeInsets.all(16),
+        child: SizedBox(
+          width: stageWidth,
+          height: stageHeight,
+          child: _PreviewChrome(
+            child: CanvasPreviewSheet(app: app, expanded: true),
+          ),
         ),
       ),
     );
   }
+  final sheet = CanvasPreviewSheet(app: app);
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -77,12 +86,17 @@ class _PreviewChrome extends StatelessWidget {
 class CanvasPreviewSheet extends StatelessWidget {
   final HtmlArtifact app;
 
-  const CanvasPreviewSheet({super.key, required this.app});
+  /// When true the sheet fills a fixed-size stage (desktop takeover) and
+  /// the game frame expands to use it. When false (draggable mobile
+  /// sheet) the column wraps its content as before.
+  final bool expanded;
+
+  const CanvasPreviewSheet({super.key, required this.app, this.expanded = false});
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
       children: [
         const SizedBox(height: 10),
         Container(
@@ -128,24 +142,39 @@ class CanvasPreviewSheet extends StatelessWidget {
             ],
           ),
         ),
-        Flexible(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-            child: ClipRRect(
-              borderRadius: AppRadius.radiusLg,
-              child: Container(
-                constraints: const BoxConstraints(minHeight: 320),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: AppRadius.radiusLg,
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: CanvasHtmlView(html: app.html),
-              ),
-            ),
-          ),
-        ),
+        _PreviewFrame(expanded: expanded, html: app.html),
       ],
     );
+  }
+}
+
+/// The framed game/app area. In `expanded` mode (fixed desktop stage) it
+/// takes all remaining height so the game fills the screen; otherwise it
+/// keeps the old wrap-content behavior with a minimum height.
+class _PreviewFrame extends StatelessWidget {
+  final bool expanded;
+  final String html;
+
+  const _PreviewFrame({required this.expanded, required this.html});
+
+  @override
+  Widget build(BuildContext context) {
+    final frame = Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+      child: ClipRRect(
+        borderRadius: AppRadius.radiusLg,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 320),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: AppRadius.radiusLg,
+            border: Border.all(color: AppColors.border),
+          ),
+          child: CanvasHtmlView(html: html),
+        ),
+      ),
+    );
+    if (!expanded) return Flexible(child: frame);
+    return Expanded(child: frame);
   }
 }
