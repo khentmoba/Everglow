@@ -91,6 +91,9 @@ class AIService extends ChangeNotifier {
     void Function(String toolStatus)? onToolStatus,
     void Function(Map<String, dynamic> result)? onToolResult,
     List<String> imageUrls = const [],
+    // Canvas toggle from the chat bar. When false the server must not
+    // create any interactive artifacts — plain text only, even for quizzes.
+    bool canvasEnabled = true,
   }) async {
     _isLoading = true;
     _activeRequest++;
@@ -177,6 +180,7 @@ class AIService extends ChangeNotifier {
             notifyListeners();
           },
           enableThinking: enableThinking,
+          canvasEnabled: canvasEnabled,
         );
         // Superseded by cancelCurrentReply() or a newer request: that path
         // already published its own state, so leave it untouched.
@@ -190,6 +194,7 @@ class AIService extends ChangeNotifier {
           memoriesForRequest,
           feature,
           caller,
+          canvasEnabled,
         );
       }
 
@@ -356,6 +361,7 @@ class AIService extends ChangeNotifier {
     required String question,
     String? callerName,
     bool enableThinking = true,
+    bool canvasEnabled = true,
   }) async {
     _isLoading = true;
     _lastError = null;
@@ -404,6 +410,7 @@ class AIService extends ChangeNotifier {
           notifyListeners();
         },
         enableThinking: enableThinking,
+        canvasEnabled: canvasEnabled,
       );
 
       _isLoading = false;
@@ -523,6 +530,7 @@ class AIService extends ChangeNotifier {
     List<String> memories, [
     String feature = '',
     String caller = '',
+    bool canvasEnabled = true,
   ]) async {
     const maxRetries = 2;
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
@@ -533,6 +541,7 @@ class AIService extends ChangeNotifier {
           memories,
           feature,
           caller,
+          canvasEnabled,
         );
       } catch (e) {
         final isTransient =
@@ -558,6 +567,7 @@ class AIService extends ChangeNotifier {
     List<String> memories, [
     String feature = '',
     String caller = '',
+    bool canvasEnabled = true,
   ]) async {
     final idToken = await _auth.currentUser?.getIdToken() ?? '';
 
@@ -575,6 +585,7 @@ class AIService extends ChangeNotifier {
             if (feature.isNotEmpty) 'feature': feature,
             if (caller.isNotEmpty) 'caller': caller,
             'enableThinking': true,
+            'canvas': canvasEnabled,
           }),
         )
         .timeout(const Duration(seconds: 60));
@@ -608,6 +619,7 @@ class AIService extends ChangeNotifier {
     void Function(Map<String, dynamic> result)? onToolResult,
     void Function(String error)? onError,
     bool enableThinking = true,
+    bool canvasEnabled = true,
   }) async {
     const maxRetries = 2;
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
@@ -624,6 +636,7 @@ class AIService extends ChangeNotifier {
           onToolResult,
           onError,
           enableThinking: enableThinking,
+          canvasEnabled: canvasEnabled,
         );
       } catch (e) {
         final isTransient =
@@ -654,6 +667,7 @@ class AIService extends ChangeNotifier {
     void Function(Map<String, dynamic> result)? onToolResult,
     void Function(String error)? onError, {
     bool enableThinking = true,
+    bool canvasEnabled = true,
   }) async {
     final idToken = await _auth.currentUser?.getIdToken() ?? '';
     final body = jsonEncode({
@@ -664,6 +678,7 @@ class AIService extends ChangeNotifier {
       'caller': caller,
       'stream': true, // enables real SSE streaming from the backend
       'enableThinking': enableThinking,
+      'canvas': canvasEnabled,
     });
 
     return streamSseResponse(

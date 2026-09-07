@@ -241,6 +241,7 @@ class _StudyScreenState extends State<StudyScreen> {
         sourcesBlock: block,
         question: question,
         callerName: auth.currentUser,
+        canvasEnabled: _canvasEnabled,
       );
       if (!mounted) return;
       if (reply.trim().isEmpty) {
@@ -629,7 +630,9 @@ class _StudyScreenState extends State<StudyScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           child: Row(
             children: [
-              for (final chip in StudyPrompts.chips)
+              for (final chip in StudyPrompts.chipsFor(
+                canvasOn: _canvasEnabled,
+              ))
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: ActionChip(
