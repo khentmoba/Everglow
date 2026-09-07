@@ -1,3 +1,4 @@
+import "package:cached_network_image/cached_network_image.dart";
 import "package:flutter/material.dart";
 
 /// Shared network image with web-performance defaults.
@@ -19,6 +20,11 @@ import "package:flutter/material.dart";
 /// capped at ~2x. Examples: 175px poster card -> 350-400; 120px grid thumb ->
 /// 240-300; full-width hero (~800px) -> 800-1200. When in doubt, copy the
 /// call sites below (`AppPosterImage` defaults to 400).
+///
+/// Images resolve through `CachedNetworkImage` (memory + disk cache), so
+/// scrolling a rail back and forth never re-fetches bytes that were
+/// already decoded. `cacheWidth`/`cacheHeight` become `memCacheWidth` /
+/// `memCacheHeight` so the in-memory bitmap stays downscaled too.
 class AppNetworkImage extends StatelessWidget {
   final String imageUrl;
 
@@ -60,40 +66,44 @@ class AppNetworkImage extends StatelessWidget {
   Widget build(BuildContext context) {
     if (imageUrl.isEmpty) return _fallback(context);
 
-    Widget image = Image.network(
-      imageUrl,
+    Widget image = CachedNetworkImage(
+      imageUrl: imageUrl,
       width: width,
       height: height,
       fit: fit,
-      // ignore: avoid_print
-      cacheWidth: cacheWidth,
-      cacheHeight: cacheHeight,
+      memCacheWidth: cacheWidth,
+      memCacheHeight: cacheHeight,
       filterQuality: filterQuality,
-      gaplessPlayback: true,
-      excludeFromSemantics: true,
-      loadingBuilder: (context, child, progress) {
-        if (progress == null) return child;
+      fadeInDuration: Duration.zero,
+      fadeOutDuration: Duration.zero,
+      placeholderFadeInDuration: Duration.zero,
+      imageBuilder: (context, provider) => Image(
+        image: provider,
+        width: width,
+        height: height,
+        fit: fit,
+        filterQuality: filterQuality,
+        gaplessPlayback: true,
+        excludeFromSemantics: true,
+      ),
+      placeholder: (context, _) {
         if (placeholder != null) return placeholder!;
-        final expected = progress.expectedTotalBytes;
-        final loaded = progress.cumulativeBytesLoaded;
-        final value = expected != null && expected > 0 ? loaded / expected : null;
         return Container(
           width: width,
           height: height,
           color: placeholderColor,
           alignment: Alignment.center,
-          child: SizedBox(
+          child: const SizedBox(
             width: 18,
             height: 18,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              value: value,
-              color: const Color(0xFFF4C2C2),
+              color: Color(0xFFF4C2C2),
             ),
           ),
         );
       },
-      errorBuilder: (context, _, _) => _fallback(context),
+      errorWidget: (context, _, _) => _fallback(context),
     );
 
     // Reserve space before decode so rows/grids never jump.

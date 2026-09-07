@@ -98,7 +98,9 @@ class _CurrentlyWatchingHeaderState extends State<_CurrentlyWatchingHeader> {
       return;
     }
     _streamSub?.cancel();
-    _streamSub = _service.getCurrentlyWatchingStream(widget.userName).listen(
+    // Header only shows the badge count: 24 docs is plenty instead of
+    // the 500-doc watch-list stream.
+    _streamSub = _service.getCurrentlyWatchingStream(widget.userName, limit: 24).listen(
       (items) {
         _retryCount = 0;
         // Cinema owns every movie (live-action or anime) plus non-anime TV;
@@ -194,7 +196,9 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
       return;
     }
     _streamSub?.cancel();
-    _streamSub = _service.getCurrentlyWatchingStream(widget.userName).listen(
+    // Each sub-row renders up to 12 cards: 24 docs is plenty instead of
+    // the 500-doc watch-list stream.
+    _streamSub = _service.getCurrentlyWatchingStream(widget.userName, limit: 24).listen(
       (items) {
         _retryCount = 0;
         // Same cinema rule as the header: every movie counts here.
@@ -258,12 +262,17 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
   }
 
   /// Sanitize title to remove CSS class artifacts like "css-1dbjc4n".
+  ///
+  /// Both regexes are static finals (compiled once): the whitespace
+  /// pattern used to be constructed inline on every card on every build,
+  /// which recompiled it dozens of times per shelf emission.
   static final _cssArtifactRegex = RegExp(r'\bcss-[a-zA-Z0-9_-]+\b');
+  static final _multiSpaceRegex = RegExp(r'\s{2,}');
 
   static String _sanitizeTitle(String title) {
     var cleaned = title.replaceAll(_cssArtifactRegex, ' ').trim();
     // Collapse multiple spaces
-    cleaned = cleaned.replaceAll(RegExp(r'\s{2,}'), ' ');
+    cleaned = cleaned.replaceAll(_multiSpaceRegex, ' ');
     return cleaned.isNotEmpty ? cleaned : title;
   }
 

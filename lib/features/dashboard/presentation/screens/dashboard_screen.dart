@@ -112,9 +112,15 @@ class _DashboardScreenState extends State<DashboardScreen>
         // These Firestore reads need a signed-in session. Guarding them
         // prevents permission-denied errors when the dashboard is opened
         // as a deep link before the gateway has authenticated the user.
+        // Date ideas ride post-first-frame: the card shows one random
+        // idea on tap, so it must not contend with the ~25 preview
+        // streams attaching on the critical path.
         if (authService.isReady) {
-          context.read<DateIdeaService>().initialize().catchError((Object e) {
-            Logger.e('Date ideas init failed', error: e);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            context.read<DateIdeaService>().initialize().catchError((Object e) {
+              Logger.e('Date ideas init failed', error: e);
+            });
           });
           context.read<GuardianService>().initialize().catchError((Object e) {
             Logger.e('Guardian init failed', error: e);

@@ -19,9 +19,9 @@ class OurBooksService {
 
   static const Set<String> coupleUsernames = {'khentsgdz', 'clairjassen'};
 
-  Stream<List<OurBooksItem>> getOurBooksStream() {
+  Stream<List<OurBooksItem>> getOurBooksStream({int limit = 300}) {
     return withFirestoreTimeout(
-      _firestore.collection(_collection).limit(300).snapshots().map((snapshot) {
+      _firestore.collection(_collection).limit(limit).snapshots().map((snapshot) {
         final items = snapshot.docs
             .map((doc) => OurBooksItem.fromFirestore(doc.data(), doc.id))
             .toList();
@@ -33,16 +33,31 @@ class OurBooksService {
     );
   }
 
-  /// Stream of "Our Books" entries filtered to the books added by
-  /// [adder]. Used by the dashboard's per-partner sub-row so each
-  /// partner sees their own additions alongside the other's.
+  // Capped count for the dashboard header: it only shows the badge
+  // number, but today it holds a 300-doc realtime stream open to do
+  // it. Sorted newest-first, same shape as the full stream.
+  Stream<List<OurBooksItem>> getOurBooksCountPreviewStream({int limit = 24}) {
+    return getOurBooksStream(limit: limit);
+  }
+
+  /// Capped preview for the dashboard rail: the header shows a count and
+  /// each partner sub-row renders up to 12 cards, so a 300-doc realtime
+  /// stream is 10x+ over-fetch on every dashboard visit. Full history
+  /// stays on getOurBooksStream for the books screen.
   Stream<List<OurBooksItem>> getOurBooksByAdderStream(String adder) {
+    return getOurBooksByAdderPreviewStream(adder, limit: 24);
+  }
+
+  Stream<List<OurBooksItem>> getOurBooksByAdderPreviewStream(
+    String adder, {
+    int limit = 24,
+  }) {
     if (adder.isEmpty) return Stream.value(const <OurBooksItem>[]);
     return withFirestoreTimeout(
       _firestore
           .collection(_collection)
           .where('addedBy', isEqualTo: adder)
-          .limit(300)
+          .limit(limit)
           .snapshots()
           .map((snapshot) {
             final items = snapshot.docs
@@ -51,7 +66,7 @@ class OurBooksService {
             items.sort((a, b) => b.addedAt.compareTo(a.addedAt));
             return items;
           }),
-      label: 'our-books-$adder',
+      label: 'our-books-preview-$adder',
     );
   }
 

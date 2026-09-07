@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_colors.dart';
+import '../../../../../shared/widgets/app_network_image.dart';
 import '../trailer_player.dart';
 import 'drawer_helpers.dart';
 import '../../../../../core/theme/app_typography.dart';
@@ -277,16 +278,12 @@ class TrailerSection extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         backdropUrl.isNotEmpty
-            ? Image.network(
-                backdropUrl,
+            ? AppNetworkImage(
+                imageUrl: backdropUrl,
                 fit: BoxFit.cover,
                 cacheWidth: 900,
-                loadingBuilder: (context, child, progress) {
-                  if (progress == null) return child;
-                  return _buildBackdropPlaceholder(isLoading: true);
-                },
-                errorBuilder: (_, _, _) =>
-                    _buildBackdropPlaceholder(isLoading: false),
+                placeholder: _buildBackdropPlaceholder(isLoading: true),
+                errorWidget: _buildBackdropPlaceholder(isLoading: false),
               )
             : _buildBackdropPlaceholder(isLoading: isDetailsLoading),
         if (trailerKey != null && !isLoadingTrailer)

@@ -32,7 +32,27 @@ class _AnniversaryMetricsState extends State<AnniversaryMetrics> with WidgetsBin
       DateTime.now(),
     );
     _notifier = ValueNotifier(_prev);
+    // 1s cadence only because the seconds capsule is live; the footer
+    // below diffs DateTime.now() off the same notifier, so no second
+    // timer is needed anywhere in this subtree.
     _timer = Timer.periodic(const Duration(seconds: 1), (_) => _emit());
+  }
+
+  // Cached at second granularity: the footer builder runs every second
+  // off the same notifier, and total days only flips at midnight.
+  int? _cachedTotalDays;
+  int _cachedTotalDaysSecond = -1;
+
+  int _totalDaysSinceAnniversary() {
+    final second = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    if (_cachedTotalDays != null && second == _cachedTotalDaysSecond) {
+      return _cachedTotalDays!;
+    }
+    _cachedTotalDaysSecond = second;
+    _cachedTotalDays = DateTime.now()
+        .difference(AnniversaryCounter.anniversaryDate)
+        .inDays;
+    return _cachedTotalDays!;
   }
 
   void _emit() {
@@ -135,9 +155,7 @@ class _AnniversaryMetricsState extends State<AnniversaryMetrics> with WidgetsBin
             ValueListenableBuilder<AnniversaryCounter>(
               valueListenable: _notifier,
               builder: (context, c, _) {
-                final totalDays = DateTime.now()
-                    .difference(AnniversaryCounter.anniversaryDate)
-                    .inDays;
+                final totalDays = _totalDaysSinceAnniversary();
                 return Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,

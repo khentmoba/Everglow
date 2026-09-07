@@ -22,12 +22,15 @@ class _CalendarPreviewState extends State<CalendarPreview> {
   void initState() {
     super.initState();
     _service = CalendarService();
-    _upcoming = _service.getUpcomingEvents(days: 30);
+    // Preview shares the 60-day window with Coming Up (which renders 3
+    // cards): one shared query shape instead of two overlapping
+    // listeners (30d + 60d) doubling rule evals on every dashboard visit.
+    _upcoming = _service.getUpcomingEvents(days: 60);
   }
 
   void _retry() {
     setState(() {
-      _upcoming = _service.getUpcomingEvents(days: 30);
+      _upcoming = _service.getUpcomingEvents(days: 60);
     });
   }
 
