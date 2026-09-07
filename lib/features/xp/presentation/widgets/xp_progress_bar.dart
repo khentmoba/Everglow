@@ -12,9 +12,10 @@ class XPProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentLevelXp = progress.xpTotal % 1000;
-    final remaining = 1000 - currentLevelXp;
-    final progressPercent = (currentLevelXp / 1000).clamp(0.0, 1.0);
+    final currentLevelXp = UserProgress.xpIntoLevel(progress.xpTotal);
+    final remaining = UserProgress.xpToNextLevel(progress.xpTotal);
+    final progressPercent =
+        (currentLevelXp / UserProgress.xpPerLevel).clamp(0.0, 1.0);
 
     return Container(
       clipBehavior: Clip.antiAlias,
@@ -122,7 +123,7 @@ class XPProgressBar extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        '$currentLevelXp / 1000 XP',
+                        '$currentLevelXp / ${UserProgress.xpPerLevel} XP',
                         style: AppTypography.outfitHeading.copyWith(
                           color: AppColors.petalWhite.withValues(alpha: 0.92),
                           fontSize: 12.5,

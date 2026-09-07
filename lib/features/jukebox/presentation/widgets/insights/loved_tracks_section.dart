@@ -8,6 +8,7 @@ import '../../../../../core/theme/app_typography.dart';
 import '../../providers/music_insights_provider.dart';
 import '../../../data/models/loved_track.dart';
 import '../../../data/services/jukebox_dedication_service.dart';
+import '../../../../xp/data/services/xp_service.dart';
 import '../../../data/models/lastfm_image_utils.dart';
 import '../../../../../core/services/auth_service.dart';
 
@@ -529,6 +530,12 @@ class _LovedTracksSectionState extends State<LovedTracksSection> {
                       ? null
                       : msgCtrl.text.trim(),
                 );
+                final dedicateUid = auth.uid;
+                if (dedicateUid != null && dedicateUid.isNotEmpty) {
+                  try {
+                    await XPService().awardDedicate(dedicateUid);
+                  } catch (_) {}
+                }
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(

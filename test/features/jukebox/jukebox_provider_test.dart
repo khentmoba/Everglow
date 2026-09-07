@@ -63,10 +63,17 @@ class _StubSync extends MusicSyncService {
 JukeboxProvider _provider({
   required _FakeStore store,
   MusicStatus? Function(String username)? fetch,
+  List<String>? awardedUids,
 }) {
   final provider = JukeboxProvider(
     apiService: _StubSync(fetch),
     persistenceService: store,
+    awardListenXp: awardedUids == null
+        ? null
+        : (uid) async {
+            awardedUids.add(uid);
+            return true;
+          },
     pollInterval: const Duration(hours: 1),
     resubscribeDelay: const Duration(milliseconds: 10),
   );
@@ -164,6 +171,14 @@ void main() {
         containsAll(['khentsgdz', 'clairjassen']),
       );
       expect(store.saved.every((s) => s.isPlaying), isTrue);
+    });
+
+    test('skips listen XP when no award callback is wired', () async {
+      final store = _FakeStore();
+      _provider(store: store, fetch: _liveStatus);
+
+      await _waitFor(() => store.saved.length == 2);
+      expect(store.saved, isNotEmpty);
     });
   });
 }

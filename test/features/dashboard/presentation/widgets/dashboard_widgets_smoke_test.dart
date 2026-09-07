@@ -28,7 +28,7 @@ void main() {
                 XPProgressBar(
                   progress: UserProgress(
                     uid: 'test',
-                    level: 3,
+                    level: 13,
                     xpTotal: 2450,
                     streak: 0,
                     lastActivity: DateTime.now(),
@@ -44,6 +44,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Coming Up'), findsOneWidget);
     expect(find.text('29'), findsOneWidget);
-    expect(find.text('LEVEL 3'), findsOneWidget);
+    expect(find.text('LEVEL 13'), findsOneWidget);
   });
 }

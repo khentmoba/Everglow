@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:confetti/confetti.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../data/services/starlight_service.dart';
+import '../../../xp/data/services/xp_service.dart';
 import '../../domain/models/star_note.dart';
 import '../widgets/glass_jar.dart';
 import '../widgets/star_widget.dart';
@@ -127,6 +128,12 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
         category: result.category,
         tags: result.tags,
       );
+      final starUid = auth.uid;
+      if (starUid != null && starUid.isNotEmpty) {
+        try {
+          await XPService().awardStar(starUid);
+        } catch (_) {}
+      }
     }
   }
 
