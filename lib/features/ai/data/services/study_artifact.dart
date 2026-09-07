@@ -117,7 +117,9 @@ StudyArtifacts parseStudyArtifacts(String text) {
 /// short and avoids spoiling answers in the transcript. Replies without a
 /// JSON block (older markdown-only sessions) are left untouched.
 String stripArtifactBlocks(String text, {bool collapseVisibleLists = true}) {
-  final withoutBlocks = _withoutFencedBlocks(text);
+  // Also cut a trailing unterminated fence: a reply cut off by the output
+  // budget mid-block must render as clean text, never a raw HTML/JSON dump.
+  final withoutBlocks = _withoutTrailingOpenFence(_withoutFencedBlocks(text));
   if (!collapseVisibleLists) return withoutBlocks.trim();
   var out = withoutBlocks;
   if (_parseQuizJsonBlocks(text).isNotEmpty) {
@@ -237,15 +239,24 @@ bool _looksLikeOption(String line) {
 /// Same idea for mid-stream drafts: drop complete blocks plus a trailing
 /// unterminated fence, so half-streamed JSON never flashes on screen.
 String stripStreamingArtifacts(String draft) {
-  final withoutComplete = _withoutFencedBlocks(draft);
+  return _withoutTrailingOpenFence(_withoutFencedBlocks(draft));
+}
+
+/// Cut a trailing unterminated artifact fence (an `html-artifact` fence
+/// with no closing fence before end of text).
+/// The model hits the output token budget mid-game often enough that the
+/// saved reply can end inside the block: without this cut the bubble shows
+/// a raw HTML/JSON dump (complete blocks are still unparseable without
+/// their closing fence, so no Preview button is lost by cutting).
+String _withoutTrailingOpenFence(String text) {
   final open = RegExp(
     r'```\s*(quiz[\s_-]*json|quiz|flashcards?[\s_-]*json|flashcards?|html[\s_-]*artifacts?|html)[\s\S]*$',
     caseSensitive: false,
-  ).firstMatch(withoutComplete);
+  ).firstMatch(text);
   if (open != null) {
-    return withoutComplete.substring(0, open.start).trimRight();
+    return text.substring(0, open.start).trimRight();
   }
-  return withoutComplete;
+  return text;
 }
 
 // ─── Fenced JSON (primary) ──────────────────────────────────────

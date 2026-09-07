@@ -265,6 +265,35 @@ void main() {}
       const draft = 'Making chess!\n```html-artifact\n<!DOCTYPE html><html>';
       expect(stripStreamingArtifacts(draft), 'Making chess!');
     });
+
+    test('final strip cuts a trailing unterminated html fence', () {
+      // A reply cut off by the output budget mid-game must render as clean
+      // text in the saved bubble, never a raw HTML dump — and it still
+      // yields no (broken) Preview button.
+      const text =
+          'Made you a Memory Match game!\n```html-artifact\n<!DOCTYPE html><html><head><title>Memory Match</title></head><body><div id="board">';
+      final stripped = stripArtifactBlocks(text);
+      expect(stripped, 'Made you a Memory Match game!');
+      expect(stripped, isNot(contains('DOCTYPE')));
+      expect(stripped, isNot(contains('```')));
+      expect(parseStudyArtifacts(text).hasHtml, isFalse);
+    });
+
+    test('final strip cuts a trailing unterminated quiz fence', () {
+      const text = 'Quiz time!\n```quiz-json\n[{"q":"What is 2+2?"';
+      expect(stripArtifactBlocks(text), 'Quiz time!');
+      expect(parseStudyArtifacts(text).hasQuiz, isFalse);
+    });
+
+    test('block-less game announcement parses to no artifacts', () {
+      // The live "Memory Match" failure: warm text with no hidden block
+      // means nothing to preview — the fix is upstream (prompt + output
+      // budget), the bubble itself must simply stay clean text.
+      const text =
+          'Aww yes! Made you two a Memory Match game! Tap cards to flip them and find matching pairs!';
+      expect(parseStudyArtifacts(text).isEmpty, isTrue);
+      expect(stripArtifactBlocks(text), contains('Memory Match'));
+    });
   });
 
   group('lenient parsing (model variations)', () {
