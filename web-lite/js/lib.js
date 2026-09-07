@@ -100,6 +100,17 @@ export async function storage() {
   return mods.st;
 }
 
+let tokenCache = null;
+let tokenAt = 0;
+export async function getIdToken() {
+  const now = Date.now();
+  if (tokenCache && now - tokenAt < 4 * 60 * 1000) return tokenCache;
+  const a = await auth();
+  tokenCache = await a.auth.currentUser.getIdToken();
+  tokenAt = now;
+  return tokenCache;
+}
+
 export function galleryDisplayUrl(imageUrl) {
   if (typeof imageUrl === 'string' && imageUrl.includes('firebasestorage.googleapis.com')) {
     return `https://us-central1-everglow-1c6db.cloudfunctions.net/proxyGalleryImage?url=${encodeURIComponent(imageUrl)}`;

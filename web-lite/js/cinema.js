@@ -1,20 +1,9 @@
-import { auth, db, session, esc, errMsg, monthDay } from './lib.js';
+import { db, session, esc, errMsg, monthDay, getIdToken } from './lib.js';
 import { requireCouple } from './auth.js';
 import { Shell } from './home.js';
 
 const PROXY = 'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyTmdb';
 const IMG = 'https://image.tmdb.org/t/p/w342';
-
-let tokenCache = null;
-let tokenAt = 0;
-async function idToken() {
-  const now = Date.now();
-  if (tokenCache && now - tokenAt < 4 * 60 * 1000) return tokenCache;
-  const a = await auth();
-  tokenCache = await a.auth.currentUser.getIdToken();
-  tokenAt = now;
-  return tokenCache;
-}
 
 async function tmdb(path, params = {}) {
   const url = new URL(`${PROXY}/${path.replace(/^\/+/, '')}`);
@@ -22,7 +11,7 @@ async function tmdb(path, params = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 12000);
   try {
-    const r = await fetch(url, { headers: { Authorization: `Bearer ${await idToken()}` }, signal: ctrl.signal });
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${await getIdToken()}` }, signal: ctrl.signal });
     if (!r.ok) throw new Error(`tmdb ${r.status}`);
     return r.json();
   } finally {
