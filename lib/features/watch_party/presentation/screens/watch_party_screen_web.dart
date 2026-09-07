@@ -4,6 +4,7 @@ import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:web/web.dart' as web;
@@ -684,73 +685,88 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
   }
 
   Widget _buildEndDialog() {
-    return Stack(
-      children: [
-        GestureDetector(
-          onTap: () {},
-          child: Container(color: Colors.black.withValues(alpha: 0.6)),
-        ),
-        Center(
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 32),
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: _cCard,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'End the night?',
-                  style: AppTypography.cormorantBold.copyWith(
-                    fontSize: 22,
-                    color: _cWhite,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Your partner will be sent back to the cinema.',
-                  textAlign: TextAlign.center,
-                  style: AppTypography.outfitWhite.copyWith(
-                    color: _cWhite.withValues(alpha: 0.7),
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () {
-                        _endDialogCallback?.call(false);
-                        setState(() => _showEndDialog = false);
-                      },
-                      child: Text(
-                        'Stay',
-                        style: AppTypography.outfitBold.copyWith(color: _cRose),
-                      ),
+    // NOTE: This dialog lives inside the player-stage Stack, directly above
+    // the cross-origin iframe / HLS platform view. On Flutter web a platform
+    // view is a DOM element that swallows every pointer event in its rect,
+    // so Flutter-painted buttons rendered here are visible but never receive
+    // taps. PointerInterceptor inserts a transparent platform-view layer of
+    // its own above the iframe and forwards the events back to Flutter.
+    // (pointer_interceptor is already a pubspec dependency.)
+    return PointerInterceptor(
+      child: Stack(
+        children: [
+          GestureDetector(
+            // Tapping outside the card counts as "Stay".
+            onTap: () => _resolveEndDialog(false),
+            child: Container(color: Colors.black.withValues(alpha: 0.6)),
+          ),
+          Center(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 32),
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: _cCard,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'End the night?',
+                    style: AppTypography.cormorantBold.copyWith(
+                      fontSize: 22,
+                      color: _cWhite,
                     ),
-                    const SizedBox(width: 8),
-                    TextButton(
-                      onPressed: () {
-                        _endDialogCallback?.call(true);
-                        setState(() => _showEndDialog = false);
-                      },
-                      child: Text(
-                        'End',
-                        style: AppTypography.outfitHeading.copyWith(
-                          color: _cDeepRose,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Your partner will be sent back to the cinema.',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: _cWhite.withValues(alpha: 0.7),
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => _resolveEndDialog(false),
+                        child: Text(
+                          'Stay',
+                          style: AppTypography.outfitBold.copyWith(
+                            color: _cRose,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: () => _resolveEndDialog(true),
+                        child: Text(
+                          'End',
+                          style: AppTypography.outfitHeading.copyWith(
+                            color: _cDeepRose,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
+  }
+
+  /// Completes the pending `_endParty` confirmation exactly once and hides
+  /// the dialog. Guarded so a rapid double-tap on Stay/End (or a backdrop
+  /// tap racing a button tap) can't throw "Future already completed".
+  void _resolveEndDialog(bool end) {
+    _endDialogCallback?.call(end);
+    _endDialogCallback = null;
+    if (mounted) setState(() => _showEndDialog = false);
   }
 }
