@@ -353,6 +353,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           // never flickers mid-stream.
                           if (!widget.isUser &&
                               !widget.isStreaming &&
+                              widget.showArtifacts &&
                               !artifacts.isEmpty)
                             StudyArtifactEntry(artifacts: artifacts),
                           Row(
