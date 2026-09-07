@@ -22,7 +22,10 @@ jobs:
       # Golden-tagged tests are excluded here, same as the deploy
       # workflow: committed PNGs render differently per platform
       # (see the @Tags(['golden']) note atop those test files).
-      - run: flutter test --exclude-tags=golden
+      # Network-tagged tests are excluded too: they hit live external
+      # sites and cannot pass in sandboxed CI. Run by hand:
+      #   flutter test --tags=network test/katana_smoke_test.dart
+      - run: flutter test --exclude-tags="golden,network"
 
   functions:
     runs-on: ubuntu-latest

@@ -983,6 +983,30 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   JSON only inside the block.`;
   }
 
+  // ── Main Mochi chat: same interactive canvas (Canvas / Artifacts style) ──
+  // When Khent or Clair asks for a quiz or flashcards in normal chat, Mochi
+  // answers warmly AND appends the same hidden JSON blocks the Study canvas
+  // uses. The chat bubble strips the blocks and shows one big tappable button
+  // ("Try the quiz" / "Flip the cards") that opens the interactive sheet:
+  // Q1 → answer → Next → Q2 … with score, plus flippable flashcards.
+  // Unlike Study mode this is NOT source-grounded — use Everglow context +
+  // general knowledge. Never emit the blocks unasked (a summary or explanation
+  // stays plain text); only when they ask for a quiz, test, trivia, or cards.
+  if (feature === 'assistant') {
+    systemPrompt += `
+## Interactive Canvas — quiz & flashcards
+- When they ask for a quiz, test, or trivia questions: show the friendly quiz first (numbered questions with A-D options, 5 questions unless they ask for more), then append a hidden block:
+  \`\`\`quiz-json
+  [{"q":"question","options":["a","b","c","d"],"answer":0,"why":"one-line gentle explanation"}]
+  \`\`\`
+  answer is the 0-based index of the correct option. JSON only inside the block, no commentary inside it.
+- When they ask for flashcards or study cards: show each card as "Front: ..." / "Back: ..." lines first (10 cards max), then append a hidden block:
+  \`\`\`flashcards-json
+  [{"front":"...","back":"..."}]
+  \`\`\`
+  JSON only inside the block, no commentary inside it.`;
+  }
+
   // ── System prompt size guard ────────────────────────────
   // With 512K context, we can be generous with the system prompt.
   const PROMPT_CHAR_LIMIT = 50_000;

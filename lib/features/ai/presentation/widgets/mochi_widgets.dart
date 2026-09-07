@@ -256,6 +256,7 @@ class _SuggestedGrid extends StatelessWidget {
       'Save a note to the Starlight Jar',
       Icons.auto_awesome_outlined,
     ),
+    _Suggestion('Quiz us with 5 fun questions', Icons.edit_note_rounded),
     _Suggestion('Plan a date for us', Icons.calendar_month_outlined),
     _Suggestion('How are we doing today?', Icons.favorite_outline_rounded),
     _Suggestion(
@@ -452,6 +453,9 @@ class _MessageBubble extends StatefulWidget {
   final String? toolStatus;
   final List<String> imageUrls;
   final String? senderName;
+  // Canvas toggle from the chat bar — when false the bubble stays plain
+  // text (hidden blocks still stripped so raw JSON never shows).
+  final bool showArtifacts;
 
   const _MessageBubble({
     super.key,
@@ -463,6 +467,7 @@ class _MessageBubble extends StatefulWidget {
     this.toolStatus,
     this.imageUrls = const [],
     this.senderName,
+    this.showArtifacts = true,
   });
 
   @override
