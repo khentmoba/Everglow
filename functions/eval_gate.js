@@ -2,7 +2,7 @@
 
 /* Mochi regression gate — offline, zero LLM cost.
  *
- * Fails closed (exit 1) when the live contract in `index.js` drifts from
+ * Fails closed (exit 1) when the live contract in `mochi_chat.js` drifts from
  * the pinned helpers, prompt snapshot, or eval cases:
  *   1. TOOL_TIMEOUT_MS / MAX_TOOL_ROUNDS match `mochi_tools.js`
  *   2. MOCHI_TOOLS declarations match TOOL_NAMES (both directions)
@@ -22,7 +22,8 @@ const EXPECTED_PROMPT_VERSION = 1;
 const MIN_EVAL_CASES = 20;
 
 const root = __dirname;
-const indexSrc = fs.readFileSync(path.join(root, 'index.js'), 'utf8');
+// Tool loop moved from index.js to mochi_chat.js during the functions split.
+const chatSrc = fs.readFileSync(path.join(root, 'mochi_chat.js'), 'utf8');
 const tools = require('./mochi_tools.js');
 const evalCases = require('./test/mochi_eval_cases.json');
 const promptSnap = fs.readFileSync(path.join(root, 'mochi_prompt_v1.md'), 'utf8');
@@ -35,12 +36,12 @@ function check(name, ok, detail = '') {
   if (!ok) failures.push(name);
 }
 
-const timeout = indexSrc.match(/const TOOL_TIMEOUT_MS = (\d+);/);
-const rounds = indexSrc.match(/const MAX_TOOL_ROUNDS = (\d+);/);
+const timeout = chatSrc.match(/const TOOL_TIMEOUT_MS = (\d+);/);
+const rounds = chatSrc.match(/const MAX_TOOL_ROUNDS = (\d+);/);
 check('constants.timeout', timeout !== null && Number(timeout[1]) === tools.TOOL_TIMEOUT_MS);
 check('constants.rounds', rounds !== null && Number(rounds[1]) === tools.MAX_TOOL_ROUNDS);
 
-const declared = [...indexSrc.matchAll(/name: '([a-z_]+)',/g)].map((m) => m[1]);
+const declared = [...chatSrc.matchAll(/name: '([a-z_]+)',/g)].map((m) => m[1]);
 const declaredSet = new Set(declared);
 check('tools.count', declared.length === tools.TOOL_NAMES.length,
   `index=${declared.length} pinned=${tools.TOOL_NAMES.length}`);
@@ -49,7 +50,7 @@ check('tools.pinned-in-declared', tools.TOOL_NAMES.every((n) => declaredSet.has(
   tools.TOOL_NAMES.filter((n) => !declaredSet.has(n)).join(','));
 
 const nonTools = new Set(['assistant', 'guardian', 'recommendations', 'date_ideas']);
-const cases = [...indexSrc.matchAll(/case '([a-z_]+)': \{/g)].map((m) => m[1]);
+const cases = [...chatSrc.matchAll(/case '([a-z_]+)': \{/g)].map((m) => m[1]);
 const orphanCases = cases.filter((n) => !nonTools.has(n) && !tools.TOOL_NAMES.includes(n));
 check('tools.cases-covered', orphanCases.length === 0, orphanCases.join(','));
 
