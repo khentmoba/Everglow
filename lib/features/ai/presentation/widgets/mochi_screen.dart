@@ -506,6 +506,16 @@ class _MochiScreenState extends State<MochiScreen> {
     );
   }
 
+  /// Text of the nearest user message before [beforeIndex], or '' when
+  /// none. Lets an assistant bubble know what was actually asked — e.g.
+  /// whether the user explicitly wanted the quiz questions inline.
+  String _prevUserText(List<AIMessage> msgs, int beforeIndex) {
+    for (var k = beforeIndex - 1; k >= 0; k--) {
+      if (msgs[k].role == 'user') return msgs[k].content;
+    }
+    return '';
+  }
+
   Widget _buildChatList({required bool centered}) {
     return Stack(
       children: [
@@ -559,6 +569,9 @@ class _MochiScreenState extends State<MochiScreen> {
                                     isUser: false,
                                     isStreaming: true,
                                     showArtifacts: _canvasEnabled,
+                                    keepFullText: userAskedForVisibleQuiz(
+                                      _prevUserText(allMsgs, allMsgs.length),
+                                    ),
                                     reasoning: ai.draftReasoning.isNotEmpty
                                         ? ai.draftReasoning
                                         : null,
@@ -604,6 +617,8 @@ class _MochiScreenState extends State<MochiScreen> {
                   text: msg.content,
                   isUser: isUserMsg,
                   showArtifacts: _canvasEnabled,
+                  keepFullText: !isUserMsg &&
+                      userAskedForVisibleQuiz(_prevUserText(allMsgs, i)),
                   timestamp: msg.timestamp,
                   imageUrls: msg.imageUrls,
                   senderName: isUserMsg ? callerName : null,
