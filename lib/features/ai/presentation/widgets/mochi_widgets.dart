@@ -256,6 +256,7 @@ class _SuggestedGrid extends StatelessWidget {
       'Save a note to the Starlight Jar',
       Icons.auto_awesome_outlined,
     ),
+    _Suggestion('Quiz us with 5 fun questions', Icons.edit_note_rounded),
     _Suggestion('Plan a date for us', Icons.calendar_month_outlined),
     _Suggestion('How are we doing today?', Icons.favorite_outline_rounded),
     _Suggestion(
