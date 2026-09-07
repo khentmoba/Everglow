@@ -83,7 +83,21 @@ class _MessageBubbleState extends State<_MessageBubble> {
     // The model often starts replies with blank lines; trim them for a
     // clean first line in the bubble (both while streaming and after).
     final bubbleText = widget.isUser ? widget.text : widget.text.trimLeft();
-    final displayText = widget.isUser ? widget.text : stripMarkdown(bubbleText);
+    // Canvas / Artifacts: when Mochi answers a quiz / flashcards ask, the
+    // reply carries hidden quiz-json / flashcards-json blocks. Strip them
+    // so Clair never sees raw JSON — she sees warm text + one big tappable
+    // button (StudyArtifactEntry) that opens the interactive sheet
+    // (Q1 → answer → Next → Q2 … with score, flippable cards).
+    // Mid-stream, cut an unterminated fence too so half-JSON never flashes.
+    final cleanBubbleText = widget.isUser
+        ? bubbleText
+        : widget.isStreaming
+            ? stripStreamingArtifacts(bubbleText)
+            : stripArtifactBlocks(bubbleText);
+    final artifacts = widget.isUser
+        ? const StudyArtifacts()
+        : parseStudyArtifacts(bubbleText);
+    final displayText = widget.isUser ? widget.text : stripMarkdown(cleanBubbleText);
     final hasReasoning =
         widget.reasoning != null && widget.reasoning!.isNotEmpty;
 
@@ -326,15 +340,27 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           fontWeight: FontWeight.w500,
                         ),
                       )
-                    else if (widget.isStreaming && bubbleText.isEmpty)
+                    else if (widget.isStreaming && cleanBubbleText.isEmpty)
                       _StreamingPlaceholder(toolStatus: widget.toolStatus ?? '')
                     else
-                      Row(
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Interactive canvas entry — one big obvious button
+                          // when the reply carries a quiz / flashcards.
+                          // Shown only once streaming finishes so the button
+                          // never flickers mid-stream.
+                          if (!widget.isUser &&
+                              !widget.isStreaming &&
+                              !artifacts.isEmpty)
+                            StudyArtifactEntry(artifacts: artifacts),
+                          Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             child: _MarkdownText(
-                              text: bubbleText,
+                              text: cleanBubbleText,
                               baseStyle: AppTypography.bodyMedium().copyWith(
                                 color: AppColors.textHigh,
                                 height: 1.6,
@@ -343,11 +369,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               ),
                             ),
                           ),
-                          if (widget.isStreaming && bubbleText.isNotEmpty)
+                          if (widget.isStreaming && cleanBubbleText.isNotEmpty)
                             const Padding(
                               padding: EdgeInsets.only(left: 4, top: 3),
                               child: _StreamingCaret(),
                             ),
+                        ],
+                          ),
                         ],
                       ),
                     if (widget.isStreaming)
@@ -771,6 +799,8 @@ class _QuickReplyChips extends StatelessWidget {
 
   static const _chips = [
     ('What should we watch? 🎬', 'What should we watch tonight?'),
+    ('Quiz us ✍️', 'Quiz us! Make a fun 5-question quiz for us with A-D options.'),
+    ('Flashcards 🃏', 'Make us flashcards — 8 cards on something fun for us to learn together.'),
     ('Save to Starlight ✨', 'Save this to our Starlight Jar'),
     ('Log my mood 💭', 'I want to log my mood'),
     ('Plan a date 🌙', 'Plan a cozy date night for us'),
