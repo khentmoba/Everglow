@@ -230,17 +230,24 @@ export async function Jukebox(el, nav) {
   paintTop();
 }
 
+let cachedNames = null;
 async function lastfmNames() {
+  if (cachedNames) return cachedNames;
+  const out = [{ label: 'khentsgdz', user: 'khentsgdz' }, { label: 'clairjassen', user: 'clairjassen' }];
   try {
     const { db: d, f } = await db();
-    const s = await f.getDoc(f.doc(d, 'config', 'jukebox'));
-    if (s.exists()) {
-      const c = s.data();
-      const out = [];
-      if (c.khentLastfm) out.push({ label: 'khentsgdz', user: c.khentLastfm });
-      if (c.clairLastfm) out.push({ label: 'clairjassen', user: c.clairLastfm });
-      if (out.length) return out;
+    const snap = await f.getDocs(f.query(f.collection(d, 'music_status'), f.limit(10)));
+    const seen = new Set();
+    snap.docs.forEach((x) => {
+      const m = x.data();
+      const u = (m && m.username) || x.id;
+      if (u && !seen.has(u)) seen.add(u);
+    });
+    if (seen.size) {
+      cachedNames = [...seen].map((u) => ({ label: u, user: u }));
+      return cachedNames;
     }
-  } catch { /* not linked */ }
-  return [];
+  } catch { /* fall through to app defaults */ }
+  cachedNames = out;
+  return out;
 }
