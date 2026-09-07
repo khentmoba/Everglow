@@ -976,6 +976,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   [{"q":"question","options":["a","b","c","d"],"answer":0,"why":"one-line gentle explanation"}]
   \`\`\`
   answer is the 0-based index of the correct option. JSON only inside the block.
+- IMPORTANT: this applies even when you quiz THEM (they answer, you grade after — "drop your answers and I'll grade you"). In that case keep the correct answers OUT of the visible text, but STILL append the hidden quiz-json block with the real answers. The hidden block is what opens the tappable interactive quiz; without it there is no button.
 - When they ask for flashcards: show each card as "Front: ..." / "Back: ..." lines first, then append a hidden block:
   \`\`\`flashcards-json
   [{"front":"...","back":"..."}]
@@ -1000,6 +1001,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   [{"q":"question","options":["a","b","c","d"],"answer":0,"why":"one-line gentle explanation"}]
   \`\`\`
   answer is the 0-based index of the correct option. JSON only inside the block, no commentary inside it.
+- IMPORTANT: this applies even when you quiz THEM (they answer, you grade after — "drop your answers and I'll grade you"). In that case keep the correct answers OUT of the visible text, but STILL append the hidden quiz-json block with the real answers. The hidden block is what opens the tappable interactive quiz; without it there is no button.
 - When they ask for flashcards or study cards: show each card as "Front: ..." / "Back: ..." lines first (10 cards max), then append a hidden block:
   \`\`\`flashcards-json
   [{"front":"...","back":"..."}]
