@@ -70,14 +70,17 @@ TextStyle dmSansStyle({
   );
 }
 
-/// Interface type: Inter for long body copy.
+/// Interface type: DM Sans for long body copy (bundled).
+/// NOTE: this used to request 'Inter', which is not bundled in pubspec —
+/// CanvasKit fell back to a synthetic font and re-laid-out every anime
+/// body block. DM Sans is already shipped (assets/google_fonts/).
 TextStyle interBodyStyle({
   double size = 13,
   Color color = AnimeXTokens.textSecondary,
   double? height,
 }) {
   return TextStyle(
-    fontFamily: 'Inter',
+    fontFamily: 'DM Sans',
     fontSize: size,
     color: color,
     height: height,

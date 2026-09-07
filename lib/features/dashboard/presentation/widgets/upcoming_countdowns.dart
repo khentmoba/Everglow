@@ -15,6 +15,10 @@ import '../../../calendar/domain/models/calendar_event.dart';
 import '../../../calendar/presentation/widgets/calendar_event_style.dart';
 import 'feature_section.dart';
 
+// Shared formatter: constructing DateFormat per card per build re-parses
+// the pattern on every emission while scrolling.
+final _eventDateFormat = DateFormat('EEE, MMM d');
+
 class UpcomingCountdowns extends StatefulWidget {
   const UpcomingCountdowns({super.key});
 
@@ -388,9 +392,9 @@ class _CountdownEventCardState extends State<_CountdownEventCard> {
                                   const SizedBox(width: 5),
                                   Flexible(
                                     child: Text(
-                                      DateFormat(
-                                        'EEE, MMM d',
-                                      ).format(widget.event.date),
+                                      _eventDateFormat.format(
+                                        widget.event.date,
+                                      ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: AppTypography.outfitBold.copyWith(
@@ -962,7 +966,64 @@ class _CountdownFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return _CountdownFooterBody(target: target, hue: hue);
+  }
+}
+
+// Minute-granularity footer: the progress fraction and "X days to go"
+// label cannot move within a minute, so rebuilding on every parent
+// frame (or every second from _CountdownUnits above) is wasted layout.
+// This wrapper ticks at minute boundaries only.
+class _CountdownFooterBody extends StatefulWidget {
+  final DateTime target;
+  final Color hue;
+
+  const _CountdownFooterBody({required this.target, required this.hue});
+
+  @override
+  State<_CountdownFooterBody> createState() => _CountdownFooterBodyState();
+}
+
+class _CountdownFooterBodyState extends State<_CountdownFooterBody> {
+  Timer? _timer;
+  DateTime _now = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
     final now = DateTime.now();
+    final toNextMinute = Duration(
+      seconds: 60 - now.second,
+      milliseconds: -now.millisecond,
+    );
+    _timer = Timer(toNextMinute, _tickMinute);
+  }
+
+  void _tickMinute() {
+    if (!mounted) return;
+    setState(() => _now = DateTime.now());
+    _timer = Timer(const Duration(minutes: 1), _tickMinute);
+  }
+
+  @override
+  void didUpdateWidget(_CountdownFooterBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.target != widget.target) {
+      setState(() => _now = DateTime.now());
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final now = _now;
+    final target = widget.target;
+    final hue = widget.hue;
     final remaining = target.isAfter(now)
         ? target.difference(now)
         : Duration.zero;

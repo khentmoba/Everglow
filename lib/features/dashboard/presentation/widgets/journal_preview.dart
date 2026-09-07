@@ -23,13 +23,14 @@ class _JournalPreviewState extends State<JournalPreview> {
   void initState() {
     super.initState();
     // Cache the stream so dashboard rebuilds don't resubscribe and
-    // restart the Firestore listener on every frame.
-    _stream = JournalService().watchAll();
+    // restart the Firestore listener on every frame. Preview cap (12)
+    // is plenty: the rail renders 3 rows plus a count.
+    _stream = JournalService().watchPreview(limit: 12);
   }
 
   void _retry() {
     setState(() {
-      _stream = JournalService().watchAll();
+      _stream = JournalService().watchPreview(limit: 12);
     });
   }
 

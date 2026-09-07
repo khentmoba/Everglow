@@ -73,7 +73,7 @@ class OnThisDayService {
             subtitle: p.locationName != null
                 ? '📍 ${p.locationName}'
                 : 'Gallery • This week',
-            imageUrl: GalleryService.displayUrl(p.imageUrl),
+            imageUrl: GalleryService.displayUrl(p.imageUrl, thumb: true),
             original: p,
           ),
         ),
@@ -101,7 +101,7 @@ class OnThisDayService {
             date: p.uploadedAt,
             title: p.caption.isNotEmpty ? p.caption : 'A photo memory',
             subtitle: 'Gallery photo',
-            imageUrl: GalleryService.displayUrl(p.imageUrl),
+            imageUrl: GalleryService.displayUrl(p.imageUrl, thumb: true),
             original: p,
           ),
         )

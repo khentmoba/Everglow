@@ -26,14 +26,15 @@ class _BucketListPreviewState extends State<BucketListPreview> {
   void initState() {
     super.initState();
     // Cache the stream so dashboard rebuilds don't resubscribe and
-    // restart the Firestore listener on every frame.
+    // restart the Firestore listener on every frame. Preview cap (12)
+    // is plenty: the card renders a progress ring plus 3 wishes.
     _service = BucketListService();
-    _stream = _service.watchAll();
+    _stream = _service.watchPreview(limit: 12);
   }
 
   void _retry() {
     setState(() {
-      _stream = _service.watchAll();
+      _stream = _service.watchPreview(limit: 12);
     });
   }
 
