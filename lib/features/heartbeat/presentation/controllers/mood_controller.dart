@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../data/services/mood_service.dart';
 
 class MoodController extends ChangeNotifier {
-  final MoodService _service;
+  final MoodSource _service;
 
   bool _isCheckingIn = false;
   int? _selectedScore;
