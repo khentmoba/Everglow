@@ -30,23 +30,40 @@ class MemoryPhoto {
   bool get hasLocation => latitude != null && longitude != null;
 
   factory MemoryPhoto.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return MemoryPhoto(
+    return MemoryPhoto.fromMap(
+      doc.data() as Map<String, dynamic>,
       id: doc.id,
-      imageUrl: data['imageUrl'] ?? '',
-      caption: data['caption'] ?? '',
-      uploadedBy: data['uploadedBy'] ?? '',
+    );
+  }
+
+  factory MemoryPhoto.fromMap(Map<String, dynamic> data, {String id = ''}) {
+    return MemoryPhoto(
+      id: id,
+      imageUrl: data['imageUrl'] as String? ?? '',
+      caption: data['caption'] as String? ?? '',
+      uploadedBy: data['uploadedBy'] as String? ?? '',
       uploadedAt: _parseTimestamp(data['uploadedAt']),
-      tags:
-          (data['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
-          const [],
-      latitude: (data['latitude'] as num?)?.toDouble(),
-      longitude: (data['longitude'] as num?)?.toDouble(),
+      tags: _parseTags(data['tags']),
+      latitude: _parseCoord(data['latitude']),
+      longitude: _parseCoord(data['longitude']),
       locationName: data['locationName'] as String?,
       takenAt: data['takenAt'] != null
           ? _parseTimestamp(data['takenAt'])
           : null,
     );
+  }
+
+  static List<String> _parseTags(dynamic value) {
+    if (value is List) {
+      return value.map((e) => e.toString()).toList();
+    }
+    return const [];
+  }
+
+  static double? _parseCoord(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
   }
 
   static DateTime _parseTimestamp(dynamic value) {
