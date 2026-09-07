@@ -2,7 +2,7 @@ import { db, session, esc, ageParts } from './lib.js';
 import { displayName, logout, requireCouple } from './auth.js';
 
 export function Shell(el, active, inner) {
-  const more = ['cinema', 'bucket', 'calendar', 'journal', 'jar'].includes(active);
+  const more = ['cinema', 'bucket', 'calendar', 'journal', 'jar', 'jukebox', 'books', 'anime'].includes(active);
   el.innerHTML = `
     <div class="wrap">${inner}</div>
     <nav class="nav" aria-label="Everglow">
@@ -18,6 +18,9 @@ export function Shell(el, active, inner) {
       <a class="btn ghost small" href="#/calendar">📅 Dates</a>
       <a class="btn ghost small" href="#/journal">📔 Journal</a>
       <a class="btn ghost small" href="#/jar">⭐ Stars</a>
+      <a class="btn ghost small" href="#/jukebox">🎵 Music</a>
+      <a class="btn ghost small" href="#/books">📚 Books</a>
+      <a class="btn ghost small" href="#/anime">⛩️ Anime</a>
     </div></div>` : ''}`;
 }
 
@@ -39,6 +42,9 @@ export async function Dashboard(el, nav) {
         <a class="tile" href="#/calendar"><span class="t">📅</span><strong>Dates</strong><span id="pv-calendar">what is coming…</span></a>
         <a class="tile" href="#/journal"><span class="t">📔</span><strong>Journal</strong><span id="pv-journal">our pages…</span></a>
         <a class="tile" href="#/jar"><span class="t">⭐</span><strong>Star jar</strong><span id="pv-jar">little lights…</span></a>
+        <a class="tile" href="#/jukebox"><span class="t">🎵</span><strong>Jukebox</strong><span id="pv-music">what we play…</span></a>
+        <a class="tile" href="#/books"><span class="t">📚</span><strong>Books</strong><span id="pv-books">stories for us…</span></a>
+        <a class="tile" href="#/anime"><span class="t">⛩️</span><strong>Anime</strong><span id="pv-anime">animated tales…</span></a>
       </div>
       <button class="ghost" id="logout" type="button">Lock the door</button>
     </div>`);
@@ -94,8 +100,16 @@ export async function Dashboard(el, nav) {
     }
     if (pages && !pages.empty) set('pv-journal', String(pages.docs[0].data().title || 'a new page').slice(0, 42));
     if (stars && !stars.empty) set('pv-jar', String(stars.docs[0].data().content || 'a little light').slice(0, 42));
+    const [music, books, anime] = await Promise.all([
+      f.getDocs(f.query(f.collection(d, 'music_status'), f.limit(1))).catch(() => null),
+      f.getDocs(f.query(f.collection(d, 'our_books'), f.limit(1))).catch(() => null),
+      f.getDocs(f.query(f.collection(d, 'watch_list'), f.where('isAnime', '==', true), f.limit(1))).catch(() => null),
+    ]);
+    if (music && !music.empty) { const m = music.docs[0].data(); set('pv-music', `${String(m.trackName || 'a song').slice(0, 26)} · ${String(m.artistName || '').slice(0, 14)}`); }
+    if (books && !books.empty) set('pv-books', String(books.docs[0].data().title || 'a story').slice(0, 42));
+    if (anime && !anime.empty) set('pv-anime', String(anime.docs[0].data().title || 'a tale').slice(0, 42));
   } catch (e) {
-    ['pv-chat', 'pv-gallery', 'pv-moods', 'pv-garden', 'pv-cinema', 'pv-bucket', 'pv-calendar', 'pv-journal', 'pv-jar'].forEach((id) => {
+    ['pv-chat', 'pv-gallery', 'pv-moods', 'pv-garden', 'pv-cinema', 'pv-bucket', 'pv-calendar', 'pv-journal', 'pv-jar', 'pv-music', 'pv-books', 'pv-anime'].forEach((id) => {
       const n = el.querySelector('#' + id);
       if (n) n.textContent = 'open to refresh';
     });

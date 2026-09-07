@@ -16,6 +16,9 @@ const routes = {
   '/calendar': () => import('./calendar.js').then((m) => ({ view: m.Calendar })),
   '/journal': () => import('./journal.js').then((m) => ({ view: m.Journal })),
   '/jar': () => import('./jar.js').then((m) => ({ view: m.Jar })),
+  '/jukebox': () => import('./jukebox.js').then((m) => ({ view: m.Jukebox })),
+  '/books': () => import('./books.js').then((m) => ({ view: m.Books })),
+  '/anime': () => import('./anime.js').then((m) => ({ view: m.Anime })),
 };
 
 function nav(hash) {
