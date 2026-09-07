@@ -19,7 +19,9 @@ import 'sse_streamer.dart';
 class AIService extends ChangeNotifier {
   final IAIMemoryRepository _memoryRepo;
   final IAIConversationRepository _conversationRepo;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  // Resolved lazily so AIService can be built with fake repos (tests)
+  // without initializing Firebase.
+  FirebaseAuth get _auth => FirebaseAuth.instance;
 
   AIService({
     IAIMemoryRepository? memoryRepo,
@@ -733,6 +735,13 @@ class AIService extends ChangeNotifier {
   Future<List<AISession>> listSessions({int limit = 50}) =>
       _conversationRepo.listSessions(limit: limit);
 
+  /// Realtime stream of archived sessions, newest first.
+  ///
+  /// Powers the sidebar's auto-refresh: any archive or delete pushes a
+  /// fresh list without a manual reload.
+  Stream<List<AISession>> watchSessions({int limit = 50}) =>
+      _conversationRepo.watchSessions(limit: limit);
+
   /// Switch to a specific archived session, loading its messages.
   Future<void> switchSession(String sessionId) async {
     await _conversationRepo.loadSession(sessionId);
@@ -745,8 +754,10 @@ class AIService extends ChangeNotifier {
   }
 
   /// Delete a specific archived session.
-  Future<void> deleteSession(String sessionId) =>
-      _conversationRepo.deleteSession(sessionId);
+  Future<void> deleteSession(String sessionId) async {
+    await _conversationRepo.deleteSession(sessionId);
+    notifyListeners();
+  }
 
   /// Archive the current conversation as a new session.
   Future<void> archiveCurrentSession() async {
