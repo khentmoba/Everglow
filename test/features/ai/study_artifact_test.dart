@@ -131,4 +131,104 @@ A: Yes.
       expect(parseStudyArtifacts(text).hasFlashcards, isFalse);
     });
   });
+
+  group('html-artifact blocks (preview canvas)', () {
+    test('parses title from <title> tag', () {
+      const text = '''
+Made you chess! Tap Preview to play.
+
+```html-artifact
+<!DOCTYPE html><html><head><title>Chess</title></head><body>game here with enough characters to look real....................</body></html>
+```''';
+      final artifacts = parseStudyArtifacts(text);
+      expect(artifacts.hasHtml, isTrue);
+      expect(artifacts.html.first.title, 'Chess');
+      expect(artifacts.html.first.html, contains('<!DOCTYPE html>'));
+    });
+
+    test('falls back to Preview without a title', () {
+      const text = '''
+```html-artifact
+<!DOCTYPE html><html><body>just a tiny page with enough text padding....................</body></html>
+```''';
+      final artifacts = parseStudyArtifacts(text);
+      expect(artifacts.hasHtml, isTrue);
+      expect(artifacts.html.first.title, 'Preview');
+    });
+
+    test('drops blocks that are not pages', () {
+      const text = '```html-artifact\njust some words, not a page at all\n```';
+      expect(parseStudyArtifacts(text).hasHtml, isFalse);
+    });
+
+    test('stripArtifactBlocks removes the block but keeps code fences', () {
+      const text = '''
+Here is your game!
+```html-artifact
+<!DOCTYPE html><html><body>enough page text to count as a page....................</body></html>
+```
+```dart
+void main() {}
+```''';
+      final stripped = stripArtifactBlocks(text);
+      expect(stripped, contains('Here is your game!'));
+      expect(stripped, contains('void main()'));
+      expect(stripped, isNot(contains('html-artifact')));
+      expect(stripped, isNot(contains('DOCTYPE')));
+    });
+
+    test('stripStreamingArtifacts cuts an unterminated html fence', () {
+      const draft = 'Making chess!\n```html-artifact\n<!DOCTYPE html><html>';
+      expect(stripStreamingArtifacts(draft), 'Making chess!');
+    });
+  });
+
+  group('lenient parsing (model variations)', () {
+    test('parses quiz block wrapped in prose with trailing commas', () {
+      const text = '''
+Here you go! 💕
+```quiz-json
+Here is the JSON:
+[{"q":"What is 2+2?","options":["3","4",],"answer":1,"why":"Basic math.",},]
+Hope it helps!
+```''';
+      final artifacts = parseStudyArtifacts(text);
+      expect(artifacts.hasQuiz, isTrue);
+      expect(artifacts.quiz.first.question, 'What is 2+2?');
+      expect(artifacts.quiz.first.answerIndex, 1);
+      expect(stripArtifactBlocks(text), isNot(contains('"q"')));
+    });
+
+    test('accepts alias fence names and same-line bodies', () {
+      const text = '```quiz_json [{"q":"Q?","options":["a","b"],"answer":0}]```';
+      expect(parseStudyArtifacts(text).hasQuiz, isTrue);
+      const cards = '```flashcards [{"front":"f","back":"b"}]```';
+      expect(parseStudyArtifacts(cards).hasFlashcards, isTrue);
+    });
+
+    test('wraps HTML fragments into a runnable page', () {
+      const text = '''
+```html-artifact
+<!-- title: Tiny Chess -->
+<div id="board"></div><script>console.log("play")</script>
+```''';
+      final artifacts = parseStudyArtifacts(text);
+      expect(artifacts.hasHtml, isTrue);
+      expect(artifacts.html.first.title, 'Tiny Chess');
+      expect(artifacts.html.first.html, contains('<!DOCTYPE html>'));
+      expect(artifacts.html.first.html, contains('id="board"'));
+    });
+
+    test('accepts plain html fence name', () {
+      const text = '```html\n<div>hello game world, play me now please</div>\n```';
+      final artifacts = parseStudyArtifacts(text);
+      expect(artifacts.hasHtml, isTrue);
+      expect(artifacts.html.first.html, contains('<!DOCTYPE html>'));
+    });
+
+    test('still drops prose-only html blocks', () {
+      const text = '```html-artifact\njust some words, not a page at all\n```';
+      expect(parseStudyArtifacts(text).hasHtml, isFalse);
+    });
+  });
 }
