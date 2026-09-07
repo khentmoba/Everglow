@@ -2,10 +2,27 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../models/user_mood.dart';
 
-class MoodService {
+class MoodSource {
+  Future<void> submitMood({
+    required String username,
+    required int score,
+    required String emoji,
+  }) =>
+      throw UnimplementedError();
+
+  Future<bool> hasSubmittedToday(String username) => throw UnimplementedError();
+
+  Future<UserMood?> getLatestMood(String username) => throw UnimplementedError();
+
+  Stream<UserMood?> watchLatestMood(String username) =>
+      throw UnimplementedError();
+}
+
+class MoodService implements MoodSource {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   /// Submits a new mood entry.
+  @override
   Future<void> submitMood({
     required String username,
     required int score,
@@ -20,6 +37,7 @@ class MoodService {
   }
 
   /// Checks if the user has already submitted a mood today.
+  @override
   Future<bool> hasSubmittedToday(String username) async {
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
@@ -36,6 +54,7 @@ class MoodService {
 
   /// One-shot fetch of the latest mood (cheaper than opening a stream
   /// listener for fire-and-forget reads like the Guardian's mentions).
+  @override
   Future<UserMood?> getLatestMood(String username) async {
     try {
       final snapshot = await _db
@@ -53,6 +72,7 @@ class MoodService {
   }
 
   /// Streams the latest mood for a specific user.
+  @override
   Stream<UserMood?> watchLatestMood(String username) {
     return withFirestoreTimeout(
       _db
