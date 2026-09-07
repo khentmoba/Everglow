@@ -88,12 +88,17 @@ class _MessageBubbleState extends State<_MessageBubble> {
     // so Clair never sees raw JSON — she sees warm text + one big tappable
     // button (StudyArtifactEntry) that opens the interactive sheet
     // (Q1 → answer → Next → Q2 … with score, flippable cards).
+    // The visible question list collapses too, unless she explicitly asked
+    // to see it inline (keepFullText) — an explicit ask always wins.
     // Mid-stream, cut an unterminated fence too so half-JSON never flashes.
     final cleanBubbleText = widget.isUser
         ? bubbleText
         : widget.isStreaming
             ? stripStreamingArtifacts(bubbleText)
-            : stripArtifactBlocks(bubbleText);
+            : stripArtifactBlocks(
+                bubbleText,
+                collapseVisibleLists: !widget.keepFullText,
+              );
     final artifacts = widget.isUser
         ? const StudyArtifacts()
         : parseStudyArtifacts(bubbleText);

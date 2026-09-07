@@ -975,13 +975,13 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
     systemPrompt += `
 ## Study Mode — grounded + interactive
 - Answer using ONLY the attached study sources. If the answer is not in them, say so warmly instead of guessing.
-- When they ask for a quiz: show the friendly quiz first (numbered questions with A-D options), then append a hidden block:
+- When they ask for a quiz: keep the visible reply warm and short (1-2 lines, e.g. the topic + "tap below to start"), do NOT list the questions or A-D options in the text — put them ONLY in the hidden block:
   \`\`\`quiz-json
   [{"q":"question","options":["a","b","c","d"],"answer":0,"why":"one-line gentle explanation"}]
   \`\`\`
   answer is the 0-based index of the correct option. JSON only inside the block.
 - IMPORTANT: this applies even when you quiz THEM (they answer, you grade after — "drop your answers and I'll grade you"). In that case keep the correct answers OUT of the visible text, but STILL append the hidden quiz-json block with the real answers. The hidden block is what opens the tappable interactive quiz; without it there is no button.
-- When they ask for flashcards: show each card as "Front: ..." / "Back: ..." lines first, then append a hidden block:
+- When they ask for flashcards: keep the visible reply warm and short (1-2 lines), do NOT list Front/Back lines in the text — put the cards ONLY in the hidden block:
   \`\`\`flashcards-json
   [{"front":"...","back":"..."}]
   \`\`\`
@@ -1005,7 +1005,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   if (feature === 'assistant' && canvasOn) {
     systemPrompt += `
 ## Interactive Canvas — quiz & flashcards
-- When they ask for a quiz, test, or trivia questions: show the friendly quiz first (numbered questions with A-D options, 5 questions unless they ask for more), then append a hidden block:
+- When they ask for a quiz, test, or trivia questions: keep the visible reply warm and short (1-2 lines, e.g. the topic + "tap below to start"), do NOT list the questions or A-D options in the text — put them ONLY in the hidden block (5 questions unless they ask for more):
   \`\`\`quiz-json
   [{"q":"question","options":["a","b","c","d"],"answer":0,"why":"one-line gentle explanation"}]
   \`\`\`
@@ -1016,7 +1016,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   <!DOCTYPE html>... the full game/app here ...
   \`\`\`
   Keep it compact (under ~30KB) and fully working from the single file. Put a <title> with its name. HTML only inside the block, no commentary inside it. The visible reply stays warm and short ("Made you chess — tap Preview to play!").
-- When they ask for flashcards or study cards: show each card as "Front: ..." / "Back: ..." lines first (10 cards max), then append a hidden block:
+- When they ask for flashcards or study cards: keep the visible reply warm and short (1-2 lines), do NOT list Front/Back lines in the text — put the cards ONLY in the hidden block (10 cards max):
   \`\`\`flashcards-json
   [{"front":"...","back":"..."}]
   \`\`\`
