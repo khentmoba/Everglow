@@ -30,6 +30,50 @@ void main() {
       expect(cleanLastfmImageUrl(null), isNull);
       expect(cleanLastfmImageUrl(''), isNull);
     });
+
+    test('pickLastfmImageUrl prefers extralarge over smaller sizes', () {
+      expect(
+        pickLastfmImageUrl([
+          {'#text': 'url_small', 'size': 'small'},
+          {'#text': 'url_xl', 'size': 'extralarge'},
+        ]),
+        'url_xl',
+      );
+    });
+
+    test('pickLastfmImageUrl falls back when extralarge is empty', () {
+      expect(
+        pickLastfmImageUrl([
+          {'#text': '', 'size': 'small'},
+          {'#text': '', 'size': 'extralarge'},
+          {'#text': 'url_mega', 'size': 'mega'},
+        ]),
+        'url_mega',
+      );
+    });
+
+    test('pickLastfmImageUrl skips placeholders and returns null when dry', () {
+      expect(
+        pickLastfmImageUrl([
+          {
+            '#text':
+                'https://lastfm-img.freetls.fastly.net/i/u/300x300/'
+                '2a96cbd8b46e442fc41c2b86b821562f.png',
+            'size': 'extralarge',
+          },
+          {'#text': 'url_large', 'size': 'large'},
+        ]),
+        'url_large',
+      );
+      expect(
+        pickLastfmImageUrl([
+          {'#text': '', 'size': 'extralarge'},
+        ]),
+        isNull,
+      );
+      expect(pickLastfmImageUrl(null), isNull);
+      expect(pickLastfmImageUrl([]), isNull);
+    });
   });
 
   group('TopMusicTrack Model Tests', () {
@@ -72,6 +116,22 @@ void main() {
       });
 
       expect(track.imageUrl, isNull);
+    });
+
+    test('fromJson uses a smaller cover when extralarge is blank', () {
+      final track = TopMusicTrack.fromJson({
+        'name': 'Fine Line',
+        'playcount': '85',
+        'artist': {'name': 'Harry Styles'},
+        'image': [
+          {'#text': '', 'size': 'small'},
+          {'#text': '', 'size': 'extralarge'},
+          {'#text': 'url_mega', 'size': 'mega'},
+        ],
+        '@attr': {'rank': '5'},
+      });
+
+      expect(track.imageUrl, 'url_mega');
     });
 
     test('fromJson falls back gracefully when fields are missing', () {
