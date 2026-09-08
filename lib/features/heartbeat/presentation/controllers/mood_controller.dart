@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../../../core/utils/logger.dart';
 import '../../data/services/mood_service.dart';
 
 class MoodController extends ChangeNotifier {
@@ -28,8 +29,15 @@ class MoodController extends ChangeNotifier {
   }
 
   Future<void> checkTodayStatus(String username) async {
-    _hasSubmittedToday = await _service.hasSubmittedToday(username);
-    notifyListeners();
+    try {
+      _hasSubmittedToday = await _service.hasSubmittedToday(username);
+      notifyListeners();
+    } catch (e) {
+      // A failed check (offline, missing index) must keep the previous
+      // value: flipping to "not submitted" would nag Clair for a mood she
+      // already gave, and the throw would surface as an unhandled error.
+      Logger.e('Mood checkTodayStatus failed', error: e);
+    }
   }
 
   Future<void> submitMood({

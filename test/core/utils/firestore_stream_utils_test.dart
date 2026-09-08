@@ -166,6 +166,41 @@ void main() {
       expect(calls, 2);
     });
 
+    test('surfaces permanent errors at once without re-attaching', () async {
+      var calls = 0;
+      Stream<List<int>> factory() {
+        calls++;
+        return Stream<List<int>>.error(
+          FirebaseException(
+            plugin: 'cloud_firestore',
+            code: 'failed-precondition',
+          ),
+        );
+      }
+
+      final results = <List<int>>[];
+      final errDone = Completer<Object>();
+      final subscription = withFirestoreTimeout(
+        factory(),
+        resubscribe: factory,
+        duration: const Duration(seconds: 2),
+        retryDelay: const Duration(milliseconds: 50),
+        maxAttempts: 3,
+        label: 'permanent',
+      ).listen(results.add, onError: errDone.complete);
+      // Same note as above: do not chain .asFuture() here.
+      final seenError = await errDone.future.timeout(
+        const Duration(seconds: 5),
+      );
+      await subscription.cancel();
+
+      expect(results, isEmpty);
+      expect(seenError, isA<FirebaseException>());
+      // A missing index fails identically on every attempt: one call, then
+      // the actionable error, instead of maxAttempts slow re-attaches.
+      expect(calls, 1);
+    });
+
     test('does not re-attach after the listener unsubscribes', () async {
       var calls = 0;
       Stream<List<int>> factory() {

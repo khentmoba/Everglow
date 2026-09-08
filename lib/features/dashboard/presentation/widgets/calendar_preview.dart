@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -16,91 +18,191 @@ class CalendarPreview extends StatefulWidget {
 
 class _CalendarPreviewState extends State<CalendarPreview> {
   late final CalendarService _service;
-  late Stream<List<CalendarEvent>> _upcoming;
+  StreamSubscription<List<CalendarEvent>>? _sub;
+  Timer? _retryTimer;
+  List<CalendarEvent>? _events;
+  Object? _error;
+  bool _isLoading = true;
+  int _retryCount = 0;
+  static const int _maxRetries = 3;
 
   @override
   void initState() {
     super.initState();
-    _service = CalendarService();
     // Preview shares the 60-day window with Coming Up (which renders 3
     // cards): one shared query shape instead of two overlapping
     // listeners (30d + 60d) doubling rule evals on every dashboard visit.
-    _upcoming = _service.getUpcomingEvents(days: 60);
+    // One subscription for the widget lifetime so dashboard rebuilds don't
+    // resubscribe and restart the Firestore listener on every frame.
+    _service = CalendarService();
+    _subscribe();
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    _retryTimer?.cancel();
+    super.dispose();
+  }
+
+  void _subscribe() {
+    _sub?.cancel();
+    _retryTimer?.cancel();
+    _sub = _service.getUpcomingEvents(days: 60).listen(
+      (data) {
+        if (!mounted) return;
+        _retryCount = 0;
+        setState(() {
+          _events = data;
+          _error = null;
+          _isLoading = false;
+        });
+      },
+      onError: (Object error) {
+        if (!mounted) return;
+        _scheduleSilentRetry(error);
+      },
+      onDone: () {
+        // withFirestoreTimeout closes the stream without an error when the
+        // first snapshot never arrives (cold Firestore WebChannel on first
+        // load). Retry silently — the loading row stays up, so Clair never
+        // sees a spurious "could not load" that needs a manual tap. The
+        // error row only appears after the retries are exhausted.
+        if (!mounted) return;
+        if (_isLoading && _events == null) _scheduleSilentRetry(_error);
+      },
+    );
+  }
+
+  void _scheduleSilentRetry(Object? error) {
+    if (!mounted) return;
+    if (_retryCount < _maxRetries) {
+      _retryCount++;
+      _error = error ?? _error;
+      _retryTimer = Timer(Duration(seconds: 1 + _retryCount), () {
+        if (mounted) _subscribe();
+      });
+    } else {
+      setState(() {
+        _isLoading = false;
+        _error = error ?? _error;
+      });
+    }
   }
 
   void _retry() {
     setState(() {
-      _upcoming = _service.getUpcomingEvents(days: 60);
+      _isLoading = true;
+      _error = null;
+      _retryCount = 0;
     });
+    _subscribe();
   }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<CalendarEvent>>(
-      stream: _upcoming,
-      builder: (context, snapshot) {
-        // Error (or timeout-closed with no data) must never masquerade as
-        // "empty" — the calendar screen would still show dates on tap.
-        if (snapshot.hasError ||
-            (!snapshot.hasData &&
-                snapshot.connectionState == ConnectionState.done)) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: FeatureSection(
-              icon: Icons.calendar_month_rounded,
-              hue: AppColors.warmAmber,
-              title: 'Upcoming Dates',
-              subtitle: 'could not load calendar',
-              trailing: const SectionChevron(hue: AppColors.warmAmber),
-              onTap: () => context.push('/calendar'),
-              child: GestureDetector(
-                onTap: _retry,
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.refresh_rounded,
-                      color: AppColors.warmAmber,
-                      size: 18,
+    final events = _events;
+    // While loading — including silent background retries after a slow
+    // first snapshot — keep the loading row up so first load never flashes
+    // "could not load calendar". The error row only appears after all
+    // retries are exhausted, and the manual tap stays as a last resort.
+    // Error (or timeout-closed with no data) must never masquerade as
+    // "empty" — the calendar screen would still show dates on tap.
+    if (!_isLoading && (_error != null || events == null)) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: FeatureSection(
+          icon: Icons.calendar_month_rounded,
+          hue: AppColors.warmAmber,
+          title: 'Upcoming Dates',
+          subtitle: 'could not load calendar',
+          trailing: const SectionChevron(hue: AppColors.warmAmber),
+          onTap: () => context.push('/calendar'),
+          child: GestureDetector(
+            onTap: _retry,
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.refresh_rounded,
+                  color: AppColors.warmAmber,
+                  size: 18,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '${firestoreErrorHint(_error)} — tap here to retry.',
+                    style: AppTypography.outfitWhite.copyWith(
+                      fontSize: 12,
+                      color: AppColors.petalWhite.withValues(alpha: 0.6),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        '${firestoreErrorHint(snapshot.error)} — tap here to retry.',
-                        style: AppTypography.outfitWhite.copyWith(
-                          fontSize: 12,
-                          color: AppColors.petalWhite.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Waiting for the first snapshot is loading, not empty.
+    if (events == null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: FeatureSection(
+          icon: Icons.calendar_month_rounded,
+          hue: AppColors.warmAmber,
+          title: 'Upcoming Dates',
+          subtitle: 'loading dates…',
+          trailing: const SectionChevron(hue: AppColors.warmAmber),
+          onTap: () => context.push('/calendar'),
+          child: Row(
+            children: [
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Loading upcoming dates…',
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 12,
+                    color: AppColors.petalWhite.withValues(alpha: 0.6),
+                  ),
                 ),
               ),
-            ),
-          );
-        }
+            ],
+          ),
+        ),
+      );
+    }
 
-        // Waiting for the first snapshot is loading, not empty.
-        if (!snapshot.hasData) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: FeatureSection(
-              icon: Icons.calendar_month_rounded,
-              hue: AppColors.warmAmber,
-              title: 'Upcoming Dates',
-              subtitle: 'loading dates…',
-              trailing: const SectionChevron(hue: AppColors.warmAmber),
-              onTap: () => context.push('/calendar'),
-              child: Row(
+    final displayEvents = events;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: FeatureSection(
+        icon: Icons.calendar_month_rounded,
+        hue: AppColors.warmAmber,
+        title: 'Upcoming Dates',
+        subtitle: displayEvents.isEmpty
+            ? 'nothing on the calendar'
+            : 'next ${displayEvents.length} ${displayEvents.length == 1 ? 'date' : 'dates'}',
+        trailing: const SectionChevron(hue: AppColors.warmAmber),
+        onTap: () => context.push('/calendar'),
+        child: displayEvents.isEmpty
+            ? Row(
                 children: [
-                  const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                  const Icon(
+                    Icons.add_circle_outline_rounded,
+                    color: AppColors.warmAmber,
+                    size: 18,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Loading upcoming dates…',
+                      'Plan the next special day',
                       style: AppTypography.outfitWhite.copyWith(
                         fontSize: 12,
                         color: AppColors.petalWhite.withValues(alpha: 0.6),
@@ -108,123 +210,84 @@ class _CalendarPreviewState extends State<CalendarPreview> {
                     ),
                   ),
                 ],
-              ),
-            ),
-          );
-        }
+              )
+            : Column(
+                children: displayEvents.take(3).map((event) {
+                  final info =
+                      calendarEventTypeInfo[event.type] ?? ('gift', '');
+                  final dayDiff = event.date
+                      .difference(DateTime.now())
+                      .inDays;
+                  final timeLabel = dayDiff == 0
+                      ? 'Today'
+                      : dayDiff == 1
+                      ? 'Tomorrow'
+                      : 'In $dayDiff days';
 
-        final events = snapshot.data!;
-
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: FeatureSection(
-            icon: Icons.calendar_month_rounded,
-            hue: AppColors.warmAmber,
-            title: 'Upcoming Dates',
-            subtitle: events.isEmpty
-                ? 'nothing on the calendar'
-                : 'next ${events.length} ${events.length == 1 ? 'date' : 'dates'}',
-            trailing: const SectionChevron(hue: AppColors.warmAmber),
-            onTap: () => context.push('/calendar'),
-            child: events.isEmpty
-                ? Row(
-                    children: [
-                      const Icon(
-                        Icons.add_circle_outline_rounded,
-                        color: AppColors.warmAmber,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Plan the next special day',
-                          style: AppTypography.outfitWhite.copyWith(
-                            fontSize: 12,
-                            color: AppColors.petalWhite.withValues(alpha: 0.6),
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: AppColors.warmAmber.withValues(
+                              alpha: 0.12,
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: AppColors.warmAmber.withValues(
+                                alpha: 0.3,
+                              ),
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              info.$1,
+                              style: const TextStyle(fontSize: 15),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  )
-                : Column(
-                    children: events.take(3).map((event) {
-                      final info =
-                          calendarEventTypeInfo[event.type] ?? ('gift', '');
-                      final dayDiff = event.date
-                          .difference(DateTime.now())
-                          .inDays;
-                      final timeLabel = dayDiff == 0
-                          ? 'Today'
-                          : dayDiff == 1
-                          ? 'Tomorrow'
-                          : 'In $dayDiff days';
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 34,
-                              height: 34,
-                              decoration: BoxDecoration(
-                                color: AppColors.warmAmber.withValues(
-                                  alpha: 0.12,
-                                ),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: AppColors.warmAmber.withValues(
-                                    alpha: 0.3,
-                                  ),
-                                ),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  info.$1,
-                                  style: const TextStyle(fontSize: 15),
-                                ),
-                              ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            event.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.outfitWhite.copyWith(
+                              fontSize: 12,
+                              color: AppColors.petalWhite,
+                              fontWeight: FontWeight.w500,
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                event.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTypography.outfitWhite.copyWith(
-                                  fontSize: 12,
-                                  color: AppColors.petalWhite,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 9,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.warmAmber.withValues(
-                                  alpha: 0.14,
-                                ),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                timeLabel,
-                                style: AppTypography.outfitWhite.copyWith(
-                                  fontSize: 10,
-                                  color: AppColors.warmAmber,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                      );
-                    }).toList(),
-                  ),
-          ),
-        );
-      },
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.warmAmber.withValues(
+                              alpha: 0.14,
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            timeLabel,
+                            style: AppTypography.outfitWhite.copyWith(
+                              fontSize: 10,
+                              color: AppColors.warmAmber,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+      ),
     );
   }
 }

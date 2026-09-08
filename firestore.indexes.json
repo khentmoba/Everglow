@@ -29,6 +29,20 @@
       ]
     },
     {
+      "collectionGroup": "moods",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "username",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "presence",
       "queryScope": "COLLECTION",
       "fields": [
