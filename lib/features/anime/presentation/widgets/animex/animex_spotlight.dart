@@ -51,6 +51,18 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
       setState(() => _index = (_index + 1) % widget.items.length);
     });
   }
+  @override
+  void didUpdateWidget(covariant AnimeXSpotlight oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.items.length != oldWidget.items.length) {
+      if (widget.items.isEmpty) {
+        _index = 0;
+      } else {
+        _index = _index % widget.items.length;
+      }
+      _startTimer();
+    }
+  }
 
   @override
   void dispose() {
@@ -65,7 +77,8 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
       return _buildSkeleton();
     }
 
-    final active = items[_index % items.length];
+    final activeIndex = items.isEmpty ? 0 : _index % items.length;
+    final active = items[activeIndex];
     return Container(
       height: _heroHeight(context),
       clipBehavior: Clip.hardEdge,
@@ -74,7 +87,7 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
         fit: StackFit.expand,
         children: [
           for (var i = 0; i < items.length; i++)
-            _SlideLayer(item: items[i], visible: i == _index),
+            _SlideLayer(item: items[i], visible: i == activeIndex),
           // Top shade for header legibility, fading into the page bg at the
           // bottom so the hero melts into the ticker below.
           const DecoratedBox(
@@ -117,7 +130,7 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
                   child: _SlideContent(
                     item: active,
                     key: ValueKey(active.tmdbId),
-                    index: _index % items.length,
+                    index: activeIndex,
                     onWatch: widget.onWatch,
                     onMoreInfo: widget.onMoreInfo,
                     onTrailer: widget.onTrailer,
@@ -151,7 +164,7 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
                       children: [
                         for (var i = 0; i < items.length; i++)
                           _HeroDot(
-                            active: i == _index,
+                            active: i == activeIndex,
                             onTap: () {
                               setState(() => _index = i);
                               _startTimer();
@@ -171,11 +184,12 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
   double _heroHeight(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final isDesktop = size.width >= 768;
-    return isDesktop
+    final raw = isDesktop
         ? size.height - AnimeXTokens.headerHeight
         : size.height -
               AnimeXTokens.headerHeight -
               AnimeXTokens.mobileNavHeight;
+    return raw.clamp(320.0, double.infinity);
   }
 
   Widget _buildSkeleton() {
