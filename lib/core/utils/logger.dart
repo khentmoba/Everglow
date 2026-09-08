@@ -2,9 +2,12 @@ import 'package:flutter/foundation.dart';
 
 /// Minimal logger for production-safe debug output.
 ///
-/// Routes diagnostics through [debugPrint] in development and becomes a no-op
-/// in release web builds so runtime details are not exposed to the browser.
-/// Use the static shorthands in place of raw `print` calls.
+/// Debug/info/warning go through [debugPrint] in development and are a
+/// no-op in release web builds so runtime details are not exposed to the
+/// browser. Errors always print (even in release): Firestore failure
+/// lines are the only trace distinguishing timeout vs permission-denied
+/// vs offline in a production bug report. Use the static shorthands in
+/// place of raw `print` calls.
 class Logger {
   Logger._();
 
@@ -22,8 +25,9 @@ class Logger {
   /// Warning-level.
   static void w(String message) => _log(message);
 
-  /// Error-level with optional exception.
+  /// Error-level with optional exception. Always emitted, including in
+  /// release builds, so production diagnostics survive.
   static void e(String message, {Object? error, StackTrace? stackTrace}) {
-    _log('$message${error != null ? '\n$error' : ''}');
+    debugPrint('$message${error != null ? '\n$error' : ''}');
   }
 }

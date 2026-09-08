@@ -424,7 +424,11 @@ class _PhotoCardState extends State<_PhotoCard> {
               fit: StackFit.expand,
               children: [
                 Image.network(
-                  GalleryService.displayUrl(photo.imageUrl),
+                  GalleryService.displayUrl(
+                    photo.thumbUrl?.isNotEmpty == true
+                        ? photo.thumbUrl!
+                        : photo.imageUrl,
+                  ),
                   fit: BoxFit.cover,
                   cacheWidth: 440,
                   loadingBuilder: (context, child, progress) {

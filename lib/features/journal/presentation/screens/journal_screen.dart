@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/services/auth_service.dart';
@@ -215,15 +216,15 @@ class _JournalScreenState extends State<JournalScreen> {
                     ),
                     builder: (context, all) {
                       final entries = _visibleEntries(all);
-                      return ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                        itemCount: entries.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 12),
-                        itemBuilder: (context, idx) => JournalEntryCard(
-                          entry: entries[idx],
-                          onTap: () =>
-                              _showEntryDetail(context, entries[idx], auth),
-                        ),
+                      return _PaginatedJournalList(
+                        firstPage: entries,
+                        isFiltered:
+                            _categoryFilter != null ||
+                            _authorFilter != null ||
+                            _pinnedOnly ||
+                            _lockedOnly,
+                        onTap: (entry) =>
+                            _showEntryDetail(context, entry, auth),
                       );
                     },
                   ),
@@ -351,7 +352,7 @@ class _JournalScreenState extends State<JournalScreen> {
       builder: (context, snap) {
         final entries = snap.data ?? [];
         final total = entries.length;
-        final words = entries.fold<int>(0, (sum, e) => sum + e.wordCount);
+        final words = entries.fold<int>(0, (total, e) => total + e.wordCount);
         final pinned = entries.where((e) => e.isPinned).length;
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -783,6 +784,112 @@ class _JournalScreenState extends State<JournalScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Journal list with cursor pagination past the live first page.
+///
+/// The realtime [JournalService.watchAll] stream covers the newest 100
+/// entries. When it arrives full (exactly 100, unfiltered), this widget
+/// appends a "Load older entries" affordance that pages with
+/// [JournalService.fetchPage] via [startAfterDocument] cursors.
+class _PaginatedJournalList extends StatefulWidget {
+  const _PaginatedJournalList({
+    required this.firstPage,
+    required this.isFiltered,
+    required this.onTap,
+  });
+
+  final List<JournalEntry> firstPage;
+  final bool isFiltered;
+  final void Function(JournalEntry entry) onTap;
+
+  @override
+  State<_PaginatedJournalList> createState() => _PaginatedJournalListState();
+}
+
+class _PaginatedJournalListState extends State<_PaginatedJournalList> {
+  final List<JournalEntry> _older = [];
+  DocumentSnapshot? _cursor;
+  bool _loadingMore = false;
+  bool _exhausted = false;
+  Object? _error;
+
+  static const int _firstPageSize = 100;
+
+  bool get _canPage =>
+      !widget.isFiltered &&
+      widget.firstPage.length >= _firstPageSize &&
+      !_exhausted;
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_canPage) return;
+    setState(() {
+      _loadingMore = true;
+      _error = null;
+    });
+    try {
+      final page = await JournalService().fetchPage(
+        cursor: _cursor,
+        limit: 20,
+      );
+      if (!mounted) return;
+      setState(() {
+        _older.addAll(page.items);
+        _cursor = page.nextCursor;
+        _exhausted = !page.hasMore;
+        _loadingMore = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingMore = false;
+        _error = e;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = [...widget.firstPage, ..._older];
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+      itemCount: entries.length + (_canPage ? 1 : 0),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      itemBuilder: (context, idx) {
+        if (idx >= entries.length) {
+          if (_error != null) {
+            return EverglowEmptyState(
+              icon: Icons.menu_book_outlined,
+              title: 'Could not load older entries',
+              subtitle: 'Try again',
+              ctaLabel: 'Retry',
+              onCta: _loadMore,
+            );
+          }
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Center(
+              child: _loadingMore
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : TextButton(
+                      onPressed: _loadMore,
+                      child: const Text('Load older entries'),
+                    ),
+            ),
+          );
+        }
+        final entry = entries[idx];
+        return JournalEntryCard(
+          entry: entry,
+          onTap: () => widget.onTap(entry),
+        );
+      },
     );
   }
 }

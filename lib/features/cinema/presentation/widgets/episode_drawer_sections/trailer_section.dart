@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../shared/utils/responsive_image.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../trailer_player.dart';
 import 'drawer_helpers.dart';
@@ -52,7 +53,7 @@ class TrailerSection extends StatelessWidget {
           width: double.infinity,
           child: isPlayingTrailer && trailerKey != null
               ? _buildTrailerPlayer()
-              : _buildBackdropImage(),
+              : _buildBackdropImage(context),
         ),
 
         // Cinematic gradients (wrapped in IgnorePointer so the Watch Trailer
@@ -272,7 +273,7 @@ class TrailerSection extends StatelessWidget {
     );
   }
 
-  Widget _buildBackdropImage() {
+  Widget _buildBackdropImage(BuildContext context) {
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -280,7 +281,7 @@ class TrailerSection extends StatelessWidget {
             ? Image.network(
                 backdropUrl,
                 fit: BoxFit.cover,
-                cacheWidth: 900,
+                cacheWidth: heroCacheWidth(context),
                 loadingBuilder: (context, child, progress) {
                   if (progress == null) return child;
                   return _buildBackdropPlaceholder(isLoading: true);

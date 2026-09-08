@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
+import '../../../../shared/utils/firestore_pagination.dart';
 import '../models/journal_entry.dart';
 
 /// Journal service — Memos + DailyTxT inspired.
@@ -34,6 +35,22 @@ class JournalService {
       resubscribe: subscribe,
       label: 'journal-all',
       duration: const Duration(seconds: 8),
+    );
+  }
+
+  /// Cursor-paginated older entries. The live first page stays on
+  /// [watchAll]; call this with the previous page's [nextCursor] to
+  /// scroll past entry 100 instead of hard-truncating the journal.
+  Future<FirestorePage<JournalEntry>> fetchPage({
+    DocumentSnapshot? cursor,
+    int limit = 20,
+  }) {
+    return fetchFirestorePage(
+      collection: _db.collection(_collection),
+      orderBy: 'createdAt',
+      cursor: cursor,
+      limit: limit,
+      fromDoc: JournalEntry.fromFirestore,
     );
   }
 

@@ -942,8 +942,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     try {
       final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
       if (idToken == null || idToken.isEmpty) {
-        // ignore: avoid_print
-        print('[EpisodeDrawer] Discord share failed: no ID token');
+        Logger.e('[EpisodeDrawer] Discord share failed: no ID token');
         if (mounted) _showSnack('Discord share failed — cinema still works');
         return;
       }
@@ -970,16 +969,13 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
       if (ok) {
         _showSnack('Shared to #watch-party');
       } else {
-        // ignore: avoid_print
-        print(
+        Logger.e(
           '[EpisodeDrawer] Discord share failed for "${widget.item.title}"',
         );
         _showSnack('Discord share failed — cinema still works');
       }
     } catch (e) {
-      // ignore: avoid_print
-      print('[EpisodeDrawer] Discord share failed: $e');
-      debugPrint('[EpisodeDrawer] Discord share failed: $e');
+      Logger.e('[EpisodeDrawer] Discord share failed', error: e);
       if (mounted) _showSnack('Discord share failed — cinema still works');
     } finally {
       if (mounted) setState(() => _isSharingDiscord = false);

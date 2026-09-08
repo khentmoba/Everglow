@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -140,65 +138,49 @@ class _AnimeHeader extends StatefulWidget {
 class _AnimeHeaderState extends State<_AnimeHeader> {
   final TMDBService _service = TMDBService();
   List<MediaItem> _items = [];
-  StreamSubscription<List<MediaItem>>? _streamSub;
+  Future<List<MediaItem>>? _future;
 
   @override
   void initState() {
     super.initState();
-    _subscribe();
+    _load();
   }
 
   @override
   void didUpdateWidget(covariant _AnimeHeader oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.userName != widget.userName) {
-      _streamSub?.cancel();
       _items = [];
-      _subscribe();
+      _load();
     }
   }
 
-  int _retryCount = 0;
-
-  void _subscribe() {
+  void _load() {
     if (widget.userName.isEmpty) {
+      _future = null;
       if (mounted) setState(() => _items = []);
       return;
     }
-    _streamSub?.cancel();
-    _streamSub = _service.getAnimeWatchListStream(widget.userName).listen(
-      (items) {
-        _retryCount = 0;
-        // Count both watching and finished so the header never reads
-        // "0 titles" while a watching-now row is populated.
-        final visible = items
-            .where((i) => i.isWatched || i.isCurrentlyWatching)
-            .toList();
-        visible.sort((a, b) => b.addedAt.compareTo(a.addedAt));
-        if (!mounted) return;
-        setState(() => _items = visible);
-      },
-      onError: (Object e) {
-        // ignore: avoid_print
-        print(
-          '[AnimePreview/header:${widget.userName}] anime stream error: $e',
-        );
-        if (!mounted) return;
-        if (_retryCount < 3) {
-          _retryCount++;
-          Future.delayed(Duration(seconds: 1 + _retryCount), () {
-            if (mounted) _subscribe();
-          });
-        } else {
-          setState(() => _items = []);
-        }
-      },
-    );
+    final future = _service.getPreviewItems(widget.userName);
+    _future = future;
+    future.then((items) {
+      if (!mounted || _future != future) return;
+      // Count both watching and finished so the header never reads
+      // "0 titles" while a watching-now row is populated.
+      final visible = items
+          .where((i) => i.isAnime && (i.isWatched || i.isCurrentlyWatching))
+          .toList();
+      visible.sort((a, b) => b.addedAt.compareTo(a.addedAt));
+      setState(() => _items = visible);
+    }).catchError((Object e) {
+      if (!mounted || _future != future) return;
+      setState(() => _items = []);
+    });
   }
 
   @override
   void dispose() {
-    _streamSub?.cancel();
+    _future = null;
     super.dispose();
   }
 
@@ -233,73 +215,59 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
   List<MediaItem> _items = [];
   bool _hasLoaded = false;
   bool _loadError = false;
-  StreamSubscription<List<MediaItem>>? _streamSub;
+  Future<List<MediaItem>>? _future;
 
   @override
   void initState() {
     super.initState();
-    _subscribe();
+    _load();
   }
 
   @override
   void didUpdateWidget(covariant _AnimeWatchingShelf oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.userName != widget.userName) {
-      _streamSub?.cancel();
       _items = [];
       _hasLoaded = false;
       _loadError = false;
-      _subscribe();
+      _load();
     }
   }
 
-  int _retryCount = 0;
-
-  void _subscribe() {
+  void _load() {
     if (widget.userName.isEmpty) {
+      _future = null;
       if (mounted) {
         setState(() => _hasLoaded = true);
       }
       return;
     }
-    _streamSub?.cancel();
-    _streamSub = _service.getCurrentlyWatchingAnimeStream(widget.userName).listen(
-      (items) {
-        _retryCount = 0;
-        // Already anime+watching filtered by the service; sort by most recent progress.
-        final sorted = List<MediaItem>.from(items)
-          ..sort((a, b) {
-            final aTime = a.progressUpdatedAt ?? a.addedAt;
-            final bTime = b.progressUpdatedAt ?? b.addedAt;
-            return bTime.compareTo(aTime);
-          });
-        if (!mounted) return;
-        setState(() {
-          _items = sorted;
-          _hasLoaded = true;
-          _loadError = false;
+    final future = _service.getPreviewItems(widget.userName);
+    _future = future;
+    future.then((items) {
+      if (!mounted || _future != future) return;
+      // Already anime+watching filtered here; sort by most recent progress.
+      final sorted = items
+          .where((i) => i.isAnime && i.isCurrentlyWatching)
+          .toList()
+        ..sort((a, b) {
+          final aTime = a.progressUpdatedAt ?? a.addedAt;
+          final bTime = b.progressUpdatedAt ?? b.addedAt;
+          return bTime.compareTo(aTime);
         });
-        _backfillPosters(sorted);
-      },
-      onError: (Object e) {
-        // ignore: avoid_print
-        print(
-          '[AnimePreview/watching:${widget.userName}] anime stream error: $e',
-        );
-        if (!mounted) return;
-        if (_retryCount < 3) {
-          _retryCount++;
-          Future.delayed(Duration(seconds: 1 + _retryCount), () {
-            if (mounted) _subscribe();
-          });
-        } else {
-          setState(() {
-            _hasLoaded = true;
-            _loadError = true;
-          });
-        }
-      },
-    );
+      setState(() {
+        _items = sorted;
+        _hasLoaded = true;
+        _loadError = false;
+      });
+      _backfillPosters(sorted);
+    }).catchError((Object e) {
+      if (!mounted || _future != future) return;
+      setState(() {
+        _hasLoaded = true;
+        _loadError = true;
+      });
+    });
   }
 
   Future<void> _backfillPosters(List<MediaItem> items) async {
@@ -312,7 +280,7 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
 
   @override
   void dispose() {
-    _streamSub?.cancel();
+    _future = null;
     super.dispose();
   }
 
@@ -427,72 +395,56 @@ class _AnimeShelfState extends State<_AnimeShelf> {
   List<MediaItem> _items = [];
   bool _hasLoaded = false;
   bool _loadError = false;
-  StreamSubscription<List<MediaItem>>? _streamSub;
+  Future<List<MediaItem>>? _future;
 
   @override
   void initState() {
     super.initState();
-    _subscribe();
+    _load();
   }
 
   @override
   void didUpdateWidget(covariant _AnimeShelf oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.userName != widget.userName) {
-      _streamSub?.cancel();
       _items = [];
       _hasLoaded = false;
       _loadError = false;
-      _subscribe();
+      _load();
     }
   }
 
-  int _retryCount = 0;
-
-  void _subscribe() {
+  void _load() {
     if (widget.userName.isEmpty) {
+      _future = null;
       if (mounted) {
         setState(() => _hasLoaded = true);
       }
       return;
     }
-    _streamSub?.cancel();
-    _streamSub = _service.getAnimeWatchListStream(widget.userName).listen(
-      (items) {
-        _retryCount = 0;
-        final watched = items.watched;
-        watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
-        if (!mounted) return;
-        setState(() {
-          _items = watched;
-          _hasLoaded = true;
-          _loadError = false;
-        });
-      },
-      onError: (Object e) {
-        // ignore: avoid_print
-        print(
-          '[AnimePreview/finished:${widget.userName}] anime stream error: $e',
-        );
-        if (!mounted) return;
-        if (_retryCount < 3) {
-          _retryCount++;
-          Future.delayed(Duration(seconds: 1 + _retryCount), () {
-            if (mounted) _subscribe();
-          });
-        } else {
-          setState(() {
-            _hasLoaded = true;
-            _loadError = true;
-          });
-        }
-      },
-    );
+    final future = _service.getPreviewItems(widget.userName);
+    _future = future;
+    future.then((items) {
+      if (!mounted || _future != future) return;
+      final watched = items.where((i) => i.isAnime && i.isWatched).toList();
+      watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
+      setState(() {
+        _items = watched;
+        _hasLoaded = true;
+        _loadError = false;
+      });
+    }).catchError((Object e) {
+      if (!mounted || _future != future) return;
+      setState(() {
+        _hasLoaded = true;
+        _loadError = true;
+      });
+    });
   }
 
   @override
   void dispose() {
-    _streamSub?.cancel();
+    _future = null;
     super.dispose();
   }
 

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../../shared/utils/catalog_proxy_client.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,7 +23,7 @@ import '../../../../core/utils/logger.dart';
 ///     borrowable copies, with a Project Gutenberg fallback when
 ///     possible.
 class OpenLibraryService with ConnectivityAware, ErrorAware {
-  final String _searchBase = 'https://openlibrary.org/search.json';
+  final CatalogProxyClient _proxy = CatalogProxyClient();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Singleton
@@ -150,14 +151,18 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
   // ── SEARCH / DISCOVERY ─────────────────────────────────────────────
 
   /// Search Open Library for books. Returns up to 20 results.
+  ///
+  /// Routed through [CatalogProxyClient] (Cloud Function allow-list +
+  /// edge cache) instead of calling openlibrary.org directly.
   Future<List<BookItem>> searchBooks(String query) async {
     if (query.isEmpty) return [];
 
-    final url = Uri.parse(
-      '$_searchBase?q=${Uri.encodeComponent(query)}&limit=20',
-    );
     try {
-      final response = await http.get(url);
+      final response = await _proxy.get(
+        'openlibrary',
+        'search.json',
+        query: {'q': query, 'limit': '20'},
+      );
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List docs = data['docs'] ?? [];
@@ -200,11 +205,16 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
     String subject, {
     int limit = 12,
   }) async {
-    final url = Uri.parse(
-      '$_searchBase?subject=${Uri.encodeComponent(subject)}&limit=$limit&sort=trending',
-    );
     try {
-      final response = await http.get(url);
+      final response = await _proxy.get(
+        'openlibrary',
+        'search.json',
+        query: {
+          'subject': subject,
+          'limit': '$limit',
+          'sort': 'trending',
+        },
+      );
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List docs = data['docs'] ?? [];
@@ -224,9 +234,9 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
   Future<Map<String, dynamic>?> fetchWorkDetails(String workKey) async {
     if (workKey.isEmpty) return null;
     // workKey is something like "/works/OL45804W"
-    final url = Uri.parse('https://openlibrary.org$workKey.json');
     try {
-      final response = await http.get(url);
+      final clean = workKey.startsWith('/') ? workKey.substring(1) : workKey;
+      final response = await _proxy.get('openlibrary', '$clean.json');
       if (response.statusCode == 200) {
         return json.decode(response.body) as Map<String, dynamic>;
       }
@@ -240,11 +250,13 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
   /// with a real page count and a borrowable Internet Archive copy.
   Future<List<Map<String, dynamic>>> fetchEditions(String workKey) async {
     if (workKey.isEmpty) return [];
-    final url = Uri.parse(
-      'https://openlibrary.org$workKey/editions.json?limit=10',
-    );
     try {
-      final response = await http.get(url);
+      final clean = workKey.startsWith('/') ? workKey.substring(1) : workKey;
+      final response = await _proxy.get(
+        'openlibrary',
+        '$clean/editions.json',
+        query: {'limit': '10'},
+      );
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List entries = data['entries'] ?? [];
@@ -424,18 +436,13 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
 
   /// Fetch the raw text of a book from its resolved read source.
   /// Returns the full plain text (used by the chapter splitter).
+  /// Deprecated: routes through [fetchBookTextFromCandidates] (Cloud
+  /// Function proxy) instead of calling the source directly.
   @Deprecated('Use fetchBookTextFromCandidates instead')
   Future<String> fetchBookText(String readSourceUrl) async {
     if (readSourceUrl.isEmpty) return '';
-    try {
-      final response = await http.get(Uri.parse(readSourceUrl));
-      if (response.statusCode == 200) {
-        return response.body;
-      }
-    } catch (e) {
-      Logger.e('fetchBookText error', error: e);
-    }
-    return '';
+    final result = await fetchBookTextFromCandidates([readSourceUrl]);
+    return result.text;
   }
 
   /// Cloud Function URL for proxying book text requests.

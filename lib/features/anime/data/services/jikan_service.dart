@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:collection';
-import 'package:http/http.dart' as http;
+import '../../../../shared/utils/catalog_proxy_client.dart';
 import '../../../../core/utils/connectivity_aware.dart';
 import '../../../../core/utils/error_aware.dart';
 import '../../../../core/utils/logger.dart';
@@ -21,7 +21,8 @@ import '../../../cinema/data/models/media_item.dart';
 /// queue head gets a `429`, we back off for the duration the response
 /// asks for and then resume.
 class JikanService with ConnectivityAware, ErrorAware {
-  static const String _baseUrl = 'https://api.jikan.moe/v4';
+  static const String _proxyBase = 'jikan';
+  final CatalogProxyClient _proxy = CatalogProxyClient();
 
   // Singleton — same lifetime as TMDBService so the queue is shared
   // between the anime screen, the search modal, and the episode drawer.
@@ -110,19 +111,15 @@ class JikanService with ConnectivityAware, ErrorAware {
     Map<String, String>? params,
     int maxRetries = 3,
   }) async {
-    final uri = Uri.parse('$_baseUrl$path').replace(queryParameters: params);
-    // Jikan strongly recommends a custom User-Agent to avoid aggressive
-    // rate-limiting. The Accept header ensures we always request JSON.
-    const headers = <String, String>{
-      'User-Agent': 'Everglow/5.3 (anime; +https://everglow.app)',
-      'Accept': 'application/json',
-    };
+    // Routed through the proxyCatalog Cloud Function (allow-listed to
+    // api.jikan.moe, edge-cached) instead of calling Jikan directly.
+    // The proxy sets the User-Agent server-side.
     return _enqueue(() async {
       var attempt = 0;
       while (true) {
         try {
-          final response = await http
-              .get(uri, headers: headers)
+          final response = await _proxy
+              .get(_proxyBase, path.startsWith('/') ? path.substring(1) : path, query: params)
               .timeout(const Duration(seconds: 20));
           if (response.statusCode == 200) {
             return json.decode(response.body) as Map<String, dynamic>;
@@ -184,16 +181,11 @@ class JikanService with ConnectivityAware, ErrorAware {
     Map<String, String>? params,
     int maxRetries = 1,
   }) async {
-    final uri = Uri.parse('$_baseUrl$path').replace(queryParameters: params);
-    const headers = <String, String>{
-      'User-Agent': 'Everglow/5.3 (anime; +https://everglow.app)',
-      'Accept': 'application/json',
-    };
     var attempt = 0;
     while (true) {
       try {
-        final response = await http
-            .get(uri, headers: headers)
+        final response = await _proxy
+            .get(_proxyBase, path.startsWith('/') ? path.substring(1) : path, query: params)
             .timeout(const Duration(seconds: 10));
         if (response.statusCode == 200) {
           return json.decode(response.body) as Map<String, dynamic>;

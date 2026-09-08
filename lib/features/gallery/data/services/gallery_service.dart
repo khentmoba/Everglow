@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
 import '../../domain/models/memory_photo.dart';
 import '../../../../core/utils/logger.dart';
 
@@ -30,6 +31,10 @@ class GalleryService {
   }
 
   /// Upload a photo and store its metadata in Firestore.
+  ///
+  /// Uploads a web-friendly full image (max 1600px, JPEG q85) plus a
+  /// 400px grid thumbnail. Grids load `thumbUrl`; the viewer loads the
+  /// full `imageUrl`. Falls back to the original bytes when decoding fails.
   Future<MemoryPhoto> uploadPhoto({
     required Uint8List imageBytes,
     required String fileName,
@@ -42,23 +47,39 @@ class GalleryService {
     String? locationName,
     DateTime? takenAt,
   }) async {
-    // Upload to Firebase Storage
-    final String path =
-        "gallery/$userId/${DateTime.now().millisecondsSinceEpoch}_$fileName";
-    final Reference ref = _storage.ref().child(path);
-    final UploadTask uploadTask = ref.putData(
-      imageBytes,
-      SettableMetadata(
-        contentType: _guessContentType(fileName),
-        cacheControl: 'public, max-age=31536000',
-      ),
-    );
-    final TaskSnapshot snapshot = await uploadTask;
-    final String downloadUrl = await snapshot.ref.getDownloadURL();
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final safeName = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+    final base = 'gallery/$userId/${stamp}_$safeName';
+    final fullBytes = _resizedJpeg(imageBytes, 1600) ?? imageBytes;
+    final thumbBytes = _resizedJpeg(imageBytes, 400);
+
+    Future<String> put(String path, Uint8List bytes) async {
+      final ref = _storage.ref().child(path);
+      final snap = await ref.putData(
+        bytes,
+        SettableMetadata(
+          contentType: 'image/jpeg',
+          cacheControl: 'public, max-age=31536000',
+        ),
+      );
+      return snap.ref.getDownloadURL();
+    }
+
+    final downloadUrl = await put('${base}_full.jpg', fullBytes);
+    final thumbBytesLocal = thumbBytes;
+    String? thumbUrl;
+    if (thumbBytesLocal != null) {
+      try {
+        thumbUrl = await put('${base}_thumb.jpg', thumbBytesLocal);
+      } catch (e) {
+        Logger.e('Thumbnail upload failed, grid falls back to full', error: e);
+      }
+    }
 
     // Save metadata to Firestore
     final docRef = await _db.collection(_collection).add({
       'imageUrl': downloadUrl,
+      'thumbUrl': ?thumbUrl,
       'caption': caption,
       'uploadedBy': uploadedBy,
       'uploadedAt': FieldValue.serverTimestamp(),
@@ -76,6 +97,7 @@ class GalleryService {
     return MemoryPhoto(
       id: docRef.id,
       imageUrl: downloadUrl,
+      thumbUrl: thumbUrl,
       caption: caption,
       uploadedBy: uploadedBy,
       uploadedAt: DateTime.now(),
@@ -87,14 +109,27 @@ class GalleryService {
     );
   }
 
-  /// Guess content type from file extension, defaulting to image/jpeg.
-  static String _guessContentType(String fileName) {
-    final lower = fileName.toLowerCase();
-    if (lower.endsWith('.png')) return 'image/png';
-    if (lower.endsWith('.gif')) return 'image/gif';
-    if (lower.endsWith('.webp')) return 'image/webp';
-    if (lower.endsWith('.heic')) return 'image/heic';
-    return 'image/jpeg';
+  /// Decode + downscale to [maxSize] longest edge, re-encode JPEG q85.
+  /// Returns null when the bytes aren't a decodable image.
+  static Uint8List? _resizedJpeg(Uint8List bytes, int maxSize) {
+    try {
+      final decoded = img.decodeImage(bytes);
+      if (decoded == null) return null;
+      final longest = decoded.width > decoded.height
+          ? decoded.width
+          : decoded.height;
+      final resized = longest <= maxSize
+          ? decoded
+          : img.copyResize(
+              decoded,
+              width: decoded.width >= decoded.height ? maxSize : null,
+              height: decoded.height > decoded.width ? maxSize : null,
+            );
+      return Uint8List.fromList(img.encodeJpg(resized, quality: 85));
+    } catch (e) {
+      Logger.e('Image resize failed, using original bytes', error: e);
+      return null;
+    }
   }
 
   /// Stream of all photos, newest first.
@@ -125,7 +160,7 @@ class GalleryService {
         );
   }
 
-  /// Delete a photo from Firestore and Storage.
+  /// Delete a photo from Firestore and Storage (full + thumbnail).
   Future<void> deletePhoto(MemoryPhoto photo) async {
     try {
       // Delete from Firestore
@@ -134,11 +169,16 @@ class GalleryService {
       // Delete from Storage (best-effort). The direct delete only works
       // for the uploader's own files; for the partner's photo it falls back
       // to the couple-only cloud function so no orphaned file is left behind.
-      try {
-        final ref = _storage.refFromURL(photo.imageUrl);
-        await ref.delete();
-      } catch (_) {
-        await _deleteStorageViaFunction(photo.imageUrl);
+      for (final url in {
+        photo.imageUrl,
+        if (photo.thumbUrl?.isNotEmpty == true) photo.thumbUrl!,
+      }) {
+        try {
+          final ref = _storage.refFromURL(url);
+          await ref.delete();
+        } catch (_) {
+          await _deleteStorageViaFunction(url);
+        }
       }
 
       Logger.i("Photo deleted: ${photo.id}");
