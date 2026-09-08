@@ -4,8 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_elevation.dart';
-import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -404,12 +402,30 @@ class _StudyScreenState extends State<StudyScreen> {
       child: GestureDetector(
         onTap: enabled ? _addSource : null,
         child: Container(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            borderRadius: AppRadius.radiusLg,
-            border: Border.all(
-              color: AppColors.softLavender.withValues(alpha: enabled ? 0.4 : 0.15),
+            gradient: LinearGradient(
+              colors: [
+                AppColors.inkDeep.withValues(alpha: enabled ? 0.92 : 0.70),
+                AppColors.velvet.withValues(alpha: enabled ? 0.75 : 0.55),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: AppColors.softLavender.withValues(alpha: enabled ? 0.38 : 0.15),
+              width: 1.1,
+            ),
+            boxShadow: enabled
+                ? [
+                    BoxShadow(
+                      color: AppColors.softLavender.withValues(alpha: 0.12),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : null,
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -424,10 +440,22 @@ class _StudyScreenState extends State<StudyScreen> {
                   ),
                 )
               else
-                Icon(
-                  Icons.add_rounded,
-                  size: 24,
-                  color: enabled ? AppColors.softLavender : AppColors.textDisabled,
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppColors.softLavender.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.softLavender.withValues(alpha: 0.30),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.add_rounded,
+                    size: 20,
+                    color: enabled ? AppColors.softLavender : AppColors.textDisabled,
+                  ),
                 ),
               const SizedBox(height: 6),
               Text(
@@ -458,29 +486,81 @@ class _StudyScreenState extends State<StudyScreen> {
     return SizedBox(
       width: 200,
       child: Container(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.surfaceGlass,
-          borderRadius: AppRadius.radiusLg,
-          border: Border.all(color: AppColors.border, width: 0.5),
+          gradient: LinearGradient(
+            colors: [
+              AppColors.inkDeep.withValues(alpha: 0.92),
+              AppColors.velvet.withValues(alpha: 0.72),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: AppColors.softLavender.withValues(alpha: 0.22),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.28),
+              blurRadius: 14,
+              offset: const Offset(0, 5),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                const Icon(
-                  Icons.picture_as_pdf_rounded,
-                  size: 16,
-                  color: AppColors.blushGold,
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppColors.blushGold, AppColors.deepRose],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: const Icon(
+                    Icons.picture_as_pdf_rounded,
+                    size: 14,
+                    color: AppColors.petalWhite,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.12),
+                    borderRadius: AppRadius.radiusFull,
+                  ),
+                  child: Text(
+                    'PDF',
+                    style: AppTypography.labelSmall().copyWith(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
+                      color: AppColors.success,
+                    ),
+                  ),
                 ),
                 const Spacer(),
                 GestureDetector(
                   onTap: () => _removeSource(index),
-                  child: Icon(
-                    Icons.close_rounded,
-                    size: 16,
-                    color: AppColors.textMuted,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: AppColors.moonlight.withValues(alpha: 0.08),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 14,
+                      color: AppColors.textMuted,
+                    ),
                   ),
                 ),
               ],
@@ -523,32 +603,69 @@ class _StudyScreenState extends State<StudyScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 72,
-                height: 72,
+                width: 76,
+                height: 76,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.softLavender.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: AppColors.softLavender.withValues(alpha: 0.30),
+                    color: AppColors.softLavender.withValues(alpha: 0.45),
+                    width: 1.5,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.softLavender.withValues(alpha: 0.18),
+                      color: AppColors.softLavender.withValues(alpha: 0.25),
                       blurRadius: 28,
                       spreadRadius: 2,
                     ),
+                    BoxShadow(
+                      color: AppColors.blushGold.withValues(alpha: 0.12),
+                      blurRadius: 36,
+                      spreadRadius: 4,
+                    ),
                   ],
                 ),
-                child: const Icon(
-                  Icons.menu_book_rounded,
-                  size: 32,
-                  color: AppColors.softLavender,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(22),
+                  child: Image.asset(
+                    'assets/images/mochi_avatar.png',
+                    width: 76,
+                    height: 76,
+                    cacheWidth: 228,
+                    cacheHeight: 228,
+                    filterQuality: FilterQuality.high,
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                decoration: BoxDecoration(
+                  color: AppColors.softLavender.withValues(alpha: 0.12),
+                  borderRadius: AppRadius.radiusFull,
+                  border: Border.all(
+                    color: AppColors.softLavender.withValues(alpha: 0.28),
+                    width: 0.8,
+                  ),
+                ),
+                child: Text(
+                  _sources.isEmpty ? '📚 SHELF AWAITS' : '✨ SOURCES READY',
+                  style: AppTypography.labelSmall().copyWith(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.7,
+                    color: AppColors.softLavender,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
               Text(
                 _sources.isEmpty ? 'Add a class PDF above' : 'Sources ready — ask away',
-                style: AppTypography.titleLarge().copyWith(fontSize: 18),
+                style: AppTypography.titleLarge().copyWith(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 6),
@@ -650,26 +767,45 @@ class _StudyScreenState extends State<StudyScreen> {
               ))
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
-                  child: ActionChip(
-                    label: Text(
-                      chip.$1,
-                      style: AppTypography.bodySmall().copyWith(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textMedium,
-                        height: 1.3,
+                  child: Opacity(
+                    opacity: _sending ? 0.5 : 1,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _sending ? null : () => _ask(chip.$2),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 13,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppColors.inkDeep.withValues(alpha: 0.88),
+                                AppColors.velvet.withValues(alpha: 0.68),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: AppColors.softLavender.withValues(alpha: 0.26),
+                              width: 0.9,
+                            ),
+                          ),
+                          child: Text(
+                            chip.$1,
+                            style: AppTypography.bodySmall().copyWith(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textMedium,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                    backgroundColor: AppColors.surfaceGlass,
-                    side: BorderSide(color: AppColors.border),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: AppRadius.radiusFull,
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    onPressed: _sending ? null : () => _ask(chip.$2),
                   ),
                 ),
             ],
@@ -697,9 +833,26 @@ class _StudyScreenState extends State<StudyScreen> {
           constraints: const BoxConstraints(maxWidth: 700),
           child: Container(
             decoration: BoxDecoration(
-              color: AppColors.surfaceGlass,
-              borderRadius: AppRadius.radiusX2,
-              border: Border.all(color: AppColors.border, width: 0.5),
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.inkDeep.withValues(alpha: 0.92),
+                  AppColors.velvet.withValues(alpha: 0.78),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: AppColors.moonlight.withValues(alpha: 0.16),
+                width: 1.1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
         child: Focus(
           onKeyEvent: (node, event) {
@@ -714,24 +867,63 @@ class _StudyScreenState extends State<StudyScreen> {
           },
           child: Row(
             children: [
-              // Canvas toggle — one tap turns the interactive quiz /
-              // flashcards view on or off. Gold when ON.
-              IconButton(
-                onPressed: () => setState(
-                  () => _canvasEnabled = !_canvasEnabled,
+              Padding(
+                padding: const EdgeInsets.only(left: 6),
+                child: Tooltip(
+                  message: _canvasEnabled
+                      ? 'Canvas: on — quizzes open as interactive cards'
+                      : 'Canvas: off — plain text only',
+                  child: InkWell(
+                    onTap: () => setState(
+                      () => _canvasEnabled = !_canvasEnabled,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _canvasEnabled
+                            ? AppColors.blushGold.withValues(alpha: 0.18)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _canvasEnabled
+                              ? AppColors.blushGold.withValues(alpha: 0.40)
+                              : Colors.transparent,
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _canvasEnabled
+                                ? Icons.dashboard_customize_rounded
+                                : Icons.dashboard_customize_outlined,
+                            color: _canvasEnabled
+                                ? AppColors.blushGold
+                                : AppColors.textMuted,
+                            size: 20,
+                          ),
+                          if (_canvasEnabled) ...[
+                            const SizedBox(width: 4),
+                            Text(
+                              'Canvas',
+                              style: AppTypography.labelSmall().copyWith(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.blushGold,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-                icon: Icon(
-                  _canvasEnabled
-                      ? Icons.dashboard_customize_rounded
-                      : Icons.dashboard_customize_outlined,
-                  color: _canvasEnabled
-                      ? AppColors.blushGold
-                      : AppColors.textMuted,
-                  size: 22,
-                ),
-                tooltip: _canvasEnabled
-                    ? 'Canvas: on — quizzes open as interactive cards'
-                    : 'Canvas: off — plain text only',
               ),
               Expanded(
                 child: TextField(
@@ -769,21 +961,39 @@ class _StudyScreenState extends State<StudyScreen> {
                 child: GestureDetector(
                   onTap: canSend ? () => _ask(_input.text) : null,
                   child: AnimatedContainer(
-                    duration: AppMotion.fast,
-                    width: 36,
-                    height: 36,
+                    duration: const Duration(milliseconds: 220),
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
                       gradient: canSend
                           ? const LinearGradient(
-                              colors: [AppColors.blushGold, AppColors.deepRose],
+                              colors: [
+                                AppColors.deepRose,
+                                AppColors.auroraRose,
+                              ],
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             )
                           : null,
                       color: canSend
                           ? null
-                          : AppColors.velvet.withValues(alpha: 0.4),
-                      borderRadius: AppRadius.radiusLg,
+                          : AppColors.velvet.withValues(alpha: 0.55),
+                      borderRadius: BorderRadius.circular(14),
+                      border: canSend
+                          ? Border.all(
+                              color: AppColors.petalWhite.withValues(alpha: 0.22),
+                              width: 1,
+                            )
+                          : null,
+                      boxShadow: canSend
+                          ? [
+                              BoxShadow(
+                                color: AppColors.deepRose.withValues(alpha: 0.45),
+                                blurRadius: 14,
+                                offset: const Offset(0, 4),
+                              ),
+                            ]
+                          : null,
                     ),
                     child: Center(
                       child: _sending
@@ -916,28 +1126,30 @@ class _StreamingBubble extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 34,
-            height: 34,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
-              borderRadius: AppRadius.radiusSm,
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: AppColors.blushGold.withValues(alpha: 0.35),
+                color: AppColors.blushGold.withValues(alpha: 0.45),
+                width: 1.2,
               ),
               boxShadow: [
                 BoxShadow(
                   color: AppColors.blushGold.withValues(alpha: 0.25),
-                  blurRadius: 10,
+                  blurRadius: 14,
+                  spreadRadius: 1,
                 ),
               ],
             ),
             child: ClipRRect(
-              borderRadius: AppRadius.radiusSm,
+              borderRadius: BorderRadius.circular(11),
               child: Image.asset(
                 'assets/images/mochi_avatar.png',
-                width: 34,
-                height: 34,
-                cacheWidth: 102,
-                cacheHeight: 102,
+                width: 36,
+                height: 36,
+                cacheWidth: 108,
+                cacheHeight: 108,
                 filterQuality: FilterQuality.high,
                 fit: BoxFit.cover,
               ),
@@ -950,28 +1162,31 @@ class _StreamingBubble extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    AppColors.moonlight.withValues(alpha: 0.13),
-                    AppColors.moonlight.withValues(alpha: 0.07),
+                    AppColors.velvet.withValues(alpha: 0.68),
+                    AppColors.inkDeep.withValues(alpha: 0.88),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                color: AppColors.panelGlass,
                 borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(AppRadius.xs),
-                  topRight: Radius.circular(AppRadius.xl),
-                  bottomLeft: Radius.circular(AppRadius.xl),
-                  bottomRight: Radius.circular(AppRadius.xl),
+                  topLeft: Radius.circular(6),
+                  topRight: Radius.circular(22),
+                  bottomLeft: Radius.circular(22),
+                  bottomRight: Radius.circular(22),
                 ),
                 border: Border.all(
                   color: AppColors.moonlight.withValues(alpha: 0.16),
                 ),
                 boxShadow: [
-                  ...AppElevation.e2,
                   BoxShadow(
-                    color: AppColors.auroraLilac.withValues(alpha: 0.10),
-                    blurRadius: 20,
-                    offset: const Offset(0, 6),
+                    color: Colors.black.withValues(alpha: 0.35),
+                    blurRadius: 22,
+                    offset: const Offset(0, 8),
+                  ),
+                  BoxShadow(
+                    color: AppColors.auroraLilac.withValues(alpha: 0.09),
+                    blurRadius: 24,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
