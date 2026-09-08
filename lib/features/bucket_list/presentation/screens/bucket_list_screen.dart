@@ -35,7 +35,10 @@ class _BucketListScreenState extends State<BucketListScreen> {
   /// Client-side filters (avoids extra composite indexes). Sorting stays
   /// with the list view — the board orders its own columns.
   List<BucketItem> _filteredItems(List<BucketItem> all) {
-    var items = all;
+    // Copy first: the list view sorts the result in place — sorting the
+    // stream snapshot itself would mutate shared data (and throw if the
+    // source is ever unmodifiable).
+    var items = List<BucketItem>.of(all);
     if (_filter != null) {
       items = items.where((i) => i.status == _filter).toList();
     }
