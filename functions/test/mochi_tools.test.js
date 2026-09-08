@@ -108,6 +108,11 @@ test('validateToolArgs checks memory, calendar, trip, and page args', () => {
   });
   assert.equal(pages.ok, true);
   assert.deepEqual(pages.urls, ['https://example.com/a', 'https://example.com/b']);
+  assert.equal(validate('read_journal_entry', {}).ok, false);
+  assert.equal(validate('read_journal_entry', { id: 'entry-123' }).ok, true);
+  assert.equal(validate('read_journal_entry', { title: 'First Date' }).ok, true);
+  assert.equal(validate('search_journal_entries', { query: 'beach' }).ok, true);
+  assert.equal(validate('search_journal_entries', {}).ok, true);
 });
 
 test('validateToolArgs passes tools with server-side defaults', () => {
@@ -143,6 +148,9 @@ test('limit and count clamps mirror index.js', () => {
   assert.equal(tools.clampJournalLimit(999), 10);
   assert.equal(tools.clampTripsLimit(999), 10);
   assert.equal(tools.clampBucketLimit(undefined), 10);
+  assert.equal(tools.clampSearchJournalLimit(999), 20);
+  assert.equal(tools.clampSearchJournalLimit(undefined), 5);
+  assert.equal(tools.clampSearchJournalLimit(0), 5);
 });
 
 test('progress and XP clamps mirror index.js', () => {

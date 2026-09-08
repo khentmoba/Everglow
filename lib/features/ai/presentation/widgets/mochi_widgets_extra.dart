@@ -128,28 +128,30 @@ class _MessageBubbleState extends State<_MessageBubble> {
         children: [
           if (!widget.isUser) ...[
             Container(
-              width: 34,
-              height: 34,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
-                borderRadius: AppRadius.radiusSm,
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: AppColors.blushGold.withValues(alpha: 0.35),
+                  color: AppColors.blushGold.withValues(alpha: 0.45),
+                  width: 1.2,
                 ),
                 boxShadow: [
                   BoxShadow(
                     color: AppColors.blushGold.withValues(alpha: 0.25),
-                    blurRadius: 10,
+                    blurRadius: 14,
+                    spreadRadius: 1,
                   ),
                 ],
               ),
               child: ClipRRect(
-                borderRadius: AppRadius.radiusSm,
+                borderRadius: BorderRadius.circular(11),
                 child: Image.asset(
                   'assets/images/mochi_avatar.png',
-                  width: 34,
-                  height: 34,
-                  cacheWidth: 102,
-                  cacheHeight: 102,
+                  width: 36,
+                  height: 36,
+                  cacheWidth: 108,
+                  cacheHeight: 108,
                   filterQuality: FilterQuality.high,
                   fit: BoxFit.cover,
                 ),
@@ -184,46 +186,65 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 decoration: BoxDecoration(
                   gradient: widget.isUser
                       ? const LinearGradient(
-                          colors: [AppColors.deepRose, AppColors.roseDepths],
+                          colors: [
+                            AppColors.deepRose,
+                            AppColors.roseDepths,
+                            AppColors.roseDark,
+                          ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         )
                       : LinearGradient(
                           colors: [
-                            AppColors.moonlight.withValues(alpha: 0.13),
-                            AppColors.moonlight.withValues(alpha: 0.07),
+                            AppColors.velvet.withValues(alpha: 0.68),
+                            AppColors.inkDeep.withValues(alpha: 0.88),
                           ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
-                  color: widget.isUser ? null : AppColors.panelGlass,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(
-                      widget.isUser ? AppRadius.x2 : AppRadius.xs,
-                    ),
-                    topRight: Radius.circular(
-                      widget.isUser ? AppRadius.x2 : AppRadius.xl,
-                    ),
-                    bottomLeft: const Radius.circular(AppRadius.xl),
-                    bottomRight: Radius.circular(
-                      widget.isUser ? AppRadius.xs : AppRadius.xl,
-                    ),
-                  ),
+                  borderRadius: widget.isUser
+                      ? const BorderRadius.only(
+                          topLeft: Radius.circular(20),
+                          topRight: Radius.circular(20),
+                          bottomLeft: Radius.circular(20),
+                          bottomRight: Radius.circular(6),
+                        )
+                      : const BorderRadius.only(
+                          topLeft: Radius.circular(6),
+                          topRight: Radius.circular(22),
+                          bottomLeft: Radius.circular(22),
+                          bottomRight: Radius.circular(22),
+                        ),
                   border: Border.all(
                     color: widget.isUser
-                        ? AppColors.petalWhite.withValues(alpha: 0.14)
+                        ? AppColors.petalWhite.withValues(alpha: 0.20)
                         : AppColors.moonlight.withValues(alpha: 0.16),
                   ),
-                  boxShadow: [
-                    ...AppElevation.e2,
-                    BoxShadow(
-                      color: widget.isUser
-                          ? AppColors.deepRose.withValues(alpha: 0.30)
-                          : AppColors.auroraLilac.withValues(alpha: 0.10),
-                      blurRadius: 18,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
+                  boxShadow: widget.isUser
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.25),
+                            blurRadius: 14,
+                            offset: const Offset(0, 4),
+                          ),
+                          BoxShadow(
+                            color: AppColors.deepRose.withValues(alpha: 0.32),
+                            blurRadius: 20,
+                            offset: const Offset(0, 6),
+                          ),
+                        ]
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.35),
+                            blurRadius: 22,
+                            offset: const Offset(0, 8),
+                          ),
+                          BoxShadow(
+                            color: AppColors.auroraLilac.withValues(alpha: 0.09),
+                            blurRadius: 24,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                 ),
                 child: Column(
                   crossAxisAlignment: widget.isUser
@@ -235,22 +256,44 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         padding: const EdgeInsets.only(bottom: 9),
                         child: Row(
                           children: [
-                            Text(
-                              'MOCHI',
-                              style: AppTypography.labelSmall().copyWith(
-                                fontSize: 11,
-                                letterSpacing: 0.5,
-                                color: AppColors.blushGold,
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8.5,
+                                vertical: 3.5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.blushGold.withValues(alpha: 0.12),
+                                borderRadius: AppRadius.radiusFull,
+                                border: Border.all(
+                                  color: AppColors.blushGold.withValues(alpha: 0.28),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text('🐾', style: TextStyle(fontSize: 10)),
+                                  const SizedBox(width: 4.5),
+                                  Text(
+                                    'MOCHI',
+                                    style: AppTypography.labelSmall().copyWith(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.8,
+                                      color: AppColors.blushGold,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 8),
                             Flexible(
                               child: Text(
                                 '· your cat who remembers',
                                 style: AppTypography.bodySmall().copyWith(
-                                  fontSize: 11,
+                                  fontSize: 11.5,
                                   fontWeight: FontWeight.w500,
-                                  color: AppColors.textMuted,
+                                  color: AppColors.roseQuartz.withValues(alpha: 0.82),
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -271,11 +314,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.velvet.withValues(alpha: 0.6),
-                            borderRadius: BorderRadius.circular(8),
+                            color: AppColors.inkDeep.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: AppColors.blushGold.withValues(
-                                alpha: 0.15,
+                                alpha: 0.20,
                               ),
                             ),
                           ),
@@ -295,11 +338,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
-                                    'Thinking${widget.isStreaming ? '...' : ''}',
+                                    'Pondering${widget.isStreaming ? '...' : ''}',
                                     style: AppTypography.bodySmall().copyWith(
                                       fontSize: 11,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppColors.textMuted,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.blushGold.withValues(alpha: 0.9),
                                     ),
                                   ),
                                   const SizedBox(width: 6),
@@ -397,18 +440,18 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              Icons.shield_outlined,
-                              size: 10,
-                              color: AppColors.textDisabled.withValues(
-                                alpha: 0.55,
+                              Icons.auto_awesome_rounded,
+                              size: 11,
+                              color: AppColors.blushGold.withValues(
+                                alpha: 0.75,
                               ),
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 5),
                             Flexible(
                               child: Text(
                                 widget.timestamp != null
-                                    ? 'Mochi • private memory · ${isToday ? timeStr : fullDateStr}'
-                                    : 'Mochi • private memory + Everglow context',
+                                    ? 'Private to you two · ${isToday ? timeStr : fullDateStr}'
+                                    : 'Private to you two · Everglow context',
                                 style: AppTypography.bodySmall().copyWith(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w500,
@@ -426,6 +469,14 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            if (widget.isUser) ...[
+                              Icon(
+                                Icons.favorite_rounded,
+                                size: 9,
+                                color: AppColors.petalWhite.withValues(alpha: 0.65),
+                              ),
+                              const SizedBox(width: 4),
+                            ],
                             if (widget.isStreaming) ...[
                               Container(
                                 width: 6,
@@ -492,14 +543,36 @@ class _UserAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final trimmed = (name ?? '').trim();
     final initial = trimmed.isEmpty ? '?' : trimmed[0].toUpperCase();
-    return CircleAvatar(
-      radius: 14,
-      backgroundColor: AppColors.deepRose.withValues(alpha: 0.35),
-      child: Text(
-        initial,
-        style: AppTypography.bodySmall().copyWith(
-          color: AppColors.petalWhite,
-          fontWeight: FontWeight.w700,
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const LinearGradient(
+          colors: [AppColors.deepRose, AppColors.plum],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: AppColors.roseQuartz.withValues(alpha: 0.45),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.deepRose.withValues(alpha: 0.30),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Text(
+          initial,
+          style: AppTypography.bodySmall().copyWith(
+            fontSize: 12.5,
+            color: AppColors.petalWhite,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );
@@ -583,6 +656,8 @@ String _formatToolStatus(String status) {
     'get_calendar_events': 'Reading calendar',
     'get_bucket_list': 'Reading bucket list',
     'get_journal_entries': 'Reading journal',
+    'search_journal_entries': 'Searching journal',
+    'read_journal_entry': 'Reading journal entry',
     'get_trips': 'Reading trips',
   };
   return toolNames[status] ?? 'Mochi is thinking';
@@ -680,6 +755,10 @@ IconData _toolIcon(String status) {
       return Icons.star_rounded;
     case 'get_journal_entries':
       return Icons.book_rounded;
+    case 'search_journal_entries':
+      return Icons.search_rounded;
+    case 'read_journal_entry':
+      return Icons.auto_stories_rounded;
     case 'get_trips':
       return Icons.map_rounded;
     default:
@@ -730,6 +809,8 @@ Color _toolAccent(String status) {
     case 'get_calendar_events':
     case 'get_bucket_list':
     case 'get_journal_entries':
+    case 'search_journal_entries':
+    case 'read_journal_entry':
     case 'get_trips':
       return AppColors.textMuted;
     case 'mark_watchlist_item_watched':

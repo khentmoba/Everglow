@@ -31,7 +31,7 @@
 6. Destructive acts confirm first (`delete_memory`, `remove_from_watchlist`
    with `confirm:true`).
 
-## Tool inventory (48)
+## Tool inventory (50)
 
 add_to_watchlist, save_to_starlight_jar, set_mood, search_movies,
 get_weather, create_reminder, log_activity, search_books, get_date_ideas,
@@ -44,4 +44,5 @@ get_today_recap, get_gallery, get_garden, get_canvas, search_spotify,
 remove_from_watchlist, search_everglow, plan_date_night,
 add_calendar_event, create_journal_entry, add_bucket_item, add_trip,
 add_trip_pin, log_habit, complete_habit, get_calendar_events,
-get_bucket_list, get_journal_entries, get_trips
+get_bucket_list, get_journal_entries, search_journal_entries,
+read_journal_entry, get_trips

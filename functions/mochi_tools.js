@@ -62,6 +62,8 @@ const TOOL_NAMES = [
   'get_calendar_events',
   'get_bucket_list',
   'get_journal_entries',
+  'search_journal_entries',
+  'read_journal_entry',
   'get_trips',
 ];
 
@@ -159,6 +161,14 @@ function validateToolArgs(toolName, args = {}) {
       }
       return { ok: true };
     }
+    case 'read_journal_entry': {
+      const id = _text(a.id || a.entry_id || a.entryId);
+      const title = _text(a.title);
+      if (!id && !title) return { ok: false, error: 'id or title required' };
+      return { ok: true };
+    }
+    case 'search_journal_entries':
+      return { ok: true };
     case 'add_trip':
       if (!_text(a.title)) return { ok: false, error: 'title required' };
       if (!_isValidDateString(a.start_date) || !_isValidDateString(a.end_date)) {
@@ -211,6 +221,7 @@ const clampCalendarDays = (v) => clampBounded(v, 14, 1, 60);
 const clampCalendarLimit = (v) => clampBounded(v, 10, 1, 20);
 const clampBucketLimit = (v) => clampBounded(v, 10, 1, 20);
 const clampJournalLimit = (v) => clampBounded(v, 5, 1, 10);
+const clampSearchJournalLimit = (v) => clampBounded(v, 5, 1, 20);
 const clampTripsLimit = (v) => clampBounded(v, 5, 1, 10);
 const clampBookProgress = (v) => Math.min(Math.max(_numOr(v, 0) || 0, 0), 100);
 const clampXpAmount = (v) => Math.min(Math.max(_numOr(v, 10) || 10, 1), 100);
@@ -308,6 +319,7 @@ module.exports = {
   clampBucketLimit,
   clampJournalLimit,
   clampTripsLimit,
+  clampSearchJournalLimit,
   clampBookProgress,
   clampXpAmount,
   normalizeHabitCategory,
