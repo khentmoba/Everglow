@@ -62,7 +62,9 @@ class _MemoryBookScreenState extends State<MemoryBookScreen> {
   }
 
   List<MemoryFact> get _visibleFacts {
-    var facts = _facts;
+    // Copy first: _facts is List.unmodifiable from the repo — sorting it
+    // in place throws "Cannot modify an unmodifiable list" during build.
+    var facts = List<MemoryFact>.of(_facts);
     if (_category != null) {
       facts = facts.where((f) => f.category == _category).toList();
     }

@@ -36,7 +36,10 @@ class _JournalScreenState extends State<JournalScreen> {
   /// Client filters + pinned-first sort, shared by the list and its
   /// empty check so both always agree on what "visible" means.
   List<JournalEntry> _visibleEntries(List<JournalEntry> all) {
-    var entries = all;
+    // Copy first: callers pass stream snapshots (and sometimes a const
+    // empty list) — sorting in place would throw on unmodifiable lists
+    // and would mutate the cached snapshot for everyone else.
+    var entries = List<JournalEntry>.of(all);
     if (_categoryFilter != null) {
       entries = entries.where((e) => e.category == _categoryFilter).toList();
     }
