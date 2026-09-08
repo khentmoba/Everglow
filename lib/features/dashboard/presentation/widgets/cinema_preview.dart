@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../cinema/data/models/media_item.dart';
 import '../../../cinema/data/services/tmdb_service.dart';
+import '../../../cinema/data/services/tmdb/tmdb_watchlist_service.dart';
 import '../../../cinema/presentation/widgets/episode_drawer.dart';
 import '../../../../core/services/auth_service.dart';
 import '_partner_label.dart';
@@ -80,7 +81,10 @@ class _CinemaHeaderState extends State<_CinemaHeader> {
       if (mounted) setState(() => _items = []);
       return;
     }
-    final future = _service.getPreviewItems(widget.userName);
+    final future = _service.getPreviewItems(
+      widget.userName,
+      limit: TMDBWatchlistService.previewLimit,
+    );
     _future = future;
     future.then((items) {
       if (!mounted || _future != future) return;
@@ -159,7 +163,10 @@ class _CinemaShelfState extends State<_CinemaShelf> {
       }
       return;
     }
-    final future = _service.getPreviewItems(widget.userName);
+    final future = _service.getPreviewItems(
+      widget.userName,
+      limit: TMDBWatchlistService.previewLimit,
+    );
     _future = future;
     future.then((items) {
       if (!mounted || _future != future) return;

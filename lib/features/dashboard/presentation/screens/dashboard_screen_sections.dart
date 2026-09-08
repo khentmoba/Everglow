@@ -84,7 +84,13 @@ extension _DashboardScreenSections on _DashboardScreenState {
               ),
               padding: const EdgeInsets.all(13),
               child: ClipOval(
-                child: Image.asset('assets/images/logo.png', fit: BoxFit.cover),
+                // cacheWidth matches the 108px emblem at 3x DPR: avoids a
+                // full-res logo decode on every header rebuild.
+                child: Image.asset(
+                  'assets/images/logo.png',
+                  fit: BoxFit.cover,
+                  cacheWidth: 324,
+                ),
               ),
             ),
           ),

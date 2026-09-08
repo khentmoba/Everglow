@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../cinema/data/models/media_item.dart';
 import '../../../cinema/data/services/tmdb_service.dart';
+import '../../../cinema/data/services/tmdb/tmdb_watchlist_service.dart';
 import '../../../cinema/presentation/widgets/episode_drawer.dart';
 import '../../../../core/services/auth_service.dart';
 import '_partner_label.dart';
@@ -95,7 +96,10 @@ class _CurrentlyWatchingHeaderState extends State<_CurrentlyWatchingHeader> {
       if (mounted) setState(() => _items = []);
       return;
     }
-    final future = _service.getPreviewItems(widget.userName);
+    final future = _service.getPreviewItems(
+      widget.userName,
+      limit: TMDBWatchlistService.previewLimit,
+    );
     _future = future;
     future.then((items) {
       if (!mounted || _future != future) return;
@@ -174,7 +178,10 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
       if (mounted) setState(() => _hasLoaded = true);
       return;
     }
-    final future = _service.getPreviewItems(widget.userName);
+    final future = _service.getPreviewItems(
+      widget.userName,
+      limit: TMDBWatchlistService.previewLimit,
+    );
     _future = future;
     future.then((items) {
       if (!mounted || _future != future) return;
@@ -223,12 +230,17 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
   }
 
   /// Sanitize title to remove CSS class artifacts like "css-1dbjc4n".
+  ///
+  /// Both regexes are static finals (compiled once): the whitespace
+  /// pattern used to be constructed inline on every card on every build,
+  /// which recompiled it dozens of times per shelf emission.
   static final _cssArtifactRegex = RegExp(r'\bcss-[a-zA-Z0-9_-]+\b');
+  static final _multiSpaceRegex = RegExp(r'\s{2,}');
 
   static String _sanitizeTitle(String title) {
     var cleaned = title.replaceAll(_cssArtifactRegex, ' ').trim();
     // Collapse multiple spaces
-    cleaned = cleaned.replaceAll(RegExp(r'\s{2,}'), ' ');
+    cleaned = cleaned.replaceAll(_multiSpaceRegex, ' ');
     return cleaned.isNotEmpty ? cleaned : title;
   }
 

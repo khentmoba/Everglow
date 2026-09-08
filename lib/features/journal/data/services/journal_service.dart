@@ -54,6 +54,31 @@ class JournalService {
     );
   }
 
+  // Capped preview for the dashboard rail: it renders 3 rows plus a
+  // count, so a 100-doc realtime stream is 8x over-fetch on every
+  // dashboard visit. Full history stays on watchAll for the journal
+  // screen.
+  Stream<List<JournalEntry>> watchPreview({int limit = 12}) {
+    Stream<List<JournalEntry>> subscribe() {
+      return _db
+          .collection(_collection)
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .snapshots()
+          .map(
+            (snap) =>
+                snap.docs.map((d) => JournalEntry.fromFirestore(d)).toList(),
+          );
+    }
+
+    return withFirestoreTimeout(
+      subscribe(),
+      resubscribe: subscribe,
+      label: 'journal-preview',
+      duration: const Duration(seconds: 8),
+    );
+  }
+
   Stream<List<JournalEntry>> watchPinned() {
     return withFirestoreTimeout(
       _db

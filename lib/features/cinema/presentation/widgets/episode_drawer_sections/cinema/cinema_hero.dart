@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../../../shared/utils/responsive_image.dart';
 import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../core/theme/app_typography.dart';
+import '../../../../../../shared/widgets/app_network_image.dart';
 import '../../trailer_player.dart';
 import '../drawer_helpers.dart';
 
@@ -130,15 +131,12 @@ class CinemaHero extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         if (backdropUrl.isNotEmpty)
-          Image.network(
-            backdropUrl,
+          AppNetworkImage(
+            imageUrl: backdropUrl,
             fit: BoxFit.cover,
             cacheWidth: heroCacheWidth(context),
-            loadingBuilder: (context, child, progress) {
-              if (progress == null) return child;
-              return _buildPlaceholder(isLoading: true);
-            },
-            errorBuilder: (_, _, _) => _buildPlaceholder(isLoading: false),
+            placeholder: _buildPlaceholder(isLoading: true),
+            errorWidget: _buildPlaceholder(isLoading: false),
           )
         else
           _buildPlaceholder(isLoading: isDetailsLoading),
@@ -390,15 +388,16 @@ class CinemaHero extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(13),
             child: posterUrl.isNotEmpty
-                ? Image.network(
-                    posterUrl,
+                ? AppNetworkImage(
+                    imageUrl: posterUrl,
                     fit: BoxFit.cover,
-                    loadingBuilder: (context, child, progress) {
-                      if (progress == null) return child;
-                      return const ColoredBox(color: AppColors.shimmerBase);
-                    },
-                    errorBuilder: (_, _, _) =>
-                        const ColoredBox(color: AppColors.shimmerBase),
+                    cacheWidth: 400,
+                    placeholder: const ColoredBox(
+                      color: AppColors.shimmerBase,
+                    ),
+                    errorWidget: const ColoredBox(
+                      color: AppColors.shimmerBase,
+                    ),
                   )
                 : const ColoredBox(color: AppColors.shimmerBase),
           ),
