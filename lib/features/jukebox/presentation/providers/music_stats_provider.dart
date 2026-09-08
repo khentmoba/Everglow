@@ -12,7 +12,9 @@ class MusicStatsProvider extends ChangeNotifier {
   MusicStatsProvider({
     MusicSyncService? syncService,
     Future<Uri> Function(Uri url)? signLastfmUrl,
-  }) : _syncService = syncService ?? MusicSyncService(signUrl: signLastfmUrl) {
+    Duration artworkRetryCooldown = _defaultArtworkRetryCooldown,
+  })  : _syncService = syncService ?? MusicSyncService(signUrl: signLastfmUrl),
+        _artworkRetryCooldown = artworkRetryCooldown {
     _khentUser = EnvConfig.lastfmUserKhent;
     _clairUser = EnvConfig.lastfmUserClair;
     _init();
@@ -288,6 +290,19 @@ class MusicStatsProvider extends ChangeNotifier {
     if (changed) _safeNotify();
   }
 
+  /// When a lookup last came up empty, so transient failures (Last.fm rate
+  /// limits, timeouts) are retried instead of blanking the track forever.
+  final Map<String, DateTime> _artworkMissAt = {};
+
+  /// Default cooldown before a failed artwork lookup is retried. Keeps the
+  /// 1-minute recent-tracks tick from hammering the APIs for permanently
+  /// artless tracks while still recovering a few minutes after a transient
+  /// failure. Injectable via [artworkRetryCooldown] for tests, where the
+  /// fake-async clock never advances `DateTime.now()`.
+  static const _defaultArtworkRetryCooldown = Duration(minutes: 10);
+
+  final Duration _artworkRetryCooldown;
+
   Future<String?> _artworkFor(
     String artist,
     String track, {
@@ -295,12 +310,24 @@ class MusicStatsProvider extends ChangeNotifier {
   }) async {
     final key = '$artist\u0000$track';
     if (_artworkCache.containsKey(key)) return _artworkCache[key];
+    final missAt = _artworkMissAt[key];
+    if (missAt != null &&
+        DateTime.now().difference(missAt) < _artworkRetryCooldown) {
+      return null;
+    }
     final artwork = await _syncService.fetchTrackArtwork(
       artist: artist,
       track: track,
       mbid: mbid,
     );
-    _artworkCache[key] = artwork;
+    if (artwork != null) {
+      // Only hits are cached: a miss stays retryable so one bad boot (e.g.
+      // a rate-limited enrichment wave) never blanks covers for the session.
+      _artworkCache[key] = artwork;
+      _artworkMissAt.remove(key);
+    } else {
+      _artworkMissAt[key] = DateTime.now();
+    }
     return artwork;
   }
 

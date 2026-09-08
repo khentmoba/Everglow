@@ -58,18 +58,7 @@ class MusicStatus {
     final artist = track['artist']['#text'] as String;
     final album = track['album']['#text'] as String;
 
-    final images = track['image'] as List<dynamic>?;
-    String? imgUrl;
-    if (images != null && images.isNotEmpty) {
-      dynamic selectedImage = images.last;
-      for (var img in images) {
-        if (img['size'] == 'extralarge') {
-          selectedImage = img;
-          break;
-        }
-      }
-      imgUrl = cleanLastfmImageUrl(selectedImage['#text'] as String?);
-    }
+    final imgUrl = pickLastfmImageUrl(track['image'] as List<dynamic>?);
 
     final attr = track['@attr'];
     final nowPlaying = attr != null && attr['nowplaying'] == 'true';

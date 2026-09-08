@@ -20,18 +20,7 @@ class TopArtist {
 
   factory TopArtist.fromJson(Map<String, dynamic> json) {
     final name = json['name'] as String? ?? 'Unknown Artist';
-    final images = json['image'] as List<dynamic>?;
-    String? imgUrl;
-    if (images != null && images.isNotEmpty) {
-      dynamic sel = images.last;
-      for (final img in images) {
-        if (img is Map && img['size'] == 'extralarge') {
-          sel = img;
-          break;
-        }
-      }
-      if (sel is Map) imgUrl = sel['#text'] as String?;
-    }
+    final imgUrl = pickLastfmImageUrl(json['image'] as List<dynamic>?);
     final attr = json['@attr'];
     final rank =
         int.tryParse(attr is Map ? (attr['rank']?.toString() ?? '') : '') ?? 0;
@@ -42,7 +31,7 @@ class TopArtist {
       rank: rank,
       name: name,
       playCount: playCount,
-      imageUrl: cleanLastfmImageUrl(imgUrl),
+      imageUrl: imgUrl,
       url: url,
       mbid: mbid?.isNotEmpty == true ? mbid : null,
     );
