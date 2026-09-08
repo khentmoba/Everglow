@@ -19,22 +19,53 @@ abstract final class AnimeXTokens {
   static const Color textMuted = Color(0xFF4A4A5E);
   static const Color success = Color(0xFF22C55E);
   static const Color dubBlue = Color(0xFF3B82F6);
+  static const Color gold = Color(0xFFFBBF24);
   static const Color card = Color(0x0AFFFFFF);
   static const Color cardHover = Color(0x14FFFFFF);
   static const Color white85 = Color(0xD9FFFFFF);
+
+  // Glass + glow treatments shared by cards, badges and popovers.
+  static const Color glass = Color(0xB3121219);
+  static const Color glassBorder = Color(0x2EFFFFFF);
 
   static const double radiusSm = 4;
   static const double radiusMd = 6;
   static const double radiusLg = 8;
   static const double radiusXl = 10;
   static const double radius2xl = 12;
+  static const double radiusCard = 14;
 
   static const double pageMaxWidth = 1536; // max-w-screen-2xl
   static const double rowPosterWidthMobile = 155;
   static const double rowPosterWidthDesktop = 175;
+  static const double popoverWidth = 256;
+  static const double popoverMaxHeight = 320;
 
   static const double headerHeight = 60;
   static const double mobileNavHeight = 56;
+
+  /// Soft accent glow used under hovered cards and primary actions.
+  static List<BoxShadow> accentGlowShadow(double opacity) => [
+        BoxShadow(
+          color: accent.withValues(alpha: opacity),
+          blurRadius: 24,
+          offset: const Offset(0, 10),
+        ),
+      ];
+
+  /// Deep drop shadow that lifts floating panels off the page.
+  static const List<BoxShadow> popoverShadow = [
+    BoxShadow(
+      color: Color(0xCC000000),
+      blurRadius: 32,
+      offset: Offset(0, 16),
+    ),
+    BoxShadow(
+      color: Color(0x1FE11D48),
+      blurRadius: 48,
+      offset: Offset(0, 8),
+    ),
+  ];
 }
 
 /// Display type: Bebas Neue, tight line height.
